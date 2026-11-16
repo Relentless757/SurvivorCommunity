@@ -6,10 +6,11 @@ namespace SurvivorCommunity
 {
     /// <summary>
     /// Round tm1 (2026-11-15, research/combat/TEAM_MELEE_REPORT.md, every recommendation approved): the config keys of the
-    /// team strength rule (ScTeam, ScArms' MeleeFirst / GunFirst / CloseRange). Kept apart from ScConfig.cs's long lists, as
-    /// ScConfigStuck. Config/blocks.xml, block ConfigSurvivorCommunity, after OverwhelmedGunSeconds; each key is commented
-    /// there. ResetTeam also clears ScTeam's per-world verdicts (ScConfig.Reset runs at GameStarting). TeamMelee=false is
-    /// exactly the behavior before this round.
+    /// team strength rule (ScTeam) and, since round k4, of the one posture per member (ScPosture, ScArms.Hand) and the
+    /// investigation of idle intruders (ScInvestigate). Kept apart from ScConfig.cs's long lists, as ScConfigStuck.
+    /// Config/blocks.xml, block ConfigSurvivorCommunity, after OverwhelmedGunSeconds; each key is commented there. ResetTeam
+    /// also clears the per-world verdicts, postures and intruders (ScConfig.Reset runs at GameStarting). TeamMelee=false: no
+    /// team verdict, so never the MELEE posture (round k4: every fight with a gun is KITE).
     /// </summary>
     public static partial class ScConfig
     {
@@ -27,10 +28,16 @@ namespace SurvivorCommunity
         public static bool TeamMelee = true;
         /// <summary>Friends and enemies within this many meters of a member are counted (a live base attack: the whole defended area).</summary>
         public static float TeamRadius = 15f;
-        /// <summary>Matched when F >= TeamMargin x T.</summary>
-        public static float TeamMargin = 1f;
-        /// <summary>A matched fight stops being matched after TeamLeaveRecounts recounts in a row with F &lt; TeamLeaveMargin x T.</summary>
-        public static float TeamLeaveMargin = 0.8f;
+        /// <summary>
+        /// Matched when F >= TeamMargin x T. Round k3 (research/combat/SC_VS_NPCCORE.md 4.2): 1.25, a real margin - at 1 a fight
+        /// the community only just matched sent gun holders into melee.
+        /// </summary>
+        public static float TeamMargin = 1.25f;
+        /// <summary>
+        /// A matched fight stops being matched after TeamLeaveRecounts recounts in a row with F &lt; TeamLeaveMargin x T. Round k3:
+        /// 1 (was 0.8 under a margin of 1): the same 0.8 of TeamMargin, so a fight that slips below F = T leaves melee.
+        /// </summary>
+        public static float TeamLeaveMargin = 1f;
         public static int TeamLeaveRecounts = 2;
         /// <summary>Seconds between two recounts of one member (staggered by entity id).</summary>
         public static float TeamRecountSeconds = 1f;
@@ -58,32 +65,51 @@ namespace SurvivorCommunity
         /// <summary>
         /// HpF = TeamHealthFloor + (1 - TeamHealthFloor) x min(1, health share / TeamHealthFullAt): 0.5 at no health, 1 from 90%
         /// of it. TeamHealthFullAt (the Fable review of round tm1): a scratch does not count, so a healthy 1-star member alone
-        /// still melees one walker (decision 2: at 99% her F was 0.995 against T 1).
+        /// meleed one walker (decision 2: at 99% her F was 0.995 against T 1) - until round k3's margin (1.25) made that fight
+        /// outmatched for a member below 3 stars.
         /// </summary>
         public static float TeamHealthFloor = 0.5f;
         public static float TeamHealthFullAt = 0.9f;
-        /// <summary>Below this health share a member is no longer melee-led; she is again from TeamLowHealthBack.</summary>
-        public static float TeamLowHealth = 0.5f;
-        public static float TeamLowHealthBack = 0.6f;
-        /// <summary>A swap made by SC's rules (MeleeFirst, GunFirst) holds the opposite one this long (one clock for both).</summary>
+        /// <summary>
+        /// Below this health share a member is no longer melee-led; she is again from TeamLowHealthBack. Round k3: 0.6 / 0.7 (were
+        /// 0.5 / 0.6) - the MELEE posture needs 60% (research/combat/SC_VS_NPCCORE.md 4.1).
+        /// </summary>
+        public static float TeamLowHealth = 0.6f;
+        public static float TeamLowHealthBack = 0.7f;
+        /// <summary>
+        /// Round k4: the one hand clock (ScPosture). After ANY change of what she holds - SC's swap or 0-XNPCCore's own - SC
+        /// makes no swap for this long, and her posture does not switch between MELEE and KITE either (each swap can cost a
+        /// reload). Only a swing 0-XNPCCore refuses (she cannot fight with the melee weapon there) draws the gun at once.
+        /// </summary>
         public static float TeamSwapHoldSeconds = 5f;
-        /// <summary>How long a melee-led member holding her gun must have a target in reach before she takes her melee weapon.</summary>
-        public static float TeamMeleeFirstSeconds = 1f;
         /// <summary>A melee-led member is overwhelmed by this many attackers more than her usual threshold (decision 7).</summary>
         public static int TeamOverwhelmedExtra = 1;
         /// <summary>
         /// A target found out of melee reach stays "needs the gun" this long. 45 (the Fable review; 20 at first, as 0-XNPCCore's
         /// own mark): a gun holder cannot find out whether it has come in reach, so each lapse is a probe - a swap to melee, the
-        /// finding again, and a swap back - which costs two reloads.
+        /// finding again, and a swap back - which costs two reloads. Round k4: also a swing 0-XNPCCore refused (its bout ended
+        /// for a wall, bars or an unreachable target, or it refused the swap) - doubling for the same target, at most 3 min.
         /// </summary>
         public static float TeamUnreachableSeconds = 45f;
         /// <summary>
-        /// Round tm2 (the Fable review, findings 1-3): an attacker up close is in a member's reach whatever her swing check
-        /// says, until 0-XNPCCore has refused her swing at it this long in a row (fresh reads) - its MeleeAttack scores 0 on a
-        /// "no swing". Then it is out of reach after all, held TeamUnreachableSeconds (doubling for the pair, at most 3 min),
-        /// and she takes her gun and stands and shoots it. 1.2: past a flicker of her swing arc. 0 = no grace.
+        /// Round k4 (ScPosture): a MELEE / KITE posture lasts at least this long before it switches to the other (hysteresis on
+        /// the verdict, the health line and the overwhelmed count), and never while the hand clock (TeamSwapHoldSeconds) runs.
+        /// A target that needs the gun (a cop, an armed enemy, past her leash, out of reach) switches at once.
         /// </summary>
-        public static float TeamNoSwingConfirmSeconds = 1.2f;
+        public static float PostureDwellSeconds = 5f;
+        /// <summary>
+        /// Round k4: a gun holder in a matched fight stays KITE until her target is within this many meters, then takes her
+        /// melee weapon once (and keeps MELEE with the gun still in hand until it is 1 m farther).
+        /// </summary>
+        public static float PostureMeleeDist = 4f;
+        /// <summary>
+        /// Round k4 (ScInvestigate; the user, 2026-11-15: "If a zombie not engaged with any member or the player is inside the
+        /// base, members should investigate"): an awake enemy inside the home zone that is after nobody gets
+        /// InvestigateResponders of the nearest free residents within InvestigateRadius (0: anywhere in the zone).
+        /// </summary>
+        public static bool InvestigateIntruders = true;
+        public static int InvestigateResponders = 2;
+        public static float InvestigateRadius = 0f;
         /// <summary>T: the threat table as the config spells it (parsed into TeamThreats on first use).</summary>
         public static string TeamThreatTags = DefaultTeamThreatTags;
         public static string TeamThreatTagMult = DefaultTeamThreatTagMult;
@@ -111,6 +137,12 @@ namespace SurvivorCommunity
             public FastTags<TagGroup.Global> Tags;
             public float Value;
         }
+
+        /// <summary>
+        /// Round k4: keys the posture replaced - MeleeFirst's wait, tm2's no-swing clock and n08's gun-first switch (the one hand
+        /// rule draws the gun in KITE and takes the melee weapon in MELEE). Read only to say they are ignored.
+        /// </summary>
+        private static readonly string[] RetiredTeamKeys = { "TeamMeleeFirstSeconds", "TeamNoSwingConfirmSeconds", "SurvivorGunFirst" };
 
         private static List<TeamTagEntry> teamThreats, teamTagMults, teamMults;
         private static FastTags<TagGroup.Global> teamGunTags;
@@ -150,8 +182,8 @@ namespace SurvivorCommunity
         {
             TeamMelee = true;
             TeamRadius = 15f;
-            TeamMargin = 1f;
-            TeamLeaveMargin = 0.8f;
+            TeamMargin = 1.25f;
+            TeamLeaveMargin = 1f;
             TeamLeaveRecounts = 2;
             TeamRecountSeconds = 1f;
             TeamFreshSeconds = 3f;
@@ -167,13 +199,16 @@ namespace SurvivorCommunity
             TeamWeaponBare = 0.5f;
             TeamHealthFloor = 0.5f;
             TeamHealthFullAt = 0.9f;
-            TeamLowHealth = 0.5f;
-            TeamLowHealthBack = 0.6f;
+            TeamLowHealth = 0.6f;
+            TeamLowHealthBack = 0.7f;
             TeamSwapHoldSeconds = 5f;
-            TeamMeleeFirstSeconds = 1f;
             TeamOverwhelmedExtra = 1;
             TeamUnreachableSeconds = 45f;
-            TeamNoSwingConfirmSeconds = 1.2f;
+            PostureDwellSeconds = 5f;
+            PostureMeleeDist = 4f;
+            InvestigateIntruders = true;
+            InvestigateResponders = 2;
+            InvestigateRadius = 0f;
             TeamThreatTags = DefaultTeamThreatTags;
             TeamThreatTagMult = DefaultTeamThreatTagMult;
             TeamThreatMult = DefaultTeamThreatMult;
@@ -185,8 +220,10 @@ namespace SurvivorCommunity
             TeamGunTags = DefaultTeamGunTags;
             teamThreats = teamTagMults = teamMults = null;
             teamGunTagsParsed = false;
-            // the per-world state of the feature: a new world starts with no verdicts
+            // the per-world state of the feature: a new world starts with no verdicts, postures or intruders
             ScTeam.Reset();
+            ScPosture.Reset();
+            ScInvestigate.Reset();
         }
 
         private static void ParseTeam(DynamicProperties p)
@@ -228,10 +265,17 @@ namespace SurvivorCommunity
                 TeamLowHealthBack = TeamLowHealth;
             }
             ParseFloat(p, "TeamSwapHoldSeconds", ref TeamSwapHoldSeconds, 0f, 60f);
-            ParseFloat(p, "TeamMeleeFirstSeconds", ref TeamMeleeFirstSeconds, 0f, 10f);
             ParseInt(p, "TeamOverwhelmedExtra", ref TeamOverwhelmedExtra, 0, 10);
             ParseFloat(p, "TeamUnreachableSeconds", ref TeamUnreachableSeconds, 0f, 300f);
-            ParseFloat(p, "TeamNoSwingConfirmSeconds", ref TeamNoSwingConfirmSeconds, 0f, 10f);
+            // round k4: the posture's hysteresis, and the investigation of idle intruders
+            ParseFloat(p, "PostureDwellSeconds", ref PostureDwellSeconds, 0f, 60f);
+            ParseFloat(p, "PostureMeleeDist", ref PostureMeleeDist, 1f, 15f);
+            ParseBoolKey(p, "InvestigateIntruders", ref InvestigateIntruders);
+            ParseInt(p, "InvestigateResponders", ref InvestigateResponders, 1, 10);
+            ParseFloat(p, "InvestigateRadius", ref InvestigateRadius, 0f, 500f);
+            // round k4 retired three keys (the posture replaced them); a config that still sets one is told so once
+            foreach (string gone in RetiredTeamKeys)
+                if (p.Values.ContainsKey(gone)) ScLog.Warn("config " + gone + " is no longer used (round k4: one posture per member replaced it) - ignored");
             string s;
             if (p.Values.TryGetValue("TeamThreatTags", out s)) { TeamThreatTags = s ?? ""; teamThreats = null; }
             if (p.Values.TryGetValue("TeamThreatTagMult", out s)) { TeamThreatTagMult = s ?? ""; teamTagMults = null; }
@@ -299,7 +343,7 @@ namespace SurvivorCommunity
         private static string TeamLine()
         {
             Func<float, string> f = x => x.ToString("0.##", CultureInfo.InvariantCulture);
-            if (!TeamMelee) return "off (TeamMelee=false: 0-XNPCCore's and the overwhelmed rules as before)";
+            if (!TeamMelee) return "off (TeamMelee=false: no team verdict - never the MELEE posture, every fight with a gun is KITE)";
             return "on, within " + f(TeamRadius) + " m (a live base attack: the defended area), matched at F >= " + f(TeamMargin) + " T, left after "
                    + TeamLeaveRecounts + " recounts below " + f(TeamLeaveMargin) + " T, recount " + f(TeamRecountSeconds) + " s (fresh " + f(TeamFreshSeconds) + " s)"
                    + "; F: member (" + f(TeamStarBase) + " + " + f(TeamStarStep) + "/star) x HpF x weapon " + f(TeamWeaponMelee) + "/" + f(TeamWeaponRanged) + "/" + f(TeamWeaponBare)
@@ -308,8 +352,20 @@ namespace SurvivorCommunity
                    + "; T: tags " + TeamTableText(TeamThreats()) + " (else " + f(TeamThreatDefault) + ") x " + TeamTableText(TeamTagMults())
                    + ", hp (max/" + f(TeamThreatHpBase) + ")^" + f(TeamThreatHpPower) + " in " + f(TeamThreatHpMin) + ".." + f(TeamThreatHpMax)
                    + ", then x " + TeamTableText(TeamMults()) + "; gun on " + (string.IsNullOrEmpty(TeamGunTags) ? "-" : TeamGunTags) + " + EntityZombieCop"
-                   + "; low health " + f(TeamLowHealth) + " (back " + f(TeamLowHealthBack) + "), swap hold " + f(TeamSwapHoldSeconds) + " s, melee first after "
-                   + f(TeamMeleeFirstSeconds) + " s, overwhelmed +" + TeamOverwhelmedExtra + ", unreachable kept " + f(TeamUnreachableSeconds) + " s, no swing up close counts after " + f(TeamNoSwingConfirmSeconds) + " s";
+                   + "; low health " + f(TeamLowHealth) + " (back " + f(TeamLowHealthBack) + "), overwhelmed +" + TeamOverwhelmedExtra
+                   + ", unreachable or refused swing kept " + f(TeamUnreachableSeconds) + " s (doubling, at most 180)";
+        }
+
+        /// <summary>Round k4: the posture keys in one line (the load log).</summary>
+        private static string PostureLine()
+        {
+            Func<float, string> f = x => x.ToString("0.##", CultureInfo.InvariantCulture);
+            return "one per member (MELEE, KITE, HOLD, SHELTER, INVESTIGATE): MELEE needs a matched fight (F >= " + f(TeamMargin) + " T), " + f(TeamLowHealth)
+                   + " health and a target she can swing at" + (TeamMelee ? "" : " - never with TeamMelee false (every fight with a gun is KITE)")
+                   + "; one hand change per " + f(TeamSwapHoldSeconds) + " s (TeamSwapHoldSeconds), a MELEE / KITE switch lasts " + f(PostureDwellSeconds)
+                   + " s (PostureDwellSeconds); a gun holder in a matched fight keeps her gun until her target is within " + f(PostureMeleeDist)
+                   + " m; investigate idle intruders: " + (InvestigateIntruders ? InvestigateResponders + " responder(s) each, "
+                   + (InvestigateRadius > 0f ? "within " + f(InvestigateRadius) + " m" : "anywhere in the zone") : "off (InvestigateIntruders false: n08's rule, wanderers left alone)");
         }
     }
 }

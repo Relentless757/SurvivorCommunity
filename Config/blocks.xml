@@ -783,16 +783,10 @@
 			     reload). Already on the melee weapon, they go back to the gun only once X have been on them for
 			     OverwhelmedSustainSeconds - X + 1 with the zombie within 1.5 m - and then keep the gun at least
 			     OverwhelmedGunSeconds (0-XNPCCore's swap to melee waits). Overwhelmed=false leaves 0-XNPCCore's swap as it
-			     is. -->
+			     is. Round k4: for your members being overwhelmed is one reason for the KITE posture (see the posture keys
+			     below: her gun, no swap to melee up close); the sustain and gun-hold seconds now apply to strangers only.
+			     Round n08's SurvivorGunFirst key is gone: the posture draws the gun whenever she is KITE. -->
 			<property name="Overwhelmed" value="true" />
-			<!-- SurvivorGunFirst (round n08): a survivor holding her melee weapon takes her gun or bow - while it has rounds
-			     or arrows - when her target stays farther than 5 m for a second, or when she is overwhelmed (above). Then
-			     0-XNPCCore's own swap does melee up close and puts the gun back as the fight moves off. Without it nothing
-			     ever drew the gun for someone who had ended up on melee (a stow, a talk, a load), so a ranged weapon could go
-			     unused for good. A weapon order from you naming her melee weapon (the weapon menu, or "use your ..." by
-			     voice) turns it off for her until you order the gun again. Raiders keep their lead weapon rule instead.
-			     false: the gun is drawn only by 0-XNPCCore, as before. -->
-			<property name="SurvivorGunFirst" value="true" />
 			<property name="OverwhelmedRadius" value="12" />
 			<property name="OverwhelmedMin" value="2" />
 			<property name="OverwhelmedMax" value="5" />
@@ -811,7 +805,8 @@
 			          her count in the last TeamPlayerFightingSeconds, a kill too (standing by, or only targeted, you count 0);
 			          another ally (a hire, a friendly NPC) TeamAllyWeight x HpF.
 			          HpF = TeamHealthFloor + (1 - TeamHealthFloor) x min(1, health share / TeamHealthFullAt) (0.5 at no health,
-			          1 from 90% of it: a scratch does not count, so a healthy 1-star member alone still melees one walker).
+			          1 from 90% of it: a scratch does not count; since round k3's margin a member alone is outmatched by one
+			          walker below 3 stars, two healthy members are not).
 			       T: every awake enemy, whether or not it is after you: the larger of its tag weight and its health weight, then
 			          x TeamThreatMult. The tag weight is the highest TeamThreatTags entry whose tags it all has ("a+b" needs both;
 			          TeamThreatDefault when none matches) x every TeamThreatTagMult entry it matches. The health weight is
@@ -819,31 +814,41 @@
 			          tough and modded zombies; 230 because the game rolls every zombie's health up to 15% higher, so a slim or
 			          normal zombie never weighs more than a walker's 1 - at the top of the roll a utility worker weighs 1.09, a
 			          fit zombie 1.17 and a strong one 1.76).
-			     The fight is matched when F >= TeamMargin x T, and stays so until TeamLeaveRecounts recounts in a row find
-			     F below TeamLeaveMargin x T; no enemies is matched, and a new fight (the first count with enemies) is judged
-			     by F >= TeamMargin x T alone. In a matched fight a member is "melee-led": she keeps her
-			     melee weapon, takes it out of the gun's place after TeamMeleeFirstSeconds with an enemy in sight or as her
-			     target, does not back away from it, and stays on it after the close-range swap; she needs one attacker more
-			     (TeamOverwhelmedExtra) to count as overwhelmed. Never melee-led: below TeamLowHealth of her health (again from
-			     TeamLowHealthBack), with no melee weapon, on a run, on a Stay order (supporting fire), asleep in bed, on watch,
-			     Cowardly (she hangs back with her gun, and runs only from an outmatched fight; with no gun she runs as before),
-			     after you ordered her gun (the weapon menu or "use your ..."; ordering her
-			     melee weapon, or "sc team <name> auto", undoes it), or with raiders or any armed enemy in the fight. A zombie
-			     with a TeamGunTags tag (zombieCop) or a cop or demolition zombie always gets the gun, and so does one a resident
-			     could only reach past her leash (the 25 m from her post, or ResidentRoamZoneMargin outside the zone), and one she
-			     cannot reach (above her, a wall or bars in her swing, or found out of reach - kept TeamUnreachableSeconds) -
-			     that one even inside 5 m. An enemy attacking her up close is in her reach whatever her swing check says
-			     (bars right between them aside) - until 0-XNPCCore has refused her swing at it TeamNoSwingConfirmSeconds in
-			     a row: then it is out of reach (held TeamUnreachableSeconds, doubling, at most 3 min), and she keeps her gun
-			     on it - backing off when it is on top of her (round k1), shooting otherwise. A swap SC makes holds the opposite swap
-			     TeamSwapHoldSeconds (each costs a reload). An outmatched fight, strangers and enclave people keep the rules
-			     above. TeamMelee=false: everything as before this round. Examples: Gina (2 stars) alone against one walker
-			     1.15 / 1 - her sledgehammer; five 3-star members and you against five walkers 8.5 / 5 - all melee; the same
-			     against five ferals 8.5 / 10 - the gun, as before. -->
+			     The fight is matched when F >= TeamMargin x T (round k3: 1.25, a real margin - at 1 a fight the community only
+			     just matched put gun holders into melee), and stays so until TeamLeaveRecounts recounts in a row find F below
+			     TeamLeaveMargin x T (k3: 1, the same 0.8 of TeamMargin as before); no enemies is matched, and a new fight (the
+			     first count with enemies) is judged by F >= TeamMargin x T alone. In a matched fight a member is "melee-led",
+			     which the MELEE posture needs (round k4, below); she needs one attacker more (TeamOverwhelmedExtra) to count as
+			     overwhelmed. Never melee-led: below TeamLowHealth of her health (round k3: 60%, again from TeamLowHealthBack,
+			     70%), with no melee weapon, on a run, on a Stay order (supporting fire), asleep in bed, on watch, Cowardly (she
+			     hangs back with her gun, and runs only from an outmatched fight; with no gun she runs as before), after you
+			     ordered her gun (the weapon menu or "use your ..."; ordering her melee weapon, or "sc team <name> auto", undoes
+			     it), or with raiders or any armed enemy in the fight. A zombie with a TeamGunTags tag (zombieCop) or a cop or
+			     demolition zombie always gets the gun, and so does one a resident could only reach past her leash (the 25 m
+			     from her post, or ResidentRoamZoneMargin outside the zone), and one she cannot reach (above her, marked
+			     unreachable by 0-XNPCCore, or a swing 0-XNPCCore refused - kept TeamUnreachableSeconds, doubling for the same
+			     zombie, at most 3 min). Strangers and enclave people keep the overwhelmed rule above. TeamMelee=false: no team
+			     verdict, so never the MELEE posture - every fight with a gun is KITE. Examples (k3): Gina (2 stars) alone
+			     against one walker 1.15 / 1 - outmatched now (it needs 1.25), her bow; two 2-star members against one walker
+			     2.3 / 1 - their melee weapons; five 3-star members against five walkers 6.5 / 5 - matched; against five ferals
+			     6.5 / 10 - the gun.
+			     The posture (round k4): one per member, computed with this verdict every 0.2 s, and the only thing the hand and
+			     0-XNPCCore's back-offs and melee approach follow -
+			       MELEE: a matched fight, melee-led, a target she can swing at, not overwhelmed. Her melee weapon, no back-off,
+			         the approach. A gun holder keeps her gun until her target is within PostureMeleeDist meters, then takes her
+			         melee weapon once; a member whose best skill is Shooting keeps a loaded gun (KITE).
+			       KITE: any other fight with a gun that has rounds (outmatched, overwhelmed, hurt, a target she cannot swing at,
+			         a gun order, a hurt stand-off). Her gun, no swap to melee up close (cornered and reloading, or with no
+			         shot for 3 s, she swings until there is room), the back-offs (inside the base at home), no approach.
+			       HOLD: on watch or a Stay order (no back-off, no approach; a guard keeps the gun up). SHELTER: round rt1.
+			       INVESTIGATE: sent to an intruder (below) - the defense walk, then MELEE's or KITE's weapon.
+			     One hand change per TeamSwapHoldSeconds: after any change of her hand (SC's or 0-XNPCCore's) SC swaps nothing,
+			     and the posture does not switch between MELEE and KITE, for that long; a switch also needs PostureDwellSeconds
+			     in the posture. A target that needs the gun switches at once, and one she cannot swing at draws it at once. -->
 			<property name="TeamMelee" value="true" />
 			<property name="TeamRadius" value="15" />
-			<property name="TeamMargin" value="1" />
-			<property name="TeamLeaveMargin" value="0.8" />
+			<property name="TeamMargin" value="1.25" />
+			<property name="TeamLeaveMargin" value="1" />
 			<property name="TeamLeaveRecounts" value="2" />
 			<property name="TeamRecountSeconds" value="1" />
 			<property name="TeamFreshSeconds" value="3" />
@@ -859,13 +864,31 @@
 			<property name="TeamWeaponBare" value="0.5" />
 			<property name="TeamHealthFloor" value="0.5" />
 			<property name="TeamHealthFullAt" value="0.9" />
-			<property name="TeamLowHealth" value="0.5" />
-			<property name="TeamLowHealthBack" value="0.6" />
+			<property name="TeamLowHealth" value="0.6" />
+			<property name="TeamLowHealthBack" value="0.7" />
 			<property name="TeamSwapHoldSeconds" value="5" />
-			<property name="TeamMeleeFirstSeconds" value="1" />
 			<property name="TeamOverwhelmedExtra" value="1" />
 			<property name="TeamUnreachableSeconds" value="45" />
-			<property name="TeamNoSwingConfirmSeconds" value="1.2" />
+			<!-- Round k4, the posture (above): PostureDwellSeconds - a switch between MELEE and KITE waits this long in the
+			     posture (and TeamSwapHoldSeconds since her hand last changed); not for a target that needs the gun, nor a gun
+			     holder's one swap when her target comes within PostureMeleeDist meters (a matched fight: until then she keeps
+			     her gun and shoots). Round k4 retired TeamMeleeFirstSeconds and TeamNoSwingConfirmSeconds (and SurvivorGunFirst):
+			     a config that still sets one gets a warning at load and the key is ignored. -->
+			<property name="PostureDwellSeconds" value="5" />
+			<property name="PostureMeleeDist" value="4" />
+			<!-- Round k4, intruders (the user, 2026-11-15: "If a zombie not engaged with any member or the player is inside the
+			     base, members should investigate"): an awake zombie or hostile animal inside the home zone (or up to
+			     ResidentRoamZoneMargin - 3 m outside it; during a base attack the defended area) that is after nobody gets
+			     InvestigateResponders of the nearest free residents - not on watch, a work shift, a Stay order, asleep,
+			     Cowardly, sheltering or below TeamLowHealth, not in another fight - within InvestigateRadius meters (0: from
+			     anywhere in the zone). They walk to it and fight it with their posture's weapon (a gun holder shoots once she
+			     sees it); everyone else keeps her routine, and a zombie outside the zone that hunts nobody is still left alone
+			     (round n08). A responder stays one while she stays free. It ends when the zombie dies, stays outside the zone +
+			     ResidentRoamZoneMargin for 5 s, or goes after a member or you (then the base defense has it, as always). A
+			     sleeping POI zombie is left asleep. InvestigateIntruders=false: wanderers inside are left alone, as in n08. -->
+			<property name="InvestigateIntruders" value="true" />
+			<property name="InvestigateResponders" value="2" />
+			<property name="InvestigateRadius" value="0" />
 			<property name="TeamThreatTags" value="walker:1,feral:2,radiated:3,charged:3.5,infernal:4.5,dog:1.2,wolf:1.2,coyote:1.2,mountainlion:2,bear:5,bear+zombie:6,vulture:0.6,spider:1.5" />
 			<property name="TeamThreatTagMult" value="special:1.5,strong:1.3" />
 			<property name="TeamThreatMult" value="crawler:0.6" />

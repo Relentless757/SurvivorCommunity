@@ -17,7 +17,7 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 | `sc status` | The community at a glance: stockpile, morale, home, counts |
 | `sc members` | Every member, their id, status, post, skills |
 | `sc dump` | Everything, for when you want to read it in the log afterwards |
-| `sc xnpc [id\|name]` | The 0-XNPCCore side of one body, including whether 0-XNPCCore has marked her target "melee unreachable" (round n08) and her last back-off (round k1). Bare, it prints the global patch/counter diagnostic, the session's unreachable-mark totals and the back-off totals |
+| `sc xnpc [id\|name]` | The 0-XNPCCore side of one body, including whether 0-XNPCCore has marked her target "melee unreachable" (round n08), her last back-off (round k1) and her posture (round k4). Bare, it prints the global patch/counter diagnostic, the session's unreachable-mark totals and the back-off totals |
 | `sc scan` | Re-scan the home zone now (beds, facilities, crops, defenses) |
 | `sc day` | Simulate one day rollover, outposts included |
 | `sc save` | Force a registry save |
@@ -39,8 +39,8 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 
 - `sc relink` - re-link the registry to the loaded world
 - `sc members` · `sc trust <id|name> [forgive]` · `sc recruit <id|name>` · `sc restore <member>` · `sc repost <member>`
-- `sc arms <id|name> [melee|ranged]` — what she is holding and why (overwhelmed count, gun first on / standing aside
-  for a melee order, 0-XNPCCore's close-melee state); force a hand
+- `sc arms <id|name> [melee|ranged]` — what she is holding and why (overwhelmed count, her posture - round k4 -,
+  0-XNPCCore's close-melee state); force a hand (her posture may change it back after the 5 s hand clock)
 - `sc loadout <id|name> [weapon] [weapon] [meleeonly] [ranged-lead|melee-lead]` — her weapon pair, the quality and
   attachments of what is in her hand, the attachments rolled for each of her two weapons, and (a member) the items she
   was handed exactly through the inventory panel or the weapon menu, each marked STALE when it is no longer worn/carried
@@ -71,35 +71,56 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   shows how many of the zone's beds are inside the box 0-XNPCCore searches (within `SleepZoneHeight` of the home
   block's height) — only those count. This is the first thing to run if someone will not go to bed. It is read-only.
 
-## Team strength *(round tm1)*
+## Team strength and postures *(rounds tm1, k3, k4)*
 
-- **`sc team`** — every loaded member's team verdict: F (her side) against T (the awake enemies within 15 m, or the
-  whole defended area during a horde at the base), matched or OUTMATCHED, what you counted in it (round k1: "you count 2
-  x HpF (fighting)" or "you count 0 (not fighting)"; nothing when you are not in her area), and whether she is MELEE-LED
-  or why not (on a run, on watch, Cowardly, your gun order, no melee weapon, hurt, raiders in the fight, outmatched). Its
-  second line states the rule: you count `TeamPlayerWeight` only for `TeamPlayerFightingSeconds` after you hit an enemy
-  in her area (a kill counts too; an enemy that is only after you does not - only your hits count). Read-only.
+- **`sc team`** — the rule's numbers (matched at F >= `TeamMargin` x T, 1.25 since round k3; left below `TeamLeaveMargin`;
+  melee-led from `TeamLowHealth` health) and the posture totals, then every loaded member's team verdict: F (her side)
+  against T (the awake enemies within 15 m, or the whole defended area during a horde at the base), matched or
+  OUTMATCHED, what you counted in it (round k1: "you count 2 x HpF (fighting)" or "you count 0 (not fighting)"; nothing
+  when you are not in her area), and whether she is MELEE-LED or why not (on a run, on watch, Cowardly, your gun order,
+  no melee weapon, hurt, raiders in the fight, outmatched) - and under it her **posture** (round k4: MELEE, KITE, HOLD,
+  SHELTER, INVESTIGATE or none, how long, why, and her hand changes). Last, the **intruders** (round k4): each zombie
+  inside the base that is after nobody, where it is, and its responders with their distance - or "nobody free" with why
+  for the first few residents. A line states the player rule: you count `TeamPlayerWeight` only for
+  `TeamPlayerFightingSeconds` after you hit an enemy in her area (a kill counts too; an enemy that is only after you does
+  not). Read-only.
 - **`sc team <id|name>`** — one member in full: the verdict and its age (STALE after 3 s), why she is or is not
   melee-led, a fresh count with every friend and enemy counted, its distance and weight and how the weight was reached
   (stars, health, weapon; tag weight, health weight; ARMED, melee-unsafe; for you "fighting (you hit zombieX 0.4 s ago)"
   or "NOT fighting (no hit of yours on an enemy in the area in the last 5 s) = 0"), her target and whether it needs the
-  gun, and
-  her hand: what she holds, your weapon order, the melee-first clock, the 5 s swap hold, the overwhelmed gun hold, a
-  target kept out of reach, and the overwhelmed count against its need (one more while melee-led). Read-only.
+  gun; then **her posture** and why ("posture (round k4): KITE for 4.2 s - outmatched (...); target #N at 6 m"), a switch
+  the dwell holds ("waits to switch to MELEE (...): a switch needs 5 s in the posture ... and 5 s since her hand last
+  changed ..."), **her hand** (what she holds, her pair, your weapon order, R2's CORNERED ON MELEE, an equip that did not
+  take, 0-XNPCCore's bout, the overwhelmed count against its need - one more while melee-led) with "hand changes N (M in
+  the last 3 min), SC's swaps K (J at once), MELEE/KITE switches F; next swap allowed now / in x s", every zombie she
+  "cannot swing at" (0-XNPCCore refused her swing: KITE against it N s more), and, a responder, the intruder she is sent
+  to. Read-only.
 - **`sc team <id|name> auto`** — clears your weapon orders on her (the weapon menu's, or "use your ..." by voice), so
-  she picks her weapon by the rules again. The test shortcut after a gun or melee order.
+  her posture picks her weapon again. The test shortcut after a gun or melee order.
 - **`sc team <id|name> hurt [share]`** *(a test shortcut, like `sc run hurt`)* — her body's health down to that share
-  of her max (default 0.45, just under `TeamLowHealth`): she stops being melee-led at the next count, and is again from
-  60%. `hurt 1` puts her back to full health.
-- `sc xnpc` counts the rule's work as `x5-team-*`: `recount`, `melee-first` (gun put away for the melee weapon),
-  `bout-kept` (stayed on melee after 0-XNPCCore's close-range swap), `gun-held` (gun first held back for a target beyond
-  5 m), `gun-needed` (gun first for a target that needs it), `gun-needed-close` (the same inside 5 m: one out of her
-  reach), `swap-held` (a swap waited for the 5 s hold), `equip-refused` (a swap's equip did not take: that rule waits
-  10 s for her), `unreachable`, `outmatched`, `matched-again`, `low-health`; `sc xnpc <name>` has a one-line
-  `team strength:` summary. Neither command recounts the attackers (the overwhelmed line is the last count, with its age).
-  `sc xnpc`'s team strength line also counts the players' hits noted for the rule above (round k1).
-- The hand line's "KEEPS HER GUN ON #N (reach gun hold ...)" (round tm2's stand and shoot) no longer means "no back-off"
-  (round k1): the hold only keeps her 3 m swap to melee and MeleeFirst off; within 2.5 m she backs off.
+  of her max (default 0.55, just under `TeamLowHealth`): she stops being melee-led at the next count (KITE after the
+  dwell), and is again from 70%. `hurt 1` puts her back to full health.
+- `sc xnpc` counts the verdict's work as `x5-team-*`: `recount`, `equip-refused` (a swap's equip did not take: the hand
+  rule waits 10 s for her), `unreachable` (a path that ends short, kept 45 s), `outmatched`, `matched-again`,
+  `low-health`; `sc xnpc <name>` has a one-line `team strength:` summary. Neither command recounts the attackers (the
+  overwhelmed line is the last count, with its age). `sc xnpc`'s team strength line also counts the players' hits noted
+  for the rule above (round k1). Round k4 retired `melee-first`, `bout-kept`, `gun-held`, `gun-needed`,
+  `gun-needed-close`, `swap-held` and every `x5-team-reach-*`.
+- **`sc xnpc`** (round k4) — the line "postures (round k4): now N MELEE, N KITE, ...; this session N swap(s) by SC (M at once:
+  a target that needs the gun), K held by the hand clock, F MELEE/KITE switch(es), R refused swing(s)", then one line per
+  loaded member: her posture, hand changes in all and in the last 3 minutes, SC's swaps, switches, refused swings, and the
+  seconds she spent in each posture; and "intruders (round k4): N seen, N answered, N with nobody free, ...". The counters:
+  `posture-melee`, `posture-kite`, `posture-hold`, `posture-shelter`, `posture-investigate-melee` / `-gun`, `posture-none`
+  (each time she enters one), `posture-flip` (a MELEE/KITE switch), `posture-swap-to-gun`, `posture-swap-to-gun-at-once`
+  (a target that needs the gun), `posture-swap-to-melee`, `posture-swap-held` (a swap the 5 s hand clock held, once per
+  hold), `posture-refused` (0-XNPCCore ended her bout or refused its swap: KITE against that zombie), `posture-bout-joined`
+  (her melee weapon put in 0-XNPCCore's bout), `posture-bout-exit-held` (its exit for a far or gone target held in MELEE),
+  `posture-bout-closed` (the fight over: the bout closed, her melee weapon kept), `x5-kite-keep-gun` (KITE held its 3 m
+  swap), `x5-cornered-noshot-melee` (R2's "no shot for 3 s"), `investigate-seen`, `-assigned`, `-unanswered`, `-far-walk`
+  (a responder run toward an intruder more than 22 m off),
+  `-responder-added`, `-responder-dropped`, `-released-dead` / `-asleep` / `-left` / `-engaged` / `-off`.
+- **`sc xnpc <id|name>`** — adds "posture (round k4): ...", "hand: ..." and "investigate: RESPONDER - sent to zombieX (N)
+  at x m" (or "not answering an intruder").
 
 ## Back-offs *(round k1)*
 
@@ -113,10 +134,11 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   (stand-off beats included), points not reached and not applied. The same as counters in the hook list: `backoff-bounded`, `backoff-shortened`, `backoff-wide`,
   `backoff-no-point`, `backoff-no-gain`, `backoff-unreached` (a point the path could not reach - only after a back-off
   that ended on its own - set aside 10 s), `backoff-unapplied` (should stay 0: anything else means 0-XNPCCore changed its
-  back-off). `x5-cornered-reload-melee`: reloading with the shot holding her target's beat, 0-XNPCCore's swap to melee
-  was let through (she swings rather than stands idle) - and she stays on melee until she has had room for 1 s, not
-  before the 5 s swap hold, or until her target is dead or gone (`x5-cornered-melee-end`; the user's "Stay on melee until
-  room"; `sc team <name>`'s hand line: "CORNERED ON MELEE ...").
+  back-off). `x5-cornered-reload-melee`: reloading with the shot
+  holding her target's beat, 0-XNPCCore's swap to melee was let through (she swings rather than stands idle) - and she
+  stays on melee until she has had room for 1 s, not before the 5 s hand clock, or until her target is dead or gone
+  (`x5-cornered-melee-end`; the user's "Stay on melee until room"; `sc team <name>`'s hand line: "CORNERED ON MELEE ...").
+  Round k4 adds `x5-cornered-noshot-melee` (the same with a loaded gun that has not fired for 3 s up close).
 - **`sc xnpc <id|name>`** — the line "back-off (round k1): at home - kept inside the base" (or "away from home -
   0-XNPCCore's own, unbounded"), and her last back-off: from whom, the step, the angle and the point (or "0-XNPCCore's
   own point (unbounded)" away from home), RUNNING / ended on its own / stopped, or NO POINT with why; the points set aside;
@@ -187,8 +209,9 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   `retreat-cornered` (round k1: for 1 s, not 3), `retreat-no-shelter` (a fallback, once per retreat),
   `retreat-fallback-upgraded`, `retreat-spot-unreachable`, `retreat-door-tracked`, and `retreat-ended-<why>`: `healed`,
   `hangs-back`, `threat-gone`, `ineligible`, `no-gun-away`, `cornered-away` (cornered twice in a row away from home: she
-  flees as before for 15 s), `off`. Weapons: `x5-retreat-keep-gun` (her loaded gun kept up
-  close while standing off), `x5-retreat-gun-first` (her gun drawn for a stand-off). `sc xnpc <name>` has a one-line
+  flees as before for 15 s), `off`. Weapons (round k4): a stand-off is the KITE posture - `x5-kite-keep-gun` (her gun
+  kept up close) and `posture-swap-to-gun` (her gun drawn) replace `x5-retreat-keep-gun` and `x5-retreat-gun-first`.
+  `sc xnpc <name>` has a one-line
   `retreat:` summary.
 
 ## Work, runs and mining

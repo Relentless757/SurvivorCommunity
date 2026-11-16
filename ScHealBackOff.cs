@@ -29,7 +29,7 @@ namespace SurvivorCommunity
     ///     back-off slowed, or kept from running by another action): ScMedic uses it as well (heal-now-timeout). Sheltering in
     ///     her room (rt1), on watch or on a Stay order she never backs off: ScMedic uses it at once (MayBackOff;
     ///     heal-now-shelter, heal-now-post). These replace round k2's MedicMaxWait / 25% exception for members.
-    ///   - While the task walks her, SC's X5 tick holds the weapon swaps (MeleeFirst, GunFirst, 0-XNPCCore's 3 m swap): the item
+    ///   - While the task walks her, SC's X5 tick holds the weapon swaps (round k4's hand rule, 0-XNPCCore's 3 m swap): the item
     ///     takes her hand next.
     /// No flip faster than the item: a use starts ScMedic's 12 s cooldown, during which no hold (and so no back-off) can start;
     /// an episode that never gets her clear ends in a use after MedicMaxWait at the latest. HealBackOff false: none of this -

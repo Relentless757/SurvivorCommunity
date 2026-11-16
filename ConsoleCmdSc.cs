@@ -2445,6 +2445,12 @@ namespace SurvivorCommunity
             if (ScRegistry.Loaded) Output("[SC] ammo (D3): " + ScAmmo.Report());
             Output("[SC] weapons: " + ScArms.Report());
             Output("[SC] team strength (round tm1): " + (ScConfig.TeamMelee ? "on" : "OFF (TeamMelee=false)") + "; " + ScTeam.Report());
+            // round k4: the postures now and this session, and per member body her posture, hand changes and SC's swaps
+            Output("[SC] postures (round k4): " + ScPosture.Report());
+            var postureLines = new List<string>();
+            ScPosture.ListLines(postureLines);
+            foreach (string s in postureLines) Output(s);
+            Output("[SC] intruders (round k4): " + (ScConfig.InvestigateIntruders ? ScInvestigate.Report() + " - sc team lists them" : "off (InvestigateIntruders false)"));
             Output("[SC] back-offs (round k1): " + ScBackOff.Report());
             Output("[SC] back off, then heal (round k2b): " + ScHealBackOff.Report() + " - counters heal-* in the hook list above");
             Output("[SC] melee: " + ScMelee.Report());
@@ -2541,6 +2547,9 @@ namespace SurvivorCommunity
             if (ScRegistry.Loaded) sb.Append("\n  resupply: ").Append(ScAmmo.Describe(e));
             sb.Append("\n  overwhelmed: ").Append(ScArms.Describe(e));
             sb.Append("\n  ").Append(ScTeam.Line(e));             // round tm1
+            sb.Append("\n  ").Append(ScPosture.Line(e));          // round k4
+            sb.Append("\n  hand: ").Append(ScArms.HandState(e));  // round k4
+            sb.Append("\n  ").Append(ScInvestigate.Line(e));      // round k4
             sb.Append("\n  ").Append(ScRetreat.Line(e));         // round rt1
             sb.Append("\n  ").Append(ScBackOff.Line(e));         // round k1
 #if SC_V34

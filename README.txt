@@ -357,8 +357,13 @@ Staying home, roaming and defending
 - Members at home are residents. By day they walk about the whole base, stopping 10 to 20 seconds at each spot. At
   night, or with an enemy within 30 m, they go back to their post.
 - Residents defend the base: they go after any awake enemy inside the home zone within 22 m of their post (or of
-  themselves while roaming), even one they cannot see from there, fight it and walk back. Sleepers in a base built in a
-  POI are left asleep, and Cowardly members stay put.
+  themselves while roaming) that is after a member or you, even one they cannot see from there, fight it and walk back.
+  Sleepers in a base built in a POI are left asleep, and Cowardly members stay put.
+- Intruders: a zombie inside the base that is after nobody - lurking in a corner, wandering the yard - gets two residents
+  sent to it: the nearest who are free (not on watch, on a work shift, asleep, hurt below 60%, Cowardly or in another
+  fight). They walk to it, seen or not, and fight it; everyone else keeps their routine. A zombie wandering past outside
+  the base is still left alone. "InvestigateIntruders", "InvestigateResponders" and "InvestigateRadius" (section 20) tune
+  it; "sc team" lists the intruders and who goes.
 - Residents keep a leash: they will not chase an enemy far outside the base.
 - While you are within 250 m of the base, the whole home zone stays loaded, so your people are not unloaded and rebuilt
   as you walk around the edge of your view distance.
@@ -1251,29 +1256,35 @@ Weapons
   bows and crossbows; firearms are rarer early and common late.
 - Better gear later: the time and place a survivor turns up, and your gamestage, decide their tier. Weapons and armor
   follow that tier.
-- They use the gun while it has ammo and switch to melee up close. When several enemies are on them, they keep the gun
-  and back away as they shoot instead of switching to melee.
+- Strangers and enclave people use the gun while it has ammo and switch to melee up close; when several enemies are on
+  them they keep the gun. Your members follow one posture instead (below).
 - Keeping their distance: with a gun in hand, your members back away from an enemy within 2.5 m and shoot anything
   farther off. At home they never back out of the base: the step back (10, 6 or 3 m) always ends inside the home zone,
   on a floor with nothing in the way and out of every zombie's reach; with no such spot they shoot. A back-off that does
   not get them away - the zombie keeps pace, or several do - stops after about 1.5 seconds and they shoot instead, at
-  home and away. Cornered and reloading, they swing their melee weapon and stay on it until they have room again. Away
-  from home they back off as the NPC framework does. "BackOffHome" and the other "BackOff..." settings (section 20) tune it.
-- Team strength decides melee (your members): each one weighs her side - her Fighting stars, health and weapon, the
-  other members near her, and you (you count double, but only while you are fighting: you hit a zombie near her in the
-  last 5 seconds - a kill counts too; a zombie that is only after you does not) - against the awake enemies within 15 m
-  (during a horde at the
-  base, the whole defended area). In a fight your side can win she fights with her melee weapon: she puts her gun away
-  for it, does not shoot while the zombie comes in, does not back away from it, and stays on melee after the swap up
-  close; it takes one more enemy on her to count as "several". She uses the gun as before below half health (melee again
-  from 60%), against more than her side can take, when raiders or anyone armed are in the fight, against a cop or a
-  demolition zombie, against anything she cannot reach (even up close: she keeps the gun on it, backing off when it is on
-  top of her), and against a zombie a resident could only reach
-  past her leash. A member on a Stay order gives supporting fire, and one asleep in bed does not count. A guard on watch
-  keeps the gun; a Cowardly member hangs back with hers and runs only from a fight going badly (with no gun she runs, as
-  before). Ordering her gun (the weapon menu, or "use your ..." by voice) makes her keep it until you order her melee
-  weapon. Followers count too, away from home; strangers and enclave people fight as before. "TeamMelee" and the other
-  "Team..." settings (section 20) tune or turn it off; "sc team <name>" shows the count.
+  home and away. Cornered and reloading (or with no shot at the zombie for 3 seconds), they swing their
+  melee weapon and stay on it until they have room again. Away from home they back off as the NPC framework does.
+  "BackOffHome" and the other "BackOff..." settings (section 20) tune it.
+- Team strength (your members): each one weighs her side - her Fighting stars, health and weapon, the other members near
+  her, and you (you count double, but only while you are fighting: you hit a zombie near her in the last 5 seconds - a
+  kill counts too; a zombie that is only after you does not) - against the awake enemies within 15 m (during a horde at
+  the base, the whole defended area). The fight is matched when her side is at least 1.25 times the enemies (one walker
+  against a lone 1- or 2-star member is not; against two members it is).
+- One posture per member decides her weapon and her moves, and her weapon changes at most once every 5 seconds:
+  - Melee: a matched fight, at least 60% health (melee again from 70%), a zombie she can swing at, not swarmed. She
+    fights with her melee weapon and never backs away; holding her gun she shoots until the zombie is within 4 m, then
+    switches once. A member whose best skill is Shooting keeps her loaded gun.
+  - Kite: any other fight with a gun that has ammo - more than her side can take, swarmed, hurt, raiders or anyone
+    armed, a cop or a demolition zombie, a zombie past a resident's leash, your gun order. She shoots, backs off within
+    2.5 m and never switches to melee up close (but see "cornered" above).
+  - A swing she cannot take is the gun: when the framework will not let her swing (a wall, a fence post or bars in the
+    way, a zombie it cannot reach), her gun comes out at once and she kites that zombie for 45 seconds (90, then 180).
+  - Hold (on watch, or a Stay order): she keeps her post and her gun. Shelter: badly hurt (section 4).
+  - A Cowardly member hangs back with her gun and runs only from a fight going badly (with no gun she runs, as before).
+    Ordering her gun (the weapon menu, or "use your ..." by voice) keeps her on it until you order her melee weapon;
+    ordering her melee weapon keeps her on that. Followers count too, away from home.
+  "TeamMelee" and the other "Team..." and "Posture..." settings (section 20) tune it; "sc team <name>" shows her count,
+  her posture and why, and her weapon's clock; "sc xnpc" counts every member's weapon changes.
 - Shooting skill aims the gun: they hit nearly every shot within 5 m per Shooting star (5 m at 1 star, 35 m at 7), fewer
   beyond, and aim at the chest.
 - They swing melee weapons as fast as the weapon allows, at the weapon's real reach.
@@ -1634,10 +1645,22 @@ NPCs and voices
   seeing her
 - ShootingSkill = true: Shooting stars decide NPC accuracy
 - Overwhelmed = true: NPCs keep shooting when several enemies are on them
-- TeamMelee = true: Members fight with their melee weapon in a fight their side can win (section 15); false: as before
+- TeamMelee = true: Members fight with their melee weapon in a fight their side can win (section 15); false: never -
+  every fight with a gun is "kite"
 - TeamRadius = 15: How far around a member her side and the enemies are counted (meters)
-- TeamLowHealth / TeamLowHealthBack = 0.5 / 0.6: Below this share of her health a member uses the gun again; melee again
+- TeamMargin / TeamLeaveMargin = 1.25 / 1: A fight is matched when her side is this many times the enemies; it stops
+  being matched below the second
+- TeamLowHealth / TeamLowHealthBack = 0.6 / 0.7: Below this share of her health a member uses the gun again; melee again
   from the second
+- TeamSwapHoldSeconds = 5: After any change of weapon, no other change for this many seconds (unless she cannot swing at
+  the zombie)
+- PostureDwellSeconds = 5: A switch between melee and kite waits this long in the posture (a cop or a zombie she cannot
+  reach: at once)
+- PostureMeleeDist = 4: In a matched fight a member holding her gun shoots until the zombie is this close (meters), then
+  switches to melee once
+- InvestigateIntruders = true: A zombie inside the base that is after nobody gets residents sent to it; false: left alone
+- InvestigateResponders / InvestigateRadius = 2 / 0: How many residents go to each one, and from how far (meters; 0:
+  anywhere in the home zone)
 - TeamPlayerWeight = 2: How much you count for your side while you fight (a 1-star member counts 1)
 - TeamPlayerFightingSeconds = 5: You count only for this many seconds after you hit a zombie near the member (a kill
   too); standing by, or only targeted, you count 0

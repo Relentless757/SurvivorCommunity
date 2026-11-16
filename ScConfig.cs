@@ -1076,13 +1076,12 @@ namespace SurvivorCommunity
         /// </summary>
         public static float RegenNearRadius = 12f;
         // ---- overwhelmed (ScArms, migration M7.5, the weapons task's W4/W6 decision) ----
-        /// <summary>An overwhelmed survivor keeps the gun instead of 0-XNPCCore's melee swap at 3 m (while it has ammo).</summary>
-        public static bool Overwhelmed = true;
         /// <summary>
-        /// Round n08: a survivor on her melee weapon takes her gun (it has rounds) for a target beyond 5 m or when
-        /// overwhelmed - unless the player ordered her melee weapon (ScArms.GunFirst).
+        /// An overwhelmed survivor keeps the gun instead of 0-XNPCCore's melee swap at 3 m (while it has ammo). Round k4: for a
+        /// member it is one reason for the KITE posture (ScPosture); strangers keep the old rule (ScArms.CloseRange).
+        /// Round n08's SurvivorGunFirst is gone (k4): the posture's one hand rule draws the gun in KITE.
         /// </summary>
-        public static bool SurvivorGunFirst = true;
+        public static bool Overwhelmed = true;
         /// <summary>Enemies targeting the survivor within this many metres are counted.</summary>
         public static float OverwhelmedRadius = 12f;
         /// <summary>
@@ -1393,7 +1392,6 @@ namespace SurvivorCommunity
             RegenEnemyRadius = 30f;
             RegenNearRadius = 12f;
             Overwhelmed = true;
-            SurvivorGunFirst = true;
             OverwhelmedRadius = 12f;
             OverwhelmedMin = 2;
             OverwhelmedMax = 5;
@@ -2512,7 +2510,6 @@ namespace SurvivorCommunity
                 bool overwhelmed = Overwhelmed;
                 if (p.Values.ContainsKey("Overwhelmed")) p.ParseBool("Overwhelmed", ref overwhelmed);
                 Overwhelmed = overwhelmed;
-                p.ParseBool("SurvivorGunFirst", ref SurvivorGunFirst);
                 ParseFloat(p, "OverwhelmedRadius", ref OverwhelmedRadius, 2f, 40f);
                 ParseInt(p, "OverwhelmedMin", ref OverwhelmedMin, 1, 20);
                 ParseInt(p, "OverwhelmedMax", ref OverwhelmedMax, 1, 20);
@@ -2849,6 +2846,7 @@ namespace SurvivorCommunity
                 ScLog.Out("config: voices " + VoicesLine());   // V2 (ScConfigVoices.cs)
                 ScLog.Out("config: stuck rescue " + StuckLine());   // round 29b (ScConfigStuck.cs)
                 ScLog.Out("config: team strength " + TeamLine());   // round tm1 (ScConfigTeam.cs)
+                ScLog.Out("config: posture " + PostureLine());      // round k4 (ScConfigTeam.cs, ScPosture, ScInvestigate)
                 ScLog.Out("config: retreat " + RetreatLine());   // round rt1 (ScConfigRetreat.cs)
                 ScLog.Out("config: back-offs " + BackOffLine());   // round k1 (ScConfigRetreat.cs, ScBackOff)
                 ScLog.Out("config: medical restock " + MedsLine());   // round md1 (ScMedic.Restock)

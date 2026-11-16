@@ -14,8 +14,8 @@ namespace SurvivorCommunity
     /// "5 members vs 5 zombies should not use ranged unless HP is low".
     ///
     /// Each of the community's members on 0-XNPCCore's body keeps a verdict, recounted once a second (staggered by entity id)
-    /// from SC's X5 prefix on SdcsCloseRangeTick (Recount) and only READ everywhere else - the UAI considerations
-    /// (ScNotTeamMelee, ScNotTeamMatched) and ScArms' MeleeFirst, GunFirst, CloseRange and IsOverwhelmed.
+    /// from SC's X5 prefix on SdcsCloseRangeTick (Recount) and only READ everywhere else - round k4's posture (ScPosture: the
+    /// verdict is its input, MELEE needs "melee-led"), the Cowardly flee's ScNotTeamMatched and ScArms.IsOverwhelmed.
     ///
     ///   F (friendly strength) within TeamRadius (15 m; during a live base attack the whole defended area): a member
     ///     (TeamStarBase + TeamStarStep x Fighting stars) x HpF x her weapon factor (a melee weapon in her pair 1, ranged
@@ -30,19 +30,20 @@ namespace SurvivorCommunity
     ///     max(tag weight, health weight) x the final multipliers (crawler 0.6). The tag weight is the highest entry of the
     ///     threat table it matches (walker 1, feral 2, radiated 3, charged 3.5, infernal 4.5, the animals) times the tag
     ///     multipliers (special 1.5, strong 1.3); the health weight covers tough and modded zombies.
-    ///   Matched: F >= TeamMargin x T (1.0, decision 3); it stops being matched after TeamLeaveRecounts (2) recounts in a
-    ///     row with F &lt; TeamLeaveMargin x T (0.8); no enemies = matched. A new fight (the first count with enemies) is
-    ///     judged by F >= T alone - the leave margin is hysteresis inside a fight (the report's worked examples).
+    ///   Matched: F >= TeamMargin x T (round k3: 1.25, a real margin; it was 1.0, decision 3); it stops being matched after
+    ///     TeamLeaveRecounts (2) recounts in a row with F &lt; TeamLeaveMargin x T (k3: 1.0, was 0.8); no enemies = matched. A
+    ///     new fight (the first count with enemies) is judged by the entry margin alone - the leave margin is hysteresis inside
+    ///     a fight (the report's worked examples).
     ///   RaiderFight: an enemy NPC (a raider, a bandit, a hostile player) or an armed enemy in the area - today's rules.
     ///   Melee-led: TeamMelee on; a member's body, not a raider; not a runner on the move, not on a Stay order (she gives
     ///     supporting fire), not asleep in bed, not on watch, not Cowardly (decision 8), no gun order from the player
     ///     (sc_order_ranged, decision 9); a melee weapon in her pair; health at
-    ///     least TeamLowHealth (50%; back from TeamLowHealthBack, 60%: decision 5); matched; no RaiderFight. Followers away
-    ///     from home too (decision 11); enclave people and strangers have no verdict (decision 12).
+    ///     least TeamLowHealth (round k3: 60%; back from TeamLowHealthBack, 70% - they were 50% / 60%, decision 5); matched; no
+    ///     RaiderFight. Followers away from home too (decision 11); enclave people and strangers have no verdict (decision 12).
     ///   NeedsGun(target): the target is melee-unsafe (a zombie cop or the demolition zombie: EntityZombieCop, or a
     ///     TeamGunTags tag - decision 10), armed, past a resident's leash (ScReturn's own rule), or out of melee reach
-    ///     (ScArms.ReachWhy). The team rule stands aside for such a target: today's rules - and for one out of reach
-    ///     GunFirst draws inside 5 m too (the Fable review, finding 1).
+    ///     (ScArms.ReachWhy: a swing 0-XNPCCore refused, above her, its unreachable mark, a path that ends short). Round k4:
+    ///     such a target makes the posture KITE at once (ScPosture), and its draw of the gun is at once too.
     /// </summary>
     public static class ScTeam
     {
@@ -66,7 +67,7 @@ namespace SurvivorCommunity
             public int Enemies, Friends, Unsafe;
             /// <summary>Round k1: players inside the counted area, and how many of them were fighting (counted TeamPlayerWeight).</summary>
             public int PlayersIn, PlayersFighting;
-            /// <summary>The nearest counted enemy (MeleeFirst's target while she has none of her own), -1 none.</summary>
+            /// <summary>The nearest counted enemy (her fight's target while she has none of her own: Target), -1 none.</summary>
             public int Nearest = -1;
             /// <summary>Why she is not melee-led ("" when she is).</summary>
             public string Why = "";
@@ -98,8 +99,8 @@ namespace SurvivorCommunity
         private const int HitsPerPlayer = 8;
 
         /// <summary>
-        /// Why a target needs the gun (NeedsGun). GunFirst draws for Reach at any distance (the Fable review, finding 1); for
-        /// the others it keeps today's 5 m gate, or 0-XNPCCore's 3 m swap would take her straight back to melee.
+        /// Why a target needs the gun (NeedsGun). Round k4: each makes the posture KITE at once (no dwell), and the draw does not
+        /// wait for the hand clock either - with her melee weapon in KITE she could neither back off nor walk to it.
         /// </summary>
         public enum GunNeed { None, Unsafe, Armed, Leash, Reach }
 
@@ -598,32 +599,29 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// I5 (ScNotTeamMelee on 0-XNPCCore's BackupKeepDistance and BackupRanged): she holds her ground against this enemy -
-        /// melee-led, the enemy safe to melee and unarmed, not above her (ReachWhy's live test, the Fable review), not one
-        /// she found out of reach (round tm2: a kept block in her swing gives way for one that attacks her up close on
-        /// positive evidence), not past her leash, and the overwhelmed rule not holding her on the gun (then its back-off is
-        /// today's). Round k1 (research/combat/SC_VS_NPCCORE.md 1.4: tm2's "stand and shoot, no back-off" was the bug): never
-        /// while one of tm2's holds keeps her on the gun (ScArms.Tm2GunHold - the close reach draw's stand and shoot, the
-        /// no-swing spot): those still hold off 0-XNPCCore's 3 m swap and MeleeFirst, but her back-offs stay live, as for any
-        /// gun holder. Only the moment MeleeFirst needs to put her melee weapon in her hand is held. A pure read.
+        /// Round k4 (ScPosture): why this member is not melee-led on her fresh verdict, or null when she is - "no team verdict
+        /// yet" with none (a new body, a stale one, TeamMelee off). A pure read.
         /// </summary>
-        public static bool HoldsGround(EntityAlive self, EntityAlive t)
+        internal static string NotLedWhy(EntityAlive e)
         {
-            if (self == null || t == null || !MeleeLed(self)) return false;
-            if (MeleeUnsafe(t) || Armed(t)) return false;
-            // round k1: tm2 keeps her on the gun (MeleeFirst waits) - 0-XNPCCore's back-offs are hers (it was "return true" here:
-            // she stood and shot the attacker of the close reach draw at point-blank, research/combat/SC_VS_NPCCORE.md 1.4)
-            if (ScArms.Tm2GunHold(self)) return false;
-            // the Fable review (finding 5): ReachWhy's live test - a zombie on a ledge above her keeps today's back-off
-            if (ScArms.IsAbove(self, t) || ScArms.RememberedOutOfReach(self, t)) return false;
-            if (UAI.UAIConsiderationScFarFromPost.PastLeash(self, t.position)) return false;   // a target she gets the gun for
-            return !ScArms.OverwhelmedGunHold(self);       // round tm2: the overwhelmed part alone (not the reach gun hold)
+            Verdict v = Fresh(e);
+            if (v == null) return ScConfig.TeamMelee ? "no team verdict yet" : "team strength off (TeamMelee false)";
+            return v.MeleeLed ? null : v.Why;
+        }
+
+        /// <summary>Round k4: the fresh verdict in a few words, for the posture's why ("a matched fight (F 3.2 / T 2)"). A pure read.</summary>
+        internal static string MatchedText(EntityAlive e)
+        {
+            Verdict v = Fresh(e);
+            if (v == null) return "no verdict";
+            return v.T <= 0f ? "no enemy counted (matched)" : (v.Matched ? "a matched fight" : "an outmatched fight") + " (F " + F2(v.F) + " / T " + F2(v.T) + ")";
         }
 
         /// <summary>
-        /// MeleeFirst's target: her attack target, else her revenge target, else the nearest enemy of the last count while
-        /// it is alive, awake, still in the area and in her sight (an enemy she could shoot - decision 13: no shooting while
-        /// it comes in). A read: the sight ray is SCore's own.
+        /// Her fight's target (round tm1's MeleeFirst, round k4's posture): her attack target, else her revenge target, else the
+        /// nearest enemy of the last count while it is alive, awake, still in the area, in her sight and one she may engage at
+        /// all (round k4: not one round n08's home rule leaves alone - a wanderer that is after nobody). A read: the sight ray is
+        /// SCore's own.
         /// </summary>
         public static EntityAlive Target(EntityAlive e)
         {
@@ -632,19 +630,19 @@ namespace SurvivorCommunity
             if (own == null || own.IsDead()) own = e.GetRevengeTarget();
             if (own != null && own.IsDead()) own = null;
             // the Fable review: her own target outside the counted area (one she shoots from afar) gives way to the nearest
-            // counted enemy she sees - else MeleeFirst would wait on the far one while a walker comes in next to her
+            // counted enemy she sees - else she would wait on the far one while a walker comes in next to her
             if (own != null && InArea(e, own)) return own;
             Verdict v = Fresh(e);
             if (v == null || v.Nearest < 0 || e.world == null) return own;
             EntityAlive t = e.world.GetEntity(v.Nearest) as EntityAlive;
             if (t == null || t.IsDead() || t.IsSleeping || t == own || !InArea(e, t)) return own;
+            if (UAI.UAIConsiderationScIntruder.LeavesAlone(e, t)) return own;
             return UAI.SCoreUtils.CanSee(e, t) ? t : own;
         }
 
         /// <summary>
         /// Inside the area her verdict counts (TeamRadius, or the defended area during a live base attack): an enemy farther
-        /// out was not weighed, so MeleeFirst does not take the melee weapon for it (and GunFirst, melee-led, does not draw
-        /// for it either: she keeps what she holds until it comes in). A read.
+        /// out was not weighed, so it is not her fight's target while a counted one is in her sight (Target). A read.
         /// </summary>
         public static bool InArea(EntityAlive e, EntityAlive t)
         {
@@ -692,12 +690,15 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ console ----
 
-        /// <summary>sc team: one line per loaded member body.</summary>
+        /// <summary>sc team: one line per loaded member body (her verdict, then her posture), and the intruders (round k4).</summary>
         public static void ListLines(List<string> lines)
         {
-            lines.Add("[SC] team strength (round tm1): " + (ScConfig.TeamMelee ? "on" : "OFF (TeamMelee=false)") + "; " + Report());
+            lines.Add("[SC] team strength (round tm1, margins round k3): " + (ScConfig.TeamMelee ? "on" : "OFF (TeamMelee=false: no MELEE posture)") + "; matched at F >= "
+                      + F2(ScConfig.TeamMargin) + " T (left below " + F2(ScConfig.TeamLeaveMargin) + " T), melee-led from " + Pct(ScConfig.TeamLowHealth) + " health (again from "
+                      + Pct(ScConfig.TeamLowHealthBack) + "); " + Report());
             lines.Add("[SC] you count " + F2(ScConfig.TeamPlayerWeight) + " only while you are fighting (round k1; only your hits count): you hit an enemy in a member's counted area "
                       + "in the last " + F2(ScConfig.TeamPlayerFightingSeconds) + " s (TeamPlayerFightingSeconds; a kill counts too) - an enemy merely after you does not; standing by, you count 0");
+            lines.Add("[SC] postures (round k4): " + ScPosture.Report());
             if (!ScRegistry.Loaded) return;
             float now = Time.time;
             foreach (Member m in ScRegistry.Members.Values)
@@ -705,11 +706,14 @@ namespace SurvivorCommunity
                 EntityAlive e = ScCommunity.FindNpc(m.Id);
                 if (e == null) continue;
                 Verdict v;
-                if (!verdicts.TryGetValue(e.entityId, out v) || v.At <= 0f) { lines.Add("[SC]   " + m.Name + " (" + e.entityId + "): no verdict yet"); continue; }
-                lines.Add("[SC]   " + m.Name + " (" + e.entityId + "): F " + F2(v.F) + " / T " + F2(v.T) + " " + (v.Matched ? "matched" : "OUTMATCHED")
-                          + (v.RaiderFight ? " (raider fight)" : "") + PlayerNote(v) + " - " + (v.MeleeLed ? "MELEE-LED" : "not melee-led: " + v.Why)
-                          + ", " + (now - v.At).ToString("0.0", CultureInfo.InvariantCulture) + " s ago" + (now - v.At > ScConfig.TeamFreshSeconds ? " (STALE)" : ""));
+                string verdict = !verdicts.TryGetValue(e.entityId, out v) || v.At <= 0f ? "no verdict yet"
+                    : "F " + F2(v.F) + " / T " + F2(v.T) + " " + (v.Matched ? "matched" : "OUTMATCHED") + (v.RaiderFight ? " (raider fight)" : "") + PlayerNote(v)
+                      + " - " + (v.MeleeLed ? "MELEE-LED" : "not melee-led: " + v.Why) + ", " + (now - v.At).ToString("0.0", CultureInfo.InvariantCulture) + " s ago"
+                      + (now - v.At > ScConfig.TeamFreshSeconds ? " (STALE)" : "");
+                lines.Add("[SC]   " + m.Name + " (" + e.entityId + "): " + verdict);
+                lines.Add("[SC]     " + ScPosture.Line(e));
             }
+            ScInvestigate.ListLines(lines);
         }
 
         /// <summary>Round k1: what the players in her area counted in this verdict ("" with none in it).</summary>
@@ -737,9 +741,11 @@ namespace SurvivorCommunity
                           + "; " + v.Friends + " friend(s), " + v.Enemies + " enemy(ies)" + (v.Unsafe > 0 ? ", " + v.Unsafe + " melee-unsafe" : "")
                           + (v.RaiderFight ? ", RAIDER FIGHT" : "") + (v.Wide ? "; counted over the defended area (base attack)" : "; within " + F2(ScConfig.TeamRadius) + " m")
                           + (v.LowHp ? "; LOW HEALTH" : "") + PlayerNote(v));
-                lines.Add("[SC]   " + (v.MeleeLed ? "MELEE-LED: her melee weapon unless the target needs the gun" : "not melee-led: " + v.Why + " - today's weapon rules"));
+                lines.Add("[SC]   " + (v.MeleeLed ? "MELEE-LED: the MELEE posture unless her target needs the gun, she is overwhelmed, or her gun stays (below)"
+                                                    : "not melee-led: " + v.Why + " - KITE with a gun that has rounds (round k4)"));
             }
             else lines.Add("[SC]   no verdict yet" + (m != null && ScConfig.TeamMelee ? " (the first count comes within a second of her close-range tick)" : ""));
+            if (m != null) ScPosture.DescribeLines(e, lines);                        // round k4: her posture, why, her hand and its clock
             var t = new Tally();
             var counted = new List<string>();
             Census(e, ref t, counted);
@@ -752,7 +758,7 @@ namespace SurvivorCommunity
             EntityAlive target = Target(e);
             lines.Add("[SC]   target: " + (target == null ? "none" : Who(target) + " at " + (target.position - e.position).magnitude.ToString("0.#", CultureInfo.InvariantCulture) + " m - "
                       + (NeedsGun(e, target, IsHoldingMelee(e), false) ?? "safe to melee and in reach")));
-            lines.Add("[SC]   hand: " + ScArms.TeamState(e));
+            if (m == null) lines.Add("[SC]   hand: " + ScArms.HandState(e));
         }
 
         private static bool IsHoldingMelee(EntityAlive e)
@@ -781,7 +787,7 @@ namespace SurvivorCommunity
             float age = Time.time - v.At;
             return "team strength: F " + F2(v.F) + " / T " + F2(v.T) + " " + (v.Matched ? "matched" : "OUTMATCHED") + PlayerNote(v) + ", "
                    + (v.MeleeLed ? "MELEE-LED" : "not melee-led (" + v.Why + ")") + ", " + age.ToString("0.0", CultureInfo.InvariantCulture) + " s ago"
-                   + (age > ScConfig.TeamFreshSeconds ? " (STALE)" : "") + "; " + ScArms.TeamState(e) + " (sc team " + e.entityId + " for the count)";
+                   + (age > ScConfig.TeamFreshSeconds ? " (STALE)" : "") + " (sc team " + e.entityId + " for the count and her posture)";
         }
 
         /// <summary>The totals for sc team and sc xnpc.</summary>
@@ -799,8 +805,7 @@ namespace SurvivorCommunity
             }
             return fresh + " fresh verdict(s): " + matched + " matched, " + (fresh - matched) + " outmatched, " + led + " melee-led; "
                    + recounts + " recount(s), " + outmatched + " fight(s) turned outmatched, " + matchedAgain + " matched again this session; "
-                   + playerHitsNoted + " player hit(s) noted (round k1; kept for " + playerHits.Count + " player(s)); "
-                   + ScArms.TeamReport() + " (counters x5-team-* in sc xnpc)";
+                   + playerHitsNoted + " player hit(s) noted (round k1; kept for " + playerHits.Count + " player(s)) (counters x5-team-* in sc xnpc)";
         }
     }
 }

@@ -24,7 +24,8 @@ namespace SurvivorCommunity
     ///                                                                         overwhelmed keeps the gun up close (ScArms);
     ///                                                                         melee-lead raiders keep melee (M10-D1);
     ///                                                                         (round tm1) team strength: ScTeam's
-    ///                                                                         verdict, MeleeFirst, GunFirst's hold
+    ///                                                                         verdict; (round k4) the posture
+    ///                                                                         (ScPosture) and the one hand rule
     ///   X6  AvatarSdcsNpcController.SdcsChooseMeleeFallback          prefix   XNPC's melee choice is the pair's melee weapon
     ///   X7  AvatarSdcsNpcController.Update   postfix  SC's aim pose, written after XNPC's whole frame (and its carry pose kept)
     ///   X8  EntityAliveSDXV4.SetModelLayer   prefix   our bodies' own colliders are lifted out of their own attack ray
@@ -643,12 +644,13 @@ namespace SurvivorCommunity
         /// melee-lead raiders' switch to their gun for a target out of reach (M10-D1, ScArms.RaiderLead); the re-arm is held
         /// off for a melee-lead raider (ScArms.WorldEntryRearm). One prefix, so the medical-use skip always comes first and
         /// the order of the rules never depends on how Harmony chains prefixes.
-        /// Round tm1: the close-range tick runs RaiderLead -> the team recount (ScTeam.Recount, no swap) -> MeleeFirst ->
-        /// GunFirst -> CloseRange. MeleeFirst and GunFirst share one swap-hold clock (ScArms, TeamSwapHoldSeconds).
-        /// Round rt1: the retreat (ScRetreat.Update, no swap) right after the team recount; GunFirst draws for a stand-off and
-        /// CloseRange keeps her loaded gun up close, reading it.
-        /// Round k2b: while she backs off to heal (ScHealBackOff.Walking) the close-range tick stops after ReachTick - no
-        /// MeleeFirst, GunFirst or 0-XNPCCore swap (x5-heal-backoff-no-swap).
+        /// Round k4 (research/combat/SC_VS_NPCCORE.md 4.1): the close-range tick runs RaiderLead -> the team recount
+        /// (ScTeam.Recount) -> the retreat (ScRetreat.Update) -> the posture (ScPosture.Update) - none of them swaps - and then
+        /// the one hand rule (ScArms.Hand: the posture's weapon, one change per TeamSwapHoldSeconds; strangers, enclave people
+        /// and raiders keep the overwhelmed rule, ScArms.CloseRange). It replaced round tm1's MeleeFirst, round n08's GunFirst
+        /// and round tm2's ReachTick.
+        /// Round k2b: while she backs off to heal (ScHealBackOff.Walking) the close-range tick stops after the posture - no SC
+        /// swap and no 0-XNPCCore swap (x5-heal-backoff-no-swap).
         /// </summary>
         [HarmonyPatch]
         public static class Patch_NoSwapWhileUsing
@@ -701,24 +703,22 @@ namespace SurvivorCommunity
                         // everything after it and the UAI considerations only read it
                         ScTeam.Recount(e);
                         // round rt1: a hurt member's (or a coward's) retreat - shelter inside or stand off with the gun; the only
-                        // writer of the retreat states (the UAI considerations, CloseRange and GunFirst below only read them)
+                        // writer of the retreat states (the posture, the UAI considerations and the hand rule below only read them)
                         ScRetreat.Update(e);
-                        // round tm2: a kept swing-block finding is dropped the moment its target attacks her up close
-                        ScArms.ReachTick(e);
-                        // round k2b: while she backs off to heal (ScHealBackOff) no weapon swap - not SC's MeleeFirst / GunFirst,
-                        // not 0-XNPCCore's 3 m swap: the medical item takes her hand next, and a swap would only cost time
+                        // round k4: her one posture (MELEE, KITE, HOLD, SHELTER, INVESTIGATE) from the verdict, the retreat, her
+                        // target and her hand - the only writer; the hand rule below and UAIConsiderationScPosture only read it
+                        ScPosture.Update(__instance, e);
+                        // round k2b: while she backs off to heal (ScHealBackOff) no weapon swap - not SC's hand rule, not
+                        // 0-XNPCCore's 3 m swap: the medical item takes her hand next, and a swap would only cost time
                         if (ScHealBackOff.Walking(e))
                         {
                             Count("x5-heal-backoff-no-swap");
                             return false;
                         }
-                        // round tm1 (I2): a melee-led member holding her gun takes her melee weapon for a target in reach
-                        if (ScArms.MeleeFirst(__instance, e)) return false;
-                        // round n08: a survivor on her melee weapon takes her gun for a target beyond 5 m, or when overwhelmed
-                        // (round tm1: while melee-led only for a target that needs the gun, or overwhelmed)
-                        if (ScArms.GunFirst(__instance, e)) return false;
-                        // overwhelmed: keep (or go back to) the gun instead of the melee swap up close
-                        return ScArms.CloseRange(__instance, e);
+                        // round k4: the one hand rule - the posture's weapon, one change per TeamSwapHoldSeconds (members); the
+                        // overwhelmed rule as before for strangers, enclave people and raiders (it replaced MeleeFirst, GunFirst,
+                        // tm2's reach tick and the members' part of CloseRange)
+                        return ScArms.Hand(__instance, e);
                     }
                     return true;
                 }

@@ -388,8 +388,9 @@ namespace UAI
     /// <summary>
     /// 1 unless the entity is a guard on watch (base defence D3, ScWatch.Guarding) - for everyone else, raiders and
     /// strangers included, it is always 1. Gates every action that would walk a guard off a Watch post: SCResident's roam,
-    /// defence walk and hold, quiet night and Cowardly flee, and 0-XNPCCore's BackupKeepDistance, BackupRanged and
-    /// MeleeApproach (Config/utilityai.xml).
+    /// defence walk and hold, quiet night and Cowardly flee, and 0-XNPCCore's TakeCover, HoldEngaged and ClearShot
+    /// (Config/utilityai.xml). Round k4: on 0-XNPCCore's BackupKeepDistance, BackupRanged and MeleeApproach the same live test
+    /// is folded into the one posture consideration (UAIConsiderationScPosture: HOLD).
     /// </summary>
     public class UAIConsiderationScNotOnWatch : UAIConsiderationBase
     {
@@ -412,49 +413,6 @@ namespace UAI
         {
             EntityAlive self = _context.Self;
             return self != null && self.Buffs != null && self.Buffs.GetCustomVar(ScTraits.ScTimidCvar) > 0f ? 0f : 1f;
-        }
-    }
-
-    /// <summary>
-    /// Round n07: 0 for one of SC's bodies that SC is deliberately holding on the gun at close range, 1 for everyone
-    /// else. Appended to 0-XNPCCore's BackupKeepDistance (weight 8), which inside 4 m outranks its own shot (6) and
-    /// contains no shot of its own - so without this a member SC put on the gun walks backwards forever and never
-    /// attacks with either weapon. Every other NPC keeps the back-off exactly as 0-XNPCCore intends it.
-    /// Round k1: NO LONGER IN Config/utilityai.xml - it left an overwhelmed member standing at point-blank. A member's
-    /// BackupKeepDistance band is 0-2.5 m instead (ScBackupKeepBand, ScBackOff.cs): the shot wins from 2.5 to 4 m, and closer
-    /// in she backs off. Kept until round k6's cleanup.
-    /// </summary>
-    public class UAIConsiderationScNotHoldingGunUpClose : UAIConsiderationBase
-    {
-        public override float GetScore(Context _context, object target)
-        {
-            return ScArms.HoldingGunUpClose(_context.Self) ? 0f : 1f;
-        }
-    }
-
-    /// <summary>
-    /// Round tm1 (I5): 0 while one of the community's members is melee-led (ScTeam: a matched fight, a melee weapon in her
-    /// pair, healthy enough, no gun order) and the enemy scored is safe to melee, unarmed and not one she found out of reach,
-    /// unless the overwhelmed rule holds her on the gun (then its back-off is today's); 1 for everyone else. Appended to
-    /// 0-XNPCCore's BackupKeepDistance (8) and BackupRanged (5) (Config/utilityai.xml, 3.4 only): a melee-led member who
-    /// still holds her gun for a moment (MeleeFirst's 1 s, the 5 s swap hold) does not walk away from a lone walker -
-    /// MeleeFirst puts her melee weapon in her hand. A pure read of the verdict the X5 tick keeps; a throw is logged once
-    /// and means 1 (0-XNPCCore's rule as before). Round k1: 1 while one of tm2's holds keeps her on the gun (the close reach
-    /// draw's stand and shoot, the no-swing spot) - those holds no longer take her back-offs (ScTeam.HoldsGround).
-    /// </summary>
-    public class UAIConsiderationScNotTeamMelee : UAIConsiderationBase
-    {
-        public override float GetScore(Context _context, object target)
-        {
-            try
-            {
-                return ScTeam.HoldsGround(_context.Self, target as EntityAlive) ? 0f : 1f;
-            }
-            catch (System.Exception e)
-            {
-                ScLog.Once("uai-not-team-melee", e);
-                return 1f;
-            }
         }
     }
 
@@ -595,7 +553,7 @@ namespace UAI
             Member m = h.Member;
             if (m == null || m.Status != MemberStatus.Resident) return false;
             // HasOrder Guard, read off the cvar itself: SCore's GetCurrentOrder builds a log string on every call, and this
-            // runs inside ScNotTeamMelee for every candidate
+            // runs in the X5 tick's posture and the console (round k4; it ran inside ScNotTeamMelee for every candidate before)
             if (self.Buffs == null || !self.Buffs.HasCustomVar("CurrentOrder")
                 || Mathf.RoundToInt(self.Buffs.GetCustomVar("CurrentOrder")) != (int)EntityUtilities.Orders.Guard) return false;
 #if SC_V34
@@ -733,6 +691,9 @@ namespace UAI
     /// A Cowardly member is kept out in the XML (it flees from 15 m instead), and a member moved back to its post by the
     /// watchdog during a fight rests a while (ScDefendState). Cheap tests first: it runs for every enemy in the candidate
     /// list of every resident each 0.2 s.
+    /// Round k4: for an intruder inside the base that is after nobody, the residents ScInvestigate sent to it (InvestigateResponders,
+    /// 2 by default) skip round n08's "after nobody" test and the radius and zone tests (ScInvestigate picked them and keeps its
+    /// own area); the stray rule below stays. Everyone else still leaves a wandering intruder alone.
     /// While a home attack is live (base defence D2, ScBaseAttack.WideDefence) the radius and the zone test give way to
     /// the whole zone + BaseAttackDefendMargin, the stray limit to that area + StrayExtra, and the leash (ScFarFromPost)
     /// and the watchdog's far rule to that area + LeashExtra: every resident defends the whole base.
@@ -848,12 +809,16 @@ namespace UAI
         /// after nobody? Used by the MayEngage postfix, which gates every attack and approach of 0-XNPCCore's ranged package.
         /// A guard on watch shoots from his post at whatever comes, and during a home attack (ScBaseAttack.WideDefence) the
         /// whole base is defended - both as before. Cheap tests first: it runs for every candidate target of every NPC.
+        /// Round k4 (the user: "If a zombie not engaged with any member or the player is inside the base, members should
+        /// investigate"): never for an intruder inside the base that ScInvestigate sent this resident to - she goes and fights
+        /// it; everyone else keeps her routine, and a wanderer outside the zone is still left alone.
         /// </summary>
         public static bool LeavesAlone(EntityAlive self, EntityAlive t)
         {
             if (self == null || t == null || t.IsDead() || ScBaseAttack.WideDefence) return false;
             Member m = ScRegistry.GetMember(self.entityId);
             if (m == null || m.Status != MemberStatus.Resident || ScWatch.OnWatch(m)) return false;
+            if (ScInvestigate.Responds(self, t)) return false;
             return !HuntsSomeone(t);
         }
 
@@ -941,12 +906,15 @@ namespace UAI
             if (ScWatch.OnWatch(m)) return "on watch (stays at the Watch post)";
 #endif
             if (ScDefendState.RestLeft(self.entityId) > 0f) return "resting (moved back to the post in a fight, or strayed)";
+            // round k4: an intruder inside the base that is after nobody, and ScInvestigate sent her to it - the radius, the zone test
+            // and "after nobody" are ScInvestigate's own (it picked her within InvestigateRadius; the stray rule in GetScore stays)
+            bool responder = ScInvestigate.Responds(self, t);
             if (ScBaseAttack.WideDefence)
             {
                 // a home attack is live: anything in the zone + BaseAttackDefendMargin, wherever the post is
                 if (!ScBaseAttack.InDefenceArea(t.position)) return "outside the zone + BaseAttackDefendMargin (a home attack is live)";
             }
-            else
+            else if (!responder)
             {
                 // zone roaming: from where the resident is (it lives all over the zone); otherwise from its post
                 if (Roams(m))

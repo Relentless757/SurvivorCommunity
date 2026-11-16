@@ -128,6 +128,7 @@ namespace SurvivorCommunity
                 ScBaseAttack.Tick(w, player);         // the home's horde: the call at full attention, the arrival, the fight (with or without the player)
                 ScSiege.Tick(w, player);              // a blood moon passed with the player away besieges the base
                 ScWatch.Tick(w, player);              // watch posts: shifts, the zone scan, a guard's call-outs and marker
+                ScInvestigate.Tick(w, player);        // round k4: idle intruders inside the base, and the residents who go to them
                 ScMissing.Tick(w, player);            // residents whose body is gone from the world (Call back)
                 ScEncJoin.Tick(w, player);            // a whole enclave that joined: their bodies walk off, each turns up at home when due (E12)
                 ScStreamerNames.Tick();               // round 30: the streamer names given in the last second into the save

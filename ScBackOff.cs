@@ -85,8 +85,9 @@ namespace SurvivorCommunity
         /// </summary>
         private const float GainSeconds = 1.5f, GainNeed = 1f;
         /// <summary>
-        /// F5: ScBackupKeepBand's band is this much wider for the back-off already running against that enemy (hysteresis: it
-        /// starts within BackupKeepDistanceMax and lets go this much beyond it, so it does not flip with the shot at the edge).
+        /// F5: BackupKeepDistance's band (round k4: UAIConsiderationScPosture action="keep", was ScBackupKeepBand) is this much
+        /// wider for the back-off already running against that enemy (hysteresis: it starts within BackupKeepDistanceMax and lets
+        /// go this much beyond it, so it does not flip with the shot at the edge).
         /// </summary>
         internal const float BandHysteresis = 0.5f;
         /// <summary>F6: the floor under the walk is sampled this often (meters), each sample within 1 cell of the last.</summary>
@@ -858,37 +859,6 @@ namespace SurvivorCommunity
 namespace UAI
 {
     using SurvivorCommunity;
-
-    /// <summary>
-    /// Round k1: BackupKeepDistance's band for the community's members. 0-XNPCCore scores that back-off (8) within 4 m of the enemy
-    /// (its TargetDistance, max 4) and its task holds no shot (round n07), so a gun holder inside 4 m only ever walked away. For
-    /// a member this is 1 only within BackupKeepDistanceMax (2.5 m, 3D as TargetDistance measures): from there to 4 m the shot (6)
-    /// wins. The Fable review (F5): for the back-off already running against this very target the band is BandHysteresis
-    /// (0.5 m) wider, so a walk that is opening the gap is not cut off at 2.5 m and started again at 2.4. 1 for every other NPC
-    /// (0-XNPCCore's band as it is) and for a target that is no entity. A pure read; a throw is logged once and means 1.
-    /// </summary>
-    public class UAIConsiderationScBackupKeepBand : UAIConsiderationBase
-    {
-        public override float GetScore(Context _context, object target)
-        {
-            try
-            {
-                EntityAlive self = _context.Self;
-                if (self == null || ScRegistry.GetMember(self.entityId) == null) return 1f;
-                EntityAlive t = UAIUtils.ConvertToEntityAlive(target);
-                if (t == null) return 1f;
-                float max = ScConfig.BackupKeepDistanceMax;
-                ActionData ad = _context.ActionData;
-                if (ad.Executing && ad.Action != null && ad.Action.Name == "BackupKeepDistance" && ReferenceEquals(ad.Target, target)) max += ScBackOff.BandHysteresis;
-                return UAIUtils.DistanceSqr(self.position, t.position) <= max * max ? 1f : 0f;
-            }
-            catch (System.Exception e)
-            {
-                ScLog.Once("uai-backup-band", e);
-                return 1f;
-            }
-        }
-    }
 
     /// <summary>
     /// Round k1: 0 against an enemy for BackOffNoPointSeconds after SC found no point inside the base to back off to from it

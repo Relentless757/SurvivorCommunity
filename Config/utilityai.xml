@@ -108,6 +108,23 @@
 				<consideration class="ScIntruder, SurvivorCommunity" />
 				<consideration class="ScHoldFire, SurvivorCommunity" />
 			</action>
+			<!-- Round k4 (ScInvestigate; the user, 2026-11-15: "If a zombie not engaged with any member or the player is inside the
+			     base, members should investigate"): a resident ScInvestigate sent to an intruder that is after nobody walks to it
+			     through ScDefendBase above (ScIntruder lets her responders through). SCore's UAI scores only the entities within
+			     about 30 m of her, so for an intruder farther off this runs her toward it (ScInvestigateFar: farther than 22 m);
+			     within 18 m its task stops and ScDefendBase, then the pack's attacks, take over. Same weight and gates as
+			     ScDefendBase, listed after it so it loses a tie. -->
+			<action name="ScInvestigateWalk" weight="4" entity_filter="IsSelf">
+				<task class="InvestigateWalkSC, SurvivorCommunity" />
+				<consideration class="ScIsResident, SurvivorCommunity" />
+				<consideration class="ScNotOnWatch, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Guard" />
+				<consideration class="SelfNotHasCVar, SCore" cvar="$Timid" value="1" />
+				<consideration class="SelfNotHasBuff, SCore" buffs="SdcsIsHealing,buffHitStun" />
+				<consideration class="ScNotHurtNoMeds, SurvivorCommunity" />
+				<consideration class="ScNotRetreating, SurvivorCommunity" />
+				<consideration class="ScInvestigateFar, SurvivorCommunity" />
+			</action>
 			<!-- A physical supply runner (ScRunners) holds the Task order (8), which nothing else in SCore or XNPCCore
 			     uses: every resident action above stands down, the pack's combat still fires (it only gates on NotHasOrder
 			     Stay), and this walks them along their route one waypoint at a time. 4.5 beats idling and HoldEngaged (4) and
@@ -415,18 +432,10 @@
 	</append>
 
 	<!-- A guard on watch (D3) never backs off or walks to a melee target: on a tower either one walks them off the edge.
-	     0-XNPCCore's SdcsNpcRangedAdvanced (weights 7, 3 and 4) gets one more consideration each; ScNotOnWatch is 1 for
-	     everyone else, raiders and strangers included, so nothing changes for them. SC loads after 0-XNPCCore, whose
-	     utilityai.xml builds this package. The melee swap itself is held off in the DLL (ScArms keeps a guard's gun). -->
-	<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupKeepDistance']">
-		<consideration class="ScNotOnWatch, SurvivorCommunity" />
-	</append>
-	<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupRanged']">
-		<consideration class="ScNotOnWatch, SurvivorCommunity" />
-	</append>
-	<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='MeleeApproach']">
-		<consideration class="ScNotOnWatch, SurvivorCommunity" />
-	</append>
+	     Round k4: 0-XNPCCore's BackupKeepDistance, BackupRanged and MeleeApproach no longer carry ScNotOnWatch (these three
+	     appends had no xpath() guard); the same live test sits inside the one posture consideration appended further down,
+	     behind each action's own guard (UAIConsiderationScPosture: a guard on watch is HOLD, and 0 on all three whatever the
+	     posture). The melee swap itself is held off in the DLL (ScArms.Hand keeps a guard's gun up close). -->
 
 	<!--
 	  0-XNPCCore 3.4 (game 3.4 only: its SdcsNpcCore package exists nowhere else, so on 3.2 nothing below applies).
@@ -468,7 +477,7 @@
 			<set xpath="/utility_ai/ai_packages/ai_package[@name='SCEnclave']/action[@name='ScEncRoam']/@weight">3.4</set>
 			<set xpath="/utility_ai/ai_packages/ai_package[@name='SCResident']/action[@name='ScNightIdle']/@weight">3.6</set>
 			<set xpath="/utility_ai/ai_packages/ai_package[@name='SCEnclave']/action[@name='ScEncNight']/@weight">3.6</set>
-			<set xpath="/utility_ai/ai_packages/ai_package[@name='SCResident']/action[@name='ScDefendBase' or @name='ScDefendHold']/@weight">5.2</set>
+			<set xpath="/utility_ai/ai_packages/ai_package[@name='SCResident']/action[@name='ScDefendBase' or @name='ScDefendHold' or @name='ScInvestigateWalk']/@weight">5.2</set>
 			<set xpath="/utility_ai/ai_packages/ai_package[@name='SCEnclave']/action[@name='ScEncDefend' or @name='ScEncDefendHold']/@weight">5.2</set>
 			<set xpath="/utility_ai/ai_packages/ai_package[@name='SCRaider']/action[@name='ScRaiderInvestigate']/@weight">3.5</set>
 			<set xpath="/utility_ai/ai_packages/ai_package[@name='SCEnclave']/action[@name='ScEncInvestigate']/@weight">3.5</set>
@@ -486,18 +495,11 @@
 			     nor swing; scoring the back-off 0 for her made her STAND AND FIRE point-blank. Round k1 (2026-11-15) removed it:
 			     that was one of the three gates that kept every gun holder inside 4 m still (research/combat/SC_VS_NPCCORE.md
 			     1.4). Its reason is solved the other way, further down: a member's BackupKeepDistance band is 0-2.5 m
-			     (ScBackupKeepBand), so from 2.5 to 4 m the shot wins and closer in she backs off - inside the base at home. -->
-			<!-- Round tm1 (I5; the user, 2026-11-15: "5 members vs 5 zombies should not use ranged unless HP is low"): Paul drew
-			     his .44 on a walker 8 m off and BackupKeepDistance (8, inside 4 m) and BackupRanged (5, 1-10 m, and the winner
-			     through every reload) walked him away from it. ScNotTeamMelee is 0 while a member is melee-led (ScTeam: a
-			     matched fight, F >= T) and the enemy is safe to melee, unarmed and in reach, unless the overwhelmed rule holds her
-			     on the gun: she holds her ground while SC's MeleeFirst puts her melee weapon in her hand (1 s; the swap hold 5 s).
-			     1 for everyone else - an outmatched fight, a cop or demolition zombie, raiders, strangers, TeamMelee off.
-			     Round k1: also 1 while one of round tm2's holds keeps her on the gun (the close reach draw's "stand and shoot", the
-			     no-swing spot): those still hold off 0-XNPCCore's 3 m swap and MeleeFirst, but no longer her back-offs. -->
-			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupKeepDistance' or @name='BackupRanged']">
-				<consideration class="ScNotTeamMelee, SurvivorCommunity" />
-			</append>
+			     (round k4: ScPosture action="keep"; it was ScBackupKeepBand), so from 2.5 to 4 m the shot wins and closer in she
+			     backs off - inside the base at home. -->
+			<!-- Round tm1 (I5) appended ScNotTeamMelee here (a melee-led member did not back away from a lone walker while
+			     MeleeFirst put her melee weapon in her hand). Round k4 removed it: the MELEE posture says the same through the
+			     one posture consideration further down (ScPosture: no back-off in MELEE but from a melee-unsafe or armed enemy). -->
 			<!-- the user, 2026-10-29: enclave people hold their ground inside their home when attacked - XNPC's leave-area
 			     (9, over every fight) never walks one of them out of their own building.
 			     Round hl1 (the user, 2026-11-15): nor one of the community's members at home - the home zone (+ the roam
@@ -525,61 +527,35 @@
 	</conditional>
 
 	<!--
-	  Round rt1 (research/flee_meds/DESIGN.md I8, I9; 0-XNPCCore 3.4, only where each action exists - trap 4: 3.4.05 moved an
-	  action between packages and an unguarded append no-oped silently). ScNotRetreating is 0 while one of the community's
-	  members shelters or stands off (ScRetreat), else 1: one owner of her distance. MeleeApproach (5) would chase out of her
-	  shelter while she fights back.
-	  Round k1: on BackupKeepDistance (8) and BackupRanged (5) it is only="shelter" - 0 while she SHELTERS, no longer while she
-	  stands off. rt1 gated them in a stand-off too (they had no zone bound then), and whenever ScStandOffHurt did not score -
-	  cornered for 3 s, through every reload - nothing moved her: Paul stood still for 212 s of it. Now one owner at a time:
-	  ScStandOffHurt (8.2) wins while it scores; otherwise 0-XNPCCore's back-off - kept inside the base for members at home
-	  (ScBackOff) - and the shot take over.
-	  ScNotHurtNoMeds (decision 10, everywhere - the other half of the flee/return loop, trap 7) is 0 for a member hurt below
-	  FleeBelowHealth with nothing to heal with: MeleeApproach never walks her to a fight; her swing at what reaches her
-	  (MeleeAttack) and her shot still run. Both are 1 for everyone else - raiders, strangers, enclave people - and with
-	  RetreatHome off.
-	-->
-	<conditional>
-		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;MeleeApproach&quot;]/@name') != null">
-			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='MeleeApproach']">
-				<consideration class="ScNotHurtNoMeds, SurvivorCommunity" />
-				<consideration class="ScNotRetreating, SurvivorCommunity" />
-			</append>
-		</if>
-	</conditional>
-	<conditional>
-		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;BackupKeepDistance&quot;]/@name') != null">
-			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupKeepDistance']">
-				<consideration class="ScNotRetreating, SurvivorCommunity" only="shelter" />
-			</append>
-		</if>
-	</conditional>
-	<conditional>
-		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;BackupRanged&quot;]/@name') != null">
-			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupRanged']">
-				<consideration class="ScNotRetreating, SurvivorCommunity" only="shelter" />
-			</append>
-		</if>
-	</conditional>
-	<!--
-	  Round k1 (2026-11-15, research/combat/SC_VS_NPCCORE.md 1.4, 4.2 and 4.4; the user approved the scope): 0-XNPCCore's
-	  back-offs work again for the community's members - inside the base. Only where each action exists (trap 4).
-	  - ScBackupKeepBand on BackupKeepDistance (8): for a member it is 1 only within BackupKeepDistanceMax (2.5 m) of the enemy.
-	    0-XNPCCore's own band is 0-4 m (its TargetDistance max 4, left as it is for every other NPC) and its task holds no shot
-	    (round n07's finding), so from 2.5 to 4 m the shot (6) now wins over that back-off. This replaces n07's
-	    ScNotHoldingGunUpClose (removed above), which made an overwhelmed member stand and fire point-blank.
-	  - ScBackOffRoom on both back-offs: 0 against an enemy for BackOffNoPointSeconds (1 s, one decision) after SC found no point
-	    inside the base to back off to from it. The Fable review (F1, R1): also 0 against EVERY enemy for StandOffShootSeconds
-	    after a member's back-off gained nothing, and through rt1's stand-off shooting beats; reload="pass" (R4, on
-	    BackupRanged only) lets that member-wide beat through while she reloads - a walk away beats standing idle. For a member at home the task's point is SC's (ScBackOff: 10, 6 and 3 m steps on
-	    seven directions, inside the home zone + margin or the defended area in a base attack, out of reach of every enemy); with
-	    none the task ends at once with no path, as 0-XNPCCore's own failure does, and the shot takes that decision.
-	  Everyone else - followers away from home, strangers, enclave people, raiders - keeps 0-XNPCCore's back-off as it is.
+	  Round k4 (2026-11-15, research/combat/SC_VS_NPCCORE.md 4.1 and 4.2: "one posture, one gate"): ONE SC consideration on each of
+	  0-XNPCCore's moving actions, reading the member's posture (ScPosture: MELEE, KITE, HOLD, SHELTER, INVESTIGATE - kept by SC's
+	  X5 tick, read here). Only where each action exists (trap 4: 3.4.05 moved an action between packages and an unguarded append
+	  no-oped silently). 0-XNPCCore keeps every mechanic; SC only says which of its moves fits the posture.
+	  - BackupKeepDistance (8): ScPosture action="keep" - 1 in KITE and INVESTIGATE with the gun, and with no fresh posture; in
+	    MELEE only against a melee-unsafe or armed enemy; 0 in HOLD and SHELTER. Live, whatever the posture: 0 for a guard on watch
+	    (was ScNotOnWatch) and while she shelters (was round rt1's ScNotRetreating, round k1's only="shelter"); and round k1's band -
+	    1 only within BackupKeepDistanceMax (2.5 m) of the enemy, 3 m for the back-off already running against it (was
+	    ScBackupKeepBand; 0-XNPCCore's own band is 4 m and its task holds no shot, so from 2.5 to 4 m the shot, 6, wins).
+	  - BackupRanged (5): ScPosture action="ranged" - the same, without the band.
+	  - MeleeApproach (5): ScPosture action="approach" - 1 in MELEE and INVESTIGATE with the melee stance, and with no fresh posture
+	    (never to a melee-unsafe or armed enemy while she has a gun with rounds); in KITE only while her melee weapon is still in
+	    her hand (the hand clock holding the draw, R2's cornered melee, a runner's bout: the back-offs need a gun in hand, so she
+	    would stand still); 0 in HOLD and SHELTER. Live: 0 for a guard on
+	    watch, while the retreat owns her - shelter or stand-off (was rt1's ScNotRetreating) - and while she is hurt with nothing to
+	    heal with (decision 10, trap 7: was ScNotHurtNoMeds; her swing at what reaches her and her shot still run).
+	  This replaces round tm1's ScNotTeamMelee and the gates named above. 1 for everyone who is not one of the community's members
+	  (raiders, strangers, enclave people): 0-XNPCCore's rule as it is.
+	  Kept beside it, unchanged: round k1's ScBackOffRoom on both back-offs - a mechanical gate: 0 against an enemy for
+	  BackOffNoPointSeconds (1 s) after SC found no point inside the base to back off to from it, and against EVERY enemy for
+	  StandOffShootSeconds after a member's back-off gained nothing and through rt1's stand-off shooting beats (the Fable review,
+	  F1, R1); reload="pass" (R4, BackupRanged only) lets that member-wide beat through while she reloads. For a member at home the
+	  task's point is SC's (ScBackOff: 10, 6 and 3 m steps on seven directions, inside the home zone + margin or the defended area,
+	  out of reach of every enemy). And ScNotTravelling (runners, above) on MeleeApproach and BackupRanged.
 	-->
 	<conditional>
 		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;BackupKeepDistance&quot;]/@name') != null">
 			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupKeepDistance']">
-				<consideration class="ScBackupKeepBand, SurvivorCommunity" />
+				<consideration class="ScPosture, SurvivorCommunity" action="keep" />
 				<consideration class="ScBackOffRoom, SurvivorCommunity" />
 			</append>
 		</if>
@@ -587,7 +563,15 @@
 	<conditional>
 		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;BackupRanged&quot;]/@name') != null">
 			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupRanged']">
+				<consideration class="ScPosture, SurvivorCommunity" action="ranged" />
 				<consideration class="ScBackOffRoom, SurvivorCommunity" reload="pass" />
+			</append>
+		</if>
+	</conditional>
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;MeleeApproach&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='MeleeApproach']">
+				<consideration class="ScPosture, SurvivorCommunity" action="approach" />
 			</append>
 		</if>
 	</conditional>

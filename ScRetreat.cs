@@ -556,7 +556,7 @@ namespace SurvivorCommunity
         /// <summary>I11 (ScTeam.FriendWeight): sheltering and not fighting back - she is not in the fight. A pure read.</summary>
         public static bool Hiding(EntityAlive e) { return ShelterScores(e); }
 
-        /// <summary>A stand-off is on for her (CloseRange's keep-gun, GunFirst's draw). A pure read.</summary>
+        /// <summary>A stand-off is on for her (round k4: the posture is KITE - her gun drawn and kept up close). A pure read.</summary>
         public static bool StandsOff(EntityAlive e)
         {
             State st;

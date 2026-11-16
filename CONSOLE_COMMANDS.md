@@ -510,17 +510,17 @@ Rolls `n` loadouts (default 1000) without creating anyone.
 Shows the NPC's weapons; with the word, puts that one in its hand.
 
 ### `sc team` [READ]
-Team strength (round tm1): every loaded member's F (her side: her stars, health and weapon, the members near her, you at double weight while you fight) against T (the awake enemies within 15 m; during a horde at the base, the whole defended area), MATCHED or OUTMATCHED, what you counted ("you count 0 (not fighting)" or "you count 2 x HpF (fighting)"), and MELEE-LED or why not (on a run, on watch, Cowardly, your gun order, no melee weapon, hurt, raiders in the fight, outmatched). A melee-led member fights with her melee weapon. Round k1: you count only for `TeamPlayerFightingSeconds` (5 s) after you hit an enemy in her area (a kill counts too; an enemy that is only after you does not); standing by, you count 0.
+Team strength (round tm1): every loaded member's F (her side: her stars, health and weapon, the members near her, you at double weight while you fight) against T (the awake enemies within 15 m; during a horde at the base, the whole defended area), MATCHED or OUTMATCHED, what you counted ("you count 0 (not fighting)" or "you count 2 x HpF (fighting)"), and MELEE-LED or why not (on a run, on watch, Cowardly, your gun order, no melee weapon, hurt, raiders in the fight, outmatched); round k3: matched at F >= 1.25 T, melee-led from 60% health. Under each member her posture (round k4: MELEE, KITE, HOLD, SHELTER, INVESTIGATE or none, why, and her hand changes), and at the end the intruders (zombies inside the base that are after nobody) and who goes to each. Round k1: you count only for `TeamPlayerFightingSeconds` (5 s) after you hit an enemy in her area (a kill counts too; an enemy that is only after you does not); standing by, you count 0.
 
 ### `sc team <id|name>` [READ]
-One member in full: the verdict and its age, why she is or is not melee-led, a fresh count listing every friend and enemy with its distance, weight and how the weight was reached (ARMED and melee-unsafe enemies are marked; you as "fighting (...)" or "NOT fighting ... = 0"), her target and whether it needs the gun, and her hand (what she holds, your weapon order, the melee-first clock, the 5 s swap hold, the overwhelmed gun hold, a target kept out of reach, the overwhelmed count).
+One member in full: the verdict and its age, why she is or is not melee-led, a fresh count listing every friend and enemy with its distance, weight and how the weight was reached (ARMED and melee-unsafe enemies are marked; you as "fighting (...)" or "NOT fighting ... = 0"), her target and whether it needs the gun, her posture and why (and a MELEE/KITE switch the dwell holds), and her hand (what she holds, your weapon order, R2's cornered melee, 0-XNPCCore's bout, the overwhelmed count; hand changes in all and in the last 3 minutes, SC's swaps, and when the next swap is allowed), the zombies she cannot swing at, and the intruder she is sent to.
 Example: `sc team Gina`
 
 ### `sc team <id|name> auto` [CHEAT]
 Clears your weapon orders on her (the weapon menu's, or "use your ..." by voice), so she picks her weapon by the rules again.
 
 ### `sc team <id|name> hurt [share]` [CHEAT]
-A test shortcut, like `sc run hurt`: her body's health down to that share of her max (default 0.45, just under `TeamLowHealth`). She stops being melee-led at the next count and is again from 60%; `hurt 1` puts her back to full health.
+A test shortcut, like `sc run hurt`: her body's health down to that share of her max (default 0.55, just under `TeamLowHealth`). She stops being melee-led at the next count and is again from 70%; `hurt 1` puts her back to full health.
 
 ### `sc skills sim [T1|T2|T3] [n]` [READ]
 Starting-skill statistics for `n` new survivors per tier.

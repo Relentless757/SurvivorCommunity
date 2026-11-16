@@ -187,6 +187,9 @@
     <Compile Include="ScBackOff.cs" />
     <!-- round k2b: back off, then heal - a member held from a medical use walks clear first (its key is in ScConfig.cs, with k2's) -->
     <Compile Include="ScHealBackOff.cs" />
+    <!-- round k4: one posture per member (and its UAI consideration), and residents investigating idle intruders (keys in ScConfigTeam.cs) -->
+    <Compile Include="ScPosture.cs" />
+    <Compile Include="ScInvestigate.cs" />
     <Compile Include="XUiC_ScSnapshot.cs" />
     <Compile Include="ScVoice.cs" />
     <Compile Include="ScVoiceLines.cs" />
