@@ -746,17 +746,21 @@
 			     2.5 s. She fights on and uses it once the enemy is dead, gone or farther off. 0: she uses it wherever she is.
 			     HealBackOff (round k2b): instead of waiting there, a member backs off until nothing after her is within
 			     MedicSafeDistance + 1 m, then uses it - k1's steps (10, 6, 3 m), inside the base at home, within
-			     StandOffFollowerLeash of you as a follower away from home, short steps elsewhere. With no room to back off,
-			     sheltering in her room, on watch or told to stay, she uses it at once. false: she waits where she is (below).
-			     MedicMaxWait: with HealBackOff, once she has backed off this many seconds without getting clear (a fast
-			     zombie keeps up) she uses it anyway, at any health (0: at once, no back-off). Without it (and for a
-			     stand-in): once she has waited this
+			     StandOffFollowerLeash of you as a follower away from home, and anywhere else (a runner, a follower with no
+			     leader near) the same steps with no other bound. With no room to back off, sheltering in her room, on watch or
+			     told to stay, she uses it at once; and as soon as the enemy keeps up with her (the gap not 1 m larger after
+			     2 s of backing off), too. false: she waits where she is (below).
+			     MedicMaxWait: with HealBackOff, once she has been held this many seconds without getting clear (the
+			     back-off kept from running by another action, or slowed) she uses it anyway, at any health (0: at once, no
+			     back-off). Without it (and for a stand-in): once she has waited this
 			     many seconds and is under 25% health, she uses it anyway with the enemy still there (a heal now beats none);
 			     0: under 25% she never waits.
 			     Under 50% health a member also takes a first aid kit before a first aid bandage (not a key).
 			     RegenOutOfCombat: members (not raiders, enclave people, strangers or stand-ins) regain RegenRatePerSecond
-			     health per second while no awake enemy is within RegenEnemyRadius meters of them, up to RegenCapShare of
-			     their max health; above that only items heal. It waits while a medical item is being used or is still
+			     health per second out of combat, up to RegenCapShare of their max health; above that only items heal. Out
+			     of combat (the user: "Only threats to her"): no awake enemy within RegenEnemyRadius meters that is after
+			     her or can see her, and no awake enemy at all within RegenNearRadius meters - a zombie behind a wall that is
+			     not after her, or one chasing someone else farther off, does not hold it, so it helps in a lull. It waits while a medical item is being used or is still
 			     healing her, and never runs for a member who is hidden (away on a run, posted) or offline. 0.2 is
 			     0-XNPCCore's own level regeneration (its Settings.xml, Progression/HealthRegenPerSecond), which SC takes off
 			     members. false: no regeneration (as before this round). -->
@@ -769,6 +773,7 @@
 			<property name="RegenRatePerSecond" value="0.2" />
 			<property name="RegenCapShare" value="0.6" />
 			<property name="RegenEnemyRadius" value="30" />
+			<property name="RegenNearRadius" value="12" />
 			<!-- Overwhelmed: 0-XNPCCore's survivors swap the gun for their melee weapon when the enemy is within 3 m. With
 			     at least X enemies targeting them within OverwhelmedRadius metres they keep the gun instead (and go back
 			     to it from melee), backing off as they shoot, while it has ammo. X for a member =
@@ -802,8 +807,8 @@
 			       F: a member (TeamStarBase + TeamStarStep x her Fighting stars) x HpF x her weapon (TeamWeaponMelee with a melee
 			          weapon in her pair, TeamWeaponRanged with only a ranged one, TeamWeaponBare with nothing) - she counts
 			          herself; a member on watch TeamGuardWeight x HpF; one in the middle of a medical use x TeamMedicalMult; one
-			          asleep in bed 0; you TeamPlayerWeight x HpF, but only while you are fighting - an enemy within her
-			          count is after you, or you hit one in the last TeamPlayerFightingSeconds (standing by, you count 0);
+			          asleep in bed 0; you TeamPlayerWeight x HpF, but only while you are fighting - you hit an enemy within
+			          her count in the last TeamPlayerFightingSeconds, a kill too (standing by, or only targeted, you count 0);
 			          another ally (a hire, a friendly NPC) TeamAllyWeight x HpF.
 			          HpF = TeamHealthFloor + (1 - TeamHealthFloor) x min(1, health share / TeamHealthFullAt) (0.5 at no health,
 			          1 from 90% of it: a scratch does not count, so a healthy 1-star member alone still melees one walker).

@@ -18,15 +18,17 @@ namespace SurvivorCommunity
     ///     (UAITaskHealBackOffSC): one of k1's points (ScBackOff.Pick: the BackOffSteps 10, 6, 3 m on seven directions, out of
     ///     reach of every enemy, a clear walk) at a run. At home the point is inside the base (round hl1's AtHome); a follower
     ///     away from home stays within StandOffFollowerLeash of her leader; anyone else away from home (a runner, a follower
-    ///     with no leader near) takes the short steps with no other bound, and her travel resumes after.
+    ///     with no leader near) takes the same steps (10, 6, 3 m) with no other bound, and her travel resumes after.
     ///   - Once nothing after her is within MedicSafeDistance + ClearMargin (4 m), the task stops and asks ScMedic for its check
     ///     at once (CheckSoon): the hold finds nothing in reach and the item goes into her hand. The action rests ClearHoldSeconds
     ///     meanwhile so the decision moves on.
     ///   - No room to back off at all (no step fits): the task marks this wait "heal now" (heal-now-cornered) and ScMedic uses
-    ///     the item at the next frame with the enemy still there. Backing off MedicMaxWait without getting clear (a fast zombie
-    ///     keeps up): ScMedic uses it as well (heal-now-timeout). Sheltering in her room (rt1), on watch or on a Stay order she
-    ///     never backs off: ScMedic uses it at once (MayBackOff; heal-now-shelter, heal-now-post). These replace round k2's
-    ///     MedicMaxWait / 25% exception for members.
+    ///     the item at the next frame with the enemy still there. The Fable review (F4): an enemy that keeps up (the nearest one
+    ///     after her not GainNeed, 1 m, farther than GainSeconds, 2 s, before - the clock runs across the steps of one wait) is
+    ///     the same: heal now (heal-now-gained), not 6 s of running first. Held MedicMaxWait without getting clear (the
+    ///     back-off slowed, or kept from running by another action): ScMedic uses it as well (heal-now-timeout). Sheltering in
+    ///     her room (rt1), on watch or on a Stay order she never backs off: ScMedic uses it at once (MayBackOff;
+    ///     heal-now-shelter, heal-now-post). These replace round k2's MedicMaxWait / 25% exception for members.
     ///   - While the task walks her, SC's X5 tick holds the weapon swaps (MeleeFirst, GunFirst, 0-XNPCCore's 3 m swap): the item
     ///     takes her hand next.
     /// No flip faster than the item: a use starts ScMedic's 12 s cooldown, during which no hold (and so no back-off) can start;
@@ -44,13 +46,18 @@ namespace SurvivorCommunity
         private const float HealNowSeconds = 3f;
         /// <summary>Walking (the X5 swap hold) needs the task's Update to have run this recently.</summary>
         private const float WalkFresh = 1f;
-        /// <summary>The longest step: k1's own back-off reaches 10 m, and away from home "short" is at most this.</summary>
+        /// <summary>The longest step, at home and away alike: k1's own back-off reaches 10 m (the steps are BackOffSteps, 10, 6 and 3 m).</summary>
         private const float MaxStep = 10f;
         private const float ArriveXZ = 1f;
         /// <summary>Two waits are the same one when their starts are this close (seconds).</summary>
         private const float SameWait = 0.05f;
         /// <summary>CurrentOrder 2 is SCore's Stay (the cvar 0-XNPCCore's actions are gated on).</summary>
         private const int OrderStay = 2;
+        /// <summary>
+        /// The Fable review (F4): every this many seconds of one wait's back-off the nearest enemy after her must be GainNeed
+        /// farther than at the last check - else it keeps up with her and she heals now (heal-now-gained).
+        /// </summary>
+        private const float GainSeconds = 2f, GainNeed = 1f;
 
         internal sealed class State
         {
@@ -74,16 +81,18 @@ namespace SurvivorCommunity
             public float OutcomeAt;
             /// <summary>Points she could not reach (no path), set aside for k1's Pick.</summary>
             public readonly ScBackOff.Last Memory = new ScBackOff.Last();
+            /// <summary>F4: the gain clock of this wait's back-off - the next check, and the nearest pursuer's gap at the last (0: not started).</summary>
+            public float GainAt, GainGap;
         }
 
         private static readonly Dictionary<int, State> states = new Dictionary<int, State>();
-        private static int episodes, clears, cornered;
+        private static int episodes, clears, cornered, keptUp;
         private static float nextPrune;
 
         public static void Reset()
         {
             states.Clear();
-            episodes = clears = cornered = 0;
+            episodes = clears = cornered = keptUp = 0;
             nextPrune = 0f;
         }
 
@@ -154,6 +163,25 @@ namespace SurvivorCommunity
             return e != null && states.TryGetValue(e.entityId, out st) && st.Walking && Time.time - st.WalkAt <= WalkFresh;
         }
 
+        /// <summary>
+        /// The Fable review (F8): did a back-off walk start during the wait that began at waitSince (ScMedic's timeout line says
+        /// "backing off" only then)? A pure read.
+        /// </summary>
+        internal static bool BackedOffFor(EntityAlive e, float waitSince)
+        {
+            State st;
+            return e != null && states.TryGetValue(e.entityId, out st) && st.Counted && Mathf.Abs(st.WaitSince - waitSince) <= SameWait;
+        }
+
+        /// <summary>F8: why the back-off never ran - the action that has her now (her UAI context), for ScMedic's timeout line. A pure read.</summary>
+        internal static string NoRunWhy(EntityAlive e)
+        {
+            UAI.Context ctx = e != null ? e.utilityAIContext : null;
+            UAI.UAIAction a = ctx != null ? ctx.ActionData.Action : null;
+            if (a == null) return "no action had " + ScMedic.HerObj(e);
+            return a.Name == "ScHealBackOff" ? "it had no step to take yet" : a.Name + " had " + ScMedic.HerObj(e);
+        }
+
         // ------------------------------------------------------------------ the task's side (the only writer) ----
 
         private static State StateOf(int id)
@@ -173,8 +201,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Her bound: at home inside the base (Home); a follower away from home with her leader within StandOffFollowerLeash,
-        /// within that of him (Leader); anyone else away from home - a runner, a follower with no leader near - Free (the short
-        /// steps alone).
+        /// within that of him (Leader); anyone else away from home - a runner, a follower with no leader near - Free (the same
+        /// steps, with no other bound).
         /// </summary>
         private static ScRetreat.Region BoundOf(EntityAlive e, Member m, out EntityPlayer leader, out string text)
         {
@@ -190,7 +218,7 @@ namespace SurvivorCommunity
                     return ScRetreat.Region.Leader;
                 }
             }
-            text = ScRunners.IsPhysical(m) ? "on " + ScMedic.Her(e) + " run, short steps" : "away from home, short steps";
+            text = ScRunners.IsPhysical(m) ? "on " + ScMedic.Her(e) + " run, no bound" : "away from home, no bound";
             return ScRetreat.Region.Free;
         }
 
@@ -223,12 +251,16 @@ namespace SurvivorCommunity
             {
                 st.WaitSince = waitSince;                           // a new wait: a new episode
                 st.Counted = st.ClearCounted = false;
+                st.GainAt = 0f;
             }
             st.Walking = false;
             st.Retried = false;
             float dist;
             EntityAlive t = Pursuer(self, out dist);
             if (t == null) { Clear(self, st, now); return false; }
+            // F4: the gain clock runs across the steps of one wait (a step that ends in under GainSeconds does not reset it)
+            if (st.GainAt <= 0f) { st.GainAt = now + GainSeconds; st.GainGap = dist; }
+            else if (now >= st.GainAt && !Gained(self, st, t, dist, now)) return false;
             EntityPlayer leader;
             string bound;
             ScRetreat.Region region = BoundOf(self, m, out leader, out bound);
@@ -282,7 +314,9 @@ namespace SurvivorCommunity
             float now = Time.time;
             st.WalkAt = now;
             float dist;
-            if (Pursuer(self, out dist) == null) { Clear(self, st, now); return false; }
+            EntityAlive t = Pursuer(self, out dist);
+            if (t == null) { Clear(self, st, now); return false; }
+            if (now >= st.GainAt && st.GainAt > 0f && !Gained(self, st, t, dist, now)) return false;
             if (ScRunners.XZ(self.position, st.Point) <= ArriveXZ) return false;
             if (self.getNavigator() != null && self.getNavigator().noPathAndNotPlanningOne())
             {
@@ -298,6 +332,34 @@ namespace SurvivorCommunity
                 return false;
             }
             return true;
+        }
+
+        /// <summary>
+        /// F4: the gain check, due now - the nearest enemy after her (t, dist) GainNeed farther than at the last check: the clock
+        /// runs on (true). Else it keeps up with her: this wait is marked heal now (heal-now-gained) and ScMedic is asked at once
+        /// (false: the walk ends).
+        /// </summary>
+        private static bool Gained(EntityAlive self, State st, EntityAlive t, float dist, float now)
+        {
+            if (dist >= st.GainGap + GainNeed)
+            {
+                st.GainGap = dist;
+                st.GainAt = now + GainSeconds;
+                return true;
+            }
+            st.Walking = false;
+            st.HealNowWait = st.WaitSince;
+            st.HealNowUntil = now + HealNowSeconds;
+            st.HealNowWhy = Who(t) + " keeps up with " + ScMedic.HerObj(self) + " (" + st.GainGap.ToString("0.#", CultureInfo.InvariantCulture) + " m to "
+                            + dist.ToString("0.#", CultureInfo.InvariantCulture) + " m in " + GainSeconds.ToString("0", CultureInfo.InvariantCulture) + " s)";
+            keptUp++;
+            Patches_Xnpc.Count("heal-now-gained");
+            Note(st, "KEPT UP (" + Who(t) + ") - healed at once", now);
+            ScLog.Out(ScMedic.BodyName(self) + " cannot shake off " + Who(t) + " (" + st.GainGap.ToString("0.#", CultureInfo.InvariantCulture) + " m to "
+                      + dist.ToString("0.#", CultureInfo.InvariantCulture) + " m in " + GainSeconds.ToString("0", CultureInfo.InvariantCulture) + " s) - "
+                      + ScMedic.She(self) + " heals now (the Fable review, F4)");
+            ScMedic.CheckSoon(self.entityId);
+            return false;
         }
 
         /// <summary>She is clear of everything after her within MedicSafeDistance + ClearMargin: rest, and the item now.</summary>
@@ -376,7 +438,7 @@ namespace SurvivorCommunity
         public static string Report()
         {
             if (!ScConfig.HealBackOff) return "OFF (HealBackOff false: round k2's hold with the MedicMaxWait / 25% exception)";
-            return "on - " + episodes + " back-off(s) to heal, " + clears + " got clear, " + cornered + " cornered (healed at once) this session";
+            return "on - " + episodes + " back-off(s) to heal, " + clears + " got clear, " + cornered + " cornered and " + keptUp + " kept up with (healed at once) this session";
         }
     }
 }

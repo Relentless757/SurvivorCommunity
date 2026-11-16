@@ -24,19 +24,32 @@ namespace SurvivorCommunity
     ///     straight back, then 25, 50 and 75 degrees either side - the straightest valid point of the first step that has one.
     ///     Valid (Candidate): a floor within 2 cells of her level, at home, standable and not on her unreachable list, a clear
     ///     straight walk chest high (no wall, door or glass in it), out of reach (BackupKeepDistanceMax) of every enemy, and a
-    ///     walk that passes no other enemy ahead of her within 1.5 m. A point she failed to reach (the task started again from the
-    ///     same enemy within 1 s with her not 0.3 m on) is set aside for 10 s.
+    ///     walk that passes no other enemy ahead of her within 1.5 m. A point she failed to reach (its run ended on its own - the
+    ///     navigator had no path - with her not 0.3 m on and not at the point) is set aside for 10 s.
     ///   - 0-XNPCCore's own Start then runs untouched (its bookkeeping, SCore's Start postfix, its pace); Patch_BoundPoint answers
     ///     SC's point at the one place the task turns its point into the path's goal, SCore's GetMoveToLocation, so the path
     ///     goes there.
     ///   - No valid point at all: the task ends at once with no path, as 0-XNPCCore's own failure does, and ScBackOffRoom scores
     ///     both back-offs 0 against that enemy for BackOffNoPointSeconds - one decision: the shot (6) takes it, then the
     ///     back-off is asked again.
+    ///   - The Fable review of k1+k2 (F1): a back-off that gains nothing hands the beat to the shot. BackupKeepDistance (8) beats
+    ///     the shot (6) inside its band and its task holds no shot, so against a feral that keeps pace she walked backward
+    ///     forever. Patch_BoundUpdate (the task's Update) tests the gain GainSeconds (1.5 s) into a bounded back-off and when it
+    ///     ends: the enemy still inside the band, or the gap not GainNeed (1 m) larger than at its start - ScBackOffRoom scores
+    ///     0 against that enemy for StandOffShootSeconds (HandToShot; backoff-no-gain) and the walk stops: she shoots, then
+    ///     the back-off is asked again. rt1's stand-off stamps the same key for its own shooting beats (ScRetreat.Cornered
+    ///     when a threat gains on her, ShootBetweenSteps), so 0-XNPCCore's back-off does not take those beats either.
+    ///   - F5: a point counts as not reached only when its run ended on its own (its Update found no path, seen by
+    ///     Patch_BoundUpdate, which sets it aside there and then) - not when another action took the decision, as the old test
+    ///     (a restart within 1 s) also counted; that test is kept only when the Update is not bound.
+    ///   - F6: the walk needs a floor under it, sampled every FloorStep (1 m), each within 1 cell of the last (a pit, a drop or
+    ///     a ledge between her and the point fails it).
     /// Followers away from home, strangers, enclave people, raiders and every other NPC keep 0-XNPCCore's back-off as it is.
-    /// The two patches are bound by name (no reference to Voice Control's DLL), resolved in Prepare and off together, with one
-    /// log line, when either is missing. BackOffHome=false: no bound (0-XNPCCore's own back-off at home too).
-    /// The task's Start is the only writer of this class's state (the UAI considerations at the end of this file only read it).
-    /// Main thread only.
+    /// The Start and GetMoveToLocation patches are bound by name (no reference to Voice Control's DLL), resolved in Prepare and
+    /// off together, with one log line, when either is missing; the Update patch (F1, F5) is off on its own, with one warning.
+    /// BackOffHome=false: no bound (0-XNPCCore's own back-off at home too).
+    /// The task's Start and Update (and HandToShot, from the stand-off) are the only writers of this class's state (the UAI
+    /// considerations at the end of this file only read it). Main thread only.
     /// </summary>
     public static class ScBackOff
     {
@@ -52,12 +65,27 @@ namespace SurvivorCommunity
         private const float PassClear = 1.5f, PassAhead = 0.5f;
         /// <summary>Other enemies within this of a point count against it (the pick's score).</summary>
         private const float CrowdRadius = 6f;
-        /// <summary>A start this soon after the last, with her this little farther on, means the last point was not reached.</summary>
+        /// <summary>
+        /// A run that ended on its own with her this little farther on (F5) - or, without the Update patch, a start this soon after
+        /// the last - means the last point was not reached.
+        /// </summary>
         private const float StallSeconds = 1f, StallMove = 0.3f;
         /// <summary>A point she did not reach is set aside this long, and so is every point within BadRadius of it.</summary>
         private const float BadSeconds = 10f, BadRadius = 1.2f;
         /// <summary>A member's shortened or no-point line is logged (verbose) at most this often.</summary>
         private const float LogSeconds = 2f;
+        /// <summary>
+        /// The Fable review (F1): a bounded back-off is judged this long after its start (and again when it ends) - the enemy still
+        /// inside the band, or the gap not GainNeed larger than at the start, hands the beat to the shot.
+        /// </summary>
+        private const float GainSeconds = 1.5f, GainNeed = 1f;
+        /// <summary>
+        /// F5: ScBackupKeepBand's band is this much wider for the back-off already running against that enemy (hysteresis: it
+        /// starts within BackupKeepDistanceMax and lets go this much beyond it, so it does not flip with the shot at the edge).
+        /// </summary>
+        internal const float BandHysteresis = 0.5f;
+        /// <summary>F6: the floor under the walk is sampled this often (meters), each sample within 1 cell of the last.</summary>
+        private const float FloorStep = 1f;
 
         /// <summary>Her last bounded back-off (Start), the points she did not reach, and when she was last logged.</summary>
         internal sealed class Last
@@ -67,6 +95,13 @@ namespace SurvivorCommunity
             public int Target = -1;
             public string Why = "";
             public bool NoPoint;
+            /// <summary>
+            /// F1/F5: the gap to Target when the bounded run started; it is running (its Start set it, its Update clears it at
+            /// its end); judged already at GainSeconds; and whether its last run ended on its own (its Update found no path),
+            /// when.
+            /// </summary>
+            public float GapAtStart, EndedAt;
+            public bool Running, GainChecked, EndedOwn;
             public readonly List<Vector3> Bad = new List<Vector3>();
             public readonly List<float> BadUntil = new List<float>();
         }
@@ -77,7 +112,7 @@ namespace SurvivorCommunity
         private static readonly List<Entity> near = new List<Entity>();
         private static readonly List<Vector3> enemies = new List<Vector3>();
         private static float nextPrune;
-        private static int bounded, shortened, wide, noPoint, unreached, unapplied;
+        private static int bounded, shortened, wide, noPoint, unreached, unapplied, noGain, handed;
 
         /// <summary>The point Patch_BoundStart picked, for Patch_BoundPoint within the same Start call (main thread).</summary>
         private static int scopeId = -1;
@@ -91,7 +126,7 @@ namespace SurvivorCommunity
             near.Clear();
             enemies.Clear();
             nextPrune = 0f;
-            bounded = shortened = wide = noPoint = unreached = unapplied = 0;
+            bounded = shortened = wide = noPoint = unreached = unapplied = noGain = handed = 0;
             scopeId = -1;
             scopeUsed = false;
         }
@@ -113,11 +148,30 @@ namespace SurvivorCommunity
 
         private static long Key(int self, int target) { return ((long)self << 32) | (uint)target; }
 
-        /// <summary>ScBackOffRoom: SC found no point inside the base to back off to from this enemy less than BackOffNoPointSeconds ago.</summary>
+        /// <summary>
+        /// ScBackOffRoom: the shot has this enemy's beat - SC found no point inside the base to back off to from it less than
+        /// BackOffNoPointSeconds ago, or (the Fable review, F1) her last back-off from it gained nothing, or rt1's stand-off is in
+        /// a shooting beat against it (HandToShot, StandOffShootSeconds). ScArms reads it too (F7: a melee swap while reloading).
+        /// </summary>
         public static bool NoPointFor(EntityAlive self, EntityAlive target)
         {
             float until;
             return self != null && target != null && noPointUntil.TryGetValue(Key(self.entityId, target.entityId), out until) && Time.time < until;
+        }
+
+        /// <summary>
+        /// The Fable review (F1): the shot has the next seconds against target - ScBackOffRoom scores both of 0-XNPCCore's
+        /// back-offs 0 against it until then (never shortening a window already set). The bounded task's gain test, and rt1's
+        /// stand-off (ScRetreat.Cornered when the threat gains on her, ScRetreat.ShootBetweenSteps) for its shooting beats.
+        /// </summary>
+        internal static void HandToShot(EntityAlive self, EntityAlive target, float seconds)
+        {
+            if (self == null || target == null || seconds <= 0f) return;
+            long k = Key(self.entityId, target.entityId);
+            float until = Time.time + seconds, had;
+            if (noPointUntil.TryGetValue(k, out had) && had >= until) return;
+            noPointUntil[k] = until;
+            handed++;
         }
 
         // ------------------------------------------------------------------ the pick ----
@@ -162,8 +216,9 @@ namespace SurvivorCommunity
         /// (round hl1's AtHome) for region Home, within StandOffFollowerLeash of leader for region Leader (rt1's follower away
         /// from home), no bound for region Free (round k2b: a back-off to heal away from home, its steps short); standable and not
         /// on her unreachable list; out of reach (BackupKeepDistanceMax, XZ) of every enemy
-        /// gathered, the threat included; the straight walk passing no other enemy ahead of her within PassClear; and no block in that walk
-        /// chest high (ScShelter.ClearLine with glass and bars: she backs into the room she is in, never through a shut door).
+        /// gathered, the threat included; the straight walk passing no other enemy ahead of her within PassClear; a floor under
+        /// that walk every FloorStep, each within 1 cell of the last (F6: no pit, drop or ledge on the way); and no block in that
+        /// walk chest high (ScShelter.ClearLine with glass and bars: she backs into the room she is in, never through a shut door).
         /// The enemies are Gather's list (index 0 the threat). why: the first rule it fails.
         /// </summary>
         internal static bool Candidate(World w, EntityAlive self, Vector3 me, Vector3 d, float s, int yRef, ScRetreat.Region region, EntityPlayer leader,
@@ -204,9 +259,36 @@ namespace SurvivorCommunity
                     if (Vector3.Dot(v, walk) > PassAhead && ScRunners.PassDistance(me, pc, foes[i]) < PassClear) { why = "the walk passes another enemy"; return false; }
                 }
             }
+            if (!FloorUnderWalk(w, me, pc, yRef, y)) { why = "no floor under the walk (a pit, a drop or a ledge)"; return false; }
             Vector3 up = new Vector3(0f, WalkLineHeight, 0f);
             if (!ScShelter.ClearLine(w, me + up, pc + up, true)) { why = "a wall, door or glass in the way"; return false; }
             return true;
+        }
+
+        /// <summary>
+        /// F6: a standable floor under the straight walk from me to the point every FloorStep, each sample within 1 cell of the
+        /// last (her own level first, then one down, then one up), and the point's own floor within 1 cell of the last sample.
+        /// </summary>
+        private static bool FloorUnderWalk(World w, Vector3 me, Vector3 pc, int yRef, int yEnd)
+        {
+            Vector3 walk = pc - me;
+            walk.y = 0f;
+            float len = walk.magnitude;
+            int n = Mathf.CeilToInt(len / FloorStep);
+            int yPrev = yRef, lx = Mathf.FloorToInt(me.x), lz = Mathf.FloorToInt(me.z);
+            for (int k = 1; k < n; k++)
+            {
+                Vector3 q = me + walk * (k / (float)n);
+                int x = Mathf.FloorToInt(q.x), z = Mathf.FloorToInt(q.z);
+                if (x == lx && z == lz) continue;
+                lx = x;
+                lz = z;
+                if (ScCommunity.Standable(w, x, yPrev, z)) continue;
+                if (ScCommunity.Standable(w, x, yPrev - 1, z)) { yPrev--; continue; }
+                if (ScCommunity.Standable(w, x, yPrev + 1, z)) { yPrev++; continue; }
+                return false;
+            }
+            return Math.Abs(yEnd - yPrev) <= 1;
         }
 
         /// <summary>
@@ -303,7 +385,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ the task's Start (the only writer) ----
 
-        private static MethodBase startTarget, pointTarget;
+        private static MethodBase startTarget, pointTarget, updateTarget;
         private static FieldInfo maxField;
         private static bool bindTried, bindOk;
 
@@ -312,6 +394,13 @@ namespace SurvivorCommunity
         {
             Type t = ScTypes.Find("UAI.UAITaskBackupFromTargetPaced");
             return t != null ? AccessTools.DeclaredMethod(t, "Start", new[] { typeof(UAI.Context) }) : null;
+        }
+
+        /// <summary>F1/F5: the same task's Update(Context) - where it stops itself when the navigator has no path - or null.</summary>
+        public static MethodBase UpdateTarget()
+        {
+            Type t = ScTypes.Find("UAI.UAITaskBackupFromTargetPaced");
+            return t != null ? AccessTools.DeclaredMethod(t, "Update", new[] { typeof(UAI.Context) }) : null;
         }
 
         /// <summary>SCore's GetMoveToLocation(Context, Vector3, float), where that task turns its point into the path's goal (SCore 3.4).</summary>
@@ -344,6 +433,9 @@ namespace SurvivorCommunity
                     ScLog.Err("SCoreUtils.GetMoveToLocation(Context, Vector3, float) not found (SCore update?) - 0-XNPCCore's back-off is NOT kept inside the base for members at home (round k1)");
                     return false;
                 }
+                updateTarget = UpdateTarget();
+                if (updateTarget == null)
+                    ScLog.Warn("UAITaskBackupFromTargetPaced.Update(Context) not found (Voice Control update?) - members' back-offs at home are not judged for gain, and a point counts as not reached on any quick restart");
                 maxField = AccessTools.DeclaredField(startTarget.DeclaringType, "maxFleeDistance");
                 if (maxField == null || maxField.IsStatic || maxField.FieldType != typeof(float))
                 {
@@ -378,7 +470,10 @@ namespace SurvivorCommunity
         {
             if (!ScConfig.BackOffHome || ctx == null) return true;
             EntityAlive self = ctx.Self;
-            if (self == null || self.isEntityRemote || !AppliesTo(self)) return true;
+            if (self == null) return true;
+            Last prev;
+            if (lasts.TryGetValue(self.entityId, out prev)) prev.Running = false;    // a new run: the gain test is the new one's
+            if (self.isEntityRemote || !AppliesTo(self)) return true;
             EntityAlive t = UAI.UAIUtils.ConvertToEntityAlive(ctx.ActionData.Target);
             if (t == null || t == self) return true;                          // its own "no target" failure, as it is
             float now = Time.time;
@@ -389,16 +484,11 @@ namespace SurvivorCommunity
             float max = MaxStep(task);
             if (max < 5f) return true;                                        // its 3 m "steer" branch (max_distance under 5): as it is
             Last l = LastOf(self.entityId);
-            // started again from the same enemy within StallSeconds with her not StallMove on: the last point came to nothing (no
-            // path) - set aside
-            if (l.At > 0f && !l.NoPoint && l.Target == t.entityId && now - l.At < StallSeconds && ScRunners.XZ(self.position, l.From) < StallMove
-                && ScRunners.XZ(self.position, l.Point) > 1f)
-            {
-                l.Bad.Add(l.Point);
-                l.BadUntil.Add(now + BadSeconds);
-                unreached++;
-                Patches_Xnpc.Count("backoff-unreached");
-            }
+            // F5: a point she did not reach is set aside where its run ends on its own (BoundUpdate). Only without that patch
+            // the old test stands: started again from the same enemy within StallSeconds with her not StallMove on
+            if (updateTarget == null && l.At > 0f && !l.NoPoint && l.Target == t.entityId && now - l.At < StallSeconds
+                && ScRunners.XZ(self.position, l.From) < StallMove && ScRunners.XZ(self.position, l.Point) > 1f)
+                SetAside(l, now);
             Vector3 p;
             float step, angle;
             string why;
@@ -414,6 +504,10 @@ namespace SurvivorCommunity
                 l.Target = t.entityId;
                 l.NoPoint = false;
                 l.Why = "";
+                l.GapAtStart = ScRunners.XZ(self.position, t.position);
+                l.Running = true;
+                l.GainChecked = false;
+                l.EndedOwn = false;
                 bounded++;
                 Patches_Xnpc.Count("backoff-bounded");
                 bool shorter = step < LongestStep(max) - 0.01f;
@@ -443,6 +537,8 @@ namespace SurvivorCommunity
             l.From = self.position;
             l.Target = t.entityId;
             l.NoPoint = true;
+            l.Running = false;
+            l.EndedOwn = false;
             l.Why = why ?? "";
             if (now < l.NextLog) return;
             l.NextLog = now + LogSeconds;
@@ -455,6 +551,74 @@ namespace SurvivorCommunity
         {
             ctx.ActionData.Started = true;
             ctx.ActionData.Executing = false;
+        }
+
+        /// <summary>
+        /// Patch_BoundUpdate's work, for a bounded run against its own enemy only (the Fable review, F1 and F5). Its end - the
+        /// task's own Update stops it when the navigator has no path (arrived, or none found) - is noted (EndedOwn: the stall
+        /// test) and judged; GainSeconds in, it is judged once more and, gaining nothing, stopped here (the task's own Stop
+        /// cancels the path) with the beat handed to the shot. True: the task's Update runs.
+        /// </summary>
+        private static bool BoundUpdate(UAI.UAITaskBase task, UAI.Context ctx)
+        {
+            if (!ScConfig.BackOffHome || ctx == null) return true;
+            EntityAlive self = ctx.Self;
+            Last l;
+            if (self == null || self.isEntityRemote || !lasts.TryGetValue(self.entityId, out l) || !l.Running) return true;
+            EntityAlive t = UAI.UAIUtils.ConvertToEntityAlive(ctx.ActionData.Target);
+            if (t == null || t.entityId != l.Target) return true;
+            float now = Time.time;
+            var nav = self.getNavigator();
+            if (nav != null && nav.noPathAndNotPlanningOne())
+            {
+                l.Running = false;
+                l.EndedOwn = true;
+                l.EndedAt = now;
+                // F5: ended on its own with her not StallMove on and not at the point - that point had no path: set aside
+                if (ScRunners.XZ(self.position, l.From) < StallMove && ScRunners.XZ(self.position, l.Point) > 1f) SetAside(l, now);
+                GainTest(self, t, l, now, "at its end");
+                return true;                                                  // its own Update stops it
+            }
+            if (l.GainChecked || now - l.At < GainSeconds) return true;
+            l.GainChecked = true;
+            if (GainTest(self, t, l, now, F1(GainSeconds) + " s in")) return true;
+            l.Running = false;
+            task.Stop(ctx);
+            return false;
+        }
+
+        /// <summary>A point she did not reach: set aside BadSeconds (with every point within BadRadius of it), counted backoff-unreached.</summary>
+        private static void SetAside(Last l, float now)
+        {
+            l.Bad.Add(l.Point);
+            l.BadUntil.Add(now + BadSeconds);
+            unreached++;
+            Patches_Xnpc.Count("backoff-unreached");
+        }
+
+        /// <summary>
+        /// F1: did the bounded back-off from t gain - t out of the band (BackupKeepDistanceMax, 3D as the band measures) and the
+        /// gap (XZ) at least GainNeed larger than at its start? No: HandToShot for StandOffShootSeconds (BackOffNoPointSeconds
+        /// when that is 0), counted backoff-no-gain, and false.
+        /// </summary>
+        private static bool GainTest(EntityAlive self, EntityAlive t, Last l, float now, string when)
+        {
+            if (t.IsDead()) return true;
+            float band = ScConfig.BackupKeepDistanceMax;
+            bool inBand = (t.position - self.position).sqrMagnitude <= band * band;
+            float gap = ScRunners.XZ(self.position, t.position);
+            if (!inBand && gap >= l.GapAtStart + GainNeed) return true;
+            float secs = ScConfig.StandOffShootSeconds > 0f ? ScConfig.StandOffShootSeconds : ScConfig.BackOffNoPointSeconds;
+            HandToShot(self, t, secs);
+            noGain++;
+            Patches_Xnpc.Count("backoff-no-gain");
+            if (now >= l.NextLog)
+            {
+                l.NextLog = now + LogSeconds;
+                ScLog.Verbose(ScRetreat.Name(self) + "'s back-off from " + Who(t) + " gained nothing " + when + " (" + F1(l.GapAtStart) + " m to " + F1(gap) + " m"
+                              + (inBand ? ", still within " + F1(band) + " m" : "") + ") - the shot takes over for " + F1(secs) + " s (the Fable review, F1)");
+            }
+            return false;
         }
 
         private static string Who(EntityAlive t) { return t.EntityName + " (" + t.entityId + ")"; }
@@ -507,6 +671,34 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// The Fable review (F1, F5): 0-XNPCCore's back-off task's Update (bound by name with the others; off on its own, with
+        /// one warning, when only it is missing) - BoundUpdate notes a bounded run's own end and judges its gain.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_BoundUpdate
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bind() && updateTarget != null; }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return updateTarget; }
+
+            [HarmonyPrefix]
+            public static bool Prefix(UAI.UAITaskBase __instance, UAI.Context _context)
+            {
+                try
+                {
+                    return BoundUpdate(__instance, _context);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("backoff-update", e);
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>
         /// Round k1: SCore's GetMoveToLocation - inside Patch_BoundStart's scope, for that member only, the answer is SC's point as
         /// it is (a standable cell's center at her feet: no ground snap needed), and SCore's body is skipped - it would stop a
         /// point within 5 m of her 1 m short, which turns a 3 m step into 2 m and can end it back inside the enemy's reach. One
@@ -548,8 +740,10 @@ namespace SurvivorCommunity
             if (!ScConfig.BackOffHome) return "OFF (BackOffHome=false: 0-XNPCCore's own back-off at home, unbounded); members back off within " + F1(ScConfig.BackupKeepDistanceMax) + " m";
             return (bindOk ? "on" : "NOT BOUND (see the log)") + " - members at home back off inside the base, steps " + ScConfig.BackOffStepsText() + " m on 7 directions; "
                    + bounded + " bounded (" + shortened + " shortened, " + wide + " wider than 25 degrees), " + noPoint + " with no point (the shot took over for "
-                   + F1(ScConfig.BackOffNoPointSeconds) + " s), " + unreached + " point(s) not reached, " + unapplied + " not applied; members back off within "
-                   + F1(ScConfig.BackupKeepDistanceMax) + " m (0-XNPCCore's own band is 4) - counters backoff-* in the hook list above";
+                   + F1(ScConfig.BackOffNoPointSeconds) + " s), " + noGain + " that gained nothing (the shot took over for " + F1(ScConfig.StandOffShootSeconds) + " s), "
+                   + handed + " beat(s) handed to the shot in all, " + unreached + " point(s) not reached, " + unapplied + " not applied"
+                   + (updateTarget == null ? " (NO GAIN TEST: the task's Update not bound)" : "") + "; members back off within "
+                   + F1(ScConfig.BackupKeepDistanceMax) + " m (" + F1(ScConfig.BackupKeepDistanceMax + BandHysteresis) + " once backing off; 0-XNPCCore's own band is 4) - counters backoff-* in the hook list above";
         }
 
         /// <summary>One line for sc xnpc &lt;id&gt;.</summary>
@@ -567,11 +761,12 @@ namespace SurvivorCommunity
                 sb.Append("; last ").Append((now - l.At).ToString("0.0", CultureInfo.InvariantCulture)).Append(" s ago from #").Append(l.Target).Append(": ");
                 if (l.NoPoint) sb.Append("NO POINT (").Append(l.Why).Append(')');
                 else sb.Append(F1(l.Step)).Append(" m, ").Append(l.Angle.ToString("0", CultureInfo.InvariantCulture)).Append(" degrees, to ").Append(ScRetreat.Cell(l.Point));
+                if (!l.NoPoint) sb.Append(l.Running ? ", RUNNING (from " + F1(l.GapAtStart) + " m)" : l.EndedOwn ? ", ended on its own" : ", stopped");
                 if (l.Bad.Count > 0) sb.Append("; ").Append(l.Bad.Count).Append(" point(s) set aside (not reached)");
             }
             int waiting = 0;
             foreach (var kv in noPointUntil) if ((int)(kv.Key >> 32) == e.entityId && now < kv.Value) waiting++;
-            if (waiting > 0) sb.Append("; the shot has the next decision against ").Append(waiting).Append(" enemy(ies) (no point)");
+            if (waiting > 0) sb.Append("; the shot has the next decision against ").Append(waiting).Append(" enemy(ies) (no point, no gain, or a stand-off's shooting beat)");
             return sb.ToString();
         }
 
@@ -587,8 +782,9 @@ namespace UAI
     /// Round k1: BackupKeepDistance's band for the community's members. 0-XNPCCore scores that back-off (8) within 4 m of the enemy
     /// (its TargetDistance, max 4) and its task holds no shot (round n07), so a gun holder inside 4 m only ever walked away. For
     /// a member this is 1 only within BackupKeepDistanceMax (2.5 m, 3D as TargetDistance measures): from there to 4 m the shot (6)
-    /// wins. 1 for every other NPC (0-XNPCCore's band as it is) and for a target that is no entity. A pure read; a throw is
-    /// logged once and means 1.
+    /// wins. The Fable review (F5): for the back-off already running against this very target the band is BandHysteresis
+    /// (0.5 m) wider, so a walk that is opening the gap is not cut off at 2.5 m and started again at 2.4. 1 for every other NPC
+    /// (0-XNPCCore's band as it is) and for a target that is no entity. A pure read; a throw is logged once and means 1.
     /// </summary>
     public class UAIConsiderationScBackupKeepBand : UAIConsiderationBase
     {
@@ -601,6 +797,8 @@ namespace UAI
                 EntityAlive t = UAIUtils.ConvertToEntityAlive(target);
                 if (t == null) return 1f;
                 float max = ScConfig.BackupKeepDistanceMax;
+                ActionData ad = _context.ActionData;
+                if (ad.Executing && ad.Action != null && ad.Action.Name == "BackupKeepDistance" && ReferenceEquals(ad.Target, target)) max += ScBackOff.BandHysteresis;
                 return UAIUtils.DistanceSqr(self.position, t.position) <= max * max ? 1f : 0f;
             }
             catch (System.Exception e)
@@ -613,9 +811,10 @@ namespace UAI
 
     /// <summary>
     /// Round k1: 0 against an enemy for BackOffNoPointSeconds after SC found no point inside the base to back off to from it
-    /// (ScBackOff, on 0-XNPCCore's task's Start), else 1 - everyone but the community's members at home is always 1. On both of
+    /// (ScBackOff, on 0-XNPCCore's task's Start), else 1 - everyone but the community's members is always 1. On both of
     /// 0-XNPCCore's back-offs: the shot (6) takes that decision instead of a back-off that cannot go anywhere, then the back-off
-    /// is asked again. A pure read; a throw is logged once and means 1.
+    /// is asked again. The Fable review (F1): also for StandOffShootSeconds after a back-off from it gained nothing, and through
+    /// rt1's stand-off shooting beats against it (ScBackOff.NoPointFor). A pure read; a throw is logged once and means 1.
     /// </summary>
     public class UAIConsiderationScBackOffRoom : UAIConsiderationBase
     {

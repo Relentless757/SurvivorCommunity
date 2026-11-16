@@ -1255,11 +1255,13 @@ Weapons
   and back away as they shoot instead of switching to melee.
 - Keeping their distance: with a gun in hand, your members back away from an enemy within 2.5 m and shoot anything
   farther off. At home they never back out of the base: the step back (10, 6 or 3 m) always ends inside the home zone,
-  on a floor with nothing in the way and out of every zombie's reach; with no such spot they shoot. Away from home they
+  on a floor with nothing in the way and out of every zombie's reach; with no such spot they shoot. A back-off that does
+  not get them away - the zombie keeps pace - stops after about 1.5 seconds and they shoot instead. Away from home they
   back off as the NPC framework does. "BackOffHome" and the other "BackOff..." settings (section 20) tune it.
 - Team strength decides melee (your members): each one weighs her side - her Fighting stars, health and weapon, the
-  other members near her, and you (you count double, but only while you are fighting: a zombie near her is after you, or
-  you hit one in the last 5 seconds) - against the awake enemies within 15 m (during a horde at the
+  other members near her, and you (you count double, but only while you are fighting: you hit a zombie near her in the
+  last 5 seconds - a kill counts too; a zombie that is only after you does not) - against the awake enemies within 15 m
+  (during a horde at the
   base, the whole defended area). In a fight your side can win she fights with her melee weapon: she puts her gun away
   for it, does not shoot while the zombie comes in, does not back away from it, and stays on melee after the swap up
   close; it takes one more enemy on her to count as "several". She uses the gun as before below half health (melee again
@@ -1315,13 +1317,14 @@ Healing and armor
 - They don't bandage with a zombie on them - they back off first. While an enemy that is after her is within 3 m, a
   member backs away from it (10, 6 or 3 m, inside the base at home, near you when she follows you) until nothing after
   her is within 4 m, then uses the item. With no room to back off, in her shelter room, on watch or told to stay, she
-  uses it at once; and if backing off for 6 s does not shake the zombie off, she uses it anyway ("HealBackOff",
-  "MedicSafeDistance", "MedicMaxWait"). With "HealBackOff" false she keeps her weapon and fights instead, and uses it
+  uses it at once; as soon as the zombie keeps up with her (2 s without gaining 1 m) she uses it too, and after 6 s held
+  without getting clear, anyway ("HealBackOff", "MedicSafeDistance", "MedicMaxWait"). With "HealBackOff" false she keeps her weapon and fights instead, and uses it
   only once the zombie is dead, gone or farther off - or after 6 s under a quarter of her health. Under half her health
   she uses a first aid kit before a first aid bandage.
-- They recover slowly out of combat. With no awake enemy within 30 m a member regains 0.2 health a second, up to 60% of
-  her health; above that only medical items heal ("RegenOutOfCombat" and the "Regen..." settings). Raiders, enclave
-  people and strangers don't.
+- They recover slowly out of combat. While nothing threatens her a member regains 0.2 health a second, up to 60% of her
+  health; above that only medical items heal ("RegenOutOfCombat" and the "Regen..." settings). Only a threat to her
+  holds it: a zombie within 30 m that is after her or can see her, or any zombie within 12 m - so it also helps in a lull,
+  with zombies behind walls or chasing someone else farther off. Raiders, enclave people and strangers don't.
 - Their armor protects them at half the rating it would give you. It does not break.
 
 Looks
@@ -1625,7 +1628,9 @@ NPCs and voices
   wait only under 25% health
 - RegenOutOfCombat = true: Members regain health slowly with no enemy near; false: only items heal
 - RegenRatePerSecond / RegenCapShare / RegenEnemyRadius = 0.2 / 0.6 / 30: Health per second, the share of her health it
-  stops at, and how far (meters) an awake enemy holds it
+  stops at, and how far (meters) an awake enemy that is after her or sees her holds it
+- RegenNearRadius = 12: Any awake enemy this close (meters) holds it too, after her or not; 0: only the ones after her or
+  seeing her
 - ShootingSkill = true: Shooting stars decide NPC accuracy
 - Overwhelmed = true: NPCs keep shooting when several enemies are on them
 - TeamMelee = true: Members fight with their melee weapon in a fight their side can win (section 15); false: as before
@@ -1633,8 +1638,8 @@ NPCs and voices
 - TeamLowHealth / TeamLowHealthBack = 0.5 / 0.6: Below this share of her health a member uses the gun again; melee again
   from the second
 - TeamPlayerWeight = 2: How much you count for your side while you fight (a 1-star member counts 1)
-- TeamPlayerFightingSeconds = 5: You count only while a zombie near the member is after you or you hit one in this many
-  seconds; standing by you count 0
+- TeamPlayerFightingSeconds = 5: You count only for this many seconds after you hit a zombie near the member (a kill
+  too); standing by, or only targeted, you count 0
 - BackOffHome = true: At home a member with a gun backs off only to a spot inside the base; false: as the NPC framework
   does
 - BackOffSteps = 10, 6, 3: The steps back tried (meters), longest first
@@ -1642,7 +1647,8 @@ NPCs and voices
   framework's own is 4)
 - BackOffNoPointSeconds = 1: With no spot to back off to (or cornered while standing off) she shoots this long, then
   tries again
-- StandOffShootSeconds = 1.5: A hurt member standing off shoots this long between two short steps back
+- StandOffShootSeconds = 1.5: A hurt member standing off shoots this long between two short steps back; a member whose
+  back-off gained nothing shoots this long too
 - TeamThreatTags = walker:1, feral:2, radiated:3 ...: How much each kind of enemy counts (the comment in blocks.xml
   lists all of the "Team..." settings)
 - DialogLine = true: Show the NPC's line above your responses

@@ -341,7 +341,8 @@ namespace UAI
     /// retreat-backoff-shortened); a step that ends with the threat still inside StandOffMin - or a walk a feral gains on - is
     /// followed by StandOffShootSeconds of shooting (ScRetreat.ShootBetweenSteps); cornered lasts one decision
     /// (BackOffNoPointSeconds, it was 3 s), and meanwhile 0-XNPCCore's back-off (no longer gated off in a stand-off, kept
-    /// inside the base) and the shot take over.
+    /// inside the base) and the shot take over. The Fable review (F1): a beat after a threat gained on her, and a shooting beat
+    /// between steps, are the shot's alone - 0-XNPCCore's back-off from that threat waits as long (ScBackOff.HandToShot).
     /// </summary>
     public class UAITaskStandOffSC : UAITaskBase
     {
@@ -457,7 +458,7 @@ namespace UAI
                 if (gap >= ScRetreat.GapOf(self) - 1f || ScRunners.XZ(self.position, wk.Point) <= ArriveXZ)
                 {
                     Patches_Xnpc.Count("retreat-backoff-done");
-                    ScRetreat.BackedOff(self, gap);
+                    ScRetreat.BackedOff(self, gap, t);
                     walks.Remove(self.entityId);
                     Stop(_context);
                     return;
@@ -466,8 +467,8 @@ namespace UAI
                 {
                     if (gap < wk.GapAtCheck + GainNeed)
                     {
-                        ScRetreat.Cornered(self, t.EntityName + " (" + t.entityId + ") gains on " + ScRetreat.HerObj(self) + ": the gap " + gap.ToString("0.#") + " m did not grow 1 m in " + GainSeconds.ToString("0") + " s");
-                        ScRetreat.ShootBetweenSteps(self, gap);               // round k1: running from a feral is lost time - she shoots
+                        ScRetreat.Cornered(self, t.EntityName + " (" + t.entityId + ") gains on " + ScRetreat.HerObj(self) + ": the gap " + gap.ToString("0.#") + " m did not grow 1 m in " + GainSeconds.ToString("0") + " s", t);
+                        ScRetreat.ShootBetweenSteps(self, gap, t);            // round k1: running from a feral is lost time - she shoots
                         walks.Remove(self.entityId);
                         Stop(_context);
                         return;

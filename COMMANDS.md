@@ -77,12 +77,13 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   whole defended area during a horde at the base), matched or OUTMATCHED, what you counted in it (round k1: "you count 2
   x HpF (fighting)" or "you count 0 (not fighting)"; nothing when you are not in her area), and whether she is MELEE-LED
   or why not (on a run, on watch, Cowardly, your gun order, no melee weapon, hurt, raiders in the fight, outmatched). Its
-  second line states the rule: you count `TeamPlayerWeight` only while an enemy in her area is after you or you hit one
-  in the last `TeamPlayerFightingSeconds`. Read-only.
+  second line states the rule: you count `TeamPlayerWeight` only for `TeamPlayerFightingSeconds` after you hit an enemy
+  in her area (a kill counts too; an enemy that is only after you does not - only your hits count). Read-only.
 - **`sc team <id|name>`** — one member in full: the verdict and its age (STALE after 3 s), why she is or is not
   melee-led, a fresh count with every friend and enemy counted, its distance and weight and how the weight was reached
-  (stars, health, weapon; tag weight, health weight; ARMED, melee-unsafe; for you "fighting (you hit zombieX 0.4 s ago)",
-  "fighting (zombieX is after you)" or "NOT fighting ... = 0"), her target and whether it needs the gun, and
+  (stars, health, weapon; tag weight, health weight; ARMED, melee-unsafe; for you "fighting (you hit zombieX 0.4 s ago)"
+  or "NOT fighting (no hit of yours on an enemy in the area in the last 5 s) = 0"), her target and whether it needs the
+  gun, and
   her hand: what she holds, your weapon order, the melee-first clock, the 5 s swap hold, the overwhelmed gun hold, a
   target kept out of reach, and the overwhelmed count against its need (one more while melee-led). Read-only.
 - **`sc team <id|name> auto`** — clears your weapon orders on her (the weapon menu's, or "use your ..." by voice), so
@@ -106,13 +107,18 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   (2.5 m); farther out she shoots. At home the back-off's point is SC's, inside the base (`BackOffSteps` 10, 6, 3 m on 7
   directions); with none she shoots for `BackOffNoPointSeconds`.
 - **`sc xnpc`** — the line "back-offs (round k1): ..." with the totals: back-offs bounded (kept inside the base),
-  shortened (a shorter step than the longest), wider than 25 degrees, with no point (the shot took over), points not
-  reached and not applied. The same as counters in the hook list: `backoff-bounded`, `backoff-shortened`, `backoff-wide`,
-  `backoff-no-point`, `backoff-unreached` (a point the path could not reach, set aside 10 s), `backoff-unapplied` (should
-  stay 0: anything else means 0-XNPCCore changed its back-off).
+  shortened (a shorter step than the longest), wider than 25 degrees, with no point (the shot took over), that gained
+  nothing (the Fable review: still within 2.5 m, or the gap not 1 m larger, 1.5 s in or at the end - the shot took over
+  for `StandOffShootSeconds`), the beats handed to the shot in all (stand-off beats included), points not reached and not
+  applied. The same as counters in the hook list: `backoff-bounded`, `backoff-shortened`, `backoff-wide`,
+  `backoff-no-point`, `backoff-no-gain`, `backoff-unreached` (a point the path could not reach - only after a back-off
+  that ended on its own - set aside 10 s), `backoff-unapplied` (should stay 0: anything else means 0-XNPCCore changed its
+  back-off). `x5-cornered-reload-melee`: reloading with the shot holding her target's beat, 0-XNPCCore's swap to melee
+  was let through (she swings rather than stands idle).
 - **`sc xnpc <id|name>`** — the line "back-off (round k1): at home - kept inside the base" (or "away from home -
-  0-XNPCCore's own, unbounded"), and her last back-off: from whom, the step, the angle and the point, or NO POINT with why;
-  the points set aside; the enemies against which the shot has the next decision.
+  0-XNPCCore's own, unbounded"), and her last back-off: from whom, the step, the angle and the point, RUNNING / ended on
+  its own / stopped, or NO POINT with why; the points set aside; the enemies against which the shot has the next
+  decision (no point, no gain, or a stand-off's shooting beat).
 - A hurt member's stand-off (round rt1, `sc retreat`) uses the same steps when the full gap does not fit:
   `retreat-backoff-shortened`, and `retreat-backoff-shoot` for the shooting between two steps (`SHOOTING BETWEEN STEPS` in
   `sc retreat <name>`).
@@ -148,9 +154,10 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   `meds-regen-started` (a regeneration began), `meds-regen-capped` (one stopped at `RegenCapShare`).
 - Round k2b's counters (`sc meds`, also in `sc xnpc`): `heal-backoff` (she began backing off to heal; once per wait),
   `heal-backoff-clear` (she got clear; then the item), `heal-backoff-unreached` (a point she could not reach, set aside
-  10 s), `heal-now-cornered` (no room to back off: at once), `heal-now-timeout` (`MedicMaxWait` of backing off did not
-  get her clear: anyway), `heal-now-shelter` (in her shelter room: at once), `heal-now-post` (on watch or told to stay:
-  at once); and in `sc xnpc` only, `x5-heal-backoff-no-swap` (a weapon swap held while she backs off). `sc xnpc` also
+  10 s), `heal-now-cornered` (no room to back off: at once), `heal-now-gained` (the enemy kept up with her - the gap not
+  1 m larger in 2 s: at once), `heal-now-timeout` (held `MedicMaxWait` without getting clear: anyway; its line says
+  whether a back-off ran at all), `heal-now-shelter` (in her shelter room: at once), `heal-now-post` (on watch or told to
+  stay: at once); and in `sc xnpc` only, `x5-heal-backoff-no-swap` (a weapon swap held while she backs off). `sc xnpc` also
   prints the back-off totals.
 
 ## Retreat *(round rt1)*

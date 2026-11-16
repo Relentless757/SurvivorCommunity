@@ -234,7 +234,8 @@ meds" and "sc xnpc"): "meds-restock", "meds-restock-run", "meds-restock-console"
 "meds-refused-reserve", "meds-refused-full", "meds-refused-nothing", "meds-refused-mix", "meds-held-window",
 "meds-held-use", "meds-cooldown", "meds-place-failed"; at home each outcome is counted once per episode, not at every
 5 s check. Round k2b adds "heal-backoff", "heal-backoff-clear", "heal-backoff-unreached", "heal-now-cornered",
-"heal-now-timeout", "heal-now-shelter", "heal-now-post" and "x5-heal-backoff-no-swap". Example: "sc meds Gina give"
+"heal-now-gained", "heal-now-timeout", "heal-now-shelter", "heal-now-post" and "x5-heal-backoff-no-swap". Example: "sc
+meds Gina give"
 
 ("sc morale", "sc drinks" and "sc day" are in section 1.)
 
@@ -715,8 +716,9 @@ Team strength (round tm1): every loaded member's F (her side: her stars, health 
 double weight while you fight) against T (the awake enemies within 15 m; during a horde at the base, the whole defended
 area), MATCHED or OUTMATCHED, what you counted ("you count 0 (not fighting)" or "you count 2 x HpF (fighting)"), and
 MELEE-LED or why not (on a run, on watch, Cowardly, your gun order, no melee weapon, hurt, raiders in the fight,
-outmatched). A melee-led member fights with her melee weapon. Round k1: you count only while an enemy in her area is
-after you or you hit one in the last "TeamPlayerFightingSeconds" (5 s); standing by, you count 0.
+outmatched). A melee-led member fights with her melee weapon. Round k1: you count only for "TeamPlayerFightingSeconds"
+(5 s) after you hit an enemy in her area (a kill counts too; an enemy that is only after you does not); standing by, you
+count 0.
 
 sc team <id|name> [READ]
 ~~~~~~~~~~~~~~~~~~~~~~~~

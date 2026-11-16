@@ -584,7 +584,9 @@ namespace SurvivorCommunity
                 Add(t, "LLMService::SendStreamingChatRequest", Patches_VoiceControl.ChatRequestTarget());
                 Add(t, "PhraseTriggerHandler::OpenTraderInventory", Patches_VoiceControl.TradeTarget());
 #if SC_V34
-                // 3.4: ScAim - the gun stays up while Voice Control's paced back-off walks the NPC away (M11 fix 2)
+                // 3.4: ScAim - the gun stays up while Voice Control's paced back-off walks the NPC away (M11 fix 2); the Fable
+                // review of k1 (F1, F5): ScBackOff.Patch_BoundUpdate prefixes the same method (a bounded back-off's gain test, its
+                // own end)
                 Add(t, "UAITaskBackupFromTargetPaced::Update", ScAim.BackoffTarget());
                 // round k1: ScBackOff - for members at home that back-off goes to a point inside the base (its Start picks it,
                 // SCore's GetMoveToLocation takes it in)

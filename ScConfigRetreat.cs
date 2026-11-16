@@ -168,7 +168,8 @@ namespace SurvivorCommunity
                                 : "NOT bounded at home (BackOffHome false: 0-XNPCCore's own back-off)")
                    + "; members back off within " + F2(BackupKeepDistanceMax) + " m (0-XNPCCore's band is 4: the shot wins beyond)"
                    + "; no point: the shot takes " + F2(BackOffNoPointSeconds) + " s (a cornered stand-off too)"
-                   + "; a short stand-off step is followed by " + F2(StandOffShootSeconds) + " s of shooting";
+                   + "; a back-off that gains nothing (1.5 s in, or at its end: still within " + F2(BackupKeepDistanceMax) + " m or the gap not 1 m larger)"
+                   + " and a short stand-off step are followed by " + F2(StandOffShootSeconds) + " s of shooting";
         }
 
         /// <summary>Round rt1: the retreat keys in one line (the load log, sc retreat).</summary>

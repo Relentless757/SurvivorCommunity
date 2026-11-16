@@ -750,12 +750,15 @@ namespace SurvivorCommunity
         /// <summary>
         /// The stand-off task: no way to back off (round k1: not even the shortest BackOffSteps step), or the threat gains on her -
         /// cornered for one decision (CorneredSeconds = BackOffNoPointSeconds; it was 3 s): the shot and 0-XNPCCore's back-off
-        /// (kept inside the base) have her meanwhile.
+        /// (kept inside the base) have her meanwhile. The Fable review (F1): with gainer - the threat that gains on her - the
+        /// shot alone has that beat: 0-XNPCCore's back-off from it waits as long (ScBackOff.HandToShot), since inside its band it
+        /// beats the shot and holds no shot, and a back-off from a feral that keeps pace is a walk backward forever.
         /// </summary>
-        internal static void Cornered(EntityAlive e, string why)
+        internal static void Cornered(EntityAlive e, string why, EntityAlive gainer = null)
         {
             State st;
             if (!Active(e, out st)) return;
+            if (gainer != null) ScBackOff.HandToShot(e, gainer, CorneredSeconds);
             st.CorneredUntil = Time.time + CorneredSeconds;
             st.CorneredWhy = why;
             st.BackingOff = false;
@@ -770,23 +773,26 @@ namespace SurvivorCommunity
         /// starts again. Round k1: a step that left it inside StandOffMin (a short one) is followed by StandOffShootSeconds of
         /// shooting before the next step (counted retreat-backoff-shoot).
         /// </summary>
-        internal static void BackedOff(EntityAlive e, float gap)
+        internal static void BackedOff(EntityAlive e, float gap, EntityAlive threat)
         {
             State st;
             if (e == null || !states.TryGetValue(e.entityId, out st)) return;
             st.CorneredStreak = 0;
-            ShootBetweenSteps(e, gap);
+            ShootBetweenSteps(e, gap, threat);
         }
 
         /// <summary>
         /// Round k1: a stand-off walk ended (done, or a feral gained on her) with the threat gap m away, inside StandOffMin: she
-        /// shoots StandOffShootSeconds before the next step (StandOffScores and StandOffMayRun read ShootUntil).
+        /// shoots StandOffShootSeconds before the next step (StandOffScores and StandOffMayRun read ShootUntil). The Fable review
+        /// (F1): 0-XNPCCore's back-off from that threat waits as long (ScBackOff.HandToShot) - inside its band it beats the shot
+        /// (8 against 6) and holds no shot, so the beat went to it rather than to the shot.
         /// </summary>
-        internal static void ShootBetweenSteps(EntityAlive e, float gap)
+        internal static void ShootBetweenSteps(EntityAlive e, float gap, EntityAlive threat)
         {
             State st;
             if (e == null || !states.TryGetValue(e.entityId, out st) || st.Mode != Mode.StandOff) return;
             if (gap >= ScConfig.StandOffMin || ScConfig.StandOffShootSeconds <= 0f) return;
+            ScBackOff.HandToShot(e, threat, ScConfig.StandOffShootSeconds);
             st.ShootUntil = Time.time + ScConfig.StandOffShootSeconds;
             Patches_Xnpc.Count("retreat-backoff-shoot");
         }

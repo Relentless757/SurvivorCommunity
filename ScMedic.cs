@@ -63,7 +63,9 @@ namespace SurvivorCommunity
     /// fights on and uses it once the enemy is gone, dead or farther off; waited MedicMaxWait and under DesperateBelow of her
     /// health, she uses it anyway (WaitingToHeal reads the wait). (3) Under KitFirstBelow she takes a first aid kit before a first aid bandage. (4) A member
     /// regains RegenRatePerSecond health out of combat, up to RegenCapShare of her max (RegenTick, from ScAmmo.Tick's 5 s
-    /// member loop: her own loaded, visible body on the host only). Raiders and strangers heal as before.
+    /// member loop: her own loaded, visible body on the host only). Out of combat since the Fable review (F3; the user: "Only
+    /// threats to her"): no enemy within RegenEnemyRadius after her or able to see her, none at all within RegenNearRadius
+    /// (RegenThreat). Raiders and strangers heal as before.
     ///
     /// Round k2b (2026-11-15; the user: "They should back off and heal if they can for any situation"): a member held by (2)
     /// backs off until the enemy after her is beyond MedicSafeDistance + 1 m and then uses the item (ScHealBackOff); with no
@@ -449,9 +451,10 @@ namespace SurvivorCommunity
         /// her is within MedicSafeDistance + 1 m, and the next check (ScHealBackOff asks for it at once) finds nothing in reach
         /// and uses the item. While she is held the hold's own reach is that MedicSafeDistance + 1 m as well (hysteresis: it
         /// starts at 3 m and lets go at 4 m, so the use never starts a step outside the hold). She uses it NOW, at any health: when she cannot back off (sheltering in her room, on watch, on a
-        /// Stay order: heal-now-shelter / heal-now-post), when the back-off found no room for this wait (its heal-now verdict;
-        /// heal-now-cornered, counted by the task), or once the wait has run MedicMaxWait without her getting clear
-        /// (heal-now-timeout). DesperateBelow plays no part for her.
+        /// Stay order: heal-now-shelter / heal-now-post), when the back-off found no room for this wait or the enemy keeps up
+        /// with her (its heal-now verdict; heal-now-cornered / heal-now-gained, counted by the task), or once the wait has run
+        /// MedicMaxWait without her getting clear (heal-now-timeout; its line says whether a back-off ran at all). DesperateBelow
+        /// plays no part for her.
         /// </summary>
         private static bool HeldByReach(EntityAlive e, string pick, int max, float now)
         {
@@ -504,14 +507,17 @@ namespace SurvivorCommunity
             float waited = now - since;
             if (bm != null)
             {
-                // round k2b: the back-off found no room (its task's heal-now verdict for this very wait), or it has run
-                // MedicMaxWait without getting her clear (a fast zombie keeps up): she uses it now, at any health
+                // round k2b: the back-off found no room or the enemy keeps up with her (its task's heal-now verdict for this very
+                // wait), or she has been held MedicMaxWait without getting clear: she uses it now, at any health
                 bool timeout = false;
                 if (!ScHealBackOff.HealNowFor(e, since, out why))
                 {
                     if (waited < ScConfig.MedicMaxWait) return true;    // held: ScHealBackOff (8.3) walks her clear
                     timeout = true;
-                    why = "backing off " + F1(waited) + " s did not get " + HerObj(e) + " clear (MedicMaxWait " + F1(ScConfig.MedicMaxWait) + " s)";
+                    // the Fable review (F8): "backing off" only when a back-off walk did start in this wait
+                    why = ScHealBackOff.BackedOffFor(e, since)
+                        ? "backing off " + F1(waited) + " s did not get " + HerObj(e) + " clear (MedicMaxWait " + F1(ScConfig.MedicMaxWait) + " s)"
+                        : "held " + F1(waited) + " s and the back-off never ran (" + ScHealBackOff.NoRunWhy(e) + "; MedicMaxWait " + F1(ScConfig.MedicMaxWait) + " s)";
                 }
                 ClearWait(e.entityId);
                 if (timeout) Patches_Xnpc.Count("heal-now-timeout");
@@ -1589,9 +1595,55 @@ namespace SurvivorCommunity
             float ot = EffectManager.GetValue(PassiveEffects.HealthChangeOT, null, 0f, e);
             if (ot > 0f) return "another regeneration runs on " + HerObj(m) + " (+" + ot.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " health/s)";
             float dist;
-            EntityAlive t = NearestEnemy(e, ScConfig.RegenEnemyRadius, false, out dist);
-            if (t != null) return "in combat: " + ScCommunity.ClassName(t) + " (" + t.entityId + ") at " + F1(dist) + " m (RegenEnemyRadius " + F1(ScConfig.RegenEnemyRadius) + " m)";
+            string how;
+            EntityAlive t = RegenThreat(e, out dist, out how);
+            if (t != null) return "in combat: " + ScCommunity.ClassName(t) + " (" + t.entityId + ") at " + F1(dist) + " m " + how;
             return null;
+        }
+
+        /// <summary>
+        /// The Fable review (F3; the user: "Only threats to her"): the nearest awake, living enemy of hers (SCore's IsEnemy, not
+        /// an inert one) that holds her regeneration - one within RegenNearRadius, whatever it is doing; or one within
+        /// RegenEnemyRadius that is after her (attack or revenge target) or can see her (vanilla's CanEntityBeSeen, the test
+        /// rt1's threat scan uses). A zombie behind a wall that is not after her, or one chasing someone else beyond
+        /// RegenNearRadius, does not hold it. how: which rule, for the line. Null when none. A pure read (the raycast only for
+        /// one nearer than the best so far); main thread only (the shared scratch list).
+        /// </summary>
+        private static EntityAlive RegenThreat(EntityAlive e, out float dist, out string how)
+        {
+            dist = -1f;
+            how = null;
+            World w = e != null ? e.world : null;
+            float far = ScConfig.RegenEnemyRadius, close = ScConfig.RegenNearRadius;
+            float r = Mathf.Max(far, close);
+            if (w == null || r <= 0f) return null;
+            EntityAlive best = null;
+            float bestD2 = float.MaxValue;
+            near.Clear();
+            try
+            {
+                w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(e.position, new Vector3(2f * r, 2f * r, 2f * r)), near);
+                for (int i = 0; i < near.Count; i++)
+                {
+                    EntityAlive a = near[i] as EntityAlive;
+                    if (a == null || a == e || a.IsDead() || a.IsSleeping) continue;
+                    float d2 = (a.position - e.position).sqrMagnitude;
+                    if (d2 >= bestD2 || d2 > r * r) continue;
+                    if (!EntityTargetingUtilities.IsEnemy(e, a) || global::Harmony.ZombieFeatures.InertEntity.IsInert(a)) continue;
+                    string rule;
+                    if (close > 0f && d2 <= close * close) rule = "(within " + F1(close) + " m: RegenNearRadius)";
+                    else if (far <= 0f || d2 > far * far) continue;
+                    else if (a.GetAttackTarget() == e || a.GetRevengeTarget() == e) rule = "after " + HerObj(e) + " (RegenEnemyRadius " + F1(far) + " m)";
+                    else if (a.CanEntityBeSeen(e)) rule = "can see " + HerObj(e) + " (RegenEnemyRadius " + F1(far) + " m)";
+                    else continue;
+                    best = a;
+                    bestD2 = d2;
+                    how = rule;
+                }
+            }
+            finally { near.Clear(); }
+            if (best != null) dist = Mathf.Sqrt(bestD2);
+            return best;
         }
 
         /// <summary>Round k2: her regeneration as her last tick found it (sc meds, sc xnpc).</summary>

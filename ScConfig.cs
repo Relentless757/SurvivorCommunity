@@ -1058,14 +1058,23 @@ namespace SurvivorCommunity
         /// hold with its MedicMaxWait / 25% exception.
         /// </summary>
         public static bool HealBackOff = true;
-        /// <summary>Members regain health slowly out of combat (no awake enemy within RegenEnemyRadius), up to RegenCapShare of their max.</summary>
+        /// <summary>
+        /// Members regain health slowly out of combat, up to RegenCapShare of their max. Out of combat (the Fable review's F3, the
+        /// user: "Only threats to her"): no awake enemy within RegenEnemyRadius that is after her or can see her, and none at all
+        /// within RegenNearRadius.
+        /// </summary>
         public static bool RegenOutOfCombat = true;
         /// <summary>Health per second (0-XNPCCore's own level regeneration, its Settings.xml Progression/HealthRegenPerSecond).</summary>
         public static float RegenRatePerSecond = 0.2f;
         /// <summary>The regeneration stops at this share of her max health; above it only items heal.</summary>
         public static float RegenCapShare = 0.6f;
-        /// <summary>No regeneration while an awake enemy is within this many meters of her.</summary>
+        /// <summary>No regeneration while an awake enemy within this many meters of her is after her or can see her.</summary>
         public static float RegenEnemyRadius = 30f;
+        /// <summary>
+        /// F3: no regeneration while any awake enemy at all is within this many meters of her (after her or not, seen or not).
+        /// 0: only RegenEnemyRadius's threats hold it.
+        /// </summary>
+        public static float RegenNearRadius = 12f;
         // ---- overwhelmed (ScArms, migration M7.5, the weapons task's W4/W6 decision) ----
         /// <summary>An overwhelmed survivor keeps the gun instead of 0-XNPCCore's melee swap at 3 m (while it has ammo).</summary>
         public static bool Overwhelmed = true;
@@ -1382,6 +1391,7 @@ namespace SurvivorCommunity
             RegenRatePerSecond = 0.2f;
             RegenCapShare = 0.6f;
             RegenEnemyRadius = 30f;
+            RegenNearRadius = 12f;
             Overwhelmed = true;
             SurvivorGunFirst = true;
             OverwhelmedRadius = 12f;
@@ -2498,6 +2508,7 @@ namespace SurvivorCommunity
                 ParseFloat(p, "RegenRatePerSecond", ref RegenRatePerSecond, 0f, 5f);
                 ParseFloat(p, "RegenCapShare", ref RegenCapShare, 0f, 1f);
                 ParseFloat(p, "RegenEnemyRadius", ref RegenEnemyRadius, 5f, 120f);
+                ParseFloat(p, "RegenNearRadius", ref RegenNearRadius, 0f, 60f);     // the Fable review, F3
                 bool overwhelmed = Overwhelmed;
                 if (p.Values.ContainsKey("Overwhelmed")) p.ParseBool("Overwhelmed", ref overwhelmed);
                 Overwhelmed = overwhelmed;
@@ -3128,11 +3139,11 @@ namespace SurvivorCommunity
                 : HealBackOff
                     ? "no medical use while an enemy after her is within " + F2(MedicSafeDistance) + " m: she backs off until it is beyond "
                       + F2(MedicSafeDistance + ScHealBackOff.ClearMargin) + " m, then uses it; with no room to back off, sheltering, on watch or told to stay, at once;"
-                      + " after " + F2(MedicMaxWait) + " s of backing off without getting clear, anyway (HealBackOff, round k2b)"
+                      + " when it keeps up with her (the gap not 1 m larger in 2 s), or after " + F2(MedicMaxWait) + " s held without getting clear, anyway (HealBackOff, round k2b)"
                     : "no medical use while an enemy after her is within " + F2(MedicSafeDistance) + " m (after " + F2(MedicMaxWait) + " s under 25% health she uses it anyway)";
             string regen = RegenOutOfCombat && RegenRatePerSecond > 0f && RegenCapShare > 0f
                 ? "regeneration out of combat " + RegenRatePerSecond.ToString("0.###", CultureInfo.InvariantCulture) + " HP/s up to " + MedsPct(RegenCapShare)
-                  + " with no awake enemy within " + F2(RegenEnemyRadius) + " m"
+                  + " with no awake enemy within " + F2(RegenEnemyRadius) + " m after her or seeing her, and none at all within " + F2(RegenNearRadius) + " m"
                 : "no regeneration (" + (!RegenOutOfCombat ? "RegenOutOfCombat false" : "RegenRatePerSecond or RegenCapShare 0") + ")";
             return use + "; a first aid kit before a bandage under 50% health; " + regen;
         }

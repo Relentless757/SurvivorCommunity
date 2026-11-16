@@ -48,13 +48,15 @@ What it does now (members only; `HealBackOff`, default true):
 - **Back off, then heal.** While round k2 holds her from a medical use (a heal at or below 60%, or a bleed), she backs off
   from the enemy that is after her - k1's steps (10, 6, 3 m, straight back or up to 75 degrees to either side, out of
   every zombie's reach, nothing in the way) at a run: inside the base at home, within 20 m of you
-  (`StandOffFollowerLeash`) as a follower away from home, short steps elsewhere (a runner walks on after). Once nothing
+  (`StandOffFollowerLeash`) as a follower away from home, the same steps with no other bound elsewhere (a runner walks on
+  after). Once nothing
   after her is within 4 m (`MedicSafeDistance` + 1 m; the hold starts at 3 m and, once on, lets go at 4 m) she stops and
   uses the item at once. Melee and gun holders alike;
   her weapon is not swapped while she backs off.
 - **Heal at once** when she cannot back off: no room at all (cornered), sheltering in her room (round rt1), on watch, or
-  told to stay. And when 6 s (`MedicMaxWait`) of backing off did not get her clear (a fast zombie keeps up). At any
-  health: the old "under 25%" rule is gone for members.
+  told to stay. As soon as the zombie keeps up with her (the Fable review: the gap not 1 m larger after 2 s of backing
+  off - a feral). And when she has been held 6 s (`MedicMaxWait`) without getting clear. At any health: the old "under
+  25%" rule is gone for members.
 - **No flip:** a use starts the 12 s item cooldown (and a kit or bandage keeps "working" 15-90 s after), so she cannot
   back off to heal again before that.
 - **`HealBackOff` false:** round k2 exactly - she fights on in reach, and after 6 s under 25% uses it anyway. A stand-in at
@@ -68,10 +70,11 @@ and `sc xnpc`. Wait 15 s between steps after a first aid bandage (about 90 s aft
 **At load**
 
 - [ ] The log: "config: healing no medical use while an enemy after her is within 3 m: she backs off until it is beyond 4
-      m, then uses it; with no room to back off, sheltering, on watch or told to stay, at once; after 6 s of backing off
-      without getting clear, anyway (HealBackOff, round k2b); a first aid kit before a bandage under 50% health; ...".
-- [ ] `sc meds`: "back off, then heal (round k2b): on - 0 back-off(s) to heal, 0 got clear, 0 cornered (healed at once)
-      this session - counters: none yet".
+      m, then uses it; with no room to back off, sheltering, on watch or told to stay, at once; when it keeps up with her
+      (the gap not 1 m larger in 2 s), or after 6 s held without getting clear, anyway (HealBackOff, round k2b); a first
+      aid kit before a bandage under 50% health; ...".
+- [ ] `sc meds`: "back off, then heal (round k2b): on - 0 back-off(s) to heal, 0 got clear, 0 cornered and 0 kept up with
+      (healed at once) this session - counters: none yet".
 
 **1. A melee member against 2 walkers**
 
@@ -101,8 +104,14 @@ and `sc xnpc`. Wait 15 s between steps after a first aid bandage (about 90 s aft
       `sc team Gina hurt 0.5`: "Gina (id N) has no room to back off from zombieBoe (M) inside the base - she heals now (round
       k2b)", `heal-now-cornered` +1, then "Gina (id N) uses medicalFirstAidBandage now with zombieBoe (M) at x m after her: no
       room to back off inside the base (...) (round k2b)", and the bandage clip within a second. No 6 s wait, at any health.
-- [ ] A `zombieBoeFeral` after her in the open (it keeps up with her): after about 6 s "... uses ... now with ...: backing
-      off 6.x s did not get her clear (MedicMaxWait 6 s) (round k2b)", `heal-now-timeout` +1.
+- [ ] A `zombieBoeFeral` after her in the open (it keeps up with her): about 2 s into the back-off "Gina (id N) cannot shake
+      off zombieBoeFeral (M) (1.x m to 1.x m in 2 s) - she heals now (the Fable review, F4)", `heal-now-gained` +1, then
+      "... uses ... now with ...: zombieBoeFeral (M) keeps up with her (...) (round k2b)" and the bandage clip - not 6 s
+      of running first. `sc meds Gina` afterwards: "last back-off to heal N s ago: KEPT UP (zombieBoeFeral (M)) - healed at
+      once".
+- [ ] Whenever `heal-now-timeout` counts, its line says "backing off 6.x s did not get her clear" only when a back-off ran
+      in that wait (`heal-backoff` counted for it); when a higher action had her the whole time (rare: a busy animation, a
+      jump-down order) it says "held 6.x s and the back-off never ran (<action> had her; MedicMaxWait 6 s) (round k2b)".
 
 **4. A sheltering member, a guard, a Stay order**
 
@@ -117,7 +126,8 @@ and `sc xnpc`. Wait 15 s between steps after a first aid bandage (about 90 s aft
 **5. Away from home**
 
 - [ ] Gina following you away from home, held: "... to heal: 6 m within 20 m of you"; she never ends farther than 20 m from
-      you. On a physical run (`sc run`): "... on her run, short steps", then she walks on along her route.
+      you. On a physical run (`sc run`): "... on her run, no bound" (steps of 10, 6 or 3 m as at home), then she walks on
+      along her route.
 
 **6. `HealBackOff` false**
 
@@ -129,8 +139,9 @@ and `sc xnpc`. Wait 15 s between steps after a first aid bandage (about 90 s aft
 
 **Counters**
 
-- [ ] `heal-backoff`, `heal-backoff-clear`, `heal-now-cornered`, `heal-now-timeout`, `heal-now-shelter`, `heal-now-post`
-      (also `heal-backoff-unreached` for a point she had no path to) in `sc meds` and in `sc xnpc`'s hook list;
+- [ ] `heal-backoff`, `heal-backoff-clear`, `heal-now-cornered`, `heal-now-gained`, `heal-now-timeout`, `heal-now-shelter`,
+      `heal-now-post` (also `heal-backoff-unreached` for a point she had no path to) in `sc meds` and in `sc xnpc`'s hook
+      list;
       `x5-heal-backoff-no-swap` in `sc xnpc`'s only. `sc xnpc` also prints "back off, then heal (round k2b): ...". `sc xnpc
       <name>`'s medic line shows her back-off to heal during a wait.
 
@@ -142,9 +153,11 @@ Round k2's section below is updated for this round: its step 2 ("No bandaging wi
 Why: in the play session where Gina and Paul died at home (`research/combat/SC_VS_NPCCORE.md`, root causes 2 and 5),
 md1's 24 h restock cooldown left Paul with nothing that heals for 5.5 minutes, every bandage was used with a zombie
 0.9-1.3 m away (14-27 health lost during each 2.5 s use), a first aid bandage was used before the kit, and with no
-regeneration at all Paul sat at 26% for three minutes. The regeneration below helps AFTER a fight, not during a
-sustained one (any awake enemy within 30 m holds it); during a fight what helps is k1's back-off and the restock. The scope
-you approved (2026-11-15), section 4.4's k2:
+regeneration at all Paul sat at 26% for three minutes. The regeneration below helps after a fight and, since the Fable
+review of k1+k2 (your decision: "Only threats to her"), in a lull as well: only an enemy that is a threat to HER holds it
+(one within 30 m after her or able to see her, or any awake one within 12 m) - zombies behind a wall that are not after
+her, or chasing someone else farther off, no longer do. During a fight what helps is k1's back-off, k2b's back off then
+heal, and the restock. The scope you approved (2026-11-15), section 4.4's k2:
 
 - **Emergency restock:** at home, a member with no heal item (no first aid bandage, no first aid kit), nothing still
   healing her (a kit works for about 90 s, a first aid bandage about 15 s) and under 50% health
@@ -160,7 +173,9 @@ you approved (2026-11-15), section 4.4's k2:
   next one starts a fresh 6 s.
 - **Kit first when low:** under 50% health a member takes a first aid kit before a first aid bandage.
 - **Regeneration out of combat:** a member regains 0.2 health/s (`RegenRatePerSecond`, 0-XNPCCore's own level-regen
-  rate) while no awake enemy is within 30 m (`RegenEnemyRadius`), up to 60% (`RegenCapShare`). Not during a use, not
+  rate) up to 60% (`RegenCapShare`) while no enemy is a threat to her: none within 30 m (`RegenEnemyRadius`) that is after
+  her (attack or revenge target) or can see her, and no awake one at all within 12 m (`RegenNearRadius`, the Fable
+  review's F3). Not during a use, not
   while an item is still healing her, never for a hidden or offline member, a stand-in, a raider, an enclave person or a
   stranger.
 - **Pronoun fix:** "Paul died carrying 3 item(s) she was handed" now uses the member's own pronoun (and the three other
@@ -168,7 +183,8 @@ you approved (2026-11-15), section 4.4's k2:
 - Raiders and strangers heal exactly as before. 0-XNPCCore's dodge roll before a bandage is not copied: its roll knows
   nothing of the home zone, so it would need SC's bound first (k1's back-off bound, then a later round).
 
-Setup: the new DLL and `Config/blocks.xml` (the eight new keys after `MedsResupplyKeepForInjured`). `DebugLogging` true
+Setup: the new DLL and `Config/blocks.xml` (the eight new keys after `MedsResupplyKeepForInjured`, and since the Fable
+review `RegenNearRadius` after `RegenEnemyRadius`). `DebugLogging` true
 for the verbose lines quoted below. Zombies: `spawnentity` (`zombieBoe` walks). Health: `sc team <name> hurt <share>`.
 Taking heal items away: the member inventory panel, from her PACK and her BAG (first aid bandages and kits; cloth
 bandages are not heal items). Stockpile: `sc give meds 3` / `sc give meds -999`. **Timing:** after she uses a first aid
@@ -254,11 +270,20 @@ backs off to use it (round k2b)".
       once, as before this round.)
 - [ ] Esc-menu pause: no health is gained while paused.
 
-**5. No regeneration with a zombie within 30 m**
+**5. Regeneration is held only by threats to him** (the Fable review, F3; your decision: "Only threats to her")
 
-- [ ] As step 4 at 0.4, then spawn a `zombieBoe` about 20 m off (awake): within 5 s (verbose) "Paul (id N) stops
-      regenerating at N/172: in combat: zombieBoe (M) at 20 m (RegenEnemyRadius 30 m)"; `sc meds Paul`: "held - in
-      combat: ...". His health does not move. Kill it: within 5 s the regeneration starts again.
+- [ ] As step 4 at 0.4, then spawn a `zombieBoe` about 20 m off in the open, where it sees him (awake): within 5 s
+      (verbose) "Paul (id N) stops regenerating at N/172: in combat: zombieBoe (M) at 20 m can see him (RegenEnemyRadius
+      30 m)" - or "... after him ..." once it comes for him; `sc meds Paul`: "held - in combat: ...". His health does not
+      move. Kill it: within 5 s the regeneration starts again.
+- [ ] A zombie 20 m off behind a solid wall that is not after him (it cannot see him; e.g. one in a closed room of the
+      base's outbuilding, or one chasing you 20 m away round a corner): the regeneration keeps RUNNING. Have it see him or
+      go for him: held within 5 s.
+- [ ] Any awake zombie within 12 m holds it, after him or not, seen or not (a zombie on the other side of a wall 8 m off):
+      "in combat: zombieBoe (M) at 8 m (within 12 m: RegenNearRadius)". `RegenNearRadius` 0 (restart): that one no
+      longer holds it.
+- [ ] A lull: during a horde, a gap with the nearest zombie 25 m off chasing another member and none in sight of him -
+      he regenerates through it (`meds-regen-started` +1) and stops when one turns to him.
 - [ ] A sleeping zombie (a sleeper in a POI within 30 m) does not hold it.
 - [ ] Paul on a run (hidden) or a stand-in at an outpost: `sc meds` never shows a regeneration for them; his health does
       not change while he is away.
@@ -287,12 +312,20 @@ What it does now:
   nothing in the way (a wall, a shut door, glass), out of reach of every zombie and not past one, and never outside the
   zone + 8 m. No such point: she shoots for 1 s (`BackOffNoPointSeconds`), then tries again. Away from home a follower
   backs off as 0-XNPCCore does.
+- **A back-off that gains nothing hands the beat to the shot** (the Fable review, F1). 1.5 s into a back-off at home, and
+  again when it ends, the zombie still within 2.5 m or the gap not 1 m larger: she stops and shoots for 1.5 s
+  (`StandOffShootSeconds`), then may back off again. Before, against a feral that keeps pace she walked backward forever.
+  Once backing off, the band reaches 3 m (2.5 + 0.5), so the walk is not cut off at its edge. A point counts as not
+  reached only when the back-off ended on its own with no path, not when another action took over; and the walk needs a
+  floor under it every meter (no pit, drop or ledge on the way).
 - **A hurt stand-off (rt1) no longer corners.** With no point at the full 15 m gap she takes the longest of 10, 6 and 3 m
   that fits (no line back to the zombie needed). A step that leaves the zombie within 8 m is followed by 1.5 s of shooting
   (`StandOffShootSeconds`). Cornered only when even 3 m fails (or a feral gains on her), and then for 1 s, not 3 s.
-  Meanwhile, and whenever the stand-off does not run, the plain back-off above and the shot have her.
-- **You count only while you fight.** In the team verdict (tm1) you count 2 only while an enemy within the member's 15 m
-  is after you or you hit one in the last 5 s (`TeamPlayerFightingSeconds`); standing by, you count 0.
+  Meanwhile, and whenever the stand-off does not run, the plain back-off above and the shot have her - except in the
+  shooting beats (after a short step, after a feral gained on her): those are the shot's alone (the Fable review, F1).
+- **You count only while you fight - only your hits count** (your decision after the Fable review). In the team verdict
+  (tm1) you count 2 only for 5 s (`TeamPlayerFightingSeconds`) after you hit an enemy within the member's 15 m - a kill
+  counts too; a zombie that is merely after you does not. Standing by, you count 0.
 - Unchanged: the shelter, hl1, md1, runners (r2), guards on watch, members on Stay, and tm2's other parts (the no-swing
   clock, its draws, the no-swing spot, the per-zombie holds - their removal is k4). With `TeamMelee` false or `RetreatHome`
   false everything is as before, except the back-off fixes, which apply either way.
@@ -306,19 +339,33 @@ Setup: the new DLL with its `Config/utilityai.xml` (the gates on 0-XNPCCore's ba
 
 - [ ] The log: "config: back-offs at home kept inside the base (steps 10, 6, 3 m on 7 directions, out of reach of every
       enemy); members back off within 2.5 m (0-XNPCCore's band is 4: the shot wins beyond); no point: the shot takes 1 s (a
-      cornered stand-off too); a short stand-off step is followed by 1.5 s of shooting". The patch list has "patched
-      UAITaskBackupFromTargetPaced::Start", "patched SCoreUtils::GetMoveToLocation" and "patched
-      EntityAlive::ProcessDamageResponseLocal"; no MISSING PATCH line, no "NOT kept inside the base" error.
+      cornered stand-off too); a back-off that gains nothing (1.5 s in, or at its end: still within 2.5 m or the gap not 1 m
+      larger) and a short stand-off step are followed by 1.5 s of shooting". The patch list has "patched
+      UAITaskBackupFromTargetPaced::Start", "patched UAITaskBackupFromTargetPaced::Update", "patched
+      SCoreUtils::GetMoveToLocation" and "patched EntityAlive::ProcessDamageResponseLocal"; no MISSING PATCH line, no "NOT
+      kept inside the base" error and no "not judged for gain" warning.
 - [ ] `sc xnpc`: "back-offs (round k1): on - members at home back off inside the base, steps 10, 6, 3 m on 7 directions; 0
       bounded ...".
 
 **Scenario 1: one member with a gun against 3 walkers at the gate**
 
-- [ ] Paul with a gun and rounds (`sc loadout Paul`), healthy, at home near the gate, inside the zone; you nearby, not
-      fighting (so the fight is outmatched and he keeps the gun - `sc team Paul` says "OUTMATCHED; you count 0"). Spawn
-      three `zombieBoe` outside the gate, 10 m off. He shoots from range. When one is within 2.5 m, `dm` shows
+- [ ] Paul with a gun and rounds (`sc loadout Paul`), healthy, at 1 or 2 Fighting stars (`sc team Paul` shows "overwhelmed
+      N/2": X is 2 at 1-2 stars, 3 at 3-4, 4 at 5-6 - spawn X + 1 walkers for a higher-star member), at home near the gate,
+      inside the zone; you nearby, not fighting (so the fight is outmatched - `sc team Paul` says "OUTMATCHED; you count
+      0"). Spawn three `zombieBoe` outside the gate, 10 m off. Precondition: once all three are after him `sc team Paul`
+      shows "overwhelmed 3/2 YES" - that, not "outmatched", is what keeps his gun up close (with fewer attackers than X,
+      0-XNPCCore's 3 m swap gives him his melee weapon and this scenario does not apply). He shoots from range. When one is
+      within 2.5 m, `dm` shows
       `BackupKeepDistance`: he walks a few meters back into the base, turns and shoots again. Between 2.5 and 4 m `dm`
-      shows `RangedMeleeAttack`, never `BackupKeepDistance`. `backoff-bounded` goes up with each back-off.
+      shows `RangedMeleeAttack`, never `BackupKeepDistance` - except a back-off already running, which goes on to 3 m.
+      `backoff-bounded` goes up with each back-off.
+- [ ] A `zombieBoeFeral` (it keeps pace with him): 1.5 s into his back-off (verbose) "Paul (id N)'s back-off from
+      zombieBoeFeral (M) gained nothing 1.5 s in (1.x m to 1.x m, still within 2.5 m) - the shot takes over for 1.5 s (the
+      Fable review, F1)", `backoff-no-gain` +1, `dm` shows `RangedMeleeAttack` for about 1.5 s, then he may back off
+      again. He never walks backward for more than about 2 s at a time against it.
+- [ ] Reloading in that corner with the feral on him (overwhelmed, no back-off from it: `sc xnpc Paul`'s back-off line "the
+      shot has the next decision against 1 enemy(ies)"): he takes his melee weapon and swings rather than standing idle
+      (`x5-cornered-reload-melee` +1 in `sc xnpc`); afterwards his gun comes back as before.
 - [ ] He never leaves the zone + 8 m (watch from the claim's edge). With a wall at his back, (verbose) "Paul (id N) backs
       off from zombieBoe (M) inside the base: 6 m (the longer steps leave the base or meet a wall)" and `backoff-shortened`
       +1. Backed into a corner: "Paul (id N) has no point inside the base to back off to from zombieBoe (M) (none of 21
@@ -342,21 +389,25 @@ Setup: the new DLL with its `Config/utilityai.xml` (the gates on 0-XNPCCore's ba
       fits none of 7 directions (...), and no shorter step either: ...) - the shot and 0-XNPCCore's back-off have her for 1
       s (round k1)", and about a second later she tries again. With the stand-off not running and a zombie on top of her,
       `dm` shows `BackupKeepDistance` (0-XNPCCore's back-off, inside the base).
-- [ ] A `zombieBoeFeral` sprinting at her: "... gains on her ..." (cornered 1 s), then 1.5 s of shooting; she does not
-      run in circles.
+- [ ] A `zombieBoeFeral` sprinting at her: "... gains on her ..." (cornered 1 s), then 1.5 s of shooting: through that
+      beat `dm` shows `RangedMeleeAttack`, never `BackupKeepDistance` (the Fable review, F1: before, 0-XNPCCore's back-off
+      took the beat, so she ran in circles), and `sc xnpc Gina`'s back-off line says "the shot has the next decision against
+      1 enemy(ies)". The same after a short step's "SHOOTING BETWEEN STEPS".
 
 **Scenario 3: you stand by and do not fight**
 
 - [ ] Two members (1 or 2 stars, healthy) and you within 5 m of them, not shooting. Spawn four `zombieBoe` 10 m off that go
-      for the members, not you. `sc team`: the line "you count 2 only while you are fighting (round k1) ..." and for each
-      member "F x / T 4 OUTMATCHED; you count 0 (not fighting) - not melee-led: outmatched ...". `sc team <name>`: "+ you
-      at N m: the player, NOT fighting (no enemy in the area after you, none you hit in the last 5 s) = 0". They keep
-      their guns.
+      for the members, not you. `sc team`: the line "you count 2 only while you are fighting (round k1; only your hits
+      count) ..." and for each member "F x / T 4 OUTMATCHED; you count 0 (not fighting) - not melee-led: outmatched ...".
+      `sc team <name>`: "+ you at N m: the player, NOT fighting (no hit of yours on an enemy in the area in the last 5 s) =
+      0". They keep their guns.
 - [ ] Hit one zombie once: within a second `sc team <name>`: "+ you at N m: the player, fighting (you hit zombieBoe (M) 0.4
-      s ago): 2 x HpF 1 (hp 100%) = 2", and `sc team`: "you count 2 x HpF (fighting)". 5 s after your last hit, with no
-      zombie after you: 0 again.
-- [ ] A zombie that goes for you: "the player, fighting (zombieBoe (M) is after you)".
-- [ ] `sc xnpc`'s team strength line: "N player hit(s) noted (round k1; K kept)".
+      s ago): 2 x HpF 1 (hp 100%) = 2", and `sc team`: "you count 2 x HpF (fighting)". 5 s after your last hit: 0 again.
+- [ ] Kill a zombie with one shot (a headshot): you still count 2 for 5 s ("you hit zombieBoe (M) 0.x s ago") - the Fable
+      review's F2b (before, a kill took the hit with it and you counted 0).
+- [ ] A zombie that goes for you while you do not hit anything: you still count 0 (your decision: only your hits count).
+- [ ] A hit on a zombie more than 15 m from the member (outside her area): you count 0 in her verdict.
+- [ ] `sc xnpc`'s team strength line: "N player hit(s) noted (round k1; kept for K player(s))".
 
 **Scenario 4: an overwhelmed member**
 
@@ -371,9 +422,13 @@ Setup: the new DLL with its `Config/utilityai.xml` (the gates on 0-XNPCCore's ba
 
 **Counters**
 
-- [ ] After the scenarios, `sc xnpc`: `backoff-bounded`, `backoff-shortened`, `backoff-no-point` (also `backoff-wide` for a
-      point more than 25 degrees off straight back, `backoff-unreached` for a point the path could not reach) and the
-      "back-offs (round k1)" line with the same totals. `backoff-unapplied` stays 0 (anything else means 0-XNPCCore changed
+- [ ] After the scenarios, `sc xnpc`: `backoff-bounded`, `backoff-shortened`, `backoff-no-point`, `backoff-no-gain` (also
+      `backoff-wide` for a point more than 25 degrees off straight back, `backoff-unreached` for a point the path could not
+      reach - only after a back-off that ended on its own, never when another action cut it short) and the "back-offs
+      (round k1)" line with the same totals ("... N that gained nothing ..., N beat(s) handed to the shot in all"). The
+      patch list also has "patched UAITaskBackupFromTargetPaced::Update"; no "NO GAIN TEST" in the back-offs line.
+- [ ] A ditch, a hole or a drop between him and the only point straight back: that point is not picked (`sc xnpc Paul`:
+      a point to the side, or "no point ... last: no floor under the walk (a pit, a drop or a ledge)"). `backoff-unapplied` stays 0 (anything else means 0-XNPCCore changed
       its back-off: report it). `sc retreat` lists `retreat-backoff-shortened` and `retreat-backoff-shoot`.
 
 Round rt1's Scenario 3 below is updated for this round: cornered is 1 s, not 3 s, and when the stand-off does not run

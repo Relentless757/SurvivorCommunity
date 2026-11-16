@@ -422,6 +422,14 @@ namespace SurvivorCommunity
                         return false;
                     }
                     if (!ScConfig.Overwhelmed) return true;
+                    // the Fable review (F7): reloading with no back-off from her target (ScBackOff.NoPointFor: no point, a
+                    // back-off that gained nothing, a stand-off's shooting beat) - the overwhelmed gun hold would leave her
+                    // standing idle through the reload, so 0-XNPCCore's swap to melee runs: she swings rather than waits
+                    if (e.Buffs != null && e.Buffs.GetCustomVar(XnpcReloadingCvar) >= 0.5f && CorneredOnTarget(e))
+                    {
+                        Patches_Xnpc.Count("x5-cornered-reload-melee");
+                        return true;
+                    }
                     Watch gw;
                     if (watch.TryGetValue(e.entityId, out gw) && now < gw.GunUntil)
                     {
@@ -743,6 +751,17 @@ namespace SurvivorCommunity
             EntityAlive t = e.GetAttackTarget();
             if (t == null) t = e.GetRevengeTarget();
             return t != null && !t.IsDead() && (t.position - e.position).sqrMagnitude <= dist * dist;
+        }
+
+        /// <summary>
+        /// The Fable review (F7): the shot has her target's beat - no back-off from it now (ScBackOff.NoPointFor: no point inside
+        /// the base, a back-off that gained nothing, a stand-off's shooting beat). Her attack target, else her revenge target.
+        /// </summary>
+        private static bool CorneredOnTarget(EntityAlive e)
+        {
+            EntityAlive t = e.GetAttackTarget();
+            if (t == null) t = e.GetRevengeTarget();
+            return t != null && !t.IsDead() && ScBackOff.NoPointFor(e, t);
         }
 
         /// <summary>X for this survivor: from the member's Fighting stars (a stand-in fights as the member), else OverwhelmedStrangers.</summary>

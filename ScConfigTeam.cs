@@ -39,8 +39,9 @@ namespace SurvivorCommunity
         /// <summary>F: the player, another ally (a hire, a friendly NPC) and a member on watch, each times HpF.</summary>
         public static float TeamPlayerWeight = 2f;
         /// <summary>
-        /// Round k1 (the user's decision): the player counts TeamPlayerWeight only while he is fighting - an enemy in the counted
-        /// area has him as its attack target, or he landed a hit on one in the last TeamPlayerFightingSeconds - else 0.
+        /// Round k1 (the user's decisions; the Fable review's F2a, "Only my hits count"): the player counts TeamPlayerWeight only
+        /// while he is fighting - he landed a hit on an enemy in the counted area in the last TeamPlayerFightingSeconds (a kill
+        /// counts too) - else 0. An enemy that merely has him as its target does not count.
         /// </summary>
         public static float TeamPlayerFightingSeconds = 5f;
         public static float TeamAllyWeight = 1f;
@@ -302,7 +303,7 @@ namespace SurvivorCommunity
             return "on, within " + f(TeamRadius) + " m (a live base attack: the defended area), matched at F >= " + f(TeamMargin) + " T, left after "
                    + TeamLeaveRecounts + " recounts below " + f(TeamLeaveMargin) + " T, recount " + f(TeamRecountSeconds) + " s (fresh " + f(TeamFreshSeconds) + " s)"
                    + "; F: member (" + f(TeamStarBase) + " + " + f(TeamStarStep) + "/star) x HpF x weapon " + f(TeamWeaponMelee) + "/" + f(TeamWeaponRanged) + "/" + f(TeamWeaponBare)
-                   + ", player " + f(TeamPlayerWeight) + " while fighting (after him, or his hit in the last " + f(TeamPlayerFightingSeconds) + " s; else 0), ally " + f(TeamAllyWeight) + ", guard " + f(TeamGuardWeight) + ", medical x" + f(TeamMedicalMult)
+                   + ", player " + f(TeamPlayerWeight) + " while fighting (his hit on an enemy in the area in the last " + f(TeamPlayerFightingSeconds) + " s, a kill too; else 0), ally " + f(TeamAllyWeight) + ", guard " + f(TeamGuardWeight) + ", medical x" + f(TeamMedicalMult)
                    + ", HpF " + f(TeamHealthFloor) + "+" + f(1f - TeamHealthFloor) + "xmin(1,hp/" + f(TeamHealthFullAt) + ")"
                    + "; T: tags " + TeamTableText(TeamThreats()) + " (else " + f(TeamThreatDefault) + ") x " + TeamTableText(TeamTagMults())
                    + ", hp (max/" + f(TeamThreatHpBase) + ")^" + f(TeamThreatHpPower) + " in " + f(TeamThreatHpMin) + ".." + f(TeamThreatHpMax)

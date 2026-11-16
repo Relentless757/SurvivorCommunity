@@ -267,9 +267,10 @@
 			     reach - a melee member between 60% and 25% never healed. ScHealBackOff is 1 while that hold is on and she may back
 			     off (not sheltering in her room, not on watch, not told to stay: then ScMedic heals her at once), and its task walks
 			     her clear at a run - k1's steps (10, 6, 3 m on seven directions, out of every enemy's reach): inside the base at
-			     home, within StandOffFollowerLeash of you as a follower away from home, short steps elsewhere (a runner's travel
-			     resumes after). Clear (nothing after her within MedicSafeDistance + 1 m), it stops and the item goes into her hand;
-			     no room at all, she heals now; still not clear after MedicMaxWait, she heals anyway. Melee and gun holders alike.
+			     home, within StandOffFollowerLeash of you as a follower away from home, the same steps with no other bound
+			     elsewhere (a runner's travel resumes after). Clear (nothing after her within MedicSafeDistance + 1 m), it stops
+			     and the item goes into her hand; no room at all, or the enemy keeps up (the gap not 1 m larger in 2 s: the Fable
+			     review, F4), she heals now; still not clear after MedicMaxWait, she heals anyway. Melee and gun holders alike.
 			     8.3: over BackupKeepDistance (8), ScStandOffHurt (8.2), the medic (7), the shot (6), MeleeAttack (5); under ScRetreat
 			     and ScFleeHurt (8.5: never 1 together - a sheltering member heals at once, and ScFleeHurt needs her with nothing to
 			     heal with), LeaveAreaSdcs (9), JumpDownOrder (10), SdcsAnimBusy (12). HealBackOff=false: always 0. -->

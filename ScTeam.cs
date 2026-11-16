@@ -21,8 +21,9 @@ namespace SurvivorCommunity
     ///     (TeamStarBase + TeamStarStep x Fighting stars) x HpF x her weapon factor (a melee weapon in her pair 1, ranged
     ///     only 0.8, nothing 0.5) - she counts herself; a member on watch TeamGuardWeight x HpF; any member in the middle of
     ///     a medical use x TeamMedicalMult; one asleep in bed 0; the player TeamPlayerWeight x HpF (decision 1) - round k1
-    ///     (the user's decision): only while he is fighting, i.e. an enemy in the counted area has him as its attack target
-    ///     or he landed a hit on one in the last TeamPlayerFightingSeconds (Patch_PlayerHit), else 0; another
+    ///     (the user's decisions, k1 and its Fable review: "Only my hits count"): only while he is fighting, i.e. he landed a
+    ///     hit on an enemy inside the counted area in the last TeamPlayerFightingSeconds (Patch_PlayerHit, kept per player,
+    ///     so a kill counts as well) - a zombie that merely has him as its target no longer does - else 0; another
     ///     ally (a hire, a friendly NPC) TeamAllyWeight x HpF. HpF = 0.5 + 0.5 x min(1, health share / 0.9): a scratch
     ///     does not count (TeamHealthFullAt, the Fable review).
     ///   T (threat): every awake enemy in the same area, whether or not it is after the team (decision 14):
@@ -82,12 +83,19 @@ namespace SurvivorCommunity
             public float NearestD2;
         }
 
-        /// <summary>Round k1: the last landed hit by a player on an entity - who and when (Patch_PlayerHit, host only).</summary>
+        /// <summary>
+        /// Round k1, per player since the Fable review (F2b): one landed hit by that player - on whom (name, for the console),
+        /// where the victim stood and when (Patch_PlayerHit, host only).
+        /// </summary>
         private struct PlayerHit
         {
-            public int Player;
+            public string Victim;
+            public Vector3 Where;
             public float At;
         }
+
+        /// <summary>F2b: a player keeps his last this many hits (the oldest drops out first), pruned by age.</summary>
+        private const int HitsPerPlayer = 8;
 
         /// <summary>
         /// Why a target needs the gun (NeedsGun). GunFirst draws for Reach at any distance (the Fable review, finding 1); for
@@ -100,8 +108,12 @@ namespace SurvivorCommunity
         private static float nextPrune;
         private static int recounts, outmatched, matchedAgain;
         private static readonly FastTags<TagGroup.Global> TraderTag = FastTags<TagGroup.Global>.Parse("trader");
-        /// <summary>Round k1: victim entity id -> the last player hit on it (Patch_PlayerHit); pruned by age.</summary>
-        private static readonly Dictionary<int, PlayerHit> playerHits = new Dictionary<int, PlayerHit>();
+        /// <summary>
+        /// Round k1: player entity id -> his last HitsPerPlayer landed hits (Patch_PlayerHit); pruned by age. The Fable review (F2b):
+        /// keyed per player, not per victim - per victim, a zombie he killed took its hit with it (the clock was only read from
+        /// the living enemies counted), so a player who one-shot zombies counted 0.
+        /// </summary>
+        private static readonly Dictionary<int, List<PlayerHit>> playerHits = new Dictionary<int, List<PlayerHit>>();
         private static int playerHitsNoted;
         /// <summary>Round k1, Census scratch: the players fighting in the area being counted (id -> why, "" without detail), and the non-enemies in it.</summary>
         private static readonly Dictionary<int, string> fighting = new Dictionary<int, string>();
@@ -236,42 +248,70 @@ namespace SurvivorCommunity
             PruneHits(now);
         }
 
-        /// <summary>Round k1: player hits too old to count (never fewer than 30 s kept).</summary>
+        /// <summary>Round k1: player hits too old to count (never fewer than 30 s kept); a player with none left goes.</summary>
         private static void PruneHits(float now)
         {
             float keep = Mathf.Max(30f, ScConfig.TeamPlayerFightingSeconds);
             var gone = new List<int>();
-            foreach (var kv in playerHits) if (now - kv.Value.At > keep) gone.Add(kv.Key);
+            foreach (var kv in playerHits)
+            {
+                kv.Value.RemoveAll(h => now - h.At > keep);
+                if (kv.Value.Count == 0) gone.Add(kv.Key);
+            }
             foreach (int id in gone) playerHits.Remove(id);
         }
 
-        /// <summary>Round k1 (Patch_PlayerHit, host only): a player landed a hit on this entity now.</summary>
+        /// <summary>
+        /// Round k1 (Patch_PlayerHit, host only): a player landed a hit on this entity now. F2b: kept per player, with where the
+        /// victim stood - a kill keeps it, and each member's count reads it against her own counted area.
+        /// </summary>
         internal static void NotePlayerHit(EntityAlive victim, int playerId)
         {
             float now = Time.time;
-            playerHits[victim.entityId] = new PlayerHit { Player = playerId, At = now };
+            List<PlayerHit> hits;
+            if (!playerHits.TryGetValue(playerId, out hits)) playerHits[playerId] = hits = new List<PlayerHit>(HitsPerPlayer);
+            if (hits.Count >= HitsPerPlayer) hits.RemoveAt(0);
+            hits.Add(new PlayerHit { Victim = Who(victim), Where = victim.position, At = now });
             playerHitsNoted++;
-            if (playerHits.Count > 256) PruneHits(now);
+            if (playerHitsNoted % 64 == 0) PruneHits(now);
         }
 
         /// <summary>
-        /// Round k1: the players a counted enemy says are fighting (into the fighting scratch): its attack target when that is a
-        /// player, and the player whose last hit on it is at most TeamPlayerFightingSeconds old. detail: the reason, for the console.
+        /// The players fighting in the area being counted (into the fighting scratch; the Fable review, F2a, the user: "Only my
+        /// hits count"): each player whose hit landed on an enemy inside the area (inside: the census's own test, on where the
+        /// victim stood) at most TeamPlayerFightingSeconds ago - dead or alive now. An enemy that merely has him as its target
+        /// does not make him fighting any more. detail: the reason, for the console.
         /// </summary>
-        private static void NoteFighting(EntityAlive a, float now, bool detail)
+        private static void NoteFighting(Vector3 at, bool wide, float r2, float now, bool detail)
         {
-            EntityPlayer p = a.GetAttackTarget() as EntityPlayer;
-            if (p != null && !fighting.ContainsKey(p.entityId)) fighting[p.entityId] = detail ? Who(a) + " is after you" : "";
-            PlayerHit h;
-            if (playerHits.TryGetValue(a.entityId, out h) && now - h.At <= ScConfig.TeamPlayerFightingSeconds && !fighting.ContainsKey(h.Player))
-                fighting[h.Player] = detail ? "you hit " + Who(a) + " " + (now - h.At).ToString("0.0", CultureInfo.InvariantCulture) + " s ago" : "";
+            float win = ScConfig.TeamPlayerFightingSeconds;
+            foreach (var kv in playerHits)
+            {
+                List<PlayerHit> hits = kv.Value;
+                for (int i = hits.Count - 1; i >= 0; i--)
+                {
+                    PlayerHit h = hits[i];
+                    if (now - h.At > win) break;                        // newest last: the rest are older still
+                    if (!Inside(at, wide, r2, h.Where)) continue;
+                    fighting[kv.Key] = detail ? "you hit " + h.Victim + " " + (now - h.At).ToString("0.0", CultureInfo.InvariantCulture) + " s ago" : "";
+                    break;
+                }
+            }
+        }
+
+        /// <summary>The census's area test: within the radius (r2, squared) of at, or - wide - in the defended area of a base attack.</summary>
+        private static bool Inside(Vector3 at, bool wide, float r2, Vector3 p)
+        {
+            Vector3 d = p - at;
+            return wide ? Mathf.Abs(d.y) <= WideHalfHeight && ScBaseAttack.InDefenceArea(p, ScBaseAttack.LeashExtra) : d.sqrMagnitude <= r2;
         }
 
         /// <summary>
         /// Round k1: a light postfix on vanilla's EntityAlive.ProcessDamageResponseLocal - every landed hit on the host (its own, and
         /// a client's through NetPackageDamageEntity; the overrides in EntityPlayerLocal, EntityHuman, EntityZombieCop and SCore's
-        /// NPCs call it): a hit whose source is a player is stamped on the victim for NoteFighting. Nothing else is touched;
-        /// nothing at all with TeamMelee off. Declared on EntityAlive (the method's own declaring type).
+        /// NPCs call it): a hit whose source is a player is kept for that player (NotePlayerHit) for NoteFighting. Nothing else is touched;
+        /// nothing at all with TeamMelee off. Declared on EntityAlive (the method's own declaring type). The Fable review (F2b): only
+        /// a hit on an enemy (EntityEnemy, or SCore's IsEnemy from the player's side), kept per player with where the victim stood.
         /// </summary>
         [HarmonyPatch(typeof(EntityAlive), nameof(EntityAlive.ProcessDamageResponseLocal))]
         public static class Patch_PlayerHit
@@ -284,7 +324,11 @@ namespace SurvivorCommunity
                     if (!ScConfig.TeamMelee || __instance == null || __instance.isEntityRemote || __instance is EntityPlayer || __instance.world == null) return;
                     DamageSource src = _dmResponse.Source;
                     int id = src != null ? src.getEntityId() : -1;
-                    if (id < 0 || id == __instance.entityId || !(__instance.world.GetEntity(id) is EntityPlayer)) return;
+                    EntityPlayer pl = id >= 0 && id != __instance.entityId ? __instance.world.GetEntity(id) as EntityPlayer : null;
+                    if (pl == null) return;
+                    // F2b: only a hit on an enemy (a zombie, a hostile animal, a raider) - the per-victim key used to be read only
+                    // from the counted enemies; per player, the filter moves here
+                    if (!(__instance is EntityEnemy) && !EntityTargetingUtilities.IsEnemy(pl, __instance)) return;
                     NotePlayerHit(__instance, id);
                 }
                 catch (Exception e)
@@ -328,16 +372,15 @@ namespace SurvivorCommunity
                 t.F += own;
                 t.Friends++;
                 if (detail) lines.Add("  + " + Who(self) + " (herself) " + ownHow + " = " + F2(own));
-                // the enemies first (round k1: the player's weight needs to know whether one of them is after him or was hit by him)
+                // round k1, the Fable review (F2a): the players who hit an enemy in this area lately - the only way a player counts
+                NoteFighting(at, wide, r2, now, detail);
                 for (int i = 0; i < near.Count; i++)
                 {
                     EntityAlive a = near[i] as EntityAlive;
                     // a sleeper (a POI's sleeping zombie) has not joined the fight: neither friend nor foe
                     if (a == null || a == self || a.IsDead() || a.IsSleeping) continue;
                     Vector3 d = a.position - at;
-                    bool inside = wide ? Mathf.Abs(d.y) <= WideHalfHeight && ScBaseAttack.InDefenceArea(a.position, ScBaseAttack.LeashExtra)
-                                       : d.sqrMagnitude <= r2;
-                    if (!inside) continue;
+                    if (!Inside(at, wide, r2, a.position)) continue;
                     if (!EntityTargetingUtilities.IsEnemy(self, a)) { others.Add(a); continue; }
                     float tw = Threat(a, detail, out string how);
                     t.T += tw;
@@ -346,7 +389,6 @@ namespace SurvivorCommunity
                     if (armed) t.RaiderFight = true;
                     if (unsafeMelee) t.Unsafe++;
                     if (d.sqrMagnitude < t.NearestD2) { t.NearestD2 = d.sqrMagnitude; t.Nearest = a; }
-                    NoteFighting(a, now, detail);
                     if (detail)
                         lines.Add("  - " + Who(a) + " at " + d.magnitude.ToString("0.#", CultureInfo.InvariantCulture) + " m: " + how + " = " + F2(tw)
                                   + (armed ? " [ARMED: raider fight]" : "") + (unsafeMelee ? " [melee-unsafe: gun]" : ""));
@@ -391,7 +433,7 @@ namespace SurvivorCommunity
                 string fight;
                 if (!fighting.TryGetValue(a.entityId, out fight))
                 {
-                    how = detail ? "the player, NOT fighting (no enemy in the area after you, none you hit in the last "
+                    how = detail ? "the player, NOT fighting (no hit of yours on an enemy in the area in the last "
                                    + F2(ScConfig.TeamPlayerFightingSeconds) + " s)" : "";
                     return 0f;
                 }
@@ -654,8 +696,8 @@ namespace SurvivorCommunity
         public static void ListLines(List<string> lines)
         {
             lines.Add("[SC] team strength (round tm1): " + (ScConfig.TeamMelee ? "on" : "OFF (TeamMelee=false)") + "; " + Report());
-            lines.Add("[SC] you count " + F2(ScConfig.TeamPlayerWeight) + " only while you are fighting (round k1): an enemy in a member's counted area is after you, or you hit one "
-                      + "in the last " + F2(ScConfig.TeamPlayerFightingSeconds) + " s (TeamPlayerFightingSeconds); standing by, you count 0");
+            lines.Add("[SC] you count " + F2(ScConfig.TeamPlayerWeight) + " only while you are fighting (round k1; only your hits count): you hit an enemy in a member's counted area "
+                      + "in the last " + F2(ScConfig.TeamPlayerFightingSeconds) + " s (TeamPlayerFightingSeconds; a kill counts too) - an enemy merely after you does not; standing by, you count 0");
             if (!ScRegistry.Loaded) return;
             float now = Time.time;
             foreach (Member m in ScRegistry.Members.Values)
@@ -757,7 +799,7 @@ namespace SurvivorCommunity
             }
             return fresh + " fresh verdict(s): " + matched + " matched, " + (fresh - matched) + " outmatched, " + led + " melee-led; "
                    + recounts + " recount(s), " + outmatched + " fight(s) turned outmatched, " + matchedAgain + " matched again this session; "
-                   + playerHitsNoted + " player hit(s) noted (round k1; " + playerHits.Count + " kept); "
+                   + playerHitsNoted + " player hit(s) noted (round k1; kept for " + playerHits.Count + " player(s)); "
                    + ScArms.TeamReport() + " (counters x5-team-* in sc xnpc)";
         }
     }
