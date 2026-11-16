@@ -346,7 +346,7 @@ The community window's **Activities** tab has one activity, **Prepare a round of
   residents sent to it: the nearest who are free (not on watch, on a work shift, asleep, hurt below 60%, Cowardly or in
   another fight; a resident who stays near her post only within 22 m of it). They walk to it, seen or not, and fight it;
   everyone else keeps their routine. "Inside" means inside the home zone and on the base's levels: a zombie wandering
-  past outside the base, or down in a cellar or mine (or up on a roof) more than 4 m below or above the base's posts, is
+  past outside the base, or down in a cellar or mine (or up on a roof) more than 6 m below or above the base's posts, is
   still left alone. `InvestigateIntruders`, `InvestigateResponders`, `InvestigateRadius`, `InvestigateEnterMargin` and
   `InvestigateHeight` (section 20) tune it; `sc team` lists the intruders and who goes.
 - Residents keep a leash: they will not chase an enemy far outside the base.
@@ -1591,7 +1591,7 @@ These are the ones you are most likely to change. The file has many more.
 | `InvestigateIntruders` | true | A zombie inside the base that is after nobody gets residents sent to it; false: left alone |
 | `InvestigateResponders` / `InvestigateRadius` | 2 / 0 | How many residents go to each one, and from how far (meters; 0: anywhere in the home zone) |
 | `InvestigateEnterMargin` | 0 | How far outside the home zone (meters) an idle zombie still counts as inside; 0: inside only |
-| `InvestigateHeight` | 4 | An idle zombie counts only within this many meters below the lowest and above the highest of the claim block and the residents' posts |
+| `InvestigateHeight` | 6 | An idle zombie counts only within this many meters below the lowest and above the highest of the claim block and the residents' posts |
 | `TeamPlayerWeight` | 2 | How much you count for your side while you fight (a 1-star member counts 1) |
 | `TeamPlayerFightingSeconds` | 5 | You count only for this many seconds after you hit a zombie near the member (a kill too); standing by, or only targeted, you count 0 |
 | `BackOffHome` | true | At home a member with a gun backs off only to a spot inside the base; false: as the NPC framework does |
