@@ -33,6 +33,11 @@ namespace SurvivorCommunity
         public static int BondDowned = -2;
         /// <summary>Bond when you kill an enemy that was on her (the user: +1).</summary>
         public static int BondKillOnHer = 1;
+        /// <summary>
+        /// The Fable review of U4 (finding 2): at most this many kills on her give Bond per in-game day (the gift cap's twin: a
+        /// base horde would put every fighting resident at the cap, and daily kills outran the fade). 0: kills never give Bond.
+        /// </summary>
+        public static int BondKillPerDay = 3;
         /// <summary>The Progress page says "Trust: loyal" from this Bond up and "wary" from minus this down (and while she threatens to leave).</summary>
         public static int BondLoyalAt = 8;
 
@@ -80,6 +85,7 @@ namespace SurvivorCommunity
             BondBloodMoon = 4;
             BondDowned = -2;
             BondKillOnHer = 1;
+            BondKillPerDay = 3;
             BondLoyalAt = 8;
             MemberRefuseCoins = true;
             MedicPainkillers = true;
@@ -108,6 +114,7 @@ namespace SurvivorCommunity
             ParseInt(p, "BondBloodMoon", ref BondBloodMoon, -100, 100);
             ParseInt(p, "BondDowned", ref BondDowned, -100, 100);
             ParseInt(p, "BondKillOnHer", ref BondKillOnHer, -100, 100);
+            ParseInt(p, "BondKillPerDay", ref BondKillPerDay, 0, 100);
             ParseInt(p, "BondLoyalAt", ref BondLoyalAt, 1, 100);
             ParseBoolKey(p, "MemberRefuseCoins", ref MemberRefuseCoins);
             ParseBoolKey(p, "MedicPainkillers", ref MedicPainkillers);
@@ -125,7 +132,7 @@ namespace SurvivorCommunity
         internal static string Npc306Line()
         {
             return "bond=" + (MemberBond ? "on cap " + BondCap + " decay " + BondDecayPerDay + "/day, gift x" + BondGiftPerPoint + " revive " + Signed(BondRevive)
-                                           + " bloodmoon " + Signed(BondBloodMoon) + " downed " + Signed(BondDowned) + " kill-on-her " + Signed(BondKillOnHer)
+                                           + " bloodmoon " + Signed(BondBloodMoon) + " downed " + Signed(BondDowned) + " kill-on-her " + Signed(BondKillOnHer) + " (" + BondKillPerDay + "/day)"
                                            + ", loyal at " + BondLoyalAt : "off")
                    + " refuseCoins=" + MemberRefuseCoins
                    + " painkillers=" + (MedicPainkillers ? "last resort, heal " + PainkillerHeal : "off")

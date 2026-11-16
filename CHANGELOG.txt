@@ -87,27 +87,29 @@ Members' gear
 0-XNPCCore 3.4.06: Bond, gifts, weapon perks and the party
 ----------------------------------------------------------
 - Bond. Each member now has a Bond with you, from -15 to +15, that adds to their mood: a gift raises it by its points
-  (0-XNPCCore's count, at most 6 a day), being revived +3 (by anyone), a blood moon survived with you +4, going down -2,
-  an enemy on them that you kill +1. It fades 1 a day. It shows on the talk card under their mood and in the community
-  window beside their mood word.
+  (0-XNPCCore's count, at most 6 a day), being revived +3 (by anyone), a blood moon survived with you +4 (with you when
+  it starts and when it ends), going down -2, an enemy on them that you kill +1 (at most 3 such kills a day). It fades 1
+  a day. It shows on the talk card under their mood and in the community window beside their mood word.
 - SC owns their standing. 0-XNPCCore no longer keeps its own trust and affinity for your members, and their events and
   deaths no longer change your trust with it, so they never change what your paid companions cost. Its Your progress
   page reads "Trust: ... Feels: ..." from the member's Bond and mood, and Voice Control's "vc standing" on a member
   shows the same.
 - Gifts. Members take 0-XNPCCore's gifts: first aid kits and bandages (used when hurt, and counted before a medical
   restock), painkillers (used as a last resort, for 40 health), drinks (a follower puts out fire with one), and ammo for
-  their gun (loose rounds, loaded into Locked & Loaded magazines). They refuse coins: members are never paid.
+  their gun (loose rounds, loaded into Locked & Loaded magazines). They refuse coins: members are never paid (enclave
+  people you enlisted refuse them too).
 - Followers carry drinks. At home a follower with no drink left is given 2 boiled water from the Water stockpile, at
   most every 12 in-game hours, so they can put out fire on themselves.
 - Weapon perks from the stars. Shooting stars give 0-XNPCCore's gun and bow perks and Fighting stars its melee perks:
   rank 1 at 3-4 stars, 2 at 5-6, 3 at 7, on top of the damage per star. They show on the Your progress page; perk books
-  still add their own bonuses. Every member now keeps a Progression for it, crafting on or off.
+  still add their own bonuses. Every member now keeps a Progression for it, crafting on or off (with both
+  "MemberWeaponPerks" and "CraftSkillsEnabled" off, none, as before).
 - The party cap. "Come with me." (talk, voice, window) is refused while 0-XNPCCore's party of 8 is full, paid companions
   included: "Your party is full (8/8)." "MaxFollowers" (2) still comes first.
 - New settings: "MemberBond", "BondCap", "BondDecayPerDay", "BondGiftPerPoint", "BondRevive", "BondBloodMoon",
-  "BondDowned", "BondKillOnHer", "BondLoyalAt", "MemberRefuseCoins", "MedicPainkillers", "PainkillerHeal",
-  "MemberDrinks", "MemberDrinksBelow", "MemberDrinkItem", "MemberDrinksCooldownHours", "MemberWeaponPerks",
-  "SharePartyCap".
+  "BondDowned", "BondKillOnHer", "BondKillPerDay", "BondLoyalAt", "MemberRefuseCoins", "MedicPainkillers",
+  "PainkillerHeal", "MemberDrinks", "MemberDrinksBelow", "MemberDrinkItem", "MemberDrinksCooldownHours",
+  "MemberWeaponPerks", "SharePartyCap".
 - New console commands: "sc bond [name]", "sc bond <name> add|set <n>",
   "sc bond <name> event <gift|revive|bloodmoon|down|kill>", "sc bond decay", "sc perks [name] [apply]", "sc party".
 

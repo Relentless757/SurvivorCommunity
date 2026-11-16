@@ -238,7 +238,8 @@ Members' Bond (README section 4): the settings, the counters, the followers' dri
 Bond, her mood and the "Trust / Feels" words 0-XNPCCore's Progress page shows for her.
 
 ### `sc bond <id|name>` [READ]
-One member in full: her Bond and what it adds to her mood, her mood, whether she threatens to leave, the Progress
+One member in full: her Bond and what it adds to her mood, the kills on her that gave Bond today (3 a day at most), her
+mood, whether she threatens to leave, the Progress
 words with the numbers behind them, events still waiting, this session's Bond events (newest first), the gift points
 0-XNPCCore counted for her today (6 at most), and your own 0-XNPCCore trust and affinity, which members never move.
 Voice Control's `vc standing` shows the same lines for a member.

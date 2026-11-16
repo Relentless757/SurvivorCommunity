@@ -808,13 +808,15 @@
 			     party cap on your community's members. "sc bond", "sc perks" and "sc party" show all of it.
 			     MemberBond (round U4): Survivor Community owns its members' standing. 0-XNPCCore's relationship events feed each
 			     member's Bond, a part of her mood: a gift by its points (0-XNPCCore's own count, at most 6 a day, times
-			     BondGiftPerPoint), revived (by anyone) BondRevive, a blood moon survived with you BondBloodMoon (a follower, or a
-			     resident while you were home for it), down BondDowned, an enemy on her that you kill BondKillOnHer. Bond stays within
+			     BondGiftPerPoint), revived (by anyone) BondRevive, a blood moon survived with you BondBloodMoon (following you, or a
+			     resident while you are home, at both its start and its end), down BondDowned, an enemy on her that you kill
+			     BondKillOnHer (at most BondKillPerDay such kills a day; 0: kills give none). Bond stays within
 			     +-BondCap and fades BondDecayPerDay toward 0 at every day rollover. Whatever this says, 0-XNPCCore never writes its
 			     own trust or affinity for SC's people and a member's death never costs your global trust (that would raise your paid
 			     hires' price); its Progress page reads "Trust: loyal" from BondLoyalAt up (wary from minus that down, or while she
 			     threatens to leave) and "Feels: warm" while she is happy (cold while miserable). false: no Bond in the mood.
-			     MemberRefuseCoins: coins given to a member are refused ("I've no use for that."): members are never paid.
+			     MemberRefuseCoins: coins given to a member, or to an enclave person you enlisted, are refused ("I've no use for
+			     that."): members are never paid, and the enlisted go home with what they carry.
 			     MedicPainkillers: a member uses painkillers when she has no first aid kit or first aid bandage left, for PainkillerHeal
 			     health (they come as gifts; vanilla's painkillers heal 40 once).
 			     MemberDrinks: at home, a follower who carries fewer than MemberDrinksBelow drinks is topped up to MemberDrinks of
@@ -828,7 +830,9 @@
 			     does 1.9x pistol damage instead of 1.6x. Perk books still add their own book perks. Ranks are only ever raised.
 			     SharePartyCap (round U6): "Come with me." (talk, voice, the community window) is refused while 0-XNPCCore's party is
 			     full (its Settings.xml PartyMaxMembers, 8: paid hires and your followers together). MaxFollowers stays the community's
-			     own, lower limit. false: only MaxFollowers. -->
+			     own, lower limit. false: only MaxFollowers.
+			     Every member keeps a Progression (0-XNPCCore's levels, perks and crafting skills on her) while MemberWeaponPerks or
+			     CraftSkillsEnabled is on; with both off she has none, as before round U5. -->
 			<property name="MemberBond" value="true" />
 			<property name="BondCap" value="15" />
 			<property name="BondDecayPerDay" value="1" />
@@ -837,6 +841,7 @@
 			<property name="BondBloodMoon" value="4" />
 			<property name="BondDowned" value="-2" />
 			<property name="BondKillOnHer" value="1" />
+			<property name="BondKillPerDay" value="3" />
 			<property name="BondLoyalAt" value="8" />
 			<property name="MemberRefuseCoins" value="true" />
 			<property name="MedicPainkillers" value="true" />

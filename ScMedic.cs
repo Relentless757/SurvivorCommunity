@@ -1031,6 +1031,19 @@ namespace SurvivorCommunity
             return Count(e, item) + (uses.TryGetValue(e.entityId, out u) && u.Item == item ? 1 : 0);
         }
 
+        /// <summary>
+        /// Round U4 (the Fable review's note): the painkillers she would use as a last resort (MedicPainkillers, a member or a
+        /// stand-in), window and bag, one in her hand mid-use; 0 otherwise. For log lines only: HealItemCount (the restock's
+        /// threshold) leaves them out.
+        /// </summary>
+        public static int PainkillerCount(EntityAlive e)
+        {
+#if SC_V34
+            if (e != null && ScConfig.MedicPainkillers && ScXnpc.IsCommunity(e)) return Have(e, Painkillers);
+#endif
+            return 0;
+        }
+
         /// <summary>Heal items she has (HealItems: first aid kits plus first aid bandages, window and bag, one in her hand mid-use).</summary>
         public static int HealItemCount(EntityAlive e)
         {

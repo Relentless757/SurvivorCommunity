@@ -40,7 +40,7 @@ namespace SurvivorCommunity
     /// (a new body after a load) or the perk list changed. A weapon change needs nothing: every class is raised at once. Her own
     /// body on 0-XNPCCore's body only; a stand-in gets none (a short-lived copy with no Progression). MemberWeaponPerks false: no
     /// raise (ranks already given stay, as 0-XNPCCore's own never drop). Every member keeps a Progression for it
-    /// (ScCraft.OwnsProgression, round U5: crafting on or off).
+    /// (ScCraft.OwnsProgression, round U5: crafting on or off; with MemberWeaponPerks and CraftSkillsEnabled both off, none).
     /// </summary>
     public static class ScPerks
     {
@@ -181,8 +181,14 @@ namespace SurvivorCommunity
             return l ?? Fallback();
         }
 
+        /// <summary>
+        /// 0-XNPCCore's default list, made once: Phase1PerkNames clones its array on every call, and a new array every second
+        /// would defeat Apply's stamp (it compares the list by reference) - the Fable review's finding 7.
+        /// </summary>
+        private static string[] fallback;
+
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static string[] Fallback() { return NpcLevelRules.Phase1PerkNames; }
+        private static string[] Fallback() { return fallback ?? (fallback = NpcLevelRules.Phase1PerkNames); }
 
         /// <summary>0-XNPCCore's Progression/PerkRankCap (0-5), else 3; never above the user's 3.</summary>
         public static int RankCap()

@@ -254,8 +254,9 @@ namespace SurvivorCommunity
                     if (st.Hurt && ScMedic.CanTreatSelf(e))
                     {
                         st.AfterOnlyUntil = now + ScConfig.RetreatClearSeconds;
-                        End(e, st, "restocked", She(e) + " can heal " + (Male(e) ? "himself" : "herself") + " again (" + ScMedic.HealItemCount(e)
-                            + " heal item(s): the stockpile's restock, or one you gave " + HerObj(e) + ") and nothing has been after " + HerObj(e) + " for "
+                        // round U4 (the Fable review's note): her painkillers count in this line, as CanTreatSelf counts them
+                        End(e, st, "restocked", She(e) + " can heal " + (Male(e) ? "himself" : "herself") + " again (" + (ScMedic.HealItemCount(e) + ScMedic.PainkillerCount(e))
+                            + " heal item(s), painkillers included: the stockpile's restock, or one you gave " + HerObj(e) + ") and nothing has been after " + HerObj(e) + " for "
                             + RestockExitSeconds.ToString("0", CultureInfo.InvariantCulture) + " s - " + She(e) + " leaves the shelter to heal (round k5)");
                         return;
                     }

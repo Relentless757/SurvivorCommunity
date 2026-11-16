@@ -24,8 +24,9 @@ namespace SurvivorCommunity
     ///    member (or her stand-in) comes from SC - Feels from her mood, Trust from her Bond (ScBond.Mirror).
     ///  - Patch_SettleWeek, NPCChatComponent.TrySettleWeekFromGift (internal instance, 234): coins handed to one of SC's people never
     ///    pay a week (research 2.4: a contract left on her could take the coins past SC's billing guard). NotDue, nothing taken.
-    ///  - Patch_GiftCoins, SdcsGiftBag.TryAddGift (public static, 128; NPCSdcsCharacters): coins are refused for a member or a
-    ///    stand-in (D9: members are never paid) with 0-XNPCCore's own refusal, "I've no use for that."
+    ///  - Patch_GiftCoins, SdcsGiftBag.TryAddGift (public static, 128; NPCSdcsCharacters): coins are refused for a member, a
+    ///    stand-in or an enlisted enclave person (D9: members are never paid; an enlisted one goes home with her bag, the Fable
+    ///    review's finding 6) with 0-XNPCCore's own refusal, "I've no use for that."
     ///  - Patch_Standing, ConsoleCmdLLMChat.RunStandingCommand (private instance, 33): Voice Control's "vc standing" on a member
     ///    shows SC's view instead of 0-XNPCCore's numbers, which no longer apply to her.
     /// Every target is above Mono's 20-byte inline limit. Bound by name with no reference to Voice Control's DLL: without it, or
@@ -374,7 +375,7 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>D9: coins refused for a member or a stand-in, with 0-XNPCCore's own refusal (vcGiftCantUse: "I've no use for that.").</summary>
+        /// <summary>D9: coins refused for SC's people (Ours), with 0-XNPCCore's own refusal (vcGiftCantUse: "I've no use for that.").</summary>
         [HarmonyPatch]
         public static class Patch_GiftCoins
         {
@@ -390,11 +391,11 @@ namespace SurvivorCommunity
                 try
                 {
                     if (!ScConfig.MemberRefuseCoins || npc == null || item == null || item.ItemClass == null) return true;
-                    if (!Patches_VoiceControl.IsCommunityNpc(npc) || !IsCurrency(item.ItemClass)) return true;
+                    if (!Ours(npc) || !IsCurrency(item.ItemClass)) return true;   // finding 6: an enlisted enclave person too
                     refusalKey = "vcGiftCantUse";
                     __result = 0;
                     Count("gift-coins-refused");
-                    ScLog.Out(ScCommunity.DisplayName(npc) + " refused " + count + " " + item.ItemClass.GetItemName() + " as a gift - members are never paid (round U4)");
+                    ScLog.Out(ScCommunity.DisplayName(npc) + " refused " + count + " " + item.ItemClass.GetItemName() + " as a gift - SC's people are never paid that way (round U4)");
                     return false;
                 }
                 catch (Exception e)
