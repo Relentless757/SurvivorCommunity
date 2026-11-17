@@ -2071,7 +2071,7 @@ For console commands (testing and fixing), see CONSOLE_COMMANDS.txt.
   without their clothes.
 - Game 3.4 only. This build does not run on 3.2 or 3.3.
 - Do not remove the mod from a save that used it. Loading that save without SC can damage the chunks its blocks are in.
-- A few of the newest lines are text only. All 16 voices speak the 528 recorded lines, but the newest ones (a mining
+- A few of the newest lines are text only. All 16 voices speak the 604 recorded lines, but the newest ones (a mining
   runner's radio lines, the training line after reading a magazine, and some refusals about the work kit, field jobs and
   trading) have no voice yet and only appear as text.
 - Mining and digging clay are not resident jobs. Residents do home jobs only; send them on a mining run instead, or take
