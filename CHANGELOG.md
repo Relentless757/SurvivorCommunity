@@ -38,14 +38,6 @@
   section 20); `SmallTalkTtsFallback` (off) lets a survivor without recordings use Voice Control's own small talk with its
   text-to-speech. `sc chat` shows and tests it all.
 
-## Loot
-- **Store crates always hold a resource bundle.** Shamway (food or water), Pop-N-Pills (medical), Shotgun Messiah and
-  Savage Country (ammo), Pass-N-Gas (fuel), and construction, Working Stiffs and Mo' Power (materials) crates each
-  hold one bundle of their store's resource: Small 80% of the time, Medium 17%, Large 3%. Savage Country, Working
-  Stiffs and Mo' Power crates had none before; the others had one only 6-32% of the time.
-- **Air drops always hold at least one bundle:** a Medium food, medical, ammo, materials or fuel bundle, on top of the
-  usual chances.
-
 ## 0-XNPCCore 3.4.06
 - **Equipment... opens the member's inventory panel.** 0-XNPCCore 3.4.06's new equipment window (the "Equipment..." talk
   row, the hold-E ring's Equipment and Jobs and gear's Equipment) opens SC's Survivor Inventory panel for members. Hired
@@ -69,12 +61,6 @@
   crafting magazine as training shook her head and said "I already know what that one teaches." (her XP was still
   paid), and a resident given Follow + loot, Loot here, Mine or Dig clay took the job instead of refusing it. Both
   work again.
-
-## Members' gear
-- **Fixed: a member's tools and weapons no longer change quality.** Taking or swapping a member's gun or melee weapon,
-  or loading the game, re-rolled the quality of every tool they carry, and of the weapons SC gave them. Their work-kit
-  tools and those weapons now keep one quality each, and every other item they carry keeps its own when you swap their
-  weapons. Weapons and tools you hand over keep exactly the quality they had.
 
 ## 0-XNPCCore 3.4.06: Bond, gifts, weapon perks and the party
 - **Bond.** Each member now has a Bond with you, from -15 to +15, that adds to their mood: a gift raises it by its points
@@ -103,6 +89,20 @@
   `MemberDrinksBelow`, `MemberDrinkItem`, `MemberDrinksCooldownHours`, `MemberWeaponPerks`, `SharePartyCap`.
 - New console commands: `sc bond [name]`, `sc bond <name> add|set <n>`, `sc bond <name> event <gift|revive|bloodmoon|down|kill>`,
   `sc bond decay`, `sc perks [name] [apply]`, `sc party`.
+
+## Members' gear
+- **Fixed: a member's tools and weapons no longer change quality.** Taking or swapping a member's gun or melee weapon,
+  or loading the game, re-rolled the quality of every tool they carry, and of the weapons SC gave them. Their work-kit
+  tools and those weapons now keep one quality each, and every other item they carry keeps its own when you swap their
+  weapons. Weapons and tools you hand over keep exactly the quality they had.
+
+## Loot
+- **Store crates always hold a resource bundle.** Shamway (food or water), Pop-N-Pills (medical), Shotgun Messiah and
+  Savage Country (ammo), Pass-N-Gas (fuel), and construction, Working Stiffs and Mo' Power (materials) crates each
+  hold one bundle of their store's resource: Small 80% of the time, Medium 17%, Large 3%. Savage Country, Working
+  Stiffs and Mo' Power crates had none before; the others had one only 6-32% of the time.
+- **Air drops always hold at least one bundle:** a Medium food, medical, ammo, materials or fuel bundle, on top of the
+  usual chances.
 
 # Survivor Community 0.1.0 pre-release 3
 

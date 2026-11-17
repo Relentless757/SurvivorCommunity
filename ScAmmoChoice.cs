@@ -367,6 +367,7 @@ namespace SurvivorCommunity
             try
             {
                 if (m == null || e == null || e.inventory == null || string.IsNullOrEmpty(m.AmmoGun) || e.IsDead()) return;
+                if (ScDowned.IsDown(e)) return;                      // the combined review, finding 2: not while she is down
                 ItemClass gun = ScAmmo.PairGun(e);
                 int want;
                 if (!Wanted(m, gun, out want) || ScMedic.IsUsing(e.entityId)) return;

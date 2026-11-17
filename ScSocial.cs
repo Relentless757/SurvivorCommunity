@@ -454,6 +454,7 @@ namespace SurvivorCommunity
             if (!ScXnpc.IsSurvivorBody(npc)) return "not a survivor body";
             if (npc.Buffs == null) return "no buffs";
             if (Downed(npc)) return "downed";
+            if (ScDowned.IsReviving(npc.entityId)) return "reviving a downed member";   // the combined review, finding 1
             if (ScSleep.IsAsleep(npc)) return "asleep";
             if (npc.Buffs.GetCustomVar("SdcsResident") >= 0.5f) return "in bed for the night (the night lease)";
             if (npc.Buffs.GetCustomVar("Leader") > 0f) return "following";
