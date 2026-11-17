@@ -18,8 +18,8 @@
 ## Social life
 - **Small talk.** Two residents standing near each other now and then stop for a quick exchange about life at the base -
   the stockpile, the weather, the walls, the nights, food, you - and turn to each other and gesture as they talk. What
-  they say fits their traits and mood. 38 written pairs; until they are recorded in SC's voices they show as captions in
-  Voice Control's subtitle bar.
+  they say fits their traits and mood. 38 pairs, spoken in all 16 survivor voices, with captions in Voice Control's
+  subtitle bar.
 - **You overhear them** only from 10 to 32 m away; walk up and they stop. One conversation at a time in the base, about
   every minute and a half, and the same two at most once every 10 minutes.
 - **Walking over to chat.** Now and then a resident on her walk about the base heads over to a neighbor to talk; the

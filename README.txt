@@ -450,10 +450,10 @@ Between their jobs your residents have a life of their own.
   then. The fire shows lit while anyone is there: only the flames, so it uses no fuel and the block does not change. A
   round of drinks (Activities) gathers them around the fire as well. Then they go back to what they were doing, and at
   bedtime to bed.
-- Voices. Each line plays in the speaker's own voice once it is recorded. Until then it shows as a caption in Voice
-  Control's subtitle bar (where Voice Control shows that survivor's text); without Voice Control there are no captions.
-  With "SmallTalkTtsFallback" on (section 20), a survivor whose voice has none of the lines yet says one of Voice
-  Control's own small-talk lines with its text-to-speech instead.
+- Voices. Each line plays in the speaker's own voice (all 16 voices have every line), with a caption in Voice Control's
+  subtitle bar where Voice Control shows that survivor's text. With "SmallTalkTtsFallback" on (section 20), a survivor
+  whose voice has none of the lines yet says one of Voice Control's own small-talk lines with its text-to-speech
+  instead.
 - Who never joins in: anyone asleep or on the way to bed, on watch, on a work shift, following you, away on a run,
   downed, badly hurt and sheltering, fighting or with an enemy in sight, or in a talk with you; nobody during a base
   attack, and nobody gathers on a blood moon night.
@@ -1669,8 +1669,8 @@ Greetings, chatter and taunts
   follower, one of an enclave's people), the first time each day you see them within 12 m, and when you walk up to them.
   Strangers in a group greet you once: when one of them greets you, the others around them do not greet you one after
   another (walking up to one and looking at them still gets you their greeting).
-- Small talk: residents and enclave people talk with each other where you can overhear them (section 4). Until its lines
-  are recorded, it shows as captions.
+- Small talk: residents and enclave people talk with each other where you can overhear them (section 4), in their own
+  voices.
 - Chatter: every minute and a half or so, a resident at home near you says something to nobody in particular.
 - 0-XNPCCore's lines: where Voice Control would speak one of 0-XNPCCore's job lines or order replies ("I'm out of
   ammo.", "Right behind you."), SC plays its recording in the survivor's own voice.
@@ -2074,8 +2074,6 @@ For console commands (testing and fixing), see CONSOLE_COMMANDS.txt.
 - A few of the newest lines are text only. All 16 voices speak the 528 recorded lines, but the newest ones (a mining
   runner's radio lines, the training line after reading a magazine, and some refusals about the work kit, field jobs and
   trading) have no voice yet and only appear as text.
-- Small talk is captions only for now. Its 76 lines are written but not recorded yet; each one plays in the speaker's
-  voice as soon as it is.
 - Mining and digging clay are not resident jobs. Residents do home jobs only; send them on a mining run instead, or take
   a member along for Mine, Loot here or Follow + loot.
 - Breaking an enclave's containers open is not stopped, only opening them.

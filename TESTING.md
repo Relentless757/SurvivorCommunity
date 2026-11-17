@@ -302,8 +302,12 @@ blocks.xml for the `small talk:` / `campfire:` log lines. `sc chat` explains eve
 **Small talk**
 - [ ] Stand 15-25 m from two residents who are standing within 4 m of each other (a roam pause, or their posts at night).
       Within about 90 seconds one says a line to the other and the other answers: they turn to face each other, one
-      gestures as she speaks, and each line shows in Voice Control's subtitle bar under the speaker's name (captions only:
-      no voice yet). `sc chat` lists the exchange under "now" while it runs.
+      gestures as she speaks, each line plays in the speaker's own voice (round U8) and shows in Voice Control's subtitle
+      bar under the speaker's name. `sc chat` lists the exchange under "now" while it runs; `sc chat lines` shows
+      76/76 for every voice.
+- [ ] U8 ear check: the end of these lines (a recording tail was trimmed; listen that the last consonant is whole):
+      Layla scTalkReply_27, Rene scTalkOpen_07, Julian scTalkOpen_37, Nate scTalkReply_20, NativeM2 scTalkReply_01,
+      Vane scTalkOpen_15 / scTalkReply_20 / scTalkReply_24 (play that voice's .ogg in the mod's Resources/Voices folder in any player).
 - [ ] Walk up to them (closer than 10 m) right after the first line: the answer never comes, and `sc chat` shows the
       last end "you walked up (the answer is dropped)". Walk away to 40 m or more: no new conversation starts there.
 - [ ] The same two do not talk again for 10 minutes (`sc chat` lists them under "pairs cooling"); another pair can.
