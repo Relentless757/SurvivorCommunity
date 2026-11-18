@@ -53,6 +53,9 @@ NightOwl force` (and `add Insomniac force` for the third step).
 - [ ] **Campfire with an Entertainer at home** (`sc spec <name> set Entertainment 4 force`): the Facilities tab's Campfire
       Effect says +17 (15 + 2), matching the "poured" message; `sc drinks` while the round runs says +17 too.
 - [ ] **Load log:** a `config: life skills ...` line follows `config: base defense BD1 ...`.
+- [ ] **Squeamish and the medic order:** wheel "Medic on" for a Squeamish follower: she does not answer "I'll look after
+      everyone." in her own voice (Voice Control says the label), and a second later she is not the medic, with the
+      Squeamish message.
 - [ ] **Member panel on a knockdown:** open a member's inventory panel (her talk menu, Equipment), then let a zombie knock
       her down (`sc down <name>` does it too): the panel closes within half a second with "<name> took a hit, so the
       inventory closed.", and it won't open again until she is revived.

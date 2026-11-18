@@ -388,6 +388,9 @@ namespace SurvivorCommunity
                 }
                 if (family == null) return Leave();
             }
+            // ms/m1all (final review): a Squeamish member never keeps the medic role (round m1t takes it back within a second),
+            // so her own recorded "I'll look after everyone." would be a yes she doesn't mean - Voice Control says the label
+            if (family == "ack.medicon" && !ScTraitEffects.CanBeMedic(ScRegistry.GetMember(npc.entityId))) return Leave();
             keys = family == "vc.gothere" ? GoThereKeys() : ScBarks.KeysOf(family);
             if (keys.Count == 0) return Leave();
             mapped++;
