@@ -127,12 +127,15 @@
   Emotes page is done without a word. Roles, emotes and dances answer this way once their new lines are recorded.
   `VoiceWheelAcks` turns it off.
 - **One line at a time.** When one order makes two lines at once (Come here's "On my way." and then "Coming right
-  back.", a gift's thanks and then its reply), the second no longer cuts off the first. `VoiceOneLineSeconds`.
+  back.", a gift's thanks and then its reply), the second no longer cuts off the first; anything else, a call for help
+  when she goes down included, is always heard. `VoiceOneLineSeconds`.
 - **SC greets all of its people.** Voice Control no longer greets a runner you meet on the road, a member posted to an
   outpost or one on the way to the base (they greet you with a member's line that fits away from home, never "Welcome
-  home, boss."), nor an outpost stand-in or someone hostile to you (they say nothing). `ScGreetingsOwnAll`.
+  home, boss."), nor an outpost stand-in or someone hostile to you (they say nothing). Where a voice has no recording
+  of the greeting, Voice Control greets as before. `ScGreetingsOwnAll`.
 - **Refusals said aloud.** A resident refusing a field job, a member refusing to fight with her work kit, and "Come with
-  me." when your party has no room are spoken too, once recorded, when she is within 30 m. `VoiceSpokenRefusals`. A
+  me." when your party has no room are spoken too, once recorded, when she is within 30 m and neither asleep nor down,
+  and Voice Control's "yes" to the refused order is not said. `VoiceSpokenRefusals`. A
   spoken "follow me" with no room in the party now answers "You've already got a full crew with you. Ask me again when
   there's room." instead of "I can't right now.".
 - **Lines that name an item play a recording too:** "Now I know how to make Forged Iron." plays "Now I know how to make

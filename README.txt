@@ -1683,9 +1683,10 @@ Greetings, chatter and taunts
 - Small talk: residents and enclave people talk with each other where you can overhear them (section 4), in their own
   voices.
 - Chatter: every minute and a half or so, a resident at home near you says something to nobody in particular.
-- SC greets all of its people itself, so Voice Control never greets one of them: a runner you meet on the road, a member
-  posted to an outpost and one on the way to the base greet you with a member's line that fits away from home ("Quiet
-  day. I'll take it.", never "Welcome home, boss."), and an outpost stand-in or anyone hostile to you says nothing.
+- SC greets all of its people itself wherever it has a recording of their greeting (Voice Control greets the rest as
+  before): a runner you meet on the road, a member posted to an outpost and one on the way to the base greet you with a
+  member's line that fits away from home ("Quiet day. I'll take it.", never "Welcome home, boss."), and an outpost
+  stand-in or anyone hostile to you says nothing.
 - 0-XNPCCore's lines: where Voice Control would speak one of 0-XNPCCore's job lines or order replies ("I'm out of
   ammo.", "Right behind you."), SC plays its recording in the survivor's own voice. A line that names an item or a
   number ("Now I know how to make Forged Iron.") plays a recording without the name; the caption still shows it.
@@ -1694,10 +1695,10 @@ Greetings, chatter and taunts
   once their new lines are recorded). "Come here" leaves her "On my way." alone, and "Whatever" on the Emotes page is
   done without a word.
 - One line at a time: when an order makes two lines at once (Come here's "On my way." and then "Coming right back."),
-  the second no longer cuts off the first.
+  the second no longer cuts off the first. Anything else, a call for help when she goes down included, is always heard.
 - Refusals said aloud: a resident refusing a field job, a member refusing to fight with her work kit, and "Come with
-  me." when your party has no room are spoken too (once recorded), not only shown, when she is within 30 m of you. A
-  spoken "follow me" with no room in the party gets the same answer.
+  me." when your party has no room are spoken too (once recorded), not only shown, when she is within 30 m of you and
+  awake, not down and not already speaking. A spoken "follow me" with no room in the party gets the same answer.
 - Raider taunts: raiders call out when they spot you, hunt you, lose you, are hit, kill you, die, or fall back. One
   raider at most every 15 seconds, so a band does not all shout at once.
 - Runners on the radio speak through a radio filter (section 8).
@@ -2045,14 +2046,15 @@ NPCs and voices
 - ScGreetOnePerGroup / ScGreetGroupRange = true / 30: One stranger greets you for the group around them (within this
   many meters)
 - RaiderTaunts = true: Raider taunts
-- ScGreetingsOwnAll = true: SC greets all of its people itself and Voice Control never does; false: Voice Control greets
-  the ones SC has no greeting for (a runner, a stand-in, someone hostile to you)
+- ScGreetingsOwnAll = true: SC greets all of its people itself where it has their greeting recorded, and keeps stand-ins
+  and anyone hostile to you silent; false: Voice Control greets the ones SC has no greeting for (a runner, a stand-in,
+  someone hostile to you)
 - VoiceWheelAcks = true: The order wheel's slot names become the order's spoken reply; false: survivors say the slot's
   name, as before
-- VoiceOneLineSeconds = 0.4: A second Voice Control line on the same survivor within this many seconds of SC's line is
-  skipped; 0: off
+- VoiceOneLineSeconds = 0.4: The second line of the same order (the wheel's label, a spoken order's reply) right after
+  SC's line, within this many seconds, is skipped; 0: off
 - VoiceSpokenRefusals = true: SC's refusals (a field job, the work kit as a weapon, a full party) are said aloud too,
-  within 30 m of you
+  within 30 m of you, unless she is asleep or down
 - MuteVcInTalk = true: Voice Control stays quiet during SC's talks
 - VoiceRaceByFace = true: With Vanity Vault, survivors speak with the voices of their face's race; false: the skin tone
   decides ("VoiceRaceBySkin")

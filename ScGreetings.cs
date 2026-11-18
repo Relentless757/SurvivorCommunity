@@ -25,10 +25,11 @@ namespace SurvivorCommunity
     /// Where SC greets, Voice Control doesn't: Patches_VoiceControl's prefix on NPCChatComponent.TriggerProactiveGreeting
     /// asks OwnsGreeting - one of the community's survivors whose voice has a clip of their greeting - and skips Voice
     /// Control's greeting (canned or LLM) for them. Without a clip Voice Control greets them as before.
-    /// Round m1w (P4, ScGreetingsOwnAll): SC owns every greeting of SC's people - OwnsGreeting is true for any of them, so Voice
-    /// Control greets none; a member away (a runner met on the road, one posted to an outpost, one arriving) greets with the
-    /// member lines that fit anywhere (GreetKeys: none of the home-only ones, HomeOnly) and says nothing when none is left or
-    /// recorded, and an outpost stand-in, someone hostile to you or a missing enclave person says nothing.
+    /// Round m1w (P4, ScGreetingsOwnAll): SC owns the greetings of SC's people it means to keep silent - an outpost stand-in,
+    /// someone hostile to you, a missing enclave person, and a member away from home when no member line fits away (GreetKeys:
+    /// none of the home-only ones, HomeOnly) - so Voice Control greets none of them; a member away (a runner met on the road,
+    /// one posted to an outpost, one arriving) greets with the member lines that fit anywhere. Review of adee167, fix 4: where
+    /// SC has a greeting for someone but no recording of it, Voice Control greets them as before.
     ///
     /// Chatter (ScChatter): every ScChatterSeconds (90 s, a quarter either way), with ScChatterChance (0.5), one resident at
     /// home within ScChatterRange (15 m) of you, not fighting, not talking, says a chatter line - only one with a clip.
@@ -122,14 +123,22 @@ namespace SurvivorCommunity
         /// <summary>
         /// Patches_VoiceControl's TriggerProactiveGreeting prefix: SC greets this survivor itself (they are one of the
         /// community's, SC greets for their relation and their voice has a clip of it), so Voice Control's greeting is skipped.
-        /// Round m1w (P4): with ScGreetingsOwnAll, any of the community's survivors - where SC has no greeting for them or no
-        /// recording, they say nothing.
+        /// Round m1w (P4): with ScGreetingsOwnAll, also the deliberate silences - someone SC greets for nobody (Relation null: a
+        /// stand-in, someone hostile to you, a missing enclave person) and a member away with no line that fits away. Review fix
+        /// 4: a greeting SC has but has no recording of is Voice Control's, as before.
         /// </summary>
         public static bool OwnsGreeting(EntityAlive npc, EntityPlayer player)
         {
             if (!ScConfig.ScGreetings || npc == null || !ScXnpc.IsSurvivorBody(npc)) return false;
-            if (ScConfig.ScGreetingsOwnAll) return true;           // round m1w (P4)
             string rel = Relation(npc, player);
+            if (ScConfig.ScGreetingsOwnAll)
+            {
+                // round m1w (P4): deliberate silence (with the switch off Relation is null for these too, and Voice Control greets)
+                if (rel == null) return true;
+                List<string> keys = GreetKeys(rel);
+                if (keys.Count == 0) return true;              // a member away: no member line fits away from home
+                return ScBarks.HasAnyClip(npc, keys);
+            }
             return rel != null && ScBarks.HasAnyClip(npc, GreetKeys(rel));
         }
 
@@ -377,8 +386,8 @@ namespace SurvivorCommunity
             string what = who + " (" + rel + ")";
             if (p == null) return what + (rel == Away ? ": no member greeting that fits away from home - silent" : " has no voice");
             if (p.Path == null && !ScConfig.VoiceBarkDebug)
-                return what + ": " + GreetFamily(rel) + " has no recording in " + (p.Voice ?? "any voice") + " - silent"
-                       + (ScConfig.ScGreetingsOwnAll ? "" : ", and Voice Control greets them as before") + " (VoiceBarkDebug shows a silent one)";
+                return what + ": " + GreetFamily(rel) + " has no recording in " + (p.Voice ?? "any voice")
+                       + " - silent, and Voice Control greets them as before (VoiceBarkDebug shows a silent one)";
             Greet(npc, lp, rel, "console");
             return what + " says " + p.Key + (p.Path != null ? " in " + p.Voice : " (silent: no recording, VoiceBarkDebug)") + ": \"" + p.Words + "\"";
         }

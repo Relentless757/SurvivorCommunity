@@ -1260,13 +1260,15 @@
 			     ("Close", "Jump down", "Loot here", "Wave") become the order's own reply in the survivor's voice ("I'll stay
 			     close."); "Come here" leaves the "On my way." it already said, and a gesture with no reply ("Whatever") plays
 			     without a word. VoiceOneLineSeconds: one line per NPC at a time - after SC played one of its lines on an NPC
-			     in Voice Control's place, any further Voice Control line on her within this many seconds is skipped (the
-			     second line of the same order, which used to cut SC's clip); 0 turns it off. VoiceSpokenRefusals: SC's
-			     refusals that were text only (a field job for a resident, the work kit as a weapon, no room in the party
-			     for "Come with me.") are said aloud too, within 30 m of you. ScGreetingsOwnAll: SC owns every greeting of its
-			     people - Voice Control never greets them; a runner, a member posted to an outpost or one arriving greets you
-			     with a member's line that fits away from home (none of the home-only ones, or nothing), and an outpost
-			     stand-in or someone hostile to you says nothing. "sc voice barks" shows these and this session's counts. -->
+			     in Voice Control's place, the second line of the same order (the wheel's label, a spoken order's reply),
+			     which used to cut SC's clip, is skipped when it comes within this many seconds; a say-line such as the call
+			     for help when she goes down never is; 0 turns it off. VoiceSpokenRefusals: SC's refusals that were text only
+			     (a field job for a resident, the work kit as a weapon, no room in the party for "Come with me.") are said
+			     aloud too, within 30 m of you, unless she is asleep or down. ScGreetingsOwnAll: SC owns the greetings of its
+			     people - a runner, a member posted to an outpost or one arriving greets you with a member's line that fits
+			     away from home (none of the home-only ones, or nothing), and an outpost stand-in or someone hostile to you
+			     says nothing; where SC has no recording of a greeting, Voice Control greets as before. "sc voice barks"
+			     shows these and this session's counts. -->
 			<property name="VoiceWheelAcks" value="true" />
 			<property name="VoiceOneLineSeconds" value="0.4" />
 			<property name="VoiceSpokenRefusals" value="true" />

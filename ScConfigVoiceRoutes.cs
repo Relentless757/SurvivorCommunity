@@ -18,21 +18,23 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool VoiceWheelAcks = true;
         /// <summary>
-        /// P6: one line per NPC at a time - after SC put one of its lines on an NPC in Voice Control's place, any further
-        /// Voice Control line on her within this many real seconds is swallowed (the second line of the same order, which cut
-        /// SC's clip). 0: off.
+        /// P6: one line per NPC at a time - after SC put one of its lines on an NPC in Voice Control's place, the second line
+        /// of the same order (the wheel's label, a spoken order's reply: the same or the next frame), which cut SC's clip, is
+        /// swallowed if it comes within this many real seconds. Never a say-line (going down) or a trigger's reply. 0: off.
         /// </summary>
         public static float VoiceOneLineSeconds = 0.4f;
         /// <summary>
         /// P7: SC's refusals that were text only - a field job for a resident, the work kit as a weapon, no room in the party
-        /// for "Come with me." - are said aloud in her recorded voice as well (once recorded), within 30 m of you.
+        /// for "Come with me." - are said aloud in her recorded voice as well (once recorded), within 30 m of you; not while
+        /// she is asleep or down, Voice Control is speaking on her, or ScBarks is off.
         /// </summary>
         public static bool VoiceSpokenRefusals = true;
         /// <summary>
-        /// P4: SC owns every greeting of SC's people. Voice Control never greets one of them: a runner on the road, one posted
-        /// to an outpost and one arriving greet with the member lines that fit away from home (none of the home-only ones;
-        /// nothing when none is left), and an outpost stand-in or someone hostile to you says nothing. false: Voice Control
-        /// greets the ones SC has no greeting for, as before.
+        /// P4: SC owns the greetings of SC's people: a runner on the road, one posted to an outpost and one arriving greet
+        /// with the member lines that fit away from home (none of the home-only ones; nothing when none is left), and an
+        /// outpost stand-in or someone hostile to you says nothing - Voice Control greets none of them. Where SC has a
+        /// greeting but no recording of it, Voice Control greets as before. false: Voice Control greets the ones SC has no
+        /// greeting for, as before.
         /// </summary>
         public static bool ScGreetingsOwnAll = true;
 
