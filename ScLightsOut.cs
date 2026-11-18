@@ -29,10 +29,13 @@ namespace SurvivorCommunity
     {
         private const ulong TicksPerDay = 24000UL;
         private static float nextTick;
+        /// <summary>A power.dat save that found vanilla's own save thread running (it would have done nothing): Tick tries again.</summary>
+        private static bool powerSaveDue;
 
         public static void Reset()
         {
             nextTick = 0f;
+            powerSaveDue = false;
         }
 
         public static bool Active { get { return ScRegistry.Loaded && ScRegistry.Community.LightsOutUntil > 0UL; } }
@@ -230,10 +233,29 @@ namespace SurvivorCommunity
             return on;
         }
 
-        /// <summary>The power graph to power.dat now (main thread; vanilla otherwise saves it every two minutes and with the world).</summary>
+        /// <summary>
+        /// The power graph to power.dat now (main thread; vanilla otherwise saves it every two minutes and with the world).
+        /// SavePowerManager does nothing while vanilla's own "powerDataSave" thread is still writing (that write holds the
+        /// state from before): then powerSaveDue makes Tick try again until it goes through (the re-check's N1).
+        /// </summary>
         private static void SavePower()
         {
-            try { if (PowerManager.HasInstance) PowerManager.Instance.SavePowerManager(); }
+            try
+            {
+                if (!PowerManager.HasInstance) { powerSaveDue = false; return; }
+                bool busy;
+                Dictionary<string, ThreadManager.ThreadInfo> threads = ThreadManager.ActiveThreads;
+                if (threads == null) busy = false;
+                else lock (threads) { busy = threads.ContainsKey("powerDataSave"); }
+                if (busy)
+                {
+                    if (!powerSaveDue) ScLog.Verbose("lights out: vanilla is still saving power.dat - our save waits for it");
+                    powerSaveDue = true;
+                    return;
+                }
+                PowerManager.Instance.SavePowerManager();
+                powerSaveDue = false;
+            }
             catch (Exception e) { ScLog.Once("lightsout-save-power", e); }
         }
 
@@ -243,6 +265,7 @@ namespace SurvivorCommunity
             try
             {
                 if (w == null || !ScRegistry.Loaded || !ScCommunity.IsHost) return;
+                if (powerSaveDue) SavePower();      // N1: a power.dat save that waited for vanilla's own - also after it ended
                 Community c = ScRegistry.Community;
                 if (c.LightsOutUntil == 0UL) return;
                 float now = Time.unscaledTime;

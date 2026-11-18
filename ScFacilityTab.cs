@@ -225,6 +225,13 @@ namespace SurvivorCommunity
                 if (kv.Value > 0 && !c.ScanSites.ContainsKey(kv.Key)) { water = true; break; }
         }
 
+        /// <summary>A member is on a work shift (not a talk hold).</summary>
+        private static bool AnyOnWorkShift()
+        {
+            foreach (Member m in ScRegistry.Members.Values) if (ScWork.OnWorkShift(m.Id)) return true;
+            return false;
+        }
+
         /// <summary>The player stands inside the home zone.</summary>
         private static bool PlayerAtHome()
         {
@@ -458,12 +465,16 @@ namespace SurvivorCommunity
             into.Add(e);
         }
 
-        /// <summary>Call to work can't start now: a client, shifts off, or the player outside the base (every pick would say so).</summary>
+        /// <summary>
+        /// Call to work can't start now: a client, shifts off, or the player outside the base (every pick would say so) - unless
+        /// someone is on a work shift: picking her ends it from anywhere, as the Members tab does (ScWork.CallOrEnd; the
+        /// re-check's N2), and ScWork.CanStart still refuses a new shift away from the base, member by member.
+        /// </summary>
         private static string WorkWhyNot()
         {
             if (!ScCommunity.IsHost) return L("scHostOnly");
             if (!ScConfig.WorkShiftsEnabled) return L("scWorkOff");
-            if (!PlayerAtHome()) return L("scWorkNotHome");
+            if (!PlayerAtHome() && !AnyOnWorkShift()) return L("scWorkNotHome");
             return null;
         }
 

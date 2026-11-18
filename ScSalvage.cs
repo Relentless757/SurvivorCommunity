@@ -22,6 +22,12 @@ namespace SurvivorCommunity
         /// <summary>The whole horde of the attack ScBaseAttack.SettleAway is settling (0: none noted); Settled takes it once.</summary>
         private static int awayTotal;
 
+        /// <summary>Per-world reset (ModApi): no noted total carries into the next world (the re-check's N4).</summary>
+        public static void Reset()
+        {
+            awayTotal = 0;
+        }
+
         /// <summary>ScBaseAttack.SettleAway, before it clears the attack: its full size, for the corpse pile and the record.</summary>
         public static void NoteAwayTotal(int total)
         {
