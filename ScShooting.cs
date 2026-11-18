@@ -224,7 +224,7 @@ namespace SurvivorCommunity
                 }
             }
             aimed++;
-            return Cone(e, dir, ErrorTan(stars, distance));
+            return Cone(e, dir, ErrorTan(stars, distance) * ScTraitEffects.AimMult(e));   // round m1t: Steady Hands x0.8
         }
 
         /// <summary>A launcher's shot (bow, crossbow, rocket): the aim error only - the arrow's drop already brings it lower.</summary>
@@ -235,7 +235,7 @@ namespace SurvivorCommunity
             EntityAlive t = AimedAt(e, direction);
             float distance = t != null ? (t.getHeadPosition() - e.getHeadPosition()).magnitude : -1f;
             launched++;
-            return Cone(e, direction, ErrorTan(stars, distance));
+            return Cone(e, direction, ErrorTan(stars, distance) * ScTraitEffects.AimMult(e));   // round m1t: Steady Hands x0.8
         }
 
         /// <summary>
@@ -271,7 +271,15 @@ namespace SurvivorCommunity
             int stars = Stars(e, out source);
             return "shooting " + stars + " star(s) (" + source + "): hits within " + HitRange(stars).ToString("0") + " m, engages within "
                    + EngageRange(stars).ToString("0") + " m, aim error " + ConeDegrees(stars).ToString("0.00") + " deg (growing past "
-                   + HitRange(stars).ToString("0") + " m)" + (ScConfig.ShootingAimChest ? ", at the chest" : ", at the head");
+                   + HitRange(stars).ToString("0") + " m)" + (ScConfig.ShootingAimChest ? ", at the chest" : ", at the head")
+                   + AimTraitText(e);
+        }
+
+        /// <summary>Round m1t: ", aim error x0.8 from traits (Steady Hands)" when a trait changes it, else "".</summary>
+        private static string AimTraitText(EntityAlive e)
+        {
+            float f = ScTraitEffects.AimMult(e);
+            return Mathf.Approximately(f, 1f) ? "" : ", aim error x" + f.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " from traits";
         }
 
         /// <summary>sc xnpc: the switch, the numbers and the counters.</summary>

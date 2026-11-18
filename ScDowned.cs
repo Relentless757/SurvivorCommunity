@@ -583,6 +583,7 @@ namespace SurvivorCommunity
             foreach (Member mm in ScRegistry.Members.Values)
             {
                 if (mm.Specialty != Specialty.Medicine || mm.Id == d.Id) continue;
+                if (!ScTraitEffects.CanBeMedic(mm)) continue;      // round m1t: Squeamish never takes the medic role
                 EntityAlive me = ScCommunity.FindNpc(mm.Id);
                 Why why;
                 if (Refusal(mm, me, d, false, out why) != null)
@@ -659,6 +660,7 @@ namespace SurvivorCommunity
             why = Why.Busy;
             if (mm == null) { why = Why.NoMedic; return "no longer a member"; }
             if (mm.Specialty != Specialty.Medicine) { why = Why.NoMedic; return "not a medic"; }
+            if (!ScTraitEffects.CanBeMedic(mm)) { why = Why.NoMedic; return "squeamish (round m1t: never the medic)"; }
             if (mm.Status != MemberStatus.Resident) { why = Why.NoMedic; return "not living at home (" + mm.Status + ")"; }
             if (me == null || me.IsDead()) { why = Why.NoMedic; return "not in the world"; }
             if (IsDown(me)) { why = Why.Hurt; return "down herself"; }

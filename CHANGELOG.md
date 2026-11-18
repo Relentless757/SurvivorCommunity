@@ -1,5 +1,23 @@
 # Next pre-release (not released yet)
 
+## Traits and life skills
+- **Twelve new traits:** Night Owl (happier on a night watch), Light Sleeper (up at once for a horde; +1 base defense),
+  Scavenger (+10% from supply runs), Haggler (radio barter at 3 for 2), Fast Healer (heals an injury without medical
+  supplies half the time), Bookworm (+50% from magazines), Squeamish (never the medic), Clumsy (tools wear 50% faster) and
+  Steady Hands (a fifth less aim error), each with its own icon. Iron Stomach, Gun Nut and Brawler wait for the latrine,
+  range and gym, and say "(coming later)" on the card.
+- **Clashing traits never come together:** Optimist and Pessimist, Cheerful and Pessimist, Hardy and Pessimist, Loner and
+  People Person, Eats Like a Bird and Bottomless Stomach, Veteran and Cowardly, Brawler and Cowardly, Medic Training and
+  Squeamish, Clumsy and Steady Hands.
+- **Seven new life skills:** Construction (repairs stronger blocks on a Base repair duty), Logistics (opened bundles give
+  more back), Bartering (cheaper radio and ally barters), Recon (scouting marks 5 sites), Entertainment (a round of drinks
+  lifts morale more), and Fitness and Firearms Instructor, which wait for the gym and range. Point at the specialty row on
+  a member's card to read what it does.
+- Survivors you already have keep their traits and life skill; new survivors roll from the new lists. `sc traits` and
+  `sc spec` show and test them all.
+- New settings: the trait keys in the Traits table, `SpecialtyWeights`, `LogisticsShareTop`, `BarteringCutByStars`,
+  `ReconScoutCount`, `ConstructionRepairTiers`, `EntertainmentDrinksPerStar` and their XP keys (README section 20).
+
 ## Downed, not dead
 - **A killing hit downs a member instead of killing her** (0-XNPCCore 3.4.06): she lies there unhurt with a 60-second
   countdown, and you revive her with **E** and a first aid bandage or kit. If nobody does, she bleeds out, and only then

@@ -336,9 +336,17 @@ namespace SurvivorCommunity
             int healsPerBundle = 1 + (int)Math.Floor(medicStars * ScConfig.MedicPerStar);
             int medsUsed = 0, stillInjured = 0, healsLeft = 0, healed = 0;
             int clinic = ScOutpostPerks.PerkActive(Resource.Meds) ? ScConfig.OutpostClinicHeals : 0;   // a medical outpost's field clinic
+#if SC_V34
+            int selfHealed = 0;
+            GameRandom healRnd = ScCommunity.World != null ? ScCommunity.World.GetGameRandom() : null;
+#endif
             foreach (var m in ScRegistry.Members.Values)
             {
                 if (!m.Injured) continue;
+#if SC_V34
+                // round m1t (T1): Fast Healer - her injury heals with no Meds bundle (or clinic place) half of the time
+                if (ScTraitEffects.HealsUnaided(m, healRnd)) { m.Injured = false; selfHealed++; continue; }   // no medic XP for it
+#endif
                 if (clinic > 0) { clinic--; m.Injured = false; healed++; continue; }
                 if (healsLeft == 0 && c.Get(Resource.Meds) > 0) { c.Add(Resource.Meds, -1); medsUsed++; healsLeft = healsPerBundle; }
                 if (healsLeft > 0) { healsLeft--; m.Injured = false; healed++; }
@@ -370,6 +378,9 @@ namespace SurvivorCommunity
             if (hungry) summary.Append(' ').Append(Localization.Get("scDailyHungry"));
             if (thirsty) summary.Append(' ').Append(Localization.Get("scDailyThirsty"));
             if (stillInjured > 0) summary.Append(' ').Append(string.Format(Localization.Get("scDailyInjured"), stillInjured));
+#if SC_V34
+            if (selfHealed > 0) summary.Append(' ').Append(string.Format(Localization.Get("scDailySelfHealed"), selfHealed));   // round m1t
+#endif
             if (dryAmmo) summary.Append(' ').Append(Localization.Get("scDailyNoAmmo"));
         }
 

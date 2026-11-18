@@ -43,6 +43,11 @@ namespace SurvivorCommunity
         Shooting = 3
     }
 
+    /// <summary>
+    /// A survivor's one life skill. APPEND ONLY: the profile cvar %sc_pf_spec and the body cvar sc_spec hold the number, and
+    /// ScCraftMath.SpecialtyNames follows the first six by position. The registry saves the name (spec=Medicine:1:0), so an
+    /// older build reading a name it does not know keeps None (round m1t's seven came after Craftsmanship).
+    /// </summary>
     public enum Specialty
     {
         None = 0,
@@ -51,7 +56,15 @@ namespace SurvivorCommunity
         Mechanics,
         Gardening,
         Chemistry,
-        Craftsmanship
+        Craftsmanship,
+        // ---- round m1t (T2, 2026-11-17): seven more life skills (ScLifeSkills) ----
+        Construction,
+        Logistics,
+        Bartering,
+        Recon,
+        Fitness,
+        FirearmsInstructor,
+        Entertainment
     }
 
     /// <summary>
@@ -603,6 +616,8 @@ namespace SurvivorCommunity
             try
             {
                 sp = (Specialty)Enum.Parse(typeof(Specialty), s.Trim(), true);
+                // round m1t: a number Enum.Parse accepts but the enum does not define ("99" in a hand-edited save) is no specialty
+                if (!Enum.IsDefined(typeof(Specialty), sp)) { sp = Specialty.None; return false; }
                 return true;
             }
             catch (Exception) { return false; }

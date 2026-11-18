@@ -142,6 +142,7 @@ namespace SurvivorCommunity
                     int mood = c.Morale + ScTraits.MoodOffset(m) - (m.Injured ? 15 : 0) - (c.Hungry ? 10 : 0) - (c.Thirsty ? 10 : 0) + ScGarrison.MoodOffset(m);
 #if SC_V34
                     mood += ScBond.MoodTerm(m);        // round U4: her Bond (0-XNPCCore's relationship events, SC-owned)
+                    mood += ScTraitEffects.SituationalMood(m);   // round m1t: Night Owl on a night watch
 #endif
                     m.Mood = Mathf.Clamp(mood, 0, 100);
                 }

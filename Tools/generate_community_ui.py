@@ -378,7 +378,9 @@ def member_detail():
         y = SKILL_TOP + i * (SKILL_H + SKILL_GAP)
         name = (label(62, -(y + 4), 150, 22, 17, BODY, key=key) if key
                 else label(62, -(y + 4), 150, 22, 17, BODY, text="{skspecname}"))
-        body = [plate("scui_row_thin", 24, -y, tw, SKILL_H, depth=1),
+        # round m1t: the specialty row's plate takes the pointer and shows what her life skill does ({skspecdesc})
+        tip = 'on_hover="true" tooltip="{skspecdesc}"' if vis else ""
+        body = [plate("scui_row_thin", 24, -y, tw, SKILL_H, depth=1, extra=tip),
                 icon(sprite, 44, -(y + SKILL_H // 2), 20),
                 name] + bar(216, -(y + 8), 240, 12, "scui_fill_skill", binding + "fill") + [
                 label(462, -(y + 4), tw - 438, 22, 16, BODY, text="{%s}" % binding, extra='justify="right"')]

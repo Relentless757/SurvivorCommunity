@@ -9,7 +9,7 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 - Every `sc` answer is also written to the log, each line starting `[SC console]`, with a `> sc <what you typed> (time)` line before it. The log is `%USERPROFILE%\AppData\LocalLow\The Fun Pimps\7 Days To Die\Player.log`. Send that file with a bug report. (`lcbu` output goes to the console; do not count on it being in the log.)
 - Words are not case sensitive. Aliases work: `facility`/`facilities`, `outpost`/`outposts`, `enclave`/`enclaves`, `band`/`bands`, `infest`/`infestation`/`infestations`, `sleepers`/`sleeper`, `defense`/`defence`.
 - Resource words: `food`, `meds`, `ammo`, `mats`, `fuel`, `water`, `luxury` (also accepted: `medical`, `medicine`, `materials`, `material`, `luxuries`, `lux`, `alcohol`).
-- Skill words: `cardio`, `wits`, `fighting`, `shooting`. Specialties: `Medicine`, `Cooking`, `Mechanics`, `Gardening`, `Chemistry`, `Craftsmanship`.
+- Skill words: `cardio`, `wits`, `fighting`, `shooting`. Specialties: `Medicine`, `Cooking`, `Mechanics`, `Gardening`, `Chemistry`, `Craftsmanship`, `Construction`, `Logistics`, `Bartering`, `Recon`, `Fitness`, `FirearmsInstructor`, `Entertainment`.
 - Tier words `T1`, `T2`, `T3` are the three survivor/raider class tiers.
 
 ### Naming a person: `<id|name>` and `<member>`
@@ -52,6 +52,10 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc bond <id\|name> event <gift\|revive\|bloodmoon\|down\|kill>` | Give her the Bond a real event would. [CHEAT] |
 | `sc perks [id\|name]` | Weapon perks from Shooting and Fighting stars: each member's ranks and the perks on her body. [READ] |
 | `sc party` | Your followers against `MaxFollowers` and 0-XNPCCore's party (paid companions too) against its cap of 8. [READ] |
+| `sc traits [sim [n] \| id\|name]` | Traits: the table and the clashing pairs, a roll test, or one member's traits and what they do. [READ] |
+| `sc traits <id\|name> set <trait> [trait ...]` | Give a member these traits (`add`/`remove` one). [CHEAT] |
+| `sc spec [sim [n] \| id\|name]` | Life skills: the thirteen and how often they roll, a roll test, or one member's and what it does now. [READ] |
+| `sc spec <id\|name> set <Specialty> [stars]` | Give a member a life skill (and stars). [CHEAT] |
 | `sc sleep` | Sleeping at night: who is in bed, why not for the rest, and the beds that count. [READ] |
 | `sc downed [id\|name]` | Downed members: who is down, the seconds left, which medic is on the way; for everyone else whether a killing hit downs them, and why each medic can or can't go. [READ] |
 | `sc down <id\|name>` / `sc revive <id\|name>` | Knock a member down now, or revive a downed one (0-XNPCCore's own). [CHEAT] |
@@ -204,6 +208,32 @@ The party cap (README section 7): your members following you (and enlisted encla
 0-XNPCCore's party - everyone following you, companions you hired and pay as well as members - against its party cap
 (8), with how many times "Come with me." was refused for it this session.
 Example: `sc party`
+
+### `sc traits [sim [n] | <id|name>]` [READ]
+Traits (README section 4). Alone: every trait with its keys, the share of new survivors who get it and what it does
+("(coming later)" when it waits for a facility not built yet), the pairs that never come together, the counters, and each
+member's traits. `sim [n]`: rolls `n` trait sets (1000 if left out) as new survivors get them and counts any clashing pair
+(it should always say 0). With a member: her traits and what each does for her now.
+Example: `sc traits sim 5000`
+
+### `sc traits <id|name> set <trait> [trait ...] [force]` [CHEAT]
+Replaces a member's traits, for testing the new ones on someone you already have (survivors keep the traits they were
+recruited with). `add <trait>` and `remove <trait>` change one. A clashing pair, or Squeamish on a Medicine member, is
+refused unless you add `force`. Up to 5 traits; the card shows the first 3. Trait names as in `sc traits`
+(`SteadyHands`, `NightOwl`...).
+Example: `sc traits Amy set SteadyHands Haggler`
+
+### `sc spec [sim [n] | <id|name>]` [READ]
+Life skills (README section 4). Alone: all thirteen with their roll weight, the share of new survivors who get it, the
+title and what it does, then the settings and counters. `sim [n]`: rolls `n` new survivors and shows each life skill's
+share, and how many squeamish ones got Medicine (always 0). With a member: her life skill, stars and what it does now -
+her repair tier, the bundle share, the barter terms, the number of scouting sites or the drinks bonus.
+Example: `sc spec Amy`
+
+### `sc spec <id|name> set <Specialty> [stars] [force]` [CHEAT]
+Gives a member a life skill, and with a number 1-7 also that many stars. Medicine on a squeamish member is refused unless
+you add `force` (she still won't act as a medic).
+Example: `sc spec Amy set Construction 5`
 
 ### `sc scan` [READ]
 Re-counts beds, facilities and crops in the home zone now and prints the timing.

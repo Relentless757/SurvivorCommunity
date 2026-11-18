@@ -534,7 +534,7 @@
 								<sprite depth="4" sprite="scui_bar_frame" type="sliced" color="[white]" pos="216,-390" width="240" height="12" fillcenter="false"/>
 								<label depth="4" pos="462,-386" width="74" height="22" font_size="16" text="{skshooting}" color="226,220,208,255" justify="right"/>
 								<rect depth="1" visible="{skspecvisible}">
-									<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="24,-412" width="512" height="28"/>
+									<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="24,-412" width="512" height="28" on_hover="true" tooltip="{skspecdesc}"/>
 									<sprite depth="3" sprite="{skspecicon}" pos="44,-426" width="20" height="20" pivot="center" color="[white]"/>
 									<label depth="4" pos="62,-416" width="150" height="22" font_size="17" text="{skspecname}" color="226,220,208,255"/>
 									<sprite depth="2" sprite="scui_bar_track" type="sliced" color="[white]" pos="216,-420" width="240" height="12"/>
@@ -1120,7 +1120,7 @@
 								<sprite depth="4" sprite="menu_empty2px" type="sliced" color="0,0,0,255" pos="216,-390" width="240" height="12" fillcenter="false"/>
 								<label depth="4" pos="462,-386" width="74" height="22" font_size="16" text="{skshooting}" color="255,255,255,255" justify="right"/>
 								<rect depth="1" visible="{skspecvisible}">
-									<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="24,-412" width="512" height="28"/>
+									<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="24,-412" width="512" height="28" on_hover="true" tooltip="{skspecdesc}"/>
 									<sprite depth="3" sprite="{skspecicon}" pos="44,-426" width="20" height="20" pivot="center" color="[white]"/>
 									<label depth="4" pos="62,-416" width="150" height="22" font_size="17" text="{skspecname}" color="255,255,255,255"/>
 									<sprite depth="2" sprite="menu_empty" type="sliced" color="0,0,0,255" pos="216,-420" width="240" height="12"/>

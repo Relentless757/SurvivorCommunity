@@ -103,6 +103,21 @@ namespace SurvivorCommunity
             }
         }
 
+#if SC_V34
+        /// <summary>
+        /// Round m1t: does this body's profile hold the trait (by name)? A read of the five trait cvars, no allocation - asked per
+        /// shot for Steady Hands (ScTraitEffects.AimMult). False with no profile.
+        /// </summary>
+        public static bool HasTrait(EntityAlive npc, string trait)
+        {
+            if (!Has(npc) || string.IsNullOrEmpty(trait)) return false;
+            int code = TraitCode(trait);
+            for (int i = 0; i < MaxTraits; i++)
+                if ((int)npc.Buffs.GetCustomVar(traitVars[i]) == code) return true;
+            return false;
+        }
+
+#endif
         /// <summary>A former member: the snapshot shows their traits by name.</summary>
         public static bool Known(EntityAlive npc)
         {

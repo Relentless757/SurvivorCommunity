@@ -160,6 +160,8 @@ namespace SurvivorCommunity
             if (m.Status != MemberStatus.Resident) return "not a resident at home";
             if (ScWatch.OnWatch(m)) return "on watch";
             if (ScWork.OnShift(m.Id)) return "on a work shift";
+            // round m1t (T1): a light sleeper is up while a horde is called on the base or fighting it (she sleeps again after)
+            if (ScBaseAttack.Open && !ScBaseAttack.Away && ScTraitEffects.WakesForAttack(m)) return ScTraitEffects.WakeWhy;
             if (!ScZone.HasHome) return "no home zone";
             // The box comes from ScZone.Bounds, the same XZ extent ScZone.Contains tests, so a LandClaimUpgrade-enlarged
             // claim gives 0-XNPCCore the whole zone. Building it from VanillaRadius instead would hand it a smaller box
@@ -217,6 +219,7 @@ namespace SurvivorCommunity
                         if (Time.time - since < DawnHoldSeconds) return;
                     }
                 }
+                if (ReferenceEquals(why, ScTraitEffects.WakeWhy)) ScTraitEffects.TellWoken(npc, name);   // round m1t: Light Sleeper
                 Close(npc, name, why);
                 return;
             }

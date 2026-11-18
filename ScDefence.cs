@@ -72,6 +72,16 @@ namespace SurvivorCommunity
             Line(why, fit + " fit resident(s)" + (injured > 0 ? " (" + injured + " injured: none)" : ""), ScConfig.BaseDefencePerResident * fit);
             s += ScConfig.BaseDefencePerCombatStar * stars;
             Line(why, stars + " combat star(s) above 2 (Fighting + Shooting)", ScConfig.BaseDefencePerCombatStar * stars);
+#if SC_V34
+            // round m1t (T1): the defense= trait bonus of every fit resident (Light Sleeper +1)
+            string traitLabel;
+            int traitBonus = ScTraitEffects.DefenseBonusAll(out traitLabel);
+            if (traitBonus != 0)
+            {
+                s += traitBonus;
+                Line(why, "trait(s): " + traitLabel, traitBonus);
+            }
+#endif
             bool ammo = c.Get(Resource.Ammo) > 0;
             int manned = ScWatch.Manned();
             float posts = ammo ? Math.Min(ScConfig.BaseDefencePostCap, ScConfig.BaseDefencePerPost * manned) : 0f;
@@ -217,6 +227,9 @@ namespace SurvivorCommunity
             {
                 Member m = home[i];
                 if (dead.Contains(m)) continue;
+#if SC_V34
+                if (ScTraitEffects.HealsUnaided(m, rnd)) { treated++; continue; }   // round m1t: Fast Healer, no Meds bundle
+#endif
                 if (c.Get(Resource.Meds) > 0) { c.Add(Resource.Meds, -1); treated++; }
                 else { m.Injured = true; untreated++; }
             }

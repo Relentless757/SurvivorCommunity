@@ -37,6 +37,121 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round m1t (2026-11-17): more traits and life skills
+
+Why: roadmap M1, item 3 (your list): twelve new traits and seven new life skills, each with an effect you can read on
+the member's card; clashing traits never rolled together; still 2 traits and 1 life skill per survivor. Effects that need
+the latrine, gym, range, lounge or wall are stored but do nothing yet, and their card line ends "(coming later)".
+
+Before you start: the survivors you already have keep their traits and life skill. Test the new ones with
+`sc traits <name> set ...` and `sc spec <name> set ...` on a member, or recruit someone new. `sc traits <name>` and
+`sc spec <name>` print what each does for her right now.
+
+**The card and the icons**
+
+- [ ] `sc traits Amy set NightOwl SteadyHands`, open the community window and select Amy: her trait rows show the two new
+  **flat white glyphs** on the slot background (a custom icon per new trait), with their names and one-line effects. The
+  18 old traits keep their vanilla icons.
+- [ ] `sc traits Amy set IronStomach GunNut`: both trait lines end with **"(coming later)"**. Same for Brawler.
+- [ ] Talk to Amy: the snapshot card shows the new trait names (no "????" for a member).
+- [ ] If a buff list shows NPC buffs (for example 0-XNPCCore's own info), the new traits' buffs show the same new glyphs.
+- [ ] `sc spec Amy set Recon 3`: the specialty row shows the **map** icon, "Recon" and 3 stars, and her title is "Scout".
+  **Point at the specialty row**: a tooltip says "Radio scouting marks 5 sites instead of 3." Try `Fitness`: the tooltip
+  ends "(coming later)". Put her back afterwards (`sc spec Amy set <her old one> <stars>`).
+- [ ] The seven new life-skill icons (vanilla glyphs): Construction an I-beam, Logistics a box, Bartering the two hands
+  and coin, Recon a map, Fitness a flexed arm, Firearms Instructor a crosshair, Entertainment a microphone.
+
+**Rolling**
+
+- [ ] `sc traits`: the table lists 30 traits and the excluded pairs: Optimist/Pessimist, Pessimist/Hardy,
+  Pessimist/Cheerful, Loner/People Person, Eats Like a Bird/Bottomless Stomach, Veteran/Cowardly, Cowardly/Brawler,
+  Medic Training/Squeamish, Clumsy/Steady Hands.
+- [ ] `sc traits sim 20000`: "excluded pairs rolled together: 0".
+- [ ] `sc spec sim 20000`: the first six about 10% each, Construction, Logistics, Bartering, Recon and Entertainment
+  about 6.7%, Fitness and Firearms Instructor about 3.3%; "of them with Medicine 0".
+- [ ] `sc spawn` a few strangers and talk to them (or `sc recruit` them): some show the new traits and life skills.
+- [ ] `sc traits Amy set Optimist Pessimist` is refused ("exclude each other"); `... force` does it. Put her back after.
+
+**Night Owl** (+6 mood on a watch at night)
+
+- [ ] `sc traits Amy set NightOwl`, then at night `sc watch assign <post> Amy`. Within 5 s her mood in the window is 6
+  higher than before the watch (Community morale unchanged). `sc traits Amy` says "(on it now)".
+- [ ] By day on the same watch: no bonus.
+
+**Light Sleeper** (up for a horde; +1 defense)
+
+- [ ] `sc traits Amy set LightSleeper`; `sc defense`: a line "+1  trait(s): Light Sleeper x1". Injure her (`sc injure
+  Amy`): the line is gone.
+- [ ] At night with beds, once `sc sleep` shows Amy and another member in bed, `sc attack now`: Amy gets up at once and a
+  tooltip says "Amy is a light sleeper - up at once for the horde."; `sc sleep` gives her reason "a light sleeper: awake
+  for the horde on the base"; the other member stays in bed until 0-XNPCCore wakes her (an enemy close). After `sc attack
+  end` Amy goes back to bed within a few seconds.
+
+**Scavenger** (+10% run haul)
+
+- [ ] `sc traits Amy set Scavenger`, then `sc run Amy food` several times (recall with `sc run Amy recall` between): the
+  "(expected N)" averages about a tenth more than for the same member without the trait (with a haul of 2, it is 3 about
+  one run in five). `sc traits Amy`: "haul x1.1".
+
+**Haggler** (radio barter 3 for 2)
+
+- [ ] `sc traits Amy set Haggler` with Amy at home (not on a run) and a powered radio station: the radio's Barter panel
+  reads "Give 3 ..." and "Get 2 ...". `sc barter food meds`: "Traded 3 food for 2 medical over the radio. Amy haggled
+  one more out of them." and the stockpile changes by -3/+2.
+- [ ] With Amy out on a run: back to "Get 1".
+
+**Fast Healer** (heals without a Meds bundle half the time)
+
+- [ ] `sc traits Amy set FastHealer`, `sc give meds -99` (no Meds), `sc injure Amy`, `sc day`: about half the time the
+  day's summary says "- 1 healed without medical supplies" and she is no longer injured; otherwise "1 injured with no
+  medical supplies". Repeat a few times.
+- [ ] With Meds in stock: on the days she heals by herself the Meds stay untouched.
+
+**Bookworm** (+50% from magazines)
+
+- [ ] `sc traits Amy set Bookworm` (Amy a Cook), hand her a cooking magazine and have her read it: the tooltip and log
+  show 15 specialty XP per level instead of 10.
+
+**Squeamish** (never the medic)
+
+- [ ] `sc traits Amy set Squeamish` on a Medicine member is refused ("is a medic"); `sc spec Amy set Medicine` on a
+  squeamish member is refused.
+- [ ] A squeamish follower ordered to be the party medic (Voice Control's medic order): within a second a tooltip says
+  "Amy is too squeamish to be the party medic." and she drops the role.
+- [ ] `sc traits Amy set Squeamish force` on a Medicine member, then `sc down <someone>` at home: Amy is not sent;
+  `sc downed` says "squeamish" for her.
+
+**Clumsy** (tools wear 50% faster)
+
+- [ ] `sc traits Amy set Clumsy` and give Amy and another member the same new stone axe on a Chop wood job for the same
+  time: Amy's axe loses durability about half again as fast (member inventory panel's wear bar).
+
+**Steady Hands** (aim error -20%)
+
+- [ ] `sc traits Amy set SteadyHands`: `sc traits Amy` says "aim error x0.8"; in a fight `sc xnpc Amy` shows
+  "aim error x0.8 from traits". She lands more shots past her hit range than before.
+
+**The life skills**
+
+- [ ] **Construction:** `sc spec Amy set Construction 3`, start a Base repair duty: the log says "Amy: Construction 3
+  star(s) - repairs up to concrete"; damaged concrete gets repaired (with a repair tool and materials). At 1 star:
+  cobblestone; at 5: steel. Repairs she makes add Construction XP (`sc spec Amy`).
+- [ ] **Logistics:** with no Logistics member, open a food bundle (the log line "opened ... target ... = 0.75 of ...").
+  `sc spec Amy set Logistics 7` (Amy at home), open another: "0.85 of" (lower if your craftsmen cap it). `sc spec`
+  counts it.
+- [ ] **Bartering:** `sc spec Amy set Bartering 1` (at home): the radio's Barter panel reads "Give 2"; `sc barter food
+  meds` trades 2 for 1 with "Amy drove the price down."; the Allies panel's ally barter reads "Give 1 ... Get 1". At 5
+  stars the radio barter is 1 for 1.
+- [ ] **Recon:** `sc spec Amy set Recon` (at home), `sc scout food`: up to 5 sites are marked, "Amy found the extra sites."
+- [ ] **Entertainment:** `sc spec Amy set Entertainment 4` (at home), pour a round of drinks: "+17 morale ... Amy keeps the
+  party going (+2)." and the morale breakdown's activity line is 17. At 7 stars: +4.
+- [ ] **Fitness / Firearms Instructor:** nothing happens yet; the specialty row's tooltip ends "(coming later)".
+
+**Saves**
+
+- [ ] Save and reload with a Construction member and a member with new traits: everything is kept.
+- [ ] `sc members` on an older save shows the old traits and specialties unchanged.
+
 ## Round U1 (2026-11-16): 0-XNPCCore 3.4.06 - equipment window, ammo type, tool quality
 
 Why: 0-XNPCCore 3.4.06 (installed 2026-11-16; its ModInfo still says 3.4.05) broke five things in SC

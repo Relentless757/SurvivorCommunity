@@ -271,7 +271,8 @@ namespace SurvivorCommunity
             r.Magazines++;
             magazinesRead++;
             int before = m.SpecXp, star = m.SpecLevel;
-            bool gained = ScSkills.AddSpecialtyXp(m, s.Nominal * ScConfig.CraftSpecXpPerMagazineLevel);
+            bool gained = ScSkills.AddSpecialtyXp(m, s.Nominal * ScConfig.CraftSpecXpPerMagazineLevel
+                                                     * ScTraitEffects.BooksMult(m));   // round m1t: Bookworm x1.5
             int got = m.SpecXp - before;
             r.Xp += got;
             xpPaid += got;

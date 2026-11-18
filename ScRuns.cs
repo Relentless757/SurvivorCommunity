@@ -400,7 +400,12 @@ namespace SurvivorCommunity
             y *= ScTraits.RunYieldMult(m);
             if (ScOutpostPerks.PerkActive(Resource.Fuel)) y *= ScConfig.OutpostMotorPoolMult;   // a fuel outpost's motor pool
             if (ScRegistry.Community.Morale > ScConfig.HighMoraleThreshold) y *= 1.25f;
+#if SC_V34
+            // round m1t (T1): Scavenger's haul=1.1 on the whole bundles, the odd part as a chance fixed for this run
+            return Math.Max(1, ScTraitEffects.Haul(m, Math.Max(1, Mathf.RoundToInt(y)), m.RunEndDay * 31 + (int)kind));
+#else
             return Math.Max(1, Mathf.RoundToInt(y));
+#endif
         }
 
         /// <summary>

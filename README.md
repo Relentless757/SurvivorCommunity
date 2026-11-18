@@ -236,7 +236,20 @@ Each survivor has one **specialty**, starting at 1 star and growing to 7. Their 
 | **Mechanics** | Mechanic | | Better materials and fuel runs | Workstations, vehicles, traps, robotics |
 | **Chemistry** | Chemist | | Better medicine runs | Explosives, medical, electrician |
 | **Craftsmanship** | Craftsman | Craftsmen pack more efficiently: the packing station needs 4% fewer points per bundle per star of all your craftsmen (never below 60%) | | Armor, backpacks, every weapon kind, tools |
+| **Construction** | Builder | On a **Base repair** duty she can repair stronger blocks: cobblestone from 1 star, concrete from 3, steel from 5. Building the wall faster is *coming later* | | |
+| **Logistics** | Quartermaster | Opened bundles give more back: from 75% of their packing value up to 85% at 7 stars | | |
+| **Bartering** | Trader | Radio and ally barters cost one bundle less, two less from 5 stars (never better than one for one) | | |
+| **Recon** | Scout | Radio scouting marks 5 sites instead of 3 | | |
+| **Fitness** | Trainer | *Coming later:* makes training at the gym count for more | | |
+| **Firearms Instructor** | Instructor | *Coming later:* makes training at the range count for more | | |
+| **Entertainment** | Entertainer | A round of drinks lifts morale 1 more per 2 stars (rounded up: +1 at 1 star, +4 at 7). Running the lounge is *coming later* | | |
 
+- **Thirteen life skills.** New survivors roll one of them: the first six are the most common, Construction, Logistics,
+  Bartering, Recon and Entertainment a little rarer, Fitness and Firearms Instructor rare until the gym and range exist.
+  Survivors you already have keep theirs. Point at the specialty row on a member's card to read what it does; a part that
+  needs a feature not built yet says "(coming later)".
+- The new life skills work when they are used, with the best of them at home: a barter, a scouting, an opened bundle, a
+  round of drinks, a repair duty. Each of those earns her specialty XP (Construction from the repairs she makes).
 - The daily specialty bonuses only count members who are **stationed at home** (not following you, not on a run).
 - A matching specialty adds **+15% per star above the first** to that kind of supply run (section 8).
 - Doing the job (cooking, healing, gardening, packing, a matching run, crafting) earns specialty XP.
@@ -244,7 +257,8 @@ Each survivor has one **specialty**, starting at 1 star and growing to 7. Their 
 
 ### Traits
 
-Each survivor has **2 traits**. Their effects show on the NPC as buffs with a description.
+Each survivor has **2 traits**. Their effects show on the NPC as buffs with a description, and on the member's card.
+Survivors you already have keep their traits; only new survivors roll from the full list below.
 
 | Trait | Effect |
 |---|---|
@@ -266,6 +280,23 @@ Each survivor has **2 traits**. Their effects show on the NPC as buffs with a de
 | Hoarder | Supply runs bring back 25% more; own mood -2 |
 | Cheerful | Community morale +2, own mood +3 |
 | Insomniac | Own mood -3 |
+| Night Owl | Own mood +6 while on a watch at night |
+| Light Sleeper | Up at once when a horde is called on the base (out of bed, ready to fight); base defense rating +1 |
+| Scavenger | Supply runs bring back 10% more (the odd part of a bundle as a chance) |
+| Haggler | While at home, radio barters bring one more back (3 for 2) |
+| Fast Healer | An injury heals without a medical bundle half of the time |
+| Iron Stomach | *Coming later:* never gets sick from the latrine |
+| Bookworm | Learns half again as much from magazines |
+| Gun Nut | *Coming later:* trains Shooting faster at the range |
+| Brawler | *Coming later:* trains Fighting faster at the gym |
+| Squeamish | Never takes the medic role: never Medicine, never revives anyone, never the party medic |
+| Clumsy | Wears out tools half again as fast |
+| Steady Hands | A fifth less aim error with any gun or bow |
+
+- **Traits that clash never come together.** Optimist and Pessimist, Cheerful and Pessimist, Hardy and Pessimist, Loner
+  and People Person, Eats Like a Bird and Bottomless Stomach, Veteran and Cowardly, Brawler and Cowardly, Medic Training
+  and Squeamish, Clumsy and Steady Hands.
+- A trait marked *coming later* waits for a facility that isn't built yet; its card line says "(coming later)" until then.
 
 ### Morale and mood
 
@@ -576,7 +607,8 @@ list of collected items shows them) and anything that does not fit lands at your
 
 - What comes out is random, but it is worth about **three quarters** of what packing the bundle took: `BundleOpenValueShare`
   (0.75) of its units times the points per unit in the table below, by the same trade value the station counts. Never more
-  than 10% above that, and at least one item. Packing goods and opening the bundle again always loses some.
+  than 10% above that, and at least one item. Packing goods and opening the bundle again always loses some. A
+  **Logistics** member at home raises it a little with each star, up to 0.85 at 7 stars (section 4).
 - A bundle you **Take** from the stockpile at the packing station opens the same way: that is how you get supplies back
   out of the stockpile.
 - Each kind opens into everyday supplies of its own resource, each item as one stack at most:
@@ -742,6 +774,9 @@ crafting skills**:
 | Chemistry | Explosives, Medical, Electrician | Chemist, Crafter |
 | Mechanics | Workstations, Vehicles, Traps, Robotics | Blacksmith, Crafter, Chemist |
 | Craftsmanship | Armor, Backpacks, Blades, Bows, Clubs, Handguns, Harvesting tools, Knuckles, Machine guns, Repair tools, Rifles, Salvage tools, Shotguns, Sledgehammers, Spears | Crafter |
+
+The seven newer life skills (Construction to Entertainment) have no crafting skills or roles of their own, so crafting
+magazines don't train them.
 
 **Roles** (Cook, Blacksmith, Chemist, Crafter) decide which stations a member may use. A member starts with their
 specialty's roles; after that, your changes on the order wheel's Roles page, by voice, or in the community window's
@@ -981,8 +1016,8 @@ A horde can also be called while you are away (one per absence).
   15 below the defense rating.
 
 **The defense rating** starts at **20**, and adds: +4 per fit resident; +1 per Fighting and Shooting star above 2; **+10
-per manned watch post** (at most +30, only with ammo in stock); +1 per trap or turret in the zone (at most +20). It loses
-15 with no ammo, gains or loses 5 for morale above 75 or below 25, and loses 1 per attacker over 20 (at most -15).
+per manned watch post** (at most +30, only with ammo in stock); +1 per trap or turret in the zone (at most +20); +1 per fit
+Light Sleeper (section 4). It loses 15 with no ammo, gains or loses 5 for morale above 75 or below 25, and loses 1 per attacker over 20 (at most -15).
 
 ### Watch posts
 
@@ -1044,9 +1079,11 @@ The radio window has these sections:
   it.
 - **Outposts reporting in.** Every outpost and what it sends (section 11).
 - **Scout.** Once a day, listen for chatter about a resource (food, medical, ammo, materials or fuel): the **3 nearest
-  sites** within 1500 m are marked on your map for 3 days, and supply runners go there first.
+  sites** within 1500 m are marked on your map for 3 days, and supply runners go there first. With a **Recon** member at
+  home, the 5 nearest (section 4).
 - **Barter.** Once a day, trade **3 bundles of one resource for 1 of another** from the stockpile (food, water, medical,
-  ammo, materials, fuel; not luxuries).
+  ammo, materials, fuel; not luxuries). A **Bartering** member at home cuts the price and a **Haggler** gets one more back
+  (section 4); the buttons show the terms.
 - **Raider demands** on your outposts, with **Pay** and **Refuse** (section 11).
 - **Enclaves** (right-hand column): the enclaves you know, nearest first, with their standing, ally benefit and where they
   are; their open requests and when they are due; the **Allies** panel (ally barter, Send a fighter, Supply drop); and
@@ -1283,7 +1320,7 @@ An enclave at **standing 70 or more** is **Allied**, and does something for your
   point a day.
 - Allies tell you about the enclave nearest to them that you do not know, when you become allies and every 7 days after.
 - **Ally barter** (radio window, Allies panel): pick an ally, **Give** what you send from the stockpile, **Get** what they
-  make, and **Trade** swaps **2 of yours for 1 of theirs**, once a day per ally.
+  make, and **Trade** swaps **2 of yours for 1 of theirs**, once a day per ally (1 for 1 with a Bartering member at home).
 - **Radio calls** (Allies panel), each ally once every 3 days:
   - **Send a fighter:** about half a game hour later, one of their best people turns up near you and follows and fights
     with you for **12 game hours**, then heads home.
@@ -1756,6 +1793,20 @@ These are the ones you are most likely to change. The file has many more.
 | `BondKillPerDay` | 3 | At most this many kills on a member give her Bond in a day (0: kills give none) |
 | `BondLoyalAt` | 8 | The Progress page says "Trust: loyal" from this Bond ("wary" from minus this) |
 | `DrinksLuxury` / `DrinksFood` / `DrinksMorale` / `DrinksMinutes` | 4 / 1 / 15 / 15 | The round of drinks |
+
+### Traits and life skills
+
+| Setting | Default | What it does |
+|---|---|---|
+| `TraitsPerRecruit` | 2 | Traits a new survivor rolls |
+| The `Traits` list | 30 traits | Each trait's weight and effects; `excludes=A/B` keeps clashing traits apart (one row is enough, it works both ways) |
+| `SpecialtyWeights` | 3 each for the first six, 2 for Construction, Logistics, Bartering, Recon and Entertainment, 1 for Fitness and Firearms Instructor | How often new survivors roll each life skill (left out: never) |
+| `LogisticsShareTop` | 0.85 | What an opened bundle is worth with a 7-star Logistics member at home (a seventh of the way up from `BundleOpenValueShare` per star) |
+| `BarteringCutByStars` | 1,1,1,1,2,2,2 | Bundles fewer a radio or ally barter costs, by the Bartering member's stars 1 to 7 |
+| `ReconScoutCount` | 5 | Sites the radio's scouting marks with a Recon member at home |
+| `ConstructionRepairTiers` | 1,1,2,2,3,3,3 | By the Construction member's stars 1 to 7, the strongest blocks she repairs: 1 cobblestone, 2 concrete, 3 steel |
+| `EntertainmentDrinksPerStar` | 0.5 | Extra morale from a round of drinks per star of the entertainer at home (rounded up) |
+| `LogisticsXpPerBundle` / `ConstructionXpPerRepairXp` / `LifeSkillUseXp` | 1 / 0.25 / 3 | Specialty XP for an opened bundle, for each point of 0-XNPCCore repair XP, and for a barter, a scouting or a round of drinks |
 
 ### Supply runs and radio
 

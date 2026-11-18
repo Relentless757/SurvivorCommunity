@@ -1412,6 +1412,8 @@ namespace SurvivorCommunity
                 case "skspec": _value = sel != null && sel.Specialty != Specialty.None ? StarsText(sel.SpecLevel) : ""; return true;
                 case "skspecfill": _value = sel != null && sel.Specialty != Specialty.None ? Fill(SkillFill(sel.SpecLevel, sel.SpecXp)) : "0"; return true;
                 case "skspecvisible": _value = (sel != null && sel.Specialty != Specialty.None).ToString(); return true;
+                // round m1t (T2): what her life skill does, the specialty row's tooltip ("(coming later)" for a part that waits)
+                case "skspecdesc": _value = sel != null ? ScLifeSkills.Describe(sel.Specialty) : ""; return true;
                 case "selhasportrait": _value = selHasPortrait ? "True" : "False"; return true;
                 case "selnoportrait": _value = selHasPortrait ? "False" : "True"; return true;
 
@@ -1641,6 +1643,14 @@ namespace SurvivorCommunity
                 case Specialty.Gardening: return "ui_game_symbol_crops";
                 case Specialty.Chemistry: return "ui_game_symbol_chemistry";
                 case Specialty.Craftsmanship: return "ui_game_symbol_hammer";
+                // round m1t (T2): the seven new life skills, each a vanilla 3.4 UIAtlas glyph none of the others uses
+                case Specialty.Construction: return "ui_game_symbol_ibeam";
+                case Specialty.Logistics: return "ui_game_symbol_bundle";
+                case Specialty.Bartering: return "ui_game_symbol_barter";
+                case Specialty.Recon: return "ui_game_symbol_map";
+                case Specialty.Fitness: return "ui_game_symbol_muscle";
+                case Specialty.FirearmsInstructor: return "ui_game_symbol_marksmanship";
+                case Specialty.Entertainment: return "ui_game_symbol_mic";
                 default: return "ui_game_symbol_player";
             }
         }
@@ -1653,6 +1663,11 @@ namespace SurvivorCommunity
             { "QuickStudy", "ui_game_symbol_bookworm" }, { "Cowardly", "ui_game_symbol_run" }, { "Hardy", "ui_game_symbol_fortitude_mastery" },
             { "MedicTraining", "ui_game_symbol_medical" }, { "Homesteader", "ui_game_symbol_map_cabin" }, { "Tinkerer", "ui_game_symbol_tool" },
             { "Hoarder", "ui_game_symbol_backpack" }, { "Cheerful", "ui_game_symbol_trophy" }, { "Insomniac", "ui_game_symbol_clock" },
+            // round m1t (T1): the twelve new traits' own glyphs (style A, flat white; UIAtlases/UIAtlas/scui_trait_*.png)
+            { "NightOwl", "scui_trait_nightowl" }, { "LightSleeper", "scui_trait_lightsleeper" }, { "Scavenger", "scui_trait_scavenger" },
+            { "Haggler", "scui_trait_haggler" }, { "FastHealer", "scui_trait_fasthealer" }, { "IronStomach", "scui_trait_ironstomach" },
+            { "Bookworm", "scui_trait_bookworm" }, { "GunNut", "scui_trait_gunnut" }, { "Brawler", "scui_trait_brawler" },
+            { "Squeamish", "scui_trait_squeamish" }, { "Clumsy", "scui_trait_clumsy" }, { "SteadyHands", "scui_trait_steadyhands" },
         };
 
         public static string TraitIcon(string trait)
