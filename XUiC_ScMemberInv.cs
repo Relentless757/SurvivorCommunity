@@ -442,6 +442,15 @@ namespace SurvivorCommunity
                 float now = Time.unscaledTime;
                 if (now < nextRefresh) return;
                 nextRefresh = now + RefreshSeconds;
+                // ms/m1all: knocked down (round U2) - 0-XNPCCore catches the hit that would have killed her, so ScPanelHurt never
+                // counts it as a hit; the panel closes with the same message (and cannot be opened on her until she is revived)
+                if (npc != null && ScDowned.IsDown(npc))
+                {
+                    EntityAlive downed = npc;                // OnClose clears npc
+                    xui.playerUI.windowManager.Close(windowGroup);
+                    ScPanelHurt.Tell(xui.playerUI.entityPlayer, downed);
+                    return;
+                }
                 // she died, was unloaded or walked off: the panel goes, as vanilla's loot window goes at a distance
                 if (npc == null || npc.IsDead() || xui.playerUI.entityPlayer == null
                     || (npc.position - xui.playerUI.entityPlayer.position).sqrMagnitude > (Constants.cCollectItemDistance + 30f) * (Constants.cCollectItemDistance + 30f))

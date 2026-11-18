@@ -1070,7 +1070,8 @@ description shows the ones your settings use.
 - A guard on watch cannot follow you, go on a supply run or be posted to an outpost until relieved. A guard who is hurt
   with no medicine comes down. Picking up, breaking or building over a manned post ends the watch.
 - **Watch fatigue:** a watch of **8 hours** or more tires the guard: **-5 mood**, until they have rested after a full
-  shift. **Insomniacs** enjoy a night watch: **+3 mood** while it is dark, and no tiredness then. The community window
+  shift. **Insomniacs** enjoy a night watch: **+3 mood** while it is dark, and no tiredness then. A **Night Owl** has her own
+  **+6** on a night watch (her trait) and doesn't tire then either; a member with both gets the +6 only. The community window
   shows it after their mood word ("tired", "enjoys the night watch").
 - The community window's **Facilities** tab lists the posts with their guards, and its **Assign guard** picks a guard
   for the first empty post.

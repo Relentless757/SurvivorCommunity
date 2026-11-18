@@ -594,7 +594,7 @@ namespace SurvivorCommunity
             if (sub == "on" || sub == "off") ScActivities.ConsoleSet(sub == "on");
             Community c = ScRegistry.Community;
             string why = ScActivities.WhyNotDrinks();
-            Output("[SC] drinks: " + (ScActivities.DrinksActive ? "running, " + ScActivities.TimeLeft() + " left (+" + ScConfig.DrinksMorale + " morale)" : "not running")
+            Output("[SC] drinks: " + (ScActivities.DrinksActive ? "running, " + ScActivities.TimeLeft() + " left (+" + ScActivities.MoraleBonus() + " morale)" : "not running")
                    + ", last poured day " + c.DrinksDay + " (today " + ScCommunity.Today + "); cost " + ScConfig.DrinksLuxury + " luxury + " + ScConfig.DrinksFood
                    + " food (stock " + c.Get(Resource.Luxury) + " / " + c.Get(Resource.Food) + "); " + (why == null ? "can pour now" : "cannot: " + why)
                    + "; morale " + c.Morale);

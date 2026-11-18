@@ -509,7 +509,7 @@ namespace SurvivorCommunity
             e.Fact("scUiFacDrinks", DrinksStatus(), DrinksStatusColor());
             bool afford = c.Get(Resource.Luxury) >= ScConfig.DrinksLuxury && c.Get(Resource.Food) >= ScConfig.DrinksFood;
             e.Fact("scUiActCost", Fmt("scUiActDrinksCost", ScConfig.DrinksLuxury, ScConfig.DrinksFood), afford ? Body : Bad);
-            e.Fact("scUiActEffect", Fmt("scUiActDrinksEffect", ScConfig.DrinksMorale, ScActivities.FormatMinutes(ScConfig.DrinksMinutes)));
+            e.Fact("scUiActEffect", Fmt("scUiActDrinksEffect", ScConfig.DrinksMorale + ScLifeSkills.DrinksBonus(), ScActivities.FormatMinutes(ScConfig.DrinksMinutes)));   // ms/m1all: with Entertainment
             var about = new StringBuilder();
             // the activities this facility hosts (ScActivities.All's fifth column): their descriptions and actions
             foreach (string[] a in ScActivities.All)

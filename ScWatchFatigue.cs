@@ -112,8 +112,22 @@ namespace SurvivorCommunity
         /// <summary>The Watch posts entry's line on fatigue.</summary>
         public static string AboutText()
         {
-            return string.Format(Localization.Get("scWatchFatigueAbout"), ScConfig.WatchFatigueHours.ToString("0.#", CultureInfo.InvariantCulture), ScConfig.WatchFatigueMood,
-                                 ScConfig.WatchNightMood, NightTraitNames());
+            string s = string.Format(Localization.Get("scWatchFatigueAbout"), ScConfig.WatchFatigueHours.ToString("0.#", CultureInfo.InvariantCulture), ScConfig.WatchFatigueMood,
+                                     ScConfig.WatchNightMood, NightTraitNames());
+            // ms/m1all: traits with their own night-watch mood (round m1t's nightwatch=, Night Owl) are spared the fatigue at night too
+            string own = OwnNightTraitNames();
+            if (own.Length > 0) s += " " + string.Format(Localization.Get("scWatchFatigueOwnNight"), own);
+            return s;
+        }
+
+        /// <summary>ms/m1all: the traits with their own night-watch mood (TraitDef.NightWatchMood &gt; 0: Night Owl), by display name.</summary>
+        private static string OwnNightTraitNames()
+        {
+            var names = new List<string>();
+            foreach (TraitDef t in ScConfig.Traits) if (t != null && t.NightWatchMood > 0) names.Add(ScTraits.Display(t.Name));
+            if (names.Count == 0) return "";
+            if (names.Count == 1) return names[0];
+            return string.Join(", ", names.GetRange(0, names.Count - 1).ToArray()) + " " + Localization.Get("scAnd") + " " + names[names.Count - 1];
         }
 
         /// <summary>The night traits by their display names ("Insomniac"; two or more joined with "and").</summary>
@@ -137,9 +151,10 @@ namespace SurvivorCommunity
             foreach (Member m in ScRegistry.Members.Values)
             {
                 bool on = ScWatch.OnWatch(m), resting = w != null && m.WatchRestUntil > w.worldTime;
-                if (!on && !resting && !LikesNight(m)) continue;
+                bool owl = ScTraitEffects.LikesNightWatch(m);   // ms/m1all: Night Owl - her own night mood, no fatigue at night
+                if (!on && !resting && !LikesNight(m) && !owl) continue;
                 string served = on && w != null && m.WatchStart > 0UL && w.worldTime > m.WatchStart ? ((w.worldTime - m.WatchStart) / 1000f).ToString("0.#", CultureInfo.InvariantCulture) + " h on watch" : "";
-                lines.Add("  " + m.Name + ": " + (on ? served : resting ? "resting after a watch" : "not on watch") + (LikesNight(m) ? ", likes a night watch" : "")
+                lines.Add("  " + m.Name + ": " + (on ? served : resting ? "resting after a watch" : "not on watch") + (owl ? ", night owl: +" + ScTraitEffects.NightWatchMood(m) + " from the trait on a night watch, no fatigue then" : LikesNight(m) ? ", likes a night watch" : "")
                           + ", term " + MoodTerm(m) + ", mood " + m.Mood);
             }
             return string.Join("\n", lines.ToArray());

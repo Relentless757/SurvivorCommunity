@@ -58,7 +58,8 @@
   every running generator in the base is switched off until dawn (and with it whatever it powers: lights, traps,
   turrets, a radio station on it). At dawn they go back on. **Lights on** ends it early.
 - **Watch fatigue:** a watch of 8 hours or more costs the guard 5 mood until they have rested after a full shift.
-  Insomniacs enjoy a night watch: +3 mood while it is dark, and no tiredness.
+  Insomniacs enjoy a night watch: +3 mood while it is dark, and no tiredness. A Night Owl keeps her own +6 on a night
+  watch and doesn't tire then either (the two never add up).
 - **Salvage:** a held attack's corpse pile gives the stockpile 1 material per 5 dead; a fight or siege held without you
   gives the same for the horde your people faced.
 - New settings `LightsOut...`, `WatchFatigue...`, `WatchNightTraits`, `WatchNightMood` and `SalvageKillsPerMaterial`

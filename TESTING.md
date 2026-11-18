@@ -37,6 +37,26 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Merged build ms/m1all (2026-11-17): where the M1 rounds meet
+
+Why: steps for what only exists once the rounds are combined. Make a member a Night Owl with `sc traits <name> add
+NightOwl force` (and `add Insomniac force` for the third step).
+
+- [ ] **Night Owl on a night watch.** Assign her to a post at dusk and `settime` past `WatchFatigueHours` (8 h) while it is
+      still dark: her mood shows +6 and no "tired (-5)"; `sc watch fatigue` lists her as "night owl: +6 from the trait
+      on a night watch, no fatigue then", term 0.
+- [ ] **The same shift after dawn:** within a few seconds of dawn the +6 is gone and she is "tired (-5)".
+- [ ] **Night Owl and Insomniac together:** +6 only on a night watch, never +9.
+- [ ] **Resting after a full shift:** -5 until the rest ends, as for anyone.
+- [ ] **Watch posts entry:** its fatigue line now ends "Night Owl has their own night-watch mood and never tires on a night
+      watch either."
+- [ ] **Campfire with an Entertainer at home** (`sc spec <name> set Entertainment 4 force`): the Facilities tab's Campfire
+      Effect says +17 (15 + 2), matching the "poured" message; `sc drinks` while the round runs says +17 too.
+- [ ] **Load log:** a `config: life skills ...` line follows `config: base defense BD1 ...`.
+- [ ] **Member panel on a knockdown:** open a member's inventory panel (her talk menu, Equipment), then let a zombie knock
+      her down (`sc down <name>` does it too): the panel closes within half a second with "<name> took a hit, so the
+      inventory closed.", and it won't open again until she is revived.
+
 ## Round m1p (2026-11-17): the M1 polish bundle
 
 Why: roadmap item 1 (`research/roadmap/ROADMAP.md`, section 3) - six small leftovers from the notes. None changes

@@ -1204,6 +1204,7 @@ scUiFacWatchAllManned,UI,Tooltip,,,,Every watch post is manned.
 scWatchTiredTerm,UI,Menu,,,,tired ({0})
 scWatchNightTerm,UI,Menu,,,,enjoys the night watch ({0})
 scWatchFatigueAbout,UI,Menu,,,,"A watch of {0} hours or more tires the guard: -{1} mood, until they have rested after a full shift. A night watch suits {3}: +{2} mood on watch while it is dark, and no tiredness then."
+scWatchFatigueOwnNight,UI,Menu,,,,"{0} has their own night-watch mood and never tires on a night watch either."
 scUiFacTower,UI,Menu,,,,Guard Tower
 scUiFacTowerNone,UI,Menu,,,,None built
 scUiFacTowerOne,UI,Menu,,,,1 built

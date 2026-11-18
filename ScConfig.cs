@@ -2893,6 +2893,7 @@ namespace SurvivorCommunity
                 ScLog.Out("config: retreat " + RetreatLine());   // round rt1 (ScConfigRetreat.cs)
                 ScLog.Out("config: back-offs " + BackOffLine());   // round k1 (ScConfigRetreat.cs, ScBackOff)
                 ScLog.Out("config: base defense BD1 " + FacilitiesLine());   // round m1f (ScConfigFacilities.cs)
+                ScLog.Out("config: life skills " + LifeSkillsLine());   // round m1t (ScConfigTraits.cs); ms/m1all
                 ScLog.Out("config: medical restock " + MedsLine());   // round md1 (ScMedic.Restock)
                 ScLog.Out("config: healing " + HealLine());   // round k2 (ScMedic)
                 ScLog.Out("config: streamer names " + NamesLine());   // round 30 (ScConfigNames.cs)
