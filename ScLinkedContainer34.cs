@@ -234,12 +234,26 @@ namespace SurvivorCommunity
                 }
                 ScStorage.Slot placed;
                 if (ScStorage.Deposit(v, out placed)) { SetMap(_idx, placed); return; }
-                Refuse(_idx, "scStorageFull");
+                Refuse(_idx, FullKey());             // round m1p: "no boxes" when the base has none
             }
             catch (Exception e)
             {
                 ScLog.Once("linked-slotchanged", e);
             }
+        }
+
+        /// <summary>
+        /// Round m1p (memory sc-port-3-4, round 6's "Left"): why nothing took the item. "No box has room for that."
+        /// (scStorageFull) - unless the scan behind this view linked no box at all, when the message says so: the base has none
+        /// (scStorageNoBoxes), the outpost's own storage has none (scStorageNoBoxesOutpost), or none was found in the part of
+        /// the land that is loaded (scStorageNoBoxesUnloaded: boxes in unloaded chunks are out of reach, so "none" would not be
+        /// the real cause). ScStorage.Boxes is the scan Deposit used.
+        /// </summary>
+        private static string FullKey()
+        {
+            if (ScStorage.Boxes > 0) return "scStorageFull";
+            if (ScStorage.SkippedChunks > 0) return "scStorageNoBoxesUnloaded";
+            return ScStorage.CurrentArea != null ? "scStorageNoBoxesOutpost" : "scStorageNoBoxes";
         }
 
         /// <summary>Empties a cell with the mirror off (nothing is written to a box).</summary>
@@ -334,7 +348,7 @@ namespace SurvivorCommunity
                 if (at < 0)
                 {
                     EntityPlayerLocal p = ScCommunity.LocalPlayer;
-                    if (p != null) ScCommunity.Tell(p, Localization.Get(ScStorage.FreeFor(GridDrawn) > 0 ? "scStorageViewFull" : "scStorageFull"), "ui_denied");
+                    if (p != null) ScCommunity.Tell(p, Localization.Get(ScStorage.FreeFor(GridDrawn) > 0 ? "scStorageViewFull" : FullKey()), "ui_denied");   // round m1p
                     return false;
                 }
                 ScStorage.Slot placed;
@@ -344,7 +358,7 @@ namespace SurvivorCommunity
                     // own grid fits the footprint, so a free cell in the view no longer means a box will take a rifle, and a
                     // shift-click that silently did nothing read as broken.
                     EntityPlayerLocal p = ScCommunity.LocalPlayer;
-                    if (p != null) ScCommunity.Tell(p, Localization.Get("scStorageFull"), "ui_denied");
+                    if (p != null) ScCommunity.Tell(p, Localization.Get(FullKey()), "ui_denied");   // round m1p
                     return false;
                 }
                 quiet = true;

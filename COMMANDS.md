@@ -379,6 +379,19 @@ who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | 
   Round U1: `mag-reseat-skip-ammo` (the magazine holds another ammo type than the one chosen for the gun, and she has rounds
   of the chosen one: the draw reloads with it).
 
+## Magazines against the tier, and the trim *(round m1p)*
+
+- **`sc mags`** — every member whose body is loaded: her Locked & Loaded magazines for her gun (K, the one in the gun
+  included, as `sc xnpc <name>` counts them) against her tier's count (N: Locked & Loaded's `<npcs>` table, T1 2, T2 3,
+  T3 4 by default), and "K - N over" for anyone inflated before round n07's duplication fix.
+- **`sc mags <id|name>`** — her magazines one per line (in the gun, bag slot, toolbelt slot; rounds; "marked to go back in
+  on the draw" for round lr1's), each marked `keep` or `TRIM`. Kept: the one in the gun, the marked one, then the fullest.
+- **`sc mags <id|name> trim`** — the same list and what a trim would destroy (magazines and rounds). Changes nothing.
+- **`sc mags <id|name> trim confirm`** — removes the TRIM ones from her bag and toolbelt (destroyed with their rounds:
+  they are the duplicates; magazines you handed her count the same, so read the list first), writes her record again and
+  saves. Refused while her inventory is open, when her body is not loaded, and whenever SC's count and Locked & Loaded's
+  differ. The log gets one `mags trim (round m1p): ...` line.
+
 ## Equipment window, ammo type and the work kit *(round U1, 0-XNPCCore 3.4.06)*
 
 - **`sc xnpc`** — counters `equip-window-to-panel` (0-XNPCCore's equipment window opened as SC's member inventory panel:

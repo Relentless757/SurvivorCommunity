@@ -362,7 +362,7 @@ namespace SurvivorCommunity
             public static MethodBase TargetMethod() { return DismissTarget(); }
 
             [HarmonyPrefix]
-            public static bool Prefix(object[] __args, ref string __result)
+            public static bool Prefix(object __instance, object[] __args, ref string __result)
             {
                 try
                 {
@@ -375,10 +375,12 @@ namespace SurvivorCommunity
                         {
                             Count("dismiss-enlisted-home");
                             __result = Localization.Get("scEncVoiceGoingHome");
+                            SetActionSubtitle(__instance, __result);   // round m1p: SC's answer is the subtitle too
                             return false;
                         }
                         Count("dismiss-refused-enclave");
                         __result = Localization.Get("scEncVoiceStays");
+                        SetActionSubtitle(__instance, __result);   // round m1p: SC's answer is the subtitle too
                         return false;
                     }
                     // E13a: one of a band on the road is nobody's to dismiss either (SCore's Dismiss would end the Guard that walks them)
@@ -386,6 +388,7 @@ namespace SurvivorCommunity
                     {
                         Count("dismiss-refused-enclave");
                         __result = Localization.Get("scEncVoiceStays");
+                        SetActionSubtitle(__instance, __result);   // round m1p: SC's answer is the subtitle too
                         return false;
                     }
                     if (!IsCommunityNpc(npc)) return true;
@@ -405,12 +408,14 @@ namespace SurvivorCommunity
                         if (lp != null && error != null && error != "scVoiceStays") ScCommunity.Tell(lp, Localization.Get(error), "ui_denied");
                         __result = Localization.Get("scVoiceStays");
                     }
+                    SetActionSubtitle(__instance, __result);   // round m1p: SC's answer is the subtitle too
                     return false;
                 }
                 catch (Exception e)
                 {
                     ScLog.Once("vc-dismiss", e);
                     __result = Localization.Get("scVoiceStays");
+                    SetActionSubtitle(__instance, __result);   // round m1p: SC's answer is the subtitle too
                     return false;       // never fall through to SCore's Dismiss for a member
                 }
             }
@@ -517,7 +522,7 @@ namespace SurvivorCommunity
             public static MethodBase TargetMethod() { return PickupTarget(); }
 
             [HarmonyPrefix]
-            public static bool Prefix(object[] __args, ref string __result)
+            public static bool Prefix(object __instance, object[] __args, ref string __result)
             {
                 try
                 {
@@ -527,17 +532,20 @@ namespace SurvivorCommunity
                     {
                         Count("pickup-refused-enclave");
                         __result = Localization.Get("scEncVoiceStays");
+                        SetActionSubtitle(__instance, __result);   // round m1p: SC's answer is the subtitle too
                         return false;
                     }
                     if (!IsCommunityNpc(npc)) return true;
                     Count("pickup-refused");
                     __result = Localization.Get("scVoiceWalk");
+                    SetActionSubtitle(__instance, __result);   // round m1p: SC's answer is the subtitle too
                     return false;
                 }
                 catch (Exception e)
                 {
                     ScLog.Once("vc-pickup", e);
                     __result = Localization.Get("scVoiceWalk");
+                    SetActionSubtitle(__instance, __result);   // round m1p: SC's answer is the subtitle too
                     return false;
                 }
             }
@@ -555,7 +563,7 @@ namespace SurvivorCommunity
             public static MethodBase TargetMethod() { return HireTarget(); }
 
             [HarmonyPrefix]
-            public static bool Prefix(object[] __args, ref string __result)
+            public static bool Prefix(object __instance, object[] __args, ref string __result)
             {
                 try
                 {
@@ -564,6 +572,7 @@ namespace SurvivorCommunity
                     {
                         Count("hire-refused-hostile");
                         __result = Localization.Get("scTrustNoHire");
+                        SetActionSubtitle(__instance, __result);   // round m1p: SC's answer is the subtitle too
                         return false;
                     }
                     // one of an enclave's people (E2): not for hire - E3's enlisting goes through their dialog, SC taking the fee;
@@ -572,17 +581,20 @@ namespace SurvivorCommunity
                     {
                         Count("hire-refused-enclave");
                         __result = Localization.Get("scEncVoiceNoHire");
+                        SetActionSubtitle(__instance, __result);   // round m1p: SC's answer is the subtitle too
                         return false;
                     }
                     if (!IsCommunityNpc(npc)) return true;
                     Count("hire-refused");
                     __result = Localization.Get("scVoiceNoHire");
+                    SetActionSubtitle(__instance, __result);   // round m1p: SC's answer is the subtitle too
                     return false;
                 }
                 catch (Exception e)
                 {
                     ScLog.Once("vc-hire", e);
                     __result = Localization.Get("scVoiceNoHire");
+                    SetActionSubtitle(__instance, __result);   // round m1p: SC's answer is the subtitle too
                     return false;
                 }
             }
@@ -1801,17 +1813,30 @@ namespace SurvivorCommunity
         private static FieldInfo subtitleField;
         private static bool subtitleFieldBound;
 
+        /// <summary>
+        /// Voice Control's ExecuteMatch (PhraseTriggerHandler.cs:1059-1073 in 3.4.06) speaks what the action returned but shows
+        /// the trigger's own reply as the subtitle unless ActionSubtitleOverride is set - so SC's answer to a spoken trade or
+        /// inventory (round 28, E8) and, since round m1p (PORT_34.md:880-885), to a spoken dismiss, pick-up or hire sets it too:
+        /// the line shown is the line spoken. Never throws (it runs in those prefixes' catch blocks as well).
+        /// </summary>
         private static void SetActionSubtitle(object handler, string text)
         {
-            if (!subtitleFieldBound)
+            try
             {
-                subtitleFieldBound = true;
-                Type t = TriggerType;
-                FieldInfo f = t != null ? AccessTools.Field(t, "ActionSubtitleOverride") : null;
-                subtitleField = f != null && f.FieldType == typeof(string) && !f.IsStatic ? f : null;
-                if (subtitleField == null) ScLog.Warn("voice trade: PhraseTriggerHandler.ActionSubtitleOverride not found (Voice Control update?) - a refused trade shows Voice Control's own reply as its subtitle");
+                if (!subtitleFieldBound)
+                {
+                    subtitleFieldBound = true;
+                    Type t = TriggerType;
+                    FieldInfo f = t != null ? AccessTools.Field(t, "ActionSubtitleOverride") : null;
+                    subtitleField = f != null && f.FieldType == typeof(string) && !f.IsStatic ? f : null;
+                    if (subtitleField == null) ScLog.Warn("voice: PhraseTriggerHandler.ActionSubtitleOverride not found (Voice Control update?) - SC's answer to a spoken trade, inventory, dismiss, pick-up or hire shows Voice Control's own reply as its subtitle");
+                }
+                if (subtitleField != null && handler != null && !string.IsNullOrEmpty(text)) subtitleField.SetValue(handler, text);
             }
-            if (subtitleField != null && handler != null) subtitleField.SetValue(handler, text);
+            catch (Exception e)
+            {
+                ScLog.Once("vc-subtitle", e);
+            }
         }
 
         /// <summary>E8: every LLM chat request with one of an enclave's people carries what they know of their group.</summary>

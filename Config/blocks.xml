@@ -1243,11 +1243,18 @@
 			<!-- V2. VoiceBarkSubtitles: the words of SC's greetings, chatter and taunts show in Voice Control's subtitle bar
 			     (where Voice Control shows that NPC's text). VoiceBarkDebug: a test aid - a greeting, chatter line or taunt
 			     with no recording still shows its words and logs "voice bark (silent, no recording): ..." (Voice Control
-			     still greets where SC has no recording). VoiceClipCache: how many of SC's clips stay loaded (compressed);
-			     the least recently used goes first. "sc voice barks" shows the switches and this session's counts. -->
+			     still greets where SC has no recording). VoiceClipCache: how many of SC's clips stay loaded (compressed,
+			     or decompressed for Voice Control's lip sync); the least recently used goes first. "sc voice barks" shows the
+			     switches and this session's counts. -->
 			<property name="VoiceBarkSubtitles" value="true" />
 			<property name="VoiceBarkDebug" value="false" />
 			<property name="VoiceClipCache" value="48" />
+			<!-- Round m1p. VoiceClipCacheMB: and at most this many megabytes of them, the least recently used going first (a
+			     line decompressed for lip sync takes about ten times the room of a compressed one). VoiceClipIdleMinutes: a
+			     clip nobody has asked for in this many real minutes is dropped (0: never by age). A clip that is playing is
+			     never dropped. "sc voice barks" shows what is loaded and what was dropped. -->
+			<property name="VoiceClipCacheMB" value="24" />
+			<property name="VoiceClipIdleMinutes" value="10" />
 			<!-- 0-XNPCCore 3.2's own survivors that the community takes over: they get SurvivorCommunity's looks, names,
 			     half armor protection, item-only healing and aim pose instead of 0-XNPCCore's presets. The XML that
 			     strips their preset look (Config/entityclasses.xml, written by Tools/gen_arsenal.py) names the same six:

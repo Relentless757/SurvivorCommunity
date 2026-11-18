@@ -624,7 +624,8 @@ window showing every stack in every storage box you placed inside the home zone,
 
 - It is a real view, not a copy: taking, splitting, swapping or merging in a cell changes the real box behind it.
 - Anything you drop on an empty cell, or shift-click in from your backpack, goes into the **first box with room** for it.
-  If no box has room it comes back to you.
+  If no box has room it comes back to you, and a message says why: no box has room for it, or the base has no storage
+  boxes at all (place one, then open linked storage again).
 - The strip under the grid shows the box count, stacks and free room, and has a **Refresh** button.
 - Without RE Inventory the window scrolls and holds up to 360 slots (10 rows in view, 7 with AshfallUI), so every stack
   and every free slot shows. With RE Inventory, its own grid shows linked storage.
@@ -679,6 +680,8 @@ for every dialog in the game, not only SC's.
 
 - **No trading:** members and stand-ins never offer Trade (by talk, radial or voice). Ask to see their inventory instead.
 - **No "Pick me up":** SC's people cannot be picked up as an item from 0-XNPCCore's hold-E ring.
+- **Spoken orders:** a spoken "pick up" or "hire" to a member is refused, and a spoken "dismiss" sends a follower home.
+  The subtitle shows the answer they actually give, as they say it.
 - **No debug Remove:** 0-XNPCCore's debug Admin page shows no "Remove (debug)..." on members. It deletes the body without
   a death, which would leave the community's record of them with no body.
 - **No pay:** members are never on a Voice Control contract and are never billed. They refuse coins as a gift too.
@@ -986,7 +989,8 @@ per manned watch post** (at most +30, only with ammo in stock); +1 per trap or t
 
 ### Watch posts
 
-A **Watch Post** is a block a guard stands on.
+A **Watch Post** is a block a guard stands on. The numbers below are the defaults (section 20); the post's item
+description shows the ones your settings use.
 
 - **Craft** it from your backpack: 10 wood and 4 nails. It comes in every shape (hold Reload on it for the shape menu) and
   can be painted to match your floor. The guard stands **on top** of it, so use the cube, or a plate or catwalk turned
@@ -1459,6 +1463,9 @@ catalog, and real armor pieces in their equipment slots.
 - A gun put away for melee keeps its rounds, and a gun in hand is saved loaded.
 - **With Locked & Loaded,** survivors and raiders whose gun takes magazines start with loaded magazines for their tier and
   reload like you. Refills go into their magazines.
+- **Too many magazines from an older save:** a member who picked up extra magazines before the duplication fix keeps
+  them. In the console, `sc mags` lists the members carrying more than their tier's count, and `sc mags <name> trim`
+  shows which ones a trim would remove; nothing goes until you add `confirm` ([CONSOLE_COMMANDS.md](CONSOLE_COMMANDS.md)).
 
 ### The member inventory panel
 
@@ -1489,6 +1496,8 @@ You change their gear by dropping items on the slots (single player, or the host
 - A refused item stays on your cursor and a message says why: a launcher or explosive, dual pistols, an item a mod marks
   as unfinished, a tool on a weapon slot, armor for another slot. Slots take one item at a time.
 - Changing an armor slot here replaces a Wardrobe pick in that slot (Looks, below).
+- **It closes when they are hit:** if the member whose inventory is open takes a hit, the panel closes and a message says
+  so. Your own fight, or a hit on anyone else, leaves it open, and so does bleeding: you can still hand over a bandage.
 - **Moving it:** drag the title bar and the panel stays where you put it. Right-click the title bar, or type
   `sc ui reset` in the console, to put it back. `MemberInventoryPanel` false (section 20) brings back 0-XNPCCore's
   equipment window and the looting screen.
@@ -1940,8 +1949,6 @@ For console commands (testing and fixing), see [CONSOLE_COMMANDS.md](CONSOLE_COM
 - **Squad orders:** a spoken squad order's answer can come from a resident, though only followers act on it.
 - **Existing saves and the handheld radio:** with `DistressNeedsRadio` on, runners get no distress calls until you give
   them radios.
-- **The Watch Post's item description** names the default numbers (4 posts, 12 hours, 3 bundles); after changing the
-  settings it no longer matches.
 - **Enlisted enclave people** do not show in SCore's companion window.
 - **Wild NPC spawns:** spawns kept away from an enclave's grounds can make wild NPCs a little rarer around it.
 - **If you ever uninstall** despite the warning above, load the save once with `Enclaves=false` first, or the rooms the

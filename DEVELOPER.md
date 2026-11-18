@@ -1752,7 +1752,11 @@ vanilla's.
   closing the talk stops only SC's clip. The same line from the same survivor is not spoken again within 30 seconds (it
   still shows), so going back to a talk's first menu doesn't repeat the greeting. SC loads its clips itself and keeps
   at most `VoiceClipCache` (48) of them, the least recently used dropped first (compressed for its own source,
-  decompressed for Voice Control's lip sync, which reads the samples); Voice Control never keeps them.
+  decompressed for Voice Control's lip sync, which reads the samples); Voice Control never keeps them. Round m1p: and at
+  most `VoiceClipCacheMB` (24) megabytes of them (16-bit samples for a decompressed clip, the .ogg's size for a
+  compressed one), and a clip nobody asked for in `VoiceClipIdleMinutes` (10) is dropped by a sweep every 30 s. A clip
+  is never dropped while it plays or in the 3 s after it was handed out. With 604 lines in 16 voices (2.5 s on average,
+  9.7 s at most), 48 decompressed clips are about 10 MB, 34 MB at worst.
 - **The shipped voices** are the four White ones, `male_White_Vane`, `male_White_David`, `female_White_Jessica` and
   `female_White_Beth`: each says 147 lines, every survivor line in SC's talks up to E6, the enclaves' included, and
   0-XNPCCore's greeting. They are Vane, David, Jessica and Beth from the ElevenLabs Voice Library, generated with
@@ -1857,7 +1861,7 @@ line and voices `DialogLine`, `VoiceLines`, `MuteVcInTalk`, `VoiceEnclaveContext
 `ScGreetMeetRange`, `ScGreetWalkUpRange`, `ScGreetWalkUpSeconds`, `ScGreetGapSeconds`, `ScChatter`, `ScChatterSeconds`,
 `ScChatterChance`, `ScChatterRange`, `ScBarks`, `RaiderTaunts`, `RaiderTauntCooldown`, `RaiderTauntGlobalCooldown`,
 `RaiderTauntIdleSeconds`, `RaiderTauntHitChance`, `RaiderTauntRange`, `RaiderTauntRetreatHealth`, `VoiceBarkSubtitles`,
-`VoiceBarkDebug`, `VoiceClipCache` (`AmmoPerRangedDay` is no longer charged; the
+`VoiceBarkDebug`, `VoiceClipCache`, round m1p's `VoiceClipCacheMB` and `VoiceClipIdleMinutes` (`AmmoPerRangedDay` is no longer charged; the
 outposts only use it to guess which resource runs out first). Outposts: every `Outpost*` and `Radio*` property in the block
 (commented there), the `OutpostRows` / `OutpostPrefabs` tables, and `OutpostAttacks` for the risk features. Enclaves (E1):
 `Enclaves`, `EnclavesPerKm2`, `EnclaveMin`, `EnclaveMax`, `EnclaveSpacingMin`, `EnclaveSpacingFactor`, `EnclaveSpacingFloor`,

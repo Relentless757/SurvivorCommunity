@@ -589,6 +589,15 @@ Rolls `n` loadouts (default 1000) without creating anyone.
 ### `sc arms <id|name> [melee|ranged]` [CHEAT when a word is given]
 Shows the NPC's weapons; with the word, puts that one in its hand.
 
+### `sc mags` [HOST] [READ]
+Locked & Loaded magazines: every member whose body is loaded, with how many magazines they carry for their gun (the one in the gun included) against their tier's count (T1 2, T2 3, T3 4 by default), and how many over. Members who got extra magazines before the duplication fix show up here.
+
+### `sc mags <id|name>` [HOST] [READ]
+That member's magazines, one per line (in the gun, bag slot or toolbelt slot, and the rounds in each), each marked `keep` or `TRIM`. The one in the gun is always kept, then the one marked to go back into the gun on the draw, then the fullest.
+
+### `sc mags <id|name> trim` [HOST] [READ] and `sc mags <id|name> trim confirm` [HOST] [DESTRUCTIVE]
+`trim` shows what a trim would remove and changes nothing. `trim confirm` removes the `TRIM` magazines from the member's bag and toolbelt; they are destroyed with their rounds, not given to you. Magazines you handed the member yourself count the same, so read the list first. Needs the member's body loaded near you and their inventory closed; refused when SC's count and Locked & Loaded's differ.
+
 ### `sc team` [READ]
 Team strength (round tm1): every loaded member's F (her side: her stars, health and weapon, the members near her, you at double weight while you fight) against T (the awake enemies within 15 m; during a horde at the base, the whole defended area), MATCHED or OUTMATCHED, what you counted ("you count 0 (not fighting)" or "you count 2 x HpF (fighting)"), and MELEE-LED or why not (on a run, on watch, Cowardly, your gun order, no melee weapon, hurt, raiders in the fight, outmatched); matched at F >= 1 T (exact parity; left below 0.8 T, matched again after 2 recounts), melee-led from 60% health. Under each member her posture (round k4: MELEE, KITE, HOLD, SHELTER, INVESTIGATE or none, why, and her hand changes), and at the end the intruders (zombies inside the base and on its levels that are after nobody) and who goes to each. Round k1: you count only for `TeamPlayerFightingSeconds` (5 s) after you hit an enemy in her area (a kill counts too; an enemy that is only after you does not); standing by, you count 0.
 
@@ -657,7 +666,7 @@ Other voice subcommands:
 - `sc voice who [id|name]` [READ]: race, sex, origin, voice chain and which lines the NPC can say. With Vanity Vault it also shows the skin tone, the face and the rule that chose the voice race: `skin Porcelain, face 10 Black -> Black (VoiceRaceByFace)`; `skin Umber, face 3 White, a dark tone for a man -> Black (VoiceRaceByFace, VoiceDarkTonesMale)`; for a face number outside 1-16 (or with `VoiceRaceByFace` false, which adds `; VoiceRaceByFace off`) the tone's race from `VoiceRaceBySkin` (`skin Espresso, face 20 (no face race) -> Black (VoiceRaceBySkin)`), or that the tone is not in it (any voice of their sex).
 - `sc voice greet [id|name]`, `sc voice chatter [id|name]`: make a greeting or chatter line play now.
 - `sc voice taunt <spot|search|lost|hit|killed|idle|dying|retreat> [id|name]`: the nearest raider (40 m) taunts now.
-- `sc voice barks` [READ]: bark switches and counters.
+- `sc voice barks` [READ]: bark switches and counters, and SC's loaded clips: how many, about how many MB, the limits (`VoiceClipCache`, `VoiceClipCacheMB`, `VoiceClipIdleMinutes`) and how many were dropped.
 - `sc voice line <words>` [READ]: the clip key a phrase maps to and whether the nearest survivor has it.
 
 ## 14. Diagnostics

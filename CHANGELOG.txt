@@ -117,6 +117,24 @@ Loot
 - Air drops always hold at least one bundle: a Medium food, medical, ammo, materials or fuel bundle, on top of the usual
   chances.
 
+
+Polish
+------
+- The member inventory panel closes when that member takes a hit, and a message says why. Your own fight, a hit on
+  someone else, or their bleeding leave it open.
+- Linked storage says when the base has no storage boxes at all, instead of "No box has room for that." An outpost's
+  storage with no boxes, and a base only partly loaded, get their own message.
+- Spoken "dismiss", "pick up" and "hire": when one of SC's people answers with their own line, the subtitle now shows
+  that line too, not Voice Control's own reply.
+- The Watch Post's description names the numbers your settings use: how many posts, the shift's hours, how much farther
+  the guard sees, the ammo bundles a shift takes and how much each manned post slows the dead's attention.
+- Voice clips use less memory: SC keeps at most 24 MB of its voice clips loaded ("VoiceClipCacheMB") besides the 48-clip
+  limit, and drops a clip nobody has needed for 10 minutes ("VoiceClipIdleMinutes"). A line that is playing is never
+  cut.
+- "sc mags" in the console lists members' Locked & Loaded magazines against their tier's count. A member who got extra
+  magazines before the duplication fix keeps them; "sc mags <name> trim" shows which ones a trim would remove, and
+  "sc mags <name> trim confirm" removes them.
+
 Survivor Community 0.1.0 pre-release 3
 ======================================
 

@@ -385,6 +385,7 @@ namespace SurvivorCommunity
                 else bag.Unbind();
             }
             if (card != null) card.Target = member;
+            ScPanelHurt.Watch(member);       // round m1p: a hit on her closes the panel
             Refresh(true);
         }
 
@@ -403,6 +404,7 @@ namespace SurvivorCommunity
             if (bag != null) bag.Unbind();
             if (card != null) card.Target = null;
             if (mover != null) mover.EndDrag();
+            ScPanelHurt.Watch(null);         // round m1p
             te = null;
             npc = null;
         }
@@ -428,6 +430,15 @@ namespace SurvivorCommunity
                     if (input.PermanentActions.Reload.WasPressed || input.GUIActions.LeftStick.WasPressed) TakeAll(Pack);
                 }
                 if (mover != null && !mover.Dragging) mover.Place();
+                // round m1p (the user's decision): a hit on her closes the panel at once, and says why - only a hit on her, never
+                // the player's own fight (ScPanelHurt)
+                if (npc != null && ScPanelHurt.TakeHit(npc))
+                {
+                    EntityAlive hurt = npc;                  // OnClose clears npc
+                    xui.playerUI.windowManager.Close(windowGroup);
+                    ScPanelHurt.Tell(xui.playerUI.entityPlayer, hurt);
+                    return;
+                }
                 float now = Time.unscaledTime;
                 if (now < nextRefresh) return;
                 nextRefresh = now + RefreshSeconds;
