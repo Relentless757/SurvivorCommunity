@@ -116,8 +116,9 @@ RUNTIME_FIXED = ["scEncReqNothingLine", "scEncReqGone", "scEncReqNotCleared", "s
                  "scEncJoinSaid", "scEncJoinSaidFollow",
                  # E13a: drifters you helped fight off the dead, and a drifter band's answer as it joins you (ScBands shows them
                  # as tells; since round m1v they are said aloud too, in person or on the radio: ScEncRadio. The siege call and
-                 # the request offer go through ScEncRadio as well, keyed scEncSiegeCallSaid_1..3 and scEncReqHeardSaid_<kind>;
-                 # they join this list once round V-b records them)
+                 # the request offer go through ScEncRadio as well, keyed scEncSiegeCallSaid_1..3 and scEncReqHeardSaid_<kind>,
+                 # and the siege's call again at half time, scEncSiegeHurrySaid (its words: that Localization row); they join
+                 # this list once round V-b records them)
                  "scBandThanksSaid", "scBandJoinSaid",
                  # C1: a resident's words on a work shift - "That's all for now." answered as the talk closes (ScVoice.SayAfterTalk
                  # plays it once recorded), and "Call to work" from the Community tab (a tell: text only, the voicing round wires

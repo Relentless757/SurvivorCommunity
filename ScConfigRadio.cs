@@ -45,7 +45,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round m1v (the user, 2026-11-17): an enclave's or a drifter band's words to you are spoken too, in the speaker's own
         /// voice (ScEncRadio): in person when they are near, else on the radio while you carry a handheld or stand within 30 m
-        /// of a powered radio station at home. The messages show as before either way. false: the messages alone.
+        /// of a powered radio station of yours (at home or an outpost's relay). The messages show as before either way. false:
+        /// the messages alone.
         /// </summary>
         public static bool EnclaveVoiceLines = true;
 

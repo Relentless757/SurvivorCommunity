@@ -1769,7 +1769,7 @@ namespace SurvivorCommunity
             if (player != null && ScRunners.XZ(Where(b), player.position) <= ScConfig.BandDespawnRange)
             {
                 ScCommunity.Tell(player, string.Format(Loc("scEncCallSays"), lead.Name, Loc("scBandThanksSaid")) + " " + Loc("scBandTrustNow"), "");
-                ScEncRadio.Say(RadioSpeaker.Of(lead, b), EncCall.BandThanks, player, false, null, false, DisplayName(b));   // round m1v: their thanks aloud
+                ScEncRadio.Say(lead, b, EncCall.BandThanks, player);   // round m1v: their thanks aloud (found inside: never throws)
             }
             ScOutposts.NoteLedger(string.Format(Loc("scBandLedgerHelped"), DisplayName(b)));
             ScLog.Out("band " + b.Id + " (drifters, " + DisplayName(b) + "): you helped them fight off the dead (" + b.Helped + " killed by you) - they trust you now");
@@ -2092,7 +2092,7 @@ namespace SurvivorCommunity
                 reason = Loc("scEncStays");
                 return false;
             }
-            JoinNow(b, player, "the dialog");
+            JoinNow(b, player, "the dialog", p);          // round m1v (review fix 4): the one talked to says their answer
             return true;
         }
 
@@ -2111,16 +2111,16 @@ namespace SurvivorCommunity
         /// The join, the gates passed: each living person becomes a member on the way (E12's path, ScEncJoin.OnTheWay: keyed by
         /// Key, Arriving, due when they could have walked to the home, coming in on the side of where they are now) - a body out
         /// gives its pair and rounds first and walks off toward home as a husk; then the band ends. One tell (their word, then the
-        /// facts), a ledger line, the log, a save. Returns the console's line.
+        /// facts), a ledger line, the log, a save. Returns the console's line. Round m1v (the review's fix 4): by - the one the
+        /// player talked to (the dialog) - says their word, in the tell and aloud; null (any other way): the leader.
         /// </summary>
-        internal static string JoinNow(Band b, EntityPlayerLocal player, string cause)
+        internal static string JoinNow(Band b, EntityPlayerLocal player, string cause, BandPerson by = null)
         {
             World w = ScCommunity.World;
             BandPerson leader = LeaderOf(b);
-            string leaderName = leader != null ? leader.Name : "";
+            string leaderName = by != null ? by.Name : leader != null ? leader.Name : "";   // m1v fix 4: the one talked to
             string name = DisplayName(b);
-            List<BandPerson> firstLiving = leader == null ? Living(b) : null;
-            RadioSpeaker speaker = RadioSpeaker.Of(leader ?? (firstLiving.Count > 0 ? firstLiving[0] : null), b);   // round m1v: taken before their bodies are let go
+            RadioSpeaker speaker = ScEncRadio.BandSpeaker(b, by);   // round m1v: the one talked to, else the leader - taken before their bodies are let go (never throws)
             Vector3 from = Where(b);
             ulong at = (w != null ? w.worldTime : 0UL) + ArriveTicks(from);
             var names = new List<string>();

@@ -118,6 +118,8 @@ namespace SurvivorCommunity
             public ulong EntityBorn;
             /// <summary>Round m1v: the counters' word for a line with no caption of the queue's own ("horde", "enc").</summary>
             public string Tag = "horde";
+            /// <summary>The m1v review's fix 7: who says it (QueueSpoken), so a line that waited is skipped once they are gone; null for vo4's and R2's.</summary>
+            public RadioSpeaker Speaker;
         }
 
         /// <summary>Round m1v: a list, so the next line is picked by priority (Enqueue, Next); never more than QueueMax.</summary>
@@ -129,6 +131,11 @@ namespace SurvivorCommunity
         private static float busyUntil;
         /// <summary>Bumped by Reset: a coroutine or a clip load that finishes late checks it.</summary>
         private static int token;
+        /// <summary>
+        /// The m1v review's fix 3: real time until which an in-person line said outside the queue (ScVoice.SayAfterTalk: a join's
+        /// parting line) plays - the queue waits for it as for its own (HoldFor), so no radio line talks over it.
+        /// </summary>
+        private static float holdUntil;
 
         // the radio's own source: a 2D AudioSource on a GameObject of its own, with its filters
         private static GameObject audioGo;
@@ -144,6 +151,7 @@ namespace SurvivorCommunity
             token++;
             queue.Clear();
             busyUntil = 0f;
+            holdUntil = 0f;                                            // the m1v review's fix 3
             try
             {
                 if (source != null) source.Stop();
@@ -276,7 +284,7 @@ namespace SurvivorCommunity
             var line = new Line
             {
                 MemberId = member ? s.MemberId : 0, Name = s.Name, Key = key, Words = key, Path = path, Voice = voice, Caption = false,
-                InPerson = inPerson != null, Priority = prio, Tag = string.IsNullOrEmpty(tag) ? "enc" : tag,
+                InPerson = inPerson != null, Priority = prio, Tag = string.IsNullOrEmpty(tag) ? "enc" : tag, Speaker = s,
                 EntityId = inPerson != null && !member ? inPerson.entityId : -1, EntityBorn = inPerson != null ? inPerson.WorldTimeBorn : 0UL
             };
             if (!Enqueue(line)) return false;
@@ -321,6 +329,16 @@ namespace SurvivorCommunity
             World w = ScCommunity.World;
             EntityAlive npc = w != null && line.EntityId >= 0 ? ScNpc.As(ScNpc.Loaded(w, line.EntityId)) : null;
             return npc != null && npc.WorldTimeBorn == line.EntityBorn ? npc : null;
+        }
+
+        /// <summary>
+        /// The m1v review's fix 3: the queue waits at least this many seconds from now (an in-person line said outside it, as a
+        /// talk closes, is playing or loading). Never shortens a wait already set.
+        /// </summary>
+        internal static void HoldFor(float seconds)
+        {
+            float until = Time.unscaledTime + Mathf.Max(0f, seconds);
+            if (until > holdUntil) holdUntil = until;
         }
 
         /// <summary>Round m1v: the log's word for a line with no caption of its own.</summary>
@@ -379,9 +397,26 @@ namespace SurvivorCommunity
         private static void PlayNext(EntityPlayerLocal player)
         {
             float now = Time.unscaledTime;
-            if (queue.Count == 0 || now < busyUntil) return;
+            if (queue.Count == 0 || now < busyUntil || now < holdUntil) return;   // m1v fix 3: a parting line in person holds it too
             Line line = Next();                                        // round m1v: the highest priority first
-            if (line.InPerson) { PlayInPerson(line); return; }        // vo4: a horde warning from the guard's body
+            if (line.InPerson) { PlayInPerson(line, player); return; } // vo4: a horde warning from the guard's body (m1v: anyone's)
+            PlayRadio(line, player);
+        }
+
+        /// <summary>
+        /// A line on the radio's source (a runner's caption with it), or its caption alone. The m1v review's fix 7: a speaker's
+        /// line whose speaker is no longer alive, or whose group is gone, is skipped (its text showed when it was queued).
+        /// </summary>
+        private static void PlayRadio(Line line, EntityPlayerLocal player)
+        {
+            float now = Time.unscaledTime;
+            string gone;
+            if (line.Speaker != null && !line.Speaker.StillThere(out gone))
+            {
+                ScHandheld.Count(line.Tag + " unsaid: the speaker is gone");
+                ScLog.Verbose(line.Name + "'s " + What(line) + " " + line.Key + " was not said: " + gone);
+                return;                                                // nothing plays: the next line may go at the next tick
+            }
             if (line.Path == null)
             {
                 if (!line.Caption) return;                             // vo4: nothing to say (a horde warning always comes with its clip)
@@ -423,7 +458,7 @@ namespace SurvivorCommunity
         /// is (ScVoice.PlayBark: through Voice Control's player for the lip sync, else SC's own source on a child; SC's own
         /// source while Voice Control is saying something on them, so its queue is never cut). The queue waits for the line.
         /// </summary>
-        private static void PlayInPerson(Line line)
+        private static void PlayInPerson(Line line, EntityPlayerLocal player)
         {
             EntityAlive npc = line.EntityId >= 0 ? BodyOf(line) : ScCommunity.FindNpc(line.MemberId);   // round m1v: anyone's body
             if (npc == null || npc.IsDead() || line.Path == null)
@@ -431,6 +466,25 @@ namespace SurvivorCommunity
                 ScHandheld.Count(line.Tag + " unsaid: body gone");
                 ScLog.Verbose(line.Name + "'s " + What(line) + " " + line.Key + " was not said: their body is gone");
                 return;                                                // nothing plays: the next line may go at once
+            }
+            // the m1v review's fix 2: they may have walked off (or you) while the line waited - a bark is 3D audio cut off at 40 m,
+            // so beyond InPersonRange (3D) the line goes on the radio when it can be heard there, else it is dropped (its text
+            // showed when it was queued); never played out of earshot, holding the queue
+            EntityPlayerLocal p = player ?? ScCommunity.LocalPlayer;
+            if (p != null && Vector3.Distance(npc.position, p.position) > InPersonRange)
+            {
+                string how;
+                if (RadioHeard(line, npc, p, out how))
+                {
+                    line.InPerson = false;
+                    ScHandheld.Count(line.Tag + " moved to the radio: out of earshot");
+                    ScLog.Verbose(line.Name + "'s " + What(line) + " " + line.Key + " goes on the radio: they are " + Vector3.Distance(npc.position, p.position).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " m from you (" + how + ")");
+                    PlayRadio(line, p);
+                    return;
+                }
+                ScHandheld.Count(line.Tag + " unsaid: out of earshot");
+                ScLog.Verbose(line.Name + "'s " + What(line) + " " + line.Key + " was not said: they are out of earshot and the radio is not heard (" + how + ")");
+                return;
             }
             if (ScVoice.Holds(npc))
             {
@@ -456,6 +510,24 @@ namespace SurvivorCommunity
                     // the clip did not load or the body went meanwhile: the queue goes on (a line that played set its own wait)
                     if (my == token && !begun) busyUntil = Time.unscaledTime + 0.3f;
                 });
+        }
+
+        /// <summary>
+        /// The m1v review's fix 2: can an in-person line that is now out of earshot go on the radio instead? A horde warning by its
+        /// own rule (vo4: your handheld, and the guard's own handheld or the home station with power); anyone else's by
+        /// ScRadioSpeaker.Hears (your handheld, or a powered station of yours within 30 m).
+        /// </summary>
+        private static bool RadioHeard(Line line, EntityAlive npc, EntityPlayerLocal p, out string how)
+        {
+            if (line.Tag == "horde")
+            {
+                if (!ScHandheld.Carries(p)) { how = "you carry no handheld radio"; return false; }
+                if (ScHandheld.NpcCarries(npc)) { how = "their handheld"; return true; }
+                if (ScDefence.Radio()) { how = "the home station"; return true; }
+                how = "no handheld radio on them and no station at home has power";
+                return false;
+            }
+            return ScRadioSpeaker.Hears(p, out how);
         }
 
         private static void Caption(EntityPlayerLocal player, Line line)
@@ -606,8 +678,10 @@ namespace SurvivorCommunity
             float left = busyUntil - Time.unscaledTime;
             var sb = new StringBuilder();
             foreach (Line l in queue) sb.Append(sb.Length > 0 ? ", " : "").Append(l.Priority).Append(' ').Append(l.Key);   // round m1v: what waits, oldest first
+            float held = holdUntil - Time.unscaledTime;                // the m1v review's fix 3
             return queue.Count + " line(s) waiting" + (sb.Length > 0 ? " (" + sb + ")" : "")
-                   + (left > 0f ? ", busy " + left.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s" : "");
+                   + (left > 0f ? ", busy " + left.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s" : "")
+                   + (held > 0f ? ", held " + held.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s for a line in person" : "");
         }
 
         /// <summary>sc radio talk: a moment's name (out, arrived, found, empty, trouble, home, near, recall, hurt).</summary>

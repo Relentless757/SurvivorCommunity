@@ -301,8 +301,15 @@ namespace SurvivorCommunity
         /// <summary>Round m1v: ScOutpostRisk.RefuseDemand - their answer said aloud (ScEncRadio) as the window shows RefusedText's words. Nothing for a nameless demand.</summary>
         internal static void SayRefused(Outpost o, EntityPlayer player)
         {
-            Enclave e = EnclaveOf(o);
-            if (e != null) ScEncRadio.Say(e, EncCall.Refused, player);
+            try
+            {
+                Enclave e = EnclaveOf(o);
+                if (e != null) ScEncRadio.Say(e, EncCall.Refused, player);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("encraids-say-refused", ex);     // the m1v review's fix 6: never into RefuseDemand
+            }
         }
 
         // ------------------------------------------------------------------ the 1 Hz check ----

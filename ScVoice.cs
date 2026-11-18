@@ -632,20 +632,23 @@ namespace SurvivorCommunity
         /// <summary>
         /// vo2: a line said as the talk closes (an enclave leader's answer to "Let me think about it.", which comes as a
         /// tell): it plays as a dialog line does - in the survivor's voice, under the repeat rule - and the talk's close
-        /// does not stop it (OnTalkClosed).
+        /// does not stop it (OnTalkClosed). Round m1v (the review's fix 3): true when a clip was found and is loading or
+        /// playing (false: VoiceLines off, no recording in their talk voice, said within RepeatSeconds); started gets the clip
+        /// once it really plays.
         /// </summary>
-        public static void SayAfterTalk(EntityAlive npc, string key)
+        public static bool SayAfterTalk(EntityAlive npc, string key, Action<AudioClip> started = null)
         {
-            if (npc == null || string.IsNullOrEmpty(key) || !ScConfig.VoiceLines) return;
+            if (npc == null || string.IsNullOrEmpty(key) || !ScConfig.VoiceLines) return false;
             var found = new List<string>();
             Voice v = FirstWith(TalkChain(npc), new[] { key }, found);
             string path;
-            if (v == null || !v.Lines.TryGetValue(key, out path)) return;
+            if (v == null || !v.Lines.TryGetValue(key, out path)) return false;
             string tag = npc.entityId + "|" + key;
             float at;
-            if (recent.TryGetValue(tag, out at) && Time.unscaledTime - at < RepeatSeconds) return;
-            Play(npc, tag, path);
+            if (recent.TryGetValue(tag, out at) && Time.unscaledTime - at < RepeatSeconds) return false;
+            Play(npc, tag, path, started);
             parting = true;   // after Play: its Stop clears the flag
+            return true;
         }
 
         /// <summary>The voices a talk's line is said in: one of the community's survivors only (a raider is never talked to).</summary>
@@ -902,7 +905,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ playing ----
 
-        private static void Play(EntityAlive npc, string tag, string path)
+        private static void Play(EntityAlive npc, string tag, string path, Action<AudioClip> started = null)
         {
             Stop();
             // V1: SC's new line on this NPC ends the answer pass - Voice Control's answer still queued is swallowed from here
@@ -932,6 +935,11 @@ namespace SurvivorCommunity
                     }
                     else PlayOwn(npc, tag, clip);
                     ScClipCache.MarkPlaying(clip);
+                    if (started != null)                        // round m1v (the review's fix 3): SayAfterTalk's caller learns it plays
+                    {
+                        try { started(on ?? clip); }
+                        catch (Exception se) { ScLog.Once("voice-play-started", se); }
+                    }
                 }
                 catch (Exception e)
                 {

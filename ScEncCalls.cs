@@ -476,7 +476,7 @@ namespace SurvivorCommunity
                     {
                         s.Greeted = true;
                         ScCommunity.Tell(player, string.Format(Loc("scEncCallSays"), p.Name, Loc("scEncCallHello")), "");
-                        ScEncRadio.Say(RadioSpeaker.Of(p, e), EncCall.Hello, player, false, null, false, e.Name);   // round m1v: the fighter's own voice, in person
+                        ScEncRadio.Say(p, e, EncCall.Hello, player);   // round m1v: the fighter's own voice, in person (found inside: never throws)
                     }
                 }
                 return false;

@@ -1341,6 +1341,7 @@ scEncRemainsFound,UI,Tooltip,,,,These are {0}'s remains. {1} should hear it from
 scEncRemainsSearched,UI,Tooltip,,,,You've searched {0}'s remains already. Tell {1}.
 scEncRemainsNothing,UI,Tooltip,,,,"Whoever this was, nobody is looking for them now."
 scEncSiegeCall,UI,Tooltip,,,,"{0} on the radio: ""They're coming over the walls! Please, hurry!"""
+scEncSiegeHurrySaid,UI,Tooltip,,,,We can't hold them much longer! Where are you?
 scEncSiegeLedgerCall,UI,Tooltip,,,,{0} called for help against a siege
 scEncSiegeArrived,UI,Tooltip,,,,{0} is under attack: {1} of the dead are coming over the walls!
 scEncSiegeWonTell,UI,Tooltip,,,,{0} held. You killed {1} of them.

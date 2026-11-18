@@ -6,15 +6,18 @@
   call couldn't get through), a raider group's demand on an outpost and its answer when you pay or refuse, a Friendly or
   Allied group moving away. The leader sounds the same as when you talk to them.
 - **In person when they're near.** An ally's fighter says hello as they reach you, a leader answers aloud as their whole
-  group joins you, and drifters thank you after you help them fight off the dead and answer as they join you: from where
-  they stand within 30 m, over the radio when farther.
-- **Only with a radio.** You hear the radio aloud while you carry a handheld radio, or within 30 m of a radio station at
-  home that has power. Otherwise you get the message alone, as before.
+  group joins you, and drifters thank you after you help them fight off the dead, and the one you talked to answers as
+  their band joins you: from where they stand within 30 m, over the radio when farther.
+- **Only with a radio.** You hear the radio aloud while you carry a handheld radio, or within 30 m of one of your radio
+  stations that has power (at home or at an outpost). Otherwise you get the message alone, as before. Someone who walked
+  out of earshot before their turn to speak comes over the radio instead, or not at all.
 - **Someone always answers:** if the leader is dead or away, the next of their people speaks. A group you have never met
   gives you the message alone.
 - **The radio takes turns:** a siege call goes first, then the base's horde warnings, then your runners, then the other
   enclave lines. When too many wait, the least urgent one is dropped.
-- The request announcement and the siege call stay messages only until their lines are recorded.
+- **A siege calls again halfway.** If you are not there by half of the siege's time, they radio once more: "We can't
+  hold them much longer! Where are you?"
+- The request announcement and the siege calls stay messages only until their lines are recorded.
 - New setting `EnclaveVoiceLines` (README section 20); `sc radio enc <moment>` plays one now.
 
 ## Downed, not dead

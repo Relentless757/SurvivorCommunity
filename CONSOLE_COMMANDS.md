@@ -72,7 +72,7 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc radio` | Radio stations, power, handheld radio state, runner talk. [READ] |
 | `sc radio give <member>` | Put a handheld radio in a member's inventory. [CHEAT] |
 | `sc radio horde <moment>` | Hear a horde warning now (gather, spotted, clear, call, arrived, held, damaged, overrun). [CHEAT] |
-| `sc radio enc <moment> [id]` | Hear an enclave's or a drifter band's line now, by the radio rule (fighter, drop, demand, join, thanks ...). [CHEAT] |
+| `sc radio enc <moment> [id]` | Hear an enclave's or a drifter band's line now, by the radio rule (fighter, drop, demand, join, thanks, hurry ...). [CHEAT] |
 | `sc outpost list` / `yield` | Outposts and tonight's yield. [READ] |
 | `sc poi` / `sc poi near [r]` | The POI you stand in; outpost candidates nearby. [READ] |
 | `sc band spawn [drifters\|raiders]` | Put a band on the road, walking at you. [CHEAT] |
@@ -419,12 +419,14 @@ Example: `sc radio horde gather northeast`, `sc radio horde held Dana force`
 ### `sc radio enc <moment> [id] [force]` [CHEAT]
 Shows the message an enclave or a drifter band would give you, and says its line now the way the real moment would:
 in person when the speaker stands within 30 m of you, else on the radio only while you carry a handheld radio or stand
-within 30 m of a radio station at home with power. Then it tells you what happened, and why when nothing was heard.
+within 30 m of one of your radio stations with power (at home or at an outpost). Then it tells you what happened, and
+why when nothing was heard.
 Nothing else happens (no request, siege, move or join).
 - `<moment>`: `fighter`, `drop` and `fail` (an ally's answers to a radio call), `hello` (their fighter's hello: the one
   of theirs with you, else their speaker), `demand`, `paid` and `refused` (a raider enclave), `move`, `movelost` and
   `movenest` (a group moving), `join` and `joinfollow` (a leader as their whole group joins), `thanks` and `bandjoin`
-  (drifters), and `offer` and `siege` (not recorded yet: these say why they stay silent).
+  (drifters), and `offer`, `siege` and `hurry` (the siege's call again at half time) - not recorded yet: these say why
+  they stay silent.
 - `[id]`: the enclave (for `thanks` and `bandjoin`, the band). Default: the nearest group with somebody to speak (a
   hostile one for `demand`, `paid` and `refused`), the nearest drifter band.
 - `force` ignores `EnclaveVoiceLines` and the radio rule.

@@ -83,6 +83,11 @@ namespace SurvivorCommunity
         private static long statusKey = long.MinValue;
         /// <summary>E6: the siege (request id) the player answered "On our way" over the radio window; -1 none. Session only.</summary>
         private static int acknowledged = -1;
+        /// <summary>
+        /// The m1v review's fix 8: the siege (request id) whose half-time call is done - or was past half time when this session
+        /// first saw it (a load), so it is never repeated - and the one this session has looked at. Session only: no save key.
+        /// </summary>
+        private static int hurryDone = -1, hurrySeen = -1;
 
         private static string Loc(string key) { return Localization.Get(key); }
 
@@ -101,6 +106,7 @@ namespace SurvivorCommunity
             statusText = "";
             statusKey = long.MinValue;
             acknowledged = -1;
+            hurryDone = hurrySeen = -1;                        // the m1v review's fix 8
         }
 
         /// <summary>The registry was (re)loaded: whatever this session spawned is squared with it on the next tick (a live siege resumes).</summary>
@@ -440,6 +446,7 @@ namespace SurvivorCommunity
             }
             float d;
             EntityPlayer by = NearestPlayer(w, e, out d);
+            if (by == null || d > ScConfig.EnclaveSiegeArriveRange) TickHurry(w, e, r, player, t, full);   // m1v fix 8: nobody there yet
             if (by == null || d > ScConfig.EnclaveSiegeArriveRange || !ScEnclavePeople.ChunksSettled(w, e)) { settledSince = -1f; return; }
             if (settledSince < 0f) { settledSince = now; return; }
             // another attack being fought where the player is (a base attack next door, an outpost fight in its range): the
@@ -460,6 +467,42 @@ namespace SurvivorCommunity
                 return;
             }
             GoLive(w, e, r, by);
+        }
+
+        /// <summary>
+        /// The m1v review's fix 8 (ROADMAP item 2's half-time call, wired ahead of round V-b): half of the time to answer gone with
+        /// nobody there yet (the caller's test), the group calls once more - a tell, and the call's speaker says
+        /// scEncSiegeHurrySaid at the siege's priority (ScEncRadio: by the radio rule; text only until V-b records it). Once a
+        /// siege: a load past half time marks it done the first time this session sees it; one before half time calls when it
+        /// gets there. Never throws into the tick.
+        /// </summary>
+        private static void TickHurry(World w, Enclave e, EnclaveRequest r, EntityPlayerLocal player, ulong t, ulong full)
+        {
+            try
+            {
+                if (hurryDone == r.Id) return;
+                ulong left = r.Deadline > t ? r.Deadline - t : 0UL;
+                bool past = left * 2UL <= full;
+                if (hurrySeen != r.Id)
+                {
+                    hurrySeen = r.Id;
+                    if (past)
+                    {
+                        hurryDone = r.Id;
+                        ScLog.Verbose("siege at " + e.Name + ": already past half its time when this session first saw it - no half-time call");
+                        return;
+                    }
+                }
+                if (!past) return;
+                hurryDone = r.Id;
+                if (player != null) ScCommunity.Tell(player, string.Format(Loc("scEncCallRadio"), e.Name, Loc(ScEncRadio.HurryKey)), "ui_denied");
+                string said = player != null ? ScEncRadio.Say(e, EncCall.SiegeHurry, player) : "no player";
+                ScLog.Out("siege at " + e.Name + ": half the time to answer is gone and nobody has come - they call again, " + Mmss(SecondsLeft(r, w)) + " left (voice: " + said + ")");
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("encsiege-hurry", ex);
+            }
         }
 
         /// <summary>The arrival: everyone of theirs out at once, the horde's session started, the objective turned to the count left.</summary>

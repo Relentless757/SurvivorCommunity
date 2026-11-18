@@ -13,6 +13,8 @@ namespace SurvivorCommunity
         Offer,
         /// <summary>A siege called (ScEncSiege.Call). Recorded in round V-b: text only until then.</summary>
         Siege,
+        /// <summary>The m1v review's fix 8: half the siege's time to answer gone with nobody there, they call once more (ScEncSiege.TickHurry). Recorded in round V-b.</summary>
+        SiegeHurry,
         /// <summary>An ally answers "Send a fighter" (ScEncCalls.Call).</summary>
         Fighter,
         /// <summary>An ally answers "Supply drop" (ScEncCalls.Call).</summary>
@@ -47,10 +49,11 @@ namespace SurvivorCommunity
     /// Round m1v, voiced enclave radio calls (ROADMAP item 2, round V-a; the user's decisions 2026-11-17). When an enclave or a
     /// drifter band contacts the player, the toast they get today shows as before, and the speaker's own recorded voice says
     /// their words (RadioSpeaker, ScRadioSpeaker.Say): in person when their body stands near, else on the radio - heard aloud
-    /// only while the player carries a handheld radio or stands within 30 m of a powered SC radio station at home; otherwise
-    /// the toast alone. Wiring only: the lines recorded in round vo2 (Tools/voice_lines.py's RUNTIME_FIXED) are said; a key
-    /// with no recording stays text only - the siege call (scEncSiegeCallSaid_1..3) and the request offer
-    /// (scEncReqHeardSaid_&lt;kind&gt;) go through the same path, so round V-b only has to add their clips.
+    /// only while the player carries a handheld radio or stands within 30 m of a powered SC radio station (at home, an
+    /// outpost's relay, or with no home any: ScRadioSpeaker.Hears); otherwise the toast alone. Wiring only: the lines recorded
+    /// in round vo2 (Tools/voice_lines.py's RUNTIME_FIXED) are said; a key with no recording stays text only - the siege call
+    /// (scEncSiegeCallSaid_1..3), its half-time repeat (scEncSiegeHurrySaid) and the request offer (scEncReqHeardSaid_&lt;kind&gt;)
+    /// go through the same path, so round V-b only has to add their clips.
     ///
     /// Who speaks for an enclave: its leader at home; with the leader dead or away, the next living one of its people in
     /// LeaderOf's order - the succession's (ScEnclavePeople.Succeed: at home first, the highest class tier, the one made
@@ -68,6 +71,8 @@ namespace SurvivorCommunity
         public static readonly string[] SiegeKeys = { "scEncSiegeCallSaid_1", "scEncSiegeCallSaid_2", "scEncSiegeCallSaid_3" };
         /// <summary>The request offer's on-air line, recorded in round V-b: this stem plus the request's kind.</summary>
         public const string OfferStem = "scEncReqHeardSaid_";
+        /// <summary>The m1v review's fix 8: the siege's half-time call (its words are this Localization row), recorded in round V-b.</summary>
+        public const string HurryKey = "scEncSiegeHurrySaid";
 
         /// <summary>The line(s) of a moment (kind: the request's, for an offer); one is picked among those the speaker's voice has.</summary>
         public static string[] KeysFor(EncCall call, string kind)
@@ -76,6 +81,7 @@ namespace SurvivorCommunity
             {
                 case EncCall.Offer: return new[] { OfferStem + (string.IsNullOrEmpty(kind) ? EnclaveRequest.KindResource : kind) };
                 case EncCall.Siege: return SiegeKeys;
+                case EncCall.SiegeHurry: return new[] { HurryKey };
                 case EncCall.Fighter: return new[] { "scEncCallFighterSaid" };
                 case EncCall.Drop: return new[] { "scEncCallDropSaid" };
                 case EncCall.Fail: return new[] { "scEncCallFailSaid" };
@@ -94,7 +100,7 @@ namespace SurvivorCommunity
             return new string[0];
         }
 
-        public static RadioPriority PriorityOf(EncCall call) { return call == EncCall.Siege ? RadioPriority.Siege : RadioPriority.Enclave; }
+        public static RadioPriority PriorityOf(EncCall call) { return call == EncCall.Siege || call == EncCall.SiegeHurry ? RadioPriority.Siege : RadioPriority.Enclave; }
 
         /// <summary>A move's moment by the words ScEncMoves shows (its SaidKey).</summary>
         public static EncCall MoveCall(string saidKey)
@@ -135,10 +141,42 @@ namespace SurvivorCommunity
             return a.Id < b.Id;
         }
 
-        /// <summary>The speaker for this group now (SpeakerOf as a RadioSpeaker), or null.</summary>
+        /// <summary>The speaker for this group now (SpeakerOf as a RadioSpeaker), or null. Never throws (the m1v review's fix 6).</summary>
         public static RadioSpeaker Speaker(Enclave e)
         {
-            return RadioSpeaker.Of(SpeakerOf(e), e);
+            try
+            {
+                return RadioSpeaker.Of(SpeakerOf(e), e);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("enc-radio-speaker", ex);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// The speaker for a drifter band: by when given (the m1v review's fix 4: the one the player talked to, for a join through
+        /// the dialog), else its leader, else the first of the living. Null: nobody. Never throws.
+        /// </summary>
+        public static RadioSpeaker BandSpeaker(Band b, BandPerson by)
+        {
+            try
+            {
+                if (b == null) return null;
+                BandPerson p = by ?? ScBands.LeaderOf(b);
+                if (p == null)
+                {
+                    List<BandPerson> living = ScBands.Living(b);
+                    p = living.Count > 0 ? living[0] : null;
+                }
+                return RadioSpeaker.Of(p, b);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("enc-radio-band-speaker", ex);
+                return null;
+            }
         }
 
         // ------------------------------------------------------------------ saying ----
@@ -146,8 +184,46 @@ namespace SurvivorCommunity
         /// <summary>The group's speaker says the moment (kind: the request's, for an offer). The caller has shown its toast.</summary>
         public static string Say(Enclave e, EncCall call, EntityPlayer player, string kind = null, bool force = false)
         {
-            if (e == null) return "no group";
-            return Say(Speaker(e), call, player, false, kind, force, e.Name);
+            try
+            {
+                // the m1v review's fix 6: the speaker is found in here, so nothing throws into the caller mid-transaction (a demand
+                // before its save, a siege call before its ledger line)
+                if (e == null) return "no group";
+                return Say(Speaker(e), call, player, false, kind, force, e.Name);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("enc-radio-say-group", ex);
+                return "error";
+            }
+        }
+
+        /// <summary>One of an enclave's people says the moment (a fighter's hello), found in here. Never throws.</summary>
+        public static string Say(EncPerson p, Enclave e, EncCall call, EntityPlayer player)
+        {
+            try
+            {
+                return Say(RadioSpeaker.Of(p, e), call, player, false, null, false, e != null ? e.Name : null);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("enc-radio-say-person", ex);
+                return "error";
+            }
+        }
+
+        /// <summary>One of a drifter band says the moment (their thanks), found in here (by null: BandSpeaker's pick). Never throws.</summary>
+        public static string Say(BandPerson by, Band b, EncCall call, EntityPlayer player)
+        {
+            try
+            {
+                return Say(BandSpeaker(b, by), call, player, false, null, false, b != null ? ScBands.DisplayName(b) : null);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("enc-radio-say-band", ex);
+                return "error";
+            }
         }
 
         /// <summary>
@@ -174,7 +250,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ the console ----
 
-        private const string Usage = "[SC] sc radio enc <offer|siege|fighter|drop|fail|hello|demand|paid|refused|move|movelost|movenest|join|joinfollow|thanks|bandjoin> [enclave or band id] [force]";
+        private const string Usage = "[SC] sc radio enc <offer|siege|hurry|fighter|drop|fail|hello|demand|paid|refused|move|movelost|movenest|join|joinfollow|thanks|bandjoin> [enclave or band id] [force]";
 
         /// <summary>sc radio enc's moment names.</summary>
         public static bool TryCall(string s, out EncCall call)
@@ -184,6 +260,7 @@ namespace SurvivorCommunity
             {
                 case "offer": case "request": call = EncCall.Offer; return true;
                 case "siege": call = EncCall.Siege; return true;
+                case "hurry": case "siegehurry": call = EncCall.SiegeHurry; return true;     // the m1v review's fix 8
                 case "fighter": call = EncCall.Fighter; return true;
                 case "drop": call = EncCall.Drop; return true;
                 case "fail": case "failed": call = EncCall.Fail; return true;
@@ -235,9 +312,7 @@ namespace SurvivorCommunity
             {
                 Band b = id >= 0 ? ScBands.ById(id) : NearestBand(pl);
                 if (b == null) { output("[SC] " + (id >= 0 ? "no band " + id : "no band with anyone alive (sc band list; sc band spawn)")); return; }
-                BandPerson lead = ScBands.LeaderOf(b);
-                if (lead == null) { List<BandPerson> living = ScBands.Living(b); lead = living.Count > 0 ? living[0] : null; }
-                s = RadioSpeaker.Of(lead, b);
+                s = BandSpeaker(b, null);                       // a join started any other way than the dialog: the leader
                 group = ScBands.DisplayName(b) + " (band " + b.Id + ")";
                 toast = string.Format(Localization.Get("scEncCallSays"), s != null ? s.Name : ScBands.DisplayName(b), Localization.Get(key0));
             }
@@ -254,14 +329,14 @@ namespace SurvivorCommunity
                       : string.Format(Localization.Get(call == EncCall.Hello || call == EncCall.Join || call == EncCall.JoinFollow ? "scEncCallSays" : "scEncCallRadio"),
                                       call == EncCall.Join || call == EncCall.JoinFollow ? (by != null ? by.Name : e.Name) : name, Localization.Get(key0));
             }
-            ScCommunity.Tell(pl, toast, call == EncCall.Siege || call == EncCall.Demand || call == EncCall.Fail ? "ui_denied" : "");
+            ScCommunity.Tell(pl, toast, call == EncCall.Siege || call == EncCall.SiegeHurry || call == EncCall.Demand || call == EncCall.Fail ? "ui_denied" : "");
             string speaker = s == null ? "nobody" : s.Name + " (" + s.Role + (s.Body() != null ? ", body in the world " + Far(s.Body(), pl) + " away" : ", no body in the world") + ")";
             output("[SC] " + call + " from " + group + ", speaker " + speaker + (force ? ", forced" : "") + ": " + Say(s, call, pl, false, null, force, group));
         }
 
         private static string Far(EntityAlive body, EntityPlayer pl)
         {
-            return body == null || pl == null ? "?" : ScRunners.XZ(body.position, pl.position).ToString("0", CultureInfo.InvariantCulture) + " m";
+            return body == null || pl == null ? "?" : Vector3.Distance(body.position, pl.position).ToString("0", CultureInfo.InvariantCulture) + " m";   // fix 1: 3D
         }
 
         /// <summary>The nearest group with somebody to speak: a hostile one (raid moments) or one that is not.</summary>

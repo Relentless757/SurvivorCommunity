@@ -44,6 +44,12 @@ namespace SurvivorCommunity
         public ulong EntityBorn;
         /// <summary>For the log and the console: "leader of The Holdouts", "p12 of Mara's band".</summary>
         public string Role = "";
+        // ---- the m1v review's fix 7: what they are, so a line still waiting can tell whether they are still there ----
+        /// <summary>Kind Enclave: their record and their group; Kind Band: theirs (null for the other kinds, or when not known).</summary>
+        public EncPerson EncPersonRef;
+        public Enclave EnclaveRef;
+        public BandPerson BandPersonRef;
+        public Band BandRef;
 
         public string Name { get { return Who != null && !string.IsNullOrEmpty(Who.Name) ? Who.Name : "?"; } }
 
@@ -78,46 +84,115 @@ namespace SurvivorCommunity
             return ScVoice.RecordClip(Who, Body(), keys, rnd, out key, out voice);
         }
 
+        /// <summary>
+        /// The m1v review's fix 7: are they still there to say a line that waited in the queue? A record that joined the
+        /// community (E12, a band's join: the same Member is one of the members now) always is; else an enclave's person must
+        /// still be one of its living people and their group one of the enclaves, a band's person alive in a band that is still
+        /// on the road, a member still a member. why: what is gone. Never throws (true on an error).
+        /// </summary>
+        public bool StillThere(out string why)
+        {
+            why = null;
+            try
+            {
+                if (!ScRegistry.Loaded) return true;
+                if (Who != null && ScRegistry.Members.ContainsValue(Who)) return true;
+                switch (Kind)
+                {
+                    case Kinds.Member:
+                        if (ScRegistry.GetMember(MemberId) == null) { why = Name + " is no longer one of the community"; return false; }
+                        return true;
+                    case Kinds.Enclave:
+                        if (EncPersonRef != null && (!ScRegistry.EncPeople.Contains(EncPersonRef) || !EncPersonRef.Alive)) { why = Name + " is dead or gone from their group"; return false; }
+                        if (EnclaveRef != null && !ScEnclaves.All.Contains(EnclaveRef)) { why = "their group is gone"; return false; }
+                        return true;
+                    case Kinds.Band:
+                        if (BandPersonRef != null && (!ScRegistry.BandPeople.Contains(BandPersonRef) || !BandPersonRef.Alive)) { why = Name + " is dead or gone from their band"; return false; }
+                        if (BandRef != null && !ScRegistry.Bands.Contains(BandRef)) { why = "their band is gone"; return false; }
+                        return true;
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("radio-speaker-still", e);
+            }
+            return true;
+        }
+
         // ------------------------------------------------------------------ making one ----
 
         /// <summary>A community member (a runner on a run, a guard at home).</summary>
         public static RadioSpeaker Of(Member m)
         {
-            if (m == null) return null;
-            return new RadioSpeaker { Kind = Kinds.Member, Who = m, MemberId = m.Id, Role = "member " + m.Id };
+            try
+            {
+                if (m == null) return null;
+                return new RadioSpeaker { Kind = Kinds.Member, Who = m, MemberId = m.Id, Role = "member " + m.Id };
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("radio-speaker-of-member", ex);     // the m1v review's fix 6: a maker never throws into the caller
+                return null;
+            }
         }
 
-        /// <summary>An enclave's person, their body as it is now (taken now: a join or a move may let go of it later).</summary>
+        /// <summary>An enclave's person, their body as it is now (taken now: a join or a move may let go of it later). Never throws.</summary>
         public static RadioSpeaker Of(EncPerson p, Enclave e)
         {
-            if (p == null || p.Who == null) return null;
-            return new RadioSpeaker
+            try
             {
-                Kind = Kinds.Enclave, Who = p.Who, EntityId = p.EntityId, EntityBorn = p.EntityBorn,
-                Role = (p.IsLeader ? "leader" : "p" + p.Id) + " of " + (e != null ? e.Name : "enclave " + p.EnclaveId)
-            };
+                if (p == null || p.Who == null) return null;
+                if (e == null) e = ScEnclaves.ById(p.EnclaveId);
+                return new RadioSpeaker
+                {
+                    Kind = Kinds.Enclave, Who = p.Who, EntityId = p.EntityId, EntityBorn = p.EntityBorn, EncPersonRef = p, EnclaveRef = e,
+                    Role = (p.IsLeader ? "leader" : "p" + p.Id) + " of " + (e != null ? e.Name : "enclave " + p.EnclaveId)
+                };
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("radio-speaker-of-person", ex);
+                return null;
+            }
         }
 
-        /// <summary>A drifter band's person, their body as it is now (taken now: a join lets go of it).</summary>
+        /// <summary>A drifter band's person, their body as it is now (taken now: a join lets go of it). Never throws.</summary>
         public static RadioSpeaker Of(BandPerson p, Band b)
         {
-            if (p == null || p.Who == null) return null;
-            return new RadioSpeaker
+            try
             {
-                Kind = Kinds.Band, Who = p.Who, EntityId = p.EntityId, EntityBorn = p.EntityBorn,
-                Role = (p.IsLeader ? "leader" : "p" + p.Id) + " of " + (b != null ? ScBands.DisplayName(b) : "band " + p.BandId)
-            };
+                if (p == null || p.Who == null) return null;
+                if (b == null) b = ScBands.ById(p.BandId);
+                return new RadioSpeaker
+                {
+                    Kind = Kinds.Band, Who = p.Who, EntityId = p.EntityId, EntityBorn = p.EntityBorn, BandPersonRef = p, BandRef = b,
+                    Role = (p.IsLeader ? "leader" : "p" + p.Id) + " of " + (b != null ? ScBands.DisplayName(b) : "band " + p.BandId)
+                };
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("radio-speaker-of-band", ex);
+                return null;
+            }
         }
 
-        /// <summary>Anyone with a record and maybe a body (the Military's operator, later): role is for the log.</summary>
+        /// <summary>Anyone with a record and maybe a body (the Military's operator, later): role is for the log. Never throws.</summary>
         public static RadioSpeaker OfRecord(Kinds kind, Member who, EntityAlive body, string role)
         {
-            if (who == null) return null;
-            return new RadioSpeaker
+            try
             {
-                Kind = kind, Who = who, EntityId = body != null ? body.entityId : -1, EntityBorn = body != null ? body.WorldTimeBorn : 0UL,
-                Role = role ?? ""
-            };
+                if (who == null) return null;
+                return new RadioSpeaker
+                {
+                    Kind = kind, Who = who, EntityId = body != null ? body.entityId : -1, EntityBorn = body != null ? body.WorldTimeBorn : 0UL,
+                    Role = role ?? ""
+                };
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("radio-speaker-of-record", ex);
+                return null;
+            }
         }
     }
 
@@ -128,7 +203,8 @@ namespace SurvivorCommunity
     /// (ScRadioTalk's in-person line: ScVoice.PlayBark, after the lines ahead of it), or, for a line said as a talk with them
     /// closes, as the talk's own parting line (ScVoice.SayAfterTalk: the close does not cut it).
     /// On the radio: anywhere else, heard aloud only when the player carries a handheld radio or stands within
-    /// StationHearRange of a powered SC radio station at home (the user, 2026-11-17); then into ScRadioTalk's queue at its
+    /// StationHearRange of a powered SC radio station (the user, 2026-11-17: at home, an outpost's relay, or with no home any
+    /// of them - as ScRadio.Online counts them); then into ScRadioTalk's queue at its
     /// priority, on the radio's own source with its filters and squelch (RunnerRadioEffect, RunnerRadioVolume). Unheard: the
     /// text the caller shows is all the player gets, as before.
     /// A key with no recording in the speaker's voices is not said: the text alone (the siege call and the request offer
@@ -137,14 +213,15 @@ namespace SurvivorCommunity
     /// </summary>
     public static class ScRadioSpeaker
     {
-        /// <summary>The user's rule: a powered radio station at home within this many meters of the player lets them hear the radio.</summary>
+        /// <summary>The user's rule: a powered SC radio station within this many meters of the player lets them hear the radio.</summary>
         public const float StationHearRange = 30f;
 
         private static readonly System.Random rnd = new System.Random();
 
         /// <summary>
-        /// Can the player hear a transmission aloud now? Their handheld radio anywhere, or a powered SC radio station inside the
-        /// home zone within StationHearRange (3D, to the block's center). how: what lets them hear it, or why not.
+        /// Can the player hear a transmission aloud now? Their handheld radio anywhere, or a powered SC radio station within
+        /// StationHearRange (3D, to the block's center): one at home, an outpost's relay, or - with no home - any SC station
+        /// (the m1v review's fix 5: as ScRadio.Online counts them, relays added). how: what lets them hear it, or why not.
         /// </summary>
         public static bool Hears(EntityPlayer player, out string how)
         {
@@ -158,22 +235,31 @@ namespace SurvivorCommunity
                 how = "the radio station at " + at + ", " + d.ToString("0", CultureInfo.InvariantCulture) + " m from you";
                 return true;
             }
-            how = "you carry no handheld radio and no powered radio station at home is within " + StationHearRange.ToString("0", CultureInfo.InvariantCulture) + " m";
+            how = "you carry no handheld radio and no powered radio station of yours is within " + StationHearRange.ToString("0", CultureInfo.InvariantCulture) + " m";
             return false;
         }
 
-        /// <summary>The nearest powered radio station inside the home zone within StationHearRange of pos (remembered or seen this session).</summary>
+        /// <summary>
+        /// The nearest powered SC radio station within StationHearRange of pos: the remembered ones at home and the outposts'
+        /// relays, and those seen this session - with a home, one inside the home zone or a remembered relay; with no home, any
+        /// (ScRadio.Online's rule).
+        /// </summary>
         internal static bool NearStation(Vector3 pos, out Vector3i at, out float dist)
         {
             at = Vector3i.zero;
             dist = float.MaxValue;
             try
             {
-                if (!ScZone.HasHome || !ScRegistry.Loaded) return false;
                 PowerManager pm = PowerManager.HasInstance ? PowerManager.Instance : null;
                 World w = ScCommunity.World;
-                Consider(ScRegistry.Community.Radios, pos, pm, w, ref at, ref dist);
-                Consider(ScRadio.Radios, pos, pm, w, ref at, ref dist);
+                bool home = ScRegistry.Loaded && ScZone.HasHome;
+                List<Vector3i> relays = ScRegistry.Loaded ? ScRegistry.Community.Relays : null;
+                if (ScRegistry.Loaded)
+                {
+                    Consider(ScRegistry.Community.Radios, pos, pm, w, home, relays, ref at, ref dist);
+                    Consider(relays, pos, pm, w, home, relays, ref at, ref dist);
+                }
+                Consider(ScRadio.Radios, pos, pm, w, home, relays, ref at, ref dist);
             }
             catch (Exception e)
             {
@@ -182,11 +268,12 @@ namespace SurvivorCommunity
             return dist <= StationHearRange;
         }
 
-        private static void Consider(IEnumerable<Vector3i> radios, Vector3 pos, PowerManager pm, World w, ref Vector3i at, ref float dist)
+        private static void Consider(IEnumerable<Vector3i> radios, Vector3 pos, PowerManager pm, World w, bool home, List<Vector3i> relays, ref Vector3i at, ref float dist)
         {
+            if (radios == null) return;
             foreach (Vector3i p in radios)
             {
-                if (!ScZone.Contains(p)) continue;
+                if (home && !ScZone.Contains(p) && (relays == null || !relays.Contains(p))) continue;   // fix 5: home or a relay
                 float d = Vector3.Distance(pos, new Vector3(p.x + 0.5f, p.y + 0.5f, p.z + 0.5f));
                 if (d > StationHearRange || d >= dist) continue;
                 PowerItem item = pm != null ? pm.GetPowerItemByWorldPos(p) : null;
@@ -219,15 +306,30 @@ namespace SurvivorCommunity
                 }
                 EntityPlayerLocal local = player as EntityPlayerLocal ?? ScCommunity.LocalPlayer;
                 EntityAlive body = s.Body();
-                if (body != null && !body.IsDead() && local != null && ScRunners.XZ(body.position, local.position) <= ScRadioTalk.InPersonRange)
+                // the m1v review's fix 1: 3D - a bark is 3D audio cut off at 40 m (ScVoice's OwnMaxDistance), so a body far above or
+                // below (a tall building, a mine) is not "in person" however close it stands on the map
+                if (body != null && !body.IsDead() && local != null && Vector3.Distance(body.position, local.position) <= ScRadioTalk.InPersonRange)
                 {
                     if (ScDowned.IsDown(body)) { ScHandheld.Count(tag + " unsaid: they are down"); return s.Name + " is down: the text alone"; }
                     if (afterTalk)
                     {
-                        ScVoice.SayAfterTalk(body, key);
-                        ScHandheld.Count(tag + " said: in person, as the talk closes");
-                        Note(s, key, voice, "in person, as the talk closes");
-                        return "said " + key + " in " + voice + ", in person as the talk closes";
+                        // fix 3: counted and logged only when a clip really starts; the radio queue waits while it plays (HoldFor), so
+                        // no radio line talks over it
+                        string said = tag, k = key, v = voice;
+                        bool playing = ScVoice.SayAfterTalk(body, key, clip =>
+                        {
+                            ScRadioTalk.HoldFor(clip.length + 0.3f);
+                            ScHandheld.Count(said + " said: in person, as the talk closes");
+                            Note(s, k, v, "in person, as the talk closes");
+                        });
+                        if (!playing)
+                        {
+                            ScHandheld.Count(tag + " unsaid: in person, as the talk closes");
+                            return "not said: " + key + " was said by them less than " + ScVoice.RepeatSeconds.ToString("0", CultureInfo.InvariantCulture)
+                                   + " s ago, or their talk voice has no recording of it - the text alone";
+                        }
+                        ScRadioTalk.HoldFor(2f);                // while the clip loads (raised to its length when it starts)
+                        return "saying " + key + " in " + voice + ", in person as the talk closes";
                     }
                     if (!ScRadioTalk.QueueSpoken(s, key, path, voice, body, prio, tag, local)) return "dropped: the radio queue is full of more urgent lines";
                     Note(s, key, voice, "in person");

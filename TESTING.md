@@ -47,13 +47,20 @@ so they stay messages only.
 
 The rule (yours):
 
-- **On the radio**, heard aloud only while you carry a handheld radio, or stand within 30 m of a radio station at home
-  (inside the home zone) that has power. Otherwise the message alone, as before.
-- **In person** when the speaker's body is within 30 m of you: their voice from where they stand, positional, no radio
-  filter. A line said as a talk closes (a join) is the talk's parting line and the close does not cut it.
+- **On the radio**, heard aloud only while you carry a handheld radio, or stand within 30 m (3D) of one of your SC radio
+  stations that has power: at home, or an outpost's relay; with no home set, any. Otherwise the message alone, as before.
+- **In person** when the speaker's body is within 30 m of you (3D, so not one far above or below you): their voice from
+  where they stand, positional, no radio filter. A line said as a talk closes (a join) is the talk's parting line, the
+  close does not cut it, and radio lines wait for it to finish. An in-person line that waited in the queue is checked
+  again when its turn comes: out of earshot by then, it goes on the radio by the rule above, or is dropped.
+- A radio line whose speaker died (or whose group fell) while it waited is skipped.
 - **Who speaks:** the leader at home; if the leader is dead or away, the next living one of their people in the
   succession's order (at home first, highest tier, made first; never one following you). Nobody, or a group whose
-  people were never made: the message alone. The fighter's hello is the fighter's own voice; a band's lines its leader's.
+  people were never made: the message alone. The fighter's hello is the fighter's own voice; a band's lines its leader's,
+  except a join through the talk: the one you talked to answers.
+- **The siege's call again:** at half the time to answer, with nobody there yet, the group calls once more (a message
+  and `scEncSiegeHurrySaid` at siege priority; not recorded yet, so the message alone). Once a siege, never again after
+  a reload.
 - **The radio queue's order:** siege > horde warnings > runners > other enclave lines; a full queue (8) drops the least
   urgent.
 
@@ -78,11 +85,14 @@ and its counters count `enc said: on the radio`, `enc said: in person`, `enc sai
 
 - [ ] **No radio.** Drop your handheld and stand more than 30 m from the station. `sc radio enc fighter <id>`: the
       message "<group> on the radio: "We hear you. Help is coming."" shows, no voice, and the console says "unheard: you
-      carry no handheld radio and no powered radio station at home is within 30 m - the text alone".
+      carry no handheld radio and no powered radio station of yours is within 30 m - the text alone".
 - [ ] **The station.** Walk within 30 m of the powered station (still no handheld): the same command is heard, Mara's
       voice through the radio sound (a squelch, thin and a little gritty, then a squelch out); the console says "on the
-      radio (the radio station at <pos>, <n> m from you; Enclave)". Cut its power: the message alone again. A powered
-      radio outside the home zone (an outpost relay) does not count.
+      radio (the radio station at <pos>, <n> m from you; Enclave)". Cut its power: the message alone again. Stand right
+      under or over it (a different floor, still within 30 m in a straight line): still heard.
+- [ ] **An outpost's station.** At an outpost with a powered radio station (its relay), within 30 m of it, no handheld:
+      heard. More than 30 m from it: the message alone.
+- [ ] **No home.** Optional, in a test world with no home yet: within 30 m of any powered SC radio station, heard.
 - [ ] **The handheld.** Anywhere, far from home, with the handheld in your backpack or toolbelt: heard.
 - [ ] **Same voice.** Talk to Mara in person (her greeting) and compare with the radio line: the same voice (`sc voice
       who` near her names it; the log line names it too). Unload her (walk 300 m away) and play it again: still the same
@@ -122,11 +132,26 @@ and its counters count `enc said: on the radio`, `enc said: in person`, `enc sai
 - [ ] **Drifters' thanks.** `sc band spawn drifters trouble`, kill one of their zombies, let the fight end: the thanks
       message, and their leader says "You came when it counted. We won't forget that." in person (within 30 m), or on
       the radio when you are 30 to 180 m away and carry the handheld.
-- [ ] **Drifters join.** Talk to one of a drifter band, **Come to our place.**, **Welcome to the community.**: their
-      leader says "Then we'll see you there. We know how to keep out of trouble on the way." as the talk closes.
+- [ ] **Drifters join.** Talk to one of a drifter band who is NOT their leader (`sc band info <id>` names the leader),
+      **Come to our place.**, **Welcome to the community.**: the one you talked to says "Then we'll see you there. We know
+      how to keep out of trouble on the way." as the talk closes, and the message names them (`sc radio enc bandjoin`
+      uses the band's leader).
+- [ ] **No overlap with the radio.** Right after a join's parting line starts, queue a radio line (`sc radio enc drop
+      <id>` with the handheld): `sc radio` shows "held <n> s for a line in person", and the radio line plays only after
+      the parting line ends.
 - [ ] **Siege and request offer: still messages only.** `sc enclave siege <id> now` and `sc enclave request <id> offer
       resource`: the messages as before, no voice; the verbose log says "no recording of scEncSiegeCallSaid_1 ..
       scEncSiegeCallSaid_3 in <name>'s voices yet: the text alone" and "no recording of scEncReqHeardSaid_resource ...".
+- [ ] **The siege calls again at half time.** `sc enclave siege <id> now` and stay away (for a quicker test set
+      `EnclaveSiegeMinutes` to 2 in `Config/blocks.xml` first). At half the time (the journal objective shows half
+      left): the message "<group> on the radio: "We can't hold them much longer! Where are you?"" with the warning
+      sound, and the log line "siege at <group>: half the time to answer is gone and nobody has come - they call again,
+      mm:ss left (voice: no recording of scEncSiegeHurrySaid ...)". Only once.
+- [ ] **Not when you are there.** Again, but reach the enclave (within 70 m) before half time: no second call.
+- [ ] **Not twice after a reload.** Let the half-time call come, save and quit to the menu, load: no second call
+      (verbose: "already past half its time when this session first saw it"). Reload a save from before half time: it
+      comes once, at half time.
+- [ ] `sc radio enc hurry <id>` shows the message and says why it is silent (not recorded yet).
 
 **Who speaks when the leader is gone**
 
@@ -144,6 +169,21 @@ and its counters count `enc said: on the radio`, `enc said: in person`, `enc sai
       (Enclave)` and the queue never holds more than 8.
 - [ ] Runners and horde warnings sound and behave as before (their own rules: a runner's talk needs your handheld;
       the horde warnings away need the station with power and your handheld).
+
+**In person, then out of earshot (the review's fixes)**
+
+- [ ] **Above or below you.** A fighter you called (`sc enclave call <id> fighter force now`) waiting on a roof or in a
+      basement 35 m or more straight above or below you, though close on the map: `sc radio enc hello <id>` is not "in
+      person"; with the handheld it comes on the radio, without one the message alone.
+- [ ] **Walked off while it waited.** With a long radio line playing, queue drifters' thanks in person (`sc radio enc
+      thanks` within 30 m), then walk more than 30 m away before it plays: with the handheld it plays on the radio
+      (counter `enc moved to the radio: out of earshot`), without one it is dropped (`enc unsaid: out of earshot`). The
+      queue goes on at once either way.
+- [ ] **Gone while it waited.** Queue a radio line from a group (`sc radio enc fighter <id>` while another plays), then
+      kill the speaker (`sc enclave kill <id> <person id>`) before it plays: it is skipped (`enc unsaid: the speaker is
+      gone`).
+- [ ] **A horde guard high up.** A guard on watch on a tall tower more than 30 m (3D) from you: their at-home warning
+      goes on the radio when you carry a handheld and they can send, else the message alone.
 
 ## Round U1 (2026-11-16): 0-XNPCCore 3.4.06 - equipment window, ammo type, tool quality
 

@@ -346,7 +346,7 @@ names [n] [hostile] | reseed confirm`
 
 - `sc radio` · `sc radio give <member>` · `sc radio talk <member> <moment>` · `sc radio attacked <member> [force]`
 - `sc radio horde <gather|spotted|clear|call|arrived|held|damaged|overrun> [side] [member] [force]`
-- `sc radio enc <offer|siege|fighter|drop|fail|hello|demand|paid|refused|move|movelost|movenest|join|joinfollow|thanks|bandjoin> [id] [force]`
+- `sc radio enc <offer|siege|hurry|fighter|drop|fail|hello|demand|paid|refused|move|movelost|movenest|join|joinfollow|thanks|bandjoin> [id] [force]`
 - `sc scout <res>` · `sc barter <give> <get>`
 
 ## Voice

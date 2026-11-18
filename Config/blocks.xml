@@ -495,9 +495,10 @@
 			<property name="HordeVoiceLines" value="true" />
 			<!-- EnclaveVoiceLines (round m1v): when an enclave or a drifter band contacts you - an ally answering a call, a raider
 			     group's demand and its answer, a group moving or joining you, drifters thanking you, and (once they are recorded)
-			     a request or a siege call - the speaker's own recorded voice says their words as the message shows: in person
-			     when they are within 30 m of you, else on the radio (as the runners sound) while you carry a handheld radio or
-			     stand within 30 m of a radio station at home with power. Otherwise, or with VoiceLines false, the message alone.
+			     a request or a siege call and its call again at half time - the speaker's own recorded voice says their words as
+			     the message shows: in person when they are within 30 m of you, else on the radio (as the runners sound) while you
+			     carry a handheld radio or stand within 30 m of one of your radio stations with power (at home, or one at an
+			     outpost). Otherwise, or with VoiceLines false, the message alone.
 			     On the radio a siege call goes ahead of the horde warnings and the runners; the other lines wait behind them.
 			     false: the messages alone. "sc radio enc" says one now, to test. -->
 			<property name="EnclaveVoiceLines" value="true" />
