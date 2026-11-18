@@ -671,6 +671,9 @@ namespace SurvivorCommunity
                 Add(t, "PhraseTriggerHandler::Loot", ScJobs.VoiceLootTarget());
                 Add(t, "XNPCVoiceControlMod::GetHiredRoster", ScJobs.RosterTarget());
                 Add(t, "VCCommandRouter::ExecuteForSquad", ScJobs.SquadTarget());
+                // round m1w (P2): every order Voice Control runs is noted, so the order wheel's spoken slot label becomes the
+                // order's reply in SC's recorded voice (ScVoiceRoutes)
+                Add(t, "VCCommandRouter::Execute", ScVoiceRoutes.ExecuteTarget());
 #endif
             }
             else ScLog.Out("Voice Control (0-XNPCCore 3.2) not loaded - the member billing guard is idle");

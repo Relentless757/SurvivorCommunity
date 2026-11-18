@@ -460,7 +460,12 @@ public class DialogActionScFollow : BaseDialogAction
             if (lp == null || npc == null || m == null) return;
             string error;
             if (ScCommunity.Follow(m, npc, lp, out error)) ScCommunity.Tell(player, string.Format(Localization.Get("scWinNowFollowing"), m.Name), "");
-            else ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+            else
+            {
+                ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+                // round m1w (P7): no room in the party - she says so too, once that line is recorded
+                if (ScVoiceRoutes.IsFollowFull(error)) ScVoiceRoutes.SayRefusal(npc, "scFollowFullSaid", "the talk's Come with me: no room in the party");
+            }
         }
         catch (Exception e) { ScLog.Once("act-follow", e); }
     }

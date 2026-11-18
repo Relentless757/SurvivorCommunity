@@ -33,6 +33,22 @@ namespace SurvivorCommunity
     ///    Voice Control's onComplete is handed to the clip, so its state ends as after its own sentence.
     ///  - Never while Voice Control is saying something on that NPC (it would stop its own queue first, which SC never
     ///    does: research\voices\REPORT.md 1.5), never on the NPC the talk is open on (V1's gate runs first and wins).
+    /// Round m1w (2026-11-17, research\voices_v9\VOICE_INVENTORY.md section 3.1):
+    ///  - P1: a say-line's id (AcknowledgeCommand's lineId, Voice Control 3.4.03+) names its family first, xn.&lt;id&gt; - an
+    ///    argument line's id without its ":&lt;argument&gt;" (book.recipe:forgedIron is xn.book.recipe) - so variants
+    ///    (xn.gift.thanks.1-3) and lines with names or numbers in them map to SC's clips; a family SC has no lines for falls
+    ///    back to the words. The caption of an argument line is Voice Control's (it names the item), else SC's words.
+    ///  - P2: the order wheel's spoken slot labels are taken for the order's reply (ScVoiceRoutes.WheelKeys).
+    ///  - P3: SC's own lines that Voice Control speaks for it (ScVoiceLines.Own: an order's answer, the training line) are
+    ///    matched by their Localization text, an *emote* left out; a refusal override accepts them as it does vc.* lines.
+    ///  - P5: words match by their letters and digits only (Norm): punctuation and dashes never decide.
+    ///  - P6: one line per NPC at a time - after SC put a line on an NPC in Voice Control's place (a swap, or one of SC's
+    ///    spoken refusals: SayOwn), the known second lines of that moment are swallowed (review of adee167, fix 1): a
+    ///    trigger-less, id-less ack (the order wheel's label) and an ack's SpeakStreaming (a spoken order's reply), in the same
+    ///    or the next frame and within VoiceOneLineSeconds; a SpeakStreaming swallowed runs its callback and shows SC's caption
+    ///    again. Never a line with a say-line id (downed.down: always heard), a trigger's ack, the speech of an ack SC left to
+    ///    Voice Control (passFrame), or anything on a downed survivor. Voice Control counts as busy only for its own speech,
+    ///    not for SC's clip on its player (ScVoice.VcBusy).
     /// Main thread only. Host / single player (SC is single-player).
     /// </summary>
     public static class ScBarks
@@ -40,6 +56,24 @@ namespace SurvivorCommunity
         private static Dictionary<string, string> textOf;                       // key -> words
         private static Dictionary<string, List<string>> families;               // family -> keys, in order
         private static Dictionary<string, List<string>> byWords;                // normalised words -> keys
+        /// <summary>Round m1w (P3): SC's own lines Voice Control speaks (ScVoiceLines.Own), keyed by their Localization key.</summary>
+        private static HashSet<string> own;
+        /// <summary>Round m1w (P6): SC's last line on an NPC in Voice Control's place - its frame, its time, and its caption.</summary>
+        private struct Said
+        {
+            public int Frame;
+            public float At;
+            public string Name, Caption;
+        }
+
+        /// <summary>Round m1w (P6): SC's last line in Voice Control's place on each NPC, by entity id.</summary>
+        private static readonly Dictionary<int, Said> saidAt = new Dictionary<int, Said>();
+        private static readonly List<int> staleSaid = new List<int>();
+        /// <summary>
+        /// Review fix 1: the NPC and frame of an ack SC left to Voice Control - its own speech (AcknowledgeCommand's SpeakText,
+        /// next) is never swallowed; taken by the first SpeakStreaming on that NPC.
+        /// </summary>
+        private static int passFrame = -1, passNpc = -1;
         private static readonly System.Random rnd = new System.Random();
         private static readonly Dictionary<string, string> lastKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, int> counts = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -67,6 +101,13 @@ namespace SurvivorCommunity
         {
             lastKey.Clear();
             counts.Clear();
+            // round m1w: the lines are built again for the new world (SC's own lines' words come from its Localization, P3)
+            textOf = null;
+            families = null;
+            byWords = null;
+            own = null;
+            saidAt.Clear();
+            ScVoiceRoutes.Reset();
         }
 
         /// <summary>ModEvents.GameUpdate: SC's greetings and chatter, the raiders' taunt tick and (round m1p) the clip cache's sweep (each paces itself).</summary>
@@ -99,9 +140,53 @@ namespace SurvivorCommunity
                 if (!w.TryGetValue(n, out list)) w[n] = list = new List<string>();
                 list.Add(key);
             }
+            // round m1w (P3): SC's own lines that Voice Control speaks for it (an order's answer SC hands it, the training line),
+            // keyed by their Localization key; the words are that row's text as Voice Control says it - an *emote* left out -
+            // read now, so the text has one source
+            var o = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                foreach (string key in ScVoiceLines.Own)
+                {
+                    if (string.IsNullOrEmpty(key) || t.ContainsKey(key)) continue;
+                    string text = Localization.Get(key);
+                    string words = Spoken(text);
+                    if (string.IsNullOrEmpty(text) || text == key || words.Length == 0 || words.IndexOf('{') >= 0)
+                    {
+                        ScLog.Once("voice-own-" + key, "voice barks: SC's line " + key + " has no Localization row to match (or a token in it) - its recording never plays");
+                        continue;
+                    }
+                    t[key] = words;
+                    f[key] = new List<string> { key };
+                    o.Add(key);
+                    string n = Norm(words);
+                    List<string> list;
+                    if (!w.TryGetValue(n, out list)) w[n] = list = new List<string>();
+                    list.Add(key);
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("voice-own-lines", e);         // Localization not readable: the V2 lines still match
+            }
+            own = o;
             families = f;
             byWords = w;
             textOf = t;
+        }
+
+        /// <summary>Round m1w (P3): a line's words as Voice Control speaks them - every *emote* left out, whitespace collapsed.</summary>
+        private static string Spoken(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
+            return Regex.Replace(Emote.Replace(text, ""), @"\s+", " ").Trim();
+        }
+
+        /// <summary>Round m1w (P3): one of SC's own lines (ScVoiceLines.Own)?</summary>
+        internal static bool IsOwn(string key)
+        {
+            Build();
+            return key != null && own != null && own.Contains(key);
         }
 
         /// <summary>A key's family: the key without a trailing ".&lt;number&gt;" (greet.member.3 -> greet.member), else the key itself.</summary>
@@ -131,33 +216,58 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The keys that say these words (Voice Control's English, whitespace and case aside), or none. Any "I need X for
-        /// that." that is no fixed line is 0-XNPCCore's basekeep.need, said with its stand-in.
+        /// The keys that say these words (Voice Control's English; case, whitespace, punctuation and any *emote* aside), or
+        /// none. Any "I need X for that." that is no fixed line is 0-XNPCCore's basekeep.need, said with its stand-in (round
+        /// m1w: "I need fuel for that." is a fixed line now, xn.craft.fuel, so it is no longer taken for the stand-in).
         /// </summary>
         public static List<string> KeysForWords(string words)
         {
             Build();
             if (string.IsNullOrEmpty(words)) return NoKeys;
-            string n = Norm(words);
+            string n = Norm(Emote.Replace(words, ""));
+            if (n.Length == 0) return NoKeys;
             List<string> list;
             if (byWords.TryGetValue(n, out list)) return list;
-            if (n.StartsWith("i need ", StringComparison.Ordinal) && n.EndsWith(" for that.", StringComparison.Ordinal)) return KeysOf("xn.basekeep.need");
+            if (n.StartsWith("i need ", StringComparison.Ordinal) && n.EndsWith(" for that", StringComparison.Ordinal)) return KeysOf("xn.basekeep.need");
             return NoKeys;
         }
 
+        /// <summary>
+        /// Words as they are matched: letters and digits only, lowercased, one space between words. Round m1w (P5): punctuation,
+        /// dashes and apostrophes are left out where they stand, so Voice Control 3.4.06's "I'm in your way - point past me."
+        /// is SC's recorded "I'm in your way, point past me." (before, only case and whitespace were ignored).
+        /// </summary>
         private static string Norm(string s)
         {
             if (s == null) return "";
             var sb = new StringBuilder(s.Length);
             bool space = false;
-            foreach (char c in s.Trim())
+            foreach (char c in s)
             {
                 if (char.IsWhiteSpace(c)) { space = true; continue; }
+                if (!char.IsLetterOrDigit(c)) continue;
                 if (space && sb.Length > 0) sb.Append(' ');
                 space = false;
                 sb.Append(char.ToLowerInvariant(c));
             }
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// Round m1w (P1): a say-line id's family, xn.&lt;id&gt; - an argument line's (book.recipe:forgedIron) without its
+        /// argument, argLine then true; null without an id.
+        /// </summary>
+        private static string LineFamily(string lineId, out bool argLine)
+        {
+            argLine = false;
+            if (string.IsNullOrEmpty(lineId)) return null;
+            int colon = lineId.IndexOf(':');
+            if (colon >= 0)
+            {
+                argLine = true;
+                lineId = lineId.Substring(0, colon);
+            }
+            return lineId.Length > 0 ? "xn." + lineId : null;
         }
 
         // ------------------------------------------------------------------ picking ----
@@ -201,8 +311,13 @@ namespace SurvivorCommunity
         /// <summary>Does one of this NPC's voices have a clip of this family?</summary>
         public static bool HasClip(EntityAlive npc, string family)
         {
-            List<string> keys = KeysOf(family);
-            if (keys.Count == 0) return false;
+            return HasAnyClip(npc, KeysOf(family));
+        }
+
+        /// <summary>Round m1w: does one of this NPC's voices have a clip of any of these keys (some of a family's: ScGreetings.GreetKeys)?</summary>
+        internal static bool HasAnyClip(EntityAlive npc, IList<string> keys)
+        {
+            if (keys == null || keys.Count == 0) return false;
             return ScVoice.FirstWith(ScVoice.Chain(npc), keys, scratch) != null;
         }
 
@@ -216,6 +331,15 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool Say(EntityAlive npc, string family, string why, bool lipSync, bool allowDead, Entity faceTo)
         {
+            return SayFrom(npc, family, KeysOf(family), why, lipSync, allowDead, faceTo);
+        }
+
+        /// <summary>
+        /// Round m1w: Say from some of a family's keys only (a member away from home greets with the member lines that fit
+        /// anywhere: ScGreetings.GreetKeys). family: for the counters and the family's last line. No keys: nothing is said.
+        /// </summary>
+        internal static bool SayFrom(EntityAlive npc, string family, IList<string> keys, string why, bool lipSync, bool allowDead, Entity faceTo)
+        {
 #if SC_V34
             // Round n06: no talking in her sleep. Every family that reaches here is speech - chatter, a greeting, a
             // taunt - and none of them belongs in a bed. 0-XNPCCore wakes her for a real reason (an enemy inside
@@ -224,7 +348,7 @@ namespace SurvivorCommunity
             // round U2: not a word while she is down (0-XNPCCore's own pained line is its own; SC adds none)
             if (ScDowned.IsDown(npc)) { Count("down " + family); return false; }
 #endif
-            Pick p = Resolve(npc, KeysOf(family));
+            Pick p = Resolve(npc, keys);
             if (p == null) return false;
             string who = ScCommunity.DisplayName(npc) + " (" + npc.entityId + ")";
             if (p.Path == null)
@@ -245,6 +369,72 @@ namespace SurvivorCommunity
             if (faceTo != null) Face(npc, faceTo);
             string name = ScCommunity.DisplayName(npc);
             ScVoice.PlayBark(npc, p.Path, lipSync, allowDead, clip => Caption(npc, name, words, clip.length + 1f), null);
+            return true;
+        }
+
+        /// <summary>
+        /// Round m1w (P7, ScVoiceRoutes.SayRefusal): one of SC's own lines (a refusal) said now in this NPC's recorded voice,
+        /// through Voice Control's player (lip sync), with its words as the caption; she turns to faceTo. True when a clip
+        /// started loading - the one-line rule (P6) then swallows the Voice Control reply of the same order. False with no
+        /// recording in any of her voices: nothing is said (VoiceBarkDebug logs it).
+        /// </summary>
+        internal static bool SayOwn(EntityAlive npc, string key, string why, Entity faceTo)
+        {
+            Pick p = Resolve(npc, KeysOf(key));
+            if (p == null) return false;
+            string who = ScCommunity.DisplayName(npc) + " (" + npc.entityId + ")";
+            if (p.Path == null)
+            {
+                Count("refusal not recorded " + key);
+                if (ScConfig.VoiceBarkDebug)
+                    ScLog.Out("voice refusal (silent, not recorded yet): " + who + " " + why + ": " + key + " in " + (p.Voice ?? "no voice") + ": \"" + p.Words + "\"");
+                return false;
+            }
+            Count("refusal said " + key);
+            if (ScConfig.Verbose || ScConfig.VoiceBarkDebug)
+                ScLog.Out("voice refusal: " + who + " " + why + ": " + p.Key + " in " + p.Voice + (p.Fallback ? " (borrowed: their own voice has none)" : ""));
+            if (faceTo != null) Face(npc, faceTo);
+            string name = ScCommunity.DisplayName(npc), words = p.Words;
+            ScVoice.PlayBark(npc, p.Path, true, false, clip => Caption(npc, name, words, clip.length + 1f), null);
+            lastKey[FamilyOf(p.Key)] = p.Key;
+            MarkSaid(npc, name, ScConfig.VoiceBarkSubtitles ? words : null);
+            return true;
+        }
+
+        /// <summary>
+        /// Round m1w (P6): SC just put one of its lines on this NPC in Voice Control's place; caption: the words it showed (null:
+        /// none), shown again when the second line of the moment is swallowed after Voice Control showed its own.
+        /// </summary>
+        private static void MarkSaid(EntityAlive npc, string name, string caption)
+        {
+            if (saidAt.Count > 64)
+            {
+                // review fix 8: only the marks older than last frame go
+                int f = Time.frameCount;
+                staleSaid.Clear();
+                foreach (KeyValuePair<int, Said> kv in saidAt) if (f - kv.Value.Frame > 1) staleSaid.Add(kv.Key);
+                foreach (int id in staleSaid) saidAt.Remove(id);
+            }
+            saidAt[npc.entityId] = new Said { Frame = Time.frameCount, At = Time.unscaledTime, Name = name, Caption = caption };
+        }
+
+        /// <summary>
+        /// Round m1w (P6): one line per NPC at a time. True: SC put a line on this NPC in this frame or the last, within
+        /// VoiceOneLineSeconds, so this Voice Control line - one of the known second lines of the same moment, as the callers
+        /// pick them ("Come here" after "On my way.", a spoken gift's reply after "Thank you.") - is swallowed instead of
+        /// cutting SC's clip. Never on a downed survivor (review fix 5). said: SC's line. sink and text: the counters, the log.
+        /// </summary>
+        private static bool OneLine(EntityAlive npc, string sink, string text, out Said said)
+        {
+            float window = ScConfig.VoiceOneLineSeconds;
+            if (!saidAt.TryGetValue(npc.entityId, out said) || window <= 0f) return false;
+            if (Time.frameCount - said.Frame > 1 || Time.unscaledTime - said.At >= window) return false;
+#if SC_V34
+            if (ScDowned.IsDown(npc)) return false;
+#endif
+            Count("vc one-line " + sink);
+            ScLog.Verbose("voice barks: " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") \"" + text + "\" at " + sink
+                          + ": swallowed - SC's line of a moment ago stands (one line at a time)");
             return true;
         }
 
@@ -270,13 +460,30 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// SubtitleManager.AcknowledgeCommand's prefix (Patches_VoiceControl): true = SC plays its clip and shows the caption,
-        /// Voice Control's ack is skipped; false = Voice Control speaks as before.
+        /// Voice Control's ack is skipped; false = Voice Control speaks as before. Round m1w: lineId is the say-line's id
+        /// (Voice Control 3.4.03+; null before it and for anything that is no say-line) - P1; true also when the line is
+        /// swallowed: the second line of a moment (P6), a wheel label that is no reply (P2).
         /// </summary>
-        public static bool SubstituteAck(EntityAlive npc, object trigger, string fallbackText, string localizedSubtitle)
+        public static bool SubstituteAck(EntityAlive npc, object trigger, string fallbackText, string localizedSubtitle, string lineId)
         {
             if (!ScConfig.ScBarks || npc == null || !ScXnpc.IsSurvivorBody(npc) || ScVoice.Holds(npc)) return false;
-            List<string> keys;
-            string what;
+            ScVoiceRoutes.NoteLine(npc, lineId);                    // review fix 5: comehere.ack said since the order's note
+            if (TakeAck(npc, trigger, fallbackText, localizedSubtitle, lineId)) return true;
+            // review fix 1: Voice Control says this one - its own speech, next, is never taken for a second line
+            passFrame = Time.frameCount;
+            passNpc = npc.entityId;
+            return false;
+        }
+
+        private static bool TakeAck(EntityAlive npc, object trigger, string fallbackText, string localizedSubtitle, string lineId)
+        {
+            // round m1w (P6), review fix 1: of the acks only the order wheel's label - trigger-less, id-less - is a second line;
+            // a say-line (downed.down) and a trigger's reply are never swallowed
+            Said prior;
+            if (trigger == null && string.IsNullOrEmpty(lineId) && OneLine(npc, "ack", fallbackText, out prior)) return true;
+            List<string> keys = NoKeys;
+            string what = null;
+            bool argLine = false, wheel = false;
             if (trigger != null)
             {
                 string type, param;
@@ -285,11 +492,12 @@ namespace SurvivorCommunity
                 keys = KeysOf(fam);
                 what = "ack " + fam;
                 // Voice Control speaks the order's own reply even when the order was refused; where the words it was handed
-                // are one of its fixed lines (a refusal, "Are you sure?"), SC says those instead
+                // are one of its fixed lines (a refusal, "Are you sure?") or (round m1w, P3) one of SC's own answers ("Heading
+                // home."), SC says those instead
                 List<string> said = KeysForWords(fallbackText);
                 foreach (string k in said)
                 {
-                    if (!k.StartsWith("vc.", StringComparison.Ordinal)) continue;
+                    if (!k.StartsWith("vc.", StringComparison.Ordinal) && !IsOwn(k)) continue;
                     keys = said;
                     what = "ack " + fam + " answered \"" + fallbackText + "\"";
                     break;
@@ -297,8 +505,45 @@ namespace SurvivorCommunity
             }
             else
             {
-                keys = KeysForWords(fallbackText);
-                what = "line \"" + fallbackText + "\"";
+                // round m1w (P1): the say-line's id names the family; one SC has no lines for falls back to the words
+                string fam = LineFamily(lineId, out argLine);
+                if (fam != null)
+                {
+                    keys = KeysOf(fam);
+                    what = "line " + lineId;
+                }
+                // round m1w (P2): no id - the order wheel's spoken slot label is decided before the words (review fix 7: "Loser"
+                // is the Emotes page's label, not ack.emote.loser.1's words; VoiceWheelAcks and a refusal are honored)
+                if (keys.Count == 0 && string.IsNullOrEmpty(lineId))
+                {
+                    List<string> wk;
+                    string wfam;
+                    ScVoiceRoutes.Wheel w = ScVoiceRoutes.WheelKeys(npc, fallbackText, out wk, out wfam);
+                    if (w == ScVoiceRoutes.Wheel.Silence)
+                    {
+                        Count("vc wheel silent");
+                        ScLog.Verbose("voice barks: " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") wheel label \"" + fallbackText
+                                      + "\": swallowed - no reply of its own (its order's line already answered, or a gesture)");
+                        return true;
+                    }
+                    if (w == ScVoiceRoutes.Wheel.Leave)
+                    {
+                        Count("vc wheel left");
+                        return false;
+                    }
+                    if (w == ScVoiceRoutes.Wheel.Reply)
+                    {
+                        keys = wk;
+                        wheel = true;
+                        what = "wheel label \"" + fallbackText + "\" as " + wfam;
+                    }
+                }
+                if (keys.Count == 0)
+                {
+                    argLine = false;
+                    keys = KeysForWords(fallbackText);
+                    what = "line \"" + fallbackText + "\"";
+                }
             }
             if (keys.Count == 0) return false;
             Pick p = Resolve(npc, keys);
@@ -318,9 +563,11 @@ namespace SurvivorCommunity
             }
             // the clip first: a Voice Control callback still waiting on this NPC (it may clear the subtitle) runs inside
             ScVoice.PlayBark(npc, p.Path, true, false, null, null);
-            string caption = trigger == null && !string.IsNullOrWhiteSpace(localizedSubtitle) ? localizedSubtitle : p.Words;
-            if (ShowsText(npc)) Subtitle(npc.EntityName, caption, 8f);
+            string caption = AckCaption(trigger != null || wheel, argLine, p.Words, fallbackText, localizedSubtitle);
+            bool shown = ShowsText(npc);
+            if (shown) Subtitle(npc.EntityName, caption, 8f);
             lastKey[FamilyOf(p.Key)] = p.Key;
+            MarkSaid(npc, npc.EntityName, shown ? caption : null);  // round m1w (P6)
             Count("vc swapped " + Group(p.Key));
             ScLog.Verbose("voice barks: " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") " + what + ": SC's " + p.Key + " in " + p.Voice
                           + " instead of Voice Control's speech");
@@ -328,12 +575,48 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round m1w: the caption of an ack SC says. SC's words for an order's reply (a trigger's or a wheel label's: other words
+        /// than Voice Control's); Voice Control's localized subtitle for an argument line (P1: it names the item or the station
+        /// SC's clip leaves out) and for a line SC says in Voice Control's own words (its translation); SC's words - the words
+        /// the clip says, its .txt sidecar's - otherwise: every id-keyed variant whose words are not Voice Control's ("Thank
+        /// you. I won't forget this.", "Thanks. I'll put it to good use.", "I'm hit! I can't get up!").
+        /// </summary>
+        private static string AckCaption(bool reply, bool argLine, string words, string fallbackText, string localizedSubtitle)
+        {
+            if (reply || string.IsNullOrWhiteSpace(localizedSubtitle)) return words;
+            if (argLine) return localizedSubtitle;
+            return Norm(words) == Norm(Emote.Replace(fallbackText ?? "", "")) ? localizedSubtitle : words;
+        }
+
+        /// <summary>
         /// NPCAudioPlayer.SpeakStreaming's prefix (Patches_VoiceControl): true = SC plays its clip on that player with Voice
-        /// Control's onComplete, its speech is skipped; false = Voice Control speaks as before.
+        /// Control's onComplete, its speech is skipped; false = Voice Control speaks as before. Round m1w (P6): true also for
+        /// the second line of a moment - an ack's speech (a spoken order's reply) in the same or the next frame as SC's line,
+        /// never the speech of an ack SC left to Voice Control (review fix 1) - swallowed with its onComplete run at once and
+        /// SC's caption shown again; and (review fix 9) for a spoken order's reply right after SC refused that order.
         /// </summary>
         public static bool SubstituteSpeech(EntityAlive npc, string text, Action onComplete, bool isAck)
         {
             if (!ScConfig.ScBarks || npc == null || string.IsNullOrWhiteSpace(text) || !ScXnpc.IsSurvivorBody(npc) || ScVoice.Holds(npc)) return false;
+            bool passed = passNpc == npc.entityId && passFrame == Time.frameCount;     // the speech of an ack Voice Control says
+            if (passed) passNpc = -1;
+            Said said;
+            if (isAck && !passed && OneLine(npc, "speech", text, out said))
+            {
+                Swallowed(npc, onComplete);
+                // Voice Control's caller showed its own words before it spoke and its callback just released them: SC's line's again
+                if (said.Caption != null && ShowsText(npc)) Subtitle(said.Name, said.Caption, 6f);
+                return true;
+            }
+            if (isAck && !passed && ScVoiceRoutes.Refused(npc))
+            {
+                // review fix 9: SC refused this order a moment ago (a resident told to loot here, the work kit as a weapon) -
+                // Voice Control's reply ("I'll clear this place out.") would say yes; the tooltip has said why not
+                Count("vc refused reply");
+                ScLog.Verbose("voice barks: " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") \"" + text + "\": swallowed - SC refused that order");
+                Swallowed(npc, onComplete);
+                return true;
+            }
             List<string> keys = KeysForWords(text);
             bool generic = false;
             if (keys.Count == 0)
@@ -361,12 +644,21 @@ namespace SurvivorCommunity
             // Voice Control's onComplete goes with the clip and runs exactly once (ScVoice.PlayBark, the V2 review's M1)
             ScVoice.PlayBark(npc, p.Path, true, false, null, onComplete);
             // the caller showed its own words already; a generic ack says other words
-            if (generic && ShowsText(npc)) Subtitle(npc.EntityName, p.Words, 8f);
+            bool shown = ShowsText(npc);
+            if (generic && shown) Subtitle(npc.EntityName, p.Words, 8f);
             lastKey[FamilyOf(p.Key)] = p.Key;
+            MarkSaid(npc, npc.EntityName, shown ? (generic ? p.Words : text) : null);    // round m1w (P6)
             Count("vc swapped " + Group(p.Key));
             ScLog.Verbose("voice barks: " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") \"" + text + "\": SC's " + p.Key + " in " + p.Voice
                           + " instead of Voice Control's speech");
             return true;
+        }
+
+        /// <summary>Round m1w: a SpeakStreaming SC swallowed - its callback runs now, so Voice Control's state moves on as after its own sentence (V1's gate does the same).</summary>
+        private static void Swallowed(EntityAlive npc, Action onComplete)
+        {
+            try { if (onComplete != null) onComplete(); }
+            catch (Exception e) { ScLog.Once("voice-barks-oneline-callback", e); }
         }
 
         /// <summary>The ack types whose replies name a weapon or a side: one generic family each.</summary>
@@ -377,6 +669,7 @@ namespace SurvivorCommunity
 
         private static string Group(string key)
         {
+            if (key != null && own != null && own.Contains(key)) return "own";     // round m1w (P3)
             int dot = key != null ? key.IndexOf('.') : -1;
             return dot > 0 ? key.Substring(0, dot) : key ?? "";
         }
@@ -602,6 +895,12 @@ namespace SurvivorCommunity
                     }
                     sb.Append("; ").Append(g).Append(' ').Append(have).Append('/').Append(total);
                 }
+                // round m1w (P3): SC's own lines Voice Control speaks
+                int ownHave = 0;
+                if (own != null)
+                    foreach (string k in own)
+                        if (ScVoice.FirstWith(chain, KeysOf(k), scratch) != null) ownHave++;
+                sb.Append("; own ").Append(ownHave).Append('/').Append(own != null ? own.Count : 0);
             }
             return sb.ToString();
         }

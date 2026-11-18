@@ -173,22 +173,33 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Her line for a field job: Follow + loot has its own; on 3.4 with mining runs offered, Mine and Dig clay
-        /// point to the run (round 33c) instead of "take me along".</summary>
+        /// point to the run (round 33c) instead of "take me along". Round m1w: its Localization key (FieldJobKey) is also the
+        /// clip SC plays when she says it.</summary>
         private static string FieldJobLine(int mode)
         {
-            if (mode == 1) return Localization.Get("scJobResidentFollowLoot");
-#if SC_V34
-            if ((mode == 4 || mode == 5) && ScConfig.MiningRuns) return Localization.Get("scJobResidentMine");
-#endif
-            return Localization.Get("scJobResidentField");
+            return Localization.Get(FieldJobKey(mode));
         }
 
-        /// <summary>The refusal as a tooltip in her words (the order wheel and the Jobs page; ScWork's take-back).</summary>
+        private static string FieldJobKey(int mode)
+        {
+            if (mode == 1) return "scJobResidentFollowLoot";
+#if SC_V34
+            if ((mode == 4 || mode == 5) && ScConfig.MiningRuns) return "scJobResidentMine";
+#endif
+            return "scJobResidentField";
+        }
+
+        /// <summary>
+        /// The refusal as a tooltip in her words (the order wheel and the Jobs page; ScWork's take-back). Round m1w (P7): and
+        /// said aloud in her recorded voice once that line is recorded (ScVoiceRoutes.SayRefusal); the wheel's own "Loot here"
+        /// right after is then swallowed, and it is never taken for a yes.
+        /// </summary>
         public static void TellFieldJob(Member m, EntityAlive npc, int mode)
         {
             EntityPlayerLocal p = ScCommunity.LocalPlayer;
             if (p == null || m == null) return;
             ScCommunity.Tell(p, string.Format(Localization.Get("scEncCallSays"), m.Name, FieldJobLine(mode)), "ui_denied");
+            ScVoiceRoutes.SayRefusal(npc, FieldJobKey(mode), "a field job refused (" + ModeName(mode) + ")");     // round m1w (P7)
         }
 
         public static Type RouterType { get { return ScTypes.Find("XNPCVoiceControl.Net.VCCommandRouter"); } }
@@ -628,7 +639,11 @@ namespace SurvivorCommunity
                 ScLog.Out(m.Name + " was told to fight with the work kit's " + tool + " (" + route + ") - kit tools are for jobs: "
                           + (armed ? "the " + (l != null ? l.Melee : "melee weapon") + " back in hand" : "could not re-arm (" + why + ")"));
                 if (player != null && route != "any-weapon")
+                {
                     ScCommunity.Tell(player, string.Format(Localization.Get("scEncCallSays"), m.Name, string.Format(Localization.Get("scKitToolNotWeapon"), ItemLabel(tool))), "ui_denied");
+                    // round m1w (P7): said aloud too (the line without the tool's name), once recorded; the swap's own reply is then swallowed
+                    ScVoiceRoutes.SayRefusal(npc, "scKitToolNotWeaponSaid", "told to fight with the work kit's " + tool + " (" + route + ")");
+                }
             }
             catch (Exception e) { ScLog.Once("jobs-kit-refused", e); }
         }

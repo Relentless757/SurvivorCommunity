@@ -721,13 +721,13 @@ Other voice subcommands:
 
 - `sc voice play <line> [id|name]`: a survivor (that one, or the nearest with a voice within 20 m) says a clip now.
 - `sc voice stop`, `sc voice rescan` (re-reads the voice folder without a restart), `sc voice gate` [READ].
-- `sc voice sayline [line] [seconds]`: the nearest survivor is given a say-line through Voice Control after a delay (default `ammo.dry`, 5 s).
+- `sc voice sayline [line] [seconds]`: the nearest survivor is given a say-line through Voice Control after a delay (default `ammo.dry`, 5 s). A line with an argument works too (`book.recipe:forgedIron`, `basekeep.need:resourceForgedIron`).
 - `sc voice context [id|name]` [READ]: the paragraph Voice Control's chat is given for an enclave person.
 - `sc voice who [id|name]` [READ]: race, sex, origin, voice chain and which lines the NPC can say. With Vanity Vault it also shows the skin tone, the face and the rule that chose the voice race: `skin Porcelain, face 10 Black -> Black (VoiceRaceByFace)`; `skin Umber, face 3 White, a dark tone for a man -> Black (VoiceRaceByFace, VoiceDarkTonesMale)`; for a face number outside 1-16 (or with `VoiceRaceByFace` false, which adds `; VoiceRaceByFace off`) the tone's race from `VoiceRaceBySkin` (`skin Espresso, face 20 (no face race) -> Black (VoiceRaceBySkin)`), or that the tone is not in it (any voice of their sex).
 - `sc voice greet [id|name]`, `sc voice chatter [id|name]`: make a greeting or chatter line play now.
 - `sc voice taunt <spot|search|lost|hit|killed|idle|dying|retreat> [id|name]`: the nearest raider (40 m) taunts now.
-- `sc voice barks` [READ]: bark switches and counters, and SC's loaded clips: how many, about how many MB, the limits (`VoiceClipCache`, `VoiceClipCacheMB`, `VoiceClipIdleMinutes`) and how many were dropped.
-- `sc voice line <words>` [READ]: the clip key a phrase maps to and whether the nearest survivor has it.
+- `sc voice barks` [READ]: bark switches and counters, the voice routes (the order wheel's replies, one line at a time, spoken refusals and greetings: their switches and this session's counts), and SC's loaded clips: how many, about how many MB, the limits (`VoiceClipCache`, `VoiceClipCacheMB`, `VoiceClipIdleMinutes`) and how many were dropped.
+- `sc voice line <words>` [READ]: the clip key a phrase maps to (case, punctuation and any `*emote*` aside) and whether the nearest survivor has it.
 
 ## 14. Diagnostics
 

@@ -18,8 +18,8 @@ Enclaves speak on the radio
   gives you the message alone.
 - The radio takes turns: a siege call goes first, then the base's horde warnings, then your runners, then the other
   enclave lines. When too many wait, the least urgent one is dropped.
-- A siege calls again halfway. If you are not there by half of the siege's time, they radio once more: "We can't hold
-  them much longer! Where are you?"
+- A siege calls again halfway. If you are not there by half of the siege's time, they radio once more: "Where are you?
+  We're losing the wall! Hurry!"
 - The request announcement and the siege calls stay messages only until their lines are recorded.
 - New setting "EnclaveVoiceLines" (README section 20); "sc radio enc <moment>" plays one now.
 
@@ -205,6 +205,38 @@ Polish
 - "sc mags" in the console lists members' Locked & Loaded magazines against their tier's count. A member who got extra
   magazines before the duplication fix keeps them; "sc mags <name> trim" shows which ones a trim would remove, and
   "sc mags <name> trim confirm" removes them.
+
+
+Voices
+------
+- The order wheel answers in their own voice. Picking an order on 0-XNPCCore's order wheel no longer has the survivor
+  say the slot's name ("Close", "Far", "Jump down", "Aggressive", "Loot here"): she gives that order's reply in her
+  recorded voice ("I'll stay close.", "Weapons free."). "Come here" leaves her "On my way." alone, and "Whatever" on the
+  Emotes page is done without a word. Roles, emotes and dances answer this way once their new lines are recorded.
+  "VoiceWheelAcks" turns it off.
+- One line at a time. When one order makes two lines at once (Come here's "On my way." and then "Coming right back.", a
+  gift's thanks and then its reply), the second no longer cuts off the first; anything else, a call for help when she
+  goes down included, is always heard. "VoiceOneLineSeconds".
+- SC greets all of its people. Voice Control no longer greets a runner you meet on the road, a member posted to an
+  outpost or one on the way to the base (they greet you with a member's line that fits away from home, never "Welcome
+  home, boss."), nor an outpost stand-in or someone hostile to you (they say nothing). Where a voice has no recording of
+  the greeting, Voice Control greets as before. "ScGreetingsOwnAll".
+- Refusals said aloud. A resident refusing a field job, a member refusing to fight with her work kit, and "Come with
+  me." when your party has no room are spoken too, once recorded, when she is within 30 m and neither asleep nor down,
+  and Voice Control's "yes" to the refused order is not said. "VoiceSpokenRefusals". A spoken "follow me" with no room
+  in the party now answers "You've already got a full crew with you. Ask me again when there's room." instead of "I
+  can't right now.".
+- Lines that name an item play a recording too: "Now I know how to make Forged Iron." plays "Now I know how to make
+  something new.", and the caption still names the item.
+- 105 more lines per voice are ready for their recordings (709 in all): 0-XNPCCore 3.4.06's gift, downed, crafting,
+  patrol, ammo and book lines (with three ways to say thanks for a gift and three to call out when going down), the role
+  and emote replies, Voice Control's go-there refusals, SC's own answers that Voice Control spoke in its voice (dismiss,
+  hire, pick-up, follow, trade, the training line), a mining runner's radio lines and an enclave's radio calls (those
+  play once a later update wires them). Until a line is recorded it sounds exactly as before.
+- Fixed: "I need fuel for that." no longer plays the recording of "I need more materials for that.".
+- Fixed: Voice Control 3.4.06's "I'm in your way - point past me." and "I'm not hired yet - what have you got to offer?"
+  play their recordings again: punctuation no longer decides whether a line matches.
+- "sc voice barks" shows the new switches and this session's counts.
 
 Survivor Community 0.1.0 pre-release 3
 ======================================

@@ -1264,6 +1264,24 @@
 			     never dropped. "sc voice barks" shows what is loaded and what was dropped. -->
 			<property name="VoiceClipCacheMB" value="24" />
 			<property name="VoiceClipIdleMinutes" value="10" />
+			<!-- Round m1w: Voice Control's speech in SC's own recorded voices. Each line plays SC's recording once it exists;
+			     until then Voice Control speaks it, as before. VoiceWheelAcks: the order wheel's spoken slot labels
+			     ("Close", "Jump down", "Loot here", "Wave") become the order's own reply in the survivor's voice ("I'll stay
+			     close."); "Come here" leaves the "On my way." it already said, and a gesture with no reply ("Whatever") plays
+			     without a word. VoiceOneLineSeconds: one line per NPC at a time - after SC played one of its lines on an NPC
+			     in Voice Control's place, the second line of the same order (the wheel's label, a spoken order's reply),
+			     which used to cut SC's clip, is skipped when it comes within this many seconds; a say-line such as the call
+			     for help when she goes down never is; 0 turns it off. VoiceSpokenRefusals: SC's refusals that were text only
+			     (a field job for a resident, the work kit as a weapon, no room in the party for "Come with me.") are said
+			     aloud too, within 30 m of you, unless she is asleep or down. ScGreetingsOwnAll: SC owns the greetings of its
+			     people - a runner, a member posted to an outpost or one arriving greets you with a member's line that fits
+			     away from home (none of the home-only ones, or nothing), and an outpost stand-in or someone hostile to you
+			     says nothing; where SC has no recording of a greeting, Voice Control greets as before. "sc voice barks"
+			     shows these and this session's counts. -->
+			<property name="VoiceWheelAcks" value="true" />
+			<property name="VoiceOneLineSeconds" value="0.4" />
+			<property name="VoiceSpokenRefusals" value="true" />
+			<property name="ScGreetingsOwnAll" value="true" />
 			<!-- 0-XNPCCore 3.2's own survivors that the community takes over: they get SurvivorCommunity's looks, names,
 			     half armor protection, item-only healing and aim pose instead of 0-XNPCCore's presets. The XML that
 			     strips their preset look (Config/entityclasses.xml, written by Tools/gen_arsenal.py) names the same six:

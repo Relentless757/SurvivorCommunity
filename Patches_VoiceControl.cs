@@ -771,7 +771,8 @@ namespace SurvivorCommunity
                     }
                     Count("voice-follow-refused");
                     ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
-                    audioResponse = Localization.Get("scVoiceCantFollow");
+                    // round m1w: no room in the party says so, as the talk's "Come with me." does (scFollowFullSaid)
+                    audioResponse = Localization.Get(ScVoiceRoutes.IsFollowFull(error) ? "scFollowFullSaid" : "scVoiceCantFollow");
                     subtitleResponse = audioResponse;
                     // no stale trigger name for SC's reply swap (ScBarks reads it): this order did not run
                     try { Traverse.Create(__instance).Property("LastMatchedTriggerName").SetValue(null); } catch (Exception) { }
@@ -1642,7 +1643,10 @@ namespace SurvivorCommunity
             [HarmonyTargetMethod]
             public static MethodBase TargetMethod() { return AckTarget(); }
 
-            /// <summary>__args: npc, trigger, fallbackText, e2e, localizedSubtitle (3.4).</summary>
+            /// <summary>
+            /// __args: npc, trigger, fallbackText, e2e, localizedSubtitle (3.4), lineId (Voice Control 3.4.03+). Round m1w (P1):
+            /// the say-line's id goes to ScBarks too - an older Voice Control's shape has none (null: matched by its words).
+            /// </summary>
             [HarmonyPrefix]
             [HarmonyPriority(Priority.Low)]
             public static bool Prefix(object[] __args, bool __runOriginal)
@@ -1651,7 +1655,8 @@ namespace SurvivorCommunity
                 try
                 {
                     string sub = __args.Length > 4 ? __args[4] as string : null;
-                    return !ScBarks.SubstituteAck(__args[0] as EntityAlive, __args[1], __args[2] as string, sub);
+                    string lineId = __args.Length > 5 ? __args[5] as string : null;     // round m1w (P1)
+                    return !ScBarks.SubstituteAck(__args[0] as EntityAlive, __args[1], __args[2] as string, sub, lineId);
                 }
                 catch (Exception e)
                 {

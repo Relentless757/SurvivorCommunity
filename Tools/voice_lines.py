@@ -22,6 +22,11 @@ beside it holding the words it says (for whoever records it):
    U3 (2026-11-16): the small talk (family "smalltalk"), the pairs two residents say to each other at home (ScSocial) -
    keyed scTalkOpen_<nn> / scTalkReply_<nn>, their words in Localization.csv's <key>Said rows. Their one source is
    Tools/smalltalk_lines.py (its gen writes those rows); this script reads them from Localization, as the horde lines.
+   m1w (2026-11-17, research/voices_v9): SC's own lines that Voice Control speaks for it (family "own", OWN) - an order's
+   answer SC hands Voice Control (a refused dismiss, hire or trade), the training line, and SC's refusals it now says
+   aloud itself (a field job, the work kit, no room in the party) - keyed by their Localization key, their words that
+   row's text with any *emote* left out (as ScBarks reads them; ScVoiceLines.Own is this list). V-b's enclave radio lines
+   join RUNTIME_FIXED; until the round that wires them adds their Localization rows, PENDING's drafts stand in.
 2. The V2 lines ("new"), grouped in families so a recording round can run one family at a time (NEW, in this order):
    - greet    SC's own greetings, greet.<stranger|recruit|member|follower|enclave>.<n> (ScGreetings);
    - chatter  members at home talking to nobody in particular, chatter.<n> (ScGreetings);
@@ -38,11 +43,13 @@ The voices are Config/blocks.xml's Voices list (two per race and sex), plus any 
 
     python -I Tools/voice_lines.py list [--new] [--family F[,F]] [--voice FOLDER] [--tsv]
         every line's key and the words it says; --new only the V2 lines; --family only those families (dialog, radio,
-        horde, smalltalk, greet, chatter, taunt, xn, ack, vc); --voice only the lines that voice has no clip for yet;
+        horde, smalltalk, own, greet, chatter, taunt, xn, ack, vc); --voice only the lines that voice has no clip for yet;
         --tsv key<TAB>words
     python -I Tools/voice_lines.py check [--keys]
-        the lines (a token with no spoken part, a key used twice), ScVoiceLines.cs, then per voice: the lines with no
-        clip yet, family by family, and clips no line uses (--keys also lists the keys of a voice with no folder yet)
+        the lines (a token with no spoken part, a key used twice), ScVoiceLines.cs, then per voice: the lines not
+        recorded yet, family by family, and clips no line uses (--keys also lists the keys of a voice with no folder yet).
+        A line not recorded yet is no failure (it plays once its clip is there); a problem, a stale table or a stray clip
+        is (exit code 1)
     python -I Tools/voice_lines.py cost
         characters per voice (about one ElevenLabs credit each): per family, the new lines, the full set, and what each
         voice still lacks
@@ -123,14 +130,38 @@ RUNTIME_FIXED = ["scEncReqNothingLine", "scEncReqGone", "scEncReqNotCleared", "s
                  # C1: a resident's words on a work shift - "That's all for now." answered as the talk closes (ScVoice.SayAfterTalk
                  # plays it once recorded), and "Call to work" from the Community tab (a tell: text only, the voicing round wires
                  # its playback)
-                 "scWorkEndSaid", "scWorkCallSaid"]
+                 "scWorkEndSaid", "scWorkCallSaid",
+                 # round m1w (2026-11-17, research/voices_v9): V-b's enclave radio lines - the siege call (three) and its
+                 # half-time hurry, and a request heard on the air (one per kind, ScEncRequests' kinds). Registered now so
+                 # their recordings are expected; the round that wires them (ScEncSiege, ScEncRequests) adds their
+                 # Localization rows - until then PENDING's draft words stand in
+                 "scEncSiegeCallSaid_1", "scEncSiegeCallSaid_2", "scEncSiegeCallSaid_3", "scEncSiegeHurrySaid",
+                 "scEncReqHeardSaid_resource", "scEncReqHeardSaid_generator", "scEncReqHeardSaid_gun",
+                 "scEncReqHeardSaid_missing", "scEncReqHeardSaid_infestation"]
+
+# Round m1w: the words of a RUNTIME_FIXED line whose Localization row does not exist yet (V-b's: the user may still reword
+# them before they are recorded). A draft only - once the row exists, the row's words are used and this one is ignored.
+PENDING = {
+    "scEncSiegeCallSaid_1": "They're coming over the walls! Please, hurry!",
+    "scEncSiegeCallSaid_2": "The dead are at our gates! We need you here, now!",
+    "scEncSiegeCallSaid_3": "Can anyone hear me? They're breaking in! We can't hold them alone!",
+    "scEncSiegeHurrySaid": "Where are you? We're losing the wall! Hurry!",
+    "scEncReqHeardSaid_resource": "Come in, anyone. We're running short on supplies. If you can help, come talk to us.",
+    "scEncReqHeardSaid_generator": "Come in, anyone. Our power's out and we need a generator. Come talk to us if you can help.",
+    "scEncReqHeardSaid_gun": "Come in, anyone. Our watch is short on weapons. Come see us if you have a gun to spare.",
+    "scEncReqHeardSaid_missing": "Come in, anyone. One of ours went out scavenging for supplies and hasn't come back. We could use help looking.",
+    "scEncReqHeardSaid_infestation": "Come in, anyone. The dead have taken a place near us. We need help clearing it out.",
+}
 
 # R2 (round 27, research_radio_DESIGN_R2.md): a runner's words on the handheld radio (ScRadioTalk's moments: setting out,
 # arriving, a good or a poor haul, trouble, heading home, almost home, a recall answered). The clip is <key>.ogg; the words
 # are Localization.csv's <key>Said row (the caption). Family "radio", recorded in a round of its own (vo3).
 RADIO = ["scRadioRunOut_1", "scRadioRunOut_2", "scRadioRunArrived_1", "scRadioRunArrived_2", "scRadioRunFound_1",
          "scRadioRunFound_2", "scRadioRunEmpty_1", "scRadioRunEmpty_2", "scRadioRunTrouble_1", "scRadioRunTrouble_2",
-         "scRadioRunHome_1", "scRadioRunHome_2", "scRadioRunNear_1", "scRadioRecallAck_1"]
+         "scRadioRunHome_1", "scRadioRunHome_2", "scRadioRunNear_1", "scRadioRecallAck_1",
+         # round m1w (2026-11-17, research/voices_v9): the lines that were captions only - giving the run up hurt (round r2)
+         # and a mining run's own arrival and poor haul (round 33c); ScRadioTalk already keys them, so they play once recorded
+         "scRadioRunHurtHome_1", "scRadioRunMineArrived_1", "scRadioRunClayArrived_1", "scRadioRunDigEmpty_1"]
 
 # vo4 (2026-11-14): the horde warnings (ScHordeVoice). At home a guard on watch: the horde gathering, first sighted, the
 # all clear; away, on the radio from home: the call, the arrival, the result (held, damaged, overrun). The side words
@@ -279,6 +310,44 @@ XN = [
     ("xn.vehicle.noroom", "No room."),
     ("xn.vehicle.far", "I'm too far away."),
     ("xn.basekeep.need", "I need more materials for that."),
+    # Round m1w (2026-11-17, research/voices_v9): 0-XNPCCore 3.4.06's say-lines SC had not voiced. ScBarks finds a say-line by
+    # its id first (P1: xn.<line id>; an argument line's id without its ":<argument>"), so the variants (.2, .3), the
+    # argument lines (the last six) and xn.gift.thanks.1 (the user's wording, longer than Voice Control's "Thank you.") say
+    # SC's own words, and the caption shows them; the others keep Voice Control 3.4.06's English, so their words match as
+    # well. xn.craft.fuel's exact words also beat the basekeep.need stand-in.
+    ("xn.gift.thanks.1", "Thank you. I won't forget this."),
+    ("xn.gift.thanks.2", "Thanks. I'll put it to good use."),
+    ("xn.gift.thanks.3", "That's good of you. Thank you."),
+    ("xn.gift.full", "I can't carry any more of that."),
+    ("xn.gift.notneeded", "I've no use for that."),
+    ("xn.downed.down.1", "Argh... I'm down! Help me!"),
+    ("xn.downed.down.2", "I'm hit! I can't get up!"),
+    ("xn.downed.down.3", "I'm down! Somebody get to me!"),
+    ("xn.craft.done", "I'm done crafting."),
+    ("xn.craft.cant", "I can't make that."),
+    ("xn.craft.noreach", "I can't get to it."),
+    ("xn.craft.lost", "I forgot what I was making."),
+    ("xn.craft.busy", "That station is busy."),
+    ("xn.craft.fuel", "I need fuel for that."),
+    ("xn.patrol.none", "I don't have a patrol route yet. Show me one first."),
+    ("xn.patrol.far", "My patrol route is far from here. Show me a new one."),
+    ("xn.ammo.switched", "Switching ammo."),
+    ("xn.ammo.same", "I'm already using that."),
+    ("xn.ammo.none", "I don't have any of that."),
+    ("xn.ammo.nogun", "I'm not holding a gun."),
+    ("xn.ammo.unknown", "My gun doesn't take that."),
+    ("xn.give.atfeet", "I put it at your feet."),
+    ("xn.book.later", "I'll read that one later."),
+    ("xn.book.nothing", "I already know what that one teaches."),
+    ("xn.book.notbook", "I can't learn anything from that."),
+    ("xn.book.none", "I have nothing new to read."),
+    ("xn.loot.resume", "Back to it."),
+    ("xn.craft.noclaim", "I can only use that inside your land claim."),
+    ("xn.craft.trader", "I can't use that in a trader's area."),
+    ("xn.craft.inuse", "Someone's already using that."),
+    ("xn.book.recipe", "Now I know how to make something new."),
+    ("xn.book.read", "Read them all. I learned a few things."),
+    ("xn.book.skill", "That one taught me something useful."),
 ]
 
 # Voice Control's order acknowledgements: phrasetriggers.xml's English responses of the enabled triggers (0-XNPCCore
@@ -450,6 +519,44 @@ ACK = [
     ("ack.setformation.4", "Moving into position."),
     ("ack.setformation.5", "Holding my sector."),
     ("ack.setformation.6", "Formation, got it."),
+    # Round m1w (2026-11-17, research/voices_v9): 0-XNPCCore 3.4.06's role and emote replies (phrasetriggers.xml's English).
+    # Spoken orders find them by their words; the order wheel's Roles and Emotes pages by the order (ScVoiceRoutes, P2).
+    ("ack.roleon.cook.1", "I'll handle the cooking."),
+    ("ack.roleon.cook.2", "Kitchen duty, got it."),
+    ("ack.roleoff.cook.1", "No more cooking for me."),
+    ("ack.roleoff.cook.2", "Understood, I'll stop cooking."),
+    ("ack.roleon.blacksmith.1", "I'll run the forge."),
+    ("ack.roleon.blacksmith.2", "Smithing, got it."),
+    ("ack.roleoff.blacksmith.1", "No more smithing for me."),
+    ("ack.roleoff.blacksmith.2", "Understood, I'll leave the forge."),
+    ("ack.roleon.chemist.1", "I'll handle the chemistry."),
+    ("ack.roleon.chemist.2", "Chemistry station, got it."),
+    ("ack.roleoff.chemist.1", "No more chemistry for me."),
+    ("ack.roleoff.chemist.2", "Understood, I'll stop mixing."),
+    ("ack.roleon.crafter.1", "I'll work the bench."),
+    ("ack.roleon.crafter.2", "Workbench duty, got it."),
+    ("ack.roleoff.crafter.1", "No more bench work for me."),
+    ("ack.roleoff.crafter.2", "Understood, I'll leave the workbench."),
+    ("ack.emote.wave.1", "Hey there!"),
+    ("ack.emote.wave.2", "Hi!"),
+    ("ack.emote.salute.1", "Yes, sir!"),
+    ("ack.emote.salute.2", "Reporting for duty."),
+    ("ack.emote.fistbump.1", "Respect."),
+    ("ack.emote.fistbump.2", "Nice one."),
+    ("ack.emote.stretch.1", "Good idea, I'm stiff."),
+    ("ack.emote.stretch.2", "Ahh, that's better."),
+    ("ack.emote.warmup.1", "Limbering up."),
+    ("ack.emote.warmup.2", "Getting the blood moving."),
+    ("ack.emote.dance.1", "Watch this!"),
+    ("ack.emote.dance.2", "Okay, just one dance."),
+    ("ack.emote.flipoff.1", "Gladly."),
+    ("ack.emote.flipoff.2", "Here's what I think."),
+    ("ack.emote.insult.1", "Hey, ugly!"),
+    ("ack.emote.insult.2", "Is that all you've got?"),
+    ("ack.emote.loser.1", "Loser!"),
+    ("ack.emote.loser.2", "Total loser."),
+    ("ack.emote.threaten.1", "Come and try it."),
+    ("ack.emote.threaten.2", "You don't want this."),
 ]
 
 # Voice Control's hard-coded spoken lines (1-XNPCVoiceControl.dll 3.4.01), its billing lines left out.
@@ -494,11 +601,29 @@ VC = [
     ("vc.action.heal", "Let me patch you up."),
     ("vc.action.refuse", "I can't do that."),
     ("vc.bag.empty", "I am not carrying any supplies."),
+    # Round m1w (2026-11-17, research/voices_v9): Voice Control 3.4.06's craft page with nothing to make, and its go-there
+    # refusals ("I'm in your way - point past me." is vc.gothere.inway: matched without its punctuation since round m1w)
+    ("vc.craft.none", "I can't make anything with what's here."),
+    ("vc.gothere.cantsee", "I can't see where you mean."),
+    ("vc.gothere.noline", "I can't get a clear line to that."),
+    ("vc.gothere.cantreach", "I can't get to that."),
+    ("vc.gothere.cantclimb", "I can't get up there."),
 ]
 
+# Round m1w (2026-11-17, research/voices_v9, P3 and P7): SC's own lines that Voice Control speaks for it - an order's answer
+# SC hands it (a refused dismiss, pick-up, hire, follow or trade; a resident's "loot" refused), the training line after a
+# magazine - and SC's refusals it now says aloud itself (ScVoiceRoutes.SayRefusal: a field job, the work kit, no room in the
+# party). Keyed by their Localization key, each its own family; the words are that row's text with any *emote* left out, as
+# Voice Control speaks it and as ScBarks reads it at runtime (ScVoiceLines.Own is this list). Family "own".
+OWN = ["scBookPracticeSaid", "scKitToolNotWeaponSaid", "scJobResidentField", "scJobResidentFollowLoot", "scJobResidentMine",
+       "scVoiceNoTradeMember", "scVoiceNoPackNow", "scVoiceGoingHome", "scVoiceStays", "scVoiceWalk", "scVoiceNoHire",
+       "scVoiceCantFollow", "scTrustNoHire", "scEncVoiceNoHire", "scEncVoiceStays", "scEncVoiceGoingHome",
+       "scVoiceNoTradeHostile", "scFollowFullSaid"]
+EMOTE = re.compile(r"\*[^*]+\*")
+
 NEW = [("greet", GREET), ("chatter", CHATTER), ("taunt", TAUNT), ("xn", XN), ("ack", ACK), ("vc", VC)]
-FAMILIES = ["dialog", "radio", "horde", "smalltalk"] + [f for f, _ in NEW]
-NOT_V2 = ("dialog", "radio", "horde", "smalltalk")   # the families --new and cost's "new (V2)" leave out
+FAMILIES = ["dialog", "radio", "horde", "smalltalk", "own"] + [f for f, _ in NEW]
+NOT_V2 = ("dialog", "radio", "horde", "smalltalk", "own")   # the families --new and cost's "new (V2)" leave out
 
 
 # ------------------------------------------------------------------------------------------------------- the lines ----
@@ -550,6 +675,8 @@ def lines(problems):
     for k in RUNTIME_FIXED:
         if k in words:
             add(k, words[k])
+        elif k in PENDING:
+            add(k, PENDING[k])           # round m1w: no row yet (V-b's) - the draft stands in
         else:
             problems.append("no Localization row for " + k)
     return out
@@ -566,6 +693,25 @@ def radio_lines(problems, keys=None, what="radio"):
             problems.append("no Localization row %sSaid for the %s line %s" % (k, what, k))
         elif "{" in said:
             problems.append("%sSaid has a token: %s" % (k, said))
+        elif k in out:
+            problems.append("%s is two lines" % k)
+        else:
+            out[k] = said
+    return out
+
+
+def own_lines(problems):
+    """m1w: key -> the words said, for SC's own lines Voice Control speaks (OWN): the Localization row, *emotes* left out."""
+    words = english()
+    out = {}
+    for k in OWN:
+        said = words.get(k)
+        if said is None:
+            problems.append("no Localization row for the own line " + k)
+            continue
+        said = re.sub(r"\s+", " ", EMOTE.sub("", said)).strip()
+        if not said or "{" in said:
+            problems.append("%s has no words to say, or a token: %s" % (k, words[k]))
         elif k in out:
             problems.append("%s is two lines" % k)
         else:
@@ -607,6 +753,11 @@ def every_line(problems):
             problems.append("%s is both a small-talk line and another line" % k)
         else:
             out[k] = ("smalltalk", v)
+    for k, v in own_lines(problems).items():   # round m1w
+        if k in out:
+            problems.append("%s is both an own line and another line" % k)
+        else:
+            out[k] = ("own", v)
     for k, v in new_lines(problems).items():
         if k in out:
             problems.append("%s is both a dialog line and a V2 line" % k)
@@ -678,7 +829,7 @@ def cs_table():
     """ScVoiceLines.cs as gencs writes it."""
     o = []
     o.append("// <auto-generated>")
-    o.append("// Written by Tools/voice_lines.py gencs from its V2 families. Edit the lines there and run it again;")
+    o.append("// Written by Tools/voice_lines.py gencs from its V2 families and OWN. Edit the lines there and run it again;")
     o.append("// \"python -I Tools/voice_lines.py check\" says when this file is stale.")
     o.append("// </auto-generated>")
     o.append("namespace SurvivorCommunity")
@@ -692,6 +843,16 @@ def cs_table():
     o.append("    {")
     o.append("        /// <summary>The families, in recording order.</summary>")
     o.append("        public static readonly string[] Families = { " + ", ".join(cs_string(f) for f, _ in NEW) + " };")
+    o.append("")
+    o.append("        /// <summary>")
+    o.append("        /// Round m1w (P3): SC's own lines Voice Control speaks for it, and SC's spoken refusals - Localization keys, each")
+    o.append("        /// its own clip; ScBarks reads their words from Localization (an *emote* left out).")
+    o.append("        /// </summary>")
+    o.append("        public static readonly string[] Own =")
+    o.append("        {")
+    for k in OWN:
+        o.append("            %s," % cs_string(k))
+    o.append("        };")
     o.append("")
     o.append("        public static readonly string[] Lines =")
     o.append("        {")
@@ -786,6 +947,12 @@ def cmd_check(every, problems, args):
     bad = len(problems)
     for p in problems:
         print("PROBLEM " + p)
+    pending = [k for k in RUNTIME_FIXED if k in PENDING and k not in english()]   # round m1w
+    if pending:
+        print("note: %d line(s) have no Localization row yet (the round that wires them adds it); their draft words stand in:"
+              % len(pending))
+        for line in wrap("  ", pending):
+            print(line)
     state = cs_state()
     new_count = sum(len(r) for _, r in NEW)
     print("ScVoiceLines.cs: %s (%d V2 lines)%s" % (state, new_count, "" if state == "in step" else " - run gencs"))
@@ -810,7 +977,7 @@ def cmd_check(every, problems, args):
             continue
         have = clips(d)
         if have is None:
-            print("%s%s: no folder yet - all %d lines to record" % (d, listed, total))
+            print("%s%s: no folder yet - all %d lines not recorded yet" % (d, listed, total))
             if keys:
                 for fam in FAMILIES:
                     for line in wrap("  %s: " % fam, by_fam.get(fam, [])):
@@ -826,7 +993,7 @@ def cmd_check(every, problems, args):
         for fam in FAMILIES:
             ks = [k for k in by_fam.get(fam, []) if k not in have]
             if ks:
-                for line in wrap("  no clip yet, %s: " % fam, ks):
+                for line in wrap("  not recorded yet, %s: " % fam, ks):
                     print(line)
         if unknown:
             for line in wrap("  no such line: ", unknown):
@@ -902,7 +1069,7 @@ def main():
     elif cmd == "gencs":
         with io.open(CS_TABLE, "w", encoding="utf-8", newline="\n") as f:
             f.write(cs_table())
-        print("ScVoiceLines.cs: %d V2 lines in %d families" % (sum(len(r) for _, r in NEW), len(NEW)))
+        print("ScVoiceLines.cs: %d V2 lines in %d families, %d own lines" % (sum(len(r) for _, r in NEW), len(NEW), len(OWN)))
         for p in problems:
             print("PROBLEM " + p)
     else:
