@@ -562,6 +562,7 @@ namespace SurvivorCommunity
             float y = TierMult(tier);
             y *= 1f + ScConfig.RunYieldPerWitsStar * (m.Stars(Skill.Wits) - 1);
             y *= ScTraits.RunYieldMult(m);
+            y *= ScTraitEffects.HaulMult(m);                                   // round m1t: Scavenger
             if (ScRegistry.Community.Morale > ScConfig.HighMoraleThreshold) y *= 1.25f;
             return Mathf.Max(0f, y);
         }

@@ -92,7 +92,11 @@ namespace SurvivorCommunity
             int left = DaysLeft(e);
             if (left > 0) { why = string.Format(Loc("scEncBarterWait"), left); return false; }
             Community c = ScRegistry.Community;
+#if SC_V34
+            int n = ScLifeSkills.AllyBarter().Give;           // round m1t: Bartering gives fewer
+#else
             int n = Math.Max(1, ScConfig.EnclaveBarterGive);
+#endif
             if (c.Get(give) < n) { why = string.Format(Loc("scBarterShort"), n, Word(give), c.Get(give)); return false; }
             return true;
         }
@@ -105,12 +109,21 @@ namespace SurvivorCommunity
         {
             if (!CanTrade(e, give, get, out message)) return false;
             Community c = ScRegistry.Community;
+#if SC_V34
+            ScLifeSkills.Terms terms = ScLifeSkills.AllyBarter();   // round m1t: Bartering's cut
+            int n = terms.Give, m = terms.Get;
+#else
             int n = Math.Max(1, ScConfig.EnclaveBarterGive), m = Math.Max(1, ScConfig.EnclaveBarterGet);
+#endif
             c.Add(give, -n);
             c.Add(get, m);
             e.BarterDay = ScEncRequests.Now + Math.Max(0, ScConfig.EnclaveBarterDays);
             ScOutposts.NoteLedger(string.Format(Loc("scEncBarterLedger"), e.Name, n, Word(give), m, Word(get)));
             message = string.Format(Loc("scEncBarterDone"), n, Word(give), m, Word(get), e.Name);
+#if SC_V34
+            ScLifeSkills.OnBarter(terms);
+            message += ScLifeSkills.HelpText(terms);
+#endif
             ScLog.Out("ally barter with enclave " + e.Id + " '" + e.Name + "': " + n + " " + ScNames.Key(give) + " for " + m + " " + ScNames.Key(get)
                       + "; the next from day " + e.BarterDay + " (request clock day " + ScEncRequests.Now + ")");
             ScRegistry.SaveAtomic();

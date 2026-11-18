@@ -13,6 +13,9 @@
 				<passive_effect name="RunSpeed" operation="perc_add" value="@sc_speed"/>
 				<passive_effect name="WalkSpeed" operation="perc_add" value="@sc_speed"/>
 				<passive_effect name="HealthMax" operation="perc_add" value="@sc_hp"/>
+				<!-- round m1t: a trait's wear= (Clumsy 1.5) - items tagged "tool" she swings (chopping, mining, digging) wear this much
+				     faster (sc_toolwear = wear - 1, stamped 0 for everyone else; 0-XNPCCore's base repair wears no tool, knives are weapons) -->
+				<passive_effect name="DegradationPerUse" operation="perc_add" value="@sc_toolwear" tags="tool"/>
 			</effect_group>
 		</buff>
 
@@ -76,5 +79,18 @@
 		<buff name="traitSC_Hoarder" name_key="scTraitHoarder" description_key="scTraitHoarderDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
 		<buff name="traitSC_Cheerful" name_key="scTraitCheerful" description_key="scTraitCheerfulDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
 		<buff name="traitSC_Insomniac" name_key="scTraitInsomniac" description_key="scTraitInsomniacDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<!-- round m1t (T1): the twelve new traits, each with its own glyph (UIAtlases/UIAtlas/scui_trait_*.png) -->
+		<buff name="traitSC_NightOwl" name_key="scTraitNightOwl" description_key="scTraitNightOwlDesc" icon="scui_trait_nightowl" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_LightSleeper" name_key="scTraitLightSleeper" description_key="scTraitLightSleeperDesc" icon="scui_trait_lightsleeper" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Scavenger" name_key="scTraitScavenger" description_key="scTraitScavengerDesc" icon="scui_trait_scavenger" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Haggler" name_key="scTraitHaggler" description_key="scTraitHagglerDesc" icon="scui_trait_haggler" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_FastHealer" name_key="scTraitFastHealer" description_key="scTraitFastHealerDesc" icon="scui_trait_fasthealer" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_IronStomach" name_key="scTraitIronStomach" description_key="scTraitIronStomachDesc" icon="scui_trait_ironstomach" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Bookworm" name_key="scTraitBookworm" description_key="scTraitBookwormDesc" icon="scui_trait_bookworm" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_GunNut" name_key="scTraitGunNut" description_key="scTraitGunNutDesc" icon="scui_trait_gunnut" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Brawler" name_key="scTraitBrawler" description_key="scTraitBrawlerDesc" icon="scui_trait_brawler" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Squeamish" name_key="scTraitSqueamish" description_key="scTraitSqueamishDesc" icon="scui_trait_squeamish" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Clumsy" name_key="scTraitClumsy" description_key="scTraitClumsyDesc" icon="scui_trait_clumsy" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_SteadyHands" name_key="scTraitSteadyHands" description_key="scTraitSteadyHandsDesc" icon="scui_trait_steadyhands" remove_on_death="true"><stack_type value="ignore"/></buff>
 	</append>
 </configs>

@@ -474,11 +474,12 @@ namespace SurvivorCommunity
                 case "allypickready": _value = (allies.Count > 1).ToString(); return true;
                 case "allyvisible": _value = (PickedAlly() != null && ScConfig.EnclaveBarter).ToString(); return true;
                 case "allynone": _value = AllyNone(); return true;
+                // round m1t: the terms with Bartering's cut (ScLifeSkills.AllyBarter)
                 case "allygive":
-                    _value = string.Format(Localization.Get("scBarterGive"), Math.Max(1, ScConfig.EnclaveBarterGive), Localization.Get(ScNames.LocKey(allyGive)));
+                    _value = string.Format(Localization.Get("scBarterGive"), ScLifeSkills.AllyBarter().Give, Localization.Get(ScNames.LocKey(allyGive)));
                     return true;
                 case "allyget":
-                    _value = string.Format(Localization.Get("scRadioAllyGet"), Math.Max(1, ScConfig.EnclaveBarterGet), Localization.Get(ScNames.LocKey(allyGet)));
+                    _value = string.Format(Localization.Get("scRadioAllyGet"), ScLifeSkills.AllyBarter().Get, Localization.Get(ScNames.LocKey(allyGet)));
                     return true;
                 case "allygetready": _value = ScEncBarter.ChoosesGet(PickedAlly()).ToString(); return true;
                 case "allytradeready": _value = ScEncBarter.CanTrade(PickedAlly(), allyGive, allyGet, out why).ToString(); return true;
@@ -550,8 +551,15 @@ namespace SurvivorCommunity
                     _value = d != null ? ScOutpostRisk.DemandText(d) : "";      // E10: an enclave's demand names them
                     return true;
                 }
-                case "bartergive": _value = string.Format(Localization.Get("scBarterGive"), Math.Max(1, ScConfig.RadioBarterRate), Localization.Get(ScNames.LocKey(barterGive))); return true;
-                case "barterget": _value = string.Format(Localization.Get("scBarterGet"), Localization.Get(ScNames.LocKey(barterGet))); return true;
+                // round m1t: the terms with Bartering's cut and a Haggler's extra (ScLifeSkills.RadioBarter)
+                case "bartergive": _value = string.Format(Localization.Get("scBarterGive"), ScLifeSkills.RadioBarter().Give, Localization.Get(ScNames.LocKey(barterGive))); return true;
+                case "barterget":
+                {
+                    int barterN = ScLifeSkills.RadioBarter().Get;
+                    _value = barterN == 1 ? string.Format(Localization.Get("scBarterGet"), Localization.Get(ScNames.LocKey(barterGet)))
+                                    : string.Format(Localization.Get("scRadioAllyGet"), barterN, Localization.Get(ScNames.LocKey(barterGet)));
+                    return true;
+                }
                 case "bartercolor": _value = ScBarter.CanTrade(barterGive, barterGet, out why) ? "60,90,60,255" : "70,70,70,255"; return true;
                 case "barterdesc":
                     _value = ScBarter.CanTrade(barterGive, barterGet, out why) ? Localization.Get("scRadioBarterDesc") : why ?? "";

@@ -32,7 +32,11 @@ namespace SurvivorCommunity
         public static bool DrinksActive { get { return ScRegistry.Loaded && ScRegistry.Community.DrinksLeft > 0f; } }
 
         /// <summary>The morale the round adds while it lasts (ScMorale's Activity part).</summary>
+#if SC_V34
+        public static int MoraleBonus() { return DrinksActive ? ScConfig.DrinksMorale + ScLifeSkills.DrinksBonus() : 0; }   // round m1t: Entertainment
+#else
         public static int MoraleBonus() { return DrinksActive ? ScConfig.DrinksMorale : 0; }
+#endif
 
         /// <summary>"12:34" of the round still to go.</summary>
         public static string TimeLeft()
@@ -70,7 +74,16 @@ namespace SurvivorCommunity
                 sinceSave = 0f;
                 ScRegistry.SaveAtomic();
                 ScMorale.Recompute();
+#if SC_V34
+                // round m1t (T2): an entertainer at home lifts it more, and learns
+                Member host;
+                int extra = ScLifeSkills.DrinksBonus(out host);
+                ScLifeSkills.OnDrinksPoured();
+                message = string.Format(Localization.Get("scActDrinksPoured"), ScConfig.DrinksMorale + extra, FormatMinutes(ScConfig.DrinksMinutes))
+                          + (host != null ? " " + string.Format(Localization.Get("scActDrinksHost"), host.Name, extra) : "");
+#else
                 message = string.Format(Localization.Get("scActDrinksPoured"), ScConfig.DrinksMorale, FormatMinutes(ScConfig.DrinksMinutes));
+#endif
                 ScLog.Out("activity: a round of drinks for " + ScRegistry.Members.Count + " member(s) (-" + ScConfig.DrinksLuxury + " luxury, -" + ScConfig.DrinksFood
                           + " food), +" + ScConfig.DrinksMorale + " morale for " + ScConfig.DrinksMinutes + " real minutes; morale now " + c.Morale);
                 return true;

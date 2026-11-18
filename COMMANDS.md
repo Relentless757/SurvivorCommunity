@@ -301,6 +301,26 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 - **`sc party`** — the party cap (round U6): SC's followers against `MaxFollowers`, and 0-XNPCCore's party (everyone
   following you, paid hires too) against its `PartyMaxMembers`, with the refusals this session. Read-only.
 
+## Traits and life skills *(round m1t)*
+
+- **`sc traits`** — the trait table: each trait's keys and roll chance, what it does ("(coming later)" when it waits for a
+  later feature), the excluded pairs, the counters (healed with no Meds, party-medic roles taken back, light sleepers
+  woken), then every member's traits.
+- **`sc traits sim [n]`** — `n` trait rolls (1000 if left out) as a new recruit gets them: each trait's share, and how many
+  excluded pairs came together (always 0).
+- **`sc traits <id|name>`** — her traits, their keys and what each does now (her night-watch mood, haul, aim error...).
+- **`sc traits <id|name> set <trait> [trait ...] [force]`** · **`add <trait> [force]`** · **`remove <trait>`** — change a
+  member's traits (a test shortcut: survivors recruited before keep the old roll). An excluded pair, or Squeamish on a
+  Medicine member, is refused without `force`. Up to 5; the card shows 3.
+- **`sc spec`** — the thirteen life skills: roll weight and chance, role, icon, what it does, then the life-skill keys
+  and counters (Construction tiers raised and XP from repairs, bundles, barters, scoutings and rounds of drinks helped).
+- **`sc spec sim [n]`** — `n` new T1 survivors rolled: each life skill's share, and how many squeamish ones got Medicine
+  (always 0).
+- **`sc spec <id|name>`** — her life skill, stars, XP and what it does now (her repair tier, the bundle share, the barter
+  terms, the scouting count, the drinks bonus).
+- **`sc spec <id|name> set <Specialty> [stars] [force]`** — give a member a life skill (and stars). Medicine on a squeamish
+  member needs `force`, and she still won't act as a medic.
+
 ## Work, runs and mining
 
 - `sc run <id|name> <res|mine|clay>` · `sc run <id|name> <recall|home|skip|offline>` · `sc runners`

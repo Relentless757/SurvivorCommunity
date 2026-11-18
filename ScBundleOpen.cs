@@ -263,7 +263,12 @@ namespace SurvivorCommunity
                     if (m != null && m.Specialty == Specialty.Craftsmanship) stars += Math.Max(0, m.SpecLevel);
             }
             catch (Exception e) { ScLog.Once("bundleopen-stars", e); }
+#if SC_V34
+            // round m1t (T2): Logistics raises the share toward 0.85 by her stars; the craftsmen's cap still applies (no loop gains)
+            return ShareCap(ScLifeSkills.BundleShare(ScConfig.BundleOpenValueShare), stars, ScConfig.PackBonusPerStar);
+#else
             return ShareCap(ScConfig.BundleOpenValueShare, stars, ScConfig.PackBonusPerStar);
+#endif
         }
 
         // ---- the world-start pass ----
@@ -416,6 +421,9 @@ namespace SurvivorCommunity
                 ScLog.Out("opened " + bundleName + ": " + got + " = " + value + " points (target " + target + " = "
                           + share.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + " of " + pack + ")"
                           + (dropped > 0 ? ", " + dropped + " item(s) on the ground (inventory full)" : ""));
+#if SC_V34
+                ScLifeSkills.OnBundleOpened();     // round m1t: the Logistics member learns
+#endif
                 return true;
             }
             catch (Exception e)

@@ -36,7 +36,11 @@ namespace SurvivorCommunity
             Community c = ScRegistry.Community;
             int wait = c.RadioNextBarterDay - ScCommunity.Today;
             if (wait > 0) { why = string.Format(Localization.Get("scBarterWait"), wait); return false; }
+#if SC_V34
+            int rate = ScLifeSkills.RadioBarter().Give;     // round m1t: Bartering gives fewer
+#else
             int rate = Math.Max(1, ScConfig.RadioBarterRate);
+#endif
             if (c.Get(give) < rate) { why = string.Format(Localization.Get("scBarterShort"), rate, Localization.Get(ScNames.LocKey(give)), c.Get(give)); return false; }
             return true;
         }
@@ -45,6 +49,21 @@ namespace SurvivorCommunity
         {
             if (!CanTrade(give, get, out message)) return false;
             Community c = ScRegistry.Community;
+#if SC_V34
+            // round m1t: the terms with Bartering's cut and a Haggler's extra (ScLifeSkills.RadioBarter)
+            ScLifeSkills.Terms t = ScLifeSkills.RadioBarter();
+            int rate = t.Give, n = t.Get;
+            c.Add(give, -rate);
+            c.Add(get, n);
+            c.RadioNextBarterDay = ScCommunity.Today + 1;
+            ScOutposts.NoteLedger(string.Format(Localization.Get("scBarterLedgerN"), rate, Localization.Get(ScNames.LocKey(give)), n, Localization.Get(ScNames.LocKey(get))));
+            ScLifeSkills.OnBarter(t);
+            ScRegistry.SaveAtomic();
+            message = string.Format(Localization.Get("scBarterDoneN"), rate, Localization.Get(ScNames.LocKey(give)), n, Localization.Get(ScNames.LocKey(get)))
+                      + ScLifeSkills.HelpText(t);
+            ScLog.Out("radio barter: " + rate + " " + give + " for " + n + " " + get
+                      + (t.Barterer != null ? " (Bartering: " + t.Barterer.Name + ")" : "") + (t.Haggler != null ? " (Haggler: " + t.Haggler.Name + ")" : ""));
+#else
             int rate = Math.Max(1, ScConfig.RadioBarterRate);
             c.Add(give, -rate);
             c.Add(get, 1);
@@ -53,6 +72,7 @@ namespace SurvivorCommunity
             ScRegistry.SaveAtomic();
             message = string.Format(Localization.Get("scBarterDone"), rate, Localization.Get(ScNames.LocKey(give)), Localization.Get(ScNames.LocKey(get)));
             ScLog.Out("radio barter: " + rate + " " + give + " for 1 " + get);
+#endif
             return true;
         }
     }
@@ -138,9 +158,15 @@ namespace SurvivorCommunity
                 }
                 var sb = new StringBuilder();
                 int n = 0;
+#if SC_V34
+                Member recon;
+                int count = ScLifeSkills.ScoutCount(out recon);     // round m1t (T2): Recon marks 5
+#else
+                int count = Math.Max(1, ScConfig.RadioScoutCount);
+#endif
                 foreach (var kv in found)
                 {
-                    if (n >= Math.Max(1, ScConfig.RadioScoutCount)) break;
+                    if (n >= count) break;
                     PrefabInstance pi = kv.Value;
                     foreach (Scout old in c.Scouts) if (old.Poi == pi.boundingBoxPosition) RemoveMarker(old);
                     c.Scouts.RemoveAll(s => s.Poi == pi.boundingBoxPosition);
@@ -158,8 +184,14 @@ namespace SurvivorCommunity
                     sb.Append(string.Format(Localization.Get("scScoutSite"), sc.Name, Where(sc)));
                     n++;
                 }
+#if SC_V34
+                if (recon != null && n > Math.Max(1, ScConfig.RadioScoutCount)) ScLifeSkills.OnScouted(recon);   // round m1t: she found the extra ones
+#endif
                 ScRegistry.SaveAtomic();
                 message = string.Format(Localization.Get("scScoutFound"), Localization.Get(ScNames.LocKey(r)), sb);
+#if SC_V34
+                if (recon != null && n > Math.Max(1, ScConfig.RadioScoutCount)) message += " " + string.Format(Localization.Get("scScoutRecon"), recon.Name);
+#endif
                 ScLog.Out("radio scouting for " + r + ": " + sb);
                 return true;
             }

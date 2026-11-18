@@ -26,6 +26,38 @@ namespace SurvivorCommunity
         public float XpMult = 1f;
         /// <summary>Supply-run yield multiplier.</summary>
         public float RunYieldMult = 1f;
+        // ---- round m1t (T1, 2026-11-17): the new trait keys. Read by ScTraitEffects; an effect that waits for a later
+        // feature (Needs) is stored and shown with "(coming later)" until that feature exists. ----
+        /// <summary>excludes=A/B: traits never rolled together with this one (ScTraits makes every pair two-way).</summary>
+        public readonly List<string> Excludes = new List<string>();
+        /// <summary>nightwatch=N: her own mood +N while she stands a watch at night (Night Owl).</summary>
+        public int NightWatchMood;
+        /// <summary>wake=1: woken from the night's sleep as soon as a horde is called on the base (Light Sleeper).</summary>
+        public bool WakesForAttack;
+        /// <summary>defense=N: the base's defense rating +N while she is a fit resident (Light Sleeper).</summary>
+        public int DefenseBonus;
+        /// <summary>haul=x: a supply run's haul x this, the odd part of a bundle as a chance (Scavenger).</summary>
+        public float HaulMult = 1f;
+        /// <summary>barter=N: N more bundles back from the radio barter while she is at home (Haggler).</summary>
+        public int RadioBarterExtra;
+        /// <summary>heal=p: the chance an injury of hers heals with no Meds bundle (Fast Healer).</summary>
+        public float HealChance;
+        /// <summary>sickness=x: her chance of latrine sickness x this; 0 = immune (Iron Stomach). Needs the latrine.</summary>
+        public float SicknessMult = 1f;
+        /// <summary>books=x: specialty XP from reading magazines x this (Bookworm).</summary>
+        public float BooksMult = 1f;
+        /// <summary>rangexp=x: Shooting XP at the range x this (Gun Nut). Needs the range.</summary>
+        public float RangeXpMult = 1f;
+        /// <summary>gymxp=x: Fighting XP at the gym x this (Brawler). Needs the gym.</summary>
+        public float GymXpMult = 1f;
+        /// <summary>nomedic=1: never takes the medic role - no Medicine specialty, no revives, not the party medic (Squeamish).</summary>
+        public bool NoMedic;
+        /// <summary>wear=x: her tools wear x this fast (Clumsy; buffSCSkills reads the sc_toolwear cvar).</summary>
+        public float WearMult = 1f;
+        /// <summary>aim=x: her aim error x this (Steady Hands 0.8; ScShooting).</summary>
+        public float AimMult = 1f;
+        /// <summary>The later features this trait's effects wait for (ScFeatures names): "(coming later)" on the card until they exist.</summary>
+        public readonly List<string> Needs = new List<string>();
     }
 
     /// <summary>
@@ -1432,6 +1464,7 @@ namespace SurvivorCommunity
             ResetDowned();                         // round U2 (ScConfigDowned.cs): home and watch downs, resident medics revive
             ResetSocial();                         // round U3 (ScConfigSocial.cs): small talk, walking over, the campfire
             ResetNpc306();                         // rounds U4-U6 (ScConfigNpc306.cs): Bond, gifts, weapon perks, the party cap
+            ResetTraits();                         // round m1t (ScConfigTraits.cs): life-skill roll weights and effects
 #endif
             XnpcSurvivorClasses.Clear();
             XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
@@ -2577,6 +2610,7 @@ namespace SurvivorCommunity
                 ParseDowned(p);                    // round U2 (ScConfigDowned.cs): home and watch downs, resident medics revive
                 ParseSocial(p);                    // round U3 (ScConfigSocial.cs): small talk, walking over, the campfire
                 ParseNpc306(p);                    // rounds U4-U6 (ScConfigNpc306.cs): Bond, gifts, weapon perks, the party cap
+                ParseTraits(p);                    // round m1t (ScConfigTraits.cs): life-skill roll weights and effects
 #endif
                 bool xnpcGetUp = XnpcBodyGetUp;
                 if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);
@@ -2696,6 +2730,7 @@ namespace SurvivorCommunity
                         if (t != null) Traits.Add(t);
                     }
                 }
+                ScTraits.LinkExclusions();         // round m1t (T1): every excludes= pair made two-way, unknown names warned
                 DynamicProperties weapons;
                 if (p.Classes != null && p.Classes.TryGetValue("XnpcWeapons", out weapons) && weapons != null)
                 {
@@ -3402,6 +3437,25 @@ namespace SurvivorCommunity
                         case "xp": t.XpMult = float.Parse(v, CultureInfo.InvariantCulture); break;
                         case "yield": t.RunYieldMult = float.Parse(v, CultureInfo.InvariantCulture); break;
                         case "spec": { Specialty sp; if (ScNames.TrySpecialty(v, out sp)) t.PreferredSpecialty = sp; break; }
+                        // ---- round m1t (T1): the new keys (TraitDef) ----
+                        case "excludes":
+                            foreach (string x in v.Split('/', '|', ';'))
+                                if (x.Trim().Length > 0 && !t.Excludes.Contains(x.Trim())) t.Excludes.Add(x.Trim());
+                            break;
+                        case "nightwatch": t.NightWatchMood = int.Parse(v, CultureInfo.InvariantCulture); break;
+                        case "wake": t.WakesForAttack = v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase); break;
+                        case "defense":
+                        case "defence": t.DefenseBonus = int.Parse(v, CultureInfo.InvariantCulture); break;
+                        case "haul": t.HaulMult = Math.Max(0f, float.Parse(v, CultureInfo.InvariantCulture)); break;
+                        case "barter": t.RadioBarterExtra = Math.Max(0, int.Parse(v, CultureInfo.InvariantCulture)); break;
+                        case "heal": t.HealChance = Math.Max(0f, Math.Min(1f, float.Parse(v, CultureInfo.InvariantCulture))); break;
+                        case "sickness": t.SicknessMult = Math.Max(0f, float.Parse(v, CultureInfo.InvariantCulture)); AddNeed(t, ScFeatures.Latrine); break;
+                        case "books": t.BooksMult = Math.Max(0f, float.Parse(v, CultureInfo.InvariantCulture)); break;
+                        case "rangexp": t.RangeXpMult = Math.Max(0f, float.Parse(v, CultureInfo.InvariantCulture)); AddNeed(t, ScFeatures.Range); break;
+                        case "gymxp": t.GymXpMult = Math.Max(0f, float.Parse(v, CultureInfo.InvariantCulture)); AddNeed(t, ScFeatures.Gym); break;
+                        case "nomedic": t.NoMedic = v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase); break;
+                        case "wear": t.WearMult = Math.Max(0f, float.Parse(v, CultureInfo.InvariantCulture)); break;
+                        case "aim": t.AimMult = Math.Max(0.1f, Math.Min(3f, float.Parse(v, CultureInfo.InvariantCulture))); break;
                         case "skill":
                         {
                             string[] sk = v.Split(':');
@@ -3422,6 +3476,12 @@ namespace SurvivorCommunity
                 }
             }
             return t;
+        }
+
+        /// <summary>Round m1t: a trait key whose effect waits for a later feature (ScFeatures) notes it once.</summary>
+        private static void AddNeed(TraitDef t, string feature)
+        {
+            if (!t.Needs.Contains(feature)) t.Needs.Add(feature);
         }
     }
 }

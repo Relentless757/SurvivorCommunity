@@ -73,6 +73,10 @@
     <Compile Include="ScCommunity.cs" />
     <Compile Include="ScTicker.cs" />
     <Compile Include="ScTraits.cs" />
+    <Compile Include="ScTraitEffects.cs" />   <!-- round m1t -->
+    <Compile Include="ScLifeSkills.cs" />     <!-- round m1t -->
+    <Compile Include="ScTraitConsole.cs" />   <!-- round m1t -->
+    <Compile Include="ScConfigTraits.cs" />   <!-- round m1t -->
     <Compile Include="ScSkills.cs" />
     <Compile Include="ScCategories.cs" />
     <Compile Include="ScSecurity.cs" />

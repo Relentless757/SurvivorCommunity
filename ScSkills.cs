@@ -93,6 +93,13 @@ namespace SurvivorCommunity
                 if (t.HasSkill) m.Skill(t.SkillBonus).Level = Math.Max(floor, Math.Min(Member.MaxStars, m.Skill(t.SkillBonus).Level + t.SkillBonusStars));
                 if (t.PreferredSpecialty != Specialty.None) preferred = t.PreferredSpecialty;
             }
+#if SC_V34
+            // round m1t (T1): a squeamish survivor never takes the medic role - no trait or class preference for Medicine
+            bool medic = ScTraitEffects.CanBeMedic(m);
+            if (!medic && preferred == Specialty.Medicine) preferred = Specialty.None;
+#else
+            bool medic = true;
+#endif
             int cap = Math.Max(floor, Math.Min(Member.MaxStars, ScConfig.StartSkillCap));
             for (int i = 0; i < Member.SkillCount; i++) if (m.Skills[i].Level > cap) m.Skills[i].Level = cap;
             if (rnd.RandomFloat < ScConfig.StandoutSkillChance[t3])
@@ -104,12 +111,16 @@ namespace SurvivorCommunity
             }
             // class-name bias: a Nurse tends to Medicine, a Baker to Cooking
             string cls = (m.Class ?? "").ToLowerInvariant();
-            if (preferred == Specialty.None && cls.Contains("nurse") && rnd.RandomFloat < 0.7f) preferred = Specialty.Medicine;
+            if (medic && preferred == Specialty.None && cls.Contains("nurse") && rnd.RandomFloat < 0.7f) preferred = Specialty.Medicine;
             if (preferred == Specialty.None && cls.Contains("baker") && rnd.RandomFloat < 0.7f) preferred = Specialty.Cooking;
             if (preferred == Specialty.None)
             {
+#if SC_V34
+                preferred = ScLifeSkills.Roll(m, rnd);   // round m1t (T2): thirteen life skills by SpecialtyWeights (never Medicine if squeamish)
+#else
                 Specialty[] all = { Specialty.Medicine, Specialty.Cooking, Specialty.Mechanics, Specialty.Gardening, Specialty.Chemistry, Specialty.Craftsmanship };
                 preferred = all[rnd.RandomRange(0, all.Length)];
+#endif
             }
             m.Specialty = preferred;
             m.SpecLevel = 1;
@@ -173,6 +184,9 @@ namespace SurvivorCommunity
             foreach (var m in ScRegistry.Members.Values)
             {
                 if (m.Specialty != s || !m.IsHome || m.Status == MemberStatus.OnRun) continue;
+#if SC_V34
+                if (s == Specialty.Medicine && !ScTraitEffects.CanBeMedic(m)) continue;   // round m1t: Squeamish is never the medic
+#endif
                 if (m.SpecLevel > best) { best = m.SpecLevel; who = m; }
             }
             return best;
@@ -184,6 +198,9 @@ namespace SurvivorCommunity
             int sum = 0;
             foreach (var m in ScRegistry.Members.Values)
             {
+#if SC_V34
+                if (s == Specialty.Medicine && !ScTraitEffects.CanBeMedic(m)) continue;   // round m1t: Squeamish is never the medic
+#endif
                 if (m.Specialty == s && m.IsHome && m.Status != MemberStatus.OnRun) sum += m.SpecLevel;
             }
             return sum;
@@ -205,6 +222,7 @@ namespace SurvivorCommunity
 #if SC_V34
             ScCraft.Apply(m, npc);   // C1: crafting skills from the specialty stars, 0-XNPCCore's roles stamped once
             ScPerks.Apply(m, npc);   // round U5 (D10): 0-XNPCCore's weapon-class perks from her Shooting / Fighting stars
+            ScLifeSkills.Apply(m, npc);   // round m1t (T2): Construction's repair tier from her stars, its XP from her repairs
 #endif
         }
 

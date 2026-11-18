@@ -86,6 +86,26 @@ scSpecMechanics,UI,Skill,,,,Mechanics
 scSpecGardening,UI,Skill,,,,Gardening
 scSpecChemistry,UI,Skill,,,,Chemistry
 scSpecCraftsmanship,UI,Skill,,,,Craftsmanship
+scSpecConstruction,UI,Skill,,,,Construction
+scSpecLogistics,UI,Skill,,,,Logistics
+scSpecBartering,UI,Skill,,,,Bartering
+scSpecRecon,UI,Skill,,,,Recon
+scSpecFitness,UI,Skill,,,,Fitness
+scSpecFirearmsInstructor,UI,Skill,,,,Firearms Instructor
+scSpecEntertainment,UI,Skill,,,,Entertainment
+scSpecMedicineDesc,UI,Skill,,,,"Heals more of the injured with each Meds bundle, revives downed residents at home and crafts medicine."
+scSpecCookingDesc,UI,Skill,,,,"The community eats less, supply runs bring back more food, and crafts food."
+scSpecMechanicsDesc,UI,Skill,,,,"Supply runs bring back more materials and fuel; crafts workstations, vehicles, traps and robotics."
+scSpecGardeningDesc,UI,Skill,,,,"Turns the base's crops into food, supply runs bring back more water, and crafts seeds."
+scSpecChemistryDesc,UI,Skill,,,,"Supply runs bring back more medicine; crafts explosives, medicine and electrics."
+scSpecCraftsmanshipDesc,UI,Skill,,,,"Bundles cost less to pack at the packing station; crafts weapons, armor and tools."
+scSpecConstructionDesc,UI,Skill,,,,"Repairs stronger blocks on a Base repair duty: cobblestone from 1 star, concrete from 3, steel from 5. Builds the wall faster."
+scSpecLogisticsDesc,UI,Skill,,,,"Opened bundles give more back, a little more with each star."
+scSpecBarteringDesc,UI,Skill,,,,"Radio and ally barters cost one bundle less, two less from 5 stars."
+scSpecReconDesc,UI,Skill,,,,Radio scouting marks 5 sites instead of 3.
+scSpecFitnessDesc,UI,Skill,,,,Makes training at the gym count for more.
+scSpecFirearmsInstructorDesc,UI,Skill,,,,Makes training at the range count for more.
+scSpecEntertainmentDesc,UI,Skill,,,,"A round of drinks lifts morale more, a little more with each star. Keeps the lounge lively."
 scTraitEatsLikeABird,UI,Trait,,,,Eats Like a Bird
 scTraitBottomlessStomach,UI,Trait,,,,Bottomless Stomach
 scTraitOptimist,UI,Trait,,,,Optimist
@@ -104,6 +124,18 @@ scTraitTinkerer,UI,Trait,,,,Tinkerer
 scTraitHoarder,UI,Trait,,,,Hoarder
 scTraitCheerful,UI,Trait,,,,Cheerful
 scTraitInsomniac,UI,Trait,,,,Insomniac
+scTraitNightOwl,UI,Trait,,,,Night Owl
+scTraitLightSleeper,UI,Trait,,,,Light Sleeper
+scTraitScavenger,UI,Trait,,,,Scavenger
+scTraitHaggler,UI,Trait,,,,Haggler
+scTraitFastHealer,UI,Trait,,,,Fast Healer
+scTraitIronStomach,UI,Trait,,,,Iron Stomach
+scTraitBookworm,UI,Trait,,,,Bookworm
+scTraitGunNut,UI,Trait,,,,Gun Nut
+scTraitBrawler,UI,Trait,,,,Brawler
+scTraitSqueamish,UI,Trait,,,,Squeamish
+scTraitClumsy,UI,Trait,,,,Clumsy
+scTraitSteadyHands,UI,Trait,,,,Steady Hands
 scPackingStation,Block,Block,,,,Packing Station
 scPackingStationDesc,Block,Block,,,,"Drop food, water and other drinks, medical supplies, ammo, building materials, fuel or alcohol in the box and pack them into bundles for your community - the biggest first: a Large bundle holds three units, a Medium two, a Small one. Deposit bundles into the stockpile here; take Small ones out to carry."
 scBundleFood,Item,Item,,,,Food Bundle
@@ -158,6 +190,7 @@ scDaily,UI,Tooltip,,,,"Community ({0} survivors): {1}"
 scDailyUse,UI,Tooltip,,,,"used {0} food, {3} water, {1} medical, {2} ammo"
 scDailyHungry,UI,Tooltip,,,,"- NOT ENOUGH FOOD, your survivors went hungry"
 scDailyInjured,UI,Tooltip,,,,"- {0} injured with no medical supplies"
+scDailySelfHealed,UI,Tooltip,,,,- {0} healed without medical supplies
 scDailyNoAmmo,UI,Tooltip,,,,"- a survivor ran low on ammo and the stockpile had none to give"
 scSwapKept,UI,Tooltip,,,,"{0} keeps the {1}. The {2} is {3}."
 scSwapToStorage,UI,Tooltip,,,,"in the base storage"
@@ -187,6 +220,19 @@ scTraitTinkererDesc,Buff,Buff,,,,Knows mechanics; brings back more from supply r
 scTraitHoarderDesc,Buff,Buff,,,,Brings back more from supply runs but is never quite content.
 scTraitCheerfulDesc,Buff,Buff,,,,Lifts morale and mood.
 scTraitInsomniacDesc,Buff,Buff,,,,Sleeps badly; mood is a little lower.
+scTraitNightOwlDesc,Buff,Buff,,,,Happier on a night watch.
+scTraitLightSleeperDesc,Buff,Buff,,,,Up at once for a horde; +1 base defense.
+scTraitScavengerDesc,Buff,Buff,,,,Brings back a tenth more from supply runs.
+scTraitHagglerDesc,Buff,Buff,,,,Radio barters bring one more back (3 for 2).
+scTraitFastHealerDesc,Buff,Buff,,,,Heals an injury without medicine half the time.
+scTraitIronStomachDesc,Buff,Buff,,,,Never gets sick from the latrine.
+scTraitBookwormDesc,Buff,Buff,,,,Learns half again as much from magazines.
+scTraitGunNutDesc,Buff,Buff,,,,Trains Shooting faster at the range.
+scTraitBrawlerDesc,Buff,Buff,,,,Trains Fighting faster at the gym.
+scTraitSqueamishDesc,Buff,Buff,,,,Can't stand blood: never takes the medic role.
+scTraitClumsyDesc,Buff,Buff,,,,"Wears out axes, picks and shovels half again as fast."
+scTraitSteadyHandsDesc,Buff,Buff,,,,Shoots straighter: a fifth less aim error.
+scComingLater,UI,Menu,,,,(coming later)
 scDailyHarvest,UI,Tooltip,,,,"- the garden gave {0} food"
 scObjectiveReturn,UI,Quest,,,,"Return to {0}"
 scObjectiveReturnWho,UI,Quest,,,,the survivor
@@ -336,6 +382,13 @@ scRoleMechanics,UI,Menu,,,,"Mechanic"
 scRoleGardening,UI,Menu,,,,"Gardener"
 scRoleChemistry,UI,Menu,,,,"Chemist"
 scRoleCraftsmanship,UI,Menu,,,,"Craftsman"
+scRoleConstruction,UI,Menu,,,,Builder
+scRoleLogistics,UI,Menu,,,,Quartermaster
+scRoleBartering,UI,Menu,,,,Trader
+scRoleRecon,UI,Menu,,,,Scout
+scRoleFitness,UI,Menu,,,,Trainer
+scRoleFirearmsInstructor,UI,Menu,,,,Instructor
+scRoleEntertainment,UI,Menu,,,,Entertainer
 scStAtBase,UI,Menu,,,,"At base"
 scStFollowing,UI,Menu,,,,"Following"
 scStHeadingHome,UI,Menu,,,,"Heading home"
@@ -539,6 +592,7 @@ scScoutNone,UI,Tooltip,,,,No chatter about {0} within {1} m.
 scScoutSite,UI,Tooltip,,,,{0} ({1})
 scScoutWhere,UI,Tooltip,,,,{0} m {1}
 scScoutFound,UI,Tooltip,,,,Radio chatter about {0}: {1}. Marked on your map.
+scScoutRecon,UI,Tooltip,,,,{0} found the extra sites.
 scScoutMarker,UI,Map,,,,Chatter: {0} ({1})
 scUiGarrison,UI,Menu,,,,Garrison
 scUiStaffEmpty,UI,Menu,,,,Empty post
@@ -580,6 +634,12 @@ scBarterDone,UI,Tooltip,,,,Traded {0} {1} for 1 {2} over the radio.
 scBarterLedger,UI,Tooltip,,,,radio barter: {0} {1} for 1 {2}
 scBarterGive,UI,Menu,,,,Give {0} {1}
 scBarterGet,UI,Menu,,,,Get 1 {0}
+scBarterDoneN,UI,Tooltip,,,,Traded {0} {1} for {2} {3} over the radio.
+scBarterLedgerN,UI,Tooltip,,,,radio barter: {0} {1} for {2} {3}
+scBarterHelpBarterer,UI,Tooltip,,,,{0} drove the price down.
+scBarterHelpHaggler,UI,Tooltip,,,,{0} haggled one more out of them.
+scSqueamishNoMedic,UI,Tooltip,,,,{0} is too squeamish to be the party medic.
+scLightSleeperUp,UI,Tooltip,,,,{0} is a light sleeper - up at once for the horde.
 scRadioBarterHeader,UI,Menu,,,,Barter over the radio (once a day)
 scRadioBarterTrade,UI,Menu,,,,Trade
 scRadioBarterDesc,UI,Menu,,,,Click the buttons to pick what you give and what you get.
@@ -1010,6 +1070,7 @@ scActDrinksRunning,UI,Tooltip,,,,The round is still going - there is one a day.
 scActDrinksToday,UI,Tooltip,,,,There has already been a round today - try again tomorrow.
 scActDrinksShort,UI,Tooltip,,,,A round needs {0} luxuries and {1} food (the stockpile has {2} and {3}).
 scActDrinksPoured,UI,Tooltip,,,,You pour a round of drinks. Spirits lift: +{0} morale for {1} minutes.
+scActDrinksHost,UI,Tooltip,,,,{0} keeps the party going (+{1}).
 scActDrinksOver,UI,Tooltip,,,,The round of drinks has worn off.
 blockcommand_scfacinfo,UI,Menu,,,,Check
 blockcommand_scfacupgrade,UI,Menu,,,,Upgrade

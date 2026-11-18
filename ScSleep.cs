@@ -119,6 +119,7 @@ namespace SurvivorCommunity
             {
                 // SleepAtNight off (or no wake path) still has to CLOSE what is already open - just not opening would
                 // leave whoever is asleep stranded in 0-XNPCCore's routine for good.
+                ScTraitEffects.SleepTick();                // round m1t: Light Sleeper's "up for the horde" told once per attack
                 string nightWhy = CannotWake() ? "0-XNPCCore cannot wake her (SdcsResident.Clear missing)" : SleepWhy(w);
                 List<Verdict> all = Plan(w, nightWhy, ScConfig.Enclaves);
                 for (int i = 0; i < all.Count; i++) Apply(all[i].Npc, all[i].Why, all[i].Min, all[i].Size, all[i].Name);
@@ -160,6 +161,9 @@ namespace SurvivorCommunity
             if (m.Status != MemberStatus.Resident) return "not a resident at home";
             if (ScWatch.OnWatch(m)) return "on watch";
             if (ScWork.OnShift(m.Id)) return "on a work shift";
+            // round m1t (T1): a light sleeper is up while a horde is on its way to the base or fighting it (not while one is held
+            // back); she sleeps again after
+            if (ScTraitEffects.HordeComing() && ScTraitEffects.WakesForAttack(m)) return ScTraitEffects.WakeWhy;
             if (!ScZone.HasHome) return "no home zone";
             // The box comes from ScZone.Bounds, the same XZ extent ScZone.Contains tests, so a LandClaimUpgrade-enlarged
             // claim gives 0-XNPCCore the whole zone. Building it from VanillaRadius instead would hand it a smaller box
@@ -217,6 +221,7 @@ namespace SurvivorCommunity
                         if (Time.time - since < DawnHoldSeconds) return;
                     }
                 }
+                if (ReferenceEquals(why, ScTraitEffects.WakeWhy)) ScTraitEffects.TellWoken(npc, name);   // round m1t: Light Sleeper
                 Close(npc, name, why);
                 return;
             }
