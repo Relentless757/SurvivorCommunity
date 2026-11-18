@@ -273,6 +273,7 @@ namespace SurvivorCommunity
             List<EncPerson> people = ScEnclavePeople.Living(e);
             EncPerson leader = ScEnclavePeople.LeaderOf(e);
             string leaderName = leader != null ? leader.Name : "";
+            RadioSpeaker speaker = ScEncRadio.Speaker(e);       // round m1v: taken before anyone leaves the records (their body with it)
             string name = e.Name;
             Vector3 centre = e.Centre;
             ulong now = w != null ? w.worldTime : 0UL;
@@ -320,6 +321,7 @@ namespace SurvivorCommunity
                     building = " " + (days > 0 ? string.Format(Loc("scEncJoinBuilding"), days) : Loc("scEncJoinBuildingFree"));
                 }
                 ScCommunity.Tell(player, said + " " + string.Format(Loc("scEncJoinTold"), name, joined, brought) + building, "");
+                ScEncRadio.Say(speaker, follow ? EncCall.JoinFollow : EncCall.Join, player, cause == "the dialog", null, false, name);   // round m1v: in person as the talk closes
             }
             if (joined > 0) ScOutposts.NoteLedger(string.Format(Loc("scEncJoinLedger"), name, joined));
             string how = (following > 0 ? following + " following you home" + (arriving > 0 ? ", " : "") : "")

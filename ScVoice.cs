@@ -514,18 +514,9 @@ namespace SurvivorCommunity
             if (m == null || string.IsNullOrEmpty(key) || !ScConfig.VoiceLines) return null;
             try
             {
-                List<Voice> chain;
                 EntityAlive npc = ScCommunity.FindNpc(m.Id);
-                if (npc != null && ScXnpc.IsSurvivorBody(npc)) chain = Chain(npc);
-                else
-                {
-                    List<Voice> all = Voices();     // first: it parses the config when nothing has yet
-                    bool male = m.Look != null ? m.Look.Male : ScLooks.ClassIsMale(m.Class);
-                    string rule;
-                    // round 31: a skin tone too; round 32c: its face first, and the record's name as Chain's RaceSeed (review L4)
-                    string race = m.Look != null ? RaceFor(m.Look.Race, m.Look.Variant, male, m.Name ?? "", out rule) : null;
-                    chain = ChainFor(all, male, race, m.Name ?? "");
-                }
+                // round m1v: the chain is RecordChain's - the body's own while it is a survivor body, else the record's (as before)
+                List<Voice> chain = RecordChain(m, npc != null && ScXnpc.IsSurvivorBody(npc) ? npc : null);
                 if (chain == null) return null;
                 foreach (Voice v in chain)
                 {
@@ -538,6 +529,67 @@ namespace SurvivorCommunity
                 ScLog.Once("voice-member-clip", e);
             }
             return null;
+        }
+
+        // ---- round m1v: the voice of anyone with a record (RadioSpeaker: an enclave's person, a band's, a member) ----
+
+        /// <summary>
+        /// Round m1v: the voices someone with a record speaks in - their body's own chain while it is in the world (a survivor's
+        /// or a raider's body: Chain, as their talk, greetings and taunts), else one built from the record as Chain deals it:
+        /// the look's sex and race (round 31: a skin tone too; round 32c: its face first) and their name as the seed (Chain's
+        /// RaceSeed for a member - review L4). body: theirs, checked by the caller (a recycled id is not theirs).
+        /// </summary>
+        internal static List<Voice> RecordChain(Member who, EntityAlive body)
+        {
+            if (body != null && (ScXnpc.IsSurvivorBody(body) || ScXnpc.IsRaider(body))) return Chain(body);
+            if (who == null) return null;
+            List<Voice> all = Voices();     // first: it parses the config when nothing has yet
+            bool male = who.Look != null ? who.Look.Male : ScLooks.ClassIsMale(who.Class);
+            string rule;
+            string race = who.Look != null ? RaceFor(who.Look.Race, who.Look.Variant, male, who.Name ?? "", out rule) : null;
+            return ChainFor(all, male, race, who.Name ?? "");
+        }
+
+        /// <summary>
+        /// Round m1v (ROADMAP item 2): MemberClip for an enclave's person. Their record's Id is 0 - MemberClip's FindNpc(m.Id)
+        /// could never find them - so the voice is their body's chain while it is out (ScEnclavePeople.OwnBody), else their
+        /// record's (RecordChain): the leader sounds the same on the radio as in person.
+        /// </summary>
+        internal static string MemberClip(EncPerson p, string key, out string voice)
+        {
+            voice = null;
+            if (p == null || string.IsNullOrEmpty(key)) return null;
+            string used;
+            return RecordClip(p.Who, ScEnclavePeople.OwnBody(p), new[] { key }, null, out used, out voice);
+        }
+
+        /// <summary>
+        /// Round m1v: the clip of one of these keys in this record's voices (RecordChain): the first voice that has any of them,
+        /// one of its keys at random (rnd null: the first). key: the one picked. Null when none has any, or VoiceLines is off.
+        /// </summary>
+        internal static string RecordClip(Member who, EntityAlive body, IList<string> keys, System.Random rnd, out string key, out string voice)
+        {
+            key = null;
+            voice = null;
+            if (who == null || keys == null || keys.Count == 0 || !ScConfig.VoiceLines) return null;
+            try
+            {
+                List<Voice> chain = RecordChain(who, body);
+                var found = new List<string>();
+                Voice v = FirstWith(chain, keys, found);
+                if (v == null || found.Count == 0) return null;
+                string k = found[found.Count == 1 || rnd == null ? 0 : rnd.Next(found.Count)];
+                string path;
+                if (!v.Lines.TryGetValue(k, out path)) return null;
+                key = k;
+                voice = v.Name;
+                return path;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("voice-record-clip", e);
+                return null;
+            }
         }
 #endif
 
@@ -580,20 +632,24 @@ namespace SurvivorCommunity
         /// <summary>
         /// vo2: a line said as the talk closes (an enclave leader's answer to "Let me think about it.", which comes as a
         /// tell): it plays as a dialog line does - in the survivor's voice, under the repeat rule - and the talk's close
-        /// does not stop it (OnTalkClosed).
+        /// does not stop it (OnTalkClosed). Round m1v (the review's fix 3): true when a clip was found and is loading or
+        /// playing (false: VoiceLines off, no recording in their talk voice, said within RepeatSeconds); started gets the clip
+        /// once it really plays; failed (the m1v re-check's N3) runs instead when it never does - the clip did not load, the NPC
+        /// died or went meanwhile, or another SC line took over first.
         /// </summary>
-        public static void SayAfterTalk(EntityAlive npc, string key)
+        public static bool SayAfterTalk(EntityAlive npc, string key, Action<AudioClip> started = null, Action failed = null)
         {
-            if (npc == null || string.IsNullOrEmpty(key) || !ScConfig.VoiceLines) return;
+            if (npc == null || string.IsNullOrEmpty(key) || !ScConfig.VoiceLines) return false;
             var found = new List<string>();
             Voice v = FirstWith(TalkChain(npc), new[] { key }, found);
             string path;
-            if (v == null || !v.Lines.TryGetValue(key, out path)) return;
+            if (v == null || !v.Lines.TryGetValue(key, out path)) return false;
             string tag = npc.entityId + "|" + key;
             float at;
-            if (recent.TryGetValue(tag, out at) && Time.unscaledTime - at < RepeatSeconds) return;
-            Play(npc, tag, path);
+            if (recent.TryGetValue(tag, out at) && Time.unscaledTime - at < RepeatSeconds) return false;
+            Play(npc, tag, path, started, failed);
             parting = true;   // after Play: its Stop clears the flag
+            return true;
         }
 
         /// <summary>The voices a talk's line is said in: one of the community's survivors only (a raider is never talked to).</summary>
@@ -850,7 +906,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ playing ----
 
-        private static void Play(EntityAlive npc, string tag, string path)
+        private static void Play(EntityAlive npc, string tag, string path, Action<AudioClip> started = null, Action failed = null)
         {
             Stop();
             // V1: SC's new line on this NPC ends the answer pass - Voice Control's answer still queued is swallowed from here
@@ -866,10 +922,11 @@ namespace SurvivorCommunity
             bool forVc = VcPlayer(npc) != null;
             ScClipCache.Get(path, !forVc, clip =>
             {
+                bool begun = false;                             // m1v N3: failed runs when this never starts the clip
                 try
                 {
-                    if (my != token || clip == null) return;   // superseded meanwhile, or did not load (logged by the cache)
-                    if (npc == null || npc.IsDead()) return;    // Unity null: gone while the clip loaded
+                    if (my != token || clip == null) { PlayFailed(failed); return; }   // superseded meanwhile, or did not load (logged by the cache)
+                    if (npc == null || npc.IsDead()) { PlayFailed(failed); return; }    // Unity null: gone while the clip loaded
                     FinishPending(id);                          // M1: a bark's taken-over callback, before this line cuts it
                     Component player = forVc ? VcPlayer(npc) : null;
                     AudioClip on = player != null ? PlayOnVc(player, path, clip, null) : null;
@@ -879,13 +936,28 @@ namespace SurvivorCommunity
                         Started(id, tag, on);
                     }
                     else PlayOwn(npc, tag, clip);
+                    begun = true;
                     ScClipCache.MarkPlaying(clip);
+                    if (started != null)                        // round m1v (the review's fix 3): SayAfterTalk's caller learns it plays
+                    {
+                        try { started(on ?? clip); }
+                        catch (Exception se) { ScLog.Once("voice-play-started", se); }
+                    }
                 }
                 catch (Exception e)
                 {
                     ScLog.Once("voice-play", e);
+                    if (!begun) PlayFailed(failed);
                 }
             });
+        }
+
+        /// <summary>The m1v re-check's N3: Play's failure path (its caller's callback, guarded).</summary>
+        private static void PlayFailed(Action failed)
+        {
+            if (failed == null) return;
+            try { failed(); }
+            catch (Exception e) { ScLog.Once("voice-play-failed", e); }
         }
 
         /// <summary>A clip started: what Stop, the repeat rule and (V1) the voice gate read.</summary>

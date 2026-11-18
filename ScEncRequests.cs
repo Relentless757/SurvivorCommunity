@@ -702,6 +702,7 @@ namespace SurvivorCommunity
             if (heard)
             {
                 if (player != null) ScCommunity.Tell(player, string.Format(Loc("scEncReqHeard"), e.Name), "");
+                if (player != null) ScEncRadio.Say(e, EncCall.Offer, player, kind);   // round m1v: the leader's voice (text only until round V-b records it)
                 ScOutposts.NoteLedger(string.Format(Loc("scEncReqLedgerAsk"), e.Name));
             }
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': request #" + r.Id + " offered on day " + day + " - " + Describe(r) + ", the offer stands to the end of day "

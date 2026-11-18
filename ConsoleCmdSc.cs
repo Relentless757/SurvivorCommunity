@@ -83,7 +83,7 @@ namespace SurvivorCommunity
                     case "infest": case "infestation": case "infestations": InfestCmd(_params); break;
                     case "sleepers": case "sleeper": SleepersCmd(_params); break;
 #if SC_V34
-                    case "radio": if (!HandheldCmd(_params)) RadioCmd(); break;   // R2: radio [give <member> | talk <member> <moment> | attacked <member> [force] (29b) | horde <moment> [side] [member] [force] (vo4)]
+                    case "radio": if (!HandheldCmd(_params)) RadioCmd(); break;   // R2: radio [give <member> | talk <member> <moment> | attacked <member> [force] (29b) | horde <moment> [side] [member] [force] (vo4) | enc <moment> [id] [force] (m1v)]
 #else
                     case "radio": RadioCmd(); break;
 #endif
@@ -2256,19 +2256,23 @@ namespace SurvivorCommunity
             Output("[SC] radio talk: " + ScRadioTalk.QueueState() + "; counters: " + ScHandheld.Counters());
             Output("[SC] runners' " + ScRunnerCall.Describe());      // round 29b
             Output("[SC] " + ScHordeVoice.Describe(pl));              // vo4
+            Output("[SC] " + ScEncRadio.Describe(pl));                // round m1v
             Output("[SC] sc radio give <member> (a handheld radio into their inventory) | sc radio talk <member> <out|arrived|found|empty|trouble|home|near|recall|hurt> (says it now)"
                    + " | sc radio attacked <member> [force] (their call for help as if a zombie hurt them now; force: whatever the rules)"
-                   + " | sc radio horde <gather|spotted|clear|call|arrived|held|damaged|overrun> [side] [member] [force] (a horde warning said now; force: whatever the rules)");
+                   + " | sc radio horde <gather|spotted|clear|call|arrived|held|damaged|overrun> [side] [member] [force] (a horde warning said now; force: whatever the rules)"
+                   + " | sc radio enc <moment> [id] [force] (an enclave's or a band's line now, by the hearing rule; force: whatever the rules)");   // round m1v
 #endif
         }
 #if SC_V34
 
         /// <summary>R2: sc radio give &lt;member&gt; | sc radio talk &lt;member&gt; &lt;moment&gt; | (round 29b) sc radio attacked &lt;member&gt; [force]
-        /// | (vo4) sc radio horde &lt;moment&gt; [side] [member] [force]. False: not one of these (the radio status prints).</summary>
+        /// | (vo4) sc radio horde &lt;moment&gt; [side] [member] [force] | (m1v) sc radio enc &lt;moment&gt; [id] [force]. False: not one of
+        /// these (the radio status prints).</summary>
         private static bool HandheldCmd(List<string> p)
         {
             string verb = p.Count >= 2 ? p[1].ToLowerInvariant() : "";
             if (verb == "horde") { HordeVoiceCmd(p); return true; }      // vo4
+            if (verb == "enc") { ScEncRadio.Command(p, Output); return true; }   // round m1v: an enclave's or a band's line through the whole path
             if (verb != "give" && verb != "talk" && verb != "attacked") return false;
             Member m = p.Count >= 3 ? FindMember(p[2]) : null;
             if (m == null) { Output("[SC] sc radio " + verb + " <member id|name>" + (verb == "talk" ? " <out|arrived|found|empty|trouble|home|near|recall|hurt>" : verb == "attacked" ? " [force]" : "")); return true; }

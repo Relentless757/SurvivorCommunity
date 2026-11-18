@@ -161,7 +161,9 @@ namespace SurvivorCommunity
                 string voice;
                 string path = ScVoice.MemberClip(m, key, out voice);
                 if (path == null) return NoClip(m, key);
-                bool inPerson = player != null && ScRunners.XZ(body.position, player.position) <= ScRadioTalk.InPersonRange;
+                // m1v re-check N1: 3D, as ScRadioTalk.PlayInPerson checks it (a bark is 3D audio cut off at 40 m) - a guard high up a
+                // tower is on the radio by the rule below, decided and logged here, not dropped at play time
+                bool inPerson = player != null && Vector3.Distance(body.position, player.position) <= ScRadioTalk.InPersonRange;
                 string how = "in person";
                 if (!inPerson)
                 {
@@ -244,7 +246,7 @@ namespace SurvivorCommunity
         private static string Far(EntityAlive body, EntityPlayerLocal player)
         {
             if (body == null || player == null) return "?";
-            return ScRunners.XZ(body.position, player.position).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " m";
+            return Vector3.Distance(body.position, player.position).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " m";   // m1v N1: 3D
         }
 
         // ------------------------------------------------------------------ the console ----
@@ -277,7 +279,7 @@ namespace SurvivorCommunity
             if (g == null) sb.Append("; at home: no guard on watch with a body (no call-outs)");
             else
             {
-                bool near = player != null && ScRunners.XZ(body.position, player.position) <= ScRadioTalk.InPersonRange;
+                bool near = player != null && Vector3.Distance(body.position, player.position) <= ScRadioTalk.InPersonRange;   // m1v N1: 3D
                 bool own = ScHandheld.NpcCarries(body);
                 sb.Append("; at home: ").Append(g.Name).Append(" on watch, ").Append(Far(body, player)).Append(" from you - ")
                   .Append(near ? "in person"

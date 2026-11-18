@@ -1116,6 +1116,8 @@ The Handheld Radio works by being carried anywhere in your backpack or toolbelt.
   station is offline, and grays out the station's controls. The lists stay readable, and runners who carry a radio can
   still be called home (radio to radio).
 - For runners: see section 8.
+- Enclaves and drifters: while you carry one, their messages to you are spoken aloud too (section 12, "Their voices on
+  the radio").
 
 
 11. Outposts
@@ -1317,7 +1319,8 @@ What they ask for, and what it is worth:
   alive (80% on the day you agree, less each day after). Alive: they hide inside; talk to them ("Your people sent me.
   Let's get you home.") and lead them home. Dead: search their remains, then tell the leader.
 - An infestation is done the moment it is cleared, wherever you are.
-- A siege: "They're coming over the walls! Please, hurry!" You have 15 minutes to get within 70 m. Then the horde comes
+- A siege: "They're coming over the walls! Please, hurry!" You have 15 minutes to get within 70 m (halfway through, if
+  you are not there yet, they call once more: "We can't hold them much longer! Where are you?"). Then the horde comes
   over their walls from the far side, and their people fight beside you. Kill every one to win. Too late, or all of
   their people dead, and the enclave falls: its building becomes an infestation. In the radio window, On our way tells
   them you are coming, and We can't come (press twice) gives them up.
@@ -1379,6 +1382,32 @@ for all of them (counting the 12-member limit). Say "Welcome to the community." 
 - They make their own way to you. Each turns up at home from 6 game hours later, while you are there. Until then the
   community window lists them as On the way: they already eat and need a bed, but take no orders.
 - Their building is free: claim it for an outpost before the dead return.
+
+Their voices on the radio
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When an enclave or a band of drifters contacts you, you still get the message, and now you also hear the speaker say
+their words in their own voice: the same voice you hear when you talk to them.
+
+- What is spoken: an ally's answer to Send a fighter or Supply drop (or "We couldn't get through to you" when a call
+  fails), the fighter's hello when they reach you, a raider enclave's demand on an outpost and its answer when you Pay
+  or Refuse, a Friendly or Allied group telling you it is moving away, a leader's answer as their whole group joins you,
+  and drifters thanking you for your help and answering as they join you.
+- Over the radio you hear it, with the radio's crackle, only while you carry a handheld radio or stand within 30 m of
+  one of your radio stations that has power (the one at home, or one at an outpost; with no home yet, any of them).
+  Otherwise you get the message alone, as before.
+- In person: when the speaker is within 30 m of you, they say it out loud where they stand. No radio needed. If they are
+  farther away by the time it is their turn to speak, you hear it over the radio instead (by the rule above), or not at
+  all.
+- Drifters joining you: the one you talked to gives their answer.
+- Who speaks: the group's leader. If the leader is dead or away, the next of their people speaks. A group whose people
+  you have never met (raiders who send a demand before you ever went near them, for example) gives you the message
+  alone.
+- One voice at a time: a siege call goes first, then the base's horde warnings, then your runners, then the other
+  enclave lines. When too many are waiting, the least urgent one is dropped.
+- The request announcement ("The radio crackles: ...") and the siege call (and its call again halfway through) are not
+  recorded yet: for now they are messages only.
+- "EnclaveVoiceLines" (section 20) turns these voices off; "VoiceLines" off silences them too.
 
 
 13. Bands on the road and wild raiders
@@ -1667,8 +1696,8 @@ Recorded voices
   "VoiceDarkTonesFemale" (section 20); with "VoiceRaceByFace" off, the skin tone alone decides ("VoiceRaceBySkin"), as
   in the previous version.
 - Lines with a name or a number in them say only the part without it; the panel shows the whole line.
-- A few of the newest lines (for example the training line after reading a magazine, and refusals about the work kit,
-  field jobs and trading) are text only for now.
+- A few of the newest lines (for example the training line after reading a magazine, refusals about the work kit, field
+  jobs and trading, and an enclave's request announcement and siege calls on the radio) are text only for now.
 - Voices play through Voice Control's player with lip sync when Voice Control is set up on that NPC.
 
 Greetings, chatter and taunts
@@ -1887,6 +1916,8 @@ Supply runs and radio
 - RunnerCallsWhenAttacked = true: Runners with a radio call when attacked
 - HordeVoiceLines = true: Horde warnings are spoken too: the guard on watch at home, the radio from home while you're
   away
+- EnclaveVoiceLines = true: Enclaves and drifters speak their messages to you: in person within 30 m, else on the radio
+  while you carry a handheld or stand within 30 m of one of your radio stations with power
 
 Mining runs
 ~~~~~~~~~~~
@@ -2081,8 +2112,9 @@ For console commands (testing and fixing), see CONSOLE_COMMANDS.txt.
 - Game 3.4 only. This build does not run on 3.2 or 3.3.
 - Do not remove the mod from a save that used it. Loading that save without SC can damage the chunks its blocks are in.
 - A few of the newest lines are text only. All 16 voices speak the 604 recorded lines, but the newest ones (a mining
-  runner's radio lines, the training line after reading a magazine, and some refusals about the work kit, field jobs and
-  trading) have no voice yet and only appear as text.
+  runner's radio lines, the training line after reading a magazine, some refusals about the work kit, field jobs and
+  trading, and an enclave's request announcement and siege calls on the radio) have no voice yet and only appear as
+  text.
 - Mining and digging clay are not resident jobs. Residents do home jobs only; send them on a mining run instead, or take
   a member along for Mine, Loot here or Follow + loot.
 - Breaking an enclave's containers open is not stopped, only opening them.

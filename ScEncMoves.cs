@@ -372,6 +372,7 @@ namespace SurvivorCommunity
                     string where = From(player, out from) ? ScEnclaves.Where(from, e.Centre) : dir;
                     ScCommunity.Tell(player, string.Format(Loc("scEncCallRadio"), e.Name, Loc(SaidKey(reason))) + " "
                                              + string.Format(Loc("scEncMoveTold"), oldName, e.PoiName, where), "");
+                    ScEncRadio.Say(e, ScEncRadio.MoveCall(SaidKey(reason)), player);   // round m1v: their words aloud
                 }
                 else if (wasKnown) ScCommunity.Tell(player, string.Format(Loc("scEncMoveLeft"), e.Name, oldName), "");
             }
