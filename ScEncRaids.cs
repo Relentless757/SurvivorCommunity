@@ -245,6 +245,7 @@ namespace SurvivorCommunity
             if (player != null)
                 ScCommunity.Tell(player, Radio(e, "scEncRaidDemandSaid") + " " + string.Format(Loc("scEncRaidDemand"), o.DemandAmmo, o.DemandFood, o.Name)
                                          + (revealed ? " " + Loc("scEncRaidRevealed") : ""), "ui_denied");
+            if (player != null) ScEncRadio.Say(e, EncCall.Demand, player);      // round m1v: their words aloud
             if (summary != null)
             {
                 if (summary.Length > 0) summary.Append(' ');
@@ -263,6 +264,7 @@ namespace SurvivorCommunity
             if (e == null) return null;
             Rest(e);
             ScOutposts.NoteLedger(string.Format(Loc("scEncRaidLedgerPaid"), e.Name, o.Name));
+            ScEncRadio.Say(e, EncCall.Paid, ScCommunity.LocalPlayer);           // round m1v: their answer aloud (the window shows its words)
             ScLog.Out("paid enclave " + e.Id + " '" + e.Name + "' for outpost " + o.Id + " (" + o.Name + ") - they rest until day " + e.RaidDay);
             return Radio(e, "scEncRaidPaidSaid") + " " + string.Format(Loc("scEncRaidPaid"), e.Name, o.Name);
         }
@@ -294,6 +296,13 @@ namespace SurvivorCommunity
         {
             Enclave e = EnclaveOf(o);
             return e == null ? null : Radio(e, "scEncRaidRefusedSaid") + " " + string.Format(Loc("scEncRaidRefused"), e.Name, o.Name, ScConfig.OutpostAttackHours);
+        }
+
+        /// <summary>Round m1v: ScOutpostRisk.RefuseDemand - their answer said aloud (ScEncRadio) as the window shows RefusedText's words. Nothing for a nameless demand.</summary>
+        internal static void SayRefused(Outpost o, EntityPlayer player)
+        {
+            Enclave e = EnclaveOf(o);
+            if (e != null) ScEncRadio.Say(e, EncCall.Refused, player);
         }
 
         // ------------------------------------------------------------------ the 1 Hz check ----

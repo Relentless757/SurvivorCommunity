@@ -53,6 +53,11 @@ namespace SurvivorCommunity
     /// effect and volume, or said in person from the speaker's body (ScVoice.PlayBark, plain and positional, as a greeting
     /// is). They carry no caption of the queue's own - the moment's own on-screen text is the caption - and they never touch a
     /// runner's RunTalk marks.
+    ///
+    /// Round m1v: anyone's line (RadioSpeaker: an enclave's or a band's person, later the Military's operator) comes in the
+    /// same way (QueueSpoken: ScRadioSpeaker.Say, ScEncRadio), and the queue keeps an order (RadioPriority): a siege call, then
+    /// the horde warnings, then a runner's moments, then every other enclave line - the highest waiting plays first (the
+    /// oldest of them first), and a full queue (QueueMax) drops its lowest, or the new line when every waiting one is higher.
     /// </summary>
     public static class ScRadioTalk
     {
@@ -102,9 +107,23 @@ namespace SurvivorCommunity
             public bool Caption = true;
             /// <summary>vo4: a horde warning said in person, from the speaker's body (ScVoice.PlayBark), not on the radio.</summary>
             public bool InPerson;
+            // ---- round m1v ----
+            /// <summary>Round m1v: the line's place in the queue (RadioPriority): the highest waiting plays first, the lowest goes when it is full.</summary>
+            public RadioPriority Priority = RadioPriority.Runner;
+            /// <summary>
+            /// Round m1v: an in-person line of someone outside the community (an enclave's or a band's person): their body's id
+            /// and birth time (-1: a member's body, ScCommunity.FindNpc(MemberId), as vo4's).
+            /// </summary>
+            public int EntityId = -1;
+            public ulong EntityBorn;
+            /// <summary>Round m1v: the counters' word for a line with no caption of the queue's own ("horde", "enc").</summary>
+            public string Tag = "horde";
         }
 
-        private static readonly Queue<Line> queue = new Queue<Line>();
+        /// <summary>Round m1v: a list, so the next line is picked by priority (Enqueue, Next); never more than QueueMax.</summary>
+        private static readonly List<Line> queue = new List<Line>();
+        /// <summary>The most lines that wait (never a backlog).</summary>
+        public const int QueueMax = 8;
         private static readonly System.Random rnd = new System.Random();
         /// <summary>Real time until which the queue waits (a caption on screen, a clip loading or playing).</summary>
         private static float busyUntil;
@@ -206,8 +225,9 @@ namespace SurvivorCommunity
                 string path = ScVoice.MemberClip(m, key, out voice);
                 string words = Localization.Get(key + "Said");
                 if (string.IsNullOrEmpty(words) || words == key + "Said") words = key;
-                if (queue.Count >= 8) queue.Dequeue();                 // never a backlog: the oldest goes
-                queue.Enqueue(new Line { MemberId = m.Id, Name = m.Name, Key = key, Words = words, Path = path, Voice = voice, Event = ev });
+                // round m1v: at a runner's priority; a full queue drops its lowest line (the oldest of them), this one when it is the lowest
+                if (!Enqueue(new Line { MemberId = m.Id, Name = m.Name, Key = key, Words = words, Path = path, Voice = voice, Event = ev, Priority = RadioPriority.Runner }))
+                    return "dropped: the radio queue is full of more urgent lines";
                 ScLog.Out(m.Name + " on the radio (" + ev + "): " + key + (path != null ? " in " + voice : " - no recording, the caption alone"));
                 return "queued " + key + (path != null ? " in " + voice : " (no recording: the caption alone)");
             }
@@ -235,10 +255,76 @@ namespace SurvivorCommunity
         internal static void QueueHorde(Member m, string key, string path, string voice, bool inPerson, EntityPlayerLocal player)
         {
             if (m == null || string.IsNullOrEmpty(path)) return;
-            if (queue.Count >= 8) queue.Dequeue();                     // never a backlog: the oldest goes
-            queue.Enqueue(new Line { MemberId = m.Id, Name = m.Name, Key = key, Words = key, Path = path, Voice = voice, Caption = false, InPerson = inPerson });
+            // round m1v: at the horde's priority (above a runner's moments and enclave lines, below a siege call)
+            if (!Enqueue(new Line { MemberId = m.Id, Name = m.Name, Key = key, Words = key, Path = path, Voice = voice, Caption = false, InPerson = inPerson, Priority = RadioPriority.Horde }))
+                return;
             PlayNext(player);
         }
+
+        // ------------------------------------------------------------------ round m1v: anyone's line, the priorities ----
+
+        /// <summary>
+        /// Round m1v (RadioSpeaker): a speaker's line into the queue at its priority - its clip (path, in voice) on the radio's
+        /// source, or said in person from their body (inPerson: their body near the player; ScVoice.PlayBark, as vo4's), with no
+        /// caption of the queue's own (the caller shows its text) and no runner's RunTalk marks. It starts at once when the
+        /// queue is idle. False: the queue was full of higher lines and this one was dropped.
+        /// </summary>
+        internal static bool QueueSpoken(RadioSpeaker s, string key, string path, string voice, EntityAlive inPerson, RadioPriority prio, string tag, EntityPlayerLocal player)
+        {
+            if (s == null || string.IsNullOrEmpty(path)) return false;
+            bool member = s.Kind == RadioSpeaker.Kinds.Member;
+            var line = new Line
+            {
+                MemberId = member ? s.MemberId : 0, Name = s.Name, Key = key, Words = key, Path = path, Voice = voice, Caption = false,
+                InPerson = inPerson != null, Priority = prio, Tag = string.IsNullOrEmpty(tag) ? "enc" : tag,
+                EntityId = inPerson != null && !member ? inPerson.entityId : -1, EntityBorn = inPerson != null ? inPerson.WorldTimeBorn : 0UL
+            };
+            if (!Enqueue(line)) return false;
+            PlayNext(player);
+            return true;
+        }
+
+        /// <summary>
+        /// Round m1v: a line into the queue. Full (QueueMax): the lowest waiting line goes - the oldest of them - or this one,
+        /// when every waiting line is higher. False: this one was dropped.
+        /// </summary>
+        private static bool Enqueue(Line line)
+        {
+            if (queue.Count >= QueueMax)
+            {
+                int low = 0;
+                for (int i = 1; i < queue.Count; i++) if (queue[i].Priority < queue[low].Priority) low = i;
+                Line gone = line.Priority < queue[low].Priority ? line : queue[low];
+                if (!ReferenceEquals(gone, line)) queue.RemoveAt(low);
+                ScHandheld.Count("queue full: dropped a line (" + gone.Priority + ")");
+                ScLog.Verbose("the radio queue is full: " + gone.Name + "'s " + gone.Key + " (" + gone.Priority + ") dropped"
+                              + (ReferenceEquals(gone, line) ? " - every waiting line is more urgent" : " for " + line.Name + "'s " + line.Key + " (" + line.Priority + ")"));
+                if (ReferenceEquals(gone, line)) return false;
+            }
+            queue.Add(line);
+            return true;
+        }
+
+        /// <summary>Round m1v: the next line - the highest priority waiting, the oldest of those. The queue is not empty.</summary>
+        private static Line Next()
+        {
+            int best = 0;
+            for (int i = 1; i < queue.Count; i++) if (queue[i].Priority > queue[best].Priority) best = i;
+            Line l = queue[best];
+            queue.RemoveAt(best);
+            return l;
+        }
+
+        /// <summary>Round m1v: an in-person line's body when the speaker is not a member - by id, and only while it is the same body.</summary>
+        private static EntityAlive BodyOf(Line line)
+        {
+            World w = ScCommunity.World;
+            EntityAlive npc = w != null && line.EntityId >= 0 ? ScNpc.As(ScNpc.Loaded(w, line.EntityId)) : null;
+            return npc != null && npc.WorldTimeBorn == line.EntityBorn ? npc : null;
+        }
+
+        /// <summary>Round m1v: the log's word for a line with no caption of its own.</summary>
+        private static string What(Line line) { return line.Tag == "horde" ? "horde warning" : line.Tag + " line"; }
 
         /// <summary>
         /// ScTicker, once a second (host): the moments that are places on the route - leaving home behind (Out), leaving the
@@ -294,7 +380,7 @@ namespace SurvivorCommunity
         {
             float now = Time.unscaledTime;
             if (queue.Count == 0 || now < busyUntil) return;
-            Line line = queue.Dequeue();
+            Line line = Next();                                        // round m1v: the highest priority first
             if (line.InPerson) { PlayInPerson(line); return; }        // vo4: a horde warning from the guard's body
             if (line.Path == null)
             {
@@ -315,11 +401,11 @@ namespace SurvivorCommunity
                     if (line.Caption) Caption(p, line);                // vo4: a horde warning's caption is the moment's own text
                     if (clip == null || GameManager.Instance == null)
                     {
-                        ScHandheld.Count(line.Caption ? "talk said: caption alone (clip did not load)" : "horde unsaid: clip did not load");
+                        ScHandheld.Count(line.Caption ? "talk said: caption alone (clip did not load)" : line.Tag + " unsaid: clip did not load");
                         busyUntil = Time.unscaledTime + (line.Caption ? CaptionSeconds : 0.3f);
                         return;
                     }
-                    ScHandheld.Count(line.Caption ? "talk said: voiced" : "horde said: on the radio");
+                    ScHandheld.Count(line.Caption ? "talk said: voiced" : line.Tag + " said: on the radio");
                     bool effect = ScConfig.RunnerRadioEffect;
                     busyUntil = Time.unscaledTime + clip.length + (effect ? 0.6f : 0.3f) + 30f;   // the coroutine lowers it when the line ends
                     GameManager.Instance.StartCoroutine(Guarded(PlayLine(clip, Mathf.Clamp01(ScConfig.RunnerRadioVolume), effect, my)));
@@ -339,19 +425,19 @@ namespace SurvivorCommunity
         /// </summary>
         private static void PlayInPerson(Line line)
         {
-            EntityAlive npc = ScCommunity.FindNpc(line.MemberId);
+            EntityAlive npc = line.EntityId >= 0 ? BodyOf(line) : ScCommunity.FindNpc(line.MemberId);   // round m1v: anyone's body
             if (npc == null || npc.IsDead() || line.Path == null)
             {
-                ScHandheld.Count("horde unsaid: body gone");
-                ScLog.Verbose(line.Name + "'s horde warning " + line.Key + " was not said: their body is gone");
+                ScHandheld.Count(line.Tag + " unsaid: body gone");
+                ScLog.Verbose(line.Name + "'s " + What(line) + " " + line.Key + " was not said: their body is gone");
                 return;                                                // nothing plays: the next line may go at once
             }
             if (ScVoice.Holds(npc))
             {
                 // the player is talking with this guard (or SC's talk line still plays on them): the text shows, the voice would
                 // cut the conversation's line - every SC bark keeps this gate (ScBarks, ScGreetings)
-                ScHandheld.Count("horde unsaid: in a talk with them");
-                ScLog.Verbose(line.Name + "'s horde warning " + line.Key + " was not said: you are talking with them");
+                ScHandheld.Count(line.Tag + " unsaid: in a talk with them");
+                ScLog.Verbose(line.Name + "'s " + What(line) + " " + line.Key + " was not said: you are talking with them");
                 return;
             }
             busyUntil = Time.unscaledTime + 30f;                       // while the clip loads (set to its length when it plays)
@@ -362,7 +448,7 @@ namespace SurvivorCommunity
                 {
                     begun = true;
                     if (my != token) return;
-                    ScHandheld.Count("horde said: in person");
+                    ScHandheld.Count(line.Tag + " said: in person");
                     busyUntil = Time.unscaledTime + clip.length + 0.5f;
                 },
                 () =>
@@ -518,7 +604,10 @@ namespace SurvivorCommunity
         public static string QueueState()
         {
             float left = busyUntil - Time.unscaledTime;
-            return queue.Count + " line(s) waiting" + (left > 0f ? ", busy " + left.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s" : "");
+            var sb = new StringBuilder();
+            foreach (Line l in queue) sb.Append(sb.Length > 0 ? ", " : "").Append(l.Priority).Append(' ').Append(l.Key);   // round m1v: what waits, oldest first
+            return queue.Count + " line(s) waiting" + (sb.Length > 0 ? " (" + sb + ")" : "")
+                   + (left > 0f ? ", busy " + left.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s" : "");
         }
 
         /// <summary>sc radio talk: a moment's name (out, arrived, found, empty, trouble, home, near, recall, hurt).</summary>

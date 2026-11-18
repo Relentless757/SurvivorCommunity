@@ -356,6 +356,9 @@
     <Compile Include="ScRunnerCall.cs" />
     <!-- vo4: the base's horde warnings spoken (a guard on watch at home, the radio from home away) through ScRadioTalk's queue -->
     <Compile Include="ScHordeVoice.cs" />
+    <!-- round m1v: voiced enclave radio calls - the RadioSpeaker abstraction and the hearing rule, the enclaves' and bands' lines -->
+    <Compile Include="ScRadioSpeaker.cs" />
+    <Compile Include="ScEncRadio.cs" />
     <Compile Include="XUiC_ScRadioTab.cs" />
   </ItemGroup>
 

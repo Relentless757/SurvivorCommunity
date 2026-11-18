@@ -245,6 +245,7 @@ namespace SurvivorCommunity
             if (force) SessionOf(e.Id).Forced = true;
             message = fighter ? string.Format(Loc("scEncCallFighterOnWay"), p.Name, TimeText(delay)) : string.Format(Loc("scEncCallDropOnWay"), TimeText(delay));
             if (player != null) ScCommunity.Tell(player, Radio(e, fighter ? "scEncCallFighterSaid" : "scEncCallDropSaid") + " " + message, "");
+            if (player != null) ScEncRadio.Say(e, fighter ? EncCall.Fighter : EncCall.Drop, player);   // round m1v: their answer aloud
             ScLog.Out("radio call to enclave " + e.Id + " '" + e.Name + "': " + (fighter ? "a fighter, " + p.Name + " (p" + p.Id + ", " + p.Who.Class + ")" : "a supply drop")
                       + ", arriving " + (delay == 0UL ? "now" : "in " + TimeText(delay) + " (world time " + e.CallAt + ")") + (force ? " (forced)" : "")
                       + "; their next call from day " + e.CallDay + " (request clock day " + ScEncRequests.Now + ")");
@@ -285,6 +286,7 @@ namespace SurvivorCommunity
             Clear(e);
             e.CallDay = 0;
             if (player != null) ScCommunity.Tell(player, Radio(e, "scEncCallFailSaid"), "ui_denied");
+            if (player != null) ScEncRadio.Say(e, EncCall.Fail, player);        // round m1v
             ScLog.Out("radio call to enclave " + e.Id + " '" + e.Name + "' (" + kind + ") failed: " + why + " - the cooldown is refunded");
         }
 
@@ -474,6 +476,7 @@ namespace SurvivorCommunity
                     {
                         s.Greeted = true;
                         ScCommunity.Tell(player, string.Format(Loc("scEncCallSays"), p.Name, Loc("scEncCallHello")), "");
+                        ScEncRadio.Say(RadioSpeaker.Of(p, e), EncCall.Hello, player, false, null, false, e.Name);   // round m1v: the fighter's own voice, in person
                     }
                 }
                 return false;

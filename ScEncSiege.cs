@@ -367,6 +367,7 @@ namespace SurvivorCommunity
             Quest q = player != null ? ScQuests.StartRequest(player, e, r, ScEncRequests.WhatText(r), out error) : null;
             r.QuestCode = q != null ? q.QuestCode : 0;
             if (player != null) ScCommunity.Tell(player, string.Format(Loc("scEncSiegeCall"), e.Name), "ui_denied");
+            if (player != null) ScEncRadio.Say(e, EncCall.Siege, player);       // round m1v: ahead of every radio line (text only until round V-b records it)
             ScOutposts.NoteLedger(string.Format(Loc("scEncSiegeLedgerCall"), e.Name));
             ScLog.Out("siege called (" + why + "): " + e.Name + " (enclave " + e.Id + ") - " + r.SiegeSize + " zombie(s), " + (secs / 60UL) + " min to come within "
                       + ScConfig.EnclaveSiegeArriveRange + " m (deadline " + ScBaseAttack.Clock(r.Deadline) + (rate <= 0 ? ", real seconds: time is frozen" : "") + "); mix "

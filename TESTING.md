@@ -37,6 +37,114 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round m1v (2026-11-17): voiced enclave radio calls (V-a)
+
+Why: ROADMAP item 2, round V-a, with your decisions of 2026-11-17. When an enclave or a drifter band contacts you, its
+speaker's own recorded voice now says their words beside the message you already get. Wiring only: the 14 lines
+recorded in round vo2 (`scEncCall*`, `scEncRaid*Said`, `scEncMove*Said`, `scEncJoinSaid*`, `scBand*Said`; all 16 voices
+have them). The siege call and the request announcement go through the same path but have no recording yet (round V-b),
+so they stay messages only.
+
+The rule (yours):
+
+- **On the radio**, heard aloud only while you carry a handheld radio, or stand within 30 m of a radio station at home
+  (inside the home zone) that has power. Otherwise the message alone, as before.
+- **In person** when the speaker's body is within 30 m of you: their voice from where they stand, positional, no radio
+  filter. A line said as a talk closes (a join) is the talk's parting line and the close does not cut it.
+- **Who speaks:** the leader at home; if the leader is dead or away, the next living one of their people in the
+  succession's order (at home first, highest tier, made first; never one following you). Nobody, or a group whose
+  people were never made: the message alone. The fighter's hello is the fighter's own voice; a band's lines its leader's.
+- **The radio queue's order:** siege > horde warnings > runners > other enclave lines; a full queue (8) drops the least
+  urgent.
+
+Setup: the new DLL and `Config/blocks.xml` (one new property, `EnclaveVoiceLines`). `DebugLogging` true for the verbose
+lines. A community home with a radio station you can power and unpower; a handheld radio (`giveself scHandheldRadio`) you
+can drop and pick up again; a Friendly or Allied enclave whose people you have met (walk near it once; `sc enclave list`,
+`sc enclave standing <id> 80` makes it Allied); for the raid lines an outpost and a hostile enclave within 2 km of it
+whose people you have met. "Mara" below is the group's leader (`sc enclave people <id>`).
+
+What to look at: each spoken line logs `<name> (leader of <group>) says <key> in <voice>, on the radio (<how>)` or
+`..., in person`; `sc radio` has an "enclave voice:" line (heard now or not, and why; who speaks for the nearest group),
+its queue shows what waits with its priority (`2 line(s) waiting (Horde scHordeCall_north, Enclave scEncCallDropSaid)`),
+and its counters count `enc said: on the radio`, `enc said: in person`, `enc said: in person, as the talk closes`,
+`enc unheard`, `enc unsaid: ...` and `queue full: dropped a line (...)`. Unheard and unrecorded lines log a verbose
+`enclave voice <moment> (<group>) by <name>: <why>`.
+
+**At load**
+
+- [ ] The `config: handheld radio ...` line ends with `enclaveVoiceLines=True`. No new errors or warnings.
+
+**The rule (sample lines from the console)**
+
+- [ ] **No radio.** Drop your handheld and stand more than 30 m from the station. `sc radio enc fighter <id>`: the
+      message "<group> on the radio: "We hear you. Help is coming."" shows, no voice, and the console says "unheard: you
+      carry no handheld radio and no powered radio station at home is within 30 m - the text alone".
+- [ ] **The station.** Walk within 30 m of the powered station (still no handheld): the same command is heard, Mara's
+      voice through the radio sound (a squelch, thin and a little gritty, then a squelch out); the console says "on the
+      radio (the radio station at <pos>, <n> m from you; Enclave)". Cut its power: the message alone again. A powered
+      radio outside the home zone (an outpost relay) does not count.
+- [ ] **The handheld.** Anywhere, far from home, with the handheld in your backpack or toolbelt: heard.
+- [ ] **Same voice.** Talk to Mara in person (her greeting) and compare with the radio line: the same voice (`sc voice
+      who` near her names it; the log line names it too). Unload her (walk 300 m away) and play it again: still the same
+      voice.
+- [ ] **Off.** `EnclaveVoiceLines` false (or `VoiceLines` false): messages only; the console says so. `force` speaks
+      anyway.
+
+**Each kind of call (the real moments)**
+
+- [ ] **Send a fighter.** At the station (or with the handheld), the radio window's Allies panel, **Send a fighter**: the
+      message "<group> on the radio: "We hear you. Help is coming." <name> should reach you in about 0:30." and the
+      leader says the line on the radio.
+- [ ] **Supply drop.** The same with **Supply drop**: "We hear you. Watch the sky."
+- [ ] **The call fails** (rare in play: no spot or open column for 5 minutes): `sc radio enc fail <id>` - "We couldn't
+      get through to you. Call again when you can."
+- [ ] **The fighter's hello.** `sc enclave call <id> fighter force now`, then let them walk up: within 8 m the message
+      "<fighter>: "Heard you needed a hand. I'm with you."" and they say it from their own body (turn your head: it
+      moves), in their own voice (not the leader's), with lip sync under Voice Control. No radio sound.
+- [ ] **A raid demand.** `sc enclave raid <hostile id> <outpost id> demand` with the handheld: the demand message and the
+      raiders' speaker says "That outpost of yours sits on our road. Pay up, or we take it apart." on the radio.
+- [ ] **Paid.** The radio window's **Pay** (or `sc outpost pay <outpost id>`): "Smart. Nobody gets hurt. For now."
+- [ ] **Refused.** Make the demand again and **Refuse** (or `sc outpost refuse <outpost id>`): "Wrong answer. We're
+      coming."
+- [ ] **A group never met.** A demand from a hostile group whose people were never made (you never went near it): the
+      message alone; the verbose log says "nobody of theirs to speak: the text alone".
+- [ ] **A move.** `sc enclave move <id> now` on a Friendly or Allied group, with the handheld: the move message and
+      "We're packing up. Time to find somewhere safer." (one that lost half its people: "We've buried too many of our
+      own here. We're moving on."; an infestation next door: "The dead next door aren't going anywhere. So we are.").
+      A Neutral or hostile group's move says nothing, as before.
+- [ ] **A whole group joins, in person.** An Allied group at standing 90 or more (`sc enclave standing <id> 95`): talk to
+      Mara, "Would your people join ours?", "Welcome to the community.": the talk closes, the message shows, and Mara
+      says "Then it's settled. We'll pack what we can carry and make our own way to you." from where she stands, not cut
+      off by the close. With `EnclaveJoinArrive` set to `follow`: "Then it's settled. Lead the way - we're right behind
+      you."
+- [ ] **A join from afar.** `sc enclave join <id> now` from home without a handheld, more than 30 m from the station:
+      the message alone ("unheard" in the verbose log); with the handheld, the line on the radio.
+- [ ] **Drifters' thanks.** `sc band spawn drifters trouble`, kill one of their zombies, let the fight end: the thanks
+      message, and their leader says "You came when it counted. We won't forget that." in person (within 30 m), or on
+      the radio when you are 30 to 180 m away and carry the handheld.
+- [ ] **Drifters join.** Talk to one of a drifter band, **Come to our place.**, **Welcome to the community.**: their
+      leader says "Then we'll see you there. We know how to keep out of trouble on the way." as the talk closes.
+- [ ] **Siege and request offer: still messages only.** `sc enclave siege <id> now` and `sc enclave request <id> offer
+      resource`: the messages as before, no voice; the verbose log says "no recording of scEncSiegeCallSaid_1 ..
+      scEncSiegeCallSaid_3 in <name>'s voices yet: the text alone" and "no recording of scEncReqHeardSaid_resource ...".
+
+**Who speaks when the leader is gone**
+
+- [ ] `sc enclave people <id>`, then `sc enclave kill <id> <Mara's person id>`: a new leader takes over as before; `sc
+      radio`'s "enclave voice:" line names them ("(leader)"), and `sc radio enc fighter <id>` is in their voice.
+- [ ] Optional: with the leader away (out on a raid, or the only one at home missing), the line names the next one "(next in
+      line)".
+
+**The queue's order**
+
+- [ ] With the handheld: `sc radio enc fighter <id>` (it plays at once); while it plays, quickly `sc radio enc drop
+      <id>`, `sc radio talk <runner> out` and `sc radio horde call force`. `sc radio` lists them in arrival order, and
+      they play horde first, then the runner, then the drop.
+- [ ] Nine `sc radio enc drop <id>` in a row while a line plays: the counter shows `queue full: dropped a line
+      (Enclave)` and the queue never holds more than 8.
+- [ ] Runners and horde warnings sound and behave as before (their own rules: a runner's talk needs your handheld;
+      the horde warnings away need the station with power and your handheld).
+
 ## Round U1 (2026-11-16): 0-XNPCCore 3.4.06 - equipment window, ammo type, tool quality
 
 Why: 0-XNPCCore 3.4.06 (installed 2026-11-16; its ModInfo still says 3.4.05) broke five things in SC

@@ -72,6 +72,7 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc radio` | Radio stations, power, handheld radio state, runner talk. [READ] |
 | `sc radio give <member>` | Put a handheld radio in a member's inventory. [CHEAT] |
 | `sc radio horde <moment>` | Hear a horde warning now (gather, spotted, clear, call, arrived, held, damaged, overrun). [CHEAT] |
+| `sc radio enc <moment> [id]` | Hear an enclave's or a drifter band's line now, by the radio rule (fighter, drop, demand, join, thanks ...). [CHEAT] |
 | `sc outpost list` / `yield` | Outposts and tonight's yield. [READ] |
 | `sc poi` / `sc poi near [r]` | The POI you stand in; outpost candidates nearby. [READ] |
 | `sc band spawn [drifters\|raiders]` | Put a band on the road, walking at you. [CHEAT] |
@@ -398,7 +399,7 @@ Same as `check`, then **builds the tower at once** (no kit used). Overwrites blo
 ## 7. Radio
 
 ### `sc radio` [READ]
-Remembered radio stations and their live power, whether the home station is online, the handheld radio state, each runner's radio talk, queue and counters, and how the horde warnings would be heard now (who is on watch, in person or on the radio).
+Remembered radio stations and their live power, whether the home station is online, the handheld radio state, each runner's radio talk, queue and counters, how the horde warnings would be heard now (who is on watch, in person or on the radio), and whether an enclave's message would be heard aloud now (and who speaks for the nearest group).
 
 ### `sc radio give <member>` [CHEAT]
 Puts a handheld radio in the member's inventory.
@@ -414,6 +415,21 @@ The member's call for help as if a zombie had just hurt them. `force` ignores th
 ### `sc radio horde <gather|spotted|clear|call|arrived|held|damaged|overrun> [side] [member] [force]` [CHEAT]
 Says a horde warning now, in the speaker's own voice, the way the moment would (no horde needed, and the attack's once-only marks are left alone). `gather`, `spotted` and `clear` are the guard on watch at home: in person within 30 m, else on the radio if you carry a handheld and the guard has one or the home station has power; they also show their message. `call`, `arrived`, `held`, `damaged` and `overrun` are the radio from home: they need the station with power and your handheld, and only speak (their messages carry the attack's numbers). `side` is north, northeast ... northwest (or n, ne ...; default the open attack's side, else a random one). `member` defaults to the one the rules pick: at home the guard on watch, away the guard on watch, else someone at home. `force` ignores HordeVoiceLines, your handheld, the guard's radio and the station.
 Example: `sc radio horde gather northeast`, `sc radio horde held Dana force`
+
+### `sc radio enc <moment> [id] [force]` [CHEAT]
+Shows the message an enclave or a drifter band would give you, and says its line now the way the real moment would:
+in person when the speaker stands within 30 m of you, else on the radio only while you carry a handheld radio or stand
+within 30 m of a radio station at home with power. Then it tells you what happened, and why when nothing was heard.
+Nothing else happens (no request, siege, move or join).
+- `<moment>`: `fighter`, `drop` and `fail` (an ally's answers to a radio call), `hello` (their fighter's hello: the one
+  of theirs with you, else their speaker), `demand`, `paid` and `refused` (a raider enclave), `move`, `movelost` and
+  `movenest` (a group moving), `join` and `joinfollow` (a leader as their whole group joins), `thanks` and `bandjoin`
+  (drifters), and `offer` and `siege` (not recorded yet: these say why they stay silent).
+- `[id]`: the enclave (for `thanks` and `bandjoin`, the band). Default: the nearest group with somebody to speak (a
+  hostile one for `demand`, `paid` and `refused`), the nearest drifter band.
+- `force` ignores `EnclaveVoiceLines` and the radio rule.
+`sc radio` shows whether you would hear the radio right now and who speaks for the nearest group.
+Example: `sc radio enc fighter`, `sc radio enc demand 7 force`
 
 (`sc scout`, `sc barter` and `sc distress` are radio features too; see sections 2 and 4.)
 

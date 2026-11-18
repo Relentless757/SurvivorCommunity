@@ -102,19 +102,22 @@ RUNTIME_FAMILIES = ["scEncAsk", "scEncWait", "scEncAccepted", "scEncFound", "scE
 RUNTIME_FIXED = ["scEncReqNothingLine", "scEncReqGone", "scEncReqNotCleared", "scEncReqNotCarried",
                  "scEncGiftRefuseCap", "scEncGiftRefuseSoon",     # E7: a gift refused (the thanks are scEncThanks_gift_*)
                  # E9: an ally's answers on the radio and their fighter's hello - said outside a talk (ScEncCalls shows them
-                 # as tells: no playback yet, the voicing round wires it)
+                 # as tells; since round m1v they are said aloud too: ScEncRadio - on the radio, the fighter in person)
                  "scEncCallFighterSaid", "scEncCallDropSaid", "scEncCallFailSaid", "scEncCallHello",
-                 # E10: a raider enclave's words on the radio - its demand, paid, refused (ScEncRaids shows them as tells: text
-                 # only, the voicing round wires their playback)
+                 # E10: a raider enclave's words on the radio - its demand, paid, refused (ScEncRaids shows them as tells;
+                 # since round m1v they are said aloud on the radio too: ScEncRadio)
                  "scEncRaidDemandSaid", "scEncRaidPaidSaid", "scEncRaidRefusedSaid",
                  # E11: a Friendly or Allied group's words on the radio as it moves - lost too many, the dead next door,
-                 # the console's (ScEncMoves shows them as tells: text only, the voicing round wires their playback)
+                 # the console's (ScEncMoves shows them as tells; since round m1v they are said aloud on the radio too: ScEncRadio)
                  "scEncMoveLostSaid", "scEncMoveNestSaid", "scEncMoveSaid",
                  # E12: a leader whose whole group joins you, after "Welcome to the community." - making their own way, or
-                 # following you (ScEncJoin shows them as a tell as the talk closes: text only, the voicing round wires playback)
+                 # following you (ScEncJoin shows them as a tell as the talk closes; since round m1v the leader says them aloud,
+                 # in person: ScEncRadio)
                  "scEncJoinSaid", "scEncJoinSaidFollow",
                  # E13a: drifters you helped fight off the dead, and a drifter band's answer as it joins you (ScBands shows them
-                 # as tells: text only, the voicing round wires their playback)
+                 # as tells; since round m1v they are said aloud too, in person or on the radio: ScEncRadio. The siege call and
+                 # the request offer go through ScEncRadio as well, keyed scEncSiegeCallSaid_1..3 and scEncReqHeardSaid_<kind>;
+                 # they join this list once round V-b records them)
                  "scBandThanksSaid", "scBandJoinSaid",
                  # C1: a resident's words on a work shift - "That's all for now." answered as the talk closes (ScVoice.SayAfterTalk
                  # plays it once recorded), and "Call to work" from the Community tab (a tell: text only, the voicing round wires

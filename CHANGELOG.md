@@ -1,5 +1,22 @@
 # Next pre-release (not released yet)
 
+## Enclaves speak on the radio
+- **You hear enclaves now.** When an enclave contacts you, the message still shows, and now its leader's own voice says
+  their words over the radio, crackle and all: an ally answering **Send a fighter** or **Supply drop** (or that their
+  call couldn't get through), a raider group's demand on an outpost and its answer when you pay or refuse, a Friendly or
+  Allied group moving away. The leader sounds the same as when you talk to them.
+- **In person when they're near.** An ally's fighter says hello as they reach you, a leader answers aloud as their whole
+  group joins you, and drifters thank you after you help them fight off the dead and answer as they join you: from where
+  they stand within 30 m, over the radio when farther.
+- **Only with a radio.** You hear the radio aloud while you carry a handheld radio, or within 30 m of a radio station at
+  home that has power. Otherwise you get the message alone, as before.
+- **Someone always answers:** if the leader is dead or away, the next of their people speaks. A group you have never met
+  gives you the message alone.
+- **The radio takes turns:** a siege call goes first, then the base's horde warnings, then your runners, then the other
+  enclave lines. When too many wait, the least urgent one is dropped.
+- The request announcement and the siege call stay messages only until their lines are recorded.
+- New setting `EnclaveVoiceLines` (README section 20); `sc radio enc <moment>` plays one now.
+
 ## Downed, not dead
 - **A killing hit downs a member instead of killing her** (0-XNPCCore 3.4.06): she lies there unhurt with a 60-second
   countdown, and you revive her with **E** and a first aid bandage or kit. If nobody does, she bleeds out, and only then

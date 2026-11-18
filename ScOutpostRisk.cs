@@ -663,6 +663,7 @@ namespace SurvivorCommunity
             o.DemandUntil = -1;
             StartAttack(o, true, player, true);
             message = ScEncRaids.RefusedText(o) ?? string.Format(Localization.Get("scRiskRefused"), o.Name, ScConfig.OutpostAttackHours);
+            ScEncRaids.SayRefused(o, player);      // round m1v: an enclave's answer aloud
             return true;
         }
 
