@@ -26,9 +26,9 @@ namespace SurvivorCommunity
         public static float WatchFatigueHours = 8f;
         /// <summary>The mood a tired guard loses.</summary>
         public static int WatchFatigueMood = 5;
-        /// <summary>Traits that like a night watch: on watch while it is dark they gain WatchNightMood and are never tired.</summary>
+        /// <summary>Traits that like a night watch: on watch while it is dark they gain WatchNightMood and are never tired (Insomniac).</summary>
         public static readonly List<string> WatchNightTraits = new List<string>();
-        public const string DefaultWatchNightTraits = "NightOwl,Insomniac";
+        public const string DefaultWatchNightTraits = "Insomniac";
         /// <summary>The mood a night person gains on a night watch.</summary>
         public static int WatchNightMood = 3;
 
@@ -59,7 +59,7 @@ namespace SurvivorCommunity
             ParseBoolKey(p, "WatchFatigue", ref WatchFatigue);
             ParseFloat(p, "WatchFatigueHours", ref WatchFatigueHours, 0.5f, 48f);
             ParseInt(p, "WatchFatigueMood", ref WatchFatigueMood, 0, 50);
-            ParseList(p, "WatchNightTraits", WatchNightTraits);
+            ParseList(p, "WatchNightTraits", WatchNightTraits);   // no NightOwl: its night watch is round m1t's nightwatch=6, its fatigue exemption ScTraitEffects.LikesNightWatch at the merge
             ParseInt(p, "WatchNightMood", ref WatchNightMood, 0, 50);
             ParseInt(p, "SalvageKillsPerMaterial", ref SalvageKillsPerMaterial, 0, 1000);
         }

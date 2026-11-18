@@ -1020,6 +1020,11 @@ scUiFacMorale,UI,Menu,,,,Morale
 scUiFacCounted,UI,Menu,,,,Counted
 scUiFacCountedAll,UI,Menu,,,,The whole base
 scUiFacCountedPart,UI,Menu,,,,Part of the base not seen yet
+scUiFacFacilitiesCounted,UI,Menu,,,,{0} facilities counted
+scUiFacSourcesListed,UI,Menu,,,,Listed so far
+scUiFacWellsDews,UI,Menu,,,,"{0} wells, {1} dew collectors"
+scUiFacCountPart,UI,Menu,,,,{0} so far
+scUiFacSitesPartAbout,UI,Menu,,,,"Part of the base was last counted by an older version: what stands there is in the totals, and it is listed here once you have been there."
 scUiFacDefense,UI,Menu,,,,Defense
 scUiFacDefRow,UI,Menu,,,,Rating {0} - attention {1}%
 scUiFacDefLive,UI,Menu,,,,Under attack!

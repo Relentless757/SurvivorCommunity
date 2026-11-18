@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using UnityEngine;
 
 namespace SurvivorCommunity
 {
@@ -10,17 +11,65 @@ namespace SurvivorCommunity
     /// state that is already saved (the shift's start, the rest after it), so it has no save key of its own.
     ///   tired      on watch WatchFatigueHours or longer: -WatchFatigueMood; and through the rest after a full shift
     ///              (ScWatch's WatchRestUntil) when a full shift is that long. Relieved early, it ends at once.
-    ///   night      a member with one of WatchNightTraits (Night Owl, Insomniac) on watch while it is dark (vanilla's dusk to
-    ///              dawn): +WatchNightMood, and never tired then. The traits are read by name, so a trait no build defines
-    ///              (Night Owl before the traits round) is simply never matched.
-    /// Merge note for ms/m1all: round m1t gives Night Owl its own night-watch mood (trait key nightwatch=6,
-    /// ScTraitEffects.SituationalMood, added in ScMorale.Recompute next to this term) and offers ScTraitEffects.LikesNightWatch
-    /// for this file. Merged as both are, a Night Owl on a night watch would get +6 and +3. Keep one bonus: e.g. LikesNight =
-    /// the WatchNightTraits names or LikesNightWatch, and MoodTerm's night branch returning 0 for a member whose own
-    /// nightwatch already counts (or give Insomniac nightwatch=3 and drop WatchNightMood).
+    ///   night      a member with one of WatchNightTraits (Insomniac by default) on watch while it is dark (vanilla's dusk to
+    ///              dawn): +WatchNightMood, and never tired then. The traits are read by name: a trait no build defines is simply
+    ///              never matched. Night Owl is not in the default: round m1t gives it its own night-watch mood (trait key
+    ///              nightwatch=6, ScTraitEffects.SituationalMood), and its exemption from the tiredness is wired through
+    ///              ScTraitEffects.LikesNightWatch at the ms/m1all merge (the coordinator's decision of 2026-11-17).
+    /// The term follows the clock (the shift's hours, dusk and dawn, the rest's end), so Tick recomputes the moods as soon as any
+    /// member's term changes (the Fable review's finding 1) instead of waiting for the HUD's five-second recompute.
     /// </summary>
     public static class ScWatchFatigue
     {
+        /// <summary>Each member's term at the last look (Tick): a change recomputes the moods.</summary>
+        private static readonly Dictionary<int, int> lastTerm = new Dictionary<int, int>();
+        private static readonly List<int> gone = new List<int>();
+        private static float nextTick;
+
+        public static void Reset()
+        {
+            lastTerm.Clear();
+            gone.Clear();
+            nextTick = 0f;
+        }
+
+        /// <summary>
+        /// ScTicker, every second: every member's term against the last look - a shift started or ended, the fatigue threshold
+        /// passed, a rest over, dusk or dawn - and on any change ScMorale.Recompute writes the moods at once.
+        /// </summary>
+        public static void Tick(World w)
+        {
+            try
+            {
+                if (w == null || !ScRegistry.Loaded) return;
+                float now = Time.unscaledTime;
+                if (now < nextTick) return;
+                nextTick = now + 1f;
+                bool changed = false;
+                foreach (Member m in ScRegistry.Members.Values)
+                {
+                    int t = MoodTerm(m), was;
+                    bool known = lastTerm.TryGetValue(m.Id, out was);
+                    if (known && was == t) continue;
+                    if (known || t != 0) changed = true;
+                    lastTerm[m.Id] = t;
+                }
+                if (lastTerm.Count > ScRegistry.Members.Count)
+                {
+                    gone.Clear();
+                    foreach (int id in lastTerm.Keys) if (ScRegistry.GetMember(id) == null) gone.Add(id);
+                    for (int i = 0; i < gone.Count; i++) lastTerm.Remove(gone[i]);
+                }
+                if (!changed) return;
+                ScMorale.Recompute();
+                ScLog.Verbose("watch fatigue: a member's watch term changed - moods recomputed");
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("watch-fatigue-tick", e);
+            }
+        }
+
         /// <summary>The member likes a night watch (one of WatchNightTraits).</summary>
         public static bool LikesNight(Member m)
         {
@@ -64,7 +113,7 @@ namespace SurvivorCommunity
                                  ScConfig.WatchNightMood, NightTraitNames());
         }
 
-        /// <summary>The night traits by their display names ("Night Owl and Insomniac").</summary>
+        /// <summary>The night traits by their display names ("Insomniac"; two or more joined with "and").</summary>
         private static string NightTraitNames()
         {
             var names = new List<string>();

@@ -545,6 +545,7 @@ namespace SurvivorCommunity
         private static void SettleAway(World w, EntityPlayerLocal player, Community c, int forced, string why)
         {
             int left = Math.Max(1, c.AttackSize - c.AttackAwayBase);
+            ScSalvage.NoteAwayTotal(Math.Max(left, c.AttackSize));   // round m1f: the whole horde's corpse pile, your kills before you left too
             Release(w, true);
             // the attack is closed before its costs are applied: should anything in them throw, the tick does not settle it
             // again every second (ammo, the hurt and the death rolls once only)

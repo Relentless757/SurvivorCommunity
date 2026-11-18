@@ -556,9 +556,13 @@ namespace SurvivorCommunity
         /// loaded keeps its last list, so the Facilities tab lists them from anywhere. Saved as scansites=name@x,y,z;...
         /// </summary>
         public readonly Dictionary<long, List<KeyValuePair<Vector3i, string>>> ScanSites = new Dictionary<long, List<KeyValuePair<Vector3i, string>>>();
-        /// <summary>Lights out (ScLightsOut): the world time it ends (the next dawn; 0 = off), and the generators it switched off (lightsout=).</summary>
+        /// <summary>
+        /// Lights out (ScLightsOut): the world time it ends (the next dawn; 0 = off), the generators it switched off with their block
+        /// ids (0: an old record without one), and the home it was ordered for (lightsout=until:x,y,z@id|...:home).
+        /// </summary>
         public ulong LightsOutUntil;
-        public readonly List<Vector3i> LightsOutGens = new List<Vector3i>();
+        public readonly List<KeyValuePair<Vector3i, int>> LightsOutGens = new List<KeyValuePair<Vector3i, int>>();
+        public Vector3i LightsOutHome;
         /// <summary>
         /// The last home attack's end (ScSalvage.Record): its world day, its kind (ScSalvage.Kind*), how many attackers it was
         /// about (killed, or the horde the defenders faced) and the materials salvaged from it (lastattack=day:kind:count:salvage).

@@ -951,9 +951,9 @@ Your base makes **noise**, and noise draws the dead's **attention**.
 - Every **running generator inside the base is switched off**, and with it whatever it powers: lights, but also
   electric traps and turrets, and a radio station on that power (it can't warn you of an attack while you are away).
   Solar panels and batteries are left alone.
-- At dawn the generators it switched off go back on (unless they ran dry). One you switch back on yourself in the night
-  stays on.
-- **Lights on** on the same button ends it at once.
+- At dawn the generators it switched off go back on, unless they ran dry, lost their engines, have water beside them or
+  were replaced. One you switch back on yourself in the night stays on.
+- **Lights on** on the same button ends it at once, and so does moving the community home.
 
 ### Base attacks
 
@@ -1031,8 +1031,8 @@ A **Watch Post** is a block a guard stands on.
 - A guard on watch cannot follow you, go on a supply run or be posted to an outpost until relieved. A guard who is hurt
   with no medicine comes down. Picking up, breaking or building over a manned post ends the watch.
 - **Watch fatigue:** a watch of **8 hours** or more tires the guard: **-5 mood**, until they have rested after a full
-  shift. **Night Owls** and **Insomniacs** enjoy a night watch: **+3 mood** while it is dark, and no tiredness then. The
-  community window shows it after their mood word ("tired", "enjoys the night watch").
+  shift. **Insomniacs** enjoy a night watch: **+3 mood** while it is dark, and no tiredness then. The community window
+  shows it after their mood word ("tired", "enjoys the night watch").
 - The community window's **Facilities** tab lists the posts with their guards, and its **Assign guard** picks a guard
   for the first empty post.
 
@@ -1866,7 +1866,7 @@ These are the ones you are most likely to change. The file has many more.
 | `LightsOutPeopleNoise` / `LightsOutBeforeDuskHours` | 0.5 / 2 | The people's noise during lights out (0.5: halved); how many hours before dusk it can be ordered (24: any time) |
 | `LightsOutGenerators` | true | Lights out switches the base's running generators off until dawn (false: only the people's noise) |
 | `WatchFatigue` / `WatchFatigueHours` / `WatchFatigueMood` | true / 8 / 5 | A watch this many hours long costs the guard this much mood, until they have rested (false: no fatigue) |
-| `WatchNightTraits` / `WatchNightMood` | NightOwl,Insomniac / 3 | Traits that enjoy a night watch, and the mood they gain on watch while it is dark |
+| `WatchNightTraits` / `WatchNightMood` | Insomniac / 3 | Traits that enjoy a night watch, and the mood they gain on watch while it is dark |
 | `SalvageKillsPerMaterial` | 5 | After a held attack, 1 material per this many dead (0: no salvage) |
 | `GuardTowerGhost` | glow | How the tower preview looks: glow, solid, plain or off |
 | `StuckSeenWaitSeconds` | 60 | A stuck resident waits this long while you look before being moved (0: at once) |

@@ -15,10 +15,15 @@ namespace SurvivorCommunity
     ///              host keeps whether or not their chunk is loaded). SC switches them through the power graph as vanilla's own
     ///              code does (PowerSource.IsOn; with the chunk loaded the setter brings the block's on bit along through
     ///              TileEntity.Activate, otherwise TileEntityPowered syncs it when the chunk loads). Solar panels and battery
-    ///              banks are silent and not touched. The ones switched off are remembered (lightsout=), and at dawn the ones still
-    ///              there, still off and with fuel are switched back on. One the player switches on meanwhile stays on.
+    ///              banks are silent and not touched. Each one switched off is remembered with its block id (lightsout=) BEFORE
+    ///              the switch, so a throw in the middle still brings it back. At dawn the ones still there (same block), still
+    ///              off, with fuel, with their engines in (MaxOutput above 0) and not by water - vanilla's own tests for switching
+    ///              one on (XUiC_PowerSourceStats) - are switched back on. One the player switches on meanwhile stays on.
+    ///              The power graph is saved (PowerManager.SavePowerManager) after each change, so power.dat agrees with the
+    ///              registry should the game die before its own two-minute save.
     /// It can be ordered from LightsOutBeforeDuskHours before dusk until dawn (24: any time), and cancelled from the same
-    /// button ("Lights on": everything back now). The home lost or moved ends it. Host only; the ticker ends it at dawn.
+    /// button ("Lights on": everything back now). The home it was ordered for lost or moved ends it (the review's finding 5:
+    /// the home is kept with the order). Host only; the ticker ends it at dawn.
     /// </summary>
     public static class ScLightsOut
     {
@@ -81,14 +86,31 @@ namespace SurvivorCommunity
             World w = ScCommunity.World;
             message = WhyNot(w);
             if (message != null) return false;
+            Community c = ScRegistry.Community;
+            int off = 0;
             try
             {
-                Community c = ScRegistry.Community;
+                // the order, the generators it switched off and the saves always go together (the review's finding 3): each
+                // generator is remembered before it is switched and has its own try, and the registry and the power graph are
+                // saved whatever happened, so a throw leaves an order that ends at dawn with everything it switched off
                 c.LightsOutUntil = NextDawn(w, w.worldTime);
+                c.LightsOutHome = c.Home;
                 c.LightsOutGens.Clear();
-                int off = ScConfig.LightsOutGenerators ? SwitchOff(c) : 0;
+                if (ScConfig.LightsOutGenerators) off = SwitchOff(c);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("lightsout-order", e);
+            }
+            finally
+            {
                 ScNoise.RefreshNow();
                 ScRegistry.SaveAtomic();
+                SavePower();
+            }
+            if (c.LightsOutUntil == 0UL) { message = Localization.Get("scInternal"); return false; }   // it threw before the order was set
+            try
+            {
                 int pct = Mathf.RoundToInt(100f * (1f - Mathf.Clamp01(ScConfig.LightsOutPeopleNoise)));
                 string until = ScFacilityTab.TimeOfDay(c.LightsOutUntil);
                 message = !ScConfig.LightsOutGenerators ? string.Format(Localization.Get("scLightsOutOrderedNoGens"), until, pct)
@@ -96,16 +118,15 @@ namespace SurvivorCommunity
                         : string.Format(Localization.Get("scLightsOutOrderedNone"), until, pct);
                 if (player != null) ScCommunity.Tell(player, message, "");
                 ScLog.Out("lights out until " + ScBaseAttack.Clock(c.LightsOutUntil) + ": people's noise x" + ScConfig.LightsOutPeopleNoise.ToString("0.##", CultureInfo.InvariantCulture)
-                          + ", " + off + " generator(s) switched off" + (off > 0 ? " (" + string.Join(" ", c.LightsOutGens.ConvertAll(v => v.ToString()).ToArray()) + ")" : "")
+                          + ", " + off + " generator(s) switched off" + (c.LightsOutGens.Count > 0 ? " (" + GensText(c) + ")" : "")
                           + "; noise now " + ScNoise.Current().ToString("0.#", CultureInfo.InvariantCulture));
-                return true;
             }
             catch (Exception e)
             {
-                ScLog.Once("lightsout-order", e);
+                ScLog.Once("lightsout-order-message", e);
                 message = Localization.Get("scInternal");
-                return false;
             }
+            return true;
         }
 
         /// <summary>The Defense entry's "Lights on": it ends now.</summary>
@@ -120,51 +141,103 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>Every generator ScNoise counts as running (a PowerGenerator in the zone, on, with fuel) switched off and remembered.</summary>
+        private static string GensText(Community c)
+        {
+            var parts = new List<string>();
+            foreach (KeyValuePair<Vector3i, int> g in c.LightsOutGens) parts.Add(g.Key + "#" + g.Value);
+            return string.Join(" ", parts.ToArray());
+        }
+
+        /// <summary>
+        /// Every generator ScNoise counts as running (a PowerGenerator in the zone, on, with fuel) switched off. Each is remembered
+        /// with its block id first, then switched in its own try: a throw costs that one, never the others or the record.
+        /// </summary>
         private static int SwitchOff(Community c)
         {
             if (!PowerManager.HasInstance || PowerManager.Instance.PowerSources == null) return 0;
             int n = 0;
             foreach (PowerSource s in new List<PowerSource>(PowerManager.Instance.PowerSources))
             {
-                PowerGenerator g = s as PowerGenerator;
-                if (g == null || !g.IsOn || g.CurrentFuel <= 0 || !ScZone.Contains(g.Position)) continue;
-                g.IsOn = false;
-                if (!c.LightsOutGens.Contains(g.Position)) c.LightsOutGens.Add(g.Position);
-                n++;
+                try
+                {
+                    PowerGenerator g = s as PowerGenerator;
+                    if (g == null || !g.IsOn || g.CurrentFuel <= 0 || !ScZone.Contains(g.Position)) continue;
+                    Vector3i pos = g.Position;
+                    if (c.LightsOutGens.FindIndex(kv => kv.Key == pos) < 0) c.LightsOutGens.Add(new KeyValuePair<Vector3i, int>(pos, g.BlockID));
+                    g.IsOn = false;
+                    n++;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("lightsout-switch-off", e);
+                }
             }
             return n;
         }
 
+        /// <summary>Vanilla's own test before a power source is switched on (XUiC_PowerSourceStats): water beside or above it.</summary>
+        private static bool ByWater(World w, Vector3i p)
+        {
+            if (w == null) return false;
+            return w.IsWater(p.x, p.y + 1, p.z) || w.IsWater(p.x + 1, p.y, p.z) || w.IsWater(p.x - 1, p.y, p.z)
+                   || w.IsWater(p.x, p.y, p.z + 1) || w.IsWater(p.x, p.y, p.z - 1);
+        }
+
         /// <summary>
-        /// Ends it: the generators it switched off that are still there, still off and still have fuel go back on (one the player
-        /// switched on meanwhile is left as it is). Returns how many went back on. Saves.
+        /// Ends it: the generators it switched off go back on when they are still there as the same block, still off, with fuel,
+        /// with their engines in and not by water (one the player switched on meanwhile is left as it is). Returns how many went
+        /// back on. Saves the registry and the power graph.
         /// </summary>
         private static int End(string why)
         {
             Community c = ScRegistry.Community;
-            int on = 0, gone = 0, dry = 0;
-            if (PowerManager.HasInstance)
+            World w = ScCommunity.World;
+            int on = 0, gone = 0, dry = 0, unfit = 0;
+            try
             {
-                foreach (Vector3i pos in c.LightsOutGens)
+                if (PowerManager.HasInstance)
                 {
-                    PowerGenerator g = PowerManager.Instance.GetPowerItemByWorldPos(pos) as PowerGenerator;
-                    if (g == null) { gone++; continue; }
-                    if (g.IsOn) continue;
-                    if (g.CurrentFuel <= 0) { dry++; continue; }     // vanilla would switch it off again at once
-                    g.IsOn = true;
-                    on++;
+                    foreach (KeyValuePair<Vector3i, int> rec in c.LightsOutGens)
+                    {
+                        try
+                        {
+                            PowerGenerator g = PowerManager.Instance.GetPowerItemByWorldPos(rec.Key) as PowerGenerator;
+                            if (g == null || (rec.Value > 0 && g.BlockID != rec.Value)) { gone++; continue; }   // an old record has no id (0)
+                            if (g.IsOn) continue;
+                            if (g.CurrentFuel <= 0) { dry++; continue; }     // vanilla would switch it off again at once
+                            if (g.MaxOutput == 0 || ByWater(w, rec.Key)) { unfit++; continue; }   // its engines pulled, or water by it
+                            g.IsOn = true;
+                            on++;
+                        }
+                        catch (Exception e)
+                        {
+                            ScLog.Once("lightsout-switch-on", e);
+                        }
+                    }
                 }
             }
-            c.LightsOutGens.Clear();
-            c.LightsOutUntil = 0UL;
-            ScNoise.RefreshNow();
-            ScRegistry.SaveAtomic();
-            ScLog.Out("lights out over (" + why + "): " + on + " generator(s) back on" + (gone > 0 ? ", " + gone + " gone" : "") + (dry > 0 ? ", " + dry + " out of fuel left off" : ""));
+            finally
+            {
+                c.LightsOutGens.Clear();
+                c.LightsOutUntil = 0UL;
+                c.LightsOutHome = Vector3i.zero;
+                ScNoise.RefreshNow();
+                ScRegistry.SaveAtomic();
+                SavePower();
+            }
+            ScLog.Out("lights out over (" + why + "): " + on + " generator(s) back on" + (gone > 0 ? ", " + gone + " gone or replaced" : "")
+                      + (dry > 0 ? ", " + dry + " out of fuel left off" : "") + (unfit > 0 ? ", " + unfit + " with no engine or by water left off" : ""));
             return on;
         }
 
-        /// <summary>ScTicker, every second (works every 2): dawn ends it; the home lost ends it; a clock gone back moves the end.</summary>
+        /// <summary>The power graph to power.dat now (main thread; vanilla otherwise saves it every two minutes and with the world).</summary>
+        private static void SavePower()
+        {
+            try { if (PowerManager.HasInstance) PowerManager.Instance.SavePowerManager(); }
+            catch (Exception e) { ScLog.Once("lightsout-save-power", e); }
+        }
+
+        /// <summary>ScTicker, every second (works every 2): dawn ends it; the home lost or moved ends it; a clock gone back moves the end.</summary>
         public static void Tick(World w, EntityPlayerLocal player)
         {
             try
@@ -183,9 +256,11 @@ namespace SurvivorCommunity
                     ScRegistry.SaveAtomic();
                     ScLog.Out("lights out: the clock went back - it ends at the next dawn, " + ScBaseAttack.Clock(c.LightsOutUntil));
                 }
-                if (!c.HasHome)
+                // an order saved before the home was kept with it adopts the home it finds
+                if (c.LightsOutHome == Vector3i.zero && c.HasHome) { c.LightsOutHome = c.Home; ScRegistry.SaveAtomic(); }
+                if (!c.HasHome || c.Home != c.LightsOutHome)
                 {
-                    End("the community has no home");
+                    End(c.HasHome ? "the community moved home" : "the community has no home");
                     return;
                 }
                 if (t < c.LightsOutUntil) return;
@@ -209,9 +284,9 @@ namespace SurvivorCommunity
                 Community c = ScRegistry.Community;
                 int off = 0;
                 if (PowerManager.HasInstance)
-                    foreach (Vector3i pos in c.LightsOutGens)
+                    foreach (KeyValuePair<Vector3i, int> rec in c.LightsOutGens)
                     {
-                        PowerGenerator g = PowerManager.Instance.GetPowerItemByWorldPos(pos) as PowerGenerator;
+                        PowerGenerator g = PowerManager.Instance.GetPowerItemByWorldPos(rec.Key) as PowerGenerator;
                         if (g != null && !g.IsOn) off++;
                     }
                 return string.Format(Localization.Get("scLightsOutAboutOn"), ScFacilityTab.TimeOfDay(c.LightsOutUntil), pct, off);
@@ -240,7 +315,8 @@ namespace SurvivorCommunity
             }
             Community c = ScRegistry.Community;
             string why = WhyNot(w);
-            output("[SC] lights out: " + (Active ? "ON until " + ScBaseAttack.Clock(c.LightsOutUntil) + ", " + c.LightsOutGens.Count + " generator(s) switched off by it" : "off")
+            output("[SC] lights out: " + (Active ? "ON until " + ScBaseAttack.Clock(c.LightsOutUntil) + " for the home at " + c.LightsOutHome + ", "
+                                                   + c.LightsOutGens.Count + " generator(s) switched off by it" : "off")
                    + "; people's noise x" + PeopleNoiseMult().ToString("0.##", CultureInfo.InvariantCulture) + "; can order now: " + (why == null ? "yes" : why)
                    + "; dawn " + w.DawnHour + ":00, dusk " + w.DuskHour + ":00, now " + ScBaseAttack.Clock(w.worldTime));
             if (PowerManager.HasInstance && PowerManager.Instance.PowerSources != null)
@@ -249,8 +325,9 @@ namespace SurvivorCommunity
                 {
                     PowerGenerator g = s as PowerGenerator;
                     if (g == null || !ScZone.Contains(g.Position)) continue;
-                    output("[SC]   generator at " + g.Position + ": " + (g.IsOn ? "on" : "off") + ", fuel " + g.CurrentFuel
-                           + (c.LightsOutGens.Contains(g.Position) ? " (switched off by lights out)" : ""));
+                    Vector3i pos = g.Position;
+                    output("[SC]   generator at " + pos + " (block " + g.BlockID + "): " + (g.IsOn ? "on" : "off") + ", fuel " + g.CurrentFuel + ", output " + g.MaxOutput
+                           + (ByWater(w, pos) ? ", BY WATER" : "") + (c.LightsOutGens.FindIndex(kv => kv.Key == pos) >= 0 ? " (switched off by lights out)" : ""));
                 }
             }
         }

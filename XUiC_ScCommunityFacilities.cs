@@ -101,7 +101,11 @@ namespace SurvivorCommunity
             FacilityAction a = e.Actions[slot];
             string msg = null;
             bool ok = false;
-            if (a.Pick != null)
+            string why = null;
+            try { why = a.WhyNot != null ? a.WhyNot() : null; }
+            catch (Exception ex) { ScLog.Once("community-facility-whynot", ex); why = Localization.Get("scInternal"); }
+            if (why != null) msg = why;                // a dim action says why, and a pick does not open (the Fable review's finding 6)
+            else if (a.Pick != null)
             {
                 if (!ScCommunity.IsHost) msg = Localization.Get("scHostOnly");
                 else

@@ -1654,7 +1654,8 @@
 			     LightsOut=false: not offered.
 			     Watch fatigue: a guard on watch WatchFatigueHours game hours or longer loses WatchFatigueMood mood, and stays
 			     tired through the rest after a full shift. A member with one of the WatchNightTraits on watch while it is dark
-			     gains WatchNightMood instead and is not tired then. WatchFatigue=false: no watch term in the mood.
+			     gains WatchNightMood instead and is not tired then (Night Owl is not listed: the trait has its own night-watch
+			     mood). WatchFatigue=false: no watch term in the mood.
 			     Salvage: after a held attack (with you, without you, or a siege) the corpse pile gives 1 material to the
 			     stockpile per SalvageKillsPerMaterial dead (0: no salvage). -->
 			<property name="LightsOut" value="true" />
@@ -1664,7 +1665,7 @@
 			<property name="WatchFatigue" value="true" />
 			<property name="WatchFatigueHours" value="8" />
 			<property name="WatchFatigueMood" value="5" />
-			<property name="WatchNightTraits" value="NightOwl,Insomniac" />
+			<property name="WatchNightTraits" value="Insomniac" />
 			<property name="WatchNightMood" value="3" />
 			<property name="SalvageKillsPerMaterial" value="5" />
 			<!-- Base defence D4: attacks while you are away (BaseDefence_Plan.md, section 6). With BaseAttacksAway a horde

@@ -28,6 +28,8 @@ namespace SurvivorCommunity
         public RunFn Run;
         public PickFn Pick;
         public string PickHint = "";
+        /// <summary>Why it can't act now, as a finished line (null: it can) - asked before a pick opens (the Fable review's finding 6).</summary>
+        public Func<string> WhyNot;
     }
 
     /// <summary>One row of the Facilities tab and what its right-hand panel shows.</summary>
@@ -209,6 +211,27 @@ namespace SurvivorCommunity
             return b != null ? b.blockID : 0;
         }
 
+        /// <summary>
+        /// Zone chunks the home scan has a count for but no site list yet (last counted by a build before the sites, and not loaded
+        /// since; the Fable review's finding 8): their stations / wells and dew collectors are in the totals, not in the lists.
+        /// </summary>
+        private static void MissingSites(out bool stations, out bool water)
+        {
+            Community c = ScRegistry.Community;
+            stations = water = false;
+            foreach (KeyValuePair<long, int[]> kv in c.ScanChunks)
+                if (kv.Value != null && kv.Value.Length > 3 && kv.Value[3] > 0 && !c.ScanSites.ContainsKey(kv.Key)) { stations = true; break; }
+            foreach (KeyValuePair<long, int> kv in c.ScanWater)
+                if (kv.Value > 0 && !c.ScanSites.ContainsKey(kv.Key)) { water = true; break; }
+        }
+
+        /// <summary>The player stands inside the home zone.</summary>
+        private static bool PlayerAtHome()
+        {
+            EntityPlayerLocal p = ScCommunity.LocalPlayer;
+            return p != null && ScZone.HasHome && ScZone.Contains(p.GetBlockPosition());
+        }
+
         // ------------------------------------------------------------------ Defense (FT2) ----
 
         private static void AddDefense(List<FacilityEntry> into)
@@ -301,6 +324,8 @@ namespace SurvivorCommunity
         {
             Community c = ScRegistry.Community;
             int wells = CountSites(n => ScFacilities.WellLevel(TypeOf(n)) > 0), dews = CountSites(n => ScFacilities.IsDew(TypeOf(n)));
+            bool partStations, partWater;
+            MissingSites(out partStations, out partWater);
             float drunk = ScRegistry.Members.Count * ScConfig.WaterPerMemberDay;
             bool covered = c.HomeWater >= drunk - 0.01f;
             var e = new FacilityEntry
@@ -314,10 +339,20 @@ namespace SurvivorCommunity
             };
             e.Fact("scUiFacWaterMade", N(c.HomeWater));
             e.Fact("scUiFacWaterDrunk", F1(drunk));
-            e.Fact("scUiFacWells", N(wells));
-            e.Fact("scUiFacDews", N(dews));
+            if (partWater)
+            {
+                // the water made is the scan's total; the list lacks the sources of chunks not counted with their sites yet
+                e.Fact("scUiFacCounted", L("scUiFacCountedPart"), Warn);
+                e.Fact("scUiFacSourcesListed", Fmt("scUiFacWellsDews", wells, dews), Warn);
+            }
+            else
+            {
+                e.Fact("scUiFacWells", N(wells));
+                e.Fact("scUiFacDews", N(dews));
+            }
             e.About = Fmt("scUiFacWaterAbout", ScConfig.WellWaterPerLevel, ScConfig.DewWaterPerLevel,
-                          string.Join(", ", Array.ConvertAll(ScConfig.FacilityUpgradeCost, v => v.ToString(CultureInfo.InvariantCulture))));
+                          string.Join(", ", Array.ConvertAll(ScConfig.FacilityUpgradeCost, v => v.ToString(CultureInfo.InvariantCulture))))
+                      + (partWater ? "\n" + L("scUiFacSitesPartAbout") : "");
             into.Add(e);
         }
 
@@ -391,30 +426,45 @@ namespace SurvivorCommunity
                     for (int i = 0; i < kinds.Count; i++)
                         if (string.Equals(s.Value, kinds[i], StringComparison.OrdinalIgnoreCase)) { counts[i]++; total++; break; }
             int morale = ScMorale.Compute().Facilities;
+            bool partStations, partWater;
+            MissingSites(out partStations, out partWater);
             var e = new FacilityEntry
             {
                 Key = Workshop,
                 Name = L("scUiFacWorkshop"),
                 Icon = "ui_game_symbol_workbench",
-                Status = total == 1 ? L("scUiFacStationsOne") : Fmt("scUiFacStations", total),
-                StatusColor = total > 0 ? Body : Off,
+                // part of the base not listed yet: the scan's total (campfires too) instead of a list that reads short
+                Status = partStations ? Fmt("scUiFacFacilitiesCounted", c.Facilities) : total == 1 ? L("scUiFacStationsOne") : Fmt("scUiFacStations", total),
+                StatusColor = partStations ? Warn : total > 0 ? Body : Off,
                 Sub = Fmt("scUiFacWorkshopSub", Signed(morale), c.Facilities),
             };
+            if (partStations) e.Fact("scUiFacCounted", L("scUiFacCountedPart"), Warn);
+            int slots = partStations ? 3 : 4;
             var more = new StringBuilder();
             for (int i = 0; i < kinds.Count; i++)
             {
-                if (i < 4) e.Facts.Add(new FacilityFact { Label = BlockLabel(kinds[i]), Value = N(counts[i]), Color = counts[i] > 0 ? Body : Off });
+                if (i < slots) e.Facts.Add(new FacilityFact { Label = BlockLabel(kinds[i]), Value = N(counts[i]), Color = counts[i] > 0 ? Body : Off });
                 else more.Append(more.Length > 0 ? ", " : "").Append(BlockLabel(kinds[i])).Append(' ').Append(counts[i]);
             }
-            e.About = L("scUiFacWorkshopAbout") + (more.Length > 0 ? "\n" + more : "");
+            e.About = L("scUiFacWorkshopAbout") + (more.Length > 0 ? "\n" + more : "") + (partStations ? "\n" + L("scUiFacSitesPartAbout") : "");
             e.Actions.Add(new FacilityAction
             {
                 Label = L("scUiWorkCall"),
-                Ready = ScCommunity.IsHost && ScConfig.WorkShiftsEnabled,
+                Ready = WorkWhyNot() == null,
+                WhyNot = WorkWhyNot,
                 PickHint = L("scUiFacPickWork"),
                 Pick = CallToWork,
             });
             into.Add(e);
+        }
+
+        /// <summary>Call to work can't start now: a client, shifts off, or the player outside the base (every pick would say so).</summary>
+        private static string WorkWhyNot()
+        {
+            if (!ScCommunity.IsHost) return L("scHostOnly");
+            if (!ScConfig.WorkShiftsEnabled) return L("scWorkOff");
+            if (!PlayerAtHome()) return L("scWorkNotHome");
+            return null;
         }
 
         /// <summary>The Members tab's Call to work for the resident picked (it ends her shift when she is already on one, as there).</summary>
@@ -433,6 +483,8 @@ namespace SurvivorCommunity
         {
             Community c = ScRegistry.Community;
             int fires = CountSites(IsCampfireName);
+            bool partStations, partWater;
+            MissingSites(out partStations, out partWater);
             var e = new FacilityEntry
             {
                 Key = Campfire,
@@ -442,7 +494,7 @@ namespace SurvivorCommunity
                 StatusColor = DrinksStatusColor(),
                 Sub = L("scUiFacCampfireSub"),
             };
-            e.Fact("scUiFacCampfiresCount", N(fires), fires > 0 ? Body : Off);
+            e.Fact("scUiFacCampfiresCount", partStations ? Fmt("scUiFacCountPart", fires) : N(fires), partStations ? Warn : fires > 0 ? Body : Off);
             e.Fact("scUiFacDrinks", DrinksStatus(), DrinksStatusColor());
             bool afford = c.Get(Resource.Luxury) >= ScConfig.DrinksLuxury && c.Get(Resource.Food) >= ScConfig.DrinksFood;
             e.Fact("scUiActCost", Fmt("scUiActDrinksCost", ScConfig.DrinksLuxury, ScConfig.DrinksFood), afford ? Body : Bad);
@@ -553,21 +605,23 @@ namespace SurvivorCommunity
             if (ScConfig.WatchFatigue) about.Append('\n').Append(ScWatchFatigue.AboutText());
             e.About = about.ToString();
             Vector3i post = firstEmpty;
+            // why the pick can't open (the Fable review's finding 6): every resident picked would be refused the same way
+            Func<string> whyNot = () =>
+            {
+                if (!ScCommunity.IsHost) return L("scHostOnly");
+                if (!ScConfig.WatchPosts) return L("scWatchOff");
+                if (post == Vector3i.zero) return L(posts == 0 ? "scUiFacWatchNoPost" : "scUiFacWatchAllManned");
+                if (ScRegistry.Community.Get(Resource.Ammo) < Math.Max(0, ScConfig.WatchShiftAmmo)) return ScWatch.ErrorText("scWatchNoAmmo", null, post);
+                return null;
+            };
             var assign = new FacilityAction
             {
                 Label = L("scUiFacAssignGuard"),
-                Ready = ScCommunity.IsHost && ScConfig.WatchPosts && post != Vector3i.zero && c.Get(Resource.Ammo) >= Math.Max(0, ScConfig.WatchShiftAmmo),
+                Ready = whyNot() == null,
+                WhyNot = whyNot,
+                PickHint = post != Vector3i.zero ? Fmt("scUiWatchPick", ScWatch.Label(post)) : "",
+                Pick = (Member m, EntityPlayerLocal p, out string msg) => AssignGuard(post, m, p, out msg),
             };
-            if (post != Vector3i.zero)
-            {
-                assign.PickHint = Fmt("scUiWatchPick", ScWatch.Label(post));
-                assign.Pick = (Member m, EntityPlayerLocal p, out string msg) => AssignGuard(post, m, p, out msg);
-            }
-            else
-            {
-                string why = !ScConfig.WatchPosts ? "scWatchOff" : posts == 0 ? "scUiFacWatchNoPost" : "scUiFacWatchAllManned";
-                assign.Run = (EntityPlayerLocal p, out string msg) => { msg = L(why); return false; };
-            }
             e.Actions.Add(assign);
             into.Add(e);
         }
@@ -657,14 +711,26 @@ namespace SurvivorCommunity
                     break;
                 case "lightsout":
                 {
-                    // until:x,y,z|x,y,z (the generators it switched off)
-                    string[] f = (val ?? "").Split(new[] { ':' }, 2);
+                    // until:x,y,z@id|x,y,z@id:hx,hy,hz - the generators it switched off with their block ids, and the home it was
+                    // ordered for; the first form (until:x,y,z|x,y,z, no ids, no home) still reads: id 0 skips the id test, and
+                    // the ticker adopts the home it finds
+                    string[] f = (val ?? "").Split(':');
                     ulong u;
                     if (!ulong.TryParse(f[0].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) break;
                     c.LightsOutUntil = u;
                     c.LightsOutGens.Clear();
                     if (f.Length > 1)
-                        foreach (string part in f[1].Split('|')) { Vector3i v; if (TryVec(part, out v) && !c.LightsOutGens.Contains(v)) c.LightsOutGens.Add(v); }
+                    {
+                        foreach (string part in f[1].Split('|'))
+                        {
+                            string[] g = part.Split('@');
+                            Vector3i v;
+                            if (!TryVec(g[0], out v) || c.LightsOutGens.FindIndex(kv => kv.Key == v) >= 0) continue;
+                            c.LightsOutGens.Add(new KeyValuePair<Vector3i, int>(v, g.Length > 1 ? Math.Max(0, Int(g[1])) : 0));
+                        }
+                    }
+                    Vector3i home;
+                    c.LightsOutHome = f.Length > 2 && TryVec(f[2], out home) ? home : Vector3i.zero;
                     break;
                 }
                 case "lastattack":
@@ -706,7 +772,12 @@ namespace SurvivorCommunity
             if (c.LightsOutUntil > 0UL)
             {
                 var lo = new StringBuilder(c.LightsOutUntil.ToString(CultureInfo.InvariantCulture)).Append(':');
-                for (int i = 0; i < c.LightsOutGens.Count; i++) { if (i > 0) lo.Append('|'); lo.Append(Vec(c.LightsOutGens[i])); }
+                for (int i = 0; i < c.LightsOutGens.Count; i++)
+                {
+                    if (i > 0) lo.Append('|');
+                    lo.Append(Vec(c.LightsOutGens[i].Key)).Append('@').Append(c.LightsOutGens[i].Value.ToString(CultureInfo.InvariantCulture));
+                }
+                lo.Append(':').Append(Vec(c.LightsOutHome));
                 sb.AppendLine("lightsout=" + lo);
             }
             if (c.LastAttackKind > 0)
