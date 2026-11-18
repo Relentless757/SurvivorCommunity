@@ -25,6 +25,9 @@ namespace SurvivorCommunity
     /// Where SC greets, Voice Control doesn't: Patches_VoiceControl's prefix on NPCChatComponent.TriggerProactiveGreeting
     /// asks OwnsGreeting - one of the community's survivors whose voice has a clip of their greeting - and skips Voice
     /// Control's greeting (canned or LLM) for them. Without a clip Voice Control greets them as before.
+    /// Round m1w (P4, ScGreetingsOwnAll): SC owns every greeting of SC's people - OwnsGreeting is true for any of them, so Voice
+    /// Control greets none; a member away (a runner met on the road, one posted to an outpost, one arriving) greets as a
+    /// member at home, and an outpost stand-in, someone hostile to you or a missing enclave person says nothing.
     ///
     /// Chatter (ScChatter): every ScChatterSeconds (90 s, a quarter either way), with ScChatterChance (0.5), one resident at
     /// home within ScChatterRange (15 m) of you, not fighting, not talking, says a chatter line - only one with a clip.
@@ -84,7 +87,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// How this survivor stands with the player, as the greeting family's middle part: stranger, recruit, member,
-        /// follower, enclave; null for nobody SC greets for (hostile, a stand-in, a runner, a missing enclave person).
+        /// follower, enclave; null for nobody SC greets for (hostile, a stand-in, a missing enclave person; a member away -
+        /// a runner, at an outpost, arriving - unless ScGreetingsOwnAll, round m1w, makes them a member).
         /// </summary>
         public static string Relation(EntityAlive npc, EntityPlayer player)
         {
@@ -95,7 +99,9 @@ namespace SurvivorCommunity
             if (m != null)
             {
                 if (m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) return "follower";
-                return m.Status == MemberStatus.Resident ? "member" : null;
+                if (m.Status == MemberStatus.Resident) return "member";
+                // round m1w (P4): a runner on the road, one posted to an outpost, one arriving - one of yours all the same
+                return ScConfig.ScGreetingsOwnAll ? "member" : null;
             }
             if (ScEnclavePeople.IsEnclaveNpc(npc))
             {
@@ -113,10 +119,13 @@ namespace SurvivorCommunity
         /// <summary>
         /// Patches_VoiceControl's TriggerProactiveGreeting prefix: SC greets this survivor itself (they are one of the
         /// community's, SC greets for their relation and their voice has a clip of it), so Voice Control's greeting is skipped.
+        /// Round m1w (P4): with ScGreetingsOwnAll, any of the community's survivors - where SC has no greeting for them or no
+        /// recording, they say nothing.
         /// </summary>
         public static bool OwnsGreeting(EntityAlive npc, EntityPlayer player)
         {
             if (!ScConfig.ScGreetings || npc == null || !ScXnpc.IsSurvivorBody(npc)) return false;
+            if (ScConfig.ScGreetingsOwnAll) return true;           // round m1w (P4)
             string rel = Relation(npc, player);
             return rel != null && ScBarks.HasClip(npc, "greet." + rel);
         }
@@ -327,7 +336,8 @@ namespace SurvivorCommunity
             string who = ScCommunity.DisplayName(npc) + " (" + npc.entityId + ")";
             if (!ScXnpc.IsSurvivorBody(npc)) return who + " is not one of the community's survivors - SC greets only those";
             string rel = Relation(npc, lp);
-            if (rel == null) return who + " is no one SC greets for (hostile to you, an outpost stand-in, a runner or a missing enclave person) - Voice Control's greeting stays theirs";
+            if (rel == null) return who + " is no one SC greets for (hostile to you, an outpost stand-in, a missing enclave person"
+                                    + (ScConfig.ScGreetingsOwnAll ? ") - they say nothing: SC owns their greeting (ScGreetingsOwnAll)" : ", or a member away) - Voice Control's greeting stays theirs");
             ScBarks.Pick p = ScBarks.Resolve(npc, ScBarks.KeysOf("greet." + rel));
             string what = who + " (" + rel + ")";
             if (p == null) return what + " has no voice";

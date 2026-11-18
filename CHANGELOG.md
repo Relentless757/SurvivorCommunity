@@ -120,6 +120,31 @@
   extra magazines before the duplication fix keeps them; `sc mags <name> trim` shows which ones a trim would remove, and
   `sc mags <name> trim confirm` removes them.
 
+## Voices
+- **The order wheel answers in their own voice.** Picking an order on 0-XNPCCore's order wheel no longer has the survivor
+  say the slot's name ("Close", "Far", "Jump down", "Aggressive", "Loot here"): she gives that order's reply in her
+  recorded voice ("I'll stay close.", "Weapons free."). "Come here" leaves her "On my way." alone, and "Whatever" on the
+  Emotes page is done without a word. Roles, emotes and dances answer this way once their new lines are recorded.
+  `VoiceWheelAcks` turns it off.
+- **One line at a time.** When one order makes two lines at once (Come here's "On my way." and then "Coming right
+  back.", a gift's thanks and then its reply), the second no longer cuts off the first. `VoiceOneLineSeconds`.
+- **SC greets all of its people.** Voice Control no longer greets a runner you meet on the road, a member posted to an
+  outpost or one on the way to the base (they greet you as a member at home), nor an outpost stand-in or someone hostile
+  to you (they say nothing). `ScGreetingsOwnAll`.
+- **Refusals said aloud.** A resident refusing a field job, a member refusing to fight with her work kit, and "Come with
+  me." when your party has no room are spoken too, once recorded, when she is within 30 m. `VoiceSpokenRefusals`.
+- **Lines that name an item play a recording too:** "Now I know how to make Forged Iron." plays "Now I know how to make
+  something new.", and the caption still names the item.
+- **105 more lines per voice are ready for their recordings** (709 in all): 0-XNPCCore 3.4.06's gift, downed, crafting,
+  patrol, ammo and book lines (with three ways to say thanks for a gift and three to call out when going down), the role
+  and emote replies, Voice Control's go-there refusals, SC's own answers that Voice Control spoke in its voice (dismiss,
+  hire, pick-up, follow, trade, the training line), a mining runner's radio lines and an enclave's radio calls (those
+  play once a later update wires them). Until a line is recorded it sounds exactly as before.
+- **Fixed:** "I need fuel for that." no longer plays the recording of "I need more materials for that.".
+- **Fixed:** Voice Control 3.4.06's "I'm in your way - point past me." and "I'm not hired yet - what have you got to
+  offer?" play their recordings again: punctuation no longer decides whether a line matches.
+- `sc voice barks` shows the new switches and this session's counts.
+
 # Survivor Community 0.1.0 pre-release 3
 
 Everything that changed since pre-release 2 of this 7 Days to Die 3.4 test build; section numbers refer to the included `README.txt`.

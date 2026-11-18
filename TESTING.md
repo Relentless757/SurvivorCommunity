@@ -37,6 +37,155 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round m1w (2026-11-17): Voice Control's speech in SC's own voices
+
+Why: the v9 voice inventory (`research/voices_v9/VOICE_INVENTORY.md`, section 3.1, P1-P7). Gifts, the order wheel's
+formation and position slots and several other lines were still said in 0-XNPCCore's text-to-speech voice. The user chose
+"Build all of them". P8 (the enclave siege and help calls) belongs to another round.
+
+What it does now:
+
+- **P1, say-lines by their id.** 0-XNPCCore's say-lines map to SC's clips by the line's id (`xn.<id>`), so a line can
+  have variants (`xn.gift.thanks.1-3`, `xn.downed.down.1-3`), and a line that names an item or a number plays a clip
+  without it, the caption still naming it.
+- **P2, the order wheel.** The wheel's spoken slot labels ("Close", "Jump down", "Loot here", "Wave") become the order's
+  own reply in SC's voice. "Come here" leaves her "On my way." alone; "Whatever" on the Emotes page is silent; "Point"
+  uses the generic formation reply.
+- **P3, SC's own lines.** The answers SC hands Voice Control ("Heading home.", "I'll walk, thanks.", "I can't right now.",
+  the trade refusals, the training line) are found by their Localization text.
+- **P4, greetings.** SC owns every greeting of its people; Voice Control greets none of them.
+- **P5, punctuation.** Words match by letters and digits only.
+- **P6, one line at a time.** A second Voice Control line on the same NPC within 0.4 s of SC's line is skipped; a second
+  SC line no longer defers to Voice Control just because SC's own clip is playing on Voice Control's player.
+- **P7, spoken refusals.** The field-job, work-kit and party-full refusals are said aloud, within 30 m of you.
+- **The registry:** 105 more lines per voice (709 in all), none recorded yet. **Every new line sounds exactly as before
+  until its clip exists:** Voice Control's text-to-speech where Voice Control spoke it, the tooltip alone where it was
+  text only.
+
+Setup: the new DLL with its `Config/Localization.csv` (two new rows) and `Config/blocks.xml` (four new settings).
+`DebugLogging` true for the verbose lines. A follower, a resident at home, and Voice Control's text-to-speech on.
+
+Most steps have two halves: **now** (before the v9 recordings exist) and **recorded** (after a batch of `.ogg` files is
+copied into `Resources/Voices/<voice>/` and `sc voice rescan` is run). Use `sc voice barks` after each step: its
+counters say which way each line went (`vc swapped`, `vc kept`, `vc one-line`, `vc wheel silent`, `refusal said`,
+`refusal not recorded`).
+
+**0. Start-up**
+
+- [ ] In the log: `patch verification: all ... targets patched`, one more than round m1p's build (the offline check
+      counted 209 with Voice Control and 0-XNPCCore 3.4.06), a `patched VCCommandRouter::Execute` line, no `MISSING
+      PATCH`, no line starting `voice routes:`. The `config: voices ...` line ends `wheelAcks=True oneLine=0.4s
+      spokenRefusals=True greetingsOwnAll=True`.
+- [ ] `sc voice barks` has a line starting `routes (round m1w): wheel acks on (0 orders noted, ...`.
+- [ ] Near a member, `sc voice who`: the last line ends `xn 23/56; ack 163/199; vc 40/45; own 0/18`. Recorded: the
+      counts grow (all recorded: `xn 56/56; ack 199/199; vc 45/45; own 18/18`).
+
+**1. P1: say-lines by their id** (stand within 20 m of a member, then close the console)
+
+- [ ] `sc voice sayline gift.thanks 2`. Now: Voice Control's text-to-speech says "Thank you.", as before; the counters
+      show `vc kept xn`. Recorded: one of "Thank you.", "Thanks. I'll put it to good use." and "That's good of you.
+      Thank you." in her voice, the caption showing the words you hear; run it a few times and the variants change.
+- [ ] **The fuel bug (fixed now, no recording needed):** `sc voice sayline craft.fuel`. Now: Voice Control says "I need
+      fuel for that." (before this round it played SC's "I need more materials for that."). Recorded: SC's clip of "I
+      need fuel for that.".
+- [ ] `sc voice sayline basekeep.need:resourceForgedIron`: SC's "I need more materials for that." clip, as before, with
+      the caption "I need Forged Iron for that.".
+- [ ] `sc voice sayline book.recipe:resourceForgedIron`. Now: Voice Control says "Now I know how to make Forged Iron.".
+      Recorded: "Now I know how to make something new." in her voice; the caption still names Forged Iron.
+- [ ] `sc voice sayline downed.down`: now Voice Control's voice; recorded, one of three lines in hers.
+- [ ] `sc voice sayline comehere.ack`: SC's "On my way." clip, as before (no id family: the words still find it).
+
+**2. P2: the order wheel** (a follower; open 0-XNPCCore's order wheel on her)
+
+- [ ] Position page: **Close**. She says one of "I'll stay close.", "Right behind you." or "Got it." in her voice, and
+      the caption shows those words (before this round: Voice Control's voice saying "Close"). **Normal**, **Far**,
+      **Jump down**, **Get in** and **Get out** answer with their own replies in the same way. **Point**: one of the
+      generic formation replies ("In position." ...). **Go there**, pointed at a block: "Heading over there." or "On my
+      way." in her voice.
+- [ ] Stance page: **Aggressive** "Weapons free." / "Engaging." / "On it."; **Hold fire**, **Defensive** and
+      **Disengage** likewise.
+- [ ] Orders page: **Crouch**, **Stand up** (and **Resume**), **Scout**, **Guard and return**, **Record patrol** and
+      **Cancel patrol** answer in her voice. Jobs page (as her leader): **Loot here**, **Base Repair**, **Remember
+      base**; Harvest and Mine pages: **Wood**, **Plants**, **Iron**, **Clay** ...
+- [ ] Roles page: **Cook**. Now: Voice Control says "Cook", as before. Recorded: "I'll handle the cooking." or "Kitchen
+      duty, got it.". **Stop cook** likewise ("No more cooking for me."). The same for the other three roles.
+- [ ] Emotes page: **Wave**. Now: Voice Control says "Wave"; recorded: "Hey there!" or "Hi!". **Whatever**: she shrugs
+      without a word, now and recorded (`vc wheel silent`). A dance: now Voice Control says the dance's name;
+      recorded, "Watch this!" or "Okay, just one dance.".
+- [ ] Root page **Come here** (and the Combat page's **Come here**): she says SC's "On my way." and nothing cuts it off
+      (before this round Voice Control's "Come here" cut in right after). `vc one-line ack` or `vc wheel silent` counts it.
+- [ ] Squad order (open the wheel with two followers and no one locked): **Follow**. The nearest one answers "On it. I'll
+      stick close." (or another follow reply) in her voice.
+- [ ] `sc voice barks`: the routes line counts the orders noted and the labels taken for a reply.
+- [ ] Set `VoiceWheelAcks` false and restart: the wheel's labels are Voice Control's again.
+
+**3. P3: SC's own lines** (a follower, through Voice Control's push-to-talk)
+
+- [ ] Say "dismiss": she heads home. Now: "Heading home." in Voice Control's voice, as before; recorded, in hers
+      (`vc swapped own`).
+- [ ] Likewise "hire" ("Keep your money - I'm with you already. ..."), "pick me up" ("I'll walk, thanks."), "trade" ("We
+      don't trade - we're one community. ..."); to a resident on watch, "follow me" ("I can't right now."); to one of an
+      enclave's people, "hire" ("My place is here, with my people."); to a survivor with a grudge, "hire" ("Not for all
+      the dukes in the world."). Now Voice Control's voice; recorded, theirs.
+- [ ] Have a member read a crafting magazine that pays specialty XP: "Good practice. I'm getting better at this." - now
+      Voice Control's voice, recorded hers.
+- [ ] `sc voice line Heading home.`: "is scVoiceGoingHome; <name>: no recording (Voice Control says it)"; recorded,
+      "scVoiceGoingHome in <voice>".
+
+**4. P4: greetings**
+
+- [ ] Meet a runner out on a physical run and walk up to them, looking at them. Voice Control does not greet them (no
+      canned or LLM greeting); SC greets them with a member's line ("Good to see you back in one piece." ...).
+      `sc xnpc`'s voice control line counts `greeting-sc-instead`.
+- [ ] Walk up to an outpost stand-in, and to a survivor with a grudge: no greeting at all. `sc voice greet` on the
+      stand-in: "... they say nothing: SC owns their greeting (ScGreetingsOwnAll)".
+- [ ] Members at home, followers, strangers and enclave people greet as before.
+- [ ] Set `ScGreetingsOwnAll` false and restart: the stand-in and the runner get Voice Control's greeting again.
+
+**5. P5: punctuation**
+
+- [ ] `sc voice line I'm in your way - point past me.`: "is vc.gothere.inway; <name>: vc.gothere.inway in <voice>"
+      (before this round: "none of SC's lines").
+- [ ] Order wheel, Position page, **Go there**, pointing at the follower herself: SC's "I'm in your way, point past me."
+      in her voice.
+- [ ] Give voice orders to a stranger until the refusal "I'm not hired yet - what have you got to offer?" comes up (one
+      in six): SC's clip of it.
+
+**6. P6: one line at a time**
+
+- [ ] Push-to-talk "come here" to a follower: SC's "On my way." and nothing after it ("Coming right back." is skipped:
+      `vc one-line speech`).
+- [ ] Recorded (gift lines): give her a gift by voice ("a gift for you"): the thanks plays whole, not cut by "Really?
+      That's too kind.".
+- [ ] Two orders more than half a second apart (Close, then Far): the second reply replaces the first, in her voice
+      (before this round the second went to Voice Control's voice while SC's first clip was still playing).
+- [ ] Set `VoiceOneLineSeconds` 0 and restart: "Come here" from the wheel is cut by the label again.
+
+**7. P7: spoken refusals**
+
+- [ ] A resident at home linked to you (a talk link or a work shift): her hold-E ring, Jobs and gear, Jobs, **Loot
+      here**. The tooltip "<name>: "That's work for out there, not at home. ..."" shows, as before. Now: Voice Control
+      still says "Loot here", as before; `refusal not recorded scJobResidentField` counts it and the routes line counts
+      one "after a refusal". Recorded: she says the refusal in her voice with its caption, and no "Loot here".
+- [ ] With `MiningRuns` on, **Mine all** to the same resident: `scJobResidentMine` ("Not here at home. Send me on a
+      mining run, ...").
+- [ ] A follower carrying a work kit: by voice, "use the <a kit tool's name>". The tooltip shows "That <tool> is for work,
+      not for fighting. ..." as before. Recorded: "That's for work, not for fighting. I'll stick with my own weapon." in
+      her voice, and her swap reply after it is skipped.
+- [ ] With `MaxFollowers` (2) followers, talk to a third member at home: "Come with me." The tooltip "You already have as
+      many followers as you can lead." shows as before. Recorded: as the talk closes she says "You've already got a full
+      crew with you. Ask me again when there's room.".
+- [ ] The same from the community window's **Follow me**, standing within 30 m of her: recorded, she says it; farther
+      away the tooltip alone (the routes line counts "too far").
+- [ ] Set `VoiceSpokenRefusals` false and restart: tooltips only.
+
+**8. The line registry**
+
+- [ ] `python -I Tools/voice_lines.py check` exits 0. It notes the 9 enclave radio lines with no Localization row yet,
+      and each voice reads "604 of 709 lines" with "not recorded yet" lists per family. After a recording batch the
+      counts grow; a clip no line uses is the only per-voice failure.
+- [ ] After copying a batch, `sc voice rescan` in game: the new clips play without a restart.
+
 ## Round m1p (2026-11-17): the M1 polish bundle
 
 Why: roadmap item 1 (`research/roadmap/ROADMAP.md`, section 3) - six small leftovers from the notes. None changes

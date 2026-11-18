@@ -859,6 +859,7 @@ namespace SurvivorCommunity
                     Output("[SC] voice barks: VoiceByRace=" + ScConfig.VoiceByRace + " ScBarks=" + ScConfig.ScBarks + " VoiceBarkSubtitles=" + ScConfig.VoiceBarkSubtitles
                            + " VoiceBarkDebug=" + ScConfig.VoiceBarkDebug + "; " + ScGreetings.Status() + "; " + ScTaunts.Status());
                     Output("[SC] voice barks: said / matched this session: " + ScBarks.Counters());
+                    Output("[SC] voice barks: " + ScVoiceRoutes.Status());       // round m1w
                     Output("[SC] voice barks: " + ScClipCache.Describe());
                     return true;
                 case "line":

@@ -1667,8 +1667,10 @@ Recorded voices
   "VoiceDarkTonesFemale" (section 20); with "VoiceRaceByFace" off, the skin tone alone decides ("VoiceRaceBySkin"), as
   in the previous version.
 - Lines with a name or a number in them say only the part without it; the panel shows the whole line.
-- A few of the newest lines (for example the training line after reading a magazine, and refusals about the work kit,
-  field jobs and trading) are text only for now.
+- More lines are ready for their recordings: the training line after reading a magazine, refusals about the work kit,
+  field jobs, trading and a full party, a mining runner's radio lines, 0-XNPCCore 3.4.06's newer lines (thanks for a
+  gift, going down, crafting, ammo and books) and the role and emote replies. Each plays the moment its recording is
+  added; until then it sounds as before (Voice Control's text-to-speech, or the text alone).
 - Voices play through Voice Control's player with lip sync when Voice Control is set up on that NPC.
 
 Greetings, chatter and taunts
@@ -1681,8 +1683,20 @@ Greetings, chatter and taunts
 - Small talk: residents and enclave people talk with each other where you can overhear them (section 4), in their own
   voices.
 - Chatter: every minute and a half or so, a resident at home near you says something to nobody in particular.
+- SC greets all of its people itself, so Voice Control never greets one of them: a runner you meet on the road, a member
+  posted to an outpost and one on the way to the base greet you as a member at home, and an outpost stand-in or anyone
+  hostile to you says nothing.
 - 0-XNPCCore's lines: where Voice Control would speak one of 0-XNPCCore's job lines or order replies ("I'm out of
-  ammo.", "Right behind you."), SC plays its recording in the survivor's own voice.
+  ammo.", "Right behind you."), SC plays its recording in the survivor's own voice. A line that names an item or a
+  number ("Now I know how to make Forged Iron.") plays a recording without the name; the caption still shows it.
+- The order wheel: a survivor no longer answers 0-XNPCCore's order wheel by saying the slot's name ("Close", "Jump
+  down", "Loot here"). She gives that order's own reply in her voice ("I'll stay close."; the roles, emotes and dances
+  once their new lines are recorded). "Come here" leaves her "On my way." alone, and "Whatever" on the Emotes page is
+  done without a word.
+- One line at a time: when an order makes two lines at once (Come here's "On my way." and then "Coming right back."),
+  the second no longer cuts off the first.
+- Refusals said aloud: a resident refusing a field job, a member refusing to fight with her work kit, and "Come with
+  me." when your party has no room are spoken too (once recorded), not only shown, when she is within 30 m of you.
 - Raider taunts: raiders call out when they spot you, hunt you, lose you, are hit, kill you, die, or fall back. One
   raider at most every 15 seconds, so a band does not all shout at once.
 - Runners on the radio speak through a radio filter (section 8).
@@ -2030,6 +2044,14 @@ NPCs and voices
 - ScGreetOnePerGroup / ScGreetGroupRange = true / 30: One stranger greets you for the group around them (within this
   many meters)
 - RaiderTaunts = true: Raider taunts
+- ScGreetingsOwnAll = true: SC greets all of its people itself and Voice Control never does; false: Voice Control greets
+  the ones SC has no greeting for (a runner, a stand-in, someone hostile to you)
+- VoiceWheelAcks = true: The order wheel's slot names become the order's spoken reply; false: survivors say the slot's
+  name, as before
+- VoiceOneLineSeconds = 0.4: A second Voice Control line on the same survivor within this many seconds of SC's line is
+  skipped; 0: off
+- VoiceSpokenRefusals = true: SC's refusals (a field job, the work kit as a weapon, a full party) are said aloud too,
+  within 30 m of you
 - MuteVcInTalk = true: Voice Control stays quiet during SC's talks
 - VoiceRaceByFace = true: With Vanity Vault, survivors speak with the voices of their face's race; false: the skin tone
   decides ("VoiceRaceBySkin")
@@ -2080,9 +2102,10 @@ For console commands (testing and fixing), see CONSOLE_COMMANDS.txt.
   without their clothes.
 - Game 3.4 only. This build does not run on 3.2 or 3.3.
 - Do not remove the mod from a save that used it. Loading that save without SC can damage the chunks its blocks are in.
-- A few of the newest lines are text only. All 16 voices speak the 604 recorded lines, but the newest ones (a mining
-  runner's radio lines, the training line after reading a magazine, and some refusals about the work kit, field jobs and
-  trading) have no voice yet and only appear as text.
+- Some lines are not recorded yet. All 16 voices speak the 604 recorded lines. The newer ones (a mining runner's radio
+  lines, the training line after reading a magazine, refusals about the work kit, field jobs, trading and a full party,
+  0-XNPCCore 3.4.06's newer lines, and the role and emote replies) are in place but sound as before until their
+  recordings are added: Voice Control's text-to-speech, or the text alone.
 - Mining and digging clay are not resident jobs. Residents do home jobs only; send them on a mining run instead, or take
   a member along for Mine, Loot here or Follow + loot.
 - Breaking an enclave's containers open is not stopped, only opening them.

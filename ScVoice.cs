@@ -95,6 +95,8 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, KeyValuePair<string, List<Voice>>> chains = new Dictionary<int, KeyValuePair<string, List<Voice>>>();
         /// <summary>V2: when each NPC's bark ends (Time.unscaledTime), by entity id.</summary>
         private static readonly Dictionary<int, float> barkUntil = new Dictionary<int, float>();
+        /// <summary>Round m1w (P6): the clip a bark of SC's last put on Voice Control's player, by entity id (VcBusy leaves it out).</summary>
+        private static readonly Dictionary<int, AudioClip> barkOnVc = new Dictionary<int, AudioClip>();
         /// <summary>
         /// V2 review M1: a Voice Control callback SC took over (SubstituteSpeech's onComplete) whose clip still plays, by
         /// entity id. It runs once: at the clip's end (Voice Control's own call, or SC's timer at its length + 0.25 s when
@@ -804,6 +806,7 @@ namespace SurvivorCommunity
             chains.Clear();
             unmappedSkins.Clear();   // round 31: the new world's config may map them
             barkUntil.Clear();
+            barkOnVc.Clear();                // round m1w
             pendingDone.Clear();
             ScBarks.Reset();
             ScGreetings.Reset();
@@ -1144,10 +1147,37 @@ namespace SurvivorCommunity
             return VcBusy(VcPlayer(npc));
         }
 
-        /// <summary>V2: Voice Control is saying something on this NPC.</summary>
+        /// <summary>
+        /// V2: Voice Control is saying something on this NPC. Round m1w (P6): its own speech only - a bark of SC's playing on
+        /// its player (which sets the player's busy flag too) is not Voice Control's, so a second SC line on her no longer
+        /// defers to Voice Control's text-to-speech, which cut SC's clip. Busy (greetings, chatter) still waits for both.
+        /// </summary>
         public static bool VcBusy(EntityAlive npc)
         {
-            return VcBusy(VcPlayer(npc));
+            if ((object)npc == null) return false;
+            Component player = VcPlayer(npc);
+            return VcBusy(player) && !ScClipOn(player, npc.entityId);
+        }
+
+        /// <summary>Round m1w (P6): what Voice Control's player plays is SC's own bark (and no sentence of its own is queued).</summary>
+        private static bool ScClipOn(Component player, int entityId)
+        {
+            try
+            {
+                if (player == null) return false;
+                if (fDraining != null && (bool)fDraining.GetValue(player)) return false;   // its own queue is still speaking
+                AudioClip mine;
+                if (!barkOnVc.TryGetValue(entityId, out mine) || mine == null) return false;
+                AudioSource src = fSource != null ? fSource.GetValue(player) as AudioSource : null;
+                if (src != null) return src.isPlaying && (object)src.clip == (object)mine;
+                float until;
+                return barkUntil.TryGetValue(entityId, out until) && Time.unscaledTime < until;   // its source unreadable: SC's clip's length
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("voice-busy-own", e);
+                return false;
+            }
         }
 
         /// <summary>
@@ -1179,6 +1209,10 @@ namespace SurvivorCommunity
                     FinishPending(id);                       // an earlier bark's callback, before this clip cuts it
                     Component player = forVc ? VcPlayer(npc) : null;
                     AudioClip on = player != null ? PlayOnVc(player, path, clip, done != null ? (Action)done.Run : null) : null;
+                    // round m1w (P6): what SC put on Voice Control's player is SC's, not Voice Control's speech (VcBusy)
+                    if (barkOnVc.Count > 256) barkOnVc.Clear();
+                    if (on != null) barkOnVc[id] = on;
+                    else barkOnVc.Remove(id);
                     if (on == null)
                     {
                         AudioSource src = OwnSource(npc);

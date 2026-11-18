@@ -33,12 +33,15 @@ namespace SurvivorCommunity
         private static int lastRefusedId = -1;
         private static float lastRefusedAt;
         private const float RepeatSeconds = 2f;
+        /// <summary>Round m1w (P7): the text of the last party-cap refusal (Full), so a caller can tell it from SC's other Follow refusals.</summary>
+        internal static string LastRefusal;
 
         public static void Reset()
         {
             refusals = 0;
             lastRefusedId = -1;
             lastRefusedAt = 0f;
+            LastRefusal = null;
         }
 
         /// <summary>0-XNPCCore 3.4.06's SdcsParty is loaded.</summary>
@@ -88,6 +91,7 @@ namespace SurvivorCommunity
             string text = Localization.Get("vcPartyFull");
             if (string.IsNullOrEmpty(text) || text == "vcPartyFull") text = "Your party is full ({0}/{1}).";
             error = string.Format(text, SdcsParty.Members(player), SdcsParty.Cap);
+            LastRefusal = error;                    // round m1w (P7)
             return true;
         }
 

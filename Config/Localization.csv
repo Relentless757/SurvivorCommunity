@@ -35,6 +35,7 @@ scVoiceNoHire,Dialog,Statement,,,,"*smiles* Keep your money - I'm with you alrea
 scNotLoaded,UI,Tooltip,,,,They are too far away right now.
 scOnRun,UI,Tooltip,,,,They are away on a supply run.
 scFollowersFull,UI,Tooltip,,,,You already have as many followers as you can lead.
+scFollowFullSaid,UI,Tooltip,,,,"You've already got a full crew with you. Ask me again when there's room."
 scRefuseMood,UI,Tooltip,,,,"They refuse - morale is too low."
 scBringThemHome,UI,Tooltip,,,,"Bring them to your base first, or stand inside it to call them home."
 scLeft,UI,Tooltip,,,,"{0} has left your community."
@@ -1781,6 +1782,7 @@ scJobResidentFollowLoot,Dialog,Statement,,,,"*shakes head* I look after the base
 scJobResidentField,Dialog,Statement,,,,"*shakes head* That's work for out there, not at home. Take me along, and I'll do it."
 scJobResidentMine,Dialog,Statement,,,,"*shakes head* Not here at home. Send me on a mining run, and I'll bring it back to the crates."
 scKitToolNotWeapon,Dialog,Statement,,,,"*shakes head* That {0} is for work, not for fighting. I'll stick with my own weapon."
+scKitToolNotWeaponSaid,UI,Tooltip,,,,"That's for work, not for fighting. I'll stick with my own weapon."
 scWorkPackFull,UI,Tooltip,,,,"{0}'s pack is full, and the home crates can't take enough of it - {0} stops that job. Make room in the crates or in their inventory."
 scDutyNoTool,UI,Tooltip,,,,"{0} has no repair tool for the repair duty - give them a stone axe, claw hammer or nail gun through Show me your inventory."
 scDutyNoMaterials,UI,Tooltip,,,,"{0} can't repair the {1}: put its materials in an unlocked chest within {2} m of where you gave the job, or in their inventory."

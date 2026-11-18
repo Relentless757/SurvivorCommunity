@@ -1642,7 +1642,10 @@ namespace SurvivorCommunity
             [HarmonyTargetMethod]
             public static MethodBase TargetMethod() { return AckTarget(); }
 
-            /// <summary>__args: npc, trigger, fallbackText, e2e, localizedSubtitle (3.4).</summary>
+            /// <summary>
+            /// __args: npc, trigger, fallbackText, e2e, localizedSubtitle (3.4), lineId (Voice Control 3.4.03+). Round m1w (P1):
+            /// the say-line's id goes to ScBarks too - an older Voice Control's shape has none (null: matched by its words).
+            /// </summary>
             [HarmonyPrefix]
             [HarmonyPriority(Priority.Low)]
             public static bool Prefix(object[] __args, bool __runOriginal)
@@ -1651,7 +1654,8 @@ namespace SurvivorCommunity
                 try
                 {
                     string sub = __args.Length > 4 ? __args[4] as string : null;
-                    return !ScBarks.SubstituteAck(__args[0] as EntityAlive, __args[1], __args[2] as string, sub);
+                    string lineId = __args.Length > 5 ? __args[5] as string : null;     // round m1w (P1)
+                    return !ScBarks.SubstituteAck(__args[0] as EntityAlive, __args[1], __args[2] as string, sub, lineId);
                 }
                 catch (Exception e)
                 {

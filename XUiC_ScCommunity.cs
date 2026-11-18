@@ -1149,6 +1149,7 @@ namespace SurvivorCommunity
             if (npc == null) err = "scNotLoaded";
             else if (m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) { OnHome(); return; }
             else if (ScCommunity.Follow(m, npc, p, out err)) message = string.Format(Localization.Get("scWinNowFollowing"), m.Name);
+            if (npc != null && ScVoiceRoutes.IsFollowFull(err)) ScVoiceRoutes.SayRefusal(npc, "scFollowFullSaid", "the community window's Follow me: no room in the party");   // round m1w (P7)
             if (err != null) { message = Localization.Get(err); p.PlayOneShot("ui_denied"); }
             Refresh();
         }

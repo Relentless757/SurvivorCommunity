@@ -199,6 +199,10 @@
     <Compile Include="ScTaunts.cs" />
     <Compile Include="Patches_Voices.cs" />
     <Compile Include="ScConfigVoices.cs" />
+    <!-- round m1w: Voice Control's speech routed into SC's own recorded voices - the order wheel's labels, SC's spoken
+         refusals (ScVoiceRoutes), and their switches -->
+    <Compile Include="ScVoiceRoutes.cs" />
+    <Compile Include="ScConfigVoiceRoutes.cs" />
     <Compile Include="ScVoiceContext.cs" />
     <Compile Include="XUiC_ScDialogLine.cs" />
     <!-- round 28 (X3): the talk page's pager (both games: vanilla's response list is the same in 3.2 and 3.4) -->

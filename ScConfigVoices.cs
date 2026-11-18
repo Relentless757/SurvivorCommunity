@@ -101,6 +101,7 @@ namespace SurvivorCommunity
             VoiceClipCache = 48;
             VoiceClipCacheMB = 24;          // round m1p
             VoiceClipIdleMinutes = 10f;
+            ResetVoiceRoutes();             // round m1w (ScConfigVoiceRoutes.cs)
         }
 
         private static void ParseBoolKey(DynamicProperties p, string key, ref bool v)
@@ -137,6 +138,7 @@ namespace SurvivorCommunity
             ParseInt(p, "VoiceClipCache", ref VoiceClipCache, 8, 512);
             ParseInt(p, "VoiceClipCacheMB", ref VoiceClipCacheMB, 4, 1024);                 // round m1p
             ParseFloat(p, "VoiceClipIdleMinutes", ref VoiceClipIdleMinutes, 0f, 600f);
+            ParseVoiceRoutes(p);            // round m1w (ScConfigVoiceRoutes.cs)
         }
 
         /// <summary>The second config line (V2).</summary>
@@ -152,7 +154,8 @@ namespace SurvivorCommunity
                                                   + "s, hit " + f(RaiderTauntHitChance) + ", retreat below " + f(RaiderTauntRetreatHealth) + ", within "
                                                   + f(RaiderTauntRange) + "m" : "off")
                    + " subtitles=" + VoiceBarkSubtitles + " debug=" + VoiceBarkDebug + " clipCache=" + VoiceClipCache
-                   + " clips/" + VoiceClipCacheMB + " MB, idle " + f(VoiceClipIdleMinutes) + " min";   // round m1p
+                   + " clips/" + VoiceClipCacheMB + " MB, idle " + f(VoiceClipIdleMinutes) + " min"   // round m1p
+                   + " " + VoiceRoutesLine();                                                          // round m1w
         }
     }
 }
