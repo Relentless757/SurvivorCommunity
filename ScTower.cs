@@ -457,6 +457,7 @@ namespace SurvivorCommunity
                 return;
             }
             Stamp(w, plan);
+            if (plan.HasPost) ScFacilityTab.NoteTower(plan.Post);   // round m1f: the Facilities tab's Guard Tower entry
             ScLog.Out("guard tower built at " + P(kit) + " for " + (placer != null ? placer.PlayerDisplayName : "?") + " (kit rotation " + now.rotation
                       + ", turned " + plan.Turns * 90 + " deg): " + Counts(plan));
         }

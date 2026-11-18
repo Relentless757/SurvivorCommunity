@@ -67,6 +67,8 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc noise` / `sc attention <0-100>` | Base noise breakdown; set the attention that triggers hordes. |
 | `sc defense [horde]` | Defense rating against a horde, term by term. [READ] |
 | `sc watch` | Watch posts, guards, hours left. |
+| `sc lightsout [on\|off]` | Lights out: its state and the home generators; order it now (any hour) or end it. [CHEAT for on] |
+| `sc facility tab` | The community window's Facilities tab as text. [READ] |
 | `sc run <member> <res>` / `sc runners` | Send a supply run; list who is out. |
 | `sc run <member> mine` / `clay` | Send a mining run (Mine, Dig clay). [CHEAT] |
 | `sc radio` | Radio stations, power, handheld radio state, runner talk. [READ] |
@@ -150,6 +152,9 @@ Writes the SC registry to disk now.
 ### `sc facility [list]` and `sc facility level <x> <y> <z> <level>` (alias `facilities`)
 `list` [READ]: every well and dew collector in the loaded chunks of the home zone, with level and water per day. `level` [CHEAT]: sets one's level (a well is replaced by that level's block, free; the level is clamped to the block's maximum). Use the parent block's coordinates exactly as `list` prints them.
 Example: `sc facility level 812 60 -144 3`
+
+### `sc facility tab` [READ]
+The community window's Facilities tab as text: every entry in order with its status, its facts and its buttons (a dim one could not act now; "picks a resident" opens the member pick).
 
 ### `sc drinks [on|off]`
 Prints the round-of-drinks state (cost, morale, whether you can pour now). `on` pours one free and marks today; `off` ends it and allows another today. [CHEAT for on/off]
@@ -385,6 +390,13 @@ Shows the member's rest left; `clear` lets them take a watch at once.
 
 ### `sc watch scan` [HOST]
 Re-scans the zone's loaded chunks against the post list, then prints the list.
+
+### `sc watch fatigue` [HOST] [READ]
+Watch fatigue: for each guard, each member resting after a watch and each night person, the hours on watch and the mood term (tired, or enjoying a night watch), and whether it is dark now.
+
+### `sc lightsout [on|off]` [HOST]
+Prints Lights out's state, whether it can be ordered now and why not, dusk and dawn, and every generator in the home zone (on or off, its fuel, whether Lights out switched it off). `on` orders it now at any hour (until the next dawn) [CHEAT]; `off` ends it now, as the window's Lights on does.
+Example: `sc lightsout on`
 
 ### `sc tower [info]` [READ]
 Describes the Guard Tower prefab (size, anchor, Watch post, blocks).

@@ -239,6 +239,7 @@ namespace SurvivorCommunity
 
             string news = Encode(siege, result, horde, took, want, treated + untreated, treated, untreated, names.ToString());
             ScOutposts.NoteLedger(Text(news));
+            ScSalvage.Settled(siege, result, horde);   // round m1f (BD1): a held fight's salvage (a ledger line); the last attack's record
             bool radio = Radio();
             if (player != null && (radio || ScBaseAttack.PlayerHome(player)))
             {

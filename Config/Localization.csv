@@ -985,12 +985,8 @@ scMoraleWater,UI,Menu,,,,Water
 scMoraleWaterMade,UI,Menu,,,,(the wells and dew collectors give {0} a day)
 scMoraleActivity,UI,Menu,,,,A round of drinks
 scMoraleActivityLeft,UI,Menu,,,,A round of drinks ({0} left)
-scUiActivities,UI,Menu,,,,Activities
-scUiActSummary,UI,Menu,,,,"In the stockpile: {0} luxuries, {1} food"
 scUiActCost,UI,Menu,,,,Cost
 scUiActEffect,UI,Menu,,,,Effect
-scUiActStatus,UI,Menu,,,,Status
-scUiActAbout,UI,Menu,,,,What it is for
 scUiActDrinksCost,UI,Menu,,,,{0} luxuries + {1} food
 scUiActDrinksEffect,UI,Menu,,,,+{0} morale for {1} minutes
 scUiActDrinksDo,UI,Menu,,,,Pour a round
@@ -1006,6 +1002,159 @@ scActDrinksToday,UI,Tooltip,,,,There has already been a round today - try again 
 scActDrinksShort,UI,Tooltip,,,,A round needs {0} luxuries and {1} food (the stockpile has {2} and {3}).
 scActDrinksPoured,UI,Tooltip,,,,You pour a round of drinks. Spirits lift: +{0} morale for {1} minutes.
 scActDrinksOver,UI,Tooltip,,,,The round of drinks has worn off.
+scUiFacilities,UI,Menu,,,,Facilities
+scUiFacDetails,UI,Menu,,,,Details
+scUiFacSelectHint,UI,Menu,,,,Pick a facility on the left to see it and what you can do with it.
+scUiFacSummary,UI,Menu,,,,"{0} facilities, morale {1}, water {2} a day"
+scUiFacAtHome,UI,Menu,,,,at the land claim block
+scUiFacOff,UI,Menu,,,,Off
+scUiFacYes,UI,Menu,,,,Yes
+scUiFacNo,UI,Menu,,,,No
+scUiFacNobody,UI,Menu,,,,nobody
+scUiFacHours,UI,Menu,,,,{0} h
+scUiFacPct,UI,Menu,,,,{0}%
+scUiFacOfCap,UI,Menu,,,,{0} of {1}
+scUiFacYesOfCap,UI,Menu,,,,Yes ({0} of {1} watch posts)
+scUiFacNoOfCap,UI,Menu,,,,No ({0} of {1} watch posts)
+scUiFacMorale,UI,Menu,,,,Morale
+scUiFacCounted,UI,Menu,,,,Counted
+scUiFacCountedAll,UI,Menu,,,,The whole base
+scUiFacCountedPart,UI,Menu,,,,Part of the base not seen yet
+scUiFacDefense,UI,Menu,,,,Defense
+scUiFacDefRow,UI,Menu,,,,Rating {0} - attention {1}%
+scUiFacDefLive,UI,Menu,,,,Under attack!
+scUiFacDefAway,UI,Menu,,,,Fighting without you
+scUiFacDefCalled,UI,Menu,,,,A horde is coming
+scUiFacDefSub,UI,Menu,,,,Noise: {0}
+scUiFacNoiseOff,UI,Menu,,,,The noise meter is off
+scUiFacLightsOutSub,UI,Menu,,,,Lights out until {0}
+scUiFacDefRating,UI,Menu,,,,Defense rating
+scUiFacDefRatingVal,UI,Menu,,,,{0} / 100 against {1} of the dead
+scUiFacDefNoise,UI,Menu,,,,Noise
+scUiFacDefNoiseVal,UI,Menu,,,,{0} - {1}
+scUiFacDefAttention,UI,Menu,,,,The dead's attention
+scUiFacAttRate,UI,Menu,,,,{0}% ({1} an hour)
+scUiFacAttBloodMoon,UI,Menu,,,,{0}% (held during the blood moon)
+scUiFacAttAttack,UI,Menu,,,,{0}% (held while the attack lasts)
+scUiFacAttFull,UI,Menu,,,,{0}% - a horde is called as soon as it can be
+scUiFacDefLast,UI,Menu,,,,Last attack
+scUiFacDefStateCalled,UI,Menu,,,,A horde of {0} is gathering to the {1}.
+scUiFacDefStateLive,UI,Menu,,,,The base is under attack from the {1}: {0} still standing.
+scUiFacDefStateAway,UI,Menu,,,,"Your people are fighting {0} of the dead without you, to the {1}."
+scUiFacDefAbout,UI,Menu,,,,"The rating rises with fit residents, their fighting and shooting, manned watch posts (with ammo in the stockpile), and traps and turrets in the base. Noise draws the dead's attention; at 100% a horde is called."
+scUiFacSalvageAbout,UI,Menu,,,,A held attack's corpse pile gives 1 material per {0} dead.
+scUiFacLightsOut,UI,Menu,,,,Lights out
+scUiFacLightsOn,UI,Menu,,,,Lights on
+scLightsOutOff,UI,Tooltip,,,,Lights out is switched off (LightsOut in the settings).
+scLightsOutAlready,UI,Tooltip,,,,"It's lights out already, until {0}."
+scLightsOutTooEarly,UI,Tooltip,,,,Lights out is for the night: you can order it from {0}.
+scLightsOutOrdered,UI,Tooltip,,,,"Lights out until {0}: your people keep it down ({1}% less of their noise), and the generators are off (switched off: {2})."
+scLightsOutOrderedNone,UI,Tooltip,,,,Lights out until {0}: your people keep it down ({1}% less of their noise). No generator was running.
+scLightsOutOrderedNoGens,UI,Tooltip,,,,Lights out until {0}: your people keep it down ({1}% less of their noise). The generators stay on.
+scLightsOutNotOn,UI,Tooltip,,,,It isn't lights out.
+scLightsOnOrdered,UI,Tooltip,,,,Lights on: the base is back to normal. Generators back on: {0}.
+scLightsOutDawn,UI,Tooltip,,,,Dawn: lights out is over. Generators back on: {0}.
+scLightsOutAboutOn,UI,Menu,,,,"Lights out until {0}: {1}% less noise from your people, generators off: {2}. Lights on ends it now."
+scLightsOutAbout,UI,Menu,,,,"Lights out orders a quiet night: until dawn your people make {0}% less noise and the generators in the base are switched off, and with them whatever they power (lights, traps, turrets, a radio station on them). From {1}."
+scLightsOutAboutNoGens,UI,Menu,,,,Lights out orders a quiet night: until dawn your people make {0}% less noise. From {1}.
+scUiFacBeds,UI,Menu,,,,Beds
+scUiFacBedsRow,UI,Menu,,,,{0} / {1}
+scUiFacBedsNobody,UI,Menu,,,,Nobody to sleep in them yet
+scUiFacBedsShort,UI,Menu,,,,{0} too few
+scUiFacBedsSpare,UI,Menu,,,,{0} spare
+scUiFacBedsCount,UI,Menu,,,,Beds
+scUiFacBedsWithAllies,UI,Menu,,,,{0} ({1} at an ally's)
+scUiFacBedsNeeded,UI,Menu,,,,Needed (one each)
+scUiFacBedsRule,UI,Menu,,,,"Every bedroll, bed and bunk bed in the base counts (any sleeping-bag block, and bed mods that work like one), and so do bare-frame beds, mattresses and hospital beds. A bunk frame with no mattress and a rolled-up mattress do not. One bed per member: enough beds add 10 morale, each missing one costs 5 (at most 15)."
+scUiFacBedsRuleNames,UI,Menu,,,,"Beds are counted by name (BedBlocks in the settings): bedrolls, beds, bunk beds, mattresses and hospital beds. One bed per member: enough beds add 10 morale, each missing one costs 5 (at most 15)."
+scUiFacBedsNight,UI,Menu,,,,At night residents sleep in the beds within {0} m above or below the land claim block.
+scUiFacWater,UI,Menu,,,,Water
+scUiFacWaterRow,UI,Menu,,,,"+{0} a day, {1} drunk"
+scUiFacWaterCovered,UI,Menu,,,,The wells and collectors cover what is drunk
+scUiFacWaterShort,UI,Menu,,,,{0} a day from the stockpile
+scUiFacWaterMade,UI,Menu,,,,Made a day
+scUiFacWaterDrunk,UI,Menu,,,,Drunk a day
+scUiFacWells,UI,Menu,,,,Wells
+scUiFacDews,UI,Menu,,,,Dew collectors
+scUiFacWaterAbout,UI,Menu,,,,"Inside the base, wells give {0} water a day per level and dew collectors {1}, levels 1 to 5. Upgrades cost {2} materials. Each one is listed after the other facilities: pick it to upgrade it."
+scUiFacSiteRow,UI,Menu,,,,Level {0} - {1} water a day
+scUiFacLevel,UI,Menu,,,,Level
+scUiFacLevelOf,UI,Menu,,,,{0} of {1}
+scUiFacWaterADay,UI,Menu,,,,Water a day
+scUiFacNextLevel,UI,Menu,,,,Next level
+scUiFacTopLevel,UI,Menu,,,,Top level reached
+scUiFacNextCost,UI,Menu,,,,{0} materials (stockpile: {1})
+scUiFacKind,UI,Menu,,,,Kind
+scUiFacKindWell,UI,Menu,,,,Well
+scUiFacKindDew,UI,Menu,,,,Dew collector
+scUiFacWellAbout,UI,Menu,,,,"A well gives the stockpile water every day, more at each level. Upgrade it here or by holding E on it."
+scUiFacDewAbout,UI,Menu,,,,"A dew collector gives the stockpile water every day, more at each level, and still fills its own jars. Upgrade it here or by holding E on it."
+scUiFacUpgrade,UI,Menu,,,,Upgrade
+scUiFacUpgradeFar,UI,Tooltip,,,,Be at the base to upgrade it: that part of the base isn't loaded.
+scUiFacSiteGone,UI,Tooltip,,,,It isn't there any more.
+scUiFacWorkshop,UI,Menu,,,,Workshop
+scUiFacStationsOne,UI,Menu,,,,1 station
+scUiFacStations,UI,Menu,,,,{0} stations
+scUiFacWorkshopSub,UI,Menu,,,,"Facilities morale {0} ({1} counted, campfires too)"
+scUiFacWorkshopAbout,UI,Menu,,,,"Members with a crafting role (Cook, Smith, Chemist, Crafter: Work and roles on the Members tab) use these stations on a work shift. Call to work: pick a resident at home and they come to you to work; pick them again to end it. Each facility adds 3 morale, at most 15."
+scUiFacPickWork,UI,Menu,,,,Pick who to call to work.
+scUiFacCampfire,UI,Menu,,,,Campfire
+
+scUiFacCampfireSub,UI,Menu,,,,Where the community gathers
+scUiFacCampfiresCount,UI,Menu,,,,Campfires
+scUiFacDrinks,UI,Menu,,,,Round of drinks
+scUiFacCampfireAbout,UI,Menu,,,,"In the evening and during a round of drinks, free residents gather around a campfire inside the base and talk."
+scUiFacCampfireAboutOff,UI,Menu,,,,Gathering at the campfire is switched off (CampfireGathering in the settings).
+scUiFacRadio,UI,Menu,,,,Radio station
+scUiFacRadioNone,UI,Menu,,,,None
+scUiFacRadioOn,UI,Menu,,,,Powered
+scUiFacRadioOff,UI,Menu,,,,No power
+scUiFacRadioSubNone,UI,Menu,,,,Build a Radio Station inside the base
+scUiFacRadioSubOn,UI,Menu,,,,On the air
+scUiFacRadioSubOff,UI,Menu,,,,It needs power
+scUiFacRadioCount,UI,Menu,,,,At home
+scUiFacRadioPower,UI,Menu,,,,Powered
+scUiFacRadioRelays,UI,Menu,,,,Relays at outposts
+scUiFacRadioDrop,UI,Menu,,,,Next air drop
+scUiFacRadioAbout,UI,Menu,,,,"With power, the radio station calls in air drops and survivors, scouts and barters, keeps outposts and enclaves in touch, and tells you about attacks while you are away. Hold E on it to use it."
+scUiFacWatch,UI,Menu,,,,Watch posts
+scUiFacWatchNone,UI,Menu,,,,None yet
+scUiFacWatchRow,UI,Menu,,,,{0} / {1} manned
+scUiFacWatchSub,UI,Menu,,,,"{0}-hour shifts, {1} ammo bundles each"
+scUiFacWatchPosts,UI,Menu,,,,Posts
+scUiFacWatchManned,UI,Menu,,,,Manned
+scUiFacWatchCut,UI,Menu,,,,Attention gain
+scUiFacWatchResting,UI,Menu,,,,Resting
+scUiFacPostEmpty,UI,Menu,,,,{0}: empty
+scUiFacPostManned,UI,Menu,,,,"{0}: {1}, {2} h left"
+scUiFacWatchAbout,UI,Menu,,,,"A guard on a watch post stays on it, sees farther and calls out a horde. Each manned post slows the dead's attention and raises the defense rating."
+scUiFacAssignGuard,UI,Menu,,,,Assign guard
+scUiFacWatchNoPost,UI,Tooltip,,,,Place a Watch Post inside the base first.
+scUiFacWatchAllManned,UI,Tooltip,,,,Every watch post is manned.
+scWatchTiredTerm,UI,Menu,,,,tired ({0})
+scWatchNightTerm,UI,Menu,,,,enjoys the night watch ({0})
+scWatchFatigueAbout,UI,Menu,,,,"A watch of {0} hours or more tires the guard: -{1} mood, until they have rested after a full shift. A night watch suits {3}: +{2} mood on watch while it is dark, and no tiredness then."
+scUiFacTower,UI,Menu,,,,Guard Tower
+scUiFacTowerNone,UI,Menu,,,,None built
+scUiFacTowerOne,UI,Menu,,,,1 built
+scUiFacTowers,UI,Menu,,,,{0} built
+scUiFacTowerRoom,UI,Menu,,,,There is room for one more
+scUiFacTowerNoRoom,UI,Menu,,,,Every watch post is taken
+scUiFacTowerBuilt,UI,Menu,,,,Built
+scUiFacTowerAnother,UI,Menu,,,,Room for another
+scUiFacTowerAbout,UI,Menu,,,,"The Guard Tower kit puts up a wooden watch tower with a Watch Post on its deck in one go. Craft it from your backpack (782 wood and 4 nails), place it inside the base and assign a guard to its post. It needs room for one more watch post. Towers built before this version count only as watch posts."
+scUiFacLastNone,UI,Menu,,,,None yet
+scUiFacLastHeld,UI,Menu,,,,"Day {0}: held, {1} killed"
+scUiFacLastHeldAway,UI,Menu,,,,Day {0}: held without you ({1} of the dead)
+scUiFacLastDamaged,UI,Menu,,,,Day {0}: damaged ({1} of the dead)
+scUiFacLastOverrun,UI,Menu,,,,Day {0}: overrun ({1} of the dead)
+scUiFacLastSiegeHeld,UI,Menu,,,,"Day {0}: blood moon siege, held"
+scUiFacLastSiegeDamaged,UI,Menu,,,,"Day {0}: blood moon siege, damaged"
+scUiFacLastSiegeOverrun,UI,Menu,,,,"Day {0}: blood moon siege, overrun"
+scUiFacLastLostTrail,UI,Menu,,,,Day {0}: the horde lost the trail
+scUiFacLastSalvage,UI,Menu,,,,(+{0} materials)
+scSalvageHeld,UI,Tooltip,,,,Salvage: the corpse pile gives {0} materials ({1} of the dead).
+scSalvageAway,UI,Tooltip,,,,Salvage: {0} materials from the corpse pile ({1} of the dead).
 blockcommand_scfacinfo,UI,Menu,,,,Check
 blockcommand_scfacupgrade,UI,Menu,,,,Upgrade
 scFacPrompt,UI,Tooltip,,,,Press {0} to check {1} (level {2})

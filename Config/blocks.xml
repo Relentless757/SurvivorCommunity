@@ -216,9 +216,9 @@
 			<property name="DewWaterPerLevel" value="1" />
 			<property name="FacilityUpgradeCost" value="4,8,12,16" />
 
-			<!-- activities (round wl): the community window's Activities tab. "Prepare a round of drinks": DrinksLuxury
-			     luxuries + DrinksFood food, +DrinksMorale morale for DrinksMinutes real minutes (paused with the game),
-			     once a game day. -->
+			<!-- activities (round wl): the community window's Facilities tab, Campfire (round m1f; it was the Activities tab).
+			     "Prepare a round of drinks": DrinksLuxury luxuries + DrinksFood food, +DrinksMorale morale for DrinksMinutes real
+			     minutes (paused with the game), once a game day. -->
 			<property name="DrinksLuxury" value="4" />
 			<property name="DrinksFood" value="1" />
 			<property name="DrinksMorale" value="15" />
@@ -1646,6 +1646,27 @@
 			<property name="WatchPlaceSeconds" value="30" />
 			<property name="WatchAttentionCut" value="0.15" />
 			<property name="WatchAttentionCutMax" value="0.45" />
+			<!-- Base defense BD1 (round m1f), the community window's Facilities tab, Defense entry.
+			     Lights out: an order for a quiet night, from LightsOutBeforeDuskHours before dusk until dawn (24: at any time).
+			     Until the next dawn the people's part of the base's noise is multiplied by LightsOutPeopleNoise, and with
+			     LightsOutGenerators every running generator inside the home zone is switched off (the ones the noise meter
+			     counts; solar panels and batteries are left alone); at dawn the ones still off and with fuel go back on.
+			     LightsOut=false: not offered.
+			     Watch fatigue: a guard on watch WatchFatigueHours game hours or longer loses WatchFatigueMood mood, and stays
+			     tired through the rest after a full shift. A member with one of the WatchNightTraits on watch while it is dark
+			     gains WatchNightMood instead and is not tired then. WatchFatigue=false: no watch term in the mood.
+			     Salvage: after a held attack (with you, without you, or a siege) the corpse pile gives 1 material to the
+			     stockpile per SalvageKillsPerMaterial dead (0: no salvage). -->
+			<property name="LightsOut" value="true" />
+			<property name="LightsOutPeopleNoise" value="0.5" />
+			<property name="LightsOutGenerators" value="true" />
+			<property name="LightsOutBeforeDuskHours" value="2" />
+			<property name="WatchFatigue" value="true" />
+			<property name="WatchFatigueHours" value="8" />
+			<property name="WatchFatigueMood" value="5" />
+			<property name="WatchNightTraits" value="NightOwl,Insomniac" />
+			<property name="WatchNightMood" value="3" />
+			<property name="SalvageKillsPerMaterial" value="5" />
 			<!-- Base defence D4: attacks while you are away (BaseDefence_Plan.md, section 6). With BaseAttacksAway a horde
 			     is called while you are away too (at most one per absence) and fought by the defenders alone: it lasts
 			     BaseAwayHoursBase + BaseAwayHoursPer10 per 10 attackers. Within BaseAttackJoinRange m of the zone you fight it

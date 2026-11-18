@@ -106,6 +106,7 @@ namespace SurvivorCommunity
                 ScQuests.TickMarkers(player);
                 ScScan.RunIfDue(15f);                  // beds / facilities / crops from the loaded chunks, so the HUD morale follows what you build
                 ScNoise.Tick(w, player);               // the base's noise (what was heard in the zone) and the dead's attention
+                ScLightsOut.Tick(w, player);           // round m1f (BD1): Lights out ends at dawn - the generators it switched off back on
                 ScActivities.Tick(player);             // the round of drinks: its real-time countdown (round wl)
 #if SC_V34
                 ScBond.Tick(w, player);               // round U4: queued Bond events into the records, the blood moon survived together

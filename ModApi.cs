@@ -125,6 +125,8 @@ namespace SurvivorCommunity
                 ScTower.Reset();
                 ScFacilities.Reset();
                 ScActivities.Reset();
+                ScFacilityTab.Reset();                 // round m1f: the Facilities tab
+                ScLightsOut.Reset();                   // round m1f (BD1): Lights out
                 ScCategories.Reset();
                 Patches_Npc.Reset();
                 });

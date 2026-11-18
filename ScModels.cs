@@ -548,6 +548,25 @@ namespace SurvivorCommunity
         public float EnclaveLoss;
         public readonly List<EncRefill> EncRefills = new List<EncRefill>();
 
+        // ---- round m1f (2026-11-17): the Facilities tab and base defense BD1. Read and written by ScFacilityTab.ParseKey /
+        // WriteKeys; every key is new in [community], so an older build ignores them and drops them at its next save.
+        /// <summary>
+        /// The home scan's sites per zone chunk (key WorldChunkCache.MakeChunkKey): the position and block name of each work
+        /// station, campfire, well, dew collector and radio the scan saw there (ScScan.Count). Like the counts, a chunk that is not
+        /// loaded keeps its last list, so the Facilities tab lists them from anywhere. Saved as scansites=name@x,y,z;...
+        /// </summary>
+        public readonly Dictionary<long, List<KeyValuePair<Vector3i, string>>> ScanSites = new Dictionary<long, List<KeyValuePair<Vector3i, string>>>();
+        /// <summary>Lights out (ScLightsOut): the world time it ends (the next dawn; 0 = off), and the generators it switched off (lightsout=).</summary>
+        public ulong LightsOutUntil;
+        public readonly List<Vector3i> LightsOutGens = new List<Vector3i>();
+        /// <summary>
+        /// The last home attack's end (ScSalvage.Record): its world day, its kind (ScSalvage.Kind*), how many attackers it was
+        /// about (killed, or the horde the defenders faced) and the materials salvaged from it (lastattack=day:kind:count:salvage).
+        /// </summary>
+        public int LastAttackDay = -1, LastAttackKind, LastAttackCount, LastAttackSalvage;
+        /// <summary>Guard Towers SC built (ScTower), by the cell of their Watch post (towers=x,y,z;...).</summary>
+        public readonly List<Vector3i> Towers = new List<Vector3i>();
+
         public int Get(Resource r) { return Stock[(int)r]; }
         public void Set(Resource r, int v) { Stock[(int)r] = Math.Max(0, v); }
         public void Add(Resource r, int delta) { Set(r, Get(r) + delta); }

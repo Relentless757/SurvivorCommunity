@@ -308,7 +308,7 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   (default 0.3); with nothing to heal with she gives the job up and heads home about 2 s later. `sc runners` shows her
   health, whether she has a way to heal, and a walk held or routed round a threat she would run from
 - `sc distress <id|name>` · `sc craft [table | station [radius] | <id|name> [spec <Specialty> | end]]`
-- `sc facility [list]` · `sc facility level <x y z> <1-5>` · `sc drinks [on|off]`
+- `sc facility [list | tab]` · `sc facility level <x y z> <1-5>` · `sc drinks [on|off]`
 
 ## Home, defense and the watch
 
@@ -316,7 +316,9 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 - `sc attack [now] [size]` · `sc attack status|end` · `sc attack settle [held|damaged|overrun]`
 - `sc defence [horde]` · `sc siege [held|damaged|overrun]`
 - `sc watch [list]` · `sc watch assign <post> <member>` · `sc watch relieve|end <post|member>`
-- `sc watch rest <member> [clear]` · `sc watch place <post|member>` · `sc watch scan`
+- `sc watch rest <member> [clear]` · `sc watch place <post|member>` · `sc watch scan` · `sc watch fatigue`
+- `sc lightsout [on|off]` *(round m1f)* — Lights out: its state, every generator in the home zone and whether it switched
+  it off; `on` orders it at any hour, `off` ends it (Lights on). `sc facility tab` prints the Facilities tab as text
 - `sc tower [info]` · `sc tower check|stamp [rot]`
 
 ## Outposts

@@ -286,13 +286,13 @@ bars: below `LowMoraleThreshold`, 25 by default), the same steps as the words be
 | Recent deaths | **-15 per death**, fading 5 a day (gone after three days) |
 | Territory | +2 per producing outpost (up to +6); a lost outpost costs 5, fading a point a day |
 | Defended the base | +4 per base attack held (up to +10), fading a point a day; losses from fights you missed |
-| A round of drinks | +15 while it lasts (section 4, Activities) |
+| A round of drinks | +15 while it lasts (section 4, The round of drinks) |
 | Allies, enclaves | See section 12 |
 | Infestations near home | See section 14 |
 
 Each member's **mood** is the community's morale plus their own trait offset, **-15 while injured**, **-10 while the
-community is hungry** and **-10 while it is thirsty**, plus their **Bond** with you (below). Moods read happy, content,
-uneasy or miserable.
+community is hungry** and **-10 while it is thirsty**, plus their **Bond** with you (below), and a guard's **watch
+fatigue** (section 9, Watch posts). Moods read happy, content, uneasy or miserable.
 
 What morale does:
 
@@ -351,6 +351,7 @@ SC counts what you build inside the home zone every few seconds:
 - **Facilities:** campfire, workbench, forge, chemistry station and cement mixer.
 - **Crops:** living planted crops (for your gardeners).
 - A part of the claim that is not loaded keeps its last count, so walking away does not lose your beds.
+- The community window's **Facilities** tab lists them with what each one does (section 17).
 
 ### Water facilities
 
@@ -362,15 +363,17 @@ Inside the home zone, these give the stockpile water every day:
 
 Look at one inside your community and press **E** to **Check** it (its level, water a day and the next level's cost).
 Hold **E** and pick **Upgrade** to raise its level with stockpile materials: **4, 8, 12 and 16 materials** for levels 2
-to 5.
+to 5. The community window's **Facilities** tab lists every well and dew collector with its level and water, and its
+**Upgrade** button does the same while you are at the base.
 
-### Activities
+### The round of drinks
 
-The community window's **Activities** tab has one activity, **Prepare a round of drinks**:
+On the community window's **Facilities** tab, the **Campfire** hosts **Pour a round** (**Prepare a round of drinks**):
 
 - Costs **4 luxuries + 1 food** from the stockpile.
 - Gives **+15 morale for 15 minutes** of real play time (the clock stops while the game is paused).
 - Once per game day. It is meant for the days after a death.
+- You don't need a campfire to pour one, but free residents gather around one while it lasts.
 
 ### Staying home, roaming and defending
 
@@ -430,7 +433,7 @@ Between their jobs your residents have a life of their own.
 - **The evening campfire.** With a campfire inside the base, each free resident walks over to it once in the evening (from
   about an hour before dusk until bedtime) and stands around it for 30 to 60 seconds, and two at the fire talk now and
   then. The fire shows lit while anyone is there: only the flames, so it uses no fuel and the block does not change. A
-  round of drinks (Activities) gathers them around the fire as well. Then they go back to what they were doing, and at
+  round of drinks (section 4) gathers them around the fire as well. Then they go back to what they were doing, and at
   bedtime to bed.
 - **Voices.** Each line plays in the speaker's own voice (all 16 voices have every line), with a caption in Voice
   Control's subtitle bar where Voice Control shows that survivor's text.
@@ -566,7 +569,8 @@ What goes into each resource:
 
 Points are the items' trade value. Craftsmen in the community lower the points needed (section 4).
 
-**Luxuries** are never used up by the day; they pay for **Activities**. Stews and canned soups hydrate but count as food.
+**Luxuries** are never used up by the day; they pay for the **round of drinks** at the campfire (section 4). Stews and
+canned soups hydrate but count as food.
 
 ### Opening a bundle
 
@@ -935,6 +939,21 @@ Your base makes **noise**, and noise draws the dead's **attention**.
 - **Attention** (0 to 100%) grows each game hour with noise above 15 and fades 2 an hour. It gains nothing during a blood
   moon or while an attack is open. The panel shows it once it is above 0: "Noise: Loud (42%)".
 - Each **manned watch post** cuts attention gain by 15% (at most 45%). Infestations near home add attention (section 14).
+- The community window's **Facilities** tab, **Defense**, shows the defense rating, the noise, the attention and how
+  fast it grows, and the last attack's result.
+
+### Lights out
+
+**Lights out** is an order for a quiet night, on the community window's Facilities tab under **Defense**.
+
+- You can give it from **2 hours before dusk** until dawn (`LightsOutBeforeDuskHours`), and it lasts **until dawn**.
+- Your people keep it down: the noise they make by living at home is **halved**.
+- Every **running generator inside the base is switched off**, and with it whatever it powers: lights, but also
+  electric traps and turrets, and a radio station on that power (it can't warn you of an attack while you are away).
+  Solar panels and batteries are left alone.
+- At dawn the generators it switched off go back on (unless they ran dry). One you switch back on yourself in the night
+  stays on.
+- **Lights on** on the same button ends it at once.
 
 ### Base attacks
 
@@ -952,6 +971,9 @@ When attention reaches **100%** while you are home, a **horde is called**.
   without a gun, they retreat inside the base (section 4) instead of running from it.
 - **Held** (every attacker dead): a message with what the fight cost the stockpile, and **+4 morale** ("Defended the base",
   at most +10, fading a point a day).
+- **Salvage:** after a held attack your people strip the corpse pile: **1 material per 5 dead** goes to the stockpile
+  (`SalvageKillsPerMaterial`). A fight held without you, or a siege held, gives the same for the horde they faced.
+  Damaged and overrun fights give nothing.
 - **Leaving mid-fight** (more than 150 m from the zone) hands the rest of the fight to your people (see "Attacks while
   you are away" below). A reload mid-fight brings back only the attackers still standing.
 - A fight that stalls (4 game hours in, with no zombie killed or arriving in the last hour) ends, and the stragglers
@@ -1008,6 +1030,11 @@ A **Watch Post** is a block a guard stands on.
   (`HordeVoiceLines`).
 - A guard on watch cannot follow you, go on a supply run or be posted to an outpost until relieved. A guard who is hurt
   with no medicine comes down. Picking up, breaking or building over a manned post ends the watch.
+- **Watch fatigue:** a watch of **8 hours** or more tires the guard: **-5 mood**, until they have rested after a full
+  shift. **Night Owls** and **Insomniacs** enjoy a night watch: **+3 mood** while it is dark, and no tiredness then. The
+  community window shows it after their mood word ("tired", "enjoys the night watch").
+- The community window's **Facilities** tab lists the posts with their guards, and its **Assign guard** picks a guard
+  for the first empty post.
 
 ### Guard Tower
 
@@ -1619,7 +1646,7 @@ When you talk to a survivor, **their line shows in a panel above your responses*
 radial (**Community**), a member's talk (*"Let's talk about the community."*), a watch post's **Assign guard**, or an
 outpost's **Outpost** radial. With the tab bar showing, the gamepad bumpers page to it like any other tab.
 
-The window has three tabs.
+The window has three tabs: Members, Outposts and Facilities.
 
 ### Members
 
@@ -1645,9 +1672,25 @@ Your outposts with their status, what each sends home, distance and what is wait
 radio, deliveries, costs); perks in force; and the buttons **Track on map**, **Assign** (post a member), **Upgrade**,
 **Mode** and **Disband**.
 
-### Activities
+### Facilities
 
-The round of drinks (section 4): its cost, effect and status, and **Pour a round**.
+The base's facilities on the left, the one you pick on the right with what it does and its buttons. A facility's buttons
+are where its activities live.
+
+- **Defense:** the defense rating against the next horde, the noise, the dead's attention and how fast it grows, and the
+  last attack's result (with any salvage). **Lights out / Lights on** (section 9).
+- **Beds:** beds against members, the morale they give, and which beds count.
+- **Water:** what the wells and dew collectors make against what your people drink.
+- **Workshop:** workbenches, forges, chemistry stations and cement mixers. **Call to work** shows your residents: pick
+  one, and they come to you for a work shift (pick someone already on one to end it).
+- **Campfire:** the round of drinks with its cost and status, and **Pour a round**.
+- **Radio station:** whether it has power, relays at outposts, and when the next air drop can be called.
+- **Watch posts:** each post and its guard, who is resting, and **Assign guard** for the first empty post.
+- **Guard Tower:** towers built and whether there is room for one more.
+- **Each well and dew collector:** its level, water a day and the next level's cost, and **Upgrade** (while you are at
+  the base).
+
+Everything is shown from what was counted when you were last home, so the tab reads the same from anywhere.
 
 ---
 
@@ -1819,6 +1862,12 @@ These are the ones you are most likely to change. The file has many more.
 | `BaseAttackGapDays` | 2 | Days between base attacks at least |
 | `WatchPosts` / `WatchMaxPosts` | true / 4 | Watch posts on, and how many |
 | `WatchShiftHours` / `WatchRestHours` / `WatchShiftAmmo` | 12 / 12 / 3 | A guard's shift, rest, and ammo bundles per shift |
+| `LightsOut` | true | The Defense entry offers Lights out (section 9) |
+| `LightsOutPeopleNoise` / `LightsOutBeforeDuskHours` | 0.5 / 2 | The people's noise during lights out (0.5: halved); how many hours before dusk it can be ordered (24: any time) |
+| `LightsOutGenerators` | true | Lights out switches the base's running generators off until dawn (false: only the people's noise) |
+| `WatchFatigue` / `WatchFatigueHours` / `WatchFatigueMood` | true / 8 / 5 | A watch this many hours long costs the guard this much mood, until they have rested (false: no fatigue) |
+| `WatchNightTraits` / `WatchNightMood` | NightOwl,Insomniac / 3 | Traits that enjoy a night watch, and the mood they gain on watch while it is dark |
+| `SalvageKillsPerMaterial` | 5 | After a held attack, 1 material per this many dead (0: no salvage) |
 | `GuardTowerGhost` | glow | How the tower preview looks: glow, solid, plain or off |
 | `StuckSeenWaitSeconds` | 60 | A stuck resident waits this long while you look before being moved (0: at once) |
 

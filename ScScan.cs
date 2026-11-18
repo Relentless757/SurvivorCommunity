@@ -106,6 +106,7 @@ namespace SurvivorCommunity
                     c.HomeDefences = 0;
                     c.ScanWater.Clear();
                     c.HomeWater = 0;
+                    c.ScanSites.Clear();               // round m1f: the Facilities tab's sites too
                     bedCells.Clear();                  // round rt1: the shelter seeds belong to the old home too
                     stationCells.Clear();
                     c.ScanHome = c.Home;
@@ -142,6 +143,7 @@ namespace SurvivorCommunity
                 seenNext.Clear();
                 visited.Clear();
 
+                sitesChanged = false;                  // round m1f
                 pending.Clear();
                 List<long> fresh = w.newlyLoadedChunksThisUpdate;
                 if (fresh != null) lock (fresh) { for (int i = 0; i < fresh.Count; i++) pending.Add(fresh[i]); }
@@ -208,6 +210,14 @@ namespace SurvivorCommunity
                     foreach (long k in c.ScanWater.Keys) if (!c.ScanChunks.ContainsKey(k)) dropW.Add(k);
                     for (int i = 0; i < dropW.Count; i++) c.ScanWater.Remove(dropW[i]);
                 }
+                if (c.ScanSites.Count > 0)
+                {
+                    // round m1f: the Facilities tab's sites of chunks that left the zone
+                    var dropS = new List<long>();
+                    foreach (long k in c.ScanSites.Keys) if (!c.ScanChunks.ContainsKey(k)) dropS.Add(k);
+                    for (int i = 0; i < dropS.Count; i++) c.ScanSites.Remove(dropS[i]);
+                    if (dropS.Count > 0) sitesChanged = true;
+                }
 
                 // part of the zone has never been seen: a total may rise, not fall
                 if (missing > 0)
@@ -218,7 +228,8 @@ namespace SurvivorCommunity
                     defences = Math.Max(defences, c.HomeDefences);
                     water = Math.Max(water, c.HomeWater);
                 }
-                bool changed = beds != c.Beds || facilities != c.Facilities || crops != c.Crops || defences != c.HomeDefences || water != c.HomeWater;
+                bool changed = beds != c.Beds || facilities != c.Facilities || crops != c.Crops || defences != c.HomeDefences || water != c.HomeWater
+                               || sitesChanged;      // round m1f: a station swapped for another, a well upgraded
                 c.Beds = beds;
                 c.Facilities = facilities;
                 c.Crops = crops;
@@ -268,6 +279,7 @@ namespace SurvivorCommunity
             byte[] k = kinds;
             List<Vector3i> dews = null;
             List<Vector3i> beds = null, stations = null;   // round rt1 (I6): positions only, the counts are unchanged
+            List<KeyValuePair<Vector3i, string>> sites = null;   // round m1f: the Facilities tab's stations, water and radios
             long key = WorldChunkCache.MakeChunkKey(cx, cz);
             for (int i = 0; i < list.Count; i++)
             {
@@ -285,6 +297,7 @@ namespace SurvivorCommunity
                 if (r > 0 && (Math.Abs(p.x - home.x) > r || Math.Abs(p.z - home.z) > r)) continue;
                 if (!ScZone.Contains(p)) continue;
                 if (fac) water += ScFacilities.WaterAt(p, bv);
+                if (fac || kind == KFacility || kind == KRadio) (sites ?? (sites = new List<KeyValuePair<Vector3i, string>>())).Add(new KeyValuePair<Vector3i, string>(p, SiteName(t)));
                 switch (kind)
                 {
                     case KBed: n[2]++; (beds ?? (beds = new List<Vector3i>())).Add(p); break;
@@ -297,6 +310,7 @@ namespace SurvivorCommunity
             // round rt1 (I6): this chunk's bed and station cells for the shelter cache (a chunk with none drops its list)
             if (beds != null) bedCells[key] = beds; else bedCells.Remove(key);
             if (stations != null) stationCells[key] = stations; else stationCells.Remove(key);
+            NoteSites(key, sites);                       // round m1f
             // a dew collector picked up or broken: its level goes with it (this chunk's entries only - it is loaded and settled)
             Dictionary<Vector3i, int> levels = ScRegistry.Community.DewLevels;
             if (levels.Count > 0)
@@ -316,6 +330,35 @@ namespace SurvivorCommunity
                 }
             }
             return n;
+        }
+
+        // ---- round m1f: the Facilities tab's sites (Community.ScanSites, saved as scansites=) ----
+
+        /// <summary>Set by a scan whose site lists differ from the saved ones (the registry is saved then, as for a count change).</summary>
+        private static bool sitesChanged;
+
+        private static string SiteName(int type)
+        {
+            try { Block b = Block.list[type]; return b != null ? b.GetBlockName() ?? "" : ""; }
+            catch (Exception) { return ""; }
+        }
+
+        /// <summary>One counted chunk's sites replace its last list (none: the chunk drops out).</summary>
+        private static void NoteSites(long key, List<KeyValuePair<Vector3i, string>> sites)
+        {
+            Dictionary<long, List<KeyValuePair<Vector3i, string>>> all = ScRegistry.Community.ScanSites;
+            List<KeyValuePair<Vector3i, string>> was;
+            all.TryGetValue(key, out was);
+            if (sites == null)
+            {
+                if (was != null) { all.Remove(key); sitesChanged = true; }
+                return;
+            }
+            bool same = was != null && was.Count == sites.Count;
+            for (int i = 0; same && i < sites.Count; i++) same = was[i].Key == sites[i].Key && was[i].Value == sites[i].Value;
+            if (same) return;
+            all[key] = sites;
+            sitesChanged = true;
         }
 
         /// <summary>Classifies every block type once per world (Block.list is a new array on every load).</summary>

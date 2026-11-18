@@ -954,6 +954,7 @@ namespace SurvivorCommunity
             // vo4: the guard on watch calls the all clear (its own tooltip, and their voice) - not when a timeout let stragglers go
             if (!(dispersed && left > 0)) ScWatch.CalloutClear(player);
             ScOutposts.NoteLedger(string.Format(Localization.Get("scBaseLedgerHeld"), killed, ammo));
+            ScSalvage.Held(player, killed);        // round m1f (BD1): the corpse pile's materials; the Defense entry's last attack
             ScLog.Out("base attack HELD: " + killed + " killed" + (dispersed ? ", " + left + " straggler(s) let go after " + ScConfig.BaseAttackMaxHours + " h" : "")
                       + "; " + c.AttackAmmoRounds + " round(s) resupplied from the stockpile (" + c.AttackAmmoPoints + " point(s)); next call not before " + Clock(c.AttackNotBefore));
             Clear(c);
@@ -967,6 +968,7 @@ namespace SurvivorCommunity
             c.AttackNotBefore = w.worldTime + (ulong)(Math.Max(0f, ScConfig.BaseAttackGapDays) * TicksPerDay);
             ScLog.Warn("base attack ended without a fight: none of " + c.AttackSize + " was killed (spawned " + c.AttackSpawned
                        + "; stalled " + ScConfig.BaseAttackMaxHours + " h, or nothing could be spawned) - no reward");
+            ScSalvage.Record(ScSalvage.KindLostTrail, c.AttackSize, 0);     // round m1f: the Defense entry's last attack
             Clear(c);
             ScRegistry.SaveAtomic();
         }

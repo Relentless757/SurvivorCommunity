@@ -143,6 +143,7 @@ namespace SurvivorCommunity
 #if SC_V34
                     mood += ScBond.MoodTerm(m);        // round U4: her Bond (0-XNPCCore's relationship events, SC-owned)
 #endif
+                    mood += ScWatchFatigue.MoodTerm(m);   // round m1f (BD1): a long watch tires, a night watch suits a night person
                     m.Mood = Mathf.Clamp(mood, 0, 100);
                 }
                 // a threat is withdrawn the moment morale is back above the line (not only at the next rollover)
