@@ -14,7 +14,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// P2: the order wheel's spoken slot labels ("Close", "Jump down", "Loot here", "Wave") become the order's own reply in
         /// SC's recorded voice ("I'll stay close."), "Come here" leaves the "On my way." it already said, and a gesture with no
-        /// reply ("Whatever") plays without a word. false: Voice Control speaks the labels, as before.
+        /// reply ("Whatever") plays without a word. An order Voice Control did not carry out (a full party, not her leader)
+        /// keeps its label. false: Voice Control speaks the labels, as before.
         /// </summary>
         public static bool VoiceWheelAcks = true;
         /// <summary>
@@ -30,9 +31,9 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool VoiceSpokenRefusals = true;
         /// <summary>
-        /// P4: SC owns the greetings of SC's people: a runner on the road, one posted to an outpost and one arriving greet
-        /// with the member lines that fit away from home (none of the home-only ones; nothing when none is left), and an
-        /// outpost stand-in or someone hostile to you says nothing - Voice Control greets none of them. Where SC has a
+        /// P4: SC owns the greetings of SC's people: a runner on the road and one arriving greet with the member lines that
+        /// fit away from home (none of the home-only ones; nothing when none is left), and an outpost stand-in, a member out
+        /// of sight on a posting or a run, or someone hostile to you says nothing - Voice Control greets none of them. Where SC has a
         /// greeting but no recording of it, Voice Control greets as before. false: Voice Control greets the ones SC has no
         /// greeting for, as before.
         /// </summary>

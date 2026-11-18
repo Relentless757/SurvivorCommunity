@@ -70,19 +70,22 @@ What it does now:
   without it, the caption still naming it.
 - **P2, the order wheel.** The wheel's spoken slot labels ("Close", "Jump down", "Loot here", "Wave") become the order's
   own reply in SC's voice. "Come here" leaves her "On my way." alone; "Whatever" on the Emotes page is silent; "Point"
-  uses the generic formation reply.
+  uses the generic formation reply. An order Voice Control does not carry out (your party is full, you are not her
+  leader, she has no package for the job) keeps the slot's label, as before.
 - **P3, SC's own lines.** The answers SC hands Voice Control ("Heading home.", "I'll walk, thanks.", "I can't right now.",
   the trade refusals, the training line) are found by their Localization text.
 - **P4, greetings.** SC greets its people itself; Voice Control greets none of them where SC has a recording of their
-  greeting, and never a stand-in or someone hostile to you (silence). Without a recording Voice Control greets as before.
+  greeting, and never a stand-in, a member out of sight on a posting or a run, or someone hostile to you (silence).
+  Without a recording Voice Control greets as before.
 - **P5, punctuation.** Words match by letters and digits only.
 - **P6, one line at a time.** After SC's line on a survivor, only the known second line of the same order is skipped -
-  the order wheel's label, and a spoken order's reply - in the same or the next frame (0.4 s at most). A say-line
+  the order wheel's label, and the reply to a phrase Voice Control just matched on her (never one of its billing
+  lines) - in the same or the next frame (0.4 s at most). A say-line
   (going down, a gift's thanks) and a trigger's reply are never skipped, nor anything on a downed survivor. A second SC
   line no longer defers to Voice Control just because SC's own clip is playing on Voice Control's player.
 - **P7, spoken refusals.** The field-job, work-kit and party-full refusals are said aloud, within 30 m of you - not while
   she is asleep or down, not while Voice Control is saying something on her, not with `ScBarks` off (the tooltip alone).
-  A spoken order's reply right after SC refused that order is skipped.
+  A spoken order's reply right after SC refused that order is skipped, caption and all, and so is a trigger's ack of it.
 - **The registry:** 105 more lines per voice (709 in all), none recorded yet. **Every new line sounds exactly as before
   until its clip exists:** Voice Control's text-to-speech where Voice Control spoke it, the tooltip alone where it was
   text only.
@@ -97,9 +100,10 @@ counters say which way each line went (`vc swapped`, `vc kept`, `vc one-line`, `
 
 **0. Start-up**
 
-- [ ] In the log: `patch verification: all ... targets patched`, one more than round m1p's build (the offline check
-      counted 209 with Voice Control and 0-XNPCCore 3.4.06), a `patched VCCommandRouter::Execute` line, no `MISSING
-      PATCH`, no line starting `voice routes:`. The `config: voices ...` line ends `wheelAcks=True oneLine=0.4s
+- [ ] In the log: `patch verification: all ... targets patched`, three more than round m1p's build (the offline check
+      counted 211 with Voice Control and 0-XNPCCore 3.4.06), `patched VCCommandRouter::Execute`,
+      `patched VCCommandRouter::Dispatch` and `patched SdcsParty::Refuse` lines, no `MISSING PATCH`, no line starting
+      `voice routes:`. The `config: voices ...` line ends `wheelAcks=True oneLine=0.4s
       spokenRefusals=True greetingsOwnAll=True`.
 - [ ] `sc voice barks` has a line starting `routes (round m1w): wheel acks on (0 orders noted, ...`.
 - [ ] Near a member, `sc voice who`: the last line ends `xn 23/56; ack 163/199; vc 40/45; own 0/18`. Recorded: the
@@ -146,6 +150,11 @@ counters say which way each line went (`vc swapped`, `vc kept`, `vc one-line`, `
       When she said no "On my way." (the recall did not run: a full 0-XNPCCore party), Voice Control says "Come here", as
       before (`vc wheel left`).
 - [ ] Set `VoiceWheelAcks` false: every label is Voice Control's again, **Loser** included.
+- [ ] **An order she does not carry out keeps its label.** Fill 0-XNPCCore's party (`sc party` shows it against
+      `PartyMaxMembers`; paid hires count), then **Follow** on the wheel to a member who is not following you: the
+      tooltip "Your party is full (8/8).", and Voice Control says "Follow" - never SC's "Right behind you." or another
+      follow reply. **Come here** the same way: Voice Control's "Come here". The routes line in `sc voice barks` counts
+      them as "not run by Voice Control".
 - [ ] Squad order (open the wheel with two followers and no one locked): **Follow**. The nearest one answers "On it. I'll
       stick close." (or another follow reply) in her voice.
 - [ ] `sc voice barks`: the routes line counts the orders noted and the labels taken for a reply.
@@ -175,8 +184,11 @@ counters say which way each line went (`vc swapped`, `vc kept`, `vc one-line`, `
       "Quiet day. I'll take it.", and **never** "Welcome home, boss.", the coffee line, "Walls are holding. Mostly.",
       "Good to see you back in one piece." or "Any luck out there?". `sc xnpc`'s voice control line counts
       `greeting-sc-instead`. `sc voice greet` on the runner: "<name> (<id>) (away) says greet.member.2 ...".
-- [ ] A member posted to an outpost (if you meet one away from home) is greeted the same way. Members at home still use
-      all six member lines.
+- [ ] Members at home still use all six member lines.
+- [ ] **A body out of sight never greets.** Post a member to an outpost (or send one on a run that hides her), then
+      walk around where her body is parked at home, within 12 m, looking that way: no greeting, no caption, in any voice.
+      `sc voice greet <name>`: "... is no one SC greets for (out of sight on a posting or a hidden run, ...) - they say
+      nothing". Bring her home: she greets again.
 - [ ] Walk up to an outpost stand-in, and to a survivor with a grudge: no greeting at all. `sc voice greet` on the
       stand-in: "... they say nothing: SC owns their greeting (ScGreetingsOwnAll)".
 - [ ] Members at home, followers, strangers and enclave people greet as before. Anyone whose voice has no recording of
@@ -217,7 +229,13 @@ counters say which way each line went (`vc swapped`, `vc kept`, `vc one-line`, `
 - [ ] With `MiningRuns` on, **Mine all** to the same resident: `scJobResidentMine` ("Not here at home. Send me on a
       mining run, ...").
 - [ ] Push-to-talk "loot here" to the same resident: the tooltip refusal, and no "I'll clear this place out." in any
-      voice (`vc refused reply`); recorded, her refusal instead.
+      voice, nor its caption (not even a flash) (`vc refused reply`); recorded, her refusal instead.
+- [ ] **A trigger's ack of a refused order is skipped too:** any route that tells a resident at home to do a field job
+      and answers with Voice Control's acknowledgment (her name first, "<name>, loot here"; a squad order if one ever
+      reaches her): the tooltip refusal only, no "I'll clear this place out." in any voice or caption, `vc refused reply`
+      counts it.
+- [ ] A work shift taking a field job back (a resident with Loot here from an old save) says her refusal once, and a
+      voice order you give her right after is answered normally.
 - [ ] **Tooltip only while asleep or down**, even recorded: at night, the same resident asleep in bed, her hold-E ring,
       Jobs and gear, Jobs, **Loot here** (if the ring reaches her without waking her): the tooltip, no voice; the routes
       line counts one "kept quiet". The same for a follower who is down (`sc down <name>`) and refuses an order she gets.
@@ -249,7 +267,7 @@ counters say which way each line went (`vc swapped`, `vc kept`, `vc one-line`, `
 - [ ] **One line per survivor:** after SC's line on a survivor, the wheel's label and a spoken order's reply in the same
       or the next frame are skipped (never a say-line like "I'm down!", never a trigger's reply). Click two wheel slots
       very fast, or double-click one: does a reply ever go missing that you wanted? (`VoiceOneLineSeconds` 0 to
-      compare.)
+      compare.) A paid hire's billing lines ("I need ... for this week - can you cover it?") are never skipped.
 - [ ] **Horde warnings in person:** while a guard's own SC line plays (a greeting, a swapped reply), a horde warning she
       says in person now goes through Voice Control's player and cuts that line (before: it played from SC's own source,
       overlapping it). Is the cut acceptable?

@@ -28,8 +28,9 @@ namespace SurvivorCommunity
     /// Round m1w (P4, ScGreetingsOwnAll): SC owns the greetings of SC's people it means to keep silent - an outpost stand-in,
     /// someone hostile to you, a missing enclave person, and a member away from home when no member line fits away (GreetKeys:
     /// none of the home-only ones, HomeOnly) - so Voice Control greets none of them; a member away (a runner met on the road,
-    /// one posted to an outpost, one arriving) greets with the member lines that fit anywhere. Review of adee167, fix 4: where
-    /// SC has a greeting for someone but no recording of it, Voice Control greets them as before.
+    /// one on the way to the base) greets with the member lines that fit anywhere. Review of adee167, fix 4: where SC has a
+    /// greeting for someone but no recording of it, Voice Control greets them as before. Re-check fix 1: a body out of sight
+    /// (SCore's onMission - a member posted to an outpost or on a hidden run, parked at home) greets no one.
     ///
     /// Chatter (ScChatter): every ScChatterSeconds (90 s, a quarter either way), with ScChatterChance (0.5), one resident at
     /// home within ScChatterRange (15 m) of you, not fighting, not talking, says a chatter line - only one with a clip.
@@ -96,6 +97,9 @@ namespace SurvivorCommunity
         public static string Relation(EntityAlive npc, EntityPlayer player)
         {
             if (npc == null || player == null) return null;
+            // round m1w, re-check fix 1: a body out of sight - a member posted to an outpost or on a hidden run, parked at home
+            // (SCore's onMission, as ScRuns.Park hides her) - greets no one, and Voice Control does not greet her either
+            if (ScNpc.IsOnMission(npc) || !npc.enabled) return null;
             if (ScTrust.IsHostileTo(npc, player) || ScEnclavePeople.IsHostileBody(npc)) return null;
             if (npc.Buffs != null && npc.Buffs.HasCustomVar(ScRadio.StandInCvar)) return null;
             Member m = ScRegistry.GetMember(npc.entityId);
@@ -103,8 +107,8 @@ namespace SurvivorCommunity
             {
                 if (m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) return "follower";
                 if (m.Status == MemberStatus.Resident) return "member";
-                // round m1w (P4): a runner on the road, one posted to an outpost, one arriving - one of yours all the same,
-                // but away from home: none of the home-only lines (GreetKeys)
+                // round m1w (P4): a runner on the road, one arriving - one of yours all the same, but away from home: none of the
+                // home-only lines (GreetKeys). One posted to an outpost or on a hidden run is out of sight (above).
                 return ScConfig.ScGreetingsOwnAll ? Away : null;
             }
             if (ScEnclavePeople.IsEnclaveNpc(npc))
@@ -380,7 +384,7 @@ namespace SurvivorCommunity
             string who = ScCommunity.DisplayName(npc) + " (" + npc.entityId + ")";
             if (!ScXnpc.IsSurvivorBody(npc)) return who + " is not one of the community's survivors - SC greets only those";
             string rel = Relation(npc, lp);
-            if (rel == null) return who + " is no one SC greets for (hostile to you, an outpost stand-in, a missing enclave person"
+            if (rel == null) return who + " is no one SC greets for (out of sight on a posting or a hidden run, hostile to you, an outpost stand-in, a missing enclave person"
                                     + (ScConfig.ScGreetingsOwnAll ? ") - they say nothing: SC owns their greeting (ScGreetingsOwnAll)" : ", or a member away) - Voice Control's greeting stays theirs");
             ScBarks.Pick p = ScBarks.Resolve(npc, GreetKeys(rel));
             string what = who + " (" + rel + ")";
