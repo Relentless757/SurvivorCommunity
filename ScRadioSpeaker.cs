@@ -316,19 +316,30 @@ namespace SurvivorCommunity
                         // fix 3: counted and logged only when a clip really starts; the radio queue waits while it plays (HoldFor), so
                         // no radio line talks over it
                         string said = tag, k = key, v = voice;
-                        bool playing = ScVoice.SayAfterTalk(body, key, clip =>
-                        {
-                            ScRadioTalk.HoldFor(clip.length + 0.3f);
-                            ScHandheld.Count(said + " said: in person, as the talk closes");
-                            Note(s, k, v, "in person, as the talk closes");
-                        });
+                        // the m1v re-check's N3: the hold is set first (about 5 s for a slow first load), set to the clip's length when it
+                        // starts, and let go when it never does (counted unsaid then) - so a failed or synchronous callback never leaves a
+                        // stale hold behind
+                        ScRadioTalk.HoldFor(5f);
+                        bool playing = ScVoice.SayAfterTalk(body, key,
+                            clip =>
+                            {
+                                ScRadioTalk.HoldFor(clip.length + 0.3f, true);
+                                ScHandheld.Count(said + " said: in person, as the talk closes");
+                                Note(s, k, v, "in person, as the talk closes");
+                            },
+                            () =>
+                            {
+                                ScRadioTalk.ReleaseHold();
+                                ScHandheld.Count(said + " unsaid: in person, as the talk closes (it did not play)");
+                                ScLog.Verbose(s.Name + "'s " + k + " as the talk closed did not play (the clip did not load, they went, or another line took over)");
+                            });
                         if (!playing)
                         {
+                            ScRadioTalk.ReleaseHold();
                             ScHandheld.Count(tag + " unsaid: in person, as the talk closes");
                             return "not said: " + key + " was said by them less than " + ScVoice.RepeatSeconds.ToString("0", CultureInfo.InvariantCulture)
                                    + " s ago, or their talk voice has no recording of it - the text alone";
                         }
-                        ScRadioTalk.HoldFor(2f);                // while the clip loads (raised to its length when it starts)
                         return "saying " + key + " in " + voice + ", in person as the talk closes";
                     }
                     if (!ScRadioTalk.QueueSpoken(s, key, path, voice, body, prio, tag, local)) return "dropped: the radio queue is full of more urgent lines";

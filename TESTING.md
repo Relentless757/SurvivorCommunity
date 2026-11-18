@@ -148,6 +148,8 @@ and its counters count `enc said: on the radio`, `enc said: in person`, `enc sai
       sound, and the log line "siege at <group>: half the time to answer is gone and nobody has come - they call again,
       mm:ss left (voice: no recording of scEncSiegeHurrySaid ...)". Only once.
 - [ ] **Not when you are there.** Again, but reach the enclave (within 70 m) before half time: no second call.
+- [ ] Optional: be at the enclave through half time while another fight holds the arrival (a base attack next door),
+      then leave before it goes live: the half-time call comes as you leave.
 - [ ] **Not twice after a reload.** Let the half-time call come, save and quit to the menu, load: no second call
       (verbose: "already past half its time when this session first saw it"). Reload a save from before half time: it
       comes once, at half time.
@@ -182,8 +184,10 @@ and its counters count `enc said: on the radio`, `enc said: in person`, `enc sai
 - [ ] **Gone while it waited.** Queue a radio line from a group (`sc radio enc fighter <id>` while another plays), then
       kill the speaker (`sc enclave kill <id> <person id>`) before it plays: it is skipped (`enc unsaid: the speaker is
       gone`).
-- [ ] **A horde guard high up.** A guard on watch on a tall tower more than 30 m (3D) from you: their at-home warning
-      goes on the radio when you carry a handheld and they can send, else the message alone.
+- [ ] **A horde guard high up.** A guard on watch on a tall tower more than 30 m (3D) from you, though within 30 m on
+      the map: their at-home warning goes on the radio when you carry a handheld and they can send, else the message
+      alone - and the log says so when the warning comes ("... on the radio (their handheld)" or "unheard"), never
+      "in person".
 
 ## Round U1 (2026-11-16): 0-XNPCCore 3.4.06 - equipment window, ammo type, tool quality
 

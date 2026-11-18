@@ -446,7 +446,7 @@ namespace SurvivorCommunity
             }
             float d;
             EntityPlayer by = NearestPlayer(w, e, out d);
-            if (by == null || d > ScConfig.EnclaveSiegeArriveRange) TickHurry(w, e, r, player, t, full);   // m1v fix 8: nobody there yet
+            TickHurry(w, e, r, player, t, full, by == null || d > ScConfig.EnclaveSiegeArriveRange);   // m1v fix 8 (N2: first sight always, the call only with nobody there)
             if (by == null || d > ScConfig.EnclaveSiegeArriveRange || !ScEnclavePeople.ChunksSettled(w, e)) { settledSince = -1f; return; }
             if (settledSince < 0f) { settledSince = now; return; }
             // another attack being fought where the player is (a base attack next door, an outpost fight in its range): the
@@ -476,13 +476,15 @@ namespace SurvivorCommunity
         /// siege: a load past half time marks it done the first time this session sees it; one before half time calls when it
         /// gets there. Never throws into the tick.
         /// </summary>
-        private static void TickHurry(World w, Enclave e, EnclaveRequest r, EntityPlayerLocal player, ulong t, ulong full)
+        private static void TickHurry(World w, Enclave e, EnclaveRequest r, EntityPlayerLocal player, ulong t, ulong full, bool nobodyThere)
         {
             try
             {
                 if (hurryDone == r.Id) return;
                 ulong left = r.Deadline > t ? r.Deadline - t : 0UL;
                 bool past = left * 2UL <= full;
+                // the m1v re-check's N2: the first sight is recorded every tick, whoever is there - a player at the enclave through
+                // half time (the arrival held) who then leaves still gets the call; only a load past half time marks it done
                 if (hurrySeen != r.Id)
                 {
                     hurrySeen = r.Id;
@@ -493,7 +495,7 @@ namespace SurvivorCommunity
                         return;
                     }
                 }
-                if (!past) return;
+                if (!past || !nobodyThere) return;
                 hurryDone = r.Id;
                 if (player != null) ScCommunity.Tell(player, string.Format(Loc("scEncCallRadio"), e.Name, Loc(ScEncRadio.HurryKey)), "ui_denied");
                 string said = player != null ? ScEncRadio.Say(e, EncCall.SiegeHurry, player) : "no player";

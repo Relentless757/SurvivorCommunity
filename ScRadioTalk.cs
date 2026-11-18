@@ -335,10 +335,16 @@ namespace SurvivorCommunity
         /// The m1v review's fix 3: the queue waits at least this many seconds from now (an in-person line said outside it, as a
         /// talk closes, is playing or loading). Never shortens a wait already set.
         /// </summary>
-        internal static void HoldFor(float seconds)
+        internal static void HoldFor(float seconds, bool replace = false)
         {
             float until = Time.unscaledTime + Mathf.Max(0f, seconds);
-            if (until > holdUntil) holdUntil = until;
+            if (replace || until > holdUntil) holdUntil = until;   // m1v N3: replace - the clip started, its own length now
+        }
+
+        /// <summary>The m1v re-check's N3: the in-person line the queue held for never played - the queue goes on.</summary>
+        internal static void ReleaseHold()
+        {
+            holdUntil = 0f;
         }
 
         /// <summary>Round m1v: the log's word for a line with no caption of its own.</summary>

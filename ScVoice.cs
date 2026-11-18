@@ -634,9 +634,10 @@ namespace SurvivorCommunity
         /// tell): it plays as a dialog line does - in the survivor's voice, under the repeat rule - and the talk's close
         /// does not stop it (OnTalkClosed). Round m1v (the review's fix 3): true when a clip was found and is loading or
         /// playing (false: VoiceLines off, no recording in their talk voice, said within RepeatSeconds); started gets the clip
-        /// once it really plays.
+        /// once it really plays; failed (the m1v re-check's N3) runs instead when it never does - the clip did not load, the NPC
+        /// died or went meanwhile, or another SC line took over first.
         /// </summary>
-        public static bool SayAfterTalk(EntityAlive npc, string key, Action<AudioClip> started = null)
+        public static bool SayAfterTalk(EntityAlive npc, string key, Action<AudioClip> started = null, Action failed = null)
         {
             if (npc == null || string.IsNullOrEmpty(key) || !ScConfig.VoiceLines) return false;
             var found = new List<string>();
@@ -646,7 +647,7 @@ namespace SurvivorCommunity
             string tag = npc.entityId + "|" + key;
             float at;
             if (recent.TryGetValue(tag, out at) && Time.unscaledTime - at < RepeatSeconds) return false;
-            Play(npc, tag, path, started);
+            Play(npc, tag, path, started, failed);
             parting = true;   // after Play: its Stop clears the flag
             return true;
         }
@@ -905,7 +906,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ playing ----
 
-        private static void Play(EntityAlive npc, string tag, string path, Action<AudioClip> started = null)
+        private static void Play(EntityAlive npc, string tag, string path, Action<AudioClip> started = null, Action failed = null)
         {
             Stop();
             // V1: SC's new line on this NPC ends the answer pass - Voice Control's answer still queued is swallowed from here
@@ -921,10 +922,11 @@ namespace SurvivorCommunity
             bool forVc = VcPlayer(npc) != null;
             ScClipCache.Get(path, !forVc, clip =>
             {
+                bool begun = false;                             // m1v N3: failed runs when this never starts the clip
                 try
                 {
-                    if (my != token || clip == null) return;   // superseded meanwhile, or did not load (logged by the cache)
-                    if (npc == null || npc.IsDead()) return;    // Unity null: gone while the clip loaded
+                    if (my != token || clip == null) { PlayFailed(failed); return; }   // superseded meanwhile, or did not load (logged by the cache)
+                    if (npc == null || npc.IsDead()) { PlayFailed(failed); return; }    // Unity null: gone while the clip loaded
                     FinishPending(id);                          // M1: a bark's taken-over callback, before this line cuts it
                     Component player = forVc ? VcPlayer(npc) : null;
                     AudioClip on = player != null ? PlayOnVc(player, path, clip, null) : null;
@@ -934,6 +936,7 @@ namespace SurvivorCommunity
                         Started(id, tag, on);
                     }
                     else PlayOwn(npc, tag, clip);
+                    begun = true;
                     ScClipCache.MarkPlaying(clip);
                     if (started != null)                        // round m1v (the review's fix 3): SayAfterTalk's caller learns it plays
                     {
@@ -944,8 +947,17 @@ namespace SurvivorCommunity
                 catch (Exception e)
                 {
                     ScLog.Once("voice-play", e);
+                    if (!begun) PlayFailed(failed);
                 }
             });
+        }
+
+        /// <summary>The m1v re-check's N3: Play's failure path (its caller's callback, guarded).</summary>
+        private static void PlayFailed(Action failed)
+        {
+            if (failed == null) return;
+            try { failed(); }
+            catch (Exception e) { ScLog.Once("voice-play-failed", e); }
         }
 
         /// <summary>A clip started: what Stop, the repeat rule and (V1) the voice gate read.</summary>
