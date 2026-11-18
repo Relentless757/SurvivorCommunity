@@ -67,8 +67,12 @@ namespace SurvivorCommunity
         public static bool VoiceBarkSubtitles = true;
         /// <summary>Test aid: a greeting, chatter line or taunt with no recording still shows its words and logs a line.</summary>
         public static bool VoiceBarkDebug = false;
-        /// <summary>SC's clips kept loaded (compressed), least recently used dropped first.</summary>
+        /// <summary>SC's clips kept loaded (compressed, or decompressed for Voice Control's lip sync), least recently used dropped first.</summary>
         public static int VoiceClipCache = 48;
+        /// <summary>Round m1p: and at most this many megabytes of them (ScClipCache's estimate), least recently used dropped first.</summary>
+        public static int VoiceClipCacheMB = 24;
+        /// <summary>Round m1p: a clip nobody has asked for in this many real minutes is dropped (0: only the two bounds above).</summary>
+        public static float VoiceClipIdleMinutes = 10f;
 
         private static void ResetVoices()
         {
@@ -95,6 +99,8 @@ namespace SurvivorCommunity
             VoiceBarkSubtitles = true;
             VoiceBarkDebug = false;
             VoiceClipCache = 48;
+            VoiceClipCacheMB = 24;          // round m1p
+            VoiceClipIdleMinutes = 10f;
         }
 
         private static void ParseBoolKey(DynamicProperties p, string key, ref bool v)
@@ -129,6 +135,8 @@ namespace SurvivorCommunity
             ParseBoolKey(p, "VoiceBarkSubtitles", ref VoiceBarkSubtitles);
             ParseBoolKey(p, "VoiceBarkDebug", ref VoiceBarkDebug);
             ParseInt(p, "VoiceClipCache", ref VoiceClipCache, 8, 512);
+            ParseInt(p, "VoiceClipCacheMB", ref VoiceClipCacheMB, 4, 1024);                 // round m1p
+            ParseFloat(p, "VoiceClipIdleMinutes", ref VoiceClipIdleMinutes, 0f, 600f);
         }
 
         /// <summary>The second config line (V2).</summary>
@@ -143,7 +151,8 @@ namespace SurvivorCommunity
                    + " taunts=" + (RaiderTaunts ? "cooldown " + f(RaiderTauntCooldown) + "s/" + f(RaiderTauntGlobalCooldown) + "s, idle ~" + f(RaiderTauntIdleSeconds)
                                                   + "s, hit " + f(RaiderTauntHitChance) + ", retreat below " + f(RaiderTauntRetreatHealth) + ", within "
                                                   + f(RaiderTauntRange) + "m" : "off")
-                   + " subtitles=" + VoiceBarkSubtitles + " debug=" + VoiceBarkDebug + " clipCache=" + VoiceClipCache;
+                   + " subtitles=" + VoiceBarkSubtitles + " debug=" + VoiceBarkDebug + " clipCache=" + VoiceClipCache
+                   + " clips/" + VoiceClipCacheMB + " MB, idle " + f(VoiceClipIdleMinutes) + " min";   // round m1p
         }
     }
 }

@@ -37,6 +37,96 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round m1p (2026-11-17): the M1 polish bundle
+
+Why: roadmap item 1 (`research/roadmap/ROADMAP.md`, section 3) - six small leftovers from the notes. None changes
+gameplay.
+
+What it does now:
+
+- **`sc mags`** lists members' Locked & Loaded magazines against their tier's count, and **`sc mags <name> trim`** shows
+  which extra magazines (from before the duplication fix) a trim would remove; `trim confirm` removes them.
+- **Linked storage** says "The base has no storage boxes ..." when that is why an item came back, instead of "No box has
+  room for that." (an outpost's storage, and a base only partly loaded, get their own message).
+- **SC's voice clips** are bounded in memory too (`VoiceClipCacheMB`, 24) and dropped after 10 minutes unused
+  (`VoiceClipIdleMinutes`), besides the 48-clip limit; a clip that is playing is never dropped.
+- **Spoken "dismiss", "pick up" and "hire"** to SC's people: the subtitle shows the answer they say (it showed Voice
+  Control's own reply before).
+- **The member inventory panel closes when that member takes a hit**, and says why. Your own fight does not close it.
+- **The Watch Post's description** names the numbers your settings use (posts, shift hours, sight, ammo bundles,
+  attention).
+
+Setup: the new DLL with its `Config/Localization.csv` and `Config/blocks.xml` (two new voice settings). `DebugLogging`
+true for the verbose lines. Locked & Loaded loaded for the first group.
+
+**1. `sc mags` and the opt-in trim**
+
+- [ ] `sc mags` prints one line per member near you: "K magazine(s) for the <gun> holding R, the tier carries N", with
+      "K - N over: sc mags <id> trim" for anyone over. The last line counts members with magazines, those over and those
+      not loaded here.
+- [ ] Pick an inflated member (or make one: hand a T1 member three extra magazines for her gun into her Bag through the
+      inventory panel). `sc mags <name>` lists every magazine (in the gun, bag N, toolbelt N; rounds) marked `keep` or
+      `TRIM`: the one in the gun, then one marked to go back in on the draw, then the fullest are kept, N in all.
+- [ ] With a twin magazine among the extras (one side empty, the other full): its line says "(twin: 0 + 30)" with 30
+      rounds, and it is kept ahead of a standard magazine holding fewer (the review's L1: both sides count).
+- [ ] `sc mags <name> trim` prints the same list and "a trim would destroy X magazine(s) holding Y round(s), keeping N.
+      Nothing was changed." Open her inventory: every magazine is still there.
+- [ ] With her inventory open, `sc mags <name> trim confirm` refuses ("inventory is open ... Nothing was removed").
+- [ ] Close it and run `sc mags <name> trim confirm`: one "removed bag N <magazine>: R round(s)" line per TRIM magazine,
+      then "removed X of X magazine(s) ...; Locked & Loaded counts N now". Her Bag shows N magazines, and `sc xnpc
+      <name>` says "N magazine(s) holding ...".
+- [ ] Save and quit to the menu, load again: `sc mags <name>` still says N and "nothing to trim". Player.log has one
+      "mags trim (round m1p): ..." line.
+- [ ] A member at or under her tier: "nothing to trim". A member far away (or on a run): "body is not loaded here".
+      Without Locked & Loaded: "Locked & Loaded magazines: off ... nothing to count or trim".
+
+**2. No storage boxes in the base**
+
+- [ ] In a base with no storage boxes (pick them up), open linked storage (the land claim radial, or Open storage in the
+      community window) and shift-click an item in: "The base has no storage boxes to put it in. Place one inside your
+      community's land, then open linked storage again." The item stays with you.
+- [ ] Place a box inside the base and open linked storage again: the item goes in. Fill every box, then shift-click
+      something: the old "No box has room for that." shows.
+- [ ] At an outpost whose building has no boxes: Outpost storage, then a shift-click: "This outpost has no storage boxes
+      to put it in. ..."
+
+**3. Voice clips bounded**
+
+- [ ] `sc voice barks` ends with "N clip(s) loaded (... s of speech, about X MB; ... at most 48 clips and 24 MB, idle ones
+      dropped after 10 min); ... dropped (... for memory), ... dropped idle, ... failed".
+- [ ] Spend a while among talking members (greetings, chatter, small talk, a few talks): the MB stays at or under 24, and
+      "dropped" grows once more than 48 clips have been heard.
+- [ ] Then stay somewhere quiet for 11 minutes (nobody speaking) and run `sc voice barks` again: fewer clips loaded, and
+      "dropped idle" has grown.
+- [ ] No line cuts off mid-word or plays silent, Voice Control's own voices (Harley, the Mech Companion) still play, and
+      the log has no "voice-cache-sweep" error.
+
+**4. SC's answer as the subtitle**
+
+- [ ] With a member following you, say "hire" through Voice Control: the subtitle shows "Keep your money - I'm with you
+      already. Just ask me to follow.", the words you hear.
+- [ ] Ask the same follower by voice to be picked up: "I'll walk, thanks." as the subtitle.
+- [ ] Say "dismiss" to the follower: they head home, and the subtitle shows "Heading home."
+- [ ] Say "hire" to one of an enclave's people: "My place is here, with my people." as the subtitle.
+
+**5. The member panel closes when she is hit**
+
+- [ ] Open a member's inventory (Equipment...) with a zombie close to her. When it hits her, the panel closes at once and
+      "<her name> took a hit, so the inventory closed." shows. DebugLogging: "member inventory: closed - <name> (id N)
+      took a hit (round m1p; 1 this session)".
+- [ ] Open the panel again while a zombie hits you, or another member: the panel stays open.
+- [ ] Hit once and bleeding, open her panel again: it stays open while she bleeds; hand her a bandage.
+
+**6. The Watch Post's description**
+
+- [ ] With the shipped settings, the Watch Post's description (its recipe in the backpack's crafting list, or the item in
+      hand) says "up to 4 of them", "a 12-hour watch", "see 50% farther", "3 ammo bundles" and "by 15% (45% at most, all
+      posts together)". The log at load: "watch post: item description written with this game's numbers (4, 12, 50, 3,
+      15, 45; 1 language column(s))".
+- [ ] Set `WatchMaxPosts` 6, `WatchShiftHours` 8 and `WatchShiftAmmo` 2 in `Config/blocks.xml` and load the save: the
+      description says 6, 8-hour and 2. Put the values back afterwards.
+- [ ] With `WatchPosts` false, the description ends "Watch posts are switched off (WatchPosts in the config)."
+
 ## Round U1 (2026-11-16): 0-XNPCCore 3.4.06 - equipment window, ammo type, tool quality
 
 Why: 0-XNPCCore 3.4.06 (installed 2026-11-16; its ModInfo still says 3.4.05) broke five things in SC

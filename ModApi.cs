@@ -134,6 +134,10 @@ namespace SurvivorCommunity
                     catch (Exception e) { ScLog.Once("gamestartdone", e); }
                     // the crafted Watch Post (a shape helper) shows the post's own description
                     ScWatch.DescribeHelper();
+#if SC_V34
+                    // round m1p: its description names this game's numbers (ScWatchDesc), not only the defaults
+                    ScWatchDesc.Apply();
+#endif
                     // the well kit places Level 1 only; levels 2-5 are upgrades (round wl). Every machine: placement is local.
                     ScFacilities.RestrictWellKit();
                     // round 33b: the bundles' Open action kept (with a usable pool) or taken off (BundleOpen false), once per world

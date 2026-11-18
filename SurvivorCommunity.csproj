@@ -415,4 +415,12 @@
     <Compile Include="ScConfigDowned.cs" />
   </ItemGroup>
 
+  <!-- round m1p (the M1 polish bundle): sc mags and its opt-in trim, the member panel closing on a hit to her, the Watch
+       Post's description from the config - 3.4 only -->
+  <ItemGroup Condition="'$(ScGame)'=='34'">
+    <Compile Include="ScMagsTrim.cs" />
+    <Compile Include="ScPanelHurt.cs" />
+    <Compile Include="ScWatchDesc.cs" />
+  </ItemGroup>
+
 </Project>

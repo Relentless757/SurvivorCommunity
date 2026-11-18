@@ -69,11 +69,12 @@ namespace SurvivorCommunity
             counts.Clear();
         }
 
-        /// <summary>ModEvents.GameUpdate: SC's greetings and chatter, and the raiders' taunt tick (each paces itself).</summary>
+        /// <summary>ModEvents.GameUpdate: SC's greetings and chatter, the raiders' taunt tick and (round m1p) the clip cache's sweep (each paces itself).</summary>
         public static void Tick()
         {
             ScGreetings.Tick();
             ScTaunts.Tick();
+            ScClipCache.Tick();     // round m1p: the clip cache's idle sweep and memory bound (works every 30 s)
         }
 
         // ------------------------------------------------------------------ the lines ----

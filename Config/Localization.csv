@@ -326,6 +326,9 @@ scBedsPartial,UI,Menu,,,,"part of the claim has not been loaded yet"
 scBedsTip,UI,Menu,,,,"Every bedroll, bed and bunk bed inside the land claim counts, recounted as you build. One per survivor: +10 morale when everyone has a bed, -5 for each one missing (at most -15)."
 scMoraleBedsDetail,UI,Menu,,,,"({0} beds for {1} survivors)"
 scStorageViewFull,UI,Menu,,,,"Linked storage is showing all the stacks it can - press Refresh, or put it straight into a box."
+scStorageNoBoxes,UI,Menu,,,,"The base has no storage boxes to put it in. Place one inside your community's land, then open linked storage again."
+scStorageNoBoxesOutpost,UI,Menu,,,,"This outpost has no storage boxes to put it in. Place one inside its building, then open Outpost storage again."
+scStorageNoBoxesUnloaded,UI,Menu,,,,"No storage box was found where the land is loaded: part of it is too far away. Come closer, then open the storage again."
 scRoleNone,UI,Menu,,,,"Survivor"
 scRoleMedicine,UI,Menu,,,,"Medic"
 scRoleCooking,UI,Menu,,,,"Cook"
@@ -706,7 +709,8 @@ scBaseAmmo,UI,Tooltip,,,,"{0} rounds from the stockpile, about {1} ammo bundles"
 scBaseAmmoNone,UI,Tooltip,,,,"nothing from the stockpile"
 scMoraleDefence,UI,Menu,,,,"Defended the base"
 scWatchPost,Block,Block,,,,Watch Post (old cube)
-scWatchPostDesc,Block,Block,,,,"A lookout spot for your community, in any shape: hold Reload on it for the shape menu, and paint it to match the floor around it. The guard stands on top of it, so use the cube, or a plate or catwalk turned upside down in a deck. Place it inside your community's land - on top of a tower is best, with two blocks of room above it - up to 4 of them. Hold E on it to assign a guard: they stand on it for a 12-hour watch facing the way the post points, see 50% farther, shoot whatever comes into range and call out hordes while you're at the base. A shift takes 3 ammo bundles from the stockpile, which also pay for that guard's resupplies. Every manned post makes the base draw the dead's attention more slowly."
+scWatchPostDesc,Block,Block,,,,"A lookout spot for your community, in any shape: hold Reload on it for the shape menu, and paint it to match the floor around it. The guard stands on top of it, so use the cube, or a plate or catwalk turned upside down in a deck. Place it inside your community's land - on top of a tower is best, with two blocks of room above it - up to 4 of them. Hold E on it to assign a guard: they stand on it for a 12-hour watch facing the way the post points, see 50% farther, shoot whatever comes into range and call out hordes while you're at the base. A shift takes 3 ammo bundles from the stockpile, which also pay for that guard's resupplies. Every manned post cuts how fast the base draws the dead's attention by 15% (45% at most, all posts together)."
+scWatchPostDescFmt,Block,Block,,,,"A lookout spot for your community, in any shape: hold Reload on it for the shape menu, and paint it to match the floor around it. The guard stands on top of it, so use the cube, or a plate or catwalk turned upside down in a deck. Place it inside your community's land - on top of a tower is best, with two blocks of room above it - up to {0} of them. Hold E on it to assign a guard: they stand on it for a {1}-hour watch facing the way the post points, see {2}% farther, shoot whatever comes into range and call out hordes while you're at the base. A shift takes {3} ammo bundles from the stockpile, which also pay for that guard's resupplies. Every manned post cuts how fast the base draws the dead's attention by {4}% ({5}% at most, all posts together)."
 scWatchPostShapes:VariantHelper,Block,Block,,,,Watch Post
 materialMscWatchPost,Block,Block,,,,Watch Post
 scWatchPostName,UI,Tooltip,,,,Watch Post
@@ -866,6 +870,7 @@ scInvRefuseRemote,UI,Menu,,,,Someone else has {0}'s inventory open. Try again on
 scInvRefuseStack,UI,Menu,,,,Hand over one item at a time.
 scInvRefuseHalf,UI,Menu,,,,Equipment slots don't split stacks: use the left mouse button.
 scInvRefuseNoPair,UI,Menu,,,,{0} carries no weapons to swap.
+scInvClosedHit,UI,Tooltip,,,,"{0} took a hit, so the inventory closed."
 scInvRefuseNotWeapon,UI,Menu,,,,{0} is not a weapon a survivor can fight with.
 scInvRefuseDev,UI,Menu,,,,{0} isn't finished (a test item): survivors won't carry it.
 scInvRefuseLauncher,UI,Menu,,,,Survivors won't carry {0}: no launchers or explosives.
