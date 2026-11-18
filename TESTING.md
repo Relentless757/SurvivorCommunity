@@ -82,6 +82,8 @@ Before you start: the survivors you already have keep their traits and life skil
 
 - [ ] `sc traits Amy set LightSleeper`; `sc defense`: a line "+1  trait(s): Light Sleeper x1". Injure her (`sc injure
   Amy`): the line is gone.
+- [ ] While an attack is only held back (`sc attack status` says it waits: the blood moon, an outpost fight) Amy sleeps
+  as usual and no "up at once" tooltip comes.
 - [ ] At night with beds, once `sc sleep` shows Amy and another member in bed, `sc attack now`: Amy gets up at once and a
   tooltip says "Amy is a light sleeper - up at once for the horde."; `sc sleep` gives her reason "a light sleeper: awake
   for the horde on the base"; the other member stays in bed until 0-XNPCCore wakes her (an enemy close). After `sc attack
@@ -90,8 +92,8 @@ Before you start: the survivors you already have keep their traits and life skil
 **Scavenger** (+10% run haul)
 
 - [ ] `sc traits Amy set Scavenger`, then `sc run Amy food` several times (recall with `sc run Amy recall` between): the
-  "(expected N)" averages about a tenth more than for the same member without the trait (with a haul of 2, it is 3 about
-  one run in five). `sc traits Amy`: "haul x1.1".
+  "(expected N)" is the sure part; what she brings back is a tenth more on average (with a haul of 2, it is 3 about one
+  run in five, never less than expected). `sc traits Amy`: "haul x1.1".
 
 **Haggler** (radio barter 3 for 2)
 
@@ -124,7 +126,8 @@ Before you start: the survivors you already have keep their traits and life skil
 **Clumsy** (tools wear 50% faster)
 
 - [ ] `sc traits Amy set Clumsy` and give Amy and another member the same new stone axe on a Chop wood job for the same
-  time: Amy's axe loses durability about half again as fast (member inventory panel's wear bar).
+  time: Amy's axe loses durability about half again as fast (member inventory panel's wear bar). A Base repair duty and
+  butchering with a knife wear nothing extra.
 
 **Steady Hands** (aim error -20%)
 

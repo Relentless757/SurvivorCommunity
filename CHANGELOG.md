@@ -3,7 +3,8 @@
 ## Traits and life skills
 - **Twelve new traits:** Night Owl (happier on a night watch), Light Sleeper (up at once for a horde; +1 base defense),
   Scavenger (+10% from supply runs), Haggler (radio barter at 3 for 2), Fast Healer (heals an injury without medical
-  supplies half the time), Bookworm (+50% from magazines), Squeamish (never the medic), Clumsy (tools wear 50% faster) and
+  supplies half the time), Bookworm (+50% from magazines), Squeamish (never the medic), Clumsy (the tools she chops, mines
+  and digs with wear 50% faster) and
   Steady Hands (a fifth less aim error), each with its own icon. Iron Stomach, Gun Nut and Brawler wait for the latrine,
   range and gym, and say "(coming later)" on the card.
 - **Clashing traits never come together:** Optimist and Pessimist, Cheerful and Pessimist, Hardy and Pessimist, Loner and
@@ -15,6 +16,7 @@
   a member's card to read what it does.
 - Survivors you already have keep their traits and life skill; new survivors roll from the new lists. `sc traits` and
   `sc spec` show and test them all.
+- Known limitation: a save loaded in an older build afterwards loses the newer life skills (those members have none).
 - New settings: the trait keys in the Traits table, `SpecialtyWeights`, `LogisticsShareTop`, `BarteringCutByStars`,
   `ReconScoutCount`, `ConstructionRepairTiers`, `EntertainmentDrinksPerStar` and their XP keys (README section 20).
 

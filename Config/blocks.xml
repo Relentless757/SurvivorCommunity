@@ -1422,7 +1422,8 @@
 			     haul=x (supply-run haul x this, the odd part of a bundle as a chance), barter=N (N more back from
 			     the radio barter while at home), heal=p (chance an injury heals with no Meds bundle), books=x
 			     (specialty XP from magazines x this), nomedic=1 (never the medic: no Medicine, no revives, never
-			     the party medic), wear=x (tools wear x this fast), aim=x (aim error x this). Waiting for a later
+			     the party medic), wear=x (tools she chops, mines or digs with wear x this fast; not on a Base repair
+			     duty, not knives), aim=x (aim error x this). Waiting for a later
 			     feature, stored now and shown "(coming later)": sickness=x (latrine sickness, 0 = immune),
 			     rangexp=x (Shooting XP at the range), gymxp=x (Fighting XP at the gym).
 			     Existing survivors keep the traits they have; only new ones roll from this table. -->

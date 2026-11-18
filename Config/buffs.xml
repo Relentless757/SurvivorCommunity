@@ -13,7 +13,8 @@
 				<passive_effect name="RunSpeed" operation="perc_add" value="@sc_speed"/>
 				<passive_effect name="WalkSpeed" operation="perc_add" value="@sc_speed"/>
 				<passive_effect name="HealthMax" operation="perc_add" value="@sc_hp"/>
-				<!-- round m1t: a trait's wear= (Clumsy 1.5) - her tools wear this much faster (sc_toolwear = wear - 1, absent = 0) -->
+				<!-- round m1t: a trait's wear= (Clumsy 1.5) - items tagged "tool" she swings (chopping, mining, digging) wear this much
+				     faster (sc_toolwear = wear - 1, stamped 0 for everyone else; 0-XNPCCore's base repair wears no tool, knives are weapons) -->
 				<passive_effect name="DegradationPerUse" operation="perc_add" value="@sc_toolwear" tags="tool"/>
 			</effect_group>
 		</buff>

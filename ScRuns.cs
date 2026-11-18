@@ -319,7 +319,7 @@ namespace SurvivorCommunity
                     float roll2 = rnd != null ? rnd.RandomFloat : UnityEngine.Random.value;
                     float risk = Mathf.Clamp(ScConfig.RunRiskBase - ScConfig.RunRiskPerCombatStar * (m.Stars(Skill.Fighting) + m.Stars(Skill.Shooting) - 2)
                                              - ScOutpostPerks.EscortRisk(), 0.02f, 0.5f);   // an ammo outpost's armed escort
-                    int yield = Yield(m, kind);
+                    int yield = Yield(m, kind, rnd);                       // round m1t: Scavenger's chance rolled here, once
                     bool bad = roll < risk;
                     bool dead = bad && roll2 < ScConfig.RunDeathShare;
                     bool rescued = m.RunDistress && m.RunSafe;      // EndDistress below clears the flags (round 33c's haul reads it)
@@ -392,7 +392,13 @@ namespace SurvivorCommunity
             }
         }
 
-        public static int Yield(Member m, Resource kind)
+        /// <summary>
+        /// The run's haul in bundles. Round m1t: Scavenger's odd part of a bundle is a chance, rolled with rnd where the haul is
+        /// fixed (Resolve, ScRunners.LeaveSite); this two-argument form (the console's "expected") counts only the sure part.
+        /// </summary>
+        public static int Yield(Member m, Resource kind) { return Yield(m, kind, null); }
+
+        public static int Yield(Member m, Resource kind, GameRandom rnd)
         {
             float y = ScConfig.RunYieldBase;
             y *= 1f + ScConfig.RunYieldPerWitsStar * (m.Stars(Skill.Wits) - 1);
@@ -401,8 +407,8 @@ namespace SurvivorCommunity
             if (ScOutpostPerks.PerkActive(Resource.Fuel)) y *= ScConfig.OutpostMotorPoolMult;   // a fuel outpost's motor pool
             if (ScRegistry.Community.Morale > ScConfig.HighMoraleThreshold) y *= 1.25f;
 #if SC_V34
-            // round m1t (T1): Scavenger's haul=1.1 on the whole bundles, the odd part as a chance fixed for this run
-            return Math.Max(1, ScTraitEffects.Haul(m, Math.Max(1, Mathf.RoundToInt(y)), m.RunEndDay * 31 + (int)kind));
+            // round m1t (T1): Scavenger's haul=1.1 on the whole bundles, the odd part of a bundle as a chance rolled once (rnd)
+            return Math.Max(1, ScTraitEffects.Haul(m, Math.Max(1, Mathf.RoundToInt(y)), rnd));
 #else
             return Math.Max(1, Mathf.RoundToInt(y));
 #endif

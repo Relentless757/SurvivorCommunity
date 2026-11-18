@@ -230,7 +230,7 @@ scTraitBookwormDesc,Buff,Buff,,,,Learns half again as much from magazines.
 scTraitGunNutDesc,Buff,Buff,,,,Trains Shooting faster at the range.
 scTraitBrawlerDesc,Buff,Buff,,,,Trains Fighting faster at the gym.
 scTraitSqueamishDesc,Buff,Buff,,,,Can't stand blood: never takes the medic role.
-scTraitClumsyDesc,Buff,Buff,,,,Wears out tools half again as fast.
+scTraitClumsyDesc,Buff,Buff,,,,"Wears out axes, picks and shovels half again as fast."
 scTraitSteadyHandsDesc,Buff,Buff,,,,Shoots straighter: a fifth less aim error.
 scComingLater,UI,Menu,,,,(coming later)
 scDailyHarvest,UI,Tooltip,,,,"- the garden gave {0} food"

@@ -752,7 +752,8 @@ namespace SurvivorCommunity
             else
 #endif
             {
-                int y = Mathf.RoundToInt(ScRuns.Yield(m, m.RunKind) * Mathf.Clamp01(share));
+                World yw = ScCommunity.World;                        // round m1t: Scavenger's chance rolled here, once a run
+                int y = Mathf.RoundToInt(ScRuns.Yield(m, m.RunKind, yw != null ? yw.GetGameRandom() : null) * Mathf.Clamp01(share));
                 m.RunCarry = rescued ? Mathf.RoundToInt(y * ScConfig.RescueBonus) : y;
             }
             m.RollPending = !rescued;

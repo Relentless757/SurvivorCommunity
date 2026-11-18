@@ -281,7 +281,7 @@ Survivors you already have keep their traits; only new survivors roll from the f
 | Cheerful | Community morale +2, own mood +3 |
 | Insomniac | Own mood -3 |
 | Night Owl | Own mood +6 while on a watch at night |
-| Light Sleeper | Up at once when a horde is called on the base (out of bed, ready to fight); base defense rating +1 |
+| Light Sleeper | Up at once when a horde is on its way to the base or attacking it (out of bed, ready to fight; not while one is held back); base defense rating +1 |
 | Scavenger | Supply runs bring back 10% more (the odd part of a bundle as a chance) |
 | Haggler | While at home, radio barters bring one more back (3 for 2) |
 | Fast Healer | An injury heals without a medical bundle half of the time |
@@ -290,7 +290,7 @@ Survivors you already have keep their traits; only new survivors roll from the f
 | Gun Nut | *Coming later:* trains Shooting faster at the range |
 | Brawler | *Coming later:* trains Fighting faster at the gym |
 | Squeamish | Never takes the medic role: never Medicine, never revives anyone, never the party medic |
-| Clumsy | Wears out tools half again as fast |
+| Clumsy | Wears out the tools she chops, mines and digs with half again as fast (not on a Base repair duty, and not knives) |
 | Steady Hands | A fifth less aim error with any gun or bow |
 
 - **Traits that clash never come together.** Optimist and Pessimist, Cheerful and Pessimist, Hardy and Pessimist, Loner
@@ -1974,6 +1974,8 @@ For console commands (testing and fixing), see [CONSOLE_COMMANDS.md](CONSOLE_COM
   without their clothes.
 - **Game 3.4 only.** This build does not run on 3.2 or 3.3.
 - **Do not remove the mod from a save that used it.** Loading that save without SC can damage the chunks its blocks are in.
+- **Going back to an older build** drops the newer life skills (Construction to Entertainment): those members are left with
+  none.
 - **A few of the newest lines are text only.** All 16 voices speak the 604 recorded lines, but the newest ones (a
   mining runner's radio lines, the training line after reading a magazine, and some refusals about the work kit, field
   jobs and trading) have no voice yet and only appear as text.

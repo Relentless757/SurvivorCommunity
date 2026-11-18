@@ -55,9 +55,11 @@ namespace SurvivorCommunity
     /// keys ScConfig.ParseTrait reads into TraitDef. Every rule here reads the member's traits; the places that act on them are
     /// marked "round m1t" where they are:
     ///   Night Owl      nightwatch=6   ScMorale.Recompute: her mood +6 while she stands a watch at night (SituationalMood).
-    ///   Light Sleeper  wake=1         ScSleep.MemberRefusal: her night lease closes (she wakes) while a horde is called on the base.
+    ///   Light Sleeper  wake=1         ScSleep.MemberRefusal: her night lease closes (she wakes) while a horde is on its way
+    ///                                 (called, with an arrival time) or fighting the base - not while one is held back.
     ///                  defense=1      ScDefence.Rating: +1 per fit resident with it.
-    ///   Scavenger      haul=1.1       ScRuns.Yield (the odd part of a bundle as a chance, fixed per run), ScMining.Mult.
+    ///   Scavenger      haul=1.1       ScRuns.Yield: the haul x1.1, the odd part of a bundle as a chance rolled once where
+    ///                                 the haul is fixed (ScRuns.Resolve, ScRunners.LeaveSite); ScMining.Mult.
     ///   Haggler        barter=1       ScLifeSkills.RadioBarter: the radio barter gives 3 for 2 while she is at home.
     ///   Fast Healer    heal=0.5       ScStockpile.DailyConsume and ScDefence.Settle: her injury heals with no Meds bundle half the time.
     ///   Iron Stomach   sickness=0     needs the latrine (#8): stored, inert.
@@ -66,13 +68,19 @@ namespace SurvivorCommunity
     ///   Brawler        gymxp=1.5      needs the gym (#8): stored, inert.
     ///   Squeamish      nomedic=1      never Medicine (ScSkills.RollStart, sc spec), never a resident medic (ScDowned, BestSpecialist),
     ///                                 never 0-XNPCCore's party medic (ApplyBody clears SdcsMedicRole).
-    ///   Clumsy         wear=1.5       ApplyBody stamps sc_toolwear 0.5; buffSCSkills turns it into DegradationPerUse +50% on tools.
+    ///   Clumsy         wear=1.5       ApplyBody stamps sc_toolwear 0.5; buffSCSkills turns it into DegradationPerUse +50% on
+    ///                                 items tagged "tool" she swings (chopping, mining, digging). Not 0-XNPCCore's base repair
+    ///                                 (it damages blocks directly, the tool does not wear) and not knives (tagged weapon).
     ///   Steady Hands   aim=0.8        ScShooting.Aim / AimLauncher: the aim error x0.8 (SC's own aim error, round sh).
     /// Exclusions (excludes=) live in ScTraits (Roll, LinkExclusions). Host only; reads only, except ApplyBody's two cvars.
     /// </summary>
     public static class ScTraitEffects
     {
-        /// <summary>The cvar buffSCSkills reads for Clumsy: tools wear this much faster (wear - 1; absent at 1).</summary>
+        /// <summary>
+        /// The cvar buffSCSkills reads for Clumsy: tools wear this much faster (wear - 1). Stamped on every member, 0 included,
+        /// like buffSCSkills' other cvars: vanilla's PassiveEffect.ModifyValue adds a referenced cvar that is missing (as 0, sent
+        /// to clients) on every tool swing, so removing it here would loop. Only RemoveBuffs / RemoveAllBuffs take it away.
+        /// </summary>
         public const string WearCvar = "sc_toolwear";
         /// <summary>0-XNPCCore's party-medic role (Voice Control's order), which a squeamish member never keeps.</summary>
         public const string MedicRoleCvar = "SdcsMedicRole";
@@ -87,7 +95,6 @@ namespace SurvivorCommunity
         {
             toldMedicRole.Clear();
             toldWoken.Clear();
-            toldFor = 0UL;
             healedUnaided = medicRolesCleared = woken = 0;
         }
 
@@ -293,37 +300,34 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Scavenger: a run's whole-bundle haul x HaulMult, the odd part of a bundle as a chance - fixed for one run by salt (the
-        /// same answer for the console's "expected" and the run's end), so +10% shows on small hauls too.
+        /// Scavenger: a run's whole-bundle haul x HaulMult, the odd part of a bundle as a chance, so +10% shows on small hauls too.
+        /// The chance is rolled once, where the haul is fixed (rnd: ScRuns.Resolve, ScRunners.LeaveSite); with rnd null only the
+        /// sure part counts (the console's "expected", which so never promises more than the run brings).
         /// </summary>
-        public static int Haul(Member m, int whole, int salt)
+        public static int Haul(Member m, int whole, GameRandom rnd)
         {
             float mult = HaulMult(m);
             if (whole <= 0 || Mathf.Approximately(mult, 1f)) return whole;
             float total = whole * mult;
-            int fixedPart = Mathf.FloorToInt(total);
-            float frac = total - fixedPart;
-            unchecked
-            {
-                uint h = (uint)(m.Id * 73856093) ^ (uint)(salt * 19349663) ^ 0x5bd1e995u;
-                h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15;
-                float u = (h & 0xFFFFFF) / 16777216f;
-                return fixedPart + (u < frac ? 1 : 0);
-            }
+            int sure = Mathf.FloorToInt(total + 1e-4f);
+            float frac = total - sure;
+            if (rnd == null || frac <= 1e-4f) return sure;
+            return sure + (rnd.RandomFloat < frac ? 1 : 0);
         }
 
         // ------------------------------------------------------------------ the body ----
 
         /// <summary>
-        /// ScTraits.ApplyBuffs, every relink second: Clumsy's sc_toolwear cvar (wear - 1, absent at 1), and a squeamish member's
+        /// ScTraits.ApplyBuffs, every relink second: Clumsy's sc_toolwear cvar (wear - 1, 0 without Clumsy), and a squeamish member's
         /// 0-XNPCCore party-medic role (Voice Control's order, the SdcsMedicRole cvar) taken back, with a word to the player once.
         /// </summary>
         public static void ApplyBody(Member m, EntityAlive npc)
         {
             if (m == null || npc == null || npc.Buffs == null) return;
             float w = WearMult(m) - 1f;
-            if (Mathf.Abs(w) > 0.001f) { if (npc.Buffs.GetCustomVar(WearCvar) != w) npc.Buffs.SetCustomVar(WearCvar, w); }
-            else if (npc.Buffs.HasCustomVar(WearCvar)) npc.Buffs.RemoveCustomVar(WearCvar);
+            if (Mathf.Abs(w) < 0.001f) w = 0f;
+            // stamped, 0 included (never removed here: vanilla would add it back on the next tool swing, and so on)
+            if (!npc.Buffs.HasCustomVar(WearCvar) || npc.Buffs.GetCustomVar(WearCvar) != w) npc.Buffs.SetCustomVar(WearCvar, w);
 
             if (!CanBeMedic(m) && npc.Buffs.GetCustomVar(MedicRoleCvar) >= 0.5f)
             {
@@ -338,20 +342,32 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// ScSleep.MemberRefusal: is a horde really coming for a light sleeper to get up for? A live attack, or a called one with
+        /// an arrival time. Not a called one that is held back (AttackArrive 0: the blood moon, an outpost fight, the player
+        /// away): that has no horde on its way, and she would otherwise stay up all night for nothing.
+        /// </summary>
+        public static bool HordeComing()
+        {
+            Community c = ScRegistry.Community;
+            return ScBaseAttack.Live || (c.AttackState == ScBaseAttack.StateCalled && c.AttackArrive != 0UL);
+        }
+
+        /// <summary>ScSleep.Tick, every second: no attack open any more - the next one may tell its light sleepers again.</summary>
+        public static void SleepTick()
+        {
+            if (toldWoken.Count > 0 && !ScBaseAttack.Open) toldWoken.Clear();
+        }
+
         /// <summary>ScSleep: a light sleeper's lease closed for a horde on the base - logged, the player told once per attack.</summary>
         public static void TellWoken(EntityAlive npc, string name)
         {
             woken++;
             ScLog.Out("sleep: " + name + " (" + (npc != null ? npc.entityId : -1) + ") is a light sleeper - up for the horde on the base");
-            ulong attack = ScRegistry.Community.AttackArrive;
-            if (attack != toldFor) { toldWoken.Clear(); toldFor = attack; }
-            if (npc == null || !toldWoken.Add(npc.entityId)) return;
+            if (npc == null || !toldWoken.Add(npc.entityId)) return;      // once per attack: cleared only when no attack is open
             EntityPlayerLocal player = ScCommunity.LocalPlayer;
             if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scLightSleeperUp"), name), "");
         }
-
-        /// <summary>The attack (its AttackArrive) toldWoken holds the names for: a new attack may tell them again.</summary>
-        private static ulong toldFor;
 
         /// <summary>sc traits: the counters.</summary>
         public static string Report()

@@ -190,11 +190,12 @@ namespace SurvivorCommunity
             if (!ScRegistry.Loaded) return t;
             Member who;
             int cut = BarterCut(out who);
-            int give = Math.Max(1, t.Give - cut);
+            // the cut stops at one for one (or at the base terms when they are already better): 2 for 2 stays 2 for 2
+            int give = Math.Max(Math.Max(1, t.Give - cut), Math.Min(t.Give, t.Get));
             Member haggler = null;
             int extra = radio ? ScTraitEffects.BestRadioBarterExtra(out haggler) : 0;
             int get = t.Get + extra;
-            if (get > give) get = Math.Max(t.Get, give);       // never better than one for one
+            if (get > give) get = Math.Max(t.Get, give);       // Haggler's extra stops at one for one too
             if (give < t.Give) t.Barterer = who;
             if (get > t.Get) t.Haggler = haggler;
             t.Give = give;
