@@ -1170,7 +1170,6 @@ scUiFacWorkshopSub,UI,Menu,,,,"Facilities morale {0} ({1} counted, campfires too
 scUiFacWorkshopAbout,UI,Menu,,,,"Members with a crafting role (Cook, Smith, Chemist, Crafter: Work and roles on the Members tab) use these stations on a work shift. Call to work: pick a resident at home and they come to you to work; pick them again to end it. Each facility adds 3 morale, at most 15."
 scUiFacPickWork,UI,Menu,,,,Pick who to call to work.
 scUiFacCampfire,UI,Menu,,,,Campfire
-
 scUiFacCampfireSub,UI,Menu,,,,Where the community gathers
 scUiFacCampfiresCount,UI,Menu,,,,Campfires
 scUiFacDrinks,UI,Menu,,,,Round of drinks
