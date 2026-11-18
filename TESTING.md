@@ -67,6 +67,8 @@ true for the verbose lines. Locked & Loaded loaded for the first group.
 - [ ] Pick an inflated member (or make one: hand a T1 member three extra magazines for her gun into her Bag through the
       inventory panel). `sc mags <name>` lists every magazine (in the gun, bag N, toolbelt N; rounds) marked `keep` or
       `TRIM`: the one in the gun, then one marked to go back in on the draw, then the fullest are kept, N in all.
+- [ ] With a twin magazine among the extras (one side empty, the other full): its line says "(twin: 0 + 30)" with 30
+      rounds, and it is kept ahead of a standard magazine holding fewer (the review's L1: both sides count).
 - [ ] `sc mags <name> trim` prints the same list and "a trim would destroy X magazine(s) holding Y round(s), keeping N.
       Nothing was changed." Open her inventory: every magazine is still there.
 - [ ] With her inventory open, `sc mags <name> trim confirm` refuses ("inventory is open ... Nothing was removed").

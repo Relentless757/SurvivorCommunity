@@ -272,7 +272,7 @@ namespace SurvivorCommunity
             catch (Exception ex) { ScLog.Once("voice-cache-destroy", ex); }
         }
 
-        /// <summary>sc voice rescan: every clip not playing is dropped (replaced files load again). Returns how many.</summary>
+        /// <summary>sc voice rescan: every clip not playing or just handed out is dropped (replaced files load again). Returns how many.</summary>
         public static int Clear()
         {
             float now = Time.unscaledTime;
@@ -280,7 +280,7 @@ namespace SurvivorCommunity
             var keep = new List<Entry>();
             foreach (Entry e in lru)
             {
-                if (e.BusyUntil > now) { keep.Add(e); continue; }
+                if (Busy(e, now)) { keep.Add(e); continue; }   // the Fable review (L2): a handed-out clip too (the radio's squelch wait)
                 Destroy(e.Clip);
                 n++;
             }

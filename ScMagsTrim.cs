@@ -18,7 +18,8 @@ namespace SurvivorCommunity
     /// (the one seated in the gun in her hand included, as sc xnpc's "K magazine(s) holding R"), against her tier's N
     /// (ScMags.TierMagazines: Locked &amp; Loaded's &lt;npcs&gt; table, its defaults T1 2, T2 3, T3 4). A trim keeps N and removes the
     /// other K - N from her bag and toolbelt. The one in the gun is always kept, then the one marked to go back in on the draw
-    /// (round lr1), then the fullest; the emptiest go first. Removed magazines are destroyed with their rounds (they are the
+    /// (round lr1), then the fullest (a twin's two compartments together, as Locked &amp; Loaded's record counts them); the emptiest
+    /// go first. Removed magazines are destroyed with their rounds (they are the
     /// duplicates): nothing is handed to the player, and no loose rounds are made.
     ///
     /// "sc mags": every member whose body is loaded, K against N. "sc mags &lt;id|name&gt;": her magazines, each marked keep or
@@ -35,7 +36,8 @@ namespace SurvivorCommunity
             public bool InGun, InBag, Marked, HandSlot, Bare;
             public int Slot = -1;
             public string Name;
-            public int Rounds;
+            public int Rounds;         // both compartments of a twin once Align has read Locked & Loaded's record; the feeding side before
+            public string Twin;        // "a + b" for a twin (Align), else null
             public bool Keep;
         }
 
@@ -73,6 +75,9 @@ namespace SurvivorCommunity
             // Locked & Loaded's own count for the record (NpcMagazines.Record): the trim acts only when SC's list agrees with it
             string rec = ScMags.Record(e, gunName);
             int lnlCount = rec != null ? ScMags.Entries(rec).Count : -1;
+            // the Fable review (L1): each magazine's rounds from that record, a twin's second compartment included, for the ranking
+            // and the report; false when a row does not line up with SC's list
+            bool aligned = Align(mags, rec);
             int tier = ScMags.TierOf(e);
             int n = ScMags.TierMagazines(tier);
             Choose(mags, n);
@@ -88,11 +93,13 @@ namespace SurvivorCommunity
                    + " carries " + n + " (Locked & Loaded's <npcs> table)");
             foreach (Mag x in mags)
                 output("[SC]   " + (x.Keep ? "keep " : "TRIM ") + x.Where + (x.InGun ? (x.Bare ? " (loaded, no magazine flag)" : " (seated)") : " " + x.Name) + ": " + x.Rounds + " round(s)"
+                       + (x.Twin != null ? " (twin: " + x.Twin + ")" : "")
                        + (x.Marked ? ", marked to go back in on the draw" : "") + (x.HandSlot ? ", in the hand slot (never removed)" : ""));
-            if (lnlCount != mags.Count)
+            if (!aligned)
             {
-                output("[SC] SC counts " + mags.Count + " and Locked & Loaded " + lnlCount + " - nothing is trimmed while they disagree (a seated gun"
-                       + " Locked & Loaded reads differently?). Swap her weapon (sc arms " + m.Name + " melee, then ranged) and try again.");
+                output("[SC] SC counts " + mags.Count + " and Locked & Loaded " + lnlCount + (lnlCount == mags.Count ? " but lists them differently" : "")
+                       + " - nothing is trimmed while they disagree (a seated gun Locked & Loaded reads differently?). Swap her weapon (sc arms "
+                       + m.Name + " melee, then ranged) and try again.");
                 return;
             }
             if (trimCount == 0)
@@ -225,6 +232,30 @@ namespace SurvivorCommunity
                 }
             }
             return list;
+        }
+
+        /// <summary>
+        /// The Fable review (L1): each magazine's rounds as Locked &amp; Loaded's record has them (ScMags.Entries: a twin's second
+        /// compartment, kept in its metadata, included), so a twin holding 0 + 30 is not taken for the emptiest. Record walks the
+        /// gun in the hand, then the bag, then the toolbelt, as Collect does, so row i is mags[i]; every bag or toolbelt row must
+        /// name the same magazine. False - nothing changed, and the trim refused - when the counts differ or a row does not match.
+        /// </summary>
+        private static bool Align(List<Mag> mags, string rec)
+        {
+            if (rec == null) return false;
+            List<ScMags.Entry> rows = ScMags.Entries(rec);
+            if (rows.Count != mags.Count) return false;
+            for (int i = 0; i < rows.Count; i++)
+                if (!mags[i].InGun && !string.Equals(rows[i].Magazine, mags[i].Name, StringComparison.OrdinalIgnoreCase)) return false;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                mags[i].Rounds = rows[i].Rounds;
+                // "magName:ammo:rounds:other" - a fourth field is a twin's waiting side
+                string[] f = rows[i].Text != null ? rows[i].Text.Split(':') : new string[0];
+                int a, b;
+                if (f.Length > 3 && int.TryParse(f[2], out a) && int.TryParse(f[3], out b)) mags[i].Twin = Math.Max(0, a) + " + " + Math.Max(0, b);
+            }
+            return true;
         }
 
         /// <summary>
