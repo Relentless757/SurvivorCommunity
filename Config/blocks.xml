@@ -1265,8 +1265,8 @@
 			     refusals that were text only (a field job for a resident, the work kit as a weapon, no room in the party
 			     for "Come with me.") are said aloud too, within 30 m of you. ScGreetingsOwnAll: SC owns every greeting of its
 			     people - Voice Control never greets them; a runner, a member posted to an outpost or one arriving greets you
-			     as a member at home, and an outpost stand-in or someone hostile to you says nothing. "sc voice barks" shows
-			     these and this session's counts. -->
+			     with a member's line that fits away from home (none of the home-only ones, or nothing), and an outpost
+			     stand-in or someone hostile to you says nothing. "sc voice barks" shows these and this session's counts. -->
 			<property name="VoiceWheelAcks" value="true" />
 			<property name="VoiceOneLineSeconds" value="0.4" />
 			<property name="VoiceSpokenRefusals" value="true" />

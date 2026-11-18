@@ -141,7 +141,7 @@ namespace SurvivorCommunity
             "xn.vehicle.noroom", "No room.",
             "xn.vehicle.far", "I'm too far away.",
             "xn.basekeep.need", "I need more materials for that.",
-            "xn.gift.thanks.1", "Thank you.",
+            "xn.gift.thanks.1", "Thank you. I won't forget this.",
             "xn.gift.thanks.2", "Thanks. I'll put it to good use.",
             "xn.gift.thanks.3", "That's good of you. Thank you.",
             "xn.gift.full", "I can't carry any more of that.",

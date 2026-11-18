@@ -1684,8 +1684,8 @@ Greetings, chatter and taunts
   voices.
 - Chatter: every minute and a half or so, a resident at home near you says something to nobody in particular.
 - SC greets all of its people itself, so Voice Control never greets one of them: a runner you meet on the road, a member
-  posted to an outpost and one on the way to the base greet you as a member at home, and an outpost stand-in or anyone
-  hostile to you says nothing.
+  posted to an outpost and one on the way to the base greet you with a member's line that fits away from home ("Quiet
+  day. I'll take it.", never "Welcome home, boss."), and an outpost stand-in or anyone hostile to you says nothing.
 - 0-XNPCCore's lines: where Voice Control would speak one of 0-XNPCCore's job lines or order replies ("I'm out of
   ammo.", "Right behind you."), SC plays its recording in the survivor's own voice. A line that names an item or a
   number ("Now I know how to make Forged Iron.") plays a recording without the name; the caption still shows it.
@@ -1696,7 +1696,8 @@ Greetings, chatter and taunts
 - One line at a time: when an order makes two lines at once (Come here's "On my way." and then "Coming right back."),
   the second no longer cuts off the first.
 - Refusals said aloud: a resident refusing a field job, a member refusing to fight with her work kit, and "Come with
-  me." when your party has no room are spoken too (once recorded), not only shown, when she is within 30 m of you.
+  me." when your party has no room are spoken too (once recorded), not only shown, when she is within 30 m of you. A
+  spoken "follow me" with no room in the party gets the same answer.
 - Raider taunts: raiders call out when they spot you, hunt you, lose you, are hit, kill you, die, or fall back. One
   raider at most every 15 seconds, so a band does not all shout at once.
 - Runners on the radio speak through a radio filter (section 8).

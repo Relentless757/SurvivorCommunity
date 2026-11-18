@@ -26,8 +26,9 @@ namespace SurvivorCommunity
     /// asks OwnsGreeting - one of the community's survivors whose voice has a clip of their greeting - and skips Voice
     /// Control's greeting (canned or LLM) for them. Without a clip Voice Control greets them as before.
     /// Round m1w (P4, ScGreetingsOwnAll): SC owns every greeting of SC's people - OwnsGreeting is true for any of them, so Voice
-    /// Control greets none; a member away (a runner met on the road, one posted to an outpost, one arriving) greets as a
-    /// member at home, and an outpost stand-in, someone hostile to you or a missing enclave person says nothing.
+    /// Control greets none; a member away (a runner met on the road, one posted to an outpost, one arriving) greets with the
+    /// member lines that fit anywhere (GreetKeys: none of the home-only ones, HomeOnly) and says nothing when none is left or
+    /// recorded, and an outpost stand-in, someone hostile to you or a missing enclave person says nothing.
     ///
     /// Chatter (ScChatter): every ScChatterSeconds (90 s, a quarter either way), with ScChatterChance (0.5), one resident at
     /// home within ScChatterRange (15 m) of you, not fighting, not talking, says a chatter line - only one with a clip.
@@ -87,8 +88,9 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// How this survivor stands with the player, as the greeting family's middle part: stranger, recruit, member,
-        /// follower, enclave; null for nobody SC greets for (hostile, a stand-in, a missing enclave person; a member away -
-        /// a runner, at an outpost, arriving - unless ScGreetingsOwnAll, round m1w, makes them a member).
+        /// follower, enclave; round m1w: "away" for a member away from home (a runner, at an outpost, arriving), with
+        /// ScGreetingsOwnAll (GreetKeys: the member lines that fit anywhere); null for nobody SC greets for (hostile, a
+        /// stand-in, a missing enclave person; a member away without ScGreetingsOwnAll).
         /// </summary>
         public static string Relation(EntityAlive npc, EntityPlayer player)
         {
@@ -100,8 +102,9 @@ namespace SurvivorCommunity
             {
                 if (m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) return "follower";
                 if (m.Status == MemberStatus.Resident) return "member";
-                // round m1w (P4): a runner on the road, one posted to an outpost, one arriving - one of yours all the same
-                return ScConfig.ScGreetingsOwnAll ? "member" : null;
+                // round m1w (P4): a runner on the road, one posted to an outpost, one arriving - one of yours all the same,
+                // but away from home: none of the home-only lines (GreetKeys)
+                return ScConfig.ScGreetingsOwnAll ? Away : null;
             }
             if (ScEnclavePeople.IsEnclaveNpc(npc))
             {
@@ -127,7 +130,39 @@ namespace SurvivorCommunity
             if (!ScConfig.ScGreetings || npc == null || !ScXnpc.IsSurvivorBody(npc)) return false;
             if (ScConfig.ScGreetingsOwnAll) return true;           // round m1w (P4)
             string rel = Relation(npc, player);
-            return rel != null && ScBarks.HasClip(npc, "greet." + rel);
+            return rel != null && ScBarks.HasAnyClip(npc, GreetKeys(rel));
+        }
+
+        /// <summary>Round m1w: Relation's middle part for a member away from home (ScGreetingsOwnAll).</summary>
+        private const string Away = "away";
+
+        /// <summary>
+        /// Round m1w (the user's call on the m1w review): the member greetings that only make sense at home - "Good to see you
+        /// back in one piece.", "Walls are holding. Mostly.", "There's coffee. Well, there's hot water.", "Welcome home,
+        /// boss.", "Any luck out there?". A member away from home never says them; a new greet.member line is taken to fit
+        /// anywhere until it is listed here.
+        /// </summary>
+        private static readonly HashSet<string> HomeOnly = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "greet.member.1", "greet.member.3", "greet.member.4", "greet.member.5", "greet.member.6"
+        };
+
+        /// <summary>The greeting family a relation draws from (a member away draws from the members').</summary>
+        private static string GreetFamily(string rel)
+        {
+            return "greet." + (rel == Away ? "member" : rel);
+        }
+
+        /// <summary>
+        /// The greeting lines a relation may say: its family's; round m1w: for a member away from home, the member lines that
+        /// fit anywhere (HomeOnly left out) - empty when none is left, and then they say nothing.
+        /// </summary>
+        internal static List<string> GreetKeys(string rel)
+        {
+            if (rel != Away) return ScBarks.KeysOf(GreetFamily(rel));
+            var keys = new List<string>();
+            foreach (string k in ScBarks.KeysOf(GreetFamily(rel))) if (!HomeOnly.Contains(k)) keys.Add(k);
+            return keys;
         }
 
         private static void TickGreetings(World w, EntityPlayerLocal lp, float now)
@@ -164,7 +199,7 @@ namespace SurvivorCommunity
 #if SC_V34
                 if (!walkUp && rel == "stranger" && StrangerGroupQuiet(npc, now)) continue;   // round U3: one stranger greets a group
 #endif
-                if (!ScConfig.VoiceBarkDebug && !ScBarks.HasClip(npc, "greet." + rel)) continue;
+                if (!ScConfig.VoiceBarkDebug && !ScBarks.HasAnyClip(npc, GreetKeys(rel))) continue;
                 if (!Sees(w, lp, npc)) continue;                      // the raycast last (a walk-up too: N4, not through a wall)
                 string how = walkUp ? "walk-up" : "meet";
                 best = npc;
@@ -247,7 +282,7 @@ namespace SurvivorCommunity
 
         private static bool Greet(EntityAlive npc, EntityPlayerLocal lp, string rel, string how)
         {
-            bool said = ScBarks.Say(npc, "greet." + rel, how + " greeting (" + rel + ")", true, false, lp);
+            bool said = ScBarks.SayFrom(npc, GreetFamily(rel), GreetKeys(rel), how + " greeting (" + rel + ")", true, false, lp);
             if (!said) return false;
             float now = Time.unscaledTime;
             greetedAt[PersonKey(npc)] = now;
@@ -338,11 +373,12 @@ namespace SurvivorCommunity
             string rel = Relation(npc, lp);
             if (rel == null) return who + " is no one SC greets for (hostile to you, an outpost stand-in, a missing enclave person"
                                     + (ScConfig.ScGreetingsOwnAll ? ") - they say nothing: SC owns their greeting (ScGreetingsOwnAll)" : ", or a member away) - Voice Control's greeting stays theirs");
-            ScBarks.Pick p = ScBarks.Resolve(npc, ScBarks.KeysOf("greet." + rel));
+            ScBarks.Pick p = ScBarks.Resolve(npc, GreetKeys(rel));
             string what = who + " (" + rel + ")";
-            if (p == null) return what + " has no voice";
+            if (p == null) return what + (rel == Away ? ": no member greeting that fits away from home - silent" : " has no voice");
             if (p.Path == null && !ScConfig.VoiceBarkDebug)
-                return what + ": greet." + rel + " has no recording in " + (p.Voice ?? "any voice") + " - silent, and Voice Control greets them as before (VoiceBarkDebug shows a silent one)";
+                return what + ": " + GreetFamily(rel) + " has no recording in " + (p.Voice ?? "any voice") + " - silent"
+                       + (ScConfig.ScGreetingsOwnAll ? "" : ", and Voice Control greets them as before") + " (VoiceBarkDebug shows a silent one)";
             Greet(npc, lp, rel, "console");
             return what + " says " + p.Key + (p.Path != null ? " in " + p.Voice : " (silent: no recording, VoiceBarkDebug)") + ": \"" + p.Words + "\"";
         }

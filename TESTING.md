@@ -83,8 +83,11 @@ counters say which way each line went (`vc swapped`, `vc kept`, `vc one-line`, `
 **1. P1: say-lines by their id** (stand within 20 m of a member, then close the console)
 
 - [ ] `sc voice sayline gift.thanks 2`. Now: Voice Control's text-to-speech says "Thank you.", as before; the counters
-      show `vc kept xn`. Recorded: one of "Thank you.", "Thanks. I'll put it to good use." and "That's good of you.
-      Thank you." in her voice, the caption showing the words you hear; run it a few times and the variants change.
+      show `vc kept xn`. Recorded: one of "Thank you. I won't forget this.", "Thanks. I'll put it to good use." and
+      "That's good of you. Thank you." in her voice; run it a few times and the variants change. **The caption shows the
+      words you hear** for each of the three, never Voice Control's bare "Thank you.".
+- [ ] Recorded: `sc voice sayline downed.down` a few times. The caption matches what she says for each variant: "Argh...
+      I'm down! Help me!", "I'm hit! I can't get up!", "I'm down! Somebody get to me!".
 - [ ] **The fuel bug (fixed now, no recording needed):** `sc voice sayline craft.fuel`. Now: Voice Control says "I need
       fuel for that." (before this round it played SC's "I need more materials for that."). Recorded: SC's clip of "I
       need fuel for that.".
@@ -127,6 +130,10 @@ counters say which way each line went (`vc swapped`, `vc kept`, `vc one-line`, `
       don't trade - we're one community. ..."); to a resident on watch, "follow me" ("I can't right now."); to one of an
       enclave's people, "hire" ("My place is here, with my people."); to a survivor with a grudge, "hire" ("Not for all
       the dukes in the world."). Now Voice Control's voice; recorded, theirs.
+- [ ] With `MaxFollowers` (2) followers, push-to-talk "follow me" to a third member at home. The tooltip says why, as
+      before. Now Voice Control's voice says "You've already got a full crew with you. Ask me again when there's room."
+      (before this round: "I can't right now."); recorded, hers. Any other refusal (on watch, on a run) still answers "I
+      can't right now.".
 - [ ] Have a member read a crafting magazine that pays specialty XP: "Good practice. I'm getting better at this." - now
       Voice Control's voice, recorded hers.
 - [ ] `sc voice line Heading home.`: "is scVoiceGoingHome; <name>: no recording (Voice Control says it)"; recorded,
@@ -135,8 +142,12 @@ counters say which way each line went (`vc swapped`, `vc kept`, `vc one-line`, `
 **4. P4: greetings**
 
 - [ ] Meet a runner out on a physical run and walk up to them, looking at them. Voice Control does not greet them (no
-      canned or LLM greeting); SC greets them with a member's line ("Good to see you back in one piece." ...).
-      `sc xnpc`'s voice control line counts `greeting-sc-instead`.
+      canned or LLM greeting). SC greets them only with a member's line that fits away from home, which today is just
+      "Quiet day. I'll take it.", and **never** "Welcome home, boss.", the coffee line, "Walls are holding. Mostly.",
+      "Good to see you back in one piece." or "Any luck out there?". `sc xnpc`'s voice control line counts
+      `greeting-sc-instead`. `sc voice greet` on the runner: "<name> (<id>) (away) says greet.member.2 ...".
+- [ ] A member posted to an outpost (if you meet one away from home) is greeted the same way. Members at home still use
+      all six member lines.
 - [ ] Walk up to an outpost stand-in, and to a survivor with a grudge: no greeting at all. `sc voice greet` on the
       stand-in: "... they say nothing: SC owns their greeting (ScGreetingsOwnAll)".
 - [ ] Members at home, followers, strangers and enclave people greet as before.
@@ -185,6 +196,24 @@ counters say which way each line went (`vc swapped`, `vc kept`, `vc one-line`, `
       and each voice reads "604 of 709 lines" with "not recorded yet" lists per family. After a recording batch the
       counts grow; a clip no line uses is the only per-voice failure.
 - [ ] After copying a batch, `sc voice rescan` in game: the new clips play without a restart.
+
+**9. Judge these choices in game** (each is how this round was built; say if one should change)
+
+- [ ] **Silence before any recording:** "Whatever" on the Emotes page and the order wheel's "Come here" label are
+      silent from this build on, not only after the v9 recordings. Is a shrug with no word, and "On my way." standing
+      alone, what you want?
+- [ ] **A refused field job still says "Loot here":** until `scJobResidentField` is recorded, Voice Control says the
+      slot's label after the refusal tooltip, exactly as before this round. Once the refusal is recorded, the label is
+      skipped. The alternative is silence now.
+- [ ] **One line per survivor, 0.4 s:** any Voice Control line on a survivor within 0.4 s of SC's line on her is
+      skipped. That includes an unrelated order you click within that time (double-click a wheel slot, or two slots very
+      fast) and a line like "I'm down!" landing right after. Try fast double orders: does a reply ever go missing that
+      you wanted? (`VoiceOneLineSeconds` 0.2 or 0 to compare.)
+- [ ] **Horde warnings in person:** while a guard's own SC line plays (a greeting, a swapped reply), a horde warning she
+      says in person now goes through Voice Control's player and cuts that line (before: it played from SC's own source,
+      overlapping it). Is the cut acceptable?
+- [ ] **Refusal text shown twice:** a spoken refusal shows its words as a caption in Voice Control's subtitle bar on top
+      of the tooltip that was there before. Too much text, or fine?
 
 ## Round m1p (2026-11-17): the M1 polish bundle
 

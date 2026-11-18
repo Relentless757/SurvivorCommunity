@@ -293,8 +293,13 @@ namespace SurvivorCommunity
         /// <summary>Does one of this NPC's voices have a clip of this family?</summary>
         public static bool HasClip(EntityAlive npc, string family)
         {
-            List<string> keys = KeysOf(family);
-            if (keys.Count == 0) return false;
+            return HasAnyClip(npc, KeysOf(family));
+        }
+
+        /// <summary>Round m1w: does one of this NPC's voices have a clip of any of these keys (some of a family's: ScGreetings.GreetKeys)?</summary>
+        internal static bool HasAnyClip(EntityAlive npc, IList<string> keys)
+        {
+            if (keys == null || keys.Count == 0) return false;
             return ScVoice.FirstWith(ScVoice.Chain(npc), keys, scratch) != null;
         }
 
@@ -308,6 +313,15 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool Say(EntityAlive npc, string family, string why, bool lipSync, bool allowDead, Entity faceTo)
         {
+            return SayFrom(npc, family, KeysOf(family), why, lipSync, allowDead, faceTo);
+        }
+
+        /// <summary>
+        /// Round m1w: Say from some of a family's keys only (a member away from home greets with the member lines that fit
+        /// anywhere: ScGreetings.GreetKeys). family: for the counters and the family's last line. No keys: nothing is said.
+        /// </summary>
+        internal static bool SayFrom(EntityAlive npc, string family, IList<string> keys, string why, bool lipSync, bool allowDead, Entity faceTo)
+        {
 #if SC_V34
             // Round n06: no talking in her sleep. Every family that reaches here is speech - chatter, a greeting, a
             // taunt - and none of them belongs in a bed. 0-XNPCCore wakes her for a real reason (an enemy inside
@@ -316,7 +330,7 @@ namespace SurvivorCommunity
             // round U2: not a word while she is down (0-XNPCCore's own pained line is its own; SC adds none)
             if (ScDowned.IsDown(npc)) { Count("down " + family); return false; }
 #endif
-            Pick p = Resolve(npc, KeysOf(family));
+            Pick p = Resolve(npc, keys);
             if (p == null) return false;
             string who = ScCommunity.DisplayName(npc) + " (" + npc.entityId + ")";
             if (p.Path == null)
@@ -510,8 +524,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round m1w: the caption of an ack SC says. SC's words for an order's reply (a trigger's or a wheel label's: other words
         /// than Voice Control's); Voice Control's localized subtitle for an argument line (P1: it names the item or the station
-        /// SC's clip leaves out) and for a line SC says in Voice Control's own words (its translation); SC's words otherwise (a
-        /// variant: "Thanks. I'll put it to good use.").
+        /// SC's clip leaves out) and for a line SC says in Voice Control's own words (its translation); SC's words - the words
+        /// the clip says, its .txt sidecar's - otherwise: every id-keyed variant whose words are not Voice Control's ("Thank
+        /// you. I won't forget this.", "Thanks. I'll put it to good use.", "I'm hit! I can't get up!").
         /// </summary>
         private static string AckCaption(bool reply, bool argLine, string words, string fallbackText, string localizedSubtitle)
         {

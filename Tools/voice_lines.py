@@ -145,7 +145,7 @@ PENDING = {
     "scEncReqHeardSaid_resource": "Come in, anyone. We're running short on supplies. If you can help, come talk to us.",
     "scEncReqHeardSaid_generator": "Come in, anyone. Our power's out and we need a generator. Come talk to us if you can help.",
     "scEncReqHeardSaid_gun": "Come in, anyone. Our watch is short on weapons. Come see us if you have a gun to spare.",
-    "scEncReqHeardSaid_missing": "Come in, anyone. One of ours went out and hasn't come back. We could use help looking.",
+    "scEncReqHeardSaid_missing": "Come in, anyone. One of ours went out scavenging for supplies and hasn't come back. We could use help looking.",
     "scEncReqHeardSaid_infestation": "Come in, anyone. The dead have taken a place near us. We need help clearing it out.",
 }
 
@@ -307,10 +307,11 @@ XN = [
     ("xn.vehicle.far", "I'm too far away."),
     ("xn.basekeep.need", "I need more materials for that."),
     # Round m1w (2026-11-17, research/voices_v9): 0-XNPCCore 3.4.06's say-lines SC had not voiced. ScBarks finds a say-line by
-    # its id first (P1: xn.<line id>; an argument line's id without its ":<argument>"), so the variants (.2, .3) and the
-    # argument lines (the last six) say SC's own words; the others keep Voice Control 3.4.06's English, so their words match
-    # as well. xn.craft.fuel's exact words also beat the basekeep.need stand-in.
-    ("xn.gift.thanks.1", "Thank you."),
+    # its id first (P1: xn.<line id>; an argument line's id without its ":<argument>"), so the variants (.2, .3), the
+    # argument lines (the last six) and xn.gift.thanks.1 (the user's wording, longer than Voice Control's "Thank you.") say
+    # SC's own words, and the caption shows them; the others keep Voice Control 3.4.06's English, so their words match as
+    # well. xn.craft.fuel's exact words also beat the basekeep.need stand-in.
+    ("xn.gift.thanks.1", "Thank you. I won't forget this."),
     ("xn.gift.thanks.2", "Thanks. I'll put it to good use."),
     ("xn.gift.thanks.3", "That's good of you. Thank you."),
     ("xn.gift.full", "I can't carry any more of that."),

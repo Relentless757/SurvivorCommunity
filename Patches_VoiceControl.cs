@@ -771,7 +771,8 @@ namespace SurvivorCommunity
                     }
                     Count("voice-follow-refused");
                     ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
-                    audioResponse = Localization.Get("scVoiceCantFollow");
+                    // round m1w: no room in the party says so, as the talk's "Come with me." does (scFollowFullSaid)
+                    audioResponse = Localization.Get(ScVoiceRoutes.IsFollowFull(error) ? "scFollowFullSaid" : "scVoiceCantFollow");
                     subtitleResponse = audioResponse;
                     // no stale trigger name for SC's reply swap (ScBarks reads it): this order did not run
                     try { Traverse.Create(__instance).Property("LastMatchedTriggerName").SetValue(null); } catch (Exception) { }

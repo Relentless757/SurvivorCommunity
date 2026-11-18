@@ -29,9 +29,10 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool VoiceSpokenRefusals = true;
         /// <summary>
-        /// P4: SC owns every greeting of SC's people. Voice Control never greets one of them: SC greets a runner on the road,
-        /// one posted to an outpost and one arriving as a member at home, and an outpost stand-in or someone hostile to you
-        /// says nothing. false: Voice Control greets the ones SC has no greeting for, as before.
+        /// P4: SC owns every greeting of SC's people. Voice Control never greets one of them: a runner on the road, one posted
+        /// to an outpost and one arriving greet with the member lines that fit away from home (none of the home-only ones;
+        /// nothing when none is left), and an outpost stand-in or someone hostile to you says nothing. false: Voice Control
+        /// greets the ones SC has no greeting for, as before.
         /// </summary>
         public static bool ScGreetingsOwnAll = true;
 
