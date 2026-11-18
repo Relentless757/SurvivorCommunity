@@ -1684,16 +1684,17 @@ Greetings, chatter and taunts
   voices.
 - Chatter: every minute and a half or so, a resident at home near you says something to nobody in particular.
 - SC greets all of its people itself wherever it has a recording of their greeting (Voice Control greets the rest as
-  before): a runner you meet on the road, a member posted to an outpost and one on the way to the base greet you with a
-  member's line that fits away from home ("Quiet day. I'll take it.", never "Welcome home, boss."), and an outpost
-  stand-in or anyone hostile to you says nothing.
+  before): a runner you meet on the road and one on the way to the base greet you with a member's line that fits away
+  from home ("Quiet day. I'll take it.", never "Welcome home, boss."), and an outpost stand-in, a member out of sight on
+  a posting or a run, or anyone hostile to you says nothing.
 - 0-XNPCCore's lines: where Voice Control would speak one of 0-XNPCCore's job lines or order replies ("I'm out of
   ammo.", "Right behind you."), SC plays its recording in the survivor's own voice. A line that names an item or a
   number ("Now I know how to make Forged Iron.") plays a recording without the name; the caption still shows it.
 - The order wheel: a survivor no longer answers 0-XNPCCore's order wheel by saying the slot's name ("Close", "Jump
   down", "Loot here"). She gives that order's own reply in her voice ("I'll stay close."; the roles, emotes and dances
   once their new lines are recorded). "Come here" leaves her "On my way." alone, and "Whatever" on the Emotes page is
-  done without a word.
+  done without a word. An order she does not carry out (your party is full, or you are not her leader) keeps the slot's
+  name, as before.
 - One line at a time: when an order makes two lines at once (Come here's "On my way." and then "Coming right back."),
   the second no longer cuts off the first. Anything else, a call for help when she goes down included, is always heard.
 - Refusals said aloud: a resident refusing a field job, a member refusing to fight with her work kit, and "Come with
@@ -2046,11 +2047,11 @@ NPCs and voices
 - ScGreetOnePerGroup / ScGreetGroupRange = true / 30: One stranger greets you for the group around them (within this
   many meters)
 - RaiderTaunts = true: Raider taunts
-- ScGreetingsOwnAll = true: SC greets all of its people itself where it has their greeting recorded, and keeps stand-ins
-  and anyone hostile to you silent; false: Voice Control greets the ones SC has no greeting for (a runner, a stand-in,
-  someone hostile to you)
-- VoiceWheelAcks = true: The order wheel's slot names become the order's spoken reply; false: survivors say the slot's
-  name, as before
+- ScGreetingsOwnAll = true: SC greets all of its people itself where it has their greeting recorded, and keeps
+  stand-ins, members out of sight on a posting or a run, and anyone hostile to you silent; false: Voice Control greets
+  the ones SC has no greeting for (a runner, a stand-in, someone hostile to you)
+- VoiceWheelAcks = true: The order wheel's slot names become the order's spoken reply (not for an order Voice Control
+  did not carry out); false: survivors say the slot's name, as before
 - VoiceOneLineSeconds = 0.4: The second line of the same order (the wheel's label, a spoken order's reply) right after
   SC's line, within this many seconds, is skipped; 0: off
 - VoiceSpokenRefusals = true: SC's refusals (a field job, the work kit as a weapon, a full party) are said aloud too,

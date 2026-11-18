@@ -47,8 +47,10 @@ namespace SurvivorCommunity
     ///    trigger-less, id-less ack (the order wheel's label) and an ack's SpeakStreaming (a spoken order's reply), in the same
     ///    or the next frame and within VoiceOneLineSeconds; a SpeakStreaming swallowed runs its callback and shows SC's caption
     ///    again. Never a line with a say-line id (downed.down: always heard), a trigger's ack, the speech of an ack SC left to
-    ///    Voice Control (passFrame), or anything on a downed survivor. Voice Control counts as busy only for its own speech,
-    ///    not for SC's clip on its player (ScVoice.VcBusy).
+    ///    Voice Control (passFrame), or anything on a downed survivor. Re-check fix 6: the SpeakStreaming must be the reply to
+    ///    the phrase Voice Control just matched on her (ScVoiceRoutes.IsTriggerReply) - never a billing line or another line
+    ///    it says on its own. Voice Control counts as busy only for its own speech, not for SC's clip on its player
+    ///    (ScVoice.VcBusy).
     /// Main thread only. Host / single player (SC is single-player).
     /// </summary>
     public static class ScBarks
@@ -86,7 +88,7 @@ namespace SurvivorCommunity
 
         // Voice Control, bound by name once (no compile reference)
         private static bool vcBound;
-        private static MethodInfo mShowsText, mShowSubtitle, mFace, mLastMatched;
+        private static MethodInfo mShowsText, mShowSubtitle, mFace, mLastMatched, mClearSubtitle;
         private static PropertyInfo pSubInstance, pHandlerInstance, pLastTrigger, pActionType, pActionParam, pResponses;
         private static Type tChat;
 
@@ -481,6 +483,14 @@ namespace SurvivorCommunity
             // a say-line (downed.down) and a trigger's reply are never swallowed
             Said prior;
             if (trigger == null && string.IsNullOrEmpty(lineId) && OneLine(npc, "ack", fallbackText, out prior)) return true;
+            if (trigger != null && ScVoiceRoutes.Refused(npc))
+            {
+                // re-check fix 3: a trigger's ack of an order SC refused a moment ago (a named squad order to a resident told to
+                // loot here) is no yes - skipped whole, caption and all; her refusal (said, or the tooltip) stands
+                Count("vc refused reply");
+                ScLog.Verbose("voice barks: " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") ack \"" + fallbackText + "\": swallowed - SC refused that order");
+                return true;
+            }
             List<string> keys = NoKeys;
             string what = null;
             bool argLine = false, wheel = false;
@@ -593,28 +603,35 @@ namespace SurvivorCommunity
         /// Control's onComplete, its speech is skipped; false = Voice Control speaks as before. Round m1w (P6): true also for
         /// the second line of a moment - an ack's speech (a spoken order's reply) in the same or the next frame as SC's line,
         /// never the speech of an ack SC left to Voice Control (review fix 1) - swallowed with its onComplete run at once and
-        /// SC's caption shown again; and (review fix 9) for a spoken order's reply right after SC refused that order.
+        /// SC's caption shown again; and (review fix 9) for a spoken order's reply right after SC refused that order, its caption
+        /// taken down (re-check fix 4). Re-check fix 6: either only for the reply to the phrase Voice Control just matched on her.
         /// </summary>
         public static bool SubstituteSpeech(EntityAlive npc, string text, Action onComplete, bool isAck)
         {
             if (!ScConfig.ScBarks || npc == null || string.IsNullOrWhiteSpace(text) || !ScXnpc.IsSurvivorBody(npc) || ScVoice.Holds(npc)) return false;
             bool passed = passNpc == npc.entityId && passFrame == Time.frameCount;     // the speech of an ack Voice Control says
             if (passed) passNpc = -1;
+            // re-check fix 6: only the reply to the phrase Voice Control just matched on her - its own words, this frame - is a
+            // second line or a refused order's yes; its billing lines and anything else it says on its own never are
+            bool reply = isAck && !passed && ScVoiceRoutes.IsTriggerReply(npc, text) && !string.IsNullOrEmpty(LastTrigger());
             Said said;
-            if (isAck && !passed && OneLine(npc, "speech", text, out said))
+            if (reply && OneLine(npc, "speech", text, out said))
             {
                 Swallowed(npc, onComplete);
                 // Voice Control's caller showed its own words before it spoke and its callback just released them: SC's line's again
                 if (said.Caption != null && ShowsText(npc)) Subtitle(said.Name, said.Caption, 6f);
                 return true;
             }
-            if (isAck && !passed && ScVoiceRoutes.Refused(npc))
+            if (reply && ScVoiceRoutes.Refused(npc))
             {
                 // review fix 9: SC refused this order a moment ago (a resident told to loot here, the work kit as a weapon) -
                 // Voice Control's reply ("I'll clear this place out.") would say yes; the tooltip has said why not
                 Count("vc refused reply");
                 ScLog.Verbose("voice barks: " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") \"" + text + "\": swallowed - SC refused that order");
                 Swallowed(npc, onComplete);
+                // re-check fix 4: Voice Control showed the reply's words before it spoke, and its callback only lets them fade
+                // (SubtitleTailSeconds) - taken down now, so no "I'll clear this place out." flashes over her refusal
+                if (ShowsText(npc)) ClearSubtitle();
                 return true;
             }
             List<string> keys = KeysForWords(text);
@@ -712,6 +729,8 @@ namespace SurvivorCommunity
                         break;
                     }
                 }
+                // re-check fix 4: SubtitleManager.Instance.ClearSubtitle() (ScVoice's voice gate binds it too)
+                mClearSubtitle = tSub != null ? tSub.GetMethod("ClearSubtitle", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null) : null;
                 pHandlerInstance = tHandler != null ? tHandler.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static) : null;
                 pLastTrigger = tHandler != null ? tHandler.GetProperty("LastMatchedTriggerName", BindingFlags.Public | BindingFlags.Instance) : null;
                 pActionType = tTrigger != null ? tTrigger.GetProperty("ActionType", BindingFlags.Public | BindingFlags.Instance) : null;
@@ -722,6 +741,7 @@ namespace SurvivorCommunity
                 if (mShowsText == null) missing.Add("NPCChatComponent.ShowsGenericTextFor(int)");
                 if (mFace == null) missing.Add("NPCChatComponent.FaceEntity(Entity, float)");
                 if (pSubInstance == null || mShowSubtitle == null) missing.Add("SubtitleManager.Instance.ShowSubtitle(string, string, float[?], ...)");
+                if (mClearSubtitle == null) missing.Add("SubtitleManager.ClearSubtitle()");
                 if (pHandlerInstance == null || pLastTrigger == null) missing.Add("PhraseTriggerHandler.Instance.LastMatchedTriggerName");
                 if (pActionType == null || pActionParam == null) missing.Add("PhraseTrigger.ActionType / ActionParam");
                 if (pResponses == null || mLastMatched == null) missing.Add("PhraseTriggerHandler.GetLastMatchedTrigger() / PhraseTrigger.Responses");
@@ -804,6 +824,22 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("voice-barks-showstext", e);
                 return false;
+            }
+        }
+
+        /// <summary>Re-check fix 4: takes Voice Control's subtitle down at once (SubtitleManager.Instance.ClearSubtitle()).</summary>
+        private static void ClearSubtitle()
+        {
+            BindVc();
+            if (pSubInstance == null || mClearSubtitle == null) return;
+            try
+            {
+                object mgr = pSubInstance.GetValue(null, null);
+                if (mgr != null) mClearSubtitle.Invoke(mgr, null);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("voice-barks-clear-subtitle", e);
             }
         }
 

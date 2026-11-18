@@ -194,12 +194,13 @@ namespace SurvivorCommunity
         /// said aloud in her recorded voice once that line is recorded (ScVoiceRoutes.SayRefusal); the wheel's own "Loot here"
         /// right after is then swallowed, and it is never taken for a yes.
         /// </summary>
-        public static void TellFieldJob(Member m, EntityAlive npc, int mode)
+        public static void TellFieldJob(Member m, EntityAlive npc, int mode, bool order = true)
         {
             EntityPlayerLocal p = ScCommunity.LocalPlayer;
             if (p == null || m == null) return;
             ScCommunity.Tell(p, string.Format(Localization.Get("scEncCallSays"), m.Name, FieldJobLine(mode)), "ui_denied");
-            ScVoiceRoutes.SayRefusal(npc, FieldJobKey(mode), "a field job refused (" + ModeName(mode) + ")");     // round m1w (P7)
+            // round m1w (P7); re-check fix 5: order false (ScWork's take-back) - no order behind it to mark as refused
+            ScVoiceRoutes.SayRefusal(npc, FieldJobKey(mode), "a field job refused (" + ModeName(mode) + ")", order);
         }
 
         public static Type RouterType { get { return ScTypes.Find("XNPCVoiceControl.Net.VCCommandRouter"); } }

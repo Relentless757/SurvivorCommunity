@@ -518,7 +518,7 @@ namespace SurvivorCommunity
             {
                 SdcsLootMode.Clear(npc);
                 fieldJobsTaken++;
-                ScJobs.TellFieldJob(m, npc, mode);
+                ScJobs.TellFieldJob(m, npc, mode, false);   // round m1w re-check fix 5: no order to mark refused
                 ScLog.Out(m.Name + ": job mode " + mode + " is a follower's job - taken back on her shift");
                 if (mode == 1) { End(m, npc, "Follow + loot is a follower's job", true, false); return; }
                 mode = 0;

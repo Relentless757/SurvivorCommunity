@@ -670,6 +670,10 @@ namespace SurvivorCommunity
                 // round m1w (P2): every order Voice Control runs is noted, so the order wheel's spoken slot label becomes the
                 // order's reply in SC's recorded voice (ScVoiceRoutes)
                 Add(t, "VCCommandRouter::Execute", ScVoiceRoutes.ExecuteTarget());
+                // round m1w re-check fix 2: only an order Voice Control ran (Dispatch) and 0-XNPCCore's party cap did not refuse
+                // (SdcsParty.Refuse, 3.4.06+) gets SC's reply on the wheel
+                Add(t, "VCCommandRouter::Dispatch", ScVoiceRoutes.DispatchTarget());
+                if (ScPartyCap.Available) Add(t, "SdcsParty::Refuse", ScVoiceRoutes.PartyRefuseTarget());
 #endif
             }
             else ScLog.Out("Voice Control (0-XNPCCore 3.2) not loaded - the member billing guard is idle");

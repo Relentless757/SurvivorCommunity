@@ -28,6 +28,14 @@ namespace SurvivorCommunity
     /// so is any label of a downed survivor, any with VoiceWheelAcks off, and any right after SC refused that order
     /// (SayRefusal marks it, Refused): a refused job never says "I'll clear this place out." (ScBarks.SubstituteSpeech
     /// swallows the spoken order's reply after a refusal too).
+    /// Re-check fix 2: SC's reply is a yes, so only an order Voice Control carried out gets one. Patch_OrderRan notes the
+    /// orders that reached VCCommandRouter.Dispatch (past Execute's gates: her leader, not downed, a job she has the AI
+    /// package for, a fight that allows it) and Patch_OrderDropped the ones 0-XNPCCore's party cap refused there
+    /// (SdcsParty.Refuse: Follow, Come here, the whistle, a formation ... with the party full); any other order's label is
+    /// Voice Control's, as before. A label with no order noted (a weapon category) needs you as her leader.
+    /// Re-check fix 6: ScBarks swallows a SpeakStreaming only when it is the reply to a phrase Voice Control just matched on
+    /// that NPC (Patch_ReplyStamp, ExecuteMatch's own reply text, this frame) - never a billing line or any other line it
+    /// says on its own.
     ///
     /// P7, SC's own refusals that were tooltips only (ScJobs.TellFieldJob and KitToolRefused, the talk's and the community
     /// window's "Come with me." with no room in the party): SayRefusal says them in her recorded voice with a caption when
@@ -54,6 +62,10 @@ namespace SurvivorCommunity
             public int Frame;
             /// <summary>Review fix 5: 0-XNPCCore's comehere.ack ("On my way.") was said on this NPC since the order was noted.</summary>
             public bool ComeHere;
+            /// <summary>Re-check fix 2: the order reached VCCommandRouter.Dispatch (Patch_OrderRan) - Execute's gates let it through.</summary>
+            public bool Ran;
+            /// <summary>Re-check fix 2: 0-XNPCCore's party cap refused it in Dispatch (Patch_OrderDropped) - it did not run.</summary>
+            public bool Dropped;
         }
 
         /// <summary>The verdict on a trigger-less, id-less line (WheelKeys).</summary>
@@ -77,7 +89,10 @@ namespace SurvivorCommunity
         /// <summary>P2/P7: the frame SC last refused an order of this NPC's, by entity id.</summary>
         private static readonly Dictionary<int, int> refusedFrame = new Dictionary<int, int>();
         private static readonly Regex NonAlnum = new Regex("[^A-Za-z0-9]+");
-        private static int stamped, mapped, silenced, afterRefusal, left, refusalsSaid, refusalsUnrecorded, refusalsFar, refusalsInTalk, refusalsQuiet;
+        private static int stamped, mapped, silenced, afterRefusal, left, notRun, refusalsSaid, refusalsUnrecorded, refusalsFar, refusalsInTalk, refusalsQuiet;
+        /// <summary>Re-check fix 6: the NPC, frame and reply text of the phrase Voice Control last matched (Patch_ReplyStamp).</summary>
+        private static int replyNpc = -1, replyFrame = -1;
+        private static string replyText;
         private static readonly List<int> stale = new List<int>();
         /// <summary>The gestures already logged as having no reply of SC's (once each).</summary>
         private static readonly HashSet<string> loggedGestures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -95,7 +110,9 @@ namespace SurvivorCommunity
         {
             orders.Clear();
             refusedFrame.Clear();
-            stamped = mapped = silenced = afterRefusal = left = 0;
+            stamped = mapped = silenced = afterRefusal = left = notRun = 0;
+            replyNpc = replyFrame = -1;
+            replyText = null;
             refusalsSaid = refusalsUnrecorded = refusalsFar = refusalsInTalk = refusalsQuiet = 0;
         }
 
@@ -162,6 +179,160 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// Re-check fix 2: VCCommandRouter.Dispatch(EntityAlive npc, EntityPlayer player, string npcName, VCCommand cmd, string
+        /// arg), private static void - where ExecuteAuthoritative hands an order on once every gate passed. Found by name and
+        /// shape; any other shape finds none, and that fails loud (Prepare warns, ModApi logs MISSING PATCH) - every wheel label
+        /// is then Voice Control's, as before.
+        /// </summary>
+        public static MethodBase DispatchTarget()
+        {
+            Type t = RouterType;
+            if (t == null) return null;
+            foreach (MethodInfo m in t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly))
+            {
+                if (m.Name != "Dispatch" || m.ReturnType != typeof(void)) continue;
+                ParameterInfo[] ps = m.GetParameters();
+                if (ps.Length == 5 && ps[0].ParameterType == typeof(EntityAlive) && ps[1].ParameterType == typeof(EntityPlayer)
+                    && ps[2].ParameterType == typeof(string) && ps[3].ParameterType.IsEnum && ps[4].ParameterType == typeof(string)) return m;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Re-check fix 2: 0-XNPCCore 3.4.06's SdcsParty.Refuse(EntityAlive candidate, EntityPlayer leader, string path), public
+        /// static - its "Your party is full" tooltip, after which Voice Control drops the order. By name and shape; null without
+        /// SdcsParty.
+        /// </summary>
+        public static MethodBase PartyRefuseTarget()
+        {
+            Type t = ScTypes.Find("SdcsParty");
+            if (t == null) return null;
+            foreach (MethodInfo m in t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly))
+            {
+                if (m.Name != "Refuse") continue;
+                ParameterInfo[] ps = m.GetParameters();
+                if (ps.Length == 3 && ps[0].ParameterType == typeof(EntityAlive) && ps[1].ParameterType == typeof(EntityPlayer) && ps[2].ParameterType == typeof(string))
+                    return m;
+            }
+            return null;
+        }
+
+        /// <summary>Re-check fix 6: PhraseTriggerHandler.ExecuteMatch (Patches_VoiceControl's binding), where a phrase's reply is made.</summary>
+        public static MethodBase MatchTarget() { return Patches_VoiceControl.ExecuteMatchTarget(); }
+
+        /// <summary>Re-check fix 2: this NPC's order noted this frame or the last reached Dispatch (ran) or was refused there (dropped).</summary>
+        private static void MarkOrder(EntityAlive npc, bool ran, bool dropped)
+        {
+            Order o;
+            if ((object)npc == null || !orders.TryGetValue(npc.entityId, out o) || Time.frameCount - o.Frame > 1) return;
+            if (ran) o.Ran = true;
+            if (dropped) o.Dropped = true;
+            orders[npc.entityId] = o;
+        }
+
+        /// <summary>Re-check fix 2: an order that got past Execute's gates (Dispatch) is noted as run.</summary>
+        [HarmonyPatch]
+        public static class Patch_OrderRan
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (DispatchTarget() != null) return true;
+                    if (Patches_VoiceControl.ChatType != null)
+                        ScLog.Warn("voice routes: Voice Control's VCCommandRouter.Dispatch(EntityAlive, EntityPlayer, string, VCCommand, string) not found (Voice Control "
+                                   + "update?) - the order wheel's labels stay Voice Control's");
+                }
+                catch (Exception e) { ScLog.Once("voice-routes-bind-dispatch", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return DispatchTarget(); }
+
+            /// <summary>__0: the NPC. Read only.</summary>
+            [HarmonyPrefix]
+            public static void Prefix(EntityAlive __0)
+            {
+                try { MarkOrder(__0, true, false); }
+                catch (Exception e) { ScLog.Once("voice-routes-ran", e); }
+            }
+        }
+
+        /// <summary>Re-check fix 2: an order 0-XNPCCore's party cap refused (the party is full) is noted as dropped.</summary>
+        [HarmonyPatch]
+        public static class Patch_OrderDropped
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    // the wheel is Voice Control's: without it ModApi does not list this target either
+                    if (Patches_VoiceControl.ChatType == null) return false;
+                    if (PartyRefuseTarget() != null) return true;
+                    if (ScPartyCap.Available)
+                        ScLog.Warn("voice routes: 0-XNPCCore's SdcsParty.Refuse(EntityAlive, EntityPlayer, string) not found (0-XNPCCore update?) - a wheel order "
+                                   + "refused for a full party can still get SC's reply");
+                }
+                catch (Exception e) { ScLog.Once("voice-routes-bind-refuse", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return PartyRefuseTarget(); }
+
+            /// <summary>__0: the NPC refused. Read only.</summary>
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive __0)
+            {
+                try { MarkOrder(__0, false, true); }
+                catch (Exception e) { ScLog.Once("voice-routes-dropped", e); }
+            }
+        }
+
+        /// <summary>
+        /// Re-check fix 6: the reply Voice Control makes for a phrase it matched on an NPC (ExecuteMatch's audioResponse, final:
+        /// TryHandlePhrase returns it and ProcessPlayerMessage speaks it in the same call). A second patch on the target
+        /// Patches_VoiceControl.Patch_VoiceFollowMember already lists, so no new ModApi entry; a postfix also sees SC's own
+        /// answer when that prefix skipped the original.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_ReplyStamp
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return MatchTarget() != null; }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return MatchTarget(); }
+
+            /// <summary>npc and audioResponse by name, as Patch_VoiceFollowMember binds them. Read only.</summary>
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive npc, ref string audioResponse)
+            {
+                try
+                {
+                    if ((object)npc == null) return;
+                    replyNpc = npc.entityId;
+                    replyFrame = Time.frameCount;
+                    replyText = audioResponse;
+                }
+                catch (Exception e) { ScLog.Once("voice-routes-reply", e); }
+            }
+        }
+
+        /// <summary>
+        /// Re-check fix 6 (ScBarks.SubstituteSpeech): this speech on this NPC is the reply to the phrase Voice Control matched on
+        /// her this frame - its very words. Never one of its billing lines or anything else it says on its own.
+        /// </summary>
+        internal static bool IsTriggerReply(EntityAlive npc, string text)
+        {
+            return (object)npc != null && replyNpc == npc.entityId && replyFrame == Time.frameCount && !string.IsNullOrEmpty(replyText)
+                   && string.Equals(replyText, text, StringComparison.Ordinal);
+        }
+
         // ------------------------------------------------------------------ P2: the wheel's label ----
 
         /// <summary>
@@ -198,6 +369,14 @@ namespace SurvivorCommunity
                 afterRefusal++;
                 return Wheel.Leave;
             }
+            // re-check fix 2: SC's reply is a yes - only for an order Voice Control carried out. One noted must have reached its
+            // Dispatch and not been refused there for a full party; a label with no order noted (a weapon category) needs you as
+            // her leader, as Voice Control's own order does
+            if (noted ? !o.Ran || o.Dropped : !LedByYou(npc))
+            {
+                notRun++;
+                return Wheel.Leave;
+            }
             if (family == null)
             {
                 bool silence;
@@ -213,6 +392,19 @@ namespace SurvivorCommunity
             if (keys.Count == 0) return Leave();
             mapped++;
             return Wheel.Reply;
+        }
+
+        /// <summary>Re-check fix 2: you are her leader (or owner) - Voice Control's own test (NpcRelation.IsLeaderOfEntity).</summary>
+        private static bool LedByYou(EntityAlive npc)
+        {
+#if SC_V34
+            EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+            if (lp == null) return false;
+            Entity leader = SdcsNpcRelation.LeaderEntity(npc.entityId);
+            return leader != null && leader.entityId == lp.entityId;
+#else
+            return true;
+#endif
         }
 
         private static Wheel Leave()
@@ -413,15 +605,20 @@ namespace SurvivorCommunity
         /// survivors within 30 m of you says it in her recorded voice (ScBarks.SayOwn), or as a talk line while the talk is
         /// open on her (ScVoice.SayAfterTalk). Without a recording nothing is said. Review fix 3, the gates SC's other barks
         /// keep: the tooltip alone with ScBarks off, while she is asleep or down, and (outside a talk) while Voice Control is
-        /// saying something on her - its queued next sentence would cut SC's clip. why: for the log.
+        /// saying something on her - its queued next sentence would cut SC's clip. why: for the log. markOrder (re-check fix 5):
+        /// false for a refusal with no order behind it (a work shift taking a field job back), which must not make the next
+        /// reply on her look refused.
         /// </summary>
-        internal static void SayRefusal(EntityAlive npc, string key, string why)
+        internal static void SayRefusal(EntityAlive npc, string key, string why, bool markOrder = true)
         {
             try
             {
                 if (npc == null || string.IsNullOrEmpty(key)) return;
-                if (refusedFrame.Count > 64) PruneRefused();       // review fix 8
-                refusedFrame[npc.entityId] = Time.frameCount;
+                if (markOrder)
+                {
+                    if (refusedFrame.Count > 64) PruneRefused();   // review fix 8
+                    refusedFrame[npc.entityId] = Time.frameCount;
+                }
                 if (!ScConfig.VoiceSpokenRefusals || npc.IsDead() || !ScXnpc.IsSurvivorBody(npc)) return;
                 if (!ScConfig.ScBarks
 #if SC_V34
@@ -477,7 +674,7 @@ namespace SurvivorCommunity
         public static string Status()
         {
             return "routes (round m1w): wheel acks " + (ScConfig.VoiceWheelAcks ? "on" : "off") + " (" + stamped + " orders noted, " + mapped + " labels taken for a reply, "
-                   + silenced + " left silent, " + left + " left to Voice Control, " + afterRefusal + " after a refusal), one line per NPC "
+                   + silenced + " left silent, " + left + " left to Voice Control, " + afterRefusal + " after a refusal, " + notRun + " not run by Voice Control), one line per NPC "
                    + (ScConfig.VoiceOneLineSeconds > 0f ? ScConfig.VoiceOneLineSeconds.ToString("0.##", CultureInfo.InvariantCulture) + " s" : "off")
                    + ", spoken refusals " + (ScConfig.VoiceSpokenRefusals ? "on" : "off") + " (" + refusalsSaid + " said, " + refusalsUnrecorded + " not recorded yet, "
                    + refusalsInTalk + " in a talk, " + refusalsQuiet + " kept quiet (asleep, down, Voice Control speaking, ScBarks off), " + refusalsFar + " too far), greetings "
