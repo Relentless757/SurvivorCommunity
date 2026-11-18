@@ -960,6 +960,8 @@ namespace SurvivorCommunity
                     break;
                 case "drinks": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.DrinksLeft = Math.Max(0f, f); break; }
                 case "drinksday": c.DrinksDay = I(val); break;
+                // round m1f: the Facilities tab's sites, Lights out, the last attack, the Guard Towers (keys an older build ignores)
+                case "scansites": case "lightsout": case "lastattack": case "towers": ScFacilityTab.ParseKey(c, key, val); break;
                 // enclaves (E1): the id counter, the seeding stamp ver:day:mode:seed:count, the day of the next radio reveal
                 case "enclaveid": c.NextEnclaveId = I(val); break;
                 case "enclaveseed":
@@ -1370,6 +1372,7 @@ namespace SurvivorCommunity
                 }
                 if (c.DrinksLeft > 0f) sb.AppendLine("drinks=" + c.DrinksLeft.ToString("0.#", CultureInfo.InvariantCulture));
                 if (c.DrinksDay >= 0) sb.AppendLine("drinksday=" + c.DrinksDay);
+                ScFacilityTab.WriteKeys(c, sb);       // round m1f: scansites=, lightsout=, lastattack=, towers=
                 sb.AppendLine("enclaveid=" + c.NextEnclaveId);
                 if (c.EnclaveSeeded)
                     sb.AppendLine("enclaveseed=1:" + c.EnclaveSeedDay + ":" + Clean(c.EnclaveSeedMode).Replace(":", "") + ":"

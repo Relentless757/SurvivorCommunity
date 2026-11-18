@@ -72,8 +72,16 @@ namespace SurvivorCommunity
 
         public static float Steady()
         {
-            return steadyMembers * ScConfig.NoisePerMember + steadyGenerators * ScConfig.NoisePerGenerator
+            // round m1f: Lights out (ScLightsOut) lowers the people's part for a quiet night
+            return steadyMembers * ScConfig.NoisePerMember * ScLightsOut.PeopleNoiseMult() + steadyGenerators * ScConfig.NoisePerGenerator
                    + ScRegistry.Community.Facilities * ScConfig.NoisePerFacility;
+        }
+
+        /// <summary>Round m1f: the members at home and the running generators counted again now (Lights out switched some off or on).</summary>
+        public static void RefreshNow()
+        {
+            nextSteady = Time.unscaledTime + 10f;
+            RefreshSteady();
         }
 
         public static float Current()
@@ -293,6 +301,7 @@ namespace SurvivorCommunity
             float steady = Steady(), cur = Current();
             sb.Append("noise ").Append(F(cur)).Append(" (").Append(Word(LevelOf(cur))).Append(") = steady ").Append(F(steady))
               .Append(" (members at home ").Append(steadyMembers).Append(" x").Append(F(ScConfig.NoisePerMember))
+              .Append(ScLightsOut.Active ? " x" + F(ScLightsOut.PeopleNoiseMult()) + " lights out" : "")     // round m1f
               .Append(", running generators ").Append(steadyGenerators).Append(" x").Append(F(ScConfig.NoisePerGenerator))
               .Append(", workstations ").Append(c.Facilities).Append(" x").Append(F(ScConfig.NoisePerFacility))
               .Append(") + events ").Append(F(c.NoiseEvents)).Append(" (half-life ").Append(F(ScConfig.NoiseHalfLifeHours)).Append(" h)\n");

@@ -45,6 +45,33 @@ Traits and life skills
   "ReconScoutCount", "ConstructionRepairTiers", "EntertainmentDrinksPerStar" and their XP keys (README section 20).
 
 
+The Facilities tab
+------------------
+- The community window's Activities tab is now the Facilities tab. The base's facilities are on the left; pick one and
+  its details and buttons show on the right, as on the Members and Outposts tabs.
+- Defense: the defense rating against the next horde, the noise, the dead's attention and how fast it is growing, and
+  the last attack's result. Lights out is ordered here (below).
+- Beds against members and the morale they give, with which beds count; Water made against water drunk; the Workshop
+  (workbenches, forges, chemistry stations, cement mixers) with Call to work, which picks a resident; the Campfire, now
+  home to the round of drinks and Pour a round; the Radio station and its power; Watch posts with their guards and
+  Assign guard; the Guard Tower; and every well and dew collector with its level, its water and Upgrade.
+- Nothing was lost from the Activities tab: the round of drinks works as before, from the campfire's entry (no campfire
+  needed). The tab reads from what was counted at home, so it shows the same from anywhere.
+
+
+Base defense: Lights out, watch fatigue and salvage
+---------------------------------------------------
+- Lights out: an order for a quiet night, from 2 hours before dusk until dawn. Your people's noise is halved, and every
+  running generator in the base is switched off until dawn (and with it whatever it powers: lights, traps, turrets, a
+  radio station on it). At dawn they go back on. Lights on ends it early.
+- Watch fatigue: a watch of 8 hours or more costs the guard 5 mood until they have rested after a full shift. Insomniacs
+  enjoy a night watch: +3 mood while it is dark, and no tiredness.
+- Salvage: a held attack's corpse pile gives the stockpile 1 material per 5 dead; a fight or siege held without you
+  gives the same for the horde your people faced.
+- New settings "LightsOut...", "WatchFatigue...", "WatchNightTraits", "WatchNightMood" and "SalvageKillsPerMaterial"
+  (README section 20). "sc lightsout", "sc watch fatigue" and "sc facility tab" in the console.
+
+
 Downed, not dead
 ----------------
 - A killing hit downs a member instead of killing her (0-XNPCCore 3.4.06): she lies there unhurt with a 60-second

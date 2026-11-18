@@ -397,6 +397,143 @@ Before you start: the survivors you already have keep their traits and life skil
 - [ ] Save and reload with a Construction member and a member with new traits: everything is kept.
 - [ ] `sc members` on an older save shows the old traits and specialties unchanged.
 
+## Round m1f (2026-11-17): the Facilities tab, Lights out, watch fatigue and salvage
+
+Why: your M1 decisions (2026-11-17). The Facilities tab replaces the Activities tab, with each facility's actions in the
+right-hand panel (FT1); its Defense entry is the base-defense window section (FT2); base defense BD1 is Lights out, Watch
+fatigue and Salvage.
+
+What it does now:
+
+- **Facilities tab:** Defense, Beds, Water, Workshop, Campfire, Radio station, Watch posts, Guard Tower, then every well
+  and dew collector. The round of drinks moved under the Campfire. Call to work (Workshop) and Assign guard (Watch posts)
+  open the residents to pick one.
+- **Lights out** (Defense): until dawn, people's noise halved and the base's running generators off.
+- **Watch fatigue:** 8 h or more on watch costs 5 mood until rested; an Insomniac gets +3 on watch while it is dark
+  instead.
+- **Salvage:** a held attack gives 1 material per 5 dead.
+
+Setup: the new DLL (`build\sc34_m1f`) with its `Config/blocks.xml`, `Config/Localization.csv` and
+`Config/XUi_InGame/windows.xml`. A community with a few residents at home, beds, a campfire, a workbench, a well or dew
+collector, a radio station, a generator with fuel powering something visible (a light), and one or two watch posts.
+`DebugLogging` true. To change the time use `settime <day> <hour> <minute>` (bare `settime day` goes back to day 1).
+
+**At load**
+
+- [ ] The log has "config: base defense BD1 lights out offered from 2 h before dusk, people's noise x0.5, the zone's
+      generators off until dawn; watch fatigue -5 mood after 8 h on watch and through the rest, +3 on a night watch for
+      Insomniac; salvage 1 material per 5 kills of a held attack".
+- [ ] The UI loads (no "Unhandled exception in GetBindingValue" in the log).
+
+**1. The tab**
+
+- [ ] The community window has three tabs: MEMBERS, OUTPOSTS and FACILITIES (with its number of entries). No ACTIVITIES.
+- [ ] FACILITIES: the line at the top reads "N facilities, morale +X, water Y a day". The rows are Defense, Beds, Water,
+      Workshop, Campfire, Radio station, Watch posts, Guard Tower, then each well and dew collector. Defense is selected
+      when you first open it.
+- [ ] With more than 8 rows: "Showing 8 of N" and the arrows page through; the last page hides its empty rows.
+- [ ] Clicking a row selects it (highlight) and fills the right panel: name, a line under it, the big icon, up to four
+      facts, the details text, and its buttons.
+- [ ] Both looks: with AshfallUI (its plates), and with AshfallUI switched off (vanilla's gray rows and white text).
+- [ ] `sc facility tab` in the console lists the same entries with their facts and buttons.
+
+**2. The entries**
+
+- [ ] **Beds:** "6 / 8", red when short. Facts Beds, Needed, Morale (+10, or -5 per missing bed), Counted. The details
+      explain which beds count. Place a bedroll in the base with the window open: the count goes up within seconds.
+- [ ] **Water:** "+N a day, M drunk"; facts Made a day, Drunk a day, Wells, Dew collectors.
+- [ ] **A well / dew collector:** its block name, "Level 2 - 4 water a day", how far and which way from the claim block.
+      Facts Level, Water a day, Next level (red when the stockpile can't pay), Kind.
+  - [ ] At the base, **Upgrade** with enough materials: the level goes up, the materials go down, the message under the
+        buttons says so, the row updates.
+  - [ ] Too few materials: refused with the cost and a denied sound. At the top level: "Top level reached", the button dim.
+  - [ ] Far from the base (its chunk not loaded): Upgrade says "Be at the base to upgrade it: that part of the base isn't
+        loaded."
+- [ ] **Workshop:** a count for each of workbench, forge, chemistry station and cement mixer; "Facilities morale +X".
+  - [ ] **Call to work:** the Members tab opens on "At base" with "Pick who to call to work." Pick a resident: the window
+        goes back to Facilities with "<name> is coming to work..." and she walks over to you.
+  - [ ] Call to work again and pick the same resident: "<name> goes back to their post."
+  - [ ] Start a pick, then click another tab: the pick ends (the Members tab shows everyone again).
+  - [ ] Away from the base: Call to work is dim, and pressing it says "You both need to be inside the base." (no pick
+        opens). The same with `WorkShiftsEnabled` false: "Work shifts are switched off".
+- [ ] **Campfire:** campfires counted, the round of drinks' status, its cost (red when short) and effect.
+  - [ ] **Pour a round** works exactly as the old Activities tab did: -4 luxuries -1 food, +15 morale for 15 minutes, the
+        tooltip, once a day ("Poured today - again tomorrow").
+  - [ ] With no campfire in the base the entry still shows (0 campfires) and Pour a round still works.
+- [ ] **Radio station:** "Powered" in green; switch its power off: "No power" in red within a few seconds.
+- [ ] **Watch posts:** "1 / 2 manned"; facts Posts, Manned, Attention gain, Resting. The details list each post with its
+      guard and hours left.
+  - [ ] **Assign guard:** pick a resident: they go on watch at the first empty post (the same messages as the post's own
+        Assign guard). With fewer than 3 ammo bundles the button is dim and says "A watch shift takes 3 ammo bundles -
+        the stockpile has N." without opening the pick.
+  - [ ] Every post manned: the button says "Every watch post is manned."
+- [ ] **Guard Tower:** build one with the kit: "1 built", Manned, Room for another (Yes/No with the post count). Break
+      the tower's watch post: back to "None built" at the next refresh. (Towers built before this build show only as
+      watch posts.)
+- [ ] **Defense:** the rating against the next horde (green / amber / red), the noise and its word, the attention with
+      "+1.3 an hour" (or why it is held), and Last attack ("None yet" on a fresh save). `sc attack now 6`: the row turns
+      red "A horde is coming", then "Under attack!", and the details say how many and from where.
+
+**3. Lights out**
+
+- [ ] Before 20:00 (dusk minus 2 h): the Lights out button is dim; pressing it says "Lights out is for the night: you can
+      order it from 20:00."
+- [ ] At 20:30, Lights out: the tooltip "Lights out until 04:00: your people keep it down (50% less of their noise), and
+      the generators are off (switched off: 1)." The generator and its light go off. The Defense line reads "Lights out
+      until 04:00" and the button becomes Lights on. `sc noise` shows "x0.5 lights out" after the members and less
+      steady noise.
+- [ ] Switch the generator back on by hand: it stays on (`sc lightsout` lists it on, not switched off by lights out).
+- [ ] Let dawn come (`settime <day> 3 55` and wait): "Dawn: lights out is over. Generators back on: 1." It runs again.
+- [ ] Order it again, then **Lights on**: "Lights on: the base is back to normal. Generators back on: 1."
+- [ ] Order it, save and quit, load: still lights out, the generator still off; it ends at dawn.
+- [ ] Order it from the ESC menu's Community window while far from the base: when you come back the generator is off,
+      and after dawn it is on again.
+- [ ] Order it, then take the generator's engines out (or pour water beside it) before dawn: at dawn it stays off, and
+      the log says "with no engine or by water left off". Pick the generator up and place another there: it stays off
+      ("gone or replaced").
+- [ ] Order it, then move the community home (Set as community home on another land claim): lights out ends at once and
+      the generators come back on ("the community moved home" in the log).
+- [ ] Right after it is ordered (and right after dawn), the save's `power.dat` has the new state: quit with Alt+F4
+      within two minutes of the order, load - the generator is off and lights out still on; the same at dawn - on.
+
+**4. Watch fatigue**
+
+- [ ] Put a guard on watch. `sc watch fatigue`: her hours on watch and term 0. Eight game hours later: her mood is 5
+      lower within a second ("watch fatigue: a member's watch term changed - moods recomputed" in the log with
+      `DebugLogging`); on the Members tab her mood word reads "Steady - tired (-5)" (or her own word); the Watch posts
+      details show "tired (-5)" after her name.
+- [ ] An Insomniac on watch at dawn: the +3 is gone within a second of dawn (no +3 carried into the day).
+- [ ] After her full 12-hour shift she rests 12 hours and stays tired (-5) until the rest is over.
+- [ ] Relieve a tired guard early: the tiredness goes at once (no rest).
+- [ ] An Insomniac guard while it is dark (from 22:00): "enjoys the night watch (+3)" and no tiredness; by day after
+      8 hours, tired.
+- [ ] After the merge with the traits round: a Night Owl guard at night gets that round's own night-watch mood (+6),
+      not +3 more from here, and is not tired then.
+- [ ] `WatchFatigue` false (restart): no watch term at all.
+
+**5. Salvage**
+
+- [ ] At home, `sc attack now 10` and kill them all: "The base held! ..." and "Salvage: the corpse pile gives 2
+      materials (10 of the dead)."; the stockpile has 2 more materials; Recent days shows the salvage line; Defense's
+      Last attack reads "Day N: held, 10 killed (+2 materials)".
+- [ ] `sc attack now 4` held: no salvage (4 dead give 0).
+- [ ] `sc attack now 10`, then `sc attack settle held`: +2 materials, a "Salvage: 2 materials from the corpse pile" line
+      in Recent days, Last attack "held without you (10 of the dead)".
+- [ ] `sc attack now 10`, kill 4 yourself, walk more than 150 m off: when the defenders hold it, salvage counts all 10
+      (+2 materials) and Last attack says "(10 of the dead)", not 6.
+- [ ] `sc attack now 10`, `sc attack settle damaged`: no salvage; Last attack "damaged" (amber).
+- [ ] `sc siege held`: salvage for the siege horde; Last attack "blood moon siege, held".
+- [ ] `SalvageKillsPerMaterial` 0 (restart): no salvage.
+
+**6. The save**
+
+- [ ] With lights out on, a tower built and an attack fought, the save's `survivor_community.txt` has `scansites=`,
+      `lightsout=` (each generator as `x,y,z@id`, the home last), `lastattack=` and `towers=` lines in `[community]`. The
+      facilities and their levels show on the tab after a reload, before you go near the base.
+- [ ] A save last played with an older build (no `scansites=`), loaded far from the base: Workshop reads "N facilities
+      counted" in amber with "Counted: Part of the base not seen yet", the Campfire count says "so far", and Water shows
+      "Listed so far". Walk into the base: within seconds the lists fill and the normal facts come back.
+
 ## Round U1 (2026-11-16): 0-XNPCCore 3.4.06 - equipment window, ammo type, tool quality
 
 Why: 0-XNPCCore 3.4.06 (installed 2026-11-16; its ModInfo still says 3.4.05) broke five things in SC

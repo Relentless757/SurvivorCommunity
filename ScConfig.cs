@@ -141,7 +141,7 @@ namespace SurvivorCommunity
         public static int[] FacilityUpgradeCost = { 4, 8, 12, 16 };
         /// <summary>Crafting a well places Level 1 only: the well kit's model picker is cut to the first model at world start.</summary>
         public static bool WellsPlaceLevelOne = true;
-        // ---- activities (ScActivities): the community window's Activities tab ----
+        // ---- activities (ScActivities): the community window's Facilities tab, Campfire (round m1f; it was the Activities tab) ----
         public static int DrinksLuxury = 4;
         public static int DrinksFood = 1;
         public static int DrinksMorale = 15;
@@ -1455,6 +1455,7 @@ namespace SurvivorCommunity
             ResetStuck();                          // round 29b (ScConfigStuck.cs)
             ResetTeam();                           // round tm1 (ScConfigTeam.cs): team strength decides melee
             ResetRetreat();                        // round rt1 (ScConfigRetreat.cs): hurt members retreat inside / kite (round k5)
+            ResetFacilities();                     // round m1f (ScConfigFacilities.cs): Lights out, Watch fatigue, Salvage
             ResetNames();                          // round 30 (ScConfigNames.cs): streamer names
             ResetSkins();                          // round 31 (ScConfigSkins.cs): skin-matched voices and hair colors
 #if SC_V34
@@ -2601,6 +2602,7 @@ namespace SurvivorCommunity
                 ParseStuck(p);                     // round 29b (ScConfigStuck.cs)
                 ParseTeam(p);                      // round tm1 (ScConfigTeam.cs): team strength decides melee
                 ParseRetreat(p);                   // round rt1 (ScConfigRetreat.cs): hurt members retreat inside / kite (round k5)
+                ParseFacilities(p);                // round m1f (ScConfigFacilities.cs): Lights out, Watch fatigue, Salvage
                 ParseNames(p);                     // round 30 (ScConfigNames.cs): streamer names
                 ParseSkins(p);                     // round 31 (ScConfigSkins.cs): skin-matched voices and hair colors
 #if SC_V34
@@ -2890,6 +2892,7 @@ namespace SurvivorCommunity
                 ScLog.Out("config: posture " + PostureLine());      // round k4 (ScConfigTeam.cs, ScPosture, ScInvestigate)
                 ScLog.Out("config: retreat " + RetreatLine());   // round rt1 (ScConfigRetreat.cs)
                 ScLog.Out("config: back-offs " + BackOffLine());   // round k1 (ScConfigRetreat.cs, ScBackOff)
+                ScLog.Out("config: base defense BD1 " + FacilitiesLine());   // round m1f (ScConfigFacilities.cs)
                 ScLog.Out("config: medical restock " + MedsLine());   // round md1 (ScMedic.Restock)
                 ScLog.Out("config: healing " + HealLine());   // round k2 (ScMedic)
                 ScLog.Out("config: streamer names " + NamesLine());   // round 30 (ScConfigNames.cs)

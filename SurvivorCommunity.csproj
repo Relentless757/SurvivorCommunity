@@ -429,5 +429,15 @@
     <Compile Include="ScPanelHurt.cs" />
     <Compile Include="ScWatchDesc.cs" />
   </ItemGroup>
+  <!-- round m1f (2026-11-17): the community window's Facilities tab (it replaced the Activities tab) and base defense BD1 -
+       Lights out, Watch fatigue, Salvage and their config keys - 3.4 only -->
+  <ItemGroup Condition="'$(ScGame)'=='34'">
+    <Compile Include="ScFacilityTab.cs" />
+    <Compile Include="XUiC_ScCommunityFacilities.cs" />
+    <Compile Include="ScLightsOut.cs" />
+    <Compile Include="ScWatchFatigue.cs" />
+    <Compile Include="ScSalvage.cs" />
+    <Compile Include="ScConfigFacilities.cs" />
+  </ItemGroup>
 
 </Project>

@@ -9,7 +9,7 @@ XUiC_ScMemberRow answer every binding and control here (the SurvivorCommunity se
     [cabin] COMMUNITY                                  [OPEN STORAGE] [x]
             <community name>
     +- FOOD -+- WATER -+- MEDICAL -+- MATERIALS -+- AMMO -+- FUEL -+- LUXURIES -+
-    +[MEMBERS n][OUTPOSTS 2/3][ACTIVITIES n]+- NAME --+ +- COMMUNITY MORALE -+
+    +[MEMBERS n][OUTPOSTS 2/3][FACILITIES n]+- NAME --+ +- COMMUNITY MORALE -+
     | [search][filter]| | role . status          | |  68 / 100  STEADY  |
     | [pic] NAME  stat| | [portrait] health bar  | |  [=========      ] |
     |  ... 6 rows     | |            morale bar  | |  What is affecting |
@@ -31,12 +31,13 @@ RULES THAT MATTER:
 - Every plate is a scui_* sprite (Tools/import_ui_assets.py), handed [white]; AshfallUI ships
   premium art under the same names. Icons are vanilla menu symbols.
 - Stamina is not drawn: NPCs have none ({selstaminavisible} is always False).
-- The left panel has three tabs (btnTabMembers / btnTabOutposts / btnTabActivities, {tabmembers} / {taboutposts} /
-  {tabactivities}): the Outposts tab swaps the member list for the outpost rows (XUiC_ScOutpostRow) and the survivor
-  detail for the outpost detail and the network summary; the Activities tab (round wl) for the activity rows
-  (btnAct1..4, plain buttons) and the selected activity with its do-button (btnActDo); the morale panel stays.
-  Wrappers that switch tabs are depth 0, so every depth inside them is what it was before the tabs existed (XUi
-  depth is cumulative).
+- The left panel has three tabs (btnTabMembers / btnTabOutposts / btnTabFacilities, {tabmembers} / {taboutposts} /
+  {tabfacilities}): the Outposts tab swaps the member list for the outpost rows (XUiC_ScOutpostRow) and the survivor
+  detail for the outpost detail and the network summary; the Facilities tab (round m1f, 2026-11-17; it replaced round
+  wl's Activities tab) for the facility rows (btnFac1..8, plain buttons, paged by btnFacPrev / btnFacNext) and the
+  selected facility's detail (four facts, a details text) with up to three action buttons (btnFacDo1..3; ScFacilityTab,
+  XUiC_ScCommunityFacilities.cs); the morale panel stays. Wrappers that switch tabs are depth 0, so every depth inside
+  them is what it was before the tabs existed (XUi depth is cumulative).
 - C1 (round 22, 3.4): btnWorkMenu on the ORDERS heading opens the work-and-roles row in the run picker's place (the two never
   show together; {msgvisible} hides the message under either): btnRoleCook / Smith / Chemist / Crafter toggle 0-XNPCCore's
   crafting roles ({role0color}..{role3color} lit when on) and btnWork calls a resident to work or ends her shift
@@ -134,7 +135,10 @@ ROLE_BUTTONS = (("btnRoleCook", "scUiRoleCook", "role0color"), ("btnRoleSmith", 
                 ("btnRoleChemist", "scUiRoleChemist", "role2color"), ("btnRoleCrafter", "scUiRoleCrafter", "role3color"))
 ROLE_W = 80                           # each role toggle; btnWork takes the rest of the row
 WORK_MENU_W, WORK_MENU_Y, WORK_MENU_H = 150, 578, 24
-ACT_ROWS = 4                          # activity rows on the Activities tab (ScActivities.All, XUiC_ScCommunity.ActivitySlots)
+# round m1f: the Facilities tab - rows (XUiC_ScCommunity.FacilitySlots), facts (FacilityFactSlots), actions (FacilityActionSlots)
+FAC_ROWS, FAC_ROW_H, FAC_ROW_GAP = 8, 60, 6
+FAC_FACTS, FAC_ACTIONS = 4, 3
+FAC_ABOUT_Y, FAC_ABOUT_H = 326, 240
 OP_ACTIONS = (("btnOpTrack", "optracklabel", BODY, False), ("btnOpAssign", "opassignlabel", BODY, False),
               ("btnOpUpgrade", "opupgradelabel", "{opupgradecolor}", False), ("btnOpDisband", "opdisbandlabel", DANGER_TEXT, True))
 
@@ -228,11 +232,11 @@ def member_row(i):
 
 TABS = (("btnTabMembers", "scUiMembers", "membercount", "tabmembers"),
         ("btnTabOutposts", "scUiOutposts", "outpostcount", "taboutposts"),
-        ("btnTabActivities", "scUiActivities", "luxcount", "tabactivities"))
+        ("btnTabFacilities", "scUiFacilities", "facilitycount", "tabfacilities"))
 
 
 def tabs():
-    """MEMBERS n | OUTPOSTS held/slots | ACTIVITIES luxuries: the active tab gets the selected plate over its button -
+    """MEMBERS n | OUTPOSTS held/slots | FACILITIES entries: the active tab gets the selected plate over its button -
     scui_tab_selected, its own name since 2026-10-13: the member rows' scui_row_selected is cut for 80-unit rows and
     read too heavy at 44 (user); AshfallUI ships the nav bar's selected plate under it.
     Three to a row they are 128 wide, so the label is 15 px with its count in the last 34."""
@@ -305,22 +309,31 @@ def outpost_list():
     return o
 
 
-def activity_list():
-    """The Activities tab's left panel: what the stockpile holds for them, then one row (a plain button) per activity."""
+def facility_list():
+    """The Facilities tab's left panel (round m1f): a summary line, then a page of FAC_ROWS rows (plain buttons) - the
+    registry's entries in order (ScFacilityTab.All), the water sources one by one at the end - and the pager."""
     w = MEM_W - 40
-    o = [label(20, -70, w, 24, 17, DIM, text="{actsummary}")]
-    for i in range(1, ACT_ROWS + 1):
-        y = ROWS_TOP + (i - 1) * (ROW_H + ROW_GAP)
-        o += ['<rect depth="1" pos="0,0" width="%d" height="%d" visible="{act%dvisible}">' % (MEM_W, PAN_H, i),
-              "\t" + button("btnAct%d" % i, 20, -y, w, ROW_H, sprite="scui_row", hover="scui_row_hover"),
-              '\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{act%dselected}">' % (MEM_W, PAN_H, i),
-              "\t\t" + plate("scui_row_selected", 20, -y, w, ROW_H, depth=3),
+    o = [label(20, -70, w, 24, 17, DIM, text="{facsummary}")]
+    for i in range(1, FAC_ROWS + 1):
+        y = ROWS_TOP + (i - 1) * (FAC_ROW_H + FAC_ROW_GAP)
+        o += ['<rect depth="1" pos="0,0" width="%d" height="%d" visible="{fac%dvisible}">' % (MEM_W, PAN_H, i),
+              "\t" + button("btnFac%d" % i, 20, -y, w, FAC_ROW_H, sprite="scui_row", hover="scui_row_hover"),
+              '\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{fac%dselected}">' % (MEM_W, PAN_H, i),
+              "\t\t" + plate("scui_row_selected", 20, -y, w, FAC_ROW_H, depth=3),
               "\t</rect>",
-              "\t" + plate("scui_portrait", 26, -(y + 6), 68, 68, depth=4),
-              "\t" + icon("{act%dicon}" % i, 60, -(y + 40), 40, depth=5),
-              "\t" + label(106, -(y + 12), w - 100, 26, 22, TITLE, text="{act%dname}" % i, extra='upper_case="true"'),
-              "\t" + label(106, -(y + 45), w - 106, 22, 16, "{act%dstatuscolor}" % i, text="{act%dstatus}" % i),
+              "\t" + plate("scui_portrait", 26, -(y + 6), 48, 48, depth=4),
+              "\t" + icon("{fac%dicon}" % i, 50, -(y + 30), 30, depth=5),
+              "\t" + label(86, -(y + 8), w - 100, 24, 20, TITLE, text="{fac%dname}" % i, extra='upper_case="true"'),
+              "\t" + label(86, -(y + 35), w - 100, 20, 15, "{fac%dstatuscolor}" % i, text="{fac%dstatus}" % i),
               "</rect>"]
+    fy = ROWS_TOP + FAC_ROWS * (FAC_ROW_H + FAC_ROW_GAP) + 4
+    o += [label(20, -(fy + 6), 260, 22, 17, DIM, text="{facshowingtext}"),
+          '<rect depth="2" pos="0,0" width="%d" height="%d" visible="{facpagevisible}">' % (MEM_W, PAN_H),
+          "\t" + button("btnFacPrev", MEM_W - 104, -fy, 38, 34),
+          "\t" + icon("ui_game_symbol_arrow_left", MEM_W - 85, -(fy + 17), 18, depth=4),
+          "\t" + button("btnFacNext", MEM_W - 58, -fy, 38, 34),
+          "\t" + icon("ui_game_symbol_arrow_right", MEM_W - 39, -(fy + 17), 18, depth=4),
+          "</rect>"]
     return o
 
 
@@ -334,8 +347,8 @@ def members():
     o.append('\t<rect depth="0" name="outpostList" pos="0,0" width="%d" height="%d" visible="{taboutposts}">' % (MEM_W, PAN_H))
     o += ["\t\t" + t.replace("\n", "\n\t\t") for t in outpost_list()]
     o.append("\t</rect>")
-    o.append('\t<rect depth="0" name="activityList" pos="0,0" width="%d" height="%d" visible="{tabactivities}">' % (MEM_W, PAN_H))
-    o += ["\t\t" + t.replace("\n", "\n\t\t") for t in activity_list()]
+    o.append('\t<rect depth="0" name="facilityList" pos="0,0" width="%d" height="%d" visible="{tabfacilities}">' % (MEM_W, PAN_H))
+    o += ["\t\t" + t.replace("\n", "\n\t\t") for t in facility_list()]
     o += ["\t</rect>", "</rect>"]
     return o
 
@@ -525,25 +538,37 @@ def outpost_detail():
     return o
 
 
-def activity_detail():
-    """The selected activity: name, icon, cost (red when the stockpile is short), effect, status, what it is for, and
-    the do-button with the outcome under it."""
+def facility_detail():
+    """The selected facility (round m1f): its name, a line under it, the icon plate, four facts (caption and colored value),
+    the details text, and up to three action buttons with the outcome under them. An empty fact or action slot stays
+    hidden by its own {...visible}."""
     tw = DET_W - 48
-    o = [label(24, -12, tw, 46, 40, TITLE, text="{actname}", extra='upper_case="true"'),
+    o = [label(24, -12, tw, 46, 40, TITLE, text="{facname}", extra='upper_case="true"'),
+         icon("{facicon}", 36, -72, 24),
+         label(54, -61, tw - 40, 24, 20, GOLD, text="{facsub}"),
          plate("scui_portrait", 24, -92, 176, 176, depth=1),
-         icon("{acticon}", 112, -180, 96)]
-    facts = (("scUiActCost", "actcost", "{actcostcolor}"), ("scUiActEffect", "acteffect", BODY),
-             ("scUiActStatus", "actstatus", "{actstatuscolor}"))
-    for k, (key, binding, color) in enumerate(facts):
-        y = 96 + k * 42
-        o += [label(224, -y, tw - 200, 18, 15, DIM, key=key, extra='upper_case="true"'),
-              label(224, -(y + 18), tw - 200, 22, 18, color, text="{%s}" % binding)]
-    o += [label(24, -290, tw, 24, 22, TITLE, key="scUiActAbout", extra='upper_case="true"'),
+         icon("{facicon}", 112, -180, 96)]
+    for k in range(1, FAC_FACTS + 1):
+        y = 96 + (k - 1) * 42
+        o += ['<rect depth="1" pos="0,0" width="%d" height="%d" visible="{facfact%dvisible}">' % (DET_W, PAN_H, k),
+              "\t" + label(224, -y, tw - 200, 18, 15, DIM, text="{facfact%dlabel}" % k, extra='upper_case="true"'),
+              "\t" + label(224, -(y + 18), tw - 200, 22, 18, "{facfact%dcolor}" % k, text="{facfact%d}" % k),
+              "</rect>"]
+    o += [label(24, -290, tw, 24, 22, TITLE, key="scUiFacDetails", extra='upper_case="true"'),
           plate("scui_divider", 24, -315, tw, 3, depth=1),
-          label(24, -326, tw, 200, 17, BODY, text="{actdesc}"),
-          button("btnActDo", 24, -ORDER_Y, tw, ORDER_H),
-          centred(24, -ORDER_Y, tw, ORDER_H, 18, "{actdocolor}", text="{actdolabel}", extra='justify="center" upper_case="true"'),
-          label(24, -(RUN_Y + 2), tw, 32, 15, BODY, text="{actmessage}")]
+          label(24, -FAC_ABOUT_Y, tw, FAC_ABOUT_H, 16, BODY, text="{facabout}"),
+          '<rect depth="1" pos="0,0" width="%d" height="%d" visible="{facactionsvisible}">' % (DET_W, PAN_H),
+          "\t" + label(24, -580, 240, 24, 22, TITLE, key="scUiOrders", extra='upper_case="true"'),
+          "</rect>"]
+    bw = (tw - 8 * (FAC_ACTIONS - 1)) // FAC_ACTIONS
+    for k in range(1, FAC_ACTIONS + 1):
+        x = 24 + (k - 1) * (bw + 8)
+        o += ['<rect depth="1" pos="0,0" width="%d" height="%d" visible="{facdo%dvisible}">' % (DET_W, PAN_H, k),
+              "\t" + button("btnFacDo%d" % k, x, -ORDER_Y, bw, ORDER_H),
+              "\t" + centred(x, -ORDER_Y, bw, ORDER_H, 17, "{facdo%dcolor}" % k, text="{facdo%dlabel}" % k,
+                             extra='justify="center" upper_case="true"'),
+              "</rect>"]
+    o.append(label(24, -(RUN_Y + 2), tw, 32, 15, BODY, text="{facmessage}"))
     return o
 
 
@@ -556,8 +581,8 @@ def detail():
           '\t<rect depth="0" name="outpostDetail" pos="0,0" width="%d" height="%d" visible="{taboutposts}">' % (DET_W, PAN_H)]
     o += ["\t\t" + line.replace("\n", "\n\t\t") for line in outpost_detail()]
     o += ["\t</rect>",
-          '\t<rect depth="0" name="activityDetail" pos="0,0" width="%d" height="%d" visible="{tabactivities}">' % (DET_W, PAN_H)]
-    o += ["\t\t" + line.replace("\n", "\n\t\t") for line in activity_detail()]
+          '\t<rect depth="0" name="facilityDetail" pos="0,0" width="%d" height="%d" visible="{tabfacilities}">' % (DET_W, PAN_H)]
+    o += ["\t\t" + line.replace("\n", "\n\t\t") for line in facility_detail()]
     o += ["\t</rect>", "</rect>"]
     return o
 
@@ -652,12 +677,14 @@ def main():
         text = LEGACY.sub(lambda _m: block, text)
     with io.open(TARGET, "w", encoding="utf-8", newline="") as f:
         f.write(text)
-    print("generate_community_ui: wrote windowScCommunity %dx%d, %d member rows, %d outpost rows, %d activity rows, %d resources"
-          % (WIN_W, WIN_H, ROWS, OP_ROWS, ACT_ROWS, len(RESOURCES)))
+    print("generate_community_ui: wrote windowScCommunity %dx%d, %d member rows, %d outpost rows, %d facility rows, %d resources"
+          % (WIN_W, WIN_H, ROWS, OP_ROWS, FAC_ROWS, len(RESOURCES)))
     assert ROWS_TOP + ROWS * (ROW_H + ROW_GAP) + 40 <= PAN_H, "member rows run past the panel"
     assert ROWS_TOP + OP_ROWS * (ROW_H + ROW_GAP) + 40 <= PAN_H, "outpost rows run past the panel"
-    assert ROWS_TOP + ACT_ROWS * (ROW_H + ROW_GAP) + 40 <= PAN_H, "activity rows run past the panel"
-    assert 326 + 200 <= ORDER_Y - 4, "the activity description runs into its button"
+    assert ROWS_TOP + FAC_ROWS * (FAC_ROW_H + FAC_ROW_GAP) + 40 <= PAN_H, "facility rows and their pager run past the panel"
+    assert 96 + (FAC_FACTS - 1) * 42 + 40 <= 290, "the facility facts run into the details heading"
+    assert FAC_ABOUT_Y + FAC_ABOUT_H <= 580 - 4, "the facility details run into the actions heading"
+    assert (DET_W - 48 - 8 * (FAC_ACTIONS - 1)) // FAC_ACTIONS >= 140, "a facility action button is too narrow for its label"
     assert STAFF_TOP + 3 * (STAFF_H + STAFF_GAP) <= NET_TOP - 36, "the garrison runs into the network heading"
     assert NET_TOP + len(NETS) * (NET_H + NET_GAP) <= 578, "the network rows run into the orders (heading at 580)"
     assert RUN_Y + RUN_H <= PAN_H - 4, "the orders run past the detail panel"

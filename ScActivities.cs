@@ -5,19 +5,21 @@ using UnityEngine;
 namespace SurvivorCommunity
 {
     /// <summary>
-    /// Activities (round wl): what the community window's Activities tab spends luxuries on. The first, and so far only,
-    /// one is "Prepare a round of drinks": DrinksLuxury luxuries and DrinksFood food buy +DrinksMorale morale for
-    /// DrinksMinutes REAL minutes (Community.DrinksLeft, counted down here by the ticker while the game runs unpaused,
-    /// saved with the registry), once per game day (DrinksDay). Meant for the days after a death. Host only.
+    /// Activities (round wl): what the community spends luxuries on. The first, and so far only, one is "Prepare a round of
+    /// drinks": DrinksLuxury luxuries and DrinksFood food buy +DrinksMorale morale for DrinksMinutes REAL minutes
+    /// (Community.DrinksLeft, counted down here by the ticker while the game runs unpaused, saved with the registry), once
+    /// per game day (DrinksDay). Meant for the days after a death. Host only.
+    /// Round m1f: the Activities tab is gone - each activity is an action of the facility that hosts it (All's fifth column,
+    /// a ScFacilityTab entry id), shown on the Facilities tab. The round of drinks is the campfire's for now (the Lounge's later).
     /// </summary>
     public static class ScActivities
     {
         public const string Drinks = "drinks";
 
-        /// <summary>The activities in tab order: id, name and description keys, icon.</summary>
+        /// <summary>The activities: id, name and description keys, icon, and the Facilities tab entry that hosts it (round m1f).</summary>
         public static readonly string[][] All =
         {
-            new[] { Drinks, "scActDrinks", "scActDrinksDesc", "ui_game_symbol_beer" },
+            new[] { Drinks, "scActDrinks", "scActDrinksDesc", "ui_game_symbol_beer", ScFacilityTab.Campfire },
         };
 
         private static float lastTick = -1f;
