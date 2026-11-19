@@ -389,6 +389,13 @@ namespace SurvivorCommunity
         public static int[] NeedForRollover()
         {
             var need = new int[ScNames.ResourceCount];
+            // the review of ie1 (L3): the outposts' upkeep and hauling are due with or without members
+            if (ScRegistry.Outposts.Count > 0)
+            {
+                int day = ScCommunity.Today + 1;
+                need[(int)Resource.Materials] = ScEconomy.Upkeep(day);
+                need[(int)Resource.Fuel] = ScEconomy.Haulage(ScOutposts.ProjectedDelivery(day));
+            }
             if (ScRegistry.Members.Count == 0) return need;
             need[(int)Resource.Water] = ScEconomy.WaterShortfall();
             need[(int)Resource.Food] = Math.Max(0, ScEconomy.FoodEaten() - ScEconomy.Harvest());
@@ -398,13 +405,6 @@ namespace SurvivorCommunity
                 if (m.Ranged && m.Status == MemberStatus.Resident) gunner = true;
             need[(int)Resource.Meds] = MedsForRollover();
             need[(int)Resource.Ammo] = gunner ? 1 : 0;
-
-            if (ScRegistry.Outposts.Count > 0)
-            {
-                int day = ScCommunity.Today + 1;
-                need[(int)Resource.Materials] = ScEconomy.Upkeep(day);
-                need[(int)Resource.Fuel] = ScEconomy.Haulage(ScOutposts.ProjectedDelivery(day));
-            }
             return need;
         }
 

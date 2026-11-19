@@ -55,6 +55,12 @@ namespace SurvivorCommunity
             /// <summary>Whole days the water lasts at today's use less what the wells and dew collectors add (99 = no need / more made than drunk).</summary>
             public int WaterDays;
             public int Total;
+            /// <summary>
+            /// The review of ie1 (M1): Total with the food term as if the community were fed (the same as Total when it is not
+            /// hungry, or with a console override). A member whose trait spares her the hunger (Eats Like a Bird) takes her mood
+            /// from this, so going hungry lowers it neither through her own -10 nor through the community's food term.
+            /// </summary>
+            public int FedTotal;
         }
 
         // round ie1: DailyFoodNeed / DailyWaterShortfall are gone - ScEconomy.FoodEaten and WaterShortfall are the rollover's own
@@ -117,7 +123,14 @@ namespace SurvivorCommunity
             int total = 50 + p.Food + p.Meds + p.Beds + p.Facilities + p.Supplies + p.Traits + p.Deaths + p.Leadership + p.Territory + p.Defence
                         + p.Water + p.Activity + p.Allies + p.Comfort + p.EnclaveLost + p.Nests;
             p.Total = Mathf.Clamp(total, 0, 100);
-            if (Override >= 0) p.Total = Mathf.Clamp(Override, 0, 100);
+            p.FedTotal = p.Total;
+            if (c.Hungry)
+            {
+                int fed = Mathf.Clamp((Math.Min(p.FoodDays, 30) - 2) * 4, -10, 20);
+                if (shield > 0) fed = ScLeadership.Shielded(fed, shield);
+                p.FedTotal = Mathf.Clamp(total - p.Food + fed, 0, 100);
+            }
+            if (Override >= 0) p.Total = p.FedTotal = Mathf.Clamp(Override, 0, 100);
             return p;
         }
 
@@ -131,8 +144,10 @@ namespace SurvivorCommunity
                 c.Morale = p.Total;
                 foreach (var m in ScRegistry.Members.Values)
                 {
-                    // round ie1 (the user's D1): hunger does not lower the mood of one whose trait says so (Eats Like a Bird)
-                    int mood = c.Morale + ScTraits.MoodOffset(m) - (m.Injured ? 15 : 0) - (c.Hungry && !ScTraits.NoHungerMood(m) ? 10 : 0) - (c.Thirsty ? 10 : 0) + ScGarrison.MoodOffset(m);
+                    // round ie1 (the user's D1): hunger does not lower the mood of one whose trait says so (Eats Like a Bird) -
+                    // neither her own -10 nor the community's hungry food term (the review's M1: she starts from FedTotal)
+                    bool spared = c.Hungry && ScTraits.NoHungerMood(m);
+                    int mood = (spared ? p.FedTotal : c.Morale) + ScTraits.MoodOffset(m) - (m.Injured ? 15 : 0) - (c.Hungry && !spared ? 10 : 0) - (c.Thirsty ? 10 : 0) + ScGarrison.MoodOffset(m);
 #if SC_V34
                     mood += ScBond.MoodTerm(m);        // round U4: her Bond (0-XNPCCore's relationship events, SC-owned)
                     mood += ScTraitEffects.SituationalMood(m);   // round m1t: Night Owl on a night watch

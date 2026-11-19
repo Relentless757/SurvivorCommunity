@@ -220,7 +220,8 @@ namespace SurvivorCommunity
         public static string LevelText(Outpost o)
         {
             if (o == null) return "";
-            return string.Format(Localization.Get("scUiOpLevelYield"), o.Level, ScEconomy.BaseUnits(o));
+            // the review of ie1 (L2): a tier 4-5 building's +1 is part of what the level makes there
+            return string.Format(Localization.Get("scUiOpLevelYield"), o.Level, ScEconomy.BaseUnits(o) + ScEconomy.TierBonus(o.Tier));
         }
 
         public static string NextText(Outpost o)

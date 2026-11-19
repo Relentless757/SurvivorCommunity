@@ -161,10 +161,11 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Supply-line check-in (off unless OutpostCheckInDays &gt; 0): unvisited past that many days.</summary>
-        public static bool CheckInLate(Outpost o)
+        public static bool CheckInLate(Outpost o, int day)
         {
             if (o == null || ScConfig.OutpostCheckInDays <= 0) return false;
-            return ScCommunity.Today - Math.Max(o.Day, o.LastVisitDay) - ScConfig.OutpostCheckInDays > 0;
+            // the review of ie1 (L1): judged on the rollover day asked about, so a projection agrees with that rollover
+            return day - Math.Max(o.Day, o.LastVisitDay) - ScConfig.OutpostCheckInDays > 0;
         }
 
         /// <summary>Depletion (off unless OutpostDepletesAfter &gt; 0): picked clean once it has made that many units in all.</summary>
@@ -180,11 +181,11 @@ namespace SurvivorCommunity
         /// One outpost's own day, before the network steps: the level's yield, +tier, +staff, +match, +built, the mode (never
         /// below 0), then a late check-in (-OutpostCheckInLess, never below 1) and depletion (at most OutpostDepletedYield).
         /// </summary>
-        public static int OwnUnits(Outpost o)
+        public static int OwnUnits(Outpost o, int day)
         {
             if (o == null) return 0;
             int t = Math.Max(0, BaseUnits(o) + TierBonus(o.Tier) + StaffUnits(o) + MatchUnits(o) + BuiltUnits(o) + ModeUnits(o));
-            if (CheckInLate(o)) t = LessNotBelowOne(t, ScConfig.OutpostCheckInLess);
+            if (CheckInLate(o, day)) t = LessNotBelowOne(t, ScConfig.OutpostCheckInLess);
             if (Depleted(o)) t = Math.Min(t, ScConfig.OutpostDepletedYield);
             return t;
         }
@@ -200,9 +201,9 @@ namespace SurvivorCommunity
             Step(sb, "match", MatchUnits(o));
             Step(sb, "built", BuiltUnits(o));
             Step(sb, o.Mode == 1 ? "quiet" : "push", ModeUnits(o));
-            if (CheckInLate(o)) sb.Append(", check-in late -").Append(ScConfig.OutpostCheckInLess).Append(" (not below 1)");
+            if (CheckInLate(o, ScCommunity.Today + 1)) sb.Append(", check-in late -").Append(ScConfig.OutpostCheckInLess).Append(" (not below 1)");
             if (Depleted(o)) sb.Append(", depleted: at most ").Append(ScConfig.OutpostDepletedYield);
-            return sb.Append(" = ").Append(OwnUnits(o)).ToString();
+            return sb.Append(" = ").Append(OwnUnits(o, ScCommunity.Today + 1)).ToString();
         }
 
         private static void Step(StringBuilder sb, string name, int v)
@@ -234,7 +235,7 @@ namespace SurvivorCommunity
             {
                 if (!Produces(o, day)) continue;
                 producing.Add(o);
-                own[o.Id] = OwnUnits(o);
+                own[o.Id] = OwnUnits(o, day);
                 primary[o.Id] = ScOutposts.PrimaryToday(o);
             }
             var units = new Dictionary<int, int>(own);

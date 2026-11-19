@@ -870,10 +870,13 @@ namespace SurvivorCommunity
             return new int[ScNames.ResourceCount];
         }
 
-        /// <summary>The last rollover's yield once there has been one, else the estimate.</summary>
+        /// <summary>
+        /// The row's and the map marker's yield: what it makes on the next rollover (Estimate), the detail line's figure. The
+        /// review of ie1 (M2): it showed the last rollover's until the next one, so an upgrade, new staff or a mode change read
+        /// one number on the row and another in the detail; an outpost that makes nothing tonight shows nothing.
+        /// </summary>
         public static int[] ShownYield(Outpost o)
         {
-            for (int i = 0; i < ScNames.ResourceCount; i++) if (o.LastYield[i] > 0) return o.LastYield;
             return Estimate(o);
         }
 

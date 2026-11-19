@@ -53,9 +53,10 @@ so they must always agree. Start-up must say `patch verification: all 213 target
       Bottomless Stomach member counts 2). `sc give food 10`, then `sc day`: the day's message says "used N food" and
       `sc status` shows the stock 10 - N lower (plus any garden). The Home Status panel shows the food red while the stock
       is under N.
-- [ ] **A hungry day, whole:** `sc give food -999` (empties it), `sc day`: "NOT ENOUGH FOOD, your survivors went hungry". `sc members`: every mood is 10 lower,
-      except an Eats Like a Bird member's (`sc traits <name> set EatsLikeABird` makes one). `sc give food 20`, `sc day`:
-      not hungry, and the stock went down by exactly N.
+- [ ] **A hungry day, whole:** `sc give food -999` (empties it), `sc day`: "NOT ENOUGH FOOD, your survivors went
+      hungry". `sc members`: every mood is lower (the morale's food drop plus 10), except an Eats Like a Bird
+      member's, which stays as it was (`sc traits <name> set EatsLikeABird` makes one). `sc give food 20`, `sc day`: not
+      hungry, and the stock went down by exactly N.
 - [ ] **The cook:** `sc spec <member at home> set Cooking 3`, `sc status`: "cook <name> -2" (1 at 1 or 2 stars, 4 at 7);
       the saving is never more than half of what is eaten. `sc day`: "used" is that much lower.
 - [ ] **The garden:** a gardener at home (`sc spec <member> set Gardening 2`) and at least 20 living crops in the base
