@@ -13,9 +13,11 @@ face's paint in 10 bits instead of vanilla's 8, so vanilla reads it as other pai
 (round tw1). A cell is converted when its top byte is set: vanilla keeps seven 8-bit faces (Middle is the 7th) and never
 writes byte 7. The editor's brush changes one face's byte at a time and keeps the rest, so a marked cell can also be the
 old paint with some faces painted again in 3.4. Each marked cell is read both ways - as OcbCustomTextures paint, and as
-the prefab's most common marked value with the differing faces painted in 3.4 - and the reading whose faces are all
-paints painting.xml defines wins (the game's painting.xml, through poi_gen's palette; without it, ids up to 255 count).
-No reading, or two different ones, stops the script with the cell named.
+the reference value with the differing faces painted in 3.4 - keeping only readings whose faces are all paints
+painting.xml defines (the game's painting.xml, through poi_gen's palette; without it, ids up to 255 count). The reference
+is the tower's own old paint (OLD_TOWER_PAINT, "old wood" everywhere) when the prefab has it: the user's tower was
+painted with that one value, so any other marked cell is a 3.4 edit of it and its reference reading wins. Otherwise it
+is the most common marked value, and no reading or two different ones stop the script with the cell named.
 --ocb converts every cell (an OcbCustomTextures cell whose last face has a low paint id leaves byte 7 empty), --no-ocb none.
 
     python import_guard_tower.py [--ocb | --no-ocb] [source name] [mod folder]
@@ -42,6 +44,8 @@ FAMILY = "scWatchPostShapes"
 TARGET = "scGuardTower"
 # rotation -> facing (x, z): 0-3 upright, 4-7 upside down (BlockShapeNew.rotationsToQuats: Rx180 * Ry{180,270,360,450})
 FACING = {0: (0, 1), 1: (1, 0), 2: (0, -1), 3: (-1, 0), 4: (0, 1), 5: (-1, 0), 6: (0, -1), 7: (1, 0)}
+# the user's tower as saved in 3.2 with OcbCustomTextures: paint 67 (old wood) on all six faces, 10 bits each (ScTower.OcbStampedPaint)
+OLD_TOWER_PAINT = 0x010C4310C4310C43
 
 
 def read_nim(path):
@@ -99,17 +103,19 @@ def ocb_to_vanilla(v):
     return sum(t << (f * 8) for f, t in enumerate(faces))
 
 
+def paints_ok(n, defined):
+    """Every one of n's seven 8-bit faces is unpainted (0) or a paint painting.xml defines (any id when defined is None)."""
+    return all(t == 0 or defined is None or t in defined for t in ((n >> (f * 8)) & 0xFF for f in range(7)))
+
+
 def readings(v, ref, defined):
-    """The vanilla values a marked cell can mean: its own OcbCustomTextures paint, and ref (the prefab's most common
-    marked value) with the faces that differ from it painted again in 3.4 (the editor's brush changes one face's byte and
-    keeps the top byte). Only readings whose seven faces are all unpainted or defined paints count."""
+    """The vanilla values a marked cell can mean, as (own, edited): its own OcbCustomTextures paint, and ref with the
+    faces that differ from it painted again in 3.4 (the editor's brush changes one face's byte and keeps the top byte).
+    A reading whose seven faces aren't all unpainted or defined paints is None."""
     def good(n):
-        faces = [(n >> (f * 8)) & 0xFF for f in range(7)]
-        return all(t == 0 or defined is None or t in defined for t in faces)
-    out = set()
-    own = ocb_to_vanilla(v)
-    if own is not None and good(own):
-        out.add(own)
+        return n if n is not None and paints_ok(n, defined) else None
+    own = good(ocb_to_vanilla(v))
+    edited = None
     if ref is not None and v != ref and v >> 56 == ref >> 56:
         base = ocb_to_vanilla(ref)
         if base is not None:
@@ -117,9 +123,20 @@ def readings(v, ref, defined):
             for f in range(7):
                 b = (v >> (f * 8)) & 0xFF
                 n |= (b if b != (ref >> (f * 8)) & 0xFF else (base >> (f * 8)) & 0xFF) << (f * 8)
-            if good(n):
-                out.add(n)
-    return out
+            edited = good(n)
+    return own, edited
+
+
+def choose(v, ref, known, defined):
+    """A marked cell's vanilla paint, or a str saying why it can't be read (see the module notes)."""
+    own, edited = readings(v, ref, defined)
+    if known and edited is not None:
+        return edited       # the source only ever had OLD_TOWER_PAINT: another marked value is a 3.4 edit of it
+    if own is not None and (edited is None or edited == own):
+        return own
+    if edited is not None and own is None:
+        return edited
+    return "no paint the game defines" if own is None else "two different paints (%s, %s)" % (hex(own), hex(edited))
 
 
 def main():
@@ -142,20 +159,26 @@ def main():
     marked = [off for off, v in p.textures.items() if v >> 56]
     convert = list(p.textures) if ocb_flag == "--ocb" else [] if ocb_flag == "--no-ocb" else marked
     defined = defined_paints() if convert else None
-    ref = collections.Counter(p.textures[o] for o in marked).most_common(1)[0][0] if marked else None
+    known = any(p.textures[o] == OLD_TOWER_PAINT for o in marked)
+    ref = OLD_TOWER_PAINT if known else collections.Counter(p.textures[o] for o in marked).most_common(1)[0][0] if marked else None
+    if convert and ref is not None:
+        print("paint: reference %s (%s)" % (hex(ref), "the tower's old wood" if known else "the most common marked value"))
     repainted = 0
+    already = 0
     for off in convert:
         v = p.textures[off]
-        found = readings(v, ref, defined)
-        if len(found) != 1:
+        n = choose(v, ref, known, defined)
+        if isinstance(n, str):
             sys.exit("cell %s: paint %s reads as %s - paint the whole block again in the editor%s"
-                     % (p.offset_to_coord(off), hex(v),
-                        "no paint the game defines" if not found else "two different paints (%s)" % ", ".join(hex(n) for n in sorted(found)),
-                        "; painted in 3.4? leave out --ocb" if ocb_flag == "--ocb" else ""))
-        n = found.pop()
+                     % (p.offset_to_coord(off), hex(v), n, "; painted in 3.4? leave out --ocb" if ocb_flag == "--ocb" else ""))
         if n != ocb_to_vanilla(v):
             repainted += 1
+        if not v >> 56 and paints_ok(v, defined):
+            already += 1
         p.textures[off] = n
+    if already:
+        print("warning: --ocb converted %d cell(s) whose paint already read as vanilla paint (painted in 3.4?) - check them "
+              "in the editor" % already)
     if repainted:
         print("paint: %d cell(s) had faces painted again in 3.4 over the old paint - those faces kept their new paint"
               % repainted)
