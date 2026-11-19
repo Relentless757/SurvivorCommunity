@@ -506,8 +506,17 @@ namespace SurvivorCommunity
         public const int TowerPaint = 67;
 
         /// <summary>
-        /// Prefab cells whose paint vanilla can't read: bits above the six 8-bit faces set (vanilla never sets them), or a
-        /// face naming a paint id painting.xml doesn't define.
+        /// The top byte of a texture value: vanilla keeps seven 8-bit faces (Top, Bottom, North, West, South, East and
+        /// Middle, BlockFace 0-6) and never writes byte 7. OcbCustomTextures' 10-bit faces reach into it (0x01 in the
+        /// stamped paint), so it marks a value vanilla can't have written.
+        /// </summary>
+        public static int TopByte(long v)
+        {
+            return (int)((v >> 56) & 0xFF);
+        }
+
+        /// <summary>
+        /// Prefab cells whose paint vanilla can't read: byte 7 set, or a face naming a paint id painting.xml doesn't define.
         /// </summary>
         public static int UnreadablePaintCells(Prefab p)
         {
@@ -519,8 +528,8 @@ namespace SurvivorCommunity
                     {
                         long v = p.GetTexture(x, y, z)[0];
                         if (v == 0) continue;
-                        bool ok = (v >> 48) == 0;
-                        for (int f = 0; ok && f < 6 && list != null; f++)
+                        bool ok = TopByte(v) == 0;
+                        for (int f = 0; ok && f < 7 && list != null; f++)
                         {
                             int id = (int)((v >> (f * 8)) & 0xFF);
                             if (id != 0 && (id >= list.Length || list[id] == null)) ok = false;
@@ -532,33 +541,45 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// sc tower repaint: every block within radius (a cube around center) that still carries the paint towers were
-        /// stamped with before round tw1 gets "old wood" on its faces again. The test is the value's top 16 bits (0x010C here;
-        /// vanilla never sets them). A face the player painted since then keeps its paint: only the faces that still hold the
-        /// stamped value change. Air and unloaded chunks are skipped. Host / single player, main thread.
+        /// stamped with before round tw1 gets "old wood" on its six faces again. The test is byte 7 (0x01 in the stamped
+        /// value; vanilla never writes it, see TopByte). A face the player painted since keeps its paint: vanilla's brush
+        /// changes only that face's byte, so a face whose byte differs from the stamped one is theirs (Middle included).
+        /// Written through vanilla's paint path (SetBlockTextureServer, as the brush does), which saves the chunk, rebuilds
+        /// its mesh and tells connected players: first all six faces old wood (that clears bytes 6 and 7), then the player's
+        /// own faces back. Air and unloaded chunks are skipped; the chunk is looked up once per block column.
+        /// Host / single player, main thread.
         /// </summary>
-        public static int Repaint(World w, Vector3i center, int radius, out int scanned)
+        public static int Repaint(World w, Vector3i center, int radius, int byEntity, out int loadedColumns, out int columns)
         {
             int fixedCells = 0;
-            scanned = 0;
-            long top = OcbStampedPaint >> 48;
-            for (int y = Math.Max(0, center.y - radius); y <= Math.Min(255, center.y + radius); y++)
-                for (int x = center.x - radius; x <= center.x + radius; x++)
-                    for (int z = center.z - radius; z <= center.z + radius; z++)
+            loadedColumns = columns = 0;
+            int y0 = Math.Max(0, center.y - radius), y1 = Math.Min(255, center.y + radius);
+            int top = TopByte(OcbStampedPaint);
+            GameManager gm = GameManager.Instance;
+            for (int x = center.x - radius; x <= center.x + radius; x++)
+                for (int z = center.z - radius; z <= center.z + radius; z++)
+                {
+                    columns++;
+                    Chunk c = w.GetChunkFromWorldPos(x, z) as Chunk;
+                    if (c == null) continue;
+                    loadedColumns++;
+                    int lx = World.toBlockXZ(x), lz = World.toBlockXZ(z);
+                    for (int y = y0; y <= y1; y++)
                     {
-                        scanned++;
-                        long v = w.GetTextureFullArray(x, y, z)[0];
-                        if ((v >> 48) != top) continue;
-                        if (w.GetBlock(x, y, z).isair) continue;
-                        long n = 0;
-                        for (int f = 0; f < 6; f++)
+                        long v = c.GetTextureFullArray(lx, y, lz, false)[0];
+                        if (TopByte(v) != top) continue;
+                        if (c.GetBlock(lx, y, lz).isair) continue;
+                        Vector3i pos = new Vector3i(x, y, z);
+                        gm.SetBlockTextureServer(pos, BlockFace.None, TowerPaint, byEntity);
+                        for (int f = 0; f < 7; f++)
                         {
-                            long cur = (v >> (f * 8)) & 0xFF;
-                            long was = (OcbStampedPaint >> (f * 8)) & 0xFF;
-                            n |= (cur == was ? TowerPaint : cur) << (f * 8);
+                            int cur = (int)((v >> (f * 8)) & 0xFF);
+                            int was = (int)((OcbStampedPaint >> (f * 8)) & 0xFF);
+                            if (cur != was) gm.SetBlockTextureServer(pos, (BlockFace)f, cur, byEntity);
                         }
-                        w.SetTexture(x, y, z, n);
                         fixedCells++;
                     }
+                }
             return fixedCells;
         }
 

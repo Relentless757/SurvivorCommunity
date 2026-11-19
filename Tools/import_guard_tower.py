@@ -10,8 +10,13 @@ Run it again after editing the tower in the editor (the post may be the old cube
 
 Paint saved with OcbCustomTextures installed (the user's 3.2 game) is turned back into vanilla's layout: that mod keeps a
 face's paint in 10 bits instead of vanilla's 8, so vanilla reads it as other paints and logs "Missing paint ID XML entry"
-(round tw1). It is found by the bits above vanilla's six 8-bit faces; --ocb forces the conversion (a prefab painted on
-few faces may not set them), --no-ocb turns it off.
+(round tw1). A cell is converted when its top byte is set: vanilla keeps seven 8-bit faces (Middle is the 7th) and never
+writes byte 7. The editor's brush changes one face's byte at a time and keeps the rest, so a marked cell can also be the
+old paint with some faces painted again in 3.4. Each marked cell is read both ways - as OcbCustomTextures paint, and as
+the prefab's most common marked value with the differing faces painted in 3.4 - and the reading whose faces are all
+paints painting.xml defines wins (the game's painting.xml, through poi_gen's palette; without it, ids up to 255 count).
+No reading, or two different ones, stops the script with the cell named.
+--ocb converts every cell (an OcbCustomTextures cell whose last face has a low paint id leaves byte 7 empty), --no-ocb none.
 
     python import_guard_tower.py [--ocb | --no-ocb] [source name] [mod folder]
 
@@ -76,6 +81,16 @@ def write_nim(path, version, entries):
     path.write_bytes(bytes(out))
 
 
+def defined_paints():
+    """painting.xml's ids (the same in 3.2 and 3.4), or None when poi_gen's palette can't read the game's copy."""
+    try:
+        from palette.paints import load_paints  # noqa: E402
+        return set(load_paints().by_id)
+    except Exception as e:  # noqa: BLE001 - any failure just widens the test to "up to 255"
+        print("note: painting.xml not read (%s) - any paint id up to 255 counts as defined" % e)
+        return None
+
+
 def ocb_to_vanilla(v):
     """OcbCustomTextures' six 10-bit faces -> vanilla's six 8-bit faces; None when a face names a paint above 255."""
     faces = [(v >> (f * 10)) & 0x3FF for f in range(6)]
@@ -84,8 +99,33 @@ def ocb_to_vanilla(v):
     return sum(t << (f * 8) for f, t in enumerate(faces))
 
 
+def readings(v, ref, defined):
+    """The vanilla values a marked cell can mean: its own OcbCustomTextures paint, and ref (the prefab's most common
+    marked value) with the faces that differ from it painted again in 3.4 (the editor's brush changes one face's byte and
+    keeps the top byte). Only readings whose seven faces are all unpainted or defined paints count."""
+    def good(n):
+        faces = [(n >> (f * 8)) & 0xFF for f in range(7)]
+        return all(t == 0 or defined is None or t in defined for t in faces)
+    out = set()
+    own = ocb_to_vanilla(v)
+    if own is not None and good(own):
+        out.add(own)
+    if ref is not None and v != ref and v >> 56 == ref >> 56:
+        base = ocb_to_vanilla(ref)
+        if base is not None:
+            n = 0
+            for f in range(7):
+                b = (v >> (f * 8)) & 0xFF
+                n |= (b if b != (ref >> (f * 8)) & 0xFF else (base >> (f * 8)) & 0xFF) << (f * 8)
+            if good(n):
+                out.add(n)
+    return out
+
+
 def main():
     args = [a for a in sys.argv[1:] if a not in ("--ocb", "--no-ocb")]
+    if "--ocb" in sys.argv and "--no-ocb" in sys.argv:
+        sys.exit("--ocb and --no-ocb: pick one")
     ocb_flag = "--ocb" if "--ocb" in sys.argv else "--no-ocb" if "--no-ocb" in sys.argv else None
     src_name = args[0] if len(args) > 0 else "Guard_Tower"
     mod = pathlib.Path(args[1]) if len(args) > 1 else pathlib.Path(__file__).resolve().parent.parent
@@ -99,18 +139,36 @@ def main():
     p = TTSPrefab.load(str(src) + ".tts")
     if p.version < 18:
         sys.exit("prefab version %d: only 18+ (3.x) is supported" % p.version)
-    wide = sum(1 for v in p.textures.values() if v >> 48)
-    if ocb_flag == "--ocb" or (wide and ocb_flag != "--no-ocb"):
-        for off, v in list(p.textures.items()):
-            n = ocb_to_vanilla(v)
-            if n is None:
-                sys.exit("cell %s: paint %s names an OcbCustomTextures paint above 255 - vanilla can't show it; repaint it "
-                         "in the editor" % (p.offset_to_coord(off), hex(v)))
-            p.textures[off] = n
-        print("paint: %d cell(s) turned from OcbCustomTextures' 10-bit faces into vanilla's 8-bit ones (%s)"
-              % (len(p.textures), "forced" if ocb_flag else "%d had bits vanilla never sets" % wide))
-    elif wide:
-        print("warning: %d cell(s) carry paint bits vanilla never sets (--no-ocb kept them)" % wide)
+    marked = [off for off, v in p.textures.items() if v >> 56]
+    convert = list(p.textures) if ocb_flag == "--ocb" else [] if ocb_flag == "--no-ocb" else marked
+    defined = defined_paints() if convert else None
+    ref = collections.Counter(p.textures[o] for o in marked).most_common(1)[0][0] if marked else None
+    repainted = 0
+    for off in convert:
+        v = p.textures[off]
+        found = readings(v, ref, defined)
+        if len(found) != 1:
+            sys.exit("cell %s: paint %s reads as %s - paint the whole block again in the editor%s"
+                     % (p.offset_to_coord(off), hex(v),
+                        "no paint the game defines" if not found else "two different paints (%s)" % ", ".join(hex(n) for n in sorted(found)),
+                        "; painted in 3.4? leave out --ocb" if ocb_flag == "--ocb" else ""))
+        n = found.pop()
+        if n != ocb_to_vanilla(v):
+            repainted += 1
+        p.textures[off] = n
+    if repainted:
+        print("paint: %d cell(s) had faces painted again in 3.4 over the old paint - those faces kept their new paint"
+              % repainted)
+    if convert:
+        print("paint: %d of %d painted cell(s) turned from OcbCustomTextures' 10-bit faces into vanilla's 8-bit ones (%s)"
+              % (len(convert), len(p.textures), "--ocb" if ocb_flag else "their top byte was set"))
+        if len(convert) < len(p.textures):
+            print("note: the other %d kept their paint as it is; if the tower was painted only with OcbCustomTextures, "
+                  "run with --ocb" % (len(p.textures) - len(convert)))
+        print("note: %s itself still has the OcbCustomTextures paint (the 3.4 prefab editor shows it in other paints); this "
+              "copy is converted" % src.name)
+    elif marked:
+        print("warning: %d cell(s) carry paint bits vanilla never sets (--no-ocb kept them)" % len(marked))
     sx, sy, sz = p.size
 
     cells = {}

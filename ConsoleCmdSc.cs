@@ -472,10 +472,11 @@ namespace SurvivorCommunity
                 int radius = 16;
                 if (p.Count >= 3 && (!int.TryParse(p[2], out radius) || radius < 1 || radius > 64)) { Output("[SC] tower repaint [radius 1-64, default 16]"); return; }
                 Vector3i at = World.worldToBlockPos(player.position);
-                int scanned;
-                int n = ScTower.Repaint(w, at, radius, out scanned);
+                int loaded, columns;
+                int n = ScTower.Repaint(w, at, radius, player.entityId, out loaded, out columns);
                 Output("[SC] " + (n > 0 ? n + " block(s) repainted to old wood" : "no tower blocks with the old paint")
-                       + " within " + radius + " of " + ScTower.P(at) + " (" + scanned + " cell(s) checked; unloaded chunks skipped)");
+                       + " within " + radius + " of " + ScTower.P(at)
+                       + (loaded < columns ? " (" + (columns - loaded) + " of " + columns + " block columns aren't loaded: go closer to check them)" : ""));
                 return;
             }
             WorldRayHitInfo hit = player.HitInfo;
