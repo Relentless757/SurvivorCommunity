@@ -12,7 +12,7 @@ namespace SurvivorCommunity
         Active,
         /// <summary>Over the slot limit (members left, Leadership dropped): no yield, no upkeep, nothing lost.</summary>
         Idle,
-        /// <summary>The POI's sleepers are back (a console or Twitch reset): no yield until it is cleared again.</summary>
+        /// <summary>The POI's sleepers are back (a console or Twitch reset): no yield until it is cleared again (round ie1: and no upkeep).</summary>
         Contested,
         /// <summary>The land claim is gone: the record stays a few days for the ledger and the window, then drops.</summary>
         Lost
@@ -37,14 +37,12 @@ namespace SurvivorCommunity
         public readonly float[] Weight = new float[ScNames.ResourceCount];
         public int Tier;
         public int Day;
-        /// <summary>Fractional bundles carried to the next day, per resource.</summary>
-        public readonly float[] Carry = new float[ScNames.ResourceCount];
         /// <summary>Whole bundles produced while the home radio was silent; delivered the next day it reports in.</summary>
         public readonly int[] Pending = new int[ScNames.ResourceCount];
         public OutpostState State = OutpostState.Active;
         public int LostDay = -1;
-        /// <summary>The last rollover's production in bundles/day (fractional): the "+n/day" the UI shows.</summary>
-        public readonly float[] LastYield = new float[ScNames.ResourceCount];
+        /// <summary>The last rollover's production in whole bundles (round ie1; fractions before it): the "+n/day" the UI shows.</summary>
+        public readonly int[] LastYield = new int[ScNames.ResourceCount];
         /// <summary>1..3, bought from the stockpile (ScOutposts.Upgrade); LevelDay = the day it last went up.</summary>
         public int Level = 1;
         public int LevelDay = -1;
@@ -52,8 +50,8 @@ namespace SurvivorCommunity
         public int LastVisitDay = -1;
         /// <summary>Output mode: 0 normal, 1 quiet (less yield, less risk), 2 push (more of both).</summary>
         public int Mode;
-        /// <summary>Bundles produced over its life (depletion, when OutpostDepletion is on).</summary>
-        public float Produced;
+        /// <summary>Bundles produced over its life (depletion, when OutpostDepletesAfter is on); whole since round ie1.</summary>
+        public int Produced;
         /// <summary>What the player built inside it (ScScan.CountArea while it is loaded): beds, facilities, crops, defenses.</summary>
         public readonly int[] Invest = new int[4];
         /// <summary>What the building had when it was established (prefab furniture and traps): Invest counts above it.</summary>
@@ -121,9 +119,10 @@ namespace SurvivorCommunity
     /// (no sleeper respawn, no trader-quest or rally reset); the patches add the rest (a POI poking out of a vanilla
     /// claim, the quiet ClearSleepers reset, the claim limit that would deactivate the home).
     ///
-    /// Economy (all ScConfig): an establish fee (materials + fuel), upkeep in materials per outpost per day, haulage
-    /// in fuel per bundle delivered; an unpaid upkeep runs the network down (x OutpostRunDownMult), unpaid haulage
-    /// makes it carry on foot (x OutpostOnFootMult). Deliveries need the home radio to have reported in that day;
+    /// Economy (all ScConfig; round ie1: whole units, the formulas in ScEconomy): an establish fee (materials + fuel),
+    /// upkeep in materials per producing outpost per day by level, haulage in fuel per OutpostHaulPerFuel bundles delivered;
+    /// no debt - a day the upkeep is not paid in full runs the network down (each makes OutpostRunDownLess less), one the
+    /// haulage is not makes it carry on foot (each at most OutpostOnFootMax). Deliveries need the home radio to have reported in that day;
     /// otherwise the bundles wait at the outpost (capped at OutpostPendingDays of yield). Slots grow with the
     /// community and Leadership; outposts over the limit go Idle, never destroyed. Host only, main thread.
     /// </summary>
@@ -669,9 +668,8 @@ namespace SurvivorCommunity
             if (c.OutpostTriumph > 0f) c.OutpostTriumph = Math.Max(0f, c.OutpostTriumph - 1f);   // fades with or without outposts
             if (list.Count == 0)
             {
-                // no network left: nothing is owed, and a new outpost must not start run-down or on foot
+                // no network left: a new outpost must not start run-down or on foot
                 c.OutpostRunDown = c.OutpostOnFoot = false;
-                c.UpkeepDebt = c.HaulDebt = 0f;
                 return;
             }
             World w = ScCommunity.World;
@@ -715,86 +713,26 @@ namespace SurvivorCommunity
                     }
                 }
 
-                // production
-                var producing = new List<Outpost>();
-                var yields = new Dictionary<int, float[]>();
-                foreach (Outpost o in list)
-                {
-                    for (int i = 0; i < ScNames.ResourceCount; i++) o.LastYield[i] = 0f;
-                    if (o.State != OutpostState.Active || ScOutpostRisk.IsDamaged(o, day)) continue;
-                    producing.Add(o);
-                    yields[o.Id] = RawYield(o);
-                }
-                ApplyDuplicates(producing, yields);
-                float mult = 1f;
-                if (c.OutpostRunDown) mult *= ScConfig.OutpostRunDownMult;
-                if (c.OutpostOnFoot) mult *= ScConfig.OutpostOnFootMult;
-
+                // production (round ie1): whole units per outpost from ScEconomy.NetworkYields, the numbers the window, the Home
+                // Status panel and the console read too; nothing is carried to the next day
+                Dictionary<int, int[]> yields = ScEconomy.NetworkYields(day);
                 bool homeReported = c.RadioOnlineDay >= day - 1 || RadioOnlineAnywhere();
                 var delivered = new int[ScNames.ResourceCount];
-                int waiting = 0;
-                foreach (Outpost o in list)
-                {
-                    if (!o.Holding) continue;
-                    float[] y;
-                    yields.TryGetValue(o.Id, out y);
-                    bool reported = homeReported || RelayOnline(o);   // its own radio relay reports in without the home one
-                    int haulRoom = ScOutpostPerks.HaulCap(o);
-                    for (int r = 0; r < ScNames.ResourceCount; r++)
-                    {
-                        float v = y != null ? y[r] * mult : 0f;
-                        o.LastYield[r] = v;
-                        o.Produced += v;
-                        o.Carry[r] += v;
-                        int whole = (int)Math.Floor(o.Carry[r] + 1e-4f);
-                        o.Carry[r] = Math.Max(0f, o.Carry[r] - whole);
-                        if (reported)
-                        {
-                            int amount = whole + o.Pending[r];
-                            o.Pending[r] = 0;
-                            int take = Math.Min(amount, haulRoom);          // stash and haul (off: no limit)
-                            if (haulRoom != int.MaxValue) haulRoom -= take;
-                            delivered[r] += take;
-                            if (amount > take) o.Stash[r] = Math.Min(ScConfig.OutpostStashMax, o.Stash[r] + amount - take);
-                        }
-                        else if (whole > 0)
-                        {
-                            int cap = Math.Max(1, Mathf.RoundToInt(ScConfig.OutpostPendingDays * v));
-                            o.Pending[r] = Math.Min(o.Pending[r] + whole, Math.Max(cap, o.Pending[r]));
-                        }
-                    }
-                    waiting += o.PendingTotal;
-                }
+                int waiting = Deliver(list, yields, homeReported, true, delivered);
                 int total = 0;
                 for (int r = 0; r < ScNames.ResourceCount; r++) { if (delivered[r] > 0) c.Add((Resource)r, delivered[r]); total += delivered[r]; }
 
-                // costs: upkeep for every outpost that works (idle ones cost nothing), haulage per bundle carried
-                int working = 0;
-                float upkeep = 0f;
-                foreach (Outpost o in list)
-                    if (o.State == OutpostState.Active || o.State == OutpostState.Contested) { working++; upkeep += ScOutpostPerks.UpkeepFor(o); }
-                int paidMats = 0, paidFuel = 0;
+                // costs (round ie1): no debt. The day's upkeep (the producing outposts by level: idle, contested and damaged ones
+                // pay nothing) and haulage (1 fuel per OutpostHaulPerFuel units delivered) come out of the stockpile as far as it
+                // goes; a day it cannot pay in full runs the network down / sends it on foot until a day it pays in full
+                int dueMats = ScEconomy.Upkeep(day), dueFuel = ScEconomy.Haulage(total);
+                int paidMats = Math.Min(dueMats, c.Get(Resource.Materials));
+                c.Add(Resource.Materials, -paidMats);
+                int paidFuel = Math.Min(dueFuel, c.Get(Resource.Fuel));
+                c.Add(Resource.Fuel, -paidFuel);
                 bool wasRunDown = c.OutpostRunDown, wasOnFoot = c.OutpostOnFoot;
-                if (working > 0 || c.UpkeepDebt > 0f)
-                {
-                    c.UpkeepDebt += upkeep;
-                    paidMats = Math.Min((int)Math.Floor(c.UpkeepDebt + 1e-4f), c.Get(Resource.Materials));
-                    c.Add(Resource.Materials, -paidMats);
-                    c.UpkeepDebt = Math.Max(0f, c.UpkeepDebt - paidMats);
-                    c.OutpostRunDown = c.UpkeepDebt >= 1f - 1e-4f;
-                    c.UpkeepDebt = Math.Min(c.UpkeepDebt, 1f + Math.Max(ScConfig.OutpostUpkeep, upkeep) * ScConfig.OutpostPendingDays);
-                }
-                else c.OutpostRunDown = false;
-                if (total > 0 || c.HaulDebt > 0f)
-                {
-                    c.HaulDebt += ScConfig.OutpostHaulage * total;
-                    paidFuel = Math.Min((int)Math.Floor(c.HaulDebt + 1e-4f), c.Get(Resource.Fuel));
-                    c.Add(Resource.Fuel, -paidFuel);
-                    c.HaulDebt = Math.Max(0f, c.HaulDebt - paidFuel);
-                    c.OutpostOnFoot = c.HaulDebt >= 1f - 1e-4f;
-                    c.HaulDebt = Math.Min(c.HaulDebt, 2f);
-                }
-                else c.OutpostOnFoot = false;
+                c.OutpostRunDown = paidMats < dueMats;
+                c.OutpostOnFoot = paidFuel < dueFuel;
                 if (player != null)
                 {
                     if (c.OutpostRunDown && !wasRunDown) ScCommunity.Tell(player, Localization.Get("scOpRunDown"), "ui_denied");
@@ -811,9 +749,9 @@ namespace SurvivorCommunity
                 if (c.OutpostOnFoot) sb.Append(' ').Append(Localization.Get("scOpDailyOnFoot"));
                 if (summary.Length > 0) summary.Append(' ');
                 summary.Append(sb);
-                ScLog.Out("outposts day " + day + ": " + producing.Count + " producing of " + HeldCount() + " held (" + slots + " slot(s)), delivered " + Amounts(delivered)
-                          + ", upkeep paid " + paidMats + " mats (debt " + c.UpkeepDebt.ToString("0.##", CultureInfo.InvariantCulture)
-                          + "), haulage paid " + paidFuel + " fuel (debt " + c.HaulDebt.ToString("0.##", CultureInfo.InvariantCulture) + ")"
+                ScLog.Out("outposts day " + day + ": " + yields.Count + " producing of " + HeldCount() + " held (" + slots + " slot(s)), delivered " + Amounts(delivered)
+                          + ", upkeep paid " + paidMats + " of " + dueMats + " mats, haulage paid " + paidFuel + " of " + dueFuel + " fuel"
+                          + (c.OutpostRunDown ? " (run-down)" : "") + (c.OutpostOnFoot ? " (on foot)" : "")
                           + (homeReported ? "" : ", home radio silent") + (waiting > 0 ? " (" + waiting + " waiting)" : ""));
                 ScGarrison.Workshops(day, player, summary);
                 ScOutpostRisk.Daily(day, player, summary);
@@ -827,33 +765,6 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>One outpost's day before duplicates and the network multipliers, capped at OutpostDailyCap.</summary>
-        public static float[] RawYield(Outpost o)
-        {
-            float[] y;
-            if (!o.Scavenge)
-            {
-                var row = new PoiRow { Id = o.Row };
-                for (int i = 0; i < ScNames.ResourceCount; i++) row.Weight[i] = o.Weight[i];
-                y = ScPoiTypes.RowYield(row, o.Tier);
-            }
-            else
-            {
-                y = new float[ScNames.ResourceCount];
-                Resource r = Shortest();
-                y[(int)r] = ScPoiTypes.ScavengeYield(r, o.Tier);
-            }
-            // v1.1: its level and the people posted there, then the per-outpost cap again
-            float mult = ScOutpostPerks.LevelMult(o) * ScGarrison.StaffMult(o, PrimaryToday(o))
-                         * ScOutpostPerks.ModeMult(o) * ScOutpostPerks.CheckInMult(o) * ScOutpostPerks.DepletionMult(o)
-                         * ScOutpostPerks.InvestMult(o);
-            float total = 0f;
-            for (int i = 0; i < ScNames.ResourceCount; i++) { y[i] *= mult; total += y[i]; }
-            if (ScPoiTypes.DailyCap > 0f && total > ScPoiTypes.DailyCap)
-                for (int i = 0; i < ScNames.ResourceCount; i++) y[i] *= ScPoiTypes.DailyCap / total;
-            return y;
-        }
-
         /// <summary>The primary resource an outpost produces today (a scavenge outpost's is whatever is shortest).</summary>
         public static Resource PrimaryToday(Outpost o)
         {
@@ -861,85 +772,83 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Outposts sharing a primary resource are ranked by their raw yield of it: x1, x0.75, x0.5 ... (OutpostDupMult).
-        /// Secondary resources are not penalised.
+        /// Round ie1: the delivery loop, one for the rollover (apply: true - LastYield, Produced, the stash and the pending bundles
+        /// change, delivered is what lands in the stockpile) and for the projection (apply: false, a pure read: what the next
+        /// rollover would bring home), so the two can never drift apart. Yields are ScEconomy.NetworkYields; an outpost delivers
+        /// when the home radio reported in that day or its own relay is online, within the haul cap (stash and haul); otherwise
+        /// its whole units wait, at most OutpostPendingDays of that day's yield. Returns the bundles left waiting.
         /// </summary>
-        private static void ApplyDuplicates(List<Outpost> producing, Dictionary<int, float[]> yields)
+        private static int Deliver(List<Outpost> list, Dictionary<int, int[]> yields, bool homeReported, bool apply, int[] delivered)
         {
-            float[] dup = ScConfig.OutpostDupMult;
-            if (dup == null || dup.Length == 0) return;
-            for (int r = 0; r < ScNames.ResourceCount; r++)
+            int waiting = 0;
+            foreach (Outpost o in list)
             {
-                var same = new List<Outpost>();
-                foreach (Outpost o in producing) if ((int)PrimaryToday(o) == r) same.Add(o);
-                if (same.Count < 2) continue;
-                int res = r;
-                same.Sort((a, b) => { int k = yields[b.Id][res].CompareTo(yields[a.Id][res]); return k != 0 ? k : a.Id.CompareTo(b.Id); });
-                for (int i = 0; i < same.Count; i++) yields[same[i].Id][r] *= dup[Math.Min(i, dup.Length - 1)];
+                if (apply) for (int i = 0; i < ScNames.ResourceCount; i++) o.LastYield[i] = 0;
+                if (!o.Holding) continue;
+                int[] y;
+                yields.TryGetValue(o.Id, out y);
+                bool reported = homeReported || RelayOnline(o);   // its own radio relay reports in without the home one
+                int haulRoom = ScOutpostPerks.HaulCap(o);
+                for (int r = 0; r < ScNames.ResourceCount; r++)
+                {
+                    int v = y != null ? y[r] : 0;
+                    if (apply) { o.LastYield[r] = v; o.Produced += v; }
+                    if (reported)
+                    {
+                        int amount = v + o.Pending[r];
+                        int take = Math.Min(amount, haulRoom);          // stash and haul (off: no limit)
+                        if (haulRoom != int.MaxValue) haulRoom -= take;
+                        delivered[r] += take;
+                        if (!apply) continue;
+                        o.Pending[r] = 0;
+                        if (amount > take) o.Stash[r] = Math.Min(ScConfig.OutpostStashMax, o.Stash[r] + amount - take);
+                    }
+                    else if (apply && v > 0)
+                    {
+                        int cap = Math.Max(1, ScConfig.OutpostPendingDays * v);
+                        o.Pending[r] = Math.Min(o.Pending[r] + v, Math.Max(cap, o.Pending[r]));
+                    }
+                }
+                waiting += o.PendingTotal;
             }
+            return waiting;
         }
 
         /// <summary>
-        /// The bundles the next rollover (day) would bring home - Daily's delivery loop, changing nothing: the producing
-        /// outposts' yields after duplicates and the network multipliers, whole bundles out of the carried fractions plus
-        /// what is pending, delivered only when reported (the home radio or the outpost's own relay) and within the haul
-        /// cap. Slot changes at the rollover are not foreseen. The Home Status panel turns it into the day's haulage.
+        /// The bundles the next rollover (day) would bring home - Daily's delivery loop (Deliver), changing nothing. Slot changes
+        /// at the rollover are not foreseen. The Home Status panel and the window turn it into the day's haulage (ScEconomy.Haulage).
         /// </summary>
         public static int ProjectedDelivery(int day)
         {
             Community c = ScRegistry.Community;
             List<Outpost> list = ScRegistry.Outposts;
             if (list.Count == 0) return 0;
-            var producing = new List<Outpost>();
-            var yields = new Dictionary<int, float[]>();
-            foreach (Outpost o in list)
-            {
-                if (o.State != OutpostState.Active || ScOutpostRisk.IsDamaged(o, day)) continue;
-                producing.Add(o);
-                yields[o.Id] = RawYield(o);
-            }
-            ApplyDuplicates(producing, yields);
-            float mult = 1f;
-            if (c.OutpostRunDown) mult *= ScConfig.OutpostRunDownMult;
-            if (c.OutpostOnFoot) mult *= ScConfig.OutpostOnFootMult;
-            bool homeReported = c.RadioOnlineDay >= day - 1 || RadioOnlineAnywhere();
+            var delivered = new int[ScNames.ResourceCount];
+            Deliver(list, ScEconomy.NetworkYields(day), c.RadioOnlineDay >= day - 1 || RadioOnlineAnywhere(), false, delivered);
             int total = 0;
-            foreach (Outpost o in list)
-            {
-                if (!o.Holding || !(homeReported || RelayOnline(o))) continue;
-                float[] y;
-                yields.TryGetValue(o.Id, out y);
-                int haulRoom = ScOutpostPerks.HaulCap(o);
-                for (int r = 0; r < ScNames.ResourceCount; r++)
-                {
-                    float v = y != null ? y[r] * mult : 0f;
-                    int whole = (int)Math.Floor(o.Carry[r] + v + 1e-4f);
-                    int take = Math.Min(whole + o.Pending[r], haulRoom);
-                    if (haulRoom != int.MaxValue) haulRoom -= take;
-                    total += take;
-                }
-            }
+            for (int r = 0; r < ScNames.ResourceCount; r++) total += delivered[r];
             return total;
         }
 
         /// <summary>
         /// The resource with the fewest days of cover: stock over what the community uses a day. Water counts what the
-        /// home's wells and dew collectors do not cover; luxuries are never needed, so never the shortest.
+        /// home's wells and dew collectors do not cover; luxuries are never needed, so never the shortest. Round ie1: food,
+        /// water and materials read the rollover's own figures (ScEconomy); meds, ammo and fuel stay planning estimates.
         /// </summary>
         public static Resource Shortest()
         {
             Community c = ScRegistry.Community;
-            int members = Math.Max(1, ScRegistry.Members.Count);
             int injured = 0, ranged = 0;
             foreach (var m in ScRegistry.Members.Values) { if (m.Injured) injured++; if (m.Ranged && m.IsHome) ranged++; }
+            int members = Math.Max(1, ScRegistry.Members.Count);
             float[] need =
             {
-                Math.Max(0.1f, members * ScConfig.FoodPerMemberDay),
+                Math.Max(0.1f, ScEconomy.FoodEaten()),
                 Math.Max(0.1f, injured > 0 ? injured : members * 0.05f),
                 Math.Max(0.1f, ranged * ScConfig.AmmoPerRangedDay),
-                Math.Max(0.1f, ScConfig.OutpostUpkeep * Math.Max(1, HeldCount())),
+                Math.Max(0.1f, ScEconomy.Upkeep(ScCommunity.Today + 1)),
                 Math.Max(0.1f, 0.1f * Math.Max(1, HeldCount())),
-                WaterNeed(members * ScConfig.WaterPerMemberDay - Math.Max(0, c.HomeWater)),
+                ScEconomy.WaterShortfall() > 0 ? ScEconomy.WaterShortfall() : 0f,    // 0 = covered, never the shortest
                 0f
             };
             Resource best = Resource.Food;
@@ -953,55 +862,32 @@ namespace SurvivorCommunity
             return best;
         }
 
-        /// <summary>Shortest's water need: what the home's wells and dew collectors do not cover (0 = covered, never the shortest).</summary>
-        private static float WaterNeed(float shortfall)
+        /// <summary>What an outpost makes on the next rollover, in whole units (ScEconomy.NetworkYields: duplicates and the network included).</summary>
+        public static int[] Estimate(Outpost target)
         {
-            return shortfall > 0.001f ? Math.Max(0.1f, shortfall) : 0f;
-        }
-
-        /// <summary>What an outpost would make a day right now (duplicates and network multipliers included).</summary>
-        public static float[] Estimate(Outpost target)
-        {
-            Community c = ScRegistry.Community;
-            var producing = new List<Outpost>();
-            var yields = new Dictionary<int, float[]>();
-            int today = ScCommunity.Today;
-            foreach (Outpost o in ScRegistry.Outposts)
-            {
-                if (o.State != OutpostState.Active || ScOutpostRisk.IsDamaged(o, today + 1)) continue;
-                producing.Add(o);
-                yields[o.Id] = RawYield(o);
-            }
-            if (target.State != OutpostState.Active || ScOutpostRisk.IsDamaged(target, today + 1)) return new float[ScNames.ResourceCount];
-            ApplyDuplicates(producing, yields);
-            float mult = 1f;
-            if (c.OutpostRunDown) mult *= ScConfig.OutpostRunDownMult;
-            if (c.OutpostOnFoot) mult *= ScConfig.OutpostOnFootMult;
-            float[] y;
-            if (!yields.TryGetValue(target.Id, out y)) return new float[ScNames.ResourceCount];
-            var outp = new float[ScNames.ResourceCount];
-            for (int i = 0; i < ScNames.ResourceCount; i++) outp[i] = y[i] * mult;
-            return outp;
+            int[] y;
+            if (target != null && ScEconomy.NetworkYields(ScCommunity.Today + 1).TryGetValue(target.Id, out y)) return y;
+            return new int[ScNames.ResourceCount];
         }
 
         /// <summary>The last rollover's yield once there has been one, else the estimate.</summary>
-        public static float[] ShownYield(Outpost o)
+        public static int[] ShownYield(Outpost o)
         {
-            for (int i = 0; i < ScNames.ResourceCount; i++) if (o.LastYield[i] > 0f) return o.LastYield;
+            for (int i = 0; i < ScNames.ResourceCount; i++) if (o.LastYield[i] > 0) return o.LastYield;
             return Estimate(o);
         }
 
         // ------------------------------------------------------------------ text ----
 
-        /// <summary>"+1.6 food, +0.2 fuel a day" (or "nothing").</summary>
-        public static string YieldText(float[] y)
+        /// <summary>"+2 food, +1 fuel a day" (or "nothing"): whole bundles since round ie1.</summary>
+        public static string YieldText(int[] y)
         {
             var sb = new StringBuilder();
             for (int i = 0; i < ScNames.ResourceCount; i++)
             {
-                if (y[i] <= 0.005f) continue;
+                if (y[i] <= 0) continue;
                 if (sb.Length > 0) sb.Append(", ");
-                sb.Append('+').Append(y[i].ToString("0.##", CultureInfo.InvariantCulture)).Append(' ').Append(Localization.Get(ScNames.LocKey((Resource)i)));
+                sb.Append('+').Append(y[i].ToString(CultureInfo.InvariantCulture)).Append(' ').Append(Localization.Get(ScNames.LocKey((Resource)i)));
             }
             return sb.Length > 0 ? string.Format(Localization.Get("scOpPerDay"), sb) : Localization.Get("scOpNothingToday");
         }

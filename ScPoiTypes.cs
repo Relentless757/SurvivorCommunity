@@ -5,7 +5,11 @@ using System.Text;
 
 namespace SurvivorCommunity
 {
-    /// <summary>One outpost type: what it yields per day (weights on the Base rate) and the words that find it.</summary>
+    /// <summary>
+    /// One outpost type: what it yields and the words that find it. Round ie1: the weights only rank its resources - the
+    /// largest is what it makes (Primary), the next one its second resource (ScEconomy.Split); how much is whole units by
+    /// level (ScEconomy), the same for every row.
+    /// </summary>
     public sealed class PoiRow
     {
         public string Id = "";
@@ -42,7 +46,8 @@ namespace SurvivorCommunity
     /// built-in defaults below, so a missing table still classifies:
     ///   OutpostRows class      row id = "yields | prefab-name words | localized-name words | theme tags"
     ///   OutpostPrefabs class   exact prefab name = row id, or "none"
-    ///   OutpostExclude, OutpostNoise, OutpostTagFallback, OutpostBase, OutpostTierMult, OutpostMinTier ...
+    ///   OutpostExclude, OutpostNoise, OutpostTagFallback, OutpostMinTier, OutpostAnyTierRows (round ie1: the yield
+    ///   settings OutpostBase, OutpostTierMult, OutpostDailyCap and OutpostScavengeMult are gone - ScEconomy)
     /// A POI author (or a compat patch) can also set a property SCOutpost = row id / none in the prefab's own .xml.
     ///
     /// Resolution, first layer that decides wins: prefab SCOutpost > OutpostPrefabs > exclude words > ThemeTags >
@@ -57,11 +62,7 @@ namespace SurvivorCommunity
     public static class ScPoiTypes
     {
         // ---- tunables (ScConfig parses them from ConfigSurvivorCommunity) ----
-        public static readonly float[] Base = { 1.0f, 0.35f, 0.3f, 0.8f, 0.6f, 1.5f, 0f };      // food, meds, ammo, mats, fuel, water, luxury: bundles/day at T2, weight 1
-        public static float[] TierMult = { 0.6f, 0.8f, 1.0f, 1.15f, 1.3f, 1.5f };
         public static int MinTier = 1;
-        public static float DailyCap = 5f;
-        public static float ScavengeMult = 0.5f;
         /// <summary>
         /// Rows exempt from the tier / sleeper gate (round wl: the water towers are tier 0 with no sleepers, and the
         /// user wants them as small water outposts). OutpostAnyTierRows in the config.
@@ -132,9 +133,7 @@ namespace SurvivorCommunity
         public static void LoadDefaults()
         {
             Rows.Clear(); byId.Clear(); Exact.Clear(); Exclude.Clear(); Noise.Clear(); TagFallback.Clear(); cache.Clear(); AnyTierRows.Clear();
-            Base[0] = 1.0f; Base[1] = 0.35f; Base[2] = 0.3f; Base[3] = 0.8f; Base[4] = 0.6f; Base[5] = 1.5f; Base[6] = 0f;
-            TierMult = new[] { 0.6f, 0.8f, 1.0f, 1.15f, 1.3f, 1.5f };
-            MinTier = 1; DailyCap = 5f; ScavengeMult = 0.5f;
+            MinTier = 1;
             foreach (string[] r in DefaultRows) AddRow(r[0], r[1]);
             foreach (string e in DefaultExact) { int c = e.IndexOf(':'); Exact[e.Substring(0, c)] = e.Substring(c + 1); }
             foreach (string w in DefaultExclude.Split(',')) Exclude.Add(w.Trim());
@@ -149,20 +148,9 @@ namespace SurvivorCommunity
             try
             {
                 string s;
-                if (p.Values.TryGetValue("OutpostBase", out s) && !string.IsNullOrEmpty(s))
-                {
-                    float[] w = ParseYields(s);
-                    for (int i = 0; i < ScNames.ResourceCount; i++) Base[i] = w[i];
-                }
-                if (p.Values.TryGetValue("OutpostTierMult", out s) && !string.IsNullOrEmpty(s))
-                {
-                    var list = new List<float>();
-                    foreach (string part in s.Split(',')) { float f; if (float.TryParse(part.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out f)) list.Add(f); }
-                    if (list.Count > 0) TierMult = list.ToArray();
-                }
+                // round ie1: OutpostBase, OutpostTierMult, OutpostDailyCap and OutpostScavengeMult are no longer read (ScConfig warns
+                // when a config still sets one): an outpost makes whole units by level, ScEconomy
                 if (p.Values.TryGetValue("OutpostMinTier", out s)) { int v; if (int.TryParse(s.Trim(), out v)) MinTier = Math.Max(0, v); }
-                if (p.Values.TryGetValue("OutpostDailyCap", out s)) { float v; if (float.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) DailyCap = Math.Max(0f, v); }
-                if (p.Values.TryGetValue("OutpostScavengeMult", out s)) { float v; if (float.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) ScavengeMult = Math.Max(0f, v); }
                 if (p.Values.TryGetValue("OutpostExclude", out s)) { Exclude.Clear(); foreach (string w in Split(s, ',')) Exclude.Add(w); }
                 if (p.Values.TryGetValue("OutpostNoise", out s)) { Noise.Clear(); foreach (string w in Split(s, ',')) Noise.Add(w); }
                 if (p.Values.TryGetValue("OutpostAnyTierRows", out s)) { AnyTierRows.Clear(); foreach (string w in Split(s, ',')) AnyTierRows.Add(w); }
@@ -209,7 +197,7 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>"food:1.2,meds:0.3" -> one weight per resource (Resource order; a resource not named is 0).</summary>
+        /// <summary>"food:1.2,meds:0.3" -> one weight per resource (Resource order; a resource not named is 0). Weights only rank.</summary>
         public static float[] ParseYields(string s)
         {
             var w = new float[ScNames.ResourceCount];
@@ -432,46 +420,12 @@ namespace SurvivorCommunity
             return toks;
         }
 
-        // ---- yield (milestone 1 shows it; the daily tick in M2 adds duplicates, upkeep and the cap) ----
+        // ---- yield ----
 
-        public static float TierMultiplier(int tier)
-        {
-            if (TierMult == null || TierMult.Length == 0) return 1f;
-            if (tier < 0) tier = 2;
-            return TierMult[Math.Min(tier, TierMult.Length - 1)];
-        }
-
-        /// <summary>Bundles per day for a row at a tier (no duplicates, upkeep or staff), capped at DailyCap in total.</summary>
-        public static float[] RowYield(PoiRow row, int tier)
-        {
-            var y = new float[ScNames.ResourceCount];
-            if (row == null) return y;
-            float m = TierMultiplier(tier), total = 0f;
-            for (int i = 0; i < ScNames.ResourceCount; i++) { y[i] = Base[i] * row.Weight[i] * m; total += y[i]; }
-            if (DailyCap > 0f && total > DailyCap) for (int i = 0; i < ScNames.ResourceCount; i++) y[i] *= DailyCap / total;
-            return y;
-        }
-
-        /// <summary>A scavenge outpost's rate for one resource (it yields whatever the community is shortest of).</summary>
-        public static float ScavengeYield(Resource r, int tier)
-        {
-            return Math.Min(DailyCap > 0f ? DailyCap : float.MaxValue, ScavengeMult * Base[(int)r] * TierMultiplier(tier));
-        }
-
-        /// <summary>"+1.56 food, +0.16 meds" (only what is non-zero; "scavenge" for the fallback).</summary>
-        public static string YieldText(PoiClass c)
-        {
-            if (c == null || !c.Producing) return "-";
-            if (c.Kind == "scavenge") return "scavenge: +" + ScavengeYield(Resource.Food, c.Tier).ToString("0.00", CultureInfo.InvariantCulture) + " food or equivalent of what you lack";
-            float[] y = RowYield(c.Row, c.Tier);
-            var sb = new StringBuilder();
-            for (int i = 0; i < ScNames.ResourceCount; i++)
-            {
-                if (y[i] <= 0f) continue;
-                if (sb.Length > 0) sb.Append(", ");
-                sb.Append('+').Append(y[i].ToString("0.00", CultureInfo.InvariantCulture)).Append(' ').Append(ScNames.ResourceKeys[i]);
-            }
-            return sb.Append(" a day").ToString();
-        }
+        /// <summary>
+        /// "sc poi": what the POI would make as an outpost at each level, unstaffed (round ie1: whole units, ScEconomy.PoiText;
+        /// "-" for a POI that would not produce).
+        /// </summary>
+        public static string YieldText(PoiClass c) { return ScEconomy.PoiText(c); }
     }
 }

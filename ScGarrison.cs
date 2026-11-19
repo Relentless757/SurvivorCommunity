@@ -10,9 +10,9 @@ namespace SurvivorCommunity
     ///   Garrison  - a stationed, healthy, willing member is posted (MemberStatus.Garrison). Like a runner, the
     ///               real entity stays hidden and parked at home (the home logic - purge, relink, watchdog - never
     ///               has to chase a member across the map); the posting is registry bookkeeping. Staff still eat.
-    ///               Each staffer adds OutpostStaffBonus to the yield, and the best one whose specialty fits the
-    ///               outpost's resource adds OutpostMatchBase + OutpostMatchPerStar x stars (cooks and gardeners for
-    ///               food, medics and chemists for meds, shooters for ammo, crafters for materials, mechanics for fuel).
+    ///               Round ie1 (ScEconomy): each staffer adds OutpostStaffBundles whole units a day, and one whose specialty
+    ///               fits the outpost's resource OutpostMatchBonus more, once (cooks and gardeners for food, medics and
+    ///               chemists for meds, shooters for ammo, crafters for materials, mechanics for fuel, gardeners for water).
     ///   Stand-in  - within OutpostStandInRange of a loaded, staffed outpost, a copy of each staffer (their class and
     ///               look, skills, traits) stands guard at the claim; it goes when the player leaves. It IS the
     ///               survivor: if it dies there, they died (ScRadio.OnStandInDied routes here). Never saved.
@@ -80,7 +80,10 @@ namespace SurvivorCommunity
             return m != null && m.Status == MemberStatus.Garrison ? ScOutposts.ById(m.OutpostId) : null;
         }
 
-        /// <summary>How many stars a member brings to an outpost of this resource (0 = no match).</summary>
+        /// <summary>
+        /// How many stars a member brings to an outpost of this resource (0 = no match). Round ie1: gardeners match water too
+        /// (water supply runs already matched Gardening), so a water outpost has a specialty like every other kind.
+        /// </summary>
         public static int MatchStars(Member m, Resource r)
         {
             if (m == null) return 0;
@@ -91,26 +94,12 @@ namespace SurvivorCommunity
                 case Resource.Ammo: return m.Stars(Skill.Shooting) >= 2 ? m.Stars(Skill.Shooting) - 1 : 0;
                 case Resource.Materials: return m.Specialty == Specialty.Craftsmanship ? m.SpecLevel : 0;
                 case Resource.Fuel: return m.Specialty == Specialty.Mechanics ? m.SpecLevel : 0;
+                case Resource.Water: return m.Specialty == Specialty.Gardening ? m.SpecLevel : 0;
                 default: return 0;
             }
         }
 
-        /// <summary>One staffer's share of the yield bonus at this outpost, for the window ("+50%, cook +40%").</summary>
-        public static float MatchBonus(Member m, Resource r)
-        {
-            int stars = MatchStars(m, r);
-            return stars > 0 ? ScConfig.OutpostMatchBase + ScConfig.OutpostMatchPerStar * stars : 0f;
-        }
-
-        /// <summary>1 + OutpostStaffBonus per staffer + the best matching specialty's bonus.</summary>
-        public static float StaffMult(Outpost o, Resource primary)
-        {
-            List<Member> staff = Staff(o);
-            if (staff.Count == 0) return 1f;
-            float best = 0f;
-            foreach (Member m in staff) best = Math.Max(best, MatchBonus(m, primary));
-            return 1f + ScConfig.OutpostStaffBonus * staff.Count + best;
-        }
+        // round ie1: a staffer's share of the yield is whole units now - ScEconomy.StaffUnits, MatchUnits and StaffShare
 
         // ------------------------------------------------------------------ posting ----
 

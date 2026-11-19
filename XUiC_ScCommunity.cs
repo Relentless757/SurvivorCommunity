@@ -70,7 +70,7 @@ namespace SurvivorCommunity
         private int opSelectedId = -1;
         private string opMessage = "";
         private float confirmDisbandUntil;
-        private readonly float[] netYield = new float[ScNames.ResourceCount];
+        private readonly int[] netYield = new int[ScNames.ResourceCount];      // round ie1: whole units (ScEconomy.NetworkYields)
         private bool radioOnline;
         /// <summary>Assign mode: the Members tab is picking someone to post at this outpost (-1 = off).</summary>
         private int assignOutpostId = -1;
@@ -523,18 +523,15 @@ namespace SurvivorCommunity
         private void BuildOutposts()
         {
             opList.Clear();
-            for (int i = 0; i < ScNames.ResourceCount; i++) netYield[i] = 0f;
+            for (int i = 0; i < ScNames.ResourceCount; i++) netYield[i] = 0;
             radioOnline = false;
             if (!ScRegistry.Loaded) { ApplyOutpostRows(); return; }
             foreach (Outpost o in ScRegistry.Outposts) if (o.Holding) opList.Add(o);
             opList.Sort((a, b) => a.Id.CompareTo(b.Id));
             foreach (Outpost o in ScRegistry.Outposts) if (!o.Holding) opList.Add(o);
-            foreach (Outpost o in opList)
-            {
-                if (!o.Holding) continue;
-                float[] y = ScOutposts.Estimate(o);
+            // the next rollover's network, read once: the same numbers the rollover delivers
+            foreach (int[] y in ScEconomy.NetworkYields(ScCommunity.Today + 1).Values)
                 for (int i = 0; i < ScNames.ResourceCount; i++) netYield[i] += y[i];
-            }
             radioOnline = ScOutposts.RadioOnlineAnywhere();
             if (opSelectedId >= 0 && OutpostSelected == null) opSelectedId = -1;
             ApplyOutpostRows();
@@ -773,8 +770,8 @@ namespace SurvivorCommunity
                 case "bonus":
                 {
                     if (m == null || o == null) { value = ""; return true; }
-                    float pct = ScConfig.OutpostStaffBonus + ScGarrison.MatchBonus(m, ScOutposts.PrimaryToday(o));
-                    value = string.Format(Localization.Get("scUiStaffBonus"), Mathf.RoundToInt(pct * 100f));
+                    // round ie1: whole units a day - the staff step, and the match step for the one whose specialty counts
+                    value = string.Format(Localization.Get("scUiStaffBonus"), ScEconomy.StaffShare(o, m));
                     return true;
                 }
             }
@@ -810,11 +807,11 @@ namespace SurvivorCommunity
             if (ScOutpostRisk.HasDemand(o)) return Localization.Get("scUiOpRowDemand");
             if (ScOutpostRisk.DamagedNow(o)) return Localization.Get("scUiOpRowDamaged");
             if (o.State != OutpostState.Active) return ScOutposts.StateLabel(o);
-            float[] y = ScOutposts.ShownYield(o);
+            int[] y = ScOutposts.ShownYield(o);
             int best = -1;
-            for (int i = 0; i < ScNames.ResourceCount; i++) if (y[i] > 0.005f && (best < 0 || y[i] > y[best])) best = i;
+            for (int i = 0; i < ScNames.ResourceCount; i++) if (y[i] > 0 && (best < 0 || y[i] > y[best])) best = i;
             if (best < 0) return ScOutposts.StateLabel(o);
-            return string.Format(Localization.Get("scUiOpRowYield"), y[best].ToString("0.#", CultureInfo.InvariantCulture), Localization.Get("scResShort" + (Resource)best));
+            return string.Format(Localization.Get("scUiOpRowYield"), y[best].ToString(CultureInfo.InvariantCulture), Localization.Get("scResShort" + (Resource)best));
         }
 
         public static string OutpostStateColor(Outpost o)
@@ -843,8 +840,8 @@ namespace SurvivorCommunity
 
         private string NetResource(Resource r)
         {
-            float v = netYield[(int)r];
-            return v > 0.005f ? string.Format(Localization.Get("scUiOpPerDayShort"), v.ToString("0.#", CultureInfo.InvariantCulture)) : "";
+            int v = netYield[(int)r];
+            return v > 0 ? string.Format(Localization.Get("scUiOpPerDayShort"), v.ToString(CultureInfo.InvariantCulture)) : "";
         }
 
         private bool OutpostBinding(string name, ref string value)
@@ -900,8 +897,8 @@ namespace SurvivorCommunity
                 case "opyield":
                 {
                     if (o == null) { value = ""; return true; }
-                    value = ScOutposts.YieldText(o.Holding ? ScOutposts.Estimate(o) : new float[ScNames.ResourceCount]);
-                    int built = Mathf.RoundToInt(ScOutpostPerks.InvestBonus(o) * 100f);
+                    value = ScOutposts.YieldText(o.Holding ? ScOutposts.Estimate(o) : new int[ScNames.ResourceCount]);
+                    int built = ScEconomy.BuiltUnits(o);                                // round ie1: +1 built up, not a percentage
                     if (built > 0) value += " " + string.Format(Localization.Get("scUiOpBuiltBonus"), built);
                     if (o.StashTotal > 0) value += " " + string.Format(Localization.Get("scUiOpStashed"), o.StashTotal);
                     return true;
@@ -946,13 +943,10 @@ namespace SurvivorCommunity
                 case "netyield": value = loaded ? ScOutposts.YieldText(netYield) : ""; return true;
                 case "netcosts":
                 {
-                    float upkeep = 0f;
-                    foreach (Outpost x in opList) if (x.State == OutpostState.Active || x.State == OutpostState.Contested) upkeep += ScOutpostPerks.UpkeepFor(x);
-                    float bundles = 0f;
-                    for (int i = 0; i < ScNames.ResourceCount; i++) bundles += netYield[i];
-                    value = loaded ? string.Format(Localization.Get("scUiNetCostsFmt"),
-                                                   upkeep.ToString("0.#", CultureInfo.InvariantCulture),
-                                                   (ScConfig.OutpostHaulage * bundles).ToString("0.##", CultureInfo.InvariantCulture)) : "";
+                    // round ie1: the next rollover's own costs, whole (the Home Status panel reads the same two)
+                    int day = ScCommunity.Today + 1;
+                    value = loaded ? string.Format(Localization.Get("scUiNetCostsFmt"), ScEconomy.Upkeep(day),
+                                                   ScEconomy.Haulage(ScOutposts.ProjectedDelivery(day))) : "";
                     return true;
                 }
                 case "netstate":
@@ -1457,10 +1451,10 @@ namespace SurvivorCommunity
         private static string WaterDays(Community c)
         {
             if (!ScRegistry.Loaded || ScRegistry.Members.Count == 0) return c.HomeWater > 0 ? string.Format(Localization.Get("scWinWaterMade"), c.HomeWater) : "";
-            float shortfall = ScMorale.DailyWaterShortfall();
-            if (shortfall <= 0.01f) return string.Format(Localization.Get("scWinWaterMade"), c.HomeWater);
+            int shortfall = ScEconomy.WaterShortfall();
+            if (shortfall <= 0) return string.Format(Localization.Get("scWinWaterMade"), c.HomeWater);
             if (c.Get(Resource.Water) <= 0) return Localization.Get("scWinWaterNone");
-            int days = Mathf.FloorToInt(c.Get(Resource.Water) / shortfall);
+            int days = ScEconomy.DaysOf(c.Get(Resource.Water), shortfall);
             if (days <= 0) return Localization.Get("scWinFoodUnderDay");
             if (days == 1) return Localization.Get("scWinFoodOneDay");
             return string.Format(Localization.Get("scWinFoodDays"), days);
@@ -1471,9 +1465,9 @@ namespace SurvivorCommunity
         {
             if (!ScRegistry.Loaded || ScRegistry.Members.Count == 0) return "";
             if (c.Get(Resource.Food) <= 0) return Localization.Get("scWinFoodNone");
-            float need = ScMorale.DailyFoodNeed();
-            if (need <= 0.01f) return "";
-            int days = Mathf.FloorToInt(c.Get(Resource.Food) / need);
+            int need = ScEconomy.FoodEaten();                  // round ie1: the rollover's figure, the cook included
+            if (need <= 0) return "";
+            int days = ScEconomy.DaysOf(c.Get(Resource.Food), need);
             if (days <= 0) return Localization.Get("scWinFoodUnderDay");
             if (days == 1) return Localization.Get("scWinFoodOneDay");
             return string.Format(Localization.Get("scWinFoodDays"), days);

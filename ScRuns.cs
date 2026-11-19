@@ -319,14 +319,14 @@ namespace SurvivorCommunity
                     float roll2 = rnd != null ? rnd.RandomFloat : UnityEngine.Random.value;
                     float risk = Mathf.Clamp(ScConfig.RunRiskBase - ScConfig.RunRiskPerCombatStar * (m.Stars(Skill.Fighting) + m.Stars(Skill.Shooting) - 2)
                                              - ScOutpostPerks.EscortRisk(), 0.02f, 0.5f);   // an ammo outpost's armed escort
-                    int yield = Yield(m, kind, rnd);                       // round m1t: Scavenger's chance rolled here, once
+                    int yield = Yield(m, kind);                            // round ie1: whole bundles, no chance part
                     bool bad = roll < risk;
                     bool dead = bad && roll2 < ScConfig.RunDeathShare;
                     bool rescued = m.RunDistress && m.RunSafe;      // EndDistress below clears the flags (round 33c's haul reads it)
                     if (m.RunDistress)
                     {
                         // a radio distress run: the player's answer decides it, not the dice
-                        if (m.RunSafe) { bad = false; dead = false; yield = Mathf.RoundToInt(yield * ScConfig.RescueBonus); }
+                        if (m.RunSafe) { bad = false; dead = false; yield += ScConfig.RescueBundles; }   // round ie1: +1, was x1.25 rounded
                         else { bad = true; dead = roll2 < ScConfig.RunDeathShare; }
                         ScRadio.EndDistress(w, player, m);
                     }
@@ -393,26 +393,27 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The run's haul in bundles. Round m1t: Scavenger's odd part of a bundle is a chance, rolled with rnd where the haul is
-        /// fixed (Resolve, ScRunners.LeaveSite); this two-argument form (the console's "expected") counts only the sure part.
+        /// The run's haul in whole bundles - the one function the hidden runs (Resolve), the physical ones (ScRunners.LeaveSite)
+        /// and the console's "expected" read. Round ie1 (the user's decisions): RunYieldBase, +1 per RunWitsStarsPerBundle Wits
+        /// stars (+1 at 3, +2 at 6), +1 per RunSpecialistStarsPerBundle stars of the matching specialty, +OutpostMotorPoolBundles
+        /// with a fuel outpost's motor pool, +HighMoraleRunBundles above the high-morale mark, then her traits' runbundles=
+        /// (Hoarder +1, Tinkerer +1 on materials and fuel runs, Scavenger +1 on a haul of 4 or more); at least 1. A rescue (+1),
+        /// a hurt runner (half, rounded down) and a recall (the share, rounded down) are applied where the haul is fixed. It was
+        /// a chain of multipliers rounded half to even, so Hoarder did nothing on a 2-bundle run, and Scavenger a dice roll.
         /// </summary>
-        public static int Yield(Member m, Resource kind) { return Yield(m, kind, null); }
-
-        public static int Yield(Member m, Resource kind, GameRandom rnd)
+        public static int Yield(Member m, Resource kind)
         {
-            float y = ScConfig.RunYieldBase;
-            y *= 1f + ScConfig.RunYieldPerWitsStar * (m.Stars(Skill.Wits) - 1);
-            if (SpecialtyFor(kind) == m.Specialty) y *= 1f + ScConfig.RunSpecialistPerStar * Math.Max(0, m.SpecLevel - 1);
-            y *= ScTraits.RunYieldMult(m);
-            if (ScOutpostPerks.PerkActive(Resource.Fuel)) y *= ScConfig.OutpostMotorPoolMult;   // a fuel outpost's motor pool
-            if (ScRegistry.Community.Morale > ScConfig.HighMoraleThreshold) y *= 1.25f;
-#if SC_V34
-            // round m1t (T1): Scavenger's haul=1.1 on the whole bundles, the odd part of a bundle as a chance rolled once (rnd)
-            return Math.Max(1, ScTraitEffects.Haul(m, Math.Max(1, Mathf.RoundToInt(y)), rnd));
-#else
-            return Math.Max(1, Mathf.RoundToInt(y));
-#endif
+            int y = ScConfig.RunYieldBase;
+            y += Per(m.Stars(Skill.Wits), ScConfig.RunWitsStarsPerBundle);
+            if (SpecialtyFor(kind) != Specialty.None && SpecialtyFor(kind) == m.Specialty) y += Per(m.SpecLevel, ScConfig.RunSpecialistStarsPerBundle);
+            if (ScOutpostPerks.PerkActive(Resource.Fuel)) y += ScConfig.OutpostMotorPoolBundles;   // a fuel outpost's motor pool
+            if (ScRegistry.Community.Morale > ScConfig.HighMoraleThreshold) y += ScConfig.HighMoraleRunBundles;
+            y += ScTraits.RunBundles(m, kind, y);
+            return Math.Max(1, y);
         }
+
+        /// <summary>1 per that many stars, the remainder dropped (0 stars per bundle = no bonus).</summary>
+        private static int Per(int stars, int starsPerBundle) { return starsPerBundle > 0 ? Math.Max(0, stars) / starsPerBundle : 0; }
 
         /// <summary>
         /// Which specialty knows where to find a resource: Mechanics for materials and fuel, Chemistry for medicine, Cooking

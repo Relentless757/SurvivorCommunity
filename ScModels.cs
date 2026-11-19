@@ -79,7 +79,7 @@ namespace SurvivorCommunity
         Ammo = 2,
         Materials = 3,
         Fuel = 4,
-        /// <summary>Drinks that hydrate (not alcohol). Members drink WaterPerMemberDay a day; wells, dew collectors and water outposts make it.</summary>
+        /// <summary>Drinks that hydrate (not alcohol). Members drink MemberWaterPerDay a day; wells, dew collectors and water outposts make it.</summary>
         Water = 5,
         /// <summary>Alcohol (LuxuryItems). Never used up by the day: spent on the community window's Activities.</summary>
         Luxury = 6
@@ -396,9 +396,7 @@ namespace SurvivorCommunity
         public bool Thirsty;
         /// <summary>Morale penalty from recent deaths (DeathPenalty per death, fades DeathDecayPerDay per day).</summary>
         public float DeathPenalty;
-        /// <summary>Fractional daily needs carried to the next day (0.5 bundles/member/day etc.).</summary>
-        public float FoodCarry;
-        public float WaterCarry;
+        // round ie1: FoodCarry / WaterCarry (the fractional needs carried to the next day) are gone - every daily need is whole
         /// <summary>
         /// Water a day from the wells and dew collectors inside the home zone (ScScan, ScFacilities), and per counted
         /// chunk (only those with any; key WorldChunkCache.MakeChunkKey). Like the beds, a chunk that is not loaded keeps
@@ -428,8 +426,6 @@ namespace SurvivorCommunity
         /// from the injury Meds (the daily ledger shows both, decision 23). Saved as medsrestocked=.
         /// </summary>
         public int MedsRestocked;
-        /// <summary>Fractional garden harvest carried to the next day.</summary>
-        public float HarvestCarry;
         /// <summary>Beds / facilities / crops inside the zone (ScScan: recounted every few seconds from the loaded chunks).</summary>
         public int Beds;
         public int Facilities;
@@ -450,9 +446,10 @@ namespace SurvivorCommunity
         /// <summary>The last day the home radio had power: that day's outpost deliveries report in.</summary>
         public int RadioOnlineDay = -1;
         public int NextOutpostId;
-        /// <summary>Outpost economy: materials upkeep and fuel haulage owed (fractions carry), and what went unpaid.</summary>
-        public float UpkeepDebt;
-        public float HaulDebt;
+        /// <summary>
+        /// Outpost economy: the last rollover could not pay the whole upkeep (run-down) or haulage (on foot). Round ie1: no debt
+        /// is kept (UpkeepDebt / HaulDebt are gone): a flag holds until a day the stockpile pays in full.
+        /// </summary>
         public bool OutpostRunDown;
         public bool OutpostOnFoot;
         /// <summary>Morale penalty from lost outposts (OutpostLostPenalty per loss, fades OutpostLostDecay a day).</summary>

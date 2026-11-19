@@ -47,24 +47,18 @@ namespace SurvivorCommunity
             /// band cost (InfestHomeMoraleBands), at most InfestHomeMoraleCap in all; 0 with no home.
             /// </summary>
             public int Nests;
-            public float FoodDays;
-            /// <summary>Days the water lasts at today's use less what the wells and dew collectors add (99 = no need / more made than drunk).</summary>
-            public float WaterDays;
+            /// <summary>
+            /// Whole days the food lasts at the next rollover's use, the cook's saving included (round ie1: ScEconomy.FoodEaten,
+            /// the figure the rollover takes; it ignored the cook and showed a fraction before). 99 = nobody eats.
+            /// </summary>
+            public int FoodDays;
+            /// <summary>Whole days the water lasts at today's use less what the wells and dew collectors add (99 = no need / more made than drunk).</summary>
+            public int WaterDays;
             public int Total;
         }
 
-        public static float DailyFoodNeed()
-        {
-            float need = 0f;
-            foreach (var m in ScRegistry.Members.Values) need += ScConfig.FoodPerMemberDay * ScTraits.FoodMult(m);
-            return need;
-        }
-
-        /// <summary>Water drunk a day beyond what the home's wells and dew collectors make (0 when they cover it).</summary>
-        public static float DailyWaterShortfall()
-        {
-            return Math.Max(0f, ScRegistry.Members.Count * ScConfig.WaterPerMemberDay - Math.Max(0, ScRegistry.Community.HomeWater));
-        }
+        // round ie1: DailyFoodNeed / DailyWaterShortfall are gone - ScEconomy.FoodEaten and WaterShortfall are the rollover's own
+        // figures, read here, by the windows and by the Home Status panel alike
 
         /// <summary>Computes every term without storing anything.</summary>
         public static Parts Compute()
@@ -72,10 +66,9 @@ namespace SurvivorCommunity
             Community c = ScRegistry.Community;
             var p = new Parts();
             int members = ScRegistry.Members.Count;
-            float need = DailyFoodNeed();
-            p.FoodDays = need > 0.01f ? c.Get(Resource.Food) / need : 99f;
+            p.FoodDays = ScEconomy.DaysOf(c.Get(Resource.Food), ScEconomy.FoodEaten());
             if (c.Hungry) p.Food = ScOutpostPerks.PerkActive(Resource.Food) ? Math.Max(-20, ScConfig.OutpostCanteenFloor) : -20;   // a food outpost's canteen
-            else p.Food = Mathf.Clamp(Mathf.RoundToInt((Mathf.Min(p.FoodDays, 30f) - 2f) * 4f), -10, 20);
+            else p.Food = Mathf.Clamp((Math.Min(p.FoodDays, 30) - 2) * 4, -10, 20);          // whole days: -8, -4, 0, +4 ... +20
 
             bool injuredNoMeds = false;
             foreach (var m in ScRegistry.Members.Values) if (m.Injured && c.Get(Resource.Meds) <= 0) { injuredNoMeds = true; break; }
@@ -94,8 +87,7 @@ namespace SurvivorCommunity
                           + Mathf.RoundToInt(c.OutpostTriumph);
             p.Defence = Mathf.RoundToInt(c.DefenceTriumph - c.DefenceLoss);       // D4: fights lost without the player count against it
             // round wl: thirst works like hunger (a water outpost's cistern is the canteen's twin); the round of drinks
-            float shortfall = DailyWaterShortfall();
-            p.WaterDays = shortfall > 0.01f ? c.Get(Resource.Water) / shortfall : 99f;
+            p.WaterDays = ScEconomy.DaysOf(c.Get(Resource.Water), ScEconomy.WaterShortfall());
             if (c.Thirsty) p.Water = ScOutpostPerks.PerkActive(Resource.Water) ? Math.Max(-20, ScConfig.OutpostCisternFloor) : -20;
             p.Activity = ScActivities.MoraleBonus();
             // E6: the allies, an ally's Comfort in Numbers, and the groups lost lately
@@ -139,7 +131,8 @@ namespace SurvivorCommunity
                 c.Morale = p.Total;
                 foreach (var m in ScRegistry.Members.Values)
                 {
-                    int mood = c.Morale + ScTraits.MoodOffset(m) - (m.Injured ? 15 : 0) - (c.Hungry ? 10 : 0) - (c.Thirsty ? 10 : 0) + ScGarrison.MoodOffset(m);
+                    // round ie1 (the user's D1): hunger does not lower the mood of one whose trait says so (Eats Like a Bird)
+                    int mood = c.Morale + ScTraits.MoodOffset(m) - (m.Injured ? 15 : 0) - (c.Hungry && !ScTraits.NoHungerMood(m) ? 10 : 0) - (c.Thirsty ? 10 : 0) + ScGarrison.MoodOffset(m);
 #if SC_V34
                     mood += ScBond.MoodTerm(m);        // round U4: her Bond (0-XNPCCore's relationship events, SC-owned)
                     mood += ScTraitEffects.SituationalMood(m);   // round m1t: Night Owl on a night watch
@@ -175,9 +168,9 @@ namespace SurvivorCommunity
             Parts p = Compute();
             var sb = new StringBuilder();
             sb.Append(string.Format(Localization.Get("scMoraleLine"), p.Total));
-            sb.Append('\n').Append(Term("scMoraleFood", p.Food)).Append(p.FoodDays < 99f ? string.Format(Localization.Get("scMoraleFoodDays"), p.FoodDays.ToString("0.0")) : "");
+            sb.Append('\n').Append(Term("scMoraleFood", p.Food)).Append(DaysLeft(p.FoodDays));
             if (ScRegistry.Members.Count > 0 || ScRegistry.Community.HomeWater > 0)
-                sb.Append('\n').Append(Term("scMoraleWater", p.Water)).Append(p.WaterDays < 99f ? string.Format(Localization.Get("scMoraleFoodDays"), p.WaterDays.ToString("0.0")) : "")
+                sb.Append('\n').Append(Term("scMoraleWater", p.Water)).Append(DaysLeft(p.WaterDays))
                   .Append(' ').Append(string.Format(Localization.Get("scMoraleWaterMade"), ScRegistry.Community.HomeWater));
             if (p.Activity != 0) sb.Append('\n').Append(Term("scMoraleActivity", p.Activity)).Append(" (").Append(ScActivities.TimeLeft()).Append(')');
             sb.Append('\n').Append(Term("scMoraleMeds", p.Meds));
@@ -196,6 +189,13 @@ namespace SurvivorCommunity
             if (p.EnclaveLost != 0) sb.Append('\n').Append(Term("scMoraleEnclaveLost", p.EnclaveLost));
             if (p.Nests != 0) sb.Append('\n').Append(Term("scMoraleNests", p.Nests)).Append(ScInfestations.NestsDetail());    // I3
             return sb.ToString();
+        }
+
+        /// <summary>" (3 days left)" in whole days (round ie1; it showed one decimal), "" with no use.</summary>
+        private static string DaysLeft(int days)
+        {
+            if (days >= 99) return "";
+            return days == 1 ? Localization.Get("scMoraleFoodOneDay") : string.Format(Localization.Get("scMoraleFoodDays"), days);
         }
 
         private static string Term(string key, int v)

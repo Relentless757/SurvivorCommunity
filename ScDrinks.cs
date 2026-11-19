@@ -70,7 +70,7 @@ namespace SurvivorCommunity
                 Community c = ScRegistry.Community;
                 int each = Math.Max(1, ScCategories.PointsEach(drink.ItemClass));
                 int perUnit = Math.Max(1, ScConfig.PointsPerBundle[(int)Resource.Water]);
-                int reserve = Mathf.CeilToInt(ScMorale.DailyWaterShortfall());      // tonight's rollover drinks first
+                int reserve = ScEconomy.WaterShortfall();                           // tonight's rollover drinks first (round ie1: whole)
                 int spare = Math.Max(0, c.Get(Resource.Water) - reserve);
                 int give = (int)Math.Min((long)want, ((long)openPoints + (long)spare * perUnit) / each);
                 if (give <= 0)

@@ -7,15 +7,16 @@ namespace SurvivorCommunity
 {
     /// <summary>
     /// Outposts v1.1, growth and identity (Outposts_Plan.md section 3):
-    ///   Levels  - bought from the stockpile. L2: OutpostL2Mats + OutpostL2Fuel after OutpostL2Days held, yield
-    ///             x OutpostL2Mult and a second post. L3: OutpostL3Mats + OutpostL3Fuel after OutpostL3Days more, needs
-    ///             someone posted there, yield x OutpostL3Mult. Each level above 1 adds OutpostUpkeepPerLevel upkeep.
+    ///   Levels  - bought from the stockpile. L2: OutpostL2Mats + OutpostL2Fuel after OutpostL2Days held, and a second
+    ///             post. L3: OutpostL3Mats + OutpostL3Fuel after OutpostL3Days more, needs someone posted there. Round ie1:
+    ///             a level makes OutpostLevelYield (1 / 2 / 3) a day and costs OutpostUpkeepByLevel (1 / 1 / 2) materials
+    ///             a day (ScEconomy).
     ///   Perks   - while a producing (Active, non-scavenge) outpost of a type exists:
     ///             food  Canteen        the hunger morale hit is floored at OutpostCanteenFloor (ScMorale)
     ///             meds  Field clinic   OutpostClinicHeals injuries healed free each day (ScStockpile)
     ///             ammo  Armed escort   run risk -OutpostEscortRisk per such outpost, at most -OutpostEscortMax (ScRuns)
-    ///             mats  Salvage yard   establish fees and upgrades x OutpostSalvageMult (here)
-    ///             fuel  Motor pool     run yield x OutpostMotorPoolMult (ScRuns)
+    ///             mats  Salvage yard   OutpostSalvageCut materials off each fee, upgrade and repair, never below 1 (here)
+    ///             fuel  Motor pool     OutpostMotorPoolBundles more from every supply run (ScRuns)
     ///             water Cistern        the thirst morale hit is floored at OutpostCisternFloor (ScMorale, round wl)
     /// Host only.
     /// </summary>
@@ -45,15 +46,19 @@ namespace SurvivorCommunity
             return Math.Min(ScConfig.OutpostEscortMax, ScConfig.OutpostEscortRisk * CountActive(Resource.Ammo));
         }
 
-        /// <summary>A cost after the salvage yard (rounded up, never below 0).</summary>
+        /// <summary>
+        /// A materials cost after the salvage yard - an establish fee, an upgrade, a repair. Round ie1: OutpostSalvageCut less,
+        /// never below 1, and a free cost stays free (it was x0.75 rounded up, which left the fee of 2 and the repair of 2 as they
+        /// were). Fuel costs are not cut.
+        /// </summary>
         public static int Salvaged(int cost)
         {
             if (cost <= 0) return 0;
-            return PerkActive(Resource.Materials) ? Mathf.CeilToInt(cost * ScConfig.OutpostSalvageMult) : cost;
+            return PerkActive(Resource.Materials) ? Math.Max(1, cost - ScConfig.OutpostSalvageCut) : cost;
         }
 
         public static int FeeMats() { return Salvaged(ScConfig.OutpostFeeMats); }
-        public static int FeeFuel() { return Salvaged(ScConfig.OutpostFeeFuel); }
+        public static int FeeFuel() { return Math.Max(0, ScConfig.OutpostFeeFuel); }
 
         /// <summary>The perks in force now, one per line (the window).</summary>
         public static string PerkLines()
@@ -72,11 +77,7 @@ namespace SurvivorCommunity
 
         public static readonly string[] ModeKeys = { "scOpModeNormal", "scOpModeQuiet", "scOpModePush" };
 
-        public static float ModeMult(Outpost o)
-        {
-            if (o == null) return 1f;
-            return o.Mode == 1 ? ScConfig.OutpostQuietMult : (o.Mode == 2 ? ScConfig.OutpostPushMult : 1f);
-        }
+        // round ie1: the mode's yield step, the check-in and depletion are whole units in ScEconomy (ModeUnits, CheckInLate, Depleted)
 
         /// <summary>The mode's effect on an outpost's risk (v2 attacks).</summary>
         public static float ModeRisk(Outpost o)
@@ -94,36 +95,7 @@ namespace SurvivorCommunity
             o.Mode = (Mathf.Clamp(o.Mode, 0, 2) + 1) % 3;
         }
 
-        /// <summary>Supply-line check-in (off unless OutpostCheckInDays &gt; 0): unvisited too long, the yield slips.</summary>
-        public static float CheckInMult(Outpost o)
-        {
-            if (o == null || ScConfig.OutpostCheckInDays <= 0) return 1f;
-            int last = Math.Max(o.Day, o.LastVisitDay);
-            int over = ScCommunity.Today - last - ScConfig.OutpostCheckInDays;
-            if (over <= 0) return 1f;
-            return Math.Max(ScConfig.OutpostCheckInFloor, 1f - ScConfig.OutpostCheckInDecay * over);
-        }
-
-        /// <summary>Depletion (off unless OutpostDepletion &gt; 0): past that many bundles the site is picked clean.</summary>
-        public static float DepletionMult(Outpost o)
-        {
-            if (o == null || ScConfig.OutpostDepletion <= 0f) return 1f;
-            return o.Produced >= ScConfig.OutpostDepletion ? ScConfig.OutpostDepletedMult : 1f;
-        }
-
         // ------------------------------------------------------------------ investment, stash and haul ----
-
-        /// <summary>What the player built there: beds, facilities, and (food outposts) crops, capped at OutpostInvestCap.</summary>
-        public static float InvestBonus(Outpost o)
-        {
-            if (o == null) return 0f;
-            float b = ScConfig.OutpostBedBonus * Math.Min(o.Invest[0], ScConfig.OutpostBedMax)
-                    + ScConfig.OutpostFacilityBonus * Math.Min(o.Invest[1], ScConfig.OutpostFacilityMax);
-            if (!o.Scavenge && o.Primary == Resource.Food) b += ScConfig.OutpostCropBonus * Math.Min(o.Invest[2], ScConfig.OutpostCropMax);
-            return Math.Min(ScConfig.OutpostInvestCap, b);
-        }
-
-        public static float InvestMult(Outpost o) { return 1f + InvestBonus(o); }
 
         /// <summary>Bundles hauled home a day (int.MaxValue when stash and haul is off).</summary>
         public static int HaulCap(Outpost o)
@@ -176,34 +148,22 @@ namespace SurvivorCommunity
             return moved;
         }
 
+        /// <summary>"2 beds, 1 facilities, 0 crops, 3 defenses: +1" - what was built there and its whole-unit step (ScEconomy.BuiltUnits).</summary>
         public static string InvestText(Outpost o)
         {
             if (o == null) return "";
-            return string.Format(Localization.Get("scUiOpInvest"), o.Invest[0], o.Invest[1], o.Invest[2], o.Invest[3],
-                                 Mathf.RoundToInt(InvestBonus(o) * 100f));
+            return string.Format(Localization.Get("scUiOpInvest"), o.Invest[0], o.Invest[1], o.Invest[2], o.Invest[3], ScEconomy.BuiltUnits(o));
         }
 
         // ------------------------------------------------------------------ levels ----
 
-        public static float LevelMult(Outpost o)
-        {
-            if (o == null) return 1f;
-            return o.Level >= 3 ? ScConfig.OutpostL3Mult : (o.Level == 2 ? ScConfig.OutpostL2Mult : 1f);
-        }
-
-        /// <summary>Materials a day for one working outpost at its level.</summary>
-        public static float UpkeepFor(Outpost o)
-        {
-            return ScConfig.OutpostUpkeep + ScConfig.OutpostUpkeepPerLevel * Math.Max(0, (o != null ? o.Level : 1) - 1);
-        }
-
-        /// <summary>The next level's cost (after the salvage yard); false at the top level.</summary>
+        /// <summary>The next level's cost (materials after the salvage yard; fuel is not cut); false at the top level.</summary>
         public static bool NextCost(Outpost o, out int mats, out int fuel)
         {
             mats = fuel = 0;
             if (o == null || o.Level >= 3) return false;
             mats = Salvaged(o.Level == 1 ? ScConfig.OutpostL2Mats : ScConfig.OutpostL3Mats);
-            fuel = Salvaged(o.Level == 1 ? ScConfig.OutpostL2Fuel : ScConfig.OutpostL3Fuel);
+            fuel = Math.Max(0, o.Level == 1 ? ScConfig.OutpostL2Fuel : ScConfig.OutpostL3Fuel);
             return true;
         }
 
@@ -253,13 +213,14 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>The level line for the window: "Level 2 - yield x1.3" and what the next costs or waits for.</summary>
+        /// <summary>
+        /// The level line for the window: "Level 2 - 2 a day" (round ie1: the level's whole units, ScEconomy.BaseUnits; it was
+        /// "yield x1.3"). Its upkeep is in the network's costs line.
+        /// </summary>
         public static string LevelText(Outpost o)
         {
             if (o == null) return "";
-            string head = o.Level > 1 ? string.Format(Localization.Get("scUiOpLevelMult"), o.Level, LevelMult(o).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))
-                                      : string.Format(Localization.Get("scUiOpLevel"), o.Level);
-            return head;
+            return string.Format(Localization.Get("scUiOpLevelYield"), o.Level, ScEconomy.BaseUnits(o));
         }
 
         public static string NextText(Outpost o)

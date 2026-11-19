@@ -145,14 +145,17 @@
 			     already has is kept either way. -->
 			<property name="AutoHomeFirstClaim" value="false" />
 
-			<!-- daily use, in bundles. AmmoPerRangedDay is NOT charged any more: ammo is only spent when a survivor is
-			     resupplied (XnpcResupply* below); it is only the estimate the outposts use to judge which resource runs
-			     out first. -->
-			<property name="FoodPerMemberDay" value="0.5" />
+			<!-- daily use, in whole bundles (round ie1: every daily change to the stockpile is a whole number, nothing carried
+			     to the next day): MemberFoodPerDay food each member eats a day (a trait's eats= instead). Members still on their
+			     way to the base eat and drink nothing until they arrive; posted staff and runners do. A short day is a hungry
+			     day. AmmoPerRangedDay is NOT charged any more: ammo is only spent when a survivor is resupplied (XnpcResupply*
+			     below); it is only the estimate the outposts use to judge which resource runs out first. (FoodPerMemberDay and
+			     WaterPerMemberDay, the old fractional settings, are ignored if a config still has them.) -->
+			<property name="MemberFoodPerDay" value="1" />
 			<property name="AmmoPerRangedDay" value="0.25" />
 			<!-- water (round wl): bundles a member drinks a day. Short of it the survivors go thirsty: morale -20, every mood
 			     -10, buffSCThirsty on them (the hunger rules again, on top of hunger). -->
-			<property name="WaterPerMemberDay" value="1" />
+			<property name="MemberWaterPerDay" value="1" />
 
 			<!-- packing: EconomicValue x count that makes one bundle UNIT of each resource. A Small bundle is one unit, a
 			     Medium two, a Large three; the station packs Large first. Water: drinks that hydrate (not alcohol), 200 =
@@ -264,12 +267,13 @@
 			<property name="RangedPerStar" value="0.10" />
 			<property name="SpeedPerStar" value="0.04" />
 			<property name="HealthPerStar" value="0.08" />
-			<!-- specialties at the day rollover: the best cook cuts food use by CookFoodPerStar per star (floor 50%);
-			     gardeners turn living crops in the zone into food (crops x CropFoodPerStar x stars bundles/day);
-			     one medical bundle heals 1 + floor(medic stars x MedicPerStar) injuries; craftsmen lower the packing
+			<!-- specialties at the day rollover (round ie1, whole bundles): the best cook at home saves 1 food a day per
+			     CookStarsPerFood stars, rounded up (1, 1, 2, 2, 3, 3, 4 at 2), never more than half the day's food; gardeners
+			     at home turn living crops in the zone into 1 food per CropsPerFood crops, at most 1 per star (their stars
+			     summed); one medical bundle heals 1 + floor(medic stars x MedicPerStar) injuries; craftsmen lower the packing
 			     threshold by PackBonusPerStar per star (floor 60%). Mechanics / Chemistry apply to supply runs (M5). -->
-			<property name="CookFoodPerStar" value="0.08" />
-			<property name="CropFoodPerStar" value="0.01" />
+			<property name="CookStarsPerFood" value="2" />
+			<property name="CropsPerFood" value="10" />
 			<property name="MedicPerStar" value="0.5" />
 			<property name="PackBonusPerStar" value="0.04" />
 			<!-- base scan: 0 = the whole claim zone, above 0 = only this many blocks around the home block;
@@ -323,10 +327,14 @@
 			<property name="RefuseOrdersBelowMood" value="0" />
 			<property name="LowMoraleThreshold" value="25" />
 			<property name="HighMoraleThreshold" value="75" />
-			<!-- supply runs: RunYieldBase bundles x (1 + RunYieldPerWitsStar per Wits star) x specialist bonus (Mechanics for
-			     materials/fuel, Chemistry for medicine, Cooking for food) x traits x 1.25 at high morale; the runner is away
-			     RunDays; risk = RunRiskBase - RunRiskPerCombatStar per Fighting/Shooting star (a bad roll: injured with half
-			     the yield, or - RunDeathShare of the time - never comes back). At most MaxRunners are out at once. -->
+			<!-- supply runs, in whole bundles (round ie1): RunYieldBase, +1 per RunWitsStarsPerBundle Wits stars (+1 at 3, +2 at
+			     6), +1 per RunSpecialistStarsPerBundle stars of the matching specialty (Mechanics for materials/fuel, Chemistry
+			     for medicine, Cooking for food, Gardening for water), +HighMoraleRunBundles above HighMoraleThreshold, a fuel
+			     outpost's motor pool (OutpostMotorPoolBundles) and the traits' runbundles= (Hoarder, Tinkerer, Scavenger); at
+			     least 1. The runner is away RunDays; risk = RunRiskBase - RunRiskPerCombatStar per Fighting/Shooting star (a bad
+			     roll: injured with half the haul, rounded down, or - RunDeathShare of the time - never comes back). At most
+			     MaxRunners are out at once. RunYieldPerWitsStar is the mining runs' Wits bonus only (their items x 1 + this per
+			     star above the first). -->
 			<property name="RunDays" value="1" />
 			<property name="MaxRunners" value="3" />
 			<!-- physical runs (PhysicalRuns): the runner WALKS to a real POI RunMinDist..RunMaxDist m from home that has the
@@ -384,7 +392,9 @@
 			<property name="RunSnapMaxBytes" value="60000" />
 			<property name="RunMaterializePerTick" value="1" />
 			<property name="RunYieldPerWitsStar" value="0.15" />
-			<property name="RunSpecialistPerStar" value="0.15" />
+			<property name="RunWitsStarsPerBundle" value="3" />
+			<property name="RunSpecialistStarsPerBundle" value="3" />
+			<property name="HighMoraleRunBundles" value="1" />
 			<property name="RunRiskPerCombatStar" value="0.02" />
 			<property name="RunDeathShare" value="0.25" />
 			<property name="RunWitsXp" value="8" />
@@ -439,7 +449,8 @@
 			     RadioContactMinDist..MaxDist from the home block, marked on the map, who fades after RadioContactDays.
 			     A supply run may radio for help (RadioDistressChance) while a radio is powered: zombies =
 			     DistressZombiesBase + gamestage x PerGamestage, at least PerCombatStar x (Fighting + Shooting stars - 2),
-			     capped at DistressZombiesMax, drawn from DistressZombieGroup; a rescued run's haul x RescueBonus. -->
+			     capped at DistressZombiesMax, drawn from DistressZombieGroup; a rescued supply run brings RescueBundles more
+			     (round ie1, whole bundles), a rescued mining run's items x RescueBonus. -->
 			<property name="RadioOnlyAirdrops" value="true" />
 			<property name="RadioCallDays" value="2" />
 			<property name="RadioContactDays" value="7" />
@@ -454,6 +465,7 @@
 			<property name="DistressZombiesMax" value="24" />
 			<property name="DistressZombieGroup" value="ZombiesAll" />
 			<property name="RescueBonus" value="1.25" />
+			<property name="RescueBundles" value="1" />
 			<!-- R2, the handheld radio (game 3.4; item scHandheldRadio: a workbench recipe, rare in electrical loot, now and then
 			     at traders). HandheldRadioTab: while you carry one (anywhere in the backpack or toolbelt) a Radio tab shows left
 			     of the Community tab and opens the radio station's window from anywhere - relayed through a radio station at home
@@ -1446,14 +1458,18 @@
 
 			<property name="DebugLogging" value="false" />
 
-			<!-- Traits, rolled by weight at recruit. Keys: weight, food (food-use multiplier), morale
-			     (community offset), mood (own offset), skill=Name:stars (starting bonus), spec=Specialty
-			     (preferred), xp (skill XP multiplier), yield (supply-run yield multiplier), timid=1 (flees).
+			<!-- Traits, rolled by weight at recruit. Keys: weight, morale (community offset), mood (own offset),
+			     skill=Name:stars (starting bonus), spec=Specialty (preferred), xp (skill XP multiplier), timid=1 (flees).
+			     Round ie1 (2026-11-19), whole-number keys for the stockpile: eats=N (food she eats a day in place of
+			     MemberFoodPerDay), nohungermood=1 (the community's hunger does not lower her mood), runbundles=N (N more
+			     bundles from her supply runs), runkinds=A/B (only on runs for those resources), runfrom=N (only on a haul of
+			     N or more before it). The old food=x is read as eats= when above 1 (food=1.5 is eats=2) and ignored below.
+			     yield=x and haul=x are a mining run's item multipliers only (mining hauls items, not stockpile bundles).
 			     A trait shows its tooltip through a buff named traitSC_<Name> when buffs.xml defines one.
 			     Round m1t (T1) keys: excludes=A/B (never rolled together with A or B; every pair works both ways,
 			     so naming it on one row is enough), nightwatch=N (own mood +N on a watch at night), wake=1 (up as
 			     soon as a horde is called on the base), defense=N (defense rating +N while a fit resident),
-			     haul=x (supply-run haul x this, the odd part of a bundle as a chance), barter=N (N more back from
+			     haul=x (see above: mining runs only), barter=N (N more back from
 			     the radio barter while at home), heal=p (chance an injury heals with no Meds bundle), books=x
 			     (specialty XP from magazines x this), nomedic=1 (never the medic: no Medicine, no revives, never
 			     the party medic), wear=x (tools she chops, mines or digs with wear x this fast; not on a Base repair
@@ -1462,8 +1478,8 @@
 			     rangexp=x (Shooting XP at the range), gymxp=x (Fighting XP at the gym).
 			     Existing survivors keep the traits they have; only new ones roll from this table. -->
 			<property class="Traits">
-				<property name="EatsLikeABird" value="weight=3,food=0.75,excludes=BottomlessStomach" />
-				<property name="BottomlessStomach" value="weight=3,food=1.5,excludes=EatsLikeABird" />
+				<property name="EatsLikeABird" value="weight=3,nohungermood=1,excludes=BottomlessStomach" />
+				<property name="BottomlessStomach" value="weight=3,eats=2,excludes=EatsLikeABird" />
 				<property name="Optimist" value="weight=3,morale=3,mood=5,excludes=Pessimist" />
 				<property name="Pessimist" value="weight=3,morale=-3,mood=-5,excludes=Optimist/Cheerful/Hardy" />
 				<property name="Loner" value="weight=2,mood=-5,excludes=PeoplePerson" />
@@ -1476,14 +1492,14 @@
 				<property name="Hardy" value="weight=2,mood=3,excludes=Pessimist" />
 				<property name="MedicTraining" value="weight=2,spec=Medicine,excludes=Squeamish" />
 				<property name="Homesteader" value="weight=2,spec=Gardening" />
-				<property name="Tinkerer" value="weight=2,spec=Mechanics,yield=1.15" />
-				<property name="Hoarder" value="weight=2,yield=1.25,mood=-2" />
+				<property name="Tinkerer" value="weight=2,spec=Mechanics,runbundles=1,runkinds=Materials/Fuel,yield=1.15" />
+				<property name="Hoarder" value="weight=2,runbundles=1,yield=1.25,mood=-2" />
 				<property name="Cheerful" value="weight=2,morale=2,mood=3,excludes=Pessimist" />
 				<property name="Insomniac" value="weight=1,mood=-3" />
 				<!-- round m1t (T1): twelve more (an inert one rolls at weight 1 until its feature exists) -->
 				<property name="NightOwl" value="weight=2,nightwatch=6" />
 				<property name="LightSleeper" value="weight=2,wake=1,defense=1" />
-				<property name="Scavenger" value="weight=2,haul=1.1" />
+				<property name="Scavenger" value="weight=2,runbundles=1,runfrom=4,haul=1.1" />
 				<property name="Haggler" value="weight=2,barter=1" />
 				<property name="FastHealer" value="weight=2,heal=0.5" />
 				<property name="IronStomach" value="weight=1,sickness=0" />
@@ -1519,45 +1535,57 @@
 			<property name="LifeSkillUseXp" value="3" />
 
 			<!-- OUTPOSTS. A cleared POI with a land claim can be made an outpost that sends bundles home each day.
-			     OutpostBase: bundles a day at tier 2 and weight 1 (food, meds, ammo, mats, fuel); OutpostTierMult: T0..T5;
-			     OutpostMinTier: below it a POI needs a sleeper volume to count; OutpostDailyCap: most bundles a day from one
-			     outpost; OutpostScavengeMult: a POI no row matches yields this share of whatever the community lacks;
-			     OutpostExclude: prefab-name words that are never outposts; OutpostNoise: author words ignored in prefab
-			     names; OutpostTagFallback: district tag -> row (e.g. industrial:junkyard), empty = off. -->
+			     Round ie1, whole bundles: an outpost makes OutpostLevelYield a day by level (1, 2, 3; any resource), a scavenge
+			     one (no row matched) one less, at least 1, of whatever the community lacks; tier OutpostTierBonusFrom and up
+			     makes OutpostTierBonus more; once it makes 2 or more, 1 of them is its row's second resource; there is no
+			     daily cap. OutpostMinTier: below it a POI needs a sleeper volume to count; OutpostExclude: prefab-name words
+			     that are never outposts; OutpostNoise: author words ignored in prefab names; OutpostTagFallback: district tag
+			     -> row (e.g. industrial:junkyard), empty = off. (OutpostBase, OutpostTierMult, OutpostDailyCap and
+			     OutpostScavengeMult are gone.) -->
 			<property name="OutpostMinDistance" value="150" />
 			<property name="OutpostMax" value="4" />
 			<!-- Outpost economy. Slots = min(OutpostMax, 1 + members / OutpostMembersPerSlot + Leadership / OutpostLeadershipPerSlot);
-			     the fee is taken at Establish; upkeep (materials per working outpost per day) and haulage (fuel per bundle
-			     delivered) carry fractions. Unpaid upkeep: yields x OutpostRunDownMult; unpaid haulage: x OutpostOnFootMult.
-			     A silent home radio keeps bundles at the outpost, at most OutpostPendingDays of yield. OutpostDupMult: the
-			     best / second / other outposts sharing a primary resource. Morale: +OutpostMoralePer per producing outpost
-			     (cap OutpostMoraleCap); a lost one costs OutpostLostPenalty, fading OutpostLostDecay a day. -->
+			     the fee is taken at Establish. Round ie1, whole bundles and no debt: upkeep is OutpostUpkeepByLevel materials
+			     a day for each producing outpost by level (1, 1, 2; idle, contested and damaged ones pay nothing), haulage 1
+			     fuel per OutpostHaulPerFuel bundles delivered that day (the rest free). The stockpile pays what it can; a day it
+			     cannot pay the upkeep in full the network is run-down (each outpost makes OutpostRunDownLess less, down to 0),
+			     a day it cannot pay the haulage it goes on foot (each makes at most OutpostOnFootMax), until a day it pays in
+			     full. A silent home radio keeps bundles at the outpost, at most OutpostPendingDays of yield. Outposts sharing a
+			     primary resource: every one after the best makes OutpostDupLess less, never below 1. Morale: +OutpostMoralePer
+			     per producing outpost (cap OutpostMoraleCap); a lost one costs OutpostLostPenalty, fading OutpostLostDecay a day. -->
 			<property name="OutpostMembersPerSlot" value="4" />
 			<property name="OutpostLeadershipPerSlot" value="5" />
 			<property name="OutpostFeeMats" value="2" />
 			<property name="OutpostFeeFuel" value="1" />
-			<property name="OutpostUpkeep" value="0.2" />
-			<property name="OutpostHaulage" value="0.05" />
-			<property name="OutpostRunDownMult" value="0.5" />
-			<property name="OutpostOnFootMult" value="0.75" />
+			<property name="OutpostLevelYield" value="1,2,3" />
+			<property name="OutpostTierBonusFrom" value="4" />
+			<property name="OutpostTierBonus" value="1" />
+			<property name="OutpostUpkeepByLevel" value="1,1,2" />
+			<property name="OutpostHaulPerFuel" value="5" />
+			<property name="OutpostRunDownLess" value="1" />
+			<property name="OutpostOnFootMax" value="2" />
 			<property name="OutpostPendingDays" value="3" />
-			<property name="OutpostDupMult" value="1,0.75,0.5" />
+			<property name="OutpostDupLess" value="1" />
 			<property name="OutpostMoralePer" value="2" />
 			<property name="OutpostMoraleCap" value="6" />
 			<property name="OutpostLostPenalty" value="5" />
 			<property name="OutpostLostDecay" value="1" />
-			<!-- Outposts v1.1-v1.3. Garrisons: +StaffBonus yield per member posted, and the best matching specialty
-			     +MatchBase +MatchPerStar x stars; stand-ins appear within StandInRange; WalkInChance a day per staffed outpost.
-			     Levels (bought from the stockpile): L2/L3 cost, days held first, yield multiplier; UpkeepPerLevel extra upkeep.
-			     Type perks while such an outpost produces: clinic heals, escort risk cut (max), motor pool run yield, salvage
-			     cost multiplier, canteen hunger floor. Radio scouting: range, sites, days. Output mode (quiet/push) yield and
-			     risk. CheckInDays (0 = off) and Depletion (0 = off). DistressChance: a runner's call pins them at an outpost.
-			     Workshops (posted crafters/chemists convert the surplus over Keep). Barter rate. What the player builds inside
-			     an outpost (beds/facilities/crops, capped) raises its yield; DefenseBlocks are counted for security. Stash and
-			     haul (off): only HaulBase + HaulPerLevel bundles a day come home, the rest wait in the claim box. -->
-			<property name="OutpostStaffBonus" value="0.5" />
-			<property name="OutpostMatchBase" value="0.2" />
-			<property name="OutpostMatchPerStar" value="0.1" />
+			<!-- Outposts v1.1-v1.3 (round ie1: every yield step is whole bundles a day). Garrisons: +StaffBundles per member
+			     posted, and +MatchBonus once for a staffer whose specialty fits (any stars; cooks and gardeners for food,
+			     medics and chemists for meds, Shooting 2+ stars for ammo, crafters for materials, mechanics for fuel, gardeners
+			     for water); stand-ins appear within StandInRange; WalkInChance a day per staffed outpost. Levels (bought from
+			     the stockpile): L2/L3 cost and days held first (the yield: OutpostLevelYield above). Type perks while such an
+			     outpost produces: clinic heals, escort risk cut (max), motor pool +MotorPoolBundles to every supply run,
+			     salvage yard -SalvageCut materials on each fee, upgrade and repair (never below 1), canteen hunger floor. Radio
+			     scouting: range, sites, days. Output mode: quiet -QuietLess (can reach 0), push +PushMore, and their risk.
+			     CheckInDays (0 = off): unvisited past it an outpost makes CheckInLess less, never below 1. DepletesAfter (0 =
+			     off): once it made that many bundles in all it makes at most DepletedYield a day. DistressChance: a runner's call
+			     pins them at an outpost. Workshops (posted crafters/chemists convert the surplus over Keep). Barter rate. Built
+			     up: +BuiltBonus once the player built BuiltBeds beds and BuiltFacilities facilities inside it (a food outpost
+			     may count BuiltCrops crops for the facilities); DefenseBlocks are counted for security. Stash and haul (off):
+			     only HaulBase + HaulPerLevel bundles a day come home, the rest wait in the claim box. -->
+			<property name="OutpostStaffBundles" value="1" />
+			<property name="OutpostMatchBonus" value="1" />
 			<property name="OutpostStandInRange" value="60" />
 			<property name="OutpostWalkInChance" value="0.08" />
 			<property name="OutpostL2Mats" value="4" />
@@ -1566,40 +1594,33 @@
 			<property name="OutpostL3Mats" value="8" />
 			<property name="OutpostL3Fuel" value="4" />
 			<property name="OutpostL3Days" value="7" />
-			<property name="OutpostL2Mult" value="1.3" />
-			<property name="OutpostL3Mult" value="1.5" />
-			<property name="OutpostUpkeepPerLevel" value="0.1" />
 			<property name="OutpostClinicHeals" value="1" />
 			<property name="OutpostEscortRisk" value="0.03" />
 			<property name="OutpostEscortMax" value="0.06" />
-			<property name="OutpostMotorPoolMult" value="1.15" />
-			<property name="OutpostSalvageMult" value="0.75" />
+			<property name="OutpostMotorPoolBundles" value="1" />
+			<property name="OutpostSalvageCut" value="1" />
 			<property name="OutpostCanteenFloor" value="-10" />
 			<!-- a water outpost's cistern: the thirst morale hit is floored here (round wl) -->
 			<property name="OutpostCisternFloor" value="-10" />
 			<property name="RadioScoutRange" value="1500" />
 			<property name="RadioScoutCount" value="3" />
 			<property name="RadioScoutDays" value="3" />
-			<property name="OutpostQuietMult" value="0.5" />
-			<property name="OutpostPushMult" value="1.5" />
+			<property name="OutpostQuietLess" value="1" />
+			<property name="OutpostPushMore" value="1" />
 			<property name="OutpostQuietRisk" value="0.5" />
 			<property name="OutpostPushRisk" value="1.75" />
 			<property name="OutpostCheckInDays" value="0" />
-			<property name="OutpostCheckInDecay" value="0.1" />
-			<property name="OutpostCheckInFloor" value="0.5" />
-			<property name="OutpostDepletion" value="0" />
-			<property name="OutpostDepletedMult" value="0.25" />
+			<property name="OutpostCheckInLess" value="1" />
+			<property name="OutpostDepletesAfter" value="0" />
+			<property name="OutpostDepletedYield" value="1" />
 			<property name="OutpostDistressChance" value="0.3" />
 			<property name="OutpostWorkshop" value="true" />
 			<property name="OutpostWorkshopKeep" value="10" />
 			<property name="RadioBarterRate" value="3" />
-			<property name="OutpostBedBonus" value="0.05" />
-			<property name="OutpostFacilityBonus" value="0.1" />
-			<property name="OutpostCropBonus" value="0.02" />
-			<property name="OutpostBedMax" value="4" />
-			<property name="OutpostFacilityMax" value="3" />
-			<property name="OutpostCropMax" value="10" />
-			<property name="OutpostInvestCap" value="0.5" />
+			<property name="OutpostBuiltBeds" value="2" />
+			<property name="OutpostBuiltFacilities" value="1" />
+			<property name="OutpostBuiltCrops" value="10" />
+			<property name="OutpostBuiltBonus" value="1" />
 			<property name="OutpostDefenseBlocks" value="trapSpikes,barbedWire,barbedFence,bladeTrap,dartTrap,electricfencepost,autoTurret,shotgunTurret,mineCandyTin,mineCookingPot,mineHubcap,mineAirFilter" />
 			<property name="OutpostStashAndHaul" value="false" />
 			<property name="OutpostHaulBase" value="2" />
@@ -1638,11 +1659,7 @@
 			<property name="OutpostRaiderChance" value="0.03" />
 			<property name="OutpostDemandAmmo" value="2" />
 			<property name="OutpostDemandFood" value="2" />
-			<property name="OutpostBase" value="food:1.0,meds:0.35,ammo:0.3,mats:0.8,fuel:0.6,water:1.5" />
-			<property name="OutpostTierMult" value="0.6,0.8,1.0,1.15,1.3,1.5" />
 			<property name="OutpostMinTier" value="1" />
-			<property name="OutpostDailyCap" value="5" />
-			<property name="OutpostScavengeMult" value="0.5" />
 			<property name="OutpostExclude" value="foliage,foilage,plants,wind,solar,library,libary,pubic,museum,deco" />
 			<property name="OutpostNoise" value="xcpv,zztong,by,mplogue,fluffy,panda,voltralux" />
 			<!-- rows the tier / sleeper gate does not apply to: the water towers are tier 0 with no sleepers (round wl) -->
@@ -2280,7 +2297,9 @@
 			<property name="SleeperCapPause" value="true" />
 			<property name="SleeperCapPauseMaxTicks" value="3000" />
 
-			<!-- Outpost types: row id = "yields | prefab-name words | localized-name words | theme tags". A word ending in
+			<!-- Outpost types: row id = "yields | prefab-name words | localized-name words | theme tags". Round ie1: the yield
+			     numbers only rank the resources - the largest is what it makes, the next one (if any) its second resource; how
+			     much is whole bundles by level (OutpostLevelYield), the same for every row. A word ending in
 			     * is a prefix, a word with a space a phrase; otherwise a name token must equal the word (or word + s).
 			     Resolution: the prefab's own SCOutpost property > OutpostPrefabs > OutpostExclude > theme tags > prefab
 			     name > localized name > OutpostTagFallback > scavenge; within one layer the rarest resource wins

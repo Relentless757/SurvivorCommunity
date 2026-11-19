@@ -378,8 +378,9 @@ namespace SurvivorCommunity
                 }
                 case "tier": o.Tier = I(val); break;
                 case "day": o.Day = I(val); break;
-                case "carry": Floats(val, o.Carry); break;
-                case "last": Floats(val, o.LastYield); break;
+                // round ie1: "carry" (the fractional bundles carried to the next day) is no longer read - every yield is whole now.
+                // "last" was fractions before it: an old float is read rounded down (the next rollover writes it anew)
+                case "last": WholeFloors(val, o.LastYield); break;
                 case "pending":
                 {
                     string[] f = val.Split(',');
@@ -427,7 +428,7 @@ namespace SurvivorCommunity
                     for (int i = 0; i < ScNames.ResourceCount && i < f.Length; i++) o.Stash[i] = Math.Max(0, I(f[i]));
                     break;
                 }
-                case "produced": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) o.Produced = Math.Max(0f, f); break; }
+                case "produced": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) o.Produced = WholeFloor(f); break; }   // round ie1: an old float, rounded down
                 case "levelday": o.LevelDay = I(val); break;
                 case "visit": o.LastVisitDay = I(val); break;
                 // E10: the hostile enclave behind the open raider demand or raid, and how many of them died raiding it so far
@@ -775,21 +776,22 @@ namespace SurvivorCommunity
             }
         }
 
-        private static void Floats(string val, float[] into)
+        /// <summary>Round ie1: whole units from a list an older build wrote as fractions ("1.2,0,0.35"), each rounded down.</summary>
+        private static void WholeFloors(string val, int[] into)
         {
             string[] f = val.Split(',');
             for (int i = 0; i < into.Length && i < f.Length; i++)
             {
                 float v;
-                if (float.TryParse(f[i].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) into[i] = Math.Max(0f, v);
+                if (float.TryParse(f[i].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) into[i] = WholeFloor(v);
             }
         }
 
-        private static string Floats(float[] v)
+        /// <summary>Round ie1: an old float rounded down, never below 0.</summary>
+        private static int WholeFloor(float v)
         {
-            var sb = new StringBuilder();
-            for (int i = 0; i < v.Length; i++) { if (i > 0) sb.Append(','); sb.Append(v[i].ToString("0.###", CultureInfo.InvariantCulture)); }
-            return sb.ToString();
+            if (float.IsNaN(v) || v <= 0f) return 0;
+            return v >= int.MaxValue ? int.MaxValue : (int)Math.Floor(v);
         }
 
         private static void CommitContact(ref Contact ct)
@@ -843,8 +845,8 @@ namespace SurvivorCommunity
                 case "threat": c.ThreatMemberId = I(val); break;
                 case "hungry": c.Hungry = val == "1"; break;
                 case "deathpenalty": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.DeathPenalty = f; break; }
-                case "foodcarry": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.FoodCarry = f; break; }
-                // "ammocarry" (the old daily ammo upkeep's fraction) is no longer read: there is no upkeep (decision D3)
+                // "foodcarry" is no longer read (round ie1: every daily need is whole, nothing carried); nor is "ammocarry" (the old
+                // daily ammo upkeep's fraction): there is no upkeep (decision D3)
                 case "ammoopen": c.AmmoOpenPoints = Math.Max(0, I(val)); break;
                 case "ammoopened": c.AmmoOpened = Math.Max(0, I(val)); break;
                 case "ammoshort": c.AmmoShort = val == "1"; break;
@@ -872,8 +874,7 @@ namespace SurvivorCommunity
                     break;
                 case "radioday": c.RadioOnlineDay = I(val); break;
                 case "outpostid": c.NextOutpostId = I(val); break;
-                case "upkeepdebt": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.UpkeepDebt = Math.Max(0f, f); break; }
-                case "hauldebt": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.HaulDebt = Math.Max(0f, f); break; }
+                // "upkeepdebt" / "hauldebt" are no longer read (round ie1: no debt; an old save's is forgiven, the flags below stay)
                 case "rundown": c.OutpostRunDown = val == "1"; break;
                 case "onfoot": c.OutpostOnFoot = val == "1"; break;
                 case "outpostloss": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.OutpostLoss = Math.Max(0f, f); break; }
@@ -930,10 +931,10 @@ namespace SurvivorCommunity
                     c.AwayNews.Clear();
                     foreach (string part in val.Split(';')) if (part.Length > 0 && c.AwayNews.Count < 4) c.AwayNews.Add(part);
                     break;
-                case "harvestcarry": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.HarvestCarry = f; break; }
+                // "harvestcarry" is no longer read (round ie1: the garden's harvest is whole)
                 // round wl: water, the facilities, the round of drinks (keys an older build ignores)
                 case "thirsty": c.Thirsty = val == "1"; break;
-                case "watercarry": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.WaterCarry = Math.Max(0f, f); break; }
+                // "watercarry" is no longer read (round ie1)
                 case "homewater": c.HomeWater = Math.Max(0, I(val)); break;
                 case "scanwater":
                     // cx:cz:n;... (zone chunks with any well or dew collector)
@@ -1257,7 +1258,6 @@ namespace SurvivorCommunity
                 sb.AppendLine("threat=" + c.ThreatMemberId);
                 sb.AppendLine("hungry=" + (c.Hungry ? 1 : 0));
                 sb.AppendLine("deathpenalty=" + c.DeathPenalty.ToString("0.###", CultureInfo.InvariantCulture));
-                sb.AppendLine("foodcarry=" + c.FoodCarry.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("ammoopen=" + c.AmmoOpenPoints);
                 sb.AppendLine("ammoopened=" + c.AmmoOpened);
                 sb.AppendLine("ammoshort=" + (c.AmmoShort ? 1 : 0));
@@ -1288,8 +1288,6 @@ namespace SurvivorCommunity
                 }
                 sb.AppendLine("radioday=" + c.RadioOnlineDay);
                 sb.AppendLine("outpostid=" + c.NextOutpostId);
-                sb.AppendLine("upkeepdebt=" + c.UpkeepDebt.ToString("0.###", CultureInfo.InvariantCulture));
-                sb.AppendLine("hauldebt=" + c.HaulDebt.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("rundown=" + (c.OutpostRunDown ? 1 : 0));
                 sb.AppendLine("onfoot=" + (c.OutpostOnFoot ? 1 : 0));
                 sb.AppendLine("outpostloss=" + c.OutpostLoss.ToString("0.###", CultureInfo.InvariantCulture));
@@ -1343,9 +1341,7 @@ namespace SurvivorCommunity
                     foreach (string n in c.AwayNews) { if (an.Length > 0) an.Append(';'); an.Append(Clean(n)); }
                     sb.AppendLine("awaynews=" + an);
                 }
-                sb.AppendLine("harvestcarry=" + c.HarvestCarry.ToString("0.###", CultureInfo.InvariantCulture));
                 if (c.Thirsty) sb.AppendLine("thirsty=1");
-                if (c.WaterCarry > 0f) sb.AppendLine("watercarry=" + c.WaterCarry.ToString("0.###", CultureInfo.InvariantCulture));
                 if (c.HomeWater > 0) sb.AppendLine("homewater=" + c.HomeWater);
                 if (c.ScanWater.Count > 0)
                 {
@@ -1475,9 +1471,8 @@ namespace SurvivorCommunity
                     if (wt.Length > 0) sb.AppendLine("weight=" + wt);
                     sb.AppendLine("tier=" + o.Tier);
                     sb.AppendLine("day=" + o.Day);
-                    sb.AppendLine("carry=" + Floats(o.Carry));
                     sb.AppendLine("pending=" + string.Join(",", Array.ConvertAll(o.Pending, x => x.ToString(CultureInfo.InvariantCulture))));
-                    sb.AppendLine("last=" + Floats(o.LastYield));
+                    sb.AppendLine("last=" + string.Join(",", Array.ConvertAll(o.LastYield, x => x.ToString(CultureInfo.InvariantCulture))));   // round ie1: whole units (an older build reads them as floats)
                     sb.AppendLine("state=" + o.State);
                     sb.AppendLine("lost=" + o.LostDay);
                     sb.AppendLine("level=" + o.Level);
@@ -1491,7 +1486,7 @@ namespace SurvivorCommunity
                     if (o.NeglectDay >= 0) sb.AppendLine("neglect=" + o.NeglectDay);
                     if (o.AttackUntil > 0) sb.AppendLine("heard=" + (o.AttackHeard ? 1 : 0));
                     if (o.StashTotal > 0) sb.AppendLine("stash=" + string.Join(",", Array.ConvertAll(o.Stash, x => x.ToString(CultureInfo.InvariantCulture))));
-                    sb.AppendLine("produced=" + o.Produced.ToString("0.##", CultureInfo.InvariantCulture));
+                    sb.AppendLine("produced=" + o.Produced.ToString(CultureInfo.InvariantCulture));
                     sb.AppendLine("levelday=" + o.LevelDay);
                     sb.AppendLine("visit=" + o.LastVisitDay);
                     if (o.RaidEnclave > 0) sb.AppendLine("raidenc=" + o.RaidEnclave.ToString(CultureInfo.InvariantCulture));

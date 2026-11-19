@@ -200,6 +200,7 @@ namespace SurvivorCommunity
             var sb = new StringBuilder("[SC] stock:");
             for (int i = 0; i < ScNames.ResourceCount; i++) sb.Append(' ').Append(ScNames.ResourceKeys[i]).Append('=').Append(c.Stock[i]);
             Output(sb.ToString());
+            if (ScRegistry.Loaded) Output("[SC] " + ScEconomy.NeedsLine());     // round ie1: the next rollover's whole-number needs and costs
             int arriving = ScRegistry.CountStatus(MemberStatus.Arriving);      // E12: a whole enclave's, still on the way
             Output("[SC] members=" + ScRegistry.Members.Count + " (residents " + ScRegistry.CountStatus(MemberStatus.Resident)
                    + ", following " + ScRegistry.FollowerCount + ", on run " + ScRegistry.CountStatus(MemberStatus.OnRun)
@@ -2224,27 +2225,40 @@ namespace SurvivorCommunity
             Community c = ScRegistry.Community;
             Output("[SC] " + ScOutposts.HeldCount() + " of " + ScOutposts.Slots() + " outpost slot(s) (max " + ScConfig.OutpostMax + "); radio "
                    + (ScOutposts.RadioOnlineAnywhere() ? "ONLINE" : "silent") + " (last reported day " + c.RadioOnlineDay + ", today " + ScCommunity.Today + ")"
-                   + "; upkeep debt " + c.UpkeepDebt.ToString("0.##") + (c.OutpostRunDown ? " RUN-DOWN" : "")
-                   + ", haulage debt " + c.HaulDebt.ToString("0.##") + (c.OutpostOnFoot ? " ON FOOT" : "")
+                   + "; upkeep " + ScEconomy.Upkeep(ScCommunity.Today + 1) + " mats a day" + (c.OutpostRunDown ? " RUN-DOWN" : "")      // round ie1: no debt
+                   + ", haulage " + ScEconomy.Haulage(ScOutposts.ProjectedDelivery(ScCommunity.Today + 1)) + " fuel tonight" + (c.OutpostOnFoot ? " ON FOOT" : "")
                    + (c.OutpostLoss > 0f ? ", loss penalty " + c.OutpostLoss.ToString("0.#") : ""));
             foreach (Outpost o in ScOutposts.All) Output("[SC]   #" + o.Id + " " + OutpostLine(o));
         }
 
+        /// <summary>
+        /// sc outpost yield (round ie1): each outpost's own whole-unit steps and what it makes on the next rollover (after the
+        /// duplicates and the network's run-down / on foot), then the network's total and costs - ScEconomy's numbers, the ones
+        /// the rollover settles.
+        /// </summary>
         private static void OutpostYield()
         {
-            float[] total = new float[ScNames.ResourceCount];
+            Community c = ScRegistry.Community;
+            int day = ScCommunity.Today + 1;
+            Dictionary<int, int[]> yields = ScEconomy.NetworkYields(day);
+            int[] total = new int[ScNames.ResourceCount];
             foreach (Outpost o in ScOutposts.All)
             {
                 if (!o.Holding) continue;
-                float[] raw = ScOutposts.RawYield(o), est = ScOutposts.Estimate(o);
+                int[] est;
+                if (!yields.TryGetValue(o.Id, out est)) est = new int[ScNames.ResourceCount];
                 for (int i = 0; i < ScNames.ResourceCount; i++) total[i] += est[i];
-                Output("[SC]   #" + o.Id + " " + o.Name + " [" + o.State + "] raw " + ScOutposts.YieldText(raw) + " -> tonight " + ScOutposts.YieldText(est)
-                       + (o.Scavenge ? " (scavenge: shortest is " + ScOutposts.Shortest() + ")" : ""));
+                bool producing = ScEconomy.Produces(o, day);
+                Output("[SC]   #" + o.Id + " " + o.Name + " [" + o.State + (ScOutpostRisk.IsDamaged(o, day) ? ", damaged" : "") + "] "
+                       + (producing ? ScEconomy.StepsText(o) + " -> tonight " + ScOutposts.YieldText(est) : "makes nothing and pays no upkeep")
+                       + (o.Scavenge ? " (scavenge: shortest is " + ScOutposts.Shortest() + ")" : "")
+                       + (producing ? ", upkeep " + ScEconomy.UpkeepFor(o) : ""));
             }
-            int working = 0;
-            foreach (Outpost o in ScOutposts.All) if (o.State == OutpostState.Active || o.State == OutpostState.Contested) working++;
-            Output("[SC] network tonight: " + ScOutposts.YieldText(total) + "; upkeep " + (ScConfig.OutpostUpkeep * working).ToString("0.##") + " mats"
-                   + ", haulage about " + (ScConfig.OutpostHaulage * (total[0] + total[1] + total[2] + total[3] + total[4])).ToString("0.##") + " fuel"
+            int delivered = ScOutposts.ProjectedDelivery(day);
+            Output("[SC] network tonight: " + ScOutposts.YieldText(total) + (c.OutpostRunDown ? " (run-down: -" + ScConfig.OutpostRunDownLess + " each)" : "")
+                   + (c.OutpostOnFoot ? " (on foot: at most " + ScConfig.OutpostOnFootMax + " each)" : "")
+                   + "; upkeep " + ScEconomy.Upkeep(day) + " mats, haulage " + ScEconomy.Haulage(delivered) + " fuel for " + delivered + " delivered"
+                   + " (stock " + c.Get(Resource.Materials) + " mats, " + c.Get(Resource.Fuel) + " fuel)"
                    + (ScOutposts.RadioOnlineAnywhere() ? "" : "; the radio is silent - deliveries will wait"));
         }
 

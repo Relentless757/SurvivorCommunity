@@ -203,8 +203,8 @@ buffSCHungryName,Buff,Buff,,,,Hungry
 buffSCHungryDesc,Buff,Buff,,,,"The community is out of food. Slower and weaker until the stockpile has food bundles again."
 buffSCInjuredName,Buff,Buff,,,,Injured
 buffSCInjuredDesc,Buff,Buff,,,,"Hurt. Slower and weaker until a medical bundle is spent on them at the day rollover."
-scTraitEatsLikeABirdDesc,Buff,Buff,,,,Uses a quarter less food.
-scTraitBottomlessStomachDesc,Buff,Buff,,,,Uses half again as much food.
+scTraitEatsLikeABirdDesc,Buff,Buff,,,,Eats 1 food a day like everyone; going hungry does not lower their mood.
+scTraitBottomlessStomachDesc,Buff,Buff,,,,Eats 2 food a day.
 scTraitOptimistDesc,Buff,Buff,,,,Lifts community morale and their own mood.
 scTraitPessimistDesc,Buff,Buff,,,,Drags community morale and their own mood down.
 scTraitLonerDesc,Buff,Buff,,,,Prefers solitude; mood is a little lower.
@@ -217,13 +217,13 @@ scTraitCowardlyDesc,Buff,Buff,,,,Runs from enemies instead of fighting.
 scTraitHardyDesc,Buff,Buff,,,,Keeps a good mood in hard times.
 scTraitMedicTrainingDesc,Buff,Buff,,,,Trained in medicine.
 scTraitHomesteaderDesc,Buff,Buff,,,,Knows gardening.
-scTraitTinkererDesc,Buff,Buff,,,,Knows mechanics; brings back more from supply runs.
-scTraitHoarderDesc,Buff,Buff,,,,Brings back more from supply runs but is never quite content.
+scTraitTinkererDesc,Buff,Buff,,,,Knows mechanics; brings back 1 more bundle from materials and fuel runs.
+scTraitHoarderDesc,Buff,Buff,,,,Brings back 1 more bundle from supply runs but is never quite content.
 scTraitCheerfulDesc,Buff,Buff,,,,Lifts morale and mood.
 scTraitInsomniacDesc,Buff,Buff,,,,Sleeps badly; mood is a little lower.
 scTraitNightOwlDesc,Buff,Buff,,,,Happier on a night watch.
 scTraitLightSleeperDesc,Buff,Buff,,,,Up at once for a horde; +1 base defense.
-scTraitScavengerDesc,Buff,Buff,,,,Brings back a tenth more from supply runs.
+scTraitScavengerDesc,Buff,Buff,,,,Brings back 1 more bundle from a supply run that finds 4 or more.
 scTraitHagglerDesc,Buff,Buff,,,,Radio barters bring one more back (3 for 2).
 scTraitFastHealerDesc,Buff,Buff,,,,Heals an injury without medicine half the time.
 scTraitIronStomachDesc,Buff,Buff,,,,Never gets sick from the latrine.
@@ -272,6 +272,7 @@ scMoodMiserable,UI,Menu,,,,miserable
 scMoraleLine,UI,Menu,,,,"Morale {0} / 100"
 scMoraleFood,UI,Menu,,,,Food
 scMoraleFoodDays,UI,Menu,,,," ({0} days left)"
+scMoraleFoodOneDay,UI,Menu,,,," (1 day left)"
 scMoraleMeds,UI,Menu,,,,Medicine
 scMoraleBeds,UI,Menu,,,,Beds
 scMoraleFacilities,UI,Menu,,,,Facilities
@@ -462,9 +463,9 @@ scOpDisbandConfirm,UI,Tooltip,,,,Disband the outpost at {0}? Pick Disband again 
 scOpLostClaim,UI,Tooltip,,,,The outpost at {0} is lost: its land claim is gone.
 scOpIdle,UI,Tooltip,,,,{0} outpost(s) went idle: the community can only hold {1} now.
 scOpContested,UI,Tooltip,,,,{0} is contested ({1}). Clear it again to get it producing.
-scOpRunDown,UI,Tooltip,,,,Outposts are run-down: no building material for upkeep. Half yield until the stockpile can pay.
+scOpRunDown,UI,Tooltip,,,,Outposts are run-down: not enough building material for the upkeep. Each makes 1 less a day until the stockpile pays in full.
 scOpRecovered,UI,Tooltip,,,,Outposts are back to full work.
-scOpOnFoot,UI,Tooltip,,,,No fuel for haulage: the outposts carry on foot (three quarters of the yield).
+scOpOnFoot,UI,Tooltip,,,,Not enough fuel for haulage: the outposts carry on foot (at most 2 a day each) until the stockpile pays in full.
 scOpDaily,UI,Tooltip,,,,- outposts {0}
 scOpNothingToday,UI,Tooltip,,,,nothing
 scOpDailyCosts,UI,Tooltip,,,,"(upkeep {0} building material, haulage {1} fuel)"
@@ -548,7 +549,7 @@ scUiOpWaitingNone,UI,Menu,,,,nothing
 scUiNetSlotsFmt,UI,Menu,,,,{0} of {1} held ({2} at most)
 scUiNetRadioOn,UI,Menu,,,,reporting in
 scUiNetRadioOff,UI,Menu,,,,silent - deliveries wait
-scUiNetCostsFmt,UI,Menu,,,,"{0} building material, about {1} fuel a day"
+scUiNetCostsFmt,UI,Menu,,,,"{0} building material, {1} fuel a day"
 scUiNetNone,UI,Menu,,,,no outposts yet
 scUiNetRunDown,UI,Menu,,,,run-down: no building material
 scUiNetOnFoot,UI,Menu,,,,on foot: no fuel
@@ -598,9 +599,8 @@ scScoutMarker,UI,Map,,,,Chatter: {0} ({1})
 scUiGarrison,UI,Menu,,,,Garrison
 scUiStaffEmpty,UI,Menu,,,,Empty post
 scUiStaffLocked,UI,Menu,,,,Second post at level 2
-scUiStaffBonus,UI,Menu,,,,+{0}% yield
-scUiOpLevel,UI,Menu,,,,Level {0}
-scUiOpLevelMult,UI,Menu,,,,Level {0} - yield x{1}
+scUiStaffBonus,UI,Menu,,,,+{0} a day
+scUiOpLevelYield,UI,Menu,,,,Level {0} - {1} a day
 scUiOpNextLevel,UI,Menu,,,,"Next: {0} building material, {1} fuel"
 scUiOpNextWait,UI,Menu,,,,Can grow in {0} day(s)
 scUiOpNextStaff,UI,Menu,,,,Needs a staffer to grow
@@ -613,8 +613,8 @@ scUiOpPerk,UI,Menu,,,,Perk: {0}
 scOpPerkFood,UI,Menu,,,,Canteen - hunger hurts morale less
 scOpPerkMeds,UI,Menu,,,,Field clinic - one injury healed free each day
 scOpPerkAmmo,UI,Menu,,,,Armed escort - supply runs are safer
-scOpPerkMaterials,UI,Menu,,,,Salvage yard - outpost fees and upgrades cost less
-scOpPerkFuel,UI,Menu,,,,Motor pool - supply runs bring back more
+scOpPerkMaterials,UI,Menu,,,,"Salvage yard - outpost fees, upgrades and repairs cost 1 building material less"
+scOpPerkFuel,UI,Menu,,,,Motor pool - supply runs bring back 1 more bundle
 scRadioScoutHeader,UI,Menu,,,,Scout for outposts (once a day)
 scRadioScoutDesc,UI,Menu,,,,Listen for chatter about a kind of site: the nearest few within range are marked on your map for a few days.
 scUiPerks,UI,Menu,,,,Perks in force
@@ -647,9 +647,9 @@ scRadioBarterDesc,UI,Menu,,,,Click the buttons to pick what you give and what yo
 blockcommand_TEFeatureSCCommunity:opstorage,UI,Radial blockcommand,,,,Outpost storage
 scOpStorageTitle,UI,Menu,,,,Storage at {0}
 scOpUnstashed,UI,Tooltip,,,,Your people left {0} bundle(s) in the claim's box at {1} - more than the road could carry.
-scUiOpBuiltBonus,UI,Menu,,,,(+{0}% built)
+scUiOpBuiltBonus,UI,Menu,,,,(+{0} built up)
 scUiOpStashed,UI,Menu,,,,({0} stashed)
-scUiOpInvest,UI,Menu,,,,"{0} beds, {1} facilities, {2} crops, {3} defenses: +{4}%"
+scUiOpInvest,UI,Menu,,,,"{0} beds, {1} facilities, {2} crops, {3} defenses: +{4} a day"
 scFlagNotActive,UI,Tooltip,,,,The claim block is not an active land claim here - it cannot hold an outpost.
 scFlagPlain,UI,Tooltip,,,,The claim block stands as a plain land claim: {0}
 scOutpostFlag,UI,Block,,,,Outpost Claim Block

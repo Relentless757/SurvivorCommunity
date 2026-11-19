@@ -6,15 +6,26 @@ namespace SurvivorCommunity
 {
     /// <summary>
     /// One rolled-at-recruit trait, parsed from the config block's Traits class:
-    ///   &lt;property name="EatsLikeABird" value="weight=3,food=0.75,morale=0,mood=0,skill=Cardio:1,spec=Cooking,timid=0"/&gt;
-    /// Every key is optional. food = food-use multiplier, morale = community morale offset, mood = own mood
+    ///   &lt;property name="BottomlessStomach" value="weight=3,eats=2,morale=0,mood=0,skill=Cardio:1,spec=Cooking,timid=0"/&gt;
+    /// Every key is optional. eats = food a day, morale = community morale offset, mood = own mood
     /// offset, skill = a starting skill bonus (Skill:+stars), spec = preferred specialty, timid = flees.
     /// </summary>
     public sealed class TraitDef
     {
         public string Name = "";
         public int Weight = 1;
-        public float FoodMult = 1f;
+        // ---- round ie1 (2026-11-19): whole-number keys for the stockpile's flows (the old food= multiplier is read into
+        // Eats; yield= and haul= stay as the mining runs' item multipliers below) ----
+        /// <summary>eats=N: food she eats a day in place of MemberFoodPerDay (Bottomless Stomach 2); 0 = MemberFoodPerDay.</summary>
+        public int Eats;
+        /// <summary>nohungermood=1: the community's hunger does not lower her mood (Eats Like a Bird).</summary>
+        public bool NoHungerMood;
+        /// <summary>runbundles=N: N more bundles from a supply run of hers (Hoarder, Tinkerer, Scavenger).</summary>
+        public int RunBundles;
+        /// <summary>runkinds=A/B: only on supply runs for these resources (Tinkerer: Materials/Fuel); empty = every run.</summary>
+        public readonly List<Resource> RunKinds = new List<Resource>();
+        /// <summary>runfrom=N: only on a haul of N or more before this bonus (Scavenger 4); 0 = always.</summary>
+        public int RunFrom;
         public int MoraleOffset;
         public int MoodOffset;
         public bool Timid;
@@ -24,7 +35,7 @@ namespace SurvivorCommunity
         public Specialty PreferredSpecialty = Specialty.None;
         /// <summary>XP multiplier for all skills (Quick Study).</summary>
         public float XpMult = 1f;
-        /// <summary>Supply-run yield multiplier.</summary>
+        /// <summary>yield=x: a mining run's items x this (round ie1: supply runs read runbundles= instead).</summary>
         public float RunYieldMult = 1f;
         // ---- round m1t (T1, 2026-11-17): the new trait keys. Read by ScTraitEffects; an effect that waits for a later
         // feature (Needs) is stored and shown with "(coming later)" until that feature exists. ----
@@ -36,7 +47,7 @@ namespace SurvivorCommunity
         public bool WakesForAttack;
         /// <summary>defense=N: the base's defense rating +N while she is a fit resident (Light Sleeper).</summary>
         public int DefenseBonus;
-        /// <summary>haul=x: a supply run's haul x this, the odd part of a bundle as a chance (Scavenger).</summary>
+        /// <summary>haul=x: a mining run's items x this (Scavenger; round ie1: supply runs read runbundles= instead).</summary>
         public float HaulMult = 1f;
         /// <summary>barter=N: N more bundles back from the radio barter while she is at home (Haggler).</summary>
         public int RadioBarterExtra;
@@ -113,8 +124,11 @@ namespace SurvivorCommunity
 
         public static int MaxMembers = 12;
         public static int MaxFollowers = 2;
-        /// <summary>Food bundles per member per day (0.5 = one bundle feeds two survivors for a day).</summary>
-        public static float FoodPerMemberDay = 0.5f;
+        /// <summary>
+        /// Food bundles each member eats a day (round ie1: a whole number, 1 - it was FoodPerMemberDay 0.5 with the fraction
+        /// carried; a new name, so an edited config's old "0.5" is ignored rather than misread).
+        /// </summary>
+        public static int MemberFoodPerDay = 1;
         /// <summary>
         /// No longer charged (decision D3: there is no daily ammo upkeep; the stockpile's ammo is spent only when a survivor
         /// is resupplied, ScAmmo). Kept as the planning estimate of ammo bundles a ranged resident gets through in a day,
@@ -123,8 +137,11 @@ namespace SurvivorCommunity
         public static float AmmoPerRangedDay = 0.25f;
         /// <summary>Points (EconomicValue x count) that make one bundle unit, per resource (a Medium bundle is two units, a Large three).</summary>
         public static readonly int[] PointsPerBundle = { 400, 300, 2000, 1000, 600, 200, 300 };
-        /// <summary>Water bundles per member per day (round wl: 1 = a Level 1 well, 2 a day, keeps two survivors).</summary>
-        public static float WaterPerMemberDay = 1f;
+        /// <summary>
+        /// Water bundles each member drinks a day (round wl: 1 = a Level 1 well, 2 a day, keeps two survivors). Round ie1: a whole
+        /// number under a new name (it was WaterPerMemberDay, a float).
+        /// </summary>
+        public static int MemberWaterPerDay = 1;
         /// <summary>
         /// Alcohol: these items are Luxuries, never Food or Water. Vanilla has no alcohol tag, so it is a name list: the
         /// drinks that give a drunk buff (beer and Grandpa's three).
@@ -217,10 +234,16 @@ namespace SurvivorCommunity
         public static float RangedPerStar = 0.10f;
         public static float SpeedPerStar = 0.04f;
         public static float HealthPerStar = 0.08f;
-        /// <summary>Cooking: food need multiplier is 1 - CookFoodPerStar x best cook's stars (floor 0.5).</summary>
-        public static float CookFoodPerStar = 0.08f;
-        /// <summary>Gardening: food bundles per day = crops x CropFoodPerStar x gardener stars.</summary>
-        public static float CropFoodPerStar = 0.01f;
+        /// <summary>
+        /// Cooking (round ie1): the best cook at home saves 1 food a day per CookStarsPerFood stars, rounded up (1, 1, 2, 2, 3, 3,
+        /// 4 at 2), never more than half the day's food (ScEconomy.FoodEaten). 0 = the cook saves nothing. Was CookFoodPerStar 0.08.
+        /// </summary>
+        public static int CookStarsPerFood = 2;
+        /// <summary>
+        /// Gardening (round ie1): 1 food a day per CropsPerFood living crops, at most 1 per star of the gardeners at home
+        /// (ScEconomy.Harvest). 0 = the garden makes nothing. Was CropFoodPerStar 0.01 (crops x 0.01 x stars, the fraction carried).
+        /// </summary>
+        public static int CropsPerFood = 10;
         /// <summary>Medicine: injuries healed per medical bundle = 1 + floor(medic stars x MedicPerStar).</summary>
         public static float MedicPerStar = 0.5f;
         /// <summary>Craftsmanship: packing threshold multiplier 1 - PackBonusPerStar x craftsman stars (floor 0.6).</summary>
@@ -309,8 +332,17 @@ namespace SurvivorCommunity
         // ---- supply runs ----
         public static int RunDays = 1;
         public static int MaxRunners = 3;
+        /// <summary>Mining runs only (round ie1): their items x (1 + this per Wits star above the first). Supply runs: RunWitsStarsPerBundle.</summary>
         public static float RunYieldPerWitsStar = 0.15f;
-        public static float RunSpecialistPerStar = 0.15f;
+        /// <summary>
+        /// Round ie1, supply runs in whole bundles (ScRuns.Yield): +1 per RunWitsStarsPerBundle Wits stars (+1 at 3, +2 at 6),
+        /// +1 per RunSpecialistStarsPerBundle stars of the matching specialty; 0 = no bonus. They were RunYieldPerWitsStar and
+        /// RunSpecialistPerStar, +15% per star above the first, rounded.
+        /// </summary>
+        public static int RunWitsStarsPerBundle = 3;
+        public static int RunSpecialistStarsPerBundle = 3;
+        /// <summary>Round ie1: bundles more from a supply run while morale is above HighMoraleThreshold (was a hard-coded x1.25).</summary>
+        public static int HighMoraleRunBundles = 1;
         public static float RunRiskPerCombatStar = 0.02f;
         /// <summary>Share of bad outcomes that are deaths (the rest are injuries with half the yield).</summary>
         public static float RunDeathShare = 0.25f;
@@ -332,7 +364,10 @@ namespace SurvivorCommunity
         public static float DistressZombiesPerCombatStar = 1.5f;
         public static int DistressZombiesMax = 24;
         public static string DistressZombieGroup = "ZombiesAll";
+        /// <summary>A rescued mining run's items x this (round ie1: mining only; a rescued supply run gets RescueBundles).</summary>
         public static float RescueBonus = 1.25f;
+        /// <summary>Round ie1: bundles more from a supply run rescued from a distress call.</summary>
+        public static int RescueBundles = 1;
         // ---- outposts (the POI table and yield tunables live in ScPoiTypes) ----
         /// <summary>An outpost's POI centre must be at least this many blocks from the home block.</summary>
         public static int OutpostMinDistance = 150;
@@ -344,41 +379,65 @@ namespace SurvivorCommunity
         /// <summary>Establish fee, paid from the stockpile.</summary>
         public static int OutpostFeeMats = 2;
         public static int OutpostFeeFuel = 1;
-        /// <summary>Materials per working outpost per day, and fuel per bundle delivered (fractions carry over).</summary>
-        public static float OutpostUpkeep = 0.2f;
-        public static float OutpostHaulage = 0.05f;
-        /// <summary>Yield multipliers while upkeep (materials) or haulage (fuel) goes unpaid.</summary>
-        public static float OutpostRunDownMult = 0.5f;
-        public static float OutpostOnFootMult = 0.75f;
+        /// <summary>
+        /// Round ie1 (the user's D8): materials a day for each producing outpost by its level, 1 / 1 / 2 (a level past the list
+        /// takes its last), and fuel: 1 per OutpostHaulPerFuel units delivered that day, the remainder free (0 = no haulage).
+        /// Idle, contested and damaged outposts pay no upkeep. No debt: the stockpile pays what it can (ScEconomy.Upkeep /
+        /// Haulage). They were OutpostUpkeep 0.2 + OutpostUpkeepPerLevel 0.1 and OutpostHaulage 0.05, with the debt carried.
+        /// </summary>
+        public static int[] OutpostUpkeepByLevel = { 1, 1, 2 };
+        public static int OutpostHaulPerFuel = 5;
+        /// <summary>
+        /// Round ie1: a day the upkeep is not paid in full, every outpost makes OutpostRunDownLess less the next day (it can reach
+        /// 0); a day the haulage is not, each makes at most OutpostOnFootMax. Both last until a day it pays in full. They were
+        /// OutpostRunDownMult 0.5 and OutpostOnFootMult 0.75.
+        /// </summary>
+        public static int OutpostRunDownLess = 1;
+        public static int OutpostOnFootMax = 2;
         /// <summary>While the home radio is silent, bundles wait at the outpost - at most this many days of yield.</summary>
         public static int OutpostPendingDays = 3;
-        /// <summary>Outposts sharing a primary resource: the best x1, the second x0.75, the rest x0.5.</summary>
-        public static float[] OutpostDupMult = { 1f, 0.75f, 0.5f };
+        /// <summary>
+        /// Round ie1: every outpost sharing a primary resource after the best makes this much less, never below 1 (was
+        /// OutpostDupMult 1,0.75,0.5).
+        /// </summary>
+        public static int OutpostDupLess = 1;
+        /// <summary>
+        /// Round ie1 (the user's D4, D5): what an outpost makes a day by its level, 1 / 2 / 3, whatever its resource (meds and
+        /// ammo too; a level past the list takes its last); a scavenge outpost one less, at least 1. Tier OutpostTierBonusFrom
+        /// and up (4; 0 = off) makes OutpostTierBonus more. Was OutpostL2Mult / OutpostL3Mult on ScPoiTypes' OutpostBase x
+        /// OutpostTierMult, capped at OutpostDailyCap: there is no cap now.
+        /// </summary>
+        public static int[] OutpostLevelYield = { 1, 2, 3 };
+        public static int OutpostTierBonusFrom = 4;
+        public static int OutpostTierBonus = 1;
         /// <summary>Morale: +OutpostMoralePer per producing outpost up to OutpostMoraleCap; a lost outpost costs OutpostLostPenalty, fading OutpostLostDecay a day.</summary>
         public static int OutpostMoralePer = 2;
         public static int OutpostMoraleCap = 6;
         public static float OutpostLostPenalty = 5f;
         public static float OutpostLostDecay = 1f;
         // ---- outposts v1.1: garrisons, levels, perks, scouting ----
-        /// <summary>Yield per staffer (+50%), and the best matching specialty's bonus: base + per star.</summary>
-        public static float OutpostStaffBonus = 0.5f;
-        public static float OutpostMatchBase = 0.2f;
-        public static float OutpostMatchPerStar = 0.1f;
+        /// <summary>
+        /// Round ie1: units a day per member posted, and once more for the best staffer whose specialty fits (any stars). Were
+        /// OutpostStaffBonus +50% and OutpostMatchBase 0.2 + OutpostMatchPerStar 0.1 x stars.
+        /// </summary>
+        public static int OutpostStaffBundles = 1;
+        public static int OutpostMatchBonus = 1;
         /// <summary>Stand-ins appear within this many blocks of a staffed outpost's centre.</summary>
         public static int OutpostStandInRange = 60;
         /// <summary>Chance a day that a staffed outpost draws a survivor in (a radio contact spawning there).</summary>
         public static float OutpostWalkInChance = 0.08f;
-        /// <summary>Levels: cost (materials, fuel), days held before the upgrade, and the yield multiplier.</summary>
+        /// <summary>Levels: cost (materials, fuel) and days held before the upgrade (the yield: OutpostLevelYield).</summary>
         public static int OutpostL2Mats = 4, OutpostL2Fuel = 2, OutpostL2Days = 3;
         public static int OutpostL3Mats = 8, OutpostL3Fuel = 4, OutpostL3Days = 7;
-        public static float OutpostL2Mult = 1.3f, OutpostL3Mult = 1.5f;
-        /// <summary>Extra materials upkeep a day per level above 1.</summary>
-        public static float OutpostUpkeepPerLevel = 0.1f;
-        /// <summary>Type perks while a producing outpost of that type exists.</summary>
+        /// <summary>
+        /// Type perks while a producing outpost of that type exists. Round ie1: the motor pool adds OutpostMotorPoolBundles to a
+        /// supply run (was x1.15), the salvage yard takes OutpostSalvageCut materials off each fee, upgrade and repair, never
+        /// below 1 (was x0.75 rounded up, which left the fee and the repair as they were).
+        /// </summary>
         public static int OutpostClinicHeals = 1;
         public static float OutpostEscortRisk = 0.03f, OutpostEscortMax = 0.06f;
-        public static float OutpostMotorPoolMult = 1.15f;
-        public static float OutpostSalvageMult = 0.75f;
+        public static int OutpostMotorPoolBundles = 1;
+        public static int OutpostSalvageCut = 1;
         public static int OutpostCanteenFloor = -10;
         /// <summary>A water outpost's cistern: the thirst morale hit is floored here (the canteen's twin, round wl).</summary>
         public static int OutpostCisternFloor = -10;
@@ -387,14 +446,22 @@ namespace SurvivorCommunity
         public static int RadioScoutCount = 3;
         public static int RadioScoutDays = 3;
         // ---- outposts v1.2: output mode, check-in, depletion, distress, workshops, barter ----
-        public static float OutpostQuietMult = 0.5f, OutpostPushMult = 1.5f;
+        /// <summary>Round ie1: quiet makes this much less (a day can reach 0), push this much more (were x0.5 / x1.5); the risk is unchanged.</summary>
+        public static int OutpostQuietLess = 1, OutpostPushMore = 1;
         public static float OutpostQuietRisk = 0.5f, OutpostPushRisk = 1.75f;
-        /// <summary>Supply-line check-in: 0 = off; else after this many days unvisited the yield slips by Decay a day to Floor.</summary>
+        /// <summary>
+        /// Supply-line check-in: 0 = off; else unvisited past this many days an outpost makes OutpostCheckInLess less, never below
+        /// 1 (round ie1; it was -10% a day to a floor of 50%).
+        /// </summary>
         public static int OutpostCheckInDays = 0;
-        public static float OutpostCheckInDecay = 0.1f, OutpostCheckInFloor = 0.5f;
-        /// <summary>Depletion: 0 = off; else bundles an outpost yields before it is picked clean (x DepletedMult after).</summary>
-        public static float OutpostDepletion = 0f;
-        public static float OutpostDepletedMult = 0.25f;
+        public static int OutpostCheckInLess = 1;
+        /// <summary>
+        /// Depletion: 0 = off; else the units an outpost makes in all before it is picked clean, and makes at most
+        /// OutpostDepletedYield a day after (round ie1: whole numbers under new names; they were OutpostDepletion, a float, and
+        /// OutpostDepletedMult 0.25).
+        /// </summary>
+        public static int OutpostDepletesAfter = 0;
+        public static int OutpostDepletedYield = 1;
         /// <summary>Chance a runner's distress call pins them at one of your outposts instead of a random POI.</summary>
         public static float OutpostDistressChance = 0.3f;
         /// <summary>Workshops: posted crafters make ammo, chemists meds, out of the surplus above Keep.</summary>
@@ -403,10 +470,12 @@ namespace SurvivorCommunity
         /// <summary>Radio barter: this many bundles of one resource for one of another, once a day.</summary>
         public static int RadioBarterRate = 3;
         // ---- outposts v1.3: physical investment, stash and haul ----
-        /// <summary>Yield per bed / facility / crop (food outposts) built inside an outpost, each capped; total capped.</summary>
-        public static float OutpostBedBonus = 0.05f, OutpostFacilityBonus = 0.1f, OutpostCropBonus = 0.02f;
-        public static int OutpostBedMax = 4, OutpostFacilityMax = 3, OutpostCropMax = 10;
-        public static float OutpostInvestCap = 0.5f;
+        /// <summary>
+        /// Round ie1: built up, +OutpostBuiltBonus a day once the player built OutpostBuiltBeds beds and OutpostBuiltFacilities
+        /// facilities inside an outpost (a food outpost may count OutpostBuiltCrops crops in place of the facilities). It was
+        /// +5% a bed, +10% a facility, +2% a crop (each capped), at most +50%.
+        /// </summary>
+        public static int OutpostBuiltBeds = 2, OutpostBuiltFacilities = 1, OutpostBuiltCrops = 10, OutpostBuiltBonus = 1;
         /// <summary>Block-name prefixes counted as an outpost's defenses (the v2 security rating reads them).</summary>
         public static readonly List<string> OutpostDefenseBlocks = new List<string>();
         /// <summary>Stash and haul (off by default): only Base + PerLevel bundles a day come home, the rest wait in the claim box.</summary>
@@ -1302,12 +1371,13 @@ namespace SurvivorCommunity
             parsed = false;
             MaxMembers = 12;
             MaxFollowers = 2;
-            FoodPerMemberDay = 0.5f;
+            MemberFoodPerDay = 1;                  // round ie1: whole numbers (ScEconomy)
+            CookStarsPerFood = 2; CropsPerFood = 10;
             AmmoPerRangedDay = 0.25f;
             PointsPerBundle[0] = 400; PointsPerBundle[1] = 300; PointsPerBundle[2] = 2000; PointsPerBundle[3] = 1000; PointsPerBundle[4] = 600;
             PointsPerBundle[5] = 200; PointsPerBundle[6] = 300;
             ResetBundles();                        // round 33b (ScConfigBundles.cs): opening bundles
-            WaterPerMemberDay = 1f;
+            MemberWaterPerDay = 1;
             LuxuryItems.Clear();
             WellBlocks.Clear();
             DewCollectorBlocks.Clear();
@@ -1341,6 +1411,7 @@ namespace SurvivorCommunity
             MissingDaysToPurge = 30;
             RunRiskBase = 0.15f;
             RunYieldBase = 2;
+            RunWitsStarsPerBundle = 3; RunSpecialistStarsPerBundle = 3; HighMoraleRunBundles = 1; RescueBundles = 1;   // round ie1
             MembersOpenOwnerLockedDoors = true;
             MembersOpenHatches = true;
             PhysicalRuns = true; RunWalkMps = 4f; RunnerRunMps = 4.5f; RunnerWalkMps = 1.6f; RunMinDist = 150; RunMaxDist = 700; RunSiteHours = 6f; RunDistressHours = 12f; RunDeadlineGraceDays = 2; RunWaypointSpacing = 25f; RunArriveRadius = 2.5f; RunPartialArrive = 6f; RunArriveSite = 6f; RunGridSize = 64; RunGridFarFromPlayer = 25f; RunOnlineRingMargin = 2; RunOfflineRingMargin = 0; RunOnlineDwellSeconds = 10f; RunOfflineDwellSeconds = 5f; RunFrozenSeconds = 3f; RunNoPopInRange = 50f; RunPopInMaxWait = 20f; RunGateDistance = 56f; RunStuckRepathSeconds = 5f; RunStuckSkipSeconds = 15f; RunSkipMinPlayerDist = 40f; RunSnapRefreshSeconds = 60f; RunSnapMaxBytes = 60000; RunMaterializePerTick = 1;
@@ -1511,30 +1582,29 @@ namespace SurvivorCommunity
             OutpostLeadershipPerSlot = 5;
             OutpostFeeMats = 2;
             OutpostFeeFuel = 1;
-            OutpostUpkeep = 0.2f;
-            OutpostHaulage = 0.05f;
-            OutpostRunDownMult = 0.5f;
-            OutpostOnFootMult = 0.75f;
+            OutpostUpkeepByLevel = new[] { 1, 1, 2 };    // round ie1: whole numbers (ScEconomy)
+            OutpostHaulPerFuel = 5;
+            OutpostRunDownLess = 1;
+            OutpostOnFootMax = 2;
             OutpostPendingDays = 3;
-            OutpostDupMult = new[] { 1f, 0.75f, 0.5f };
+            OutpostDupLess = 1;
+            OutpostLevelYield = new[] { 1, 2, 3 }; OutpostTierBonusFrom = 4; OutpostTierBonus = 1;
             OutpostMoralePer = 2;
             OutpostMoraleCap = 6;
             OutpostLostPenalty = 5f;
             OutpostLostDecay = 1f;
-            OutpostStaffBonus = 0.5f; OutpostMatchBase = 0.2f; OutpostMatchPerStar = 0.1f;
+            OutpostStaffBundles = 1; OutpostMatchBonus = 1;
             OutpostStandInRange = 60; OutpostWalkInChance = 0.08f;
             OutpostL2Mats = 4; OutpostL2Fuel = 2; OutpostL2Days = 3;
             OutpostL3Mats = 8; OutpostL3Fuel = 4; OutpostL3Days = 7;
-            OutpostL2Mult = 1.3f; OutpostL3Mult = 1.5f; OutpostUpkeepPerLevel = 0.1f;
             OutpostClinicHeals = 1; OutpostEscortRisk = 0.03f; OutpostEscortMax = 0.06f;
-            OutpostMotorPoolMult = 1.15f; OutpostSalvageMult = 0.75f; OutpostCanteenFloor = -10;
+            OutpostMotorPoolBundles = 1; OutpostSalvageCut = 1; OutpostCanteenFloor = -10;
             RadioScoutRange = 1500; RadioScoutCount = 3; RadioScoutDays = 3;
-            OutpostQuietMult = 0.5f; OutpostPushMult = 1.5f; OutpostQuietRisk = 0.5f; OutpostPushRisk = 1.75f;
-            OutpostCheckInDays = 0; OutpostCheckInDecay = 0.1f; OutpostCheckInFloor = 0.5f;
-            OutpostDepletion = 0f; OutpostDepletedMult = 0.25f; OutpostDistressChance = 0.3f;
+            OutpostQuietLess = 1; OutpostPushMore = 1; OutpostQuietRisk = 0.5f; OutpostPushRisk = 1.75f;
+            OutpostCheckInDays = 0; OutpostCheckInLess = 1;
+            OutpostDepletesAfter = 0; OutpostDepletedYield = 1; OutpostDistressChance = 0.3f;
             OutpostWorkshop = true; OutpostWorkshopKeep = 10; RadioBarterRate = 3;
-            OutpostBedBonus = 0.05f; OutpostFacilityBonus = 0.1f; OutpostCropBonus = 0.02f;
-            OutpostBedMax = 4; OutpostFacilityMax = 3; OutpostCropMax = 10; OutpostInvestCap = 0.5f;
+            OutpostBuiltBeds = 2; OutpostBuiltFacilities = 1; OutpostBuiltCrops = 10; OutpostBuiltBonus = 1;
             OutpostDefenseBlocks.Clear();
             OutpostStashAndHaul = false; OutpostHaulBase = 2; OutpostHaulPerLevel = 2; OutpostStashMax = 30;
             HomeStatusHud = true; BaseNoise = true; NoisePerMember = 2f; NoisePerGenerator = 6f; NoisePerFacility = 1f;
@@ -1781,7 +1851,7 @@ namespace SurvivorCommunity
                 DynamicProperties p = b.Properties;
                 ParseInt(p, "MaxMembers", ref MaxMembers, 1, 64);
                 ParseInt(p, "MaxFollowers", ref MaxFollowers, 0, 8);
-                ParseFloat(p, "FoodPerMemberDay", ref FoodPerMemberDay, 0f, 10f);
+                ParseInt(p, "MemberFoodPerDay", ref MemberFoodPerDay, 0, 10);       // round ie1: whole numbers, new names (ScEconomy)
                 ParseFloat(p, "AmmoPerRangedDay", ref AmmoPerRangedDay, 0f, 10f);
                 for (int i = 0; i < ScNames.ResourceCount; i++)
                 {
@@ -1790,7 +1860,7 @@ namespace SurvivorCommunity
                     PointsPerBundle[i] = v;
                 }
                 ParseBundles(p);                   // round 33b (ScConfigBundles.cs): opening bundles
-                ParseFloat(p, "WaterPerMemberDay", ref WaterPerMemberDay, 0f, 10f);
+                ParseInt(p, "MemberWaterPerDay", ref MemberWaterPerDay, 0, 10);
                 ParseInt(p, "WellWaterPerLevel", ref WellWaterPerLevel, 0, 100);
                 ParseInt(p, "DewWaterPerLevel", ref DewWaterPerLevel, 0, 100);
                 bool wellsOne = WellsPlaceLevelOne;
@@ -1830,8 +1900,8 @@ namespace SurvivorCommunity
                 ParseFloat(p, "RangedPerStar", ref RangedPerStar, 0f, 2f);
                 ParseFloat(p, "SpeedPerStar", ref SpeedPerStar, 0f, 1f);
                 ParseFloat(p, "HealthPerStar", ref HealthPerStar, 0f, 2f);
-                ParseFloat(p, "CookFoodPerStar", ref CookFoodPerStar, 0f, 0.5f);
-                ParseFloat(p, "CropFoodPerStar", ref CropFoodPerStar, 0f, 1f);
+                ParseInt(p, "CookStarsPerFood", ref CookStarsPerFood, 0, 7);        // round ie1
+                ParseInt(p, "CropsPerFood", ref CropsPerFood, 0, 1000);
                 ParseFloat(p, "MedicPerStar", ref MedicPerStar, 0f, 5f);
                 ParseFloat(p, "PackBonusPerStar", ref PackBonusPerStar, 0f, 0.4f);
                 ParseInt(p, "ScanRadius", ref ScanRadius, 0, 1000);
@@ -1884,8 +1954,10 @@ namespace SurvivorCommunity
                 ParseInt(p, "RunSnapMaxBytes", ref RunSnapMaxBytes, 4000, 60000);
                 ParseInt(p, "RunMaterializePerTick", ref RunMaterializePerTick, 1, 8);
                 ParseInt(p, "MaxRunners", ref MaxRunners, 0, 64);
-                ParseFloat(p, "RunYieldPerWitsStar", ref RunYieldPerWitsStar, 0f, 2f);
-                ParseFloat(p, "RunSpecialistPerStar", ref RunSpecialistPerStar, 0f, 2f);
+                ParseFloat(p, "RunYieldPerWitsStar", ref RunYieldPerWitsStar, 0f, 2f);   // round ie1: mining runs only
+                ParseInt(p, "RunWitsStarsPerBundle", ref RunWitsStarsPerBundle, 0, 7);
+                ParseInt(p, "RunSpecialistStarsPerBundle", ref RunSpecialistStarsPerBundle, 0, 7);
+                ParseInt(p, "HighMoraleRunBundles", ref HighMoraleRunBundles, 0, 10);
                 ParseFloat(p, "RunRiskPerCombatStar", ref RunRiskPerCombatStar, 0f, 0.5f);
                 ParseFloat(p, "RunDeathShare", ref RunDeathShare, 0f, 1f);
                 ParseInt(p, "RunWitsXp", ref RunWitsXp, 0, 500);
@@ -1908,38 +1980,34 @@ namespace SurvivorCommunity
                 ParseFloat(p, "DistressZombiesPerCombatStar", ref DistressZombiesPerCombatStar, 0f, 10f);
                 ParseInt(p, "DistressZombiesMax", ref DistressZombiesMax, 1, 100);
                 string zg; if (p.Values.TryGetValue("DistressZombieGroup", out zg) && !string.IsNullOrEmpty(zg)) DistressZombieGroup = zg.Trim();
-                ParseFloat(p, "RescueBonus", ref RescueBonus, 0.5f, 3f);
+                ParseFloat(p, "RescueBonus", ref RescueBonus, 0.5f, 3f);              // round ie1: mining runs only
+                ParseInt(p, "RescueBundles", ref RescueBundles, 0, 10);
                 ParseInt(p, "OutpostMinDistance", ref OutpostMinDistance, 0, 5000);
                 ParseInt(p, "OutpostMax", ref OutpostMax, 0, 16);
                 ParseInt(p, "OutpostMembersPerSlot", ref OutpostMembersPerSlot, 0, 100);
                 ParseInt(p, "OutpostLeadershipPerSlot", ref OutpostLeadershipPerSlot, 0, 100);
                 ParseInt(p, "OutpostFeeMats", ref OutpostFeeMats, 0, 1000);
                 ParseInt(p, "OutpostFeeFuel", ref OutpostFeeFuel, 0, 1000);
-                ParseFloat(p, "OutpostUpkeep", ref OutpostUpkeep, 0f, 100f);
-                ParseFloat(p, "OutpostHaulage", ref OutpostHaulage, 0f, 10f);
-                ParseFloat(p, "OutpostRunDownMult", ref OutpostRunDownMult, 0f, 1f);
-                ParseFloat(p, "OutpostOnFootMult", ref OutpostOnFootMult, 0f, 1f);
-                ParseInt(p, "OutpostPendingDays", ref OutpostPendingDays, 0, 60);
                 {
-                    string dup;
-                    if (p.Values.TryGetValue("OutpostDupMult", out dup) && !string.IsNullOrEmpty(dup))
-                    {
-                        var list = new List<float>();
-                        foreach (string part in dup.Split(','))
-                        {
-                            float f;
-                            if (float.TryParse(part.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out f)) list.Add(Math.Max(0f, f));
-                        }
-                        if (list.Count > 0) OutpostDupMult = list.ToArray();
-                    }
+                    // round ie1: whole numbers (ScEconomy); a level list "1,1,2" (a shorter list repeats its last entry)
+                    string lv;
+                    if (p.Values.TryGetValue("OutpostUpkeepByLevel", out lv) && !string.IsNullOrEmpty(lv)) ParseTierInts("OutpostUpkeepByLevel", lv, OutpostUpkeepByLevel, 0, 100);
+                    if (p.Values.TryGetValue("OutpostLevelYield", out lv) && !string.IsNullOrEmpty(lv)) ParseTierInts("OutpostLevelYield", lv, OutpostLevelYield, 0, 100);
                 }
+                ParseInt(p, "OutpostHaulPerFuel", ref OutpostHaulPerFuel, 0, 1000);
+                ParseInt(p, "OutpostRunDownLess", ref OutpostRunDownLess, 0, 100);
+                ParseInt(p, "OutpostOnFootMax", ref OutpostOnFootMax, 0, 100);
+                ParseInt(p, "OutpostPendingDays", ref OutpostPendingDays, 0, 60);
+                ParseInt(p, "OutpostDupLess", ref OutpostDupLess, 0, 100);
+                ParseInt(p, "OutpostTierBonusFrom", ref OutpostTierBonusFrom, 0, 10);
+                ParseInt(p, "OutpostTierBonus", ref OutpostTierBonus, 0, 100);
+                WarnRetiredEconomy(p);
                 ParseInt(p, "OutpostMoralePer", ref OutpostMoralePer, 0, 50);
                 ParseInt(p, "OutpostMoraleCap", ref OutpostMoraleCap, 0, 100);
                 ParseFloat(p, "OutpostLostPenalty", ref OutpostLostPenalty, 0f, 100f);
                 ParseFloat(p, "OutpostLostDecay", ref OutpostLostDecay, 0f, 100f);
-                ParseFloat(p, "OutpostStaffBonus", ref OutpostStaffBonus, 0f, 10f);
-                ParseFloat(p, "OutpostMatchBase", ref OutpostMatchBase, 0f, 10f);
-                ParseFloat(p, "OutpostMatchPerStar", ref OutpostMatchPerStar, 0f, 10f);
+                ParseInt(p, "OutpostStaffBundles", ref OutpostStaffBundles, 0, 100);
+                ParseInt(p, "OutpostMatchBonus", ref OutpostMatchBonus, 0, 100);
                 ParseInt(p, "OutpostStandInRange", ref OutpostStandInRange, 10, 500);
                 ParseFloat(p, "OutpostWalkInChance", ref OutpostWalkInChance, 0f, 1f);
                 ParseInt(p, "OutpostL2Mats", ref OutpostL2Mats, 0, 1000);
@@ -1948,27 +2016,23 @@ namespace SurvivorCommunity
                 ParseInt(p, "OutpostL3Mats", ref OutpostL3Mats, 0, 1000);
                 ParseInt(p, "OutpostL3Fuel", ref OutpostL3Fuel, 0, 1000);
                 ParseInt(p, "OutpostL3Days", ref OutpostL3Days, 0, 365);
-                ParseFloat(p, "OutpostL2Mult", ref OutpostL2Mult, 1f, 10f);
-                ParseFloat(p, "OutpostL3Mult", ref OutpostL3Mult, 1f, 10f);
-                ParseFloat(p, "OutpostUpkeepPerLevel", ref OutpostUpkeepPerLevel, 0f, 10f);
                 ParseInt(p, "OutpostClinicHeals", ref OutpostClinicHeals, 0, 20);
                 ParseFloat(p, "OutpostEscortRisk", ref OutpostEscortRisk, 0f, 1f);
                 ParseFloat(p, "OutpostEscortMax", ref OutpostEscortMax, 0f, 1f);
-                ParseFloat(p, "OutpostMotorPoolMult", ref OutpostMotorPoolMult, 1f, 10f);
-                ParseFloat(p, "OutpostSalvageMult", ref OutpostSalvageMult, 0f, 1f);
+                ParseInt(p, "OutpostMotorPoolBundles", ref OutpostMotorPoolBundles, 0, 100);
+                ParseInt(p, "OutpostSalvageCut", ref OutpostSalvageCut, 0, 1000);
                 ParseInt(p, "OutpostCanteenFloor", ref OutpostCanteenFloor, -100, 0);
                 ParseInt(p, "RadioScoutRange", ref RadioScoutRange, 100, 10000);
                 ParseInt(p, "RadioScoutCount", ref RadioScoutCount, 1, 10);
                 ParseInt(p, "RadioScoutDays", ref RadioScoutDays, 1, 60);
-                ParseFloat(p, "OutpostQuietMult", ref OutpostQuietMult, 0f, 1f);
-                ParseFloat(p, "OutpostPushMult", ref OutpostPushMult, 1f, 5f);
+                ParseInt(p, "OutpostQuietLess", ref OutpostQuietLess, 0, 100);
+                ParseInt(p, "OutpostPushMore", ref OutpostPushMore, 0, 100);
                 ParseFloat(p, "OutpostQuietRisk", ref OutpostQuietRisk, 0f, 1f);
                 ParseFloat(p, "OutpostPushRisk", ref OutpostPushRisk, 1f, 5f);
                 ParseInt(p, "OutpostCheckInDays", ref OutpostCheckInDays, 0, 365);
-                ParseFloat(p, "OutpostCheckInDecay", ref OutpostCheckInDecay, 0f, 1f);
-                ParseFloat(p, "OutpostCheckInFloor", ref OutpostCheckInFloor, 0f, 1f);
-                ParseFloat(p, "OutpostDepletion", ref OutpostDepletion, 0f, 100000f);
-                ParseFloat(p, "OutpostDepletedMult", ref OutpostDepletedMult, 0f, 1f);
+                ParseInt(p, "OutpostCheckInLess", ref OutpostCheckInLess, 0, 100);
+                ParseInt(p, "OutpostDepletesAfter", ref OutpostDepletesAfter, 0, 100000);
+                ParseInt(p, "OutpostDepletedYield", ref OutpostDepletedYield, 0, 100);
                 ParseFloat(p, "OutpostDistressChance", ref OutpostDistressChance, 0f, 1f);
                 {
                     string ws;
@@ -1976,13 +2040,10 @@ namespace SurvivorCommunity
                 }
                 ParseInt(p, "OutpostWorkshopKeep", ref OutpostWorkshopKeep, 0, 1000);
                 ParseInt(p, "RadioBarterRate", ref RadioBarterRate, 1, 20);
-                ParseFloat(p, "OutpostBedBonus", ref OutpostBedBonus, 0f, 1f);
-                ParseFloat(p, "OutpostFacilityBonus", ref OutpostFacilityBonus, 0f, 1f);
-                ParseFloat(p, "OutpostCropBonus", ref OutpostCropBonus, 0f, 1f);
-                ParseInt(p, "OutpostBedMax", ref OutpostBedMax, 0, 100);
-                ParseInt(p, "OutpostFacilityMax", ref OutpostFacilityMax, 0, 100);
-                ParseInt(p, "OutpostCropMax", ref OutpostCropMax, 0, 1000);
-                ParseFloat(p, "OutpostInvestCap", ref OutpostInvestCap, 0f, 5f);
+                ParseInt(p, "OutpostBuiltBeds", ref OutpostBuiltBeds, 0, 100);
+                ParseInt(p, "OutpostBuiltFacilities", ref OutpostBuiltFacilities, 0, 100);
+                ParseInt(p, "OutpostBuiltCrops", ref OutpostBuiltCrops, 0, 1000);
+                ParseInt(p, "OutpostBuiltBonus", ref OutpostBuiltBonus, 0, 100);
                 {
                     string def;
                     if (p.Values.TryGetValue("OutpostDefenseBlocks", out def) && def != null)
@@ -2752,11 +2813,11 @@ namespace SurvivorCommunity
                     }
                 }
                 parsed = true;
-                ScLog.Out("config: MaxMembers=" + MaxMembers + " MaxFollowers=" + MaxFollowers + " FoodPerMemberDay=" + FoodPerMemberDay
+                ScLog.Out("config: MaxMembers=" + MaxMembers + " MaxFollowers=" + MaxFollowers + " MemberFoodPerDay=" + MemberFoodPerDay + " cook/crops=" + CookStarsPerFood + "/" + CropsPerFood
                           + " AmmoPerRangedDay=" + AmmoPerRangedDay + " PointsPerBundle=[" + string.Join(",", Array.ConvertAll(PointsPerBundle, x => x.ToString())) + "]"
                           + " PostRadius=" + PostRadius + " AutoHomeFirstClaim=" + AutoHomeFirstClaim + " DefendBaseRadius=" + DefendBaseRadius + " LowMoraleDays=" + LowMoraleDays + " traits=" + Traits.Count
                           + " beds=" + BedBlocks.Count + " facilities=" + FacilityBlocks.Count + " favours=" + SuppliesFavours.Count
-                          + " WaterPerMemberDay=" + WaterPerMemberDay + " luxuryItems=" + LuxuryItems.Count
+                          + " MemberWaterPerDay=" + MemberWaterPerDay + " luxuryItems=" + LuxuryItems.Count
                           + " wells=" + WellBlocks.Count + "x" + WellWaterPerLevel + " dew=" + DewCollectorBlocks.Count + "x" + DewWaterPerLevel
                           + " upgrades=" + string.Join("/", Array.ConvertAll(FacilityUpgradeCost, x => x.ToString())) + (WellsPlaceLevelOne ? " (wells place L1)" : "")
                           + " drinks=" + DrinksLuxury + "lux+" + DrinksFood + "food +" + DrinksMorale + " for " + DrinksMinutes + "min"
@@ -3213,6 +3274,35 @@ namespace SurvivorCommunity
             v = tmp;
         }
 
+        /// <summary>
+        /// Round ie1: the settings the whole-number economy retired, each with what replaced it. An old config (a patch mod, an
+        /// edited copy) that still sets one loads without errors: the value is ignored with one warning, never misread as the new
+        /// kind (a stale "0.5" in a setting that is now a whole number).
+        /// </summary>
+        private static readonly string[] RetiredEconomy =
+        {
+            "FoodPerMemberDay", "MemberFoodPerDay", "WaterPerMemberDay", "MemberWaterPerDay",
+            "CookFoodPerStar", "CookStarsPerFood", "CropFoodPerStar", "CropsPerFood", "RunSpecialistPerStar", "RunSpecialistStarsPerBundle",
+            "OutpostUpkeep", "OutpostUpkeepByLevel", "OutpostUpkeepPerLevel", "OutpostUpkeepByLevel", "OutpostHaulage", "OutpostHaulPerFuel",
+            "OutpostRunDownMult", "OutpostRunDownLess", "OutpostOnFootMult", "OutpostOnFootMax", "OutpostDupMult", "OutpostDupLess",
+            "OutpostStaffBonus", "OutpostStaffBundles", "OutpostMatchBase", "OutpostMatchBonus", "OutpostMatchPerStar", "OutpostMatchBonus",
+            "OutpostL2Mult", "OutpostLevelYield", "OutpostL3Mult", "OutpostLevelYield", "OutpostMotorPoolMult", "OutpostMotorPoolBundles",
+            "OutpostSalvageMult", "OutpostSalvageCut", "OutpostQuietMult", "OutpostQuietLess", "OutpostPushMult", "OutpostPushMore",
+            "OutpostCheckInDecay", "OutpostCheckInLess", "OutpostCheckInFloor", "OutpostCheckInLess", "OutpostDepletion", "OutpostDepletesAfter",
+            "OutpostDepletedMult", "OutpostDepletedYield", "OutpostBedBonus", "OutpostBuiltBeds", "OutpostFacilityBonus", "OutpostBuiltFacilities",
+            "OutpostCropBonus", "OutpostBuiltCrops", "OutpostBedMax", "OutpostBuiltBeds", "OutpostFacilityMax", "OutpostBuiltFacilities",
+            "OutpostCropMax", "OutpostBuiltCrops", "OutpostInvestCap", "OutpostBuiltBonus",
+            "OutpostBase", "OutpostLevelYield", "OutpostTierMult", "OutpostTierBonusFrom", "OutpostDailyCap", "OutpostLevelYield",
+            "OutpostScavengeMult", "OutpostLevelYield",
+        };
+
+        private static void WarnRetiredEconomy(DynamicProperties p)
+        {
+            for (int i = 0; i + 1 < RetiredEconomy.Length; i += 2)
+                if (p.Values.ContainsKey(RetiredEconomy[i]))
+                    ScLog.Warn("config " + RetiredEconomy[i] + " is retired (round ie1, the whole-number economy) and ignored: see " + RetiredEconomy[i + 1]);
+        }
+
         /// <summary>A factor for the config line ("1.35"), invariant.</summary>
         private static string F2(float f) { return f.ToString("0.##", CultureInfo.InvariantCulture); }
 
@@ -3424,6 +3514,8 @@ namespace SurvivorCommunity
             if (string.IsNullOrEmpty(name)) return null;
             var t = new TraitDef { Name = name.Trim() };
             if (string.IsNullOrEmpty(spec)) return t;
+            float oldFood = 1f;          // round ie1: the retired food= multiplier, read into eats= below
+            bool hasEats = false;
             foreach (string part in spec.Split(','))
             {
                 string[] kv = part.Split('=');
@@ -3434,7 +3526,21 @@ namespace SurvivorCommunity
                     switch (k)
                     {
                         case "weight": t.Weight = Math.Max(0, int.Parse(v, CultureInfo.InvariantCulture)); break;
-                        case "food": t.FoodMult = float.Parse(v, CultureInfo.InvariantCulture); break;
+                        case "food": oldFood = Math.Max(0f, float.Parse(v, CultureInfo.InvariantCulture)); break;
+                        // ---- round ie1 (2026-11-19): whole-number keys (TraitDef) ----
+                        case "eats": t.Eats = Math.Max(0, int.Parse(v, CultureInfo.InvariantCulture)); hasEats = true; break;
+                        case "nohungermood": t.NoHungerMood = v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase); break;
+                        case "runbundles": t.RunBundles = Math.Max(0, int.Parse(v, CultureInfo.InvariantCulture)); break;
+                        case "runfrom": t.RunFrom = Math.Max(0, int.Parse(v, CultureInfo.InvariantCulture)); break;
+                        case "runkinds":
+                            foreach (string x in v.Split('/', '|', ';'))
+                            {
+                                Resource rk;
+                                if (x.Trim().Length == 0) continue;
+                                if (ScNames.TryResource(x.Trim(), out rk)) { if (!t.RunKinds.Contains(rk)) t.RunKinds.Add(rk); }
+                                else ScLog.Warn("config trait " + name + ": runkinds '" + x.Trim() + "' is not a resource - left out");
+                            }
+                            break;
                         case "morale": t.MoraleOffset = int.Parse(v, CultureInfo.InvariantCulture); break;
                         case "mood": t.MoodOffset = int.Parse(v, CultureInfo.InvariantCulture); break;
                         case "timid": t.Timid = v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase); break;
@@ -3478,6 +3584,13 @@ namespace SurvivorCommunity
                 {
                     ScLog.Warn("config trait " + name + ": cannot parse '" + part + "'");
                 }
+            }
+            // round ie1: an old table's food=1.5 still makes a big eater - read as eats=2 (rounded, half away from zero);
+            // food below 1 has no whole-number form and is ignored (everyone eats at least MemberFoodPerDay)
+            if (!hasEats && oldFood > 1f)
+            {
+                t.Eats = Math.Max(1, (int)Math.Round(oldFood * MemberFoodPerDay, MidpointRounding.AwayFromZero));
+                ScLog.Out("config trait " + t.Name + ": the old food=" + oldFood.ToString("0.##", CultureInfo.InvariantCulture) + " is read as eats=" + t.Eats + " (round ie1)");
             }
             return t;
         }

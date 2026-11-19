@@ -752,9 +752,9 @@ namespace SurvivorCommunity
             else
 #endif
             {
-                World yw = ScCommunity.World;                        // round m1t: Scavenger's chance rolled here, once a run
-                int y = Mathf.RoundToInt(ScRuns.Yield(m, m.RunKind, yw != null ? yw.GetGameRandom() : null) * Mathf.Clamp01(share));
-                m.RunCarry = rescued ? Mathf.RoundToInt(y * ScConfig.RescueBonus) : y;
+                // round ie1: whole bundles - a recall brings the share of the search done, rounded down; a rescue +RescueBundles
+                int y = (int)Math.Floor(ScRuns.Yield(m, m.RunKind) * Mathf.Clamp01(share) + 1e-4f);   // the epsilon: float noise in the share
+                m.RunCarry = rescued ? y + ScConfig.RescueBundles : y;
             }
             m.RollPending = !rescued;
             BeginLeg(m, RunLeg.Inbound, at, GatePoint(m, at, player), now);

@@ -58,8 +58,9 @@ namespace SurvivorCommunity
     ///   Light Sleeper  wake=1         ScSleep.MemberRefusal: her night lease closes (she wakes) while a horde is on its way
     ///                                 (called, with an arrival time) or fighting the base - not while one is held back.
     ///                  defense=1      ScDefence.Rating: +1 per fit resident with it.
-    ///   Scavenger      haul=1.1       ScRuns.Yield: the haul x1.1, the odd part of a bundle as a chance rolled once where
-    ///                                 the haul is fixed (ScRuns.Resolve, ScRunners.LeaveSite); ScMining.Mult.
+    ///   Scavenger      runbundles=1,runfrom=4  ScRuns.Yield (round ie1): +1 bundle on a supply run's haul of 4 or more
+    ///                                 (ScTraits.RunBundles; it was x1.1 with the odd part of a bundle as a chance).
+    ///                  haul=1.1       ScMining.Mult: a mining run's items x1.1 (mining is not part of the stockpile).
     ///   Haggler        barter=1       ScLifeSkills.RadioBarter: the radio barter gives 3 for 2 while she is at home.
     ///   Fast Healer    heal=0.5       ScStockpile.DailyConsume and ScDefence.Settle: her injury heals with no Meds bundle half the time.
     ///   Iron Stomach   sickness=0     needs the latrine (#8): stored, inert.
@@ -299,21 +300,8 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>
-        /// Scavenger: a run's whole-bundle haul x HaulMult, the odd part of a bundle as a chance, so +10% shows on small hauls too.
-        /// The chance is rolled once, where the haul is fixed (rnd: ScRuns.Resolve, ScRunners.LeaveSite); with rnd null only the
-        /// sure part counts (the console's "expected", which so never promises more than the run brings).
-        /// </summary>
-        public static int Haul(Member m, int whole, GameRandom rnd)
-        {
-            float mult = HaulMult(m);
-            if (whole <= 0 || Mathf.Approximately(mult, 1f)) return whole;
-            float total = whole * mult;
-            int sure = Mathf.FloorToInt(total + 1e-4f);
-            float frac = total - sure;
-            if (rnd == null || frac <= 1e-4f) return sure;
-            return sure + (rnd.RandomFloat < frac ? 1 : 0);
-        }
+        // round ie1: Haul (Scavenger's x1.1 with the odd part of a bundle as a chance) is gone - a supply run's trait bonuses are
+        // whole bundles (runbundles=, ScTraits.RunBundles); HaulMult above is a mining run's item multiplier only
 
         // ------------------------------------------------------------------ the body ----
 
@@ -388,8 +376,10 @@ namespace SurvivorCommunity
                       + " - " + ScTraits.Describe(name));
             }
             if (m.Traits.Count == 0) o.Add("no traits");
-            o.Add("now: mood on a night watch +" + NightWatchMood(m) + (SituationalMood(m) != 0 ? " (on it now)" : "") + ", wakes for a horde " + WakesForAttack(m)
-                  + ", defense +" + DefenseBonus(m) + ", haul x" + F(HaulMult(m)) + ", radio barter +" + RadioBarterExtra(m) + ", heals alone "
+            o.Add("now: eats " + ScTraits.FoodUnits(m) + " a day" + (ScTraits.NoHungerMood(m) ? " (hunger spares her mood)" : "")
+                  + ", supply runs up to +" + ScTraits.RunBundles(m, Resource.Food, 99) + " on food, +" + ScTraits.RunBundles(m, Resource.Materials, 99) + " on materials"
+                  + ", mood on a night watch +" + NightWatchMood(m) + (SituationalMood(m) != 0 ? " (on it now)" : "") + ", wakes for a horde " + WakesForAttack(m)
+                  + ", defense +" + DefenseBonus(m) + ", mining haul x" + F(HaulMult(m) * ScTraits.RunYieldMult(m)) + ", radio barter +" + RadioBarterExtra(m) + ", heals alone "
                   + (HealChance(m) * 100f).ToString("0", CultureInfo.InvariantCulture) + "%, books x" + F(BooksMult(m)) + ", may be a medic " + CanBeMedic(m)
                   + ", tool wear x" + F(WearMult(m)) + ", aim error x" + F(AimMult(m)) + "; waiting: sickness x" + F(SicknessMult(m)) + ", range XP x"
                   + F(RangeXpMult(m)) + ", gym XP x" + F(GymXpMult(m)));
@@ -400,7 +390,11 @@ namespace SurvivorCommunity
         public static string KeysText(TraitDef t)
         {
             var parts = new List<string> { "weight=" + t.Weight };
-            if (t.FoodMult != 1f) parts.Add("food=" + F(t.FoodMult));
+            if (t.Eats > 0) parts.Add("eats=" + t.Eats);                                         // round ie1: whole-number keys
+            if (t.NoHungerMood) parts.Add("nohungermood=1");
+            if (t.RunBundles > 0) parts.Add("runbundles=" + t.RunBundles);
+            if (t.RunKinds.Count > 0) parts.Add("runkinds=" + string.Join("/", t.RunKinds.ConvertAll(r => r.ToString()).ToArray()));
+            if (t.RunFrom > 0) parts.Add("runfrom=" + t.RunFrom);
             if (t.MoraleOffset != 0) parts.Add("morale=" + t.MoraleOffset);
             if (t.MoodOffset != 0) parts.Add("mood=" + t.MoodOffset);
             if (t.HasSkill) parts.Add("skill=" + t.SkillBonus + ":" + t.SkillBonusStars);

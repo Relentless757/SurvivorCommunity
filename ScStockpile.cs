@@ -272,10 +272,10 @@ namespace SurvivorCommunity
         // ---- daily use ----
 
         /// <summary>
-        /// One day of the community: the wells and dew collectors fill the water store, then food and water for every
-        /// member (fractions carry over), meds for injured members (one per injury, healing it), and the day's ammo
-        /// resupplies reported (no ammo upkeep), and the Meds the members' own medical restocks took (round md1). Appends a
-        /// summary line.
+        /// One day of the community: the wells and dew collectors fill the water store, the garden adds its food, then food and
+        /// water for every member who has arrived (round ie1: whole units from ScEconomy, nothing carried), meds for injured
+        /// members (one per injury, healing it), and the day's ammo resupplies reported (no ammo upkeep), and the Meds the
+        /// members' own medical restocks took (round md1). Appends a summary line.
         /// </summary>
         public static void DailyConsume(int day, StringBuilder summary)
         {
@@ -291,46 +291,36 @@ namespace SurvivorCommunity
                 return;
             }
 
-            // Gardening: living crops in the zone (last scan) feed the stockpile through the gardeners
-            int gardenStars = ScSkills.SpecialistStars(Specialty.Gardening);
-            int harvested = 0;
-            if (gardenStars > 0 && c.Crops > 0)
+            // Gardening: living crops in the zone (last scan) feed the stockpile through the gardeners - round ie1: 1 food per
+            // CropsPerFood crops, at most 1 per gardener star (ScEconomy.Harvest), the remainder dropped, never carried
+            int harvested = ScEconomy.Harvest();
+            if (ScSkills.SpecialistStars(Specialty.Gardening) > 0 && c.Crops > 0)
             {
-                c.HarvestCarry += c.Crops * ScConfig.CropFoodPerStar * gardenStars;
-                harvested = (int)Math.Floor(c.HarvestCarry);
-                c.HarvestCarry -= harvested;
                 if (harvested > 0) c.Add(Resource.Food, harvested);
                 foreach (var g in ScRegistry.Members.Values)
                     if (g.Specialty == Specialty.Gardening && g.IsHome && g.Status != MemberStatus.OnRun) ScSkills.AddSpecialtyXp(g, 2f);
             }
 
-            // food: FoodPerMemberDay bundles per member, trait multipliers, the best cook's discount, fractional carry
+            // food (round ie1): ScEconomy.FoodEaten - MemberFoodPerDay a member who has arrived (a trait's eats= instead), less
+            // the best cook's ceil(stars / CookStarsPerFood), never more than half. Whole units: a short day is a hungry day,
+            // nothing is owed or carried to the next
+            int foodRaw, cookSaved;
             Member cook;
-            int cookStars = ScSkills.BestSpecialist(Specialty.Cooking, out cook);
-            float cookMult = Math.Max(0.5f, 1f - ScConfig.CookFoodPerStar * cookStars);
-            float foodNeed = c.FoodCarry;
-            foreach (var m in ScRegistry.Members.Values) foodNeed += ScConfig.FoodPerMemberDay * ScTraits.FoodMult(m) * cookMult;
-            int foodWhole = (int)Math.Floor(foodNeed);
-            c.FoodCarry = foodNeed - foodWhole;
-            int foodHad = c.Get(Resource.Food);
-            int foodUsed = Math.Min(foodWhole, foodHad);
+            int foodWhole = ScEconomy.FoodEaten(out foodRaw, out cookSaved, out cook);
+            int foodUsed = Math.Min(foodWhole, c.Get(Resource.Food));
             c.Add(Resource.Food, -foodUsed);
             bool hungry = foodUsed < foodWhole;
-            if (hungry) c.FoodCarry = 0f;           // an unpaid day is simply a hungry day, not a growing debt
             c.Hungry = hungry;
 
-            // water (round wl): WaterPerMemberDay a member, fractional carry; short = thirsty, the hunger rules again
-            float waterNeed = c.WaterCarry + members * ScConfig.WaterPerMemberDay;
-            int waterWhole = (int)Math.Floor(waterNeed + 1e-4f);
-            c.WaterCarry = Math.Max(0f, waterNeed - waterWhole);
+            // water (round wl): MemberWaterPerDay a member who has arrived (ScEconomy.WaterDrunk); short = thirsty, the hunger rules again
+            int waterWhole = ScEconomy.WaterDrunk();
             int waterUsed = Math.Min(waterWhole, c.Get(Resource.Water));
             c.Add(Resource.Water, -waterUsed);
             bool thirsty = waterUsed < waterWhole;
-            if (thirsty) c.WaterCarry = 0f;
             c.Thirsty = thirsty;
 
             // meds: one bundle heals 1 + floor(medic stars x MedicPerStar) injuries
-            if (cookStars > 0 && foodUsed > 0 && cook != null) ScSkills.AddSpecialtyXp(cook, 2f);
+            if (cook != null && foodUsed > 0) ScSkills.AddSpecialtyXp(cook, 2f);
             Member medic;
             int medicStars = ScSkills.BestSpecialist(Specialty.Medicine, out medic);
             int healsPerBundle = 1 + (int)Math.Floor(medicStars * ScConfig.MedicPerStar);
@@ -385,35 +375,23 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Whole bundles of each resource the next rollover will want (the Home Status panel shows a stock below it in red):
-        ///   food      - what DailyConsume takes (members x FoodPerMemberDay x traits x the cook, plus the carried fraction),
-        ///               less what the gardeners will harvest first;
+        /// Whole bundles of each resource the next rollover will want (the Home Status panel shows a stock below it in red).
+        /// Round ie1: every figure is the rollover's own function (ScEconomy), so the panel and the rollover agree:
+        ///   food      - ScEconomy.FoodEaten (the members who have arrived, their traits, the cook), less ScEconomy.Harvest;
         ///   meds      - one bundle per healsPerBundle injured members the outpost clinic does not cover;
         ///   ammo      - no upkeep (D3): 1 while any member at home fights with a gun, so an empty stockpile (no resupply)
         ///               shows red;
-        ///   materials - the outposts' upkeep, debt included (ScOutposts.Daily);
-        ///   fuel      - the haulage for what the rollover will deliver (ScOutposts.ProjectedDelivery), debt included;
-        ///   water     - members x WaterPerMemberDay plus the carried fraction, less what the wells and dew collectors
-        ///               add first;
+        ///   materials - ScEconomy.Upkeep, the producing outposts' upkeep by level;
+        ///   fuel      - ScEconomy.Haulage of what the rollover will deliver (ScOutposts.ProjectedDelivery);
+        ///   water     - ScEconomy.WaterShortfall, what is drunk less what the wells and dew collectors add first;
         ///   luxury    - nothing (only the Activities spend it).
-        /// Without outposts there is no materials or fuel need, as ScOutposts.Daily clears the debts then.
         /// </summary>
         public static int[] NeedForRollover()
         {
             var need = new int[ScNames.ResourceCount];
-            Community c = ScRegistry.Community;
             if (ScRegistry.Members.Count == 0) return need;
-            need[(int)Resource.Water] = Math.Max(0, (int)Math.Floor(c.WaterCarry + ScRegistry.Members.Count * ScConfig.WaterPerMemberDay + 1e-4f) - Math.Max(0, c.HomeWater));
-
-            Member cook;
-            int cookStars = ScSkills.BestSpecialist(Specialty.Cooking, out cook);
-            float cookMult = Math.Max(0.5f, 1f - ScConfig.CookFoodPerStar * cookStars);
-            float food = c.FoodCarry;
-            foreach (var m in ScRegistry.Members.Values) food += ScConfig.FoodPerMemberDay * ScTraits.FoodMult(m) * cookMult;
-            int harvest = 0;
-            int gardenStars = ScSkills.SpecialistStars(Specialty.Gardening);
-            if (gardenStars > 0 && c.Crops > 0) harvest = (int)Math.Floor(c.HarvestCarry + c.Crops * ScConfig.CropFoodPerStar * gardenStars);
-            need[(int)Resource.Food] = Math.Max(0, (int)Math.Floor(food) - harvest);
+            need[(int)Resource.Water] = ScEconomy.WaterShortfall();
+            need[(int)Resource.Food] = Math.Max(0, ScEconomy.FoodEaten() - ScEconomy.Harvest());
 
             bool gunner = false;
             foreach (var m in ScRegistry.Members.Values)
@@ -421,15 +399,11 @@ namespace SurvivorCommunity
             need[(int)Resource.Meds] = MedsForRollover();
             need[(int)Resource.Ammo] = gunner ? 1 : 0;
 
-            // ScOutposts.Daily settles nothing without outposts (and clears the debts then)
             if (ScRegistry.Outposts.Count > 0)
             {
-                float upkeep = 0f;
-                foreach (Outpost o in ScRegistry.Outposts)
-                    if (o.State == OutpostState.Active || o.State == OutpostState.Contested) upkeep += ScOutpostPerks.UpkeepFor(o);
-                if (upkeep > 0f || c.UpkeepDebt > 0f) need[(int)Resource.Materials] = (int)Math.Floor(c.UpkeepDebt + upkeep + 1e-4f);
-                int delivered = ScOutposts.ProjectedDelivery(ScCommunity.Today + 1);
-                if (delivered > 0 || c.HaulDebt > 0f) need[(int)Resource.Fuel] = (int)Math.Floor(c.HaulDebt + ScConfig.OutpostHaulage * delivered + 1e-4f);
+                int day = ScCommunity.Today + 1;
+                need[(int)Resource.Materials] = ScEconomy.Upkeep(day);
+                need[(int)Resource.Fuel] = ScEconomy.Haulage(ScOutposts.ProjectedDelivery(day));
             }
             return need;
         }

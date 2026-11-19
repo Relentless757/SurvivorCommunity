@@ -111,11 +111,48 @@ namespace SurvivorCommunity
             return sb.Length > 0 ? sb.ToString() : "none";
         }
 
-        public static float FoodMult(Member m)
+        /// <summary>
+        /// Round ie1: the food she eats a day - MemberFoodPerDay, or the largest eats= of her traits (Bottomless Stomach 2).
+        /// ScEconomy.FoodFor is the one caller (it also leaves out a member still on the way).
+        /// </summary>
+        public static int FoodUnits(Member m)
         {
-            float f = 1f;
-            for (int i = 0; i < m.Traits.Count; i++) { TraitDef t = Find(m.Traits[i]); if (t != null) f *= t.FoodMult; }
-            return f;
+            int eats = 0;
+            if (m == null) return ScConfig.MemberFoodPerDay;
+            for (int i = 0; i < m.Traits.Count; i++) { TraitDef t = Find(m.Traits[i]); if (t != null && t.Eats > eats) eats = t.Eats; }
+            return eats > 0 ? eats : ScConfig.MemberFoodPerDay;
+        }
+
+        /// <summary>Round ie1: does the community's hunger leave her mood alone (nohungermood=1, Eats Like a Bird)?</summary>
+        public static bool NoHungerMood(Member m)
+        {
+            if (m == null) return false;
+            for (int i = 0; i < m.Traits.Count; i++) { TraitDef t = Find(m.Traits[i]); if (t != null && t.NoHungerMood) return true; }
+            return false;
+        }
+
+        /// <summary>
+        /// Round ie1: the bundles her traits add to a supply run of this kind (runbundles=, ScRuns.Yield), haul = the haul before
+        /// them. A trait limited to some kinds (runkinds=, Tinkerer: materials and fuel) counts only on those runs; one with
+        /// runfrom=N (Scavenger: 4) only when the haul with her other trait bonuses is at least N.
+        /// </summary>
+        public static int RunBundles(Member m, Resource kind, int haul)
+        {
+            if (m == null) return 0;
+            int plain = 0, from = 0;
+            for (int i = 0; i < m.Traits.Count; i++)
+            {
+                TraitDef t = Find(m.Traits[i]);
+                if (t == null || t.RunBundles <= 0 || t.RunFrom > 0 || (t.RunKinds.Count > 0 && !t.RunKinds.Contains(kind))) continue;
+                plain += t.RunBundles;
+            }
+            for (int i = 0; i < m.Traits.Count; i++)
+            {
+                TraitDef t = Find(m.Traits[i]);
+                if (t == null || t.RunBundles <= 0 || t.RunFrom <= 0 || (t.RunKinds.Count > 0 && !t.RunKinds.Contains(kind))) continue;
+                if (haul + plain >= t.RunFrom) from += t.RunBundles;
+            }
+            return plain + from;
         }
 
         public static int MoraleOffset(Member m)
@@ -145,6 +182,7 @@ namespace SurvivorCommunity
             return f;
         }
 
+        /// <summary>yield= of her traits: a mining run's items x this (round ie1: supply runs read RunBundles).</summary>
         public static float RunYieldMult(Member m)
         {
             float f = 1f;

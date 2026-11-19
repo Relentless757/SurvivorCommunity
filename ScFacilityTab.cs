@@ -333,19 +333,19 @@ namespace SurvivorCommunity
             int wells = CountSites(n => ScFacilities.WellLevel(TypeOf(n)) > 0), dews = CountSites(n => ScFacilities.IsDew(TypeOf(n)));
             bool partStations, partWater;
             MissingSites(out partStations, out partWater);
-            float drunk = ScRegistry.Members.Count * ScConfig.WaterPerMemberDay;
-            bool covered = c.HomeWater >= drunk - 0.01f;
+            int drunk = ScEconomy.WaterDrunk();          // round ie1: the rollover's figure, whole (members still on the way drink nothing)
+            bool covered = c.HomeWater >= drunk;
             var e = new FacilityEntry
             {
                 Key = Water,
                 Name = L("scUiFacWater"),
                 Icon = "ui_game_symbol_water",
-                Status = Fmt("scUiFacWaterRow", c.HomeWater, F1(drunk)),
+                Status = Fmt("scUiFacWaterRow", c.HomeWater, N(drunk)),
                 StatusColor = ScRegistry.Members.Count == 0 ? Body : covered ? Good : Warn,
-                Sub = covered ? L("scUiFacWaterCovered") : Fmt("scUiFacWaterShort", F1(Math.Max(0f, drunk - c.HomeWater))),
+                Sub = covered ? L("scUiFacWaterCovered") : Fmt("scUiFacWaterShort", N(ScEconomy.WaterShortfall())),
             };
             e.Fact("scUiFacWaterMade", N(c.HomeWater));
-            e.Fact("scUiFacWaterDrunk", F1(drunk));
+            e.Fact("scUiFacWaterDrunk", N(drunk));
             if (partWater)
             {
                 // the water made is the scan's total; the list lacks the sources of chunks not counted with their sites yet

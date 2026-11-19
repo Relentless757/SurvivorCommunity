@@ -591,7 +591,7 @@ namespace SurvivorCommunity
             {
                 result = DamagedResult;
                 o.DamagedUntil = ScCommunity.Today + Math.Max(1, ScConfig.OutpostDamagedDays);   // that many rollovers yield nothing
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskDamaged"), o.Name, ScConfig.OutpostDamagedDays, ScConfig.OutpostRepairMats), "ui_denied");
+                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskDamaged"), o.Name, ScConfig.OutpostDamagedDays, ScOutpostPerks.Salvaged(ScConfig.OutpostRepairMats)), "ui_denied");   // round ie1: the salvage yard's price, as Repair charges
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerDamaged"), o.Name));
                 ScLog.Out("outpost " + o.Id + " (" + o.Name + ") damaged (" + why + ", roll " + roll + ", security " + sec + ")");
             }

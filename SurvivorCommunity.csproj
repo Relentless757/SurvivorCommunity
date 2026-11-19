@@ -91,6 +91,7 @@
     <Compile Include="TEFeatureSCCommunity.cs" />
     <Compile Include="TEFeatureSCPacking.cs" />
     <Compile Include="ScStockpile.cs" />
+    <Compile Include="ScEconomy.cs" />
     <Compile Include="ScFacilities.cs" />
     <Compile Include="ScActivities.cs" />
     <Compile Include="ScScan.cs" />
