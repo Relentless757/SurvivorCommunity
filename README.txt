@@ -216,8 +216,8 @@ Skills
 Every survivor has four core skills, each 1 to 7 stars:
 
 - Cardio - What it does: +4% speed and +8% max health per star above the first; How it grows: Time spent following you
-- Wits - What it does: +15% supply run haul per star above the first; How it grows: Every day lived, and every supply
-  run
+- Wits - What it does: +1 supply run bundle at 3 stars, +2 at 6 (mining runs: +15% per star above the first); How it
+  grows: Every day lived, and every supply run
 - Fighting - What it does: +10% melee damage per star above the first; How it grows: Kills with a melee weapon
 - Shooting - What it does: +10% ranged damage per star above the first, and better aim (section 15); How it grows: Kills
   with a ranged weapon
@@ -240,10 +240,10 @@ Each survivor has one specialty, starting at 1 star and growing to 7. Their role
 
 - Medicine - Title: Medic; At home, each day: Your best medic stretches medical bundles: one bundle heals 1 + (stars x
   0.5, rounded down) injuries; Crafting skills: Medical
-- Cooking - Title: Cook; At home, each day: Your best cook cuts the community's food use by 8% per star (never below
-  half); Supply runs: Better food runs; Crafting skills: Food
-- Gardening - Title: Gardener; At home, each day: Living crops in the base become food: crops x 0.01 x all your
-  gardeners' stars a day; Supply runs: Better water runs; Crafting skills: Seeds
+- Cooking - Title: Cook; At home, each day: Your best cook saves food: 1 a day per 2 stars, rounded up (1 at 1 and 2
+  stars, 4 at 7), never more than half of what the community eats; Supply runs: Better food runs; Crafting skills: Food
+- Gardening - Title: Gardener; At home, each day: Living crops in the base become food: 1 a day per 10 crops, at most 1
+  per star of all your gardeners together; Supply runs: Better water runs; Crafting skills: Seeds
 - Mechanics - Title: Mechanic; Supply runs: Better materials and fuel runs; Crafting skills: Workstations, vehicles,
   traps, robotics
 - Chemistry - Title: Chemist; Supply runs: Better medicine runs; Crafting skills: Explosives, medical, electrician
@@ -269,7 +269,7 @@ Each survivor has one specialty, starting at 1 star and growing to 7. Their role
 - The new life skills work when they are used, with the best of them at home: a barter, a scouting, an opened bundle, a
   round of drinks, a repair duty. Each of those earns her specialty XP (Construction from the repairs she makes).
 - The daily specialty bonuses only count members who are stationed at home (not following you, not on a run).
-- A matching specialty adds +15% per star above the first to that kind of supply run (section 8).
+- A matching specialty adds +1 bundle at 3 stars, +2 at 6 to that kind of supply run (section 8).
 - Doing the job (cooking, healing, gardening, packing, a matching run, crafting) earns specialty XP.
 - How crafting uses the specialty is in section 7.
 
@@ -279,8 +279,8 @@ Traits
 Each survivor has 2 traits. Their effects show on the NPC as buffs with a description, and on the member's card.
 Survivors you already have keep their traits; only new survivors roll from the full list below.
 
-- Eats Like a Bird: Uses a quarter less food
-- Bottomless Stomach: Uses half again as much food
+- Eats Like a Bird: Eats 1 food a day like everyone, but going hungry does not lower their mood
+- Bottomless Stomach: Eats 2 food a day
 - Optimist: Community morale +3, own mood +5
 - Pessimist: Community morale -3, own mood -5
 - Loner: Own mood -5
@@ -294,14 +294,14 @@ Survivors you already have keep their traits; only new survivors roll from the f
 - Hardy: Own mood +3
 - Medic Training: Specialty is Medicine
 - Homesteader: Specialty is Gardening
-- Tinkerer: Specialty is Mechanics; supply runs bring back 15% more
-- Hoarder: Supply runs bring back 25% more; own mood -2
+- Tinkerer: Specialty is Mechanics; materials and fuel supply runs bring back 1 more bundle
+- Hoarder: Supply runs bring back 1 more bundle; own mood -2
 - Cheerful: Community morale +2, own mood +3
 - Insomniac: Own mood -3
 - Night Owl: Own mood +6 while on a watch at night
 - Light Sleeper: Up at once when a horde is on its way to the base or attacking it (out of bed, ready to fight; not
   while one is held back); base defense rating +1
-- Scavenger: Supply runs bring back 10% more (the odd part of a bundle as a chance)
+- Scavenger: A supply run that finds 4 bundles or more brings back 1 more
 - Haggler: While at home, radio barters bring one more back (3 for 2)
 - Fast Healer: An injury heals without a medical bundle half of the time
 - Iron Stomach: Coming later: never gets sick from the latrine
@@ -341,12 +341,12 @@ window and the Home Status dot are green from 50, amber below 50 and red below 2
 - Infestations near home: See section 14
 
 Each member's mood is the community's morale plus their own trait offset, -15 while injured, -10 while the community is
-hungry and -10 while it is thirsty, plus their Bond with you (below), and a guard's watch fatigue (section 9, Watch
-posts). Moods read happy, content, uneasy or miserable.
+hungry (not for Eats Like a Bird) and -10 while it is thirsty, plus their Bond with you (below), and a guard's watch
+fatigue (section 9, Watch posts). Moods read happy, content, uneasy or miserable.
 
 What morale does:
 
-- Above 75: everyone earns XP half again as fast, and supply runs bring back 25% more.
+- Above 75: everyone earns XP half again as fast, and supply runs bring back 1 more bundle.
 - Below 25 for 2 days in a row: the unhappiest member threatens to leave. Sort out food, beds and medicine: if morale is
   not back above 25 by the next day's rollover, they leave. The threat is withdrawn the moment morale climbs back.
 - Members never refuse an order because of their mood (by default). A death's morale hit fades in about three days.
@@ -377,10 +377,14 @@ Each member has a Bond with you, from -15 to +15, that adds to their mood. It co
 Daily needs
 ~~~~~~~~~~~
 
-At each day rollover (whether or not the base is loaded) the community uses supplies from the stockpile:
+At each day rollover (whether or not the base is loaded) the community uses supplies from the stockpile. Every amount is
+a whole number of bundle units: nothing is carried over to the next day, and nothing is owed.
 
-- Food: 0.5 bundle units per member a day (traits and your best cook change it; fractions carry over).
+- Food: 1 bundle unit per member a day (Bottomless Stomach eats 2), less what your best cook at home saves. Your
+  gardeners' harvest goes into the stockpile first.
 - Water: 1 bundle unit per member a day, minus what your dew collectors and wells make.
+- Members posted at an outpost or out on a run eat and drink as well. Members still on their way to the base (a group
+  that joined you) eat and drink nothing until they arrive.
 - Medical: one medical unit per injured member, which heals them (a good medic heals several with one).
 - Ammo has no daily upkeep. It is spent only when a member's gun is refilled at home or at an outpost (section 15).
 
@@ -920,11 +924,16 @@ walk back.
 What they bring back
 ~~~~~~~~~~~~~~~~~~~~
 
+Every step is a whole bundle unit:
+
 - 2 bundle units to start with.
-- +15% per Wits star above the first.
-- +15% per specialty star above the first for the matching job: Mechanics for materials and fuel, Chemistry for medical,
+- +1 at 3 Wits stars, +2 at 6.
+- +1 at 3 specialty stars, +2 at 6 for the matching job: Mechanics for materials and fuel, Chemistry for medical,
   Cooking for food, Gardening for water.
-- Trait bonuses (Tinkerer, Hoarder), x1.25 when morale is above 75, and an outpost perk (section 11).
+- +1 when morale is above 75, and +1 with a fuel outpost's motor pool (section 11).
+- Traits: Hoarder +1, Tinkerer +1 on materials and fuel runs, Scavenger +1 on a haul of 4 or more.
+- A bad roll halves the haul (rounded down); a runner called home early brings the share of the search done (rounded
+  down).
 
 Risk
 ~~~~
@@ -989,8 +998,8 @@ Put a Handheld Radio (section 10) in a member's inventory before a run, and:
   saying where they are, and a map marker follows them until the fight is over. Nothing spawns: you can go and help.
 - Distress calls: when they reach the site, a runner may be pinned down there (35%), radioing for help. A journal quest
   marks the building. Get within 70 m and zombies close in on them (more for a veteran: about 4 plus a share of your
-  gamestage, at most 24). Clear them and the run comes home with 25% more. Leave them for 12 game hours and the run ends
-  the way bad runs do.
+  gamestage, at most 24). Clear them and the run comes home with 1 more bundle. Leave them for 12 game hours and the run
+  ends the way bad runs do.
   - A runner rolls for distress only while carrying a radio, and the call is heard only while you carry a handheld or a
     radio station at home has power.
   - A runner you are escorting (within 70 m on arrival) does not roll for distress.
@@ -1226,14 +1235,27 @@ What it makes depends on the building:
 - Hardware stores, industry, junkyards: Materials
 - Gas stations, refineries: Fuel
 - Water works and water towers: Water
-- Anything else: Scavenging: a little of whatever you are shortest of
+- Anything else: Scavenging: whatever you are shortest of, 1 a day less than the level gives (at least 1)
 
-- Every rollover each outpost adds its yield to the stockpile, scaled by its tier, its level, the people posted there,
-  what you built inside it (beds, facilities, crops) and its mode (quiet, normal, push).
-- Upkeep costs materials and hauling costs fuel. Unpaid upkeep halves the yield; unpaid hauling cuts it to three
-  quarters.
+Every rollover each outpost sends home whole bundle units, step by step:
+
+- Its level: 1 / 2 / 3 at level 1 / 2 / 3, whatever it makes (medical and ammo too)
+- A big building (tier 4 or 5): +1
+- Each member posted there: +1
+- A posted member whose specialty fits (any stars): +1, once
+- Built up: 2 beds and 1 facility you built inside (a food outpost may count 10 crops for the facility): +1
+- Mode: quiet -1 (it can make nothing), push +1
+- Every outpost of the same kind after the best: -1 (never below 1)
+
+- Once an outpost makes 2 or more, 1 of them is its second resource: a fire station at level 2 sends 1 medical and 1
+  fuel, an army site 1 ammo and 1 medical. There is no daily cap.
+- Upkeep: 1 building material a day for a level 1 or 2 outpost, 2 for level 3. An outpost that is damaged or has
+  sleepers back (contested) makes nothing and pays nothing that day; idle ones neither.
+- Hauling: 1 fuel per 5 bundles delivered that day (the rest are free).
+- Nothing is owed: the stockpile pays what it can. A day it cannot pay the whole upkeep, the network is run-down: each
+  outpost makes 1 less (it can make nothing) until a day the upkeep is paid in full. A day it cannot pay the hauling,
+  the outposts go on foot: each makes at most 2 until the hauling is paid in full.
 - Without power at the home radio, bundles wait at the outpost (up to 3 days' worth) and arrive once it reports in.
-- More outposts of the same kind give less each.
 
 At the outpost (the claim's radial)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1248,17 +1270,20 @@ People, levels and perks
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Post members at an outpost from the Outposts tab (Assign): one post, and a second at level 2. Posted members are away
-  from home like runners, still eat, and add yield (more when their specialty fits). While you visit, their stand-ins
-  guard the claim. If a stand-in dies there, that member died.
+  from home like runners, still eat and drink, and add 1 bundle a day each (1 more once when one's specialty fits: cooks
+  and gardeners for food, medics and chemists for medical, good shots for ammo, craftsmen for materials, mechanics for
+  fuel, gardeners for water). While you visit, their stand-ins guard the claim. If a stand-in dies there, that member
+  died.
 - Levels: level 2 costs 4 materials and 2 fuel (held 3 days first), level 3 costs 8 materials and 4 fuel (held 7 days,
-  and someone must be posted there).
-- Modes: quiet halves the yield and the risk; push gives half again as much at a higher risk.
+  and someone must be posted there). Each level makes 1 more a day; level 3 costs 1 more upkeep.
+- Modes: quiet makes 1 less a day at half the risk; push makes 1 more at a higher risk.
 - Perks, one per kind of producing outpost:
   - Canteen (food): hunger hurts morale less.
   - Field clinic (medical): one injury healed free each day.
   - Armed escort (ammo): supply runs are safer.
-  - Salvage yard (materials): outpost fees and upgrades cost less.
-  - Motor pool (fuel): supply runs bring back more.
+  - Salvage yard (materials): outpost fees, upgrades and repairs cost 1 building material less (never below 1).
+    Establishing then costs 1 material and 1 fuel, level 2 3 materials and 2 fuel, level 3 7 and 4, a repair 1.
+  - Motor pool (fuel): supply runs bring back 1 more bundle.
   - Cistern (water): thirst hurts morale less.
 - Workshops: posted crafters and chemists turn surplus materials and fuel into ammo and medical.
 - Staffed outposts sometimes draw survivors in, and runners in distress sometimes hole up at an outpost.
@@ -1983,8 +2008,10 @@ Community
 Needs and morale
 ~~~~~~~~~~~~~~~~
 
-- FoodPerMemberDay = 0.5: Food units each member eats a day
-- WaterPerMemberDay = 1: Water units each member drinks a day
+- MemberFoodPerDay = 1: Food units each member eats a day (a whole number)
+- MemberWaterPerDay = 1: Water units each member drinks a day (a whole number)
+- CookStarsPerFood / CropsPerFood = 2 / 10: The cook saves 1 food a day per this many stars (rounded up); the garden
+  makes 1 food per this many crops
 - PointsPerBundleFood (and ...Water, ...Meds, ...Ammo, ...Materials, ...Fuel, ...Luxury) = 400 (200, 300, 2000, 1000,
   600, 300): Trade value that makes one bundle unit
 - LuxuryItems = beer, Grandpa's drinks: Items that pack as luxuries
@@ -2033,6 +2060,9 @@ Supply runs and radio
 - RunHomeBelowHealth = 0.35: A runner this hurt (share of her max health) with nothing to heal with gives the job up and
   comes home (0: never)
 - RunYieldBase / RunRiskBase = 2 / 0.15: Base haul in units, and base risk
+- RunWitsStarsPerBundle / RunSpecialistStarsPerBundle = 3 / 3: A run brings 1 more unit per this many Wits stars, and
+  per this many stars of the matching specialty
+- HighMoraleRunBundles / RescueBundles = 1 / 1: Units more from a run while morale is high, and from a run you rescued
 - RadioOnlyAirdrops = true: Air drops only come when the radio requests them (false: vanilla's scheduled drops)
 - RadioCallDays = 2: Days between calls for survivors
 - RadioDistressChance = 0.35: Chance a runner gets pinned down at the site
@@ -2235,6 +2265,9 @@ Raiders, outposts and the world
 - RaiderTurretsAsEnemies = true: Turrets and motion sensors treat raiders as enemies
 - RaiderRadioChance = 0.04: Chance a dead raider drops a handheld radio
 - OutpostMinDistance / OutpostMax = 150 / 4: Outposts' distance from home, and the most you can hold
+- OutpostLevelYield / OutpostUpkeepByLevel = 1,2,3 / 1,1,2: What an outpost makes a day, and its upkeep in building
+  material, by level
+- OutpostHaulPerFuel = 5: Bundles delivered per unit of fuel paid for hauling
 - OutpostAttacks = true: Outpost risk: attacks, sieges, squatters, raider demands
 - OutpostGoodNews = true: Outposts sometimes find caches
 - Enclaves = true: Enclaves on the map

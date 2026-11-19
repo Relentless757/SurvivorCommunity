@@ -9,8 +9,8 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 
 - `sc poi` shows the POI you stand in: what it would produce, why, and whether it is cleared.
 - `sc poi near 500` lists outpost candidates around you.
-- `sc outpost list` shows each outpost's type, level, mode and state, and the network's radio state and debts.
-- `sc outpost yield` shows tonight's numbers.
+- `sc outpost list` shows each outpost's type, level, mode and state, and the network's radio state, upkeep and haulage.
+- `sc outpost yield` shows each outpost's whole-number steps and tonight's numbers.
 - `sc outpost security <id>` gives the security breakdown and the attack chance.
 
 **Radio**
@@ -36,6 +36,67 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc day` simulates one rollover, outposts included.
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
+
+## Round ie1 (2026-11-19): whole-number economy
+
+Why: your decisions on the integer economy (`research/balance/INTEGER_ECONOMY.md`, section 7). Every daily change to the
+stockpile is a whole number: 1 food and 1 water a member, outposts 1 / 2 / 3 a day by level plus whole steps, upkeep 1 /
+1 / 2 building material by level, 1 fuel per 5 bundles hauled, no hidden fractions and no debt. The rollover, the
+windows, the Home Status panel, `sc status`, `sc outpost yield` and morale now read the same functions (`ScEconomy.cs`),
+so they must always agree. Start-up must say `patch verification: all 213 targets patched`, the `config:` line shows
+`MemberFoodPerDay=1 cook/crops=2/10 ... MemberWaterPerDay=1`, and there is no `is retired (round ie1` warning.
+
+- [ ] **Old save loads:** load a save from before this build that has members and outposts. No errors in the log;
+      `sc outpost list` shows "upkeep N mats a day, haulage N fuel tonight" (no "debt"), and the outposts' rows in the
+      community window show whole numbers ("+1 F/day").
+- [ ] **Food doubles:** F1, `sc status`: the "next rollover: food N (N eaten)" line, N = the members who have arrived (a
+      Bottomless Stomach member counts 2). `sc give food 10`, then `sc day`: the day's message says "used N food" and
+      `sc status` shows the stock 10 - N lower (plus any garden). The Home Status panel shows the food red while the stock
+      is under N.
+- [ ] **A hungry day, whole:** `sc give food -999` (empties it), `sc day`: "NOT ENOUGH FOOD, your survivors went hungry". `sc members`: every mood is 10 lower,
+      except an Eats Like a Bird member's (`sc traits <name> set EatsLikeABird` makes one). `sc give food 20`, `sc day`:
+      not hungry, and the stock went down by exactly N.
+- [ ] **The cook:** `sc spec <member at home> set Cooking 3`, `sc status`: "cook <name> -2" (1 at 1 or 2 stars, 4 at 7);
+      the saving is never more than half of what is eaten. `sc day`: "used" is that much lower.
+- [ ] **The garden:** a gardener at home (`sc spec <member> set Gardening 2`) and at least 20 living crops in the base
+      (`sc scan` counts them): `sc status` shows "garden +2" (1 per 10 crops, at most 1 per star); `sc day`: "the garden
+      gave 2 food". With 9 crops it gives nothing.
+- [ ] **Days left are whole:** `sc morale`: the food line ends " (N days left)" with N whole, " (1 day left)" for one, and
+      counts the cook (a cook makes it longer). The community window's "N days remaining" says the same.
+- [ ] **Members on the way eat nothing:** `sc enclave join <id> now` with an enclave that would join: `sc status` says
+      "N on the way eat nothing yet" and its food and water count only those who have arrived; `sc day` takes only that.
+- [ ] **Outpost steps:** `sc outpost yield` shows each outpost as "level 1 1 = 1 -> tonight +1 food a day, upkeep 1".
+      `sc outpost level <id> 2`: "level 2 2", upkeep 1; `sc outpost level <id> 3`: "level 3 3", upkeep 2. `sc outpost
+      post <id> <member>`: "+ staff 1", and "+ match 1" for a fitting specialty (a gardener at a water outpost too).
+      `sc outpost mode <id> push`: "+ push 1"; `quiet` on a level 1: "= 0 -> tonight nothing a day". A tier 4 or 5
+      building shows "+ tier 1".
+- [ ] **The window agrees:** on the Outposts tab the row (e.g. "+3 F/day"), the detail ("+3 food a day"), each staffer's
+      "+1 a day" (the matching one "+2 a day"), "Level 2 - 2 a day" and the Costs line "N building material, N fuel a
+      day" are the numbers `sc outpost yield` printed. Then `sc day`: the outposts' line delivers exactly that and pays
+      "(upkeep N building material, haulage N fuel)" as the Costs line said; the Home Status panel's materials and fuel
+      went red beforehand if the stock was short.
+- [ ] **A second resource:** a fire station (or an army site, a gas station) at level 2 makes "+1 medical, +1 fuel a day"
+      (its second resource once it makes 2 or more); at level 1 only its first.
+- [ ] **Outposts of a kind:** with two food outposts, the weaker one makes 1 less (never below 1) in `sc outpost yield`.
+- [ ] **No upkeep while contested:** `sc outpost state <id> Contested`: `sc outpost yield` says "makes nothing and pays no
+      upkeep", and the network's upkeep drops by its level's 1 or 2. (At the next rollover a cleared building turns
+      Active again by itself.) `sc outpost state <id> Active` puts it back.
+- [ ] **Run-down, no debt:** `sc give mats -999`, `sc day`: "Outposts are run-down ... Each makes 1 less a day";
+      `sc outpost yield` shows "(run-down: -1 each)" and every outpost 1 less (a level 1 makes nothing). `sc give mats
+      20`, `sc day`: "Outposts are back to full work" (that day's delivery is still the run-down one), and the next `sc
+      day` delivers in full. Nothing more is taken than the day's upkeep.
+- [ ] **On foot:** `sc outpost pending <id> 9` (so at least 5 bundles come home), `sc give fuel -999`, `sc day`: "the
+      outposts carry on foot (at most 2 a day each)"; `sc outpost yield` shows "(on foot: at most 2 each)". `sc give fuel
+      10`, `sc day`, `sc day`: back to full.
+- [ ] **Salvage yard:** with a producing materials outpost, the Outposts tab's next level reads "Next: 3 building material, 2
+      fuel" at level 1 (7 and 4 at level 2), a damaged outpost's button "Repair (1)", and a new outpost costs 1 building
+      material and 1 fuel.
+- [ ] **Supply runs:** `sc run <member> food` prints "(expected 2)" at 1 or 2 Wits stars. `sc xp <member> wits 60` (3
+      stars): 3. `sc traits <member> add Hoarder`: +1. Tinkerer: +1 on `mats` and `fuel`, nothing on `food`. Scavenger: +1
+      only when the run would bring 4 or more. Above 75 morale (`sc morale 80`, then `sc morale -1`): +1. The run comes
+      back with that number (half, rounded down, when hurt).
+- [ ] **Save and reload:** save, quit, load: the stock, the outposts' "+N/day" rows and the run-down / on-foot state are
+      as they were, and `sc outpost list` has no fractions anywhere.
 
 ## Round tw1 (2026-11-18): the Guard Tower's paint
 

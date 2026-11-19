@@ -2,6 +2,48 @@ Next pre-release (not released yet)
 ===================================
 
 
+Whole-number economy
+--------------------
+- Every daily change to the stockpile is a whole number now. Nothing is carried over in hidden fractions and nothing is
+  owed: what the windows show ("+2 food a day") is what arrives, every day, instead of 1, 1, 1, 1, 2.
+- Food use doubles: each member eats 1 food a day (it was half a bundle). On the first day after the update your food
+  stock lasts half as long as it did, so the days of food left and the food part of morale drop at once, and a community
+  with little food can go hungry on the first rollover. Top up the food, or send a food run, when you load.
+- Water is still 1 a day per member. Members still on their way to the base (a whole group that joined you) eat and
+  drink nothing until they arrive. Members posted at an outpost or out on a run eat and drink as before.
+- Bottomless Stomach eats 2 food a day. Eats Like a Bird eats 1 like everyone, but going hungry does not lower their
+  mood.
+- The cook at home saves 1 food a day per 2 stars, rounded up (1 at 1 or 2 stars, 4 at 7), never more than half of what
+  the community eats. The days of food left in the morale breakdown and the community window now count the cook.
+- The garden makes 1 food a day per 10 living crops, at most 1 per star of all your gardeners at home.
+- Outposts make 1, 2 or 3 bundles a day by level, whatever they make (medical and ammo too). Then: +1 for a tier 4 or 5
+  building, +1 per member posted, +1 once when a posted member's specialty fits (gardeners now fit water outposts too),
+  +1 built up (2 beds and 1 facility you built inside; a food outpost may count 10 crops for the facility), quiet -1 (it
+  can make nothing) and push +1. Every outpost of the same kind after the best makes 1 less (never below 1). Once an
+  outpost makes 2 or more, 1 of them is its second resource: a fire station at level 2 sends 1 medical and 1 fuel. There
+  is no daily cap any more.
+- Upkeep is 1 building material a day per outpost at level 1 and 2, and 2 at level 3 (a level 1 outpost cost almost
+  nothing before). An outpost that is damaged or has its sleepers back makes nothing and now pays nothing that day.
+  Hauling costs 1 fuel per 5 bundles delivered that day.
+- No outpost debt. A day the stockpile cannot pay the whole upkeep, the outposts are run-down: each makes 1 less a day
+  until a day the upkeep is paid in full. A day it cannot pay the hauling, they carry on foot: at most 2 a day each.
+- Supply runs bring whole bundles: 2, +1 at 3 Wits stars and +2 at 6, the same again for the matching specialty, +1
+  while morale is above 75, +1 with a fuel outpost's motor pool, and +1 when you rescue the runner. Hoarder +1 (now on a
+  2-bundle run too), Tinkerer +1 on materials and fuel runs, Scavenger +1 on a run that finds 4 or more (no dice roll
+  any more). A hurt runner brings half, rounded down. Mining runs are unchanged.
+- Salvage yard: 1 building material less on every outpost fee, upgrade and repair (never below 1). Establishing an
+  outpost then costs 1 material and 1 fuel, and a repair 1 (before, it lowered neither).
+- Every number in the windows is whole: an outpost's row and its yield, a staffer's "+1 a day", "Level 2 - 2 a day",
+  "(+1 built up)", the network's costs ("2 building material, 1 fuel a day", no more "about 0.29 fuel"), the water
+  facility's "drunk a day" and the days left in the morale breakdown. "sc status" now shows the next rollover's food,
+  water, upkeep and hauling; "sc outpost yield" shows each outpost's steps.
+- Settings: the old fractional settings have new whole-number names ("MemberFoodPerDay", "CookStarsPerFood",
+  "CropsPerFood", "OutpostLevelYield", "OutpostUpkeepByLevel", "OutpostHaulPerFuel" and more; README section 20). A
+  config that still sets an old one loads without errors, and the log says it is ignored.
+- Saves load as they are. The hidden fractions they carried (less than one bundle each) and any outpost debt are
+  dropped.
+
+
 Fixes
 -----
 - The Guard Tower's paint is old wood again, as it was in 3.2. The tower was saved in a game that had OcbCustomTextures
@@ -41,10 +83,11 @@ Enclaves speak on the radio
 Traits and life skills
 ----------------------
 - Twelve new traits: Night Owl (happier on a night watch), Light Sleeper (up at once for a horde; +1 base defense),
-  Scavenger (+10% from supply runs), Haggler (radio barter at 3 for 2), Fast Healer (heals an injury without medical
-  supplies half the time), Bookworm (+50% from magazines), Squeamish (never the medic), Clumsy (the tools she chops,
-  mines and digs with wear 50% faster) and Steady Hands (a fifth less aim error), each with its own icon. Iron Stomach,
-  Gun Nut and Brawler wait for the latrine, range and gym, and say "(coming later)" on the card.
+  Scavenger (1 more bundle from a supply run that finds 4 or more), Haggler (radio barter at 3 for 2), Fast Healer
+  (heals an injury without medical supplies half the time), Bookworm (+50% from magazines), Squeamish (never the medic),
+  Clumsy (the tools she chops, mines and digs with wear 50% faster) and Steady Hands (a fifth less aim error), each with
+  its own icon. Iron Stomach, Gun Nut and Brawler wait for the latrine, range and gym, and say "(coming later)" on the
+  card.
 - Clashing traits never come together: Optimist and Pessimist, Cheerful and Pessimist, Hardy and Pessimist, Loner and
   People Person, Eats Like a Bird and Bottomless Stomach, Veteran and Cowardly, Brawler and Cowardly, Medic Training and
   Squeamish, Clumsy and Steady Hands.

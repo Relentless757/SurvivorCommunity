@@ -132,9 +132,12 @@ NPCs but cannot manage a community (v2).
   medical / ammo: a Small from tier 1, Medium from tier 2, Large at tier 3; resource rewards offer a materials
   or fuel bundle). Pop-N-Pills crates carry medical bundles and Shamway crates food and water bundles more often
   than anything else (Small 15% + Medium 5%; water 12% + 4%) - the only place water bundles are found.
-- **Daily needs.** At each day rollover the community eats `FoodPerMemberDay` (0.5) food bundles per
-  member (trait multipliers apply, fractions carry over) and uses one medical bundle per injured member
-  (which heals them). This happens whether or not the base is loaded. **Ammo has no daily upkeep:** it is
+- **Daily needs.** At each day rollover the community eats `MemberFoodPerDay` (1) food bundle per
+  member (a trait's `eats=` instead: Bottomless Stomach 2; members still on their way to the base eat nothing),
+  less what the best cook saves, and uses one medical bundle per injured member (which heals them). Round ie1:
+  every daily change to the stockpile is a whole number - nothing is carried to the next day and nothing is
+  owed; one function per flow in `ScEconomy.cs` feeds the rollover, the windows, the Home Status panel, the
+  console and the morale estimate alike. This happens whether or not the base is loaded. **Ammo has no daily upkeep:** it is
   spent only when a survivor's gun is refilled in the base or at an outpost (see *Ammo* under the survivors
   below), and the day's report counts the ammo bundles that took. A tooltip and the ledger (`sc status`) report
   what was used, whether anyone went hungry, and whether a survivor ran low while the stockpile had no ammo; the
@@ -162,7 +165,7 @@ NPCs but cannot manage a community (v2).
   barrel small, the four-barrel set medium and large).
 - **Water** (`Resource.Water`): any `drinks` item that hydrates (a `$waterAmountAdd` or water-stat effect above 0)
   and is not alcohol - river and boiled water, tea, coffee, juice, Mega Crush, smoothies. Stews and canned soups
-  hydrate too but are tagged `food` and stay food. Members drink `WaterPerMemberDay` (1) a day; short of it the
+  hydrate too but are tagged `food` and stay food. Members drink `MemberWaterPerDay` (1) a day; short of it the
   community is **thirsty**, the hunger rules again on top of hunger (morale -20 - a water outpost's cistern floors
   it at `OutpostCisternFloor` -10 - every mood -10, `buffSCThirsty` -10% run speed and damage). Water bundles
   are loot only in Shamway crates.
@@ -170,8 +173,8 @@ NPCs but cannot manage a community (v2).
   window's run picker; water outposts' POIs first; a **gardener** is the water specialist); the **radio barter**
   (water can be given or asked for; luxuries cannot); **water outposts** (row `waterworks`: the Water Works, the water
   towers - tier 0 and allowed anyway through `OutpostAnyTierRows` - and modded wells, cisterns, aqueducts,
-  watering holes; `OutpostBase` water 1.5 a day at tier 2; a scavenge outpost may fetch water when it runs
-  lowest); and **facilities inside the home zone**, counted with the base's scan:
+  watering holes; 1 / 2 / 3 water a day by level like every outpost, and a gardener posted there is its
+  matching specialty; a scavenge outpost may fetch water when it runs lowest); and **facilities inside the home zone**, counted with the base's scan:
   - **wells** (`V3-OakravenWaterFillers`): the five models are levels 1-5 (`WellBlocks`), `WellWaterPerLevel`
     (2) water a day per level - 2/4/6/8/10. The well kit places Level 1 only (`WellsPlaceLevelOne`).
   - **dew collectors** (vanilla, `DewCollectorBlocks`): `DewWaterPerLevel` (1) a day per level - 1..5. Their
@@ -200,13 +203,14 @@ NPCs but cannot manage a community (v2).
   mod's cvars, so they survive reloads and show in `sc members`. XP: kills (Fighting or Shooting by the
   weapon held), time spent following you (Cardio, one point per `FollowXpSeconds`), every day lived
   (Wits, `DailyWitsXp`).
-- **Specialties** work at the day rollover, for stationed members only. The best **cook** cuts food use
-  (`CookFoodPerStar`, floor 50%). **Gardeners** turn living crops inside the base into food bundles
-  (`CropFoodPerStar` x stars per crop per day). A **medic** stretches medical bundles (one bundle heals
+- **Specialties** work at the day rollover, for stationed members only. The best **cook** saves 1 food a
+  day per `CookStarsPerFood` (2) stars, rounded up, never more than half the day's food. **Gardeners** turn
+  living crops inside the base into 1 food bundle per `CropsPerFood` (10) crops, at most 1 per star of all
+  the gardeners at home. A **medic** stretches medical bundles (one bundle heals
   1 + floor(stars x `MedicPerStar`) injuries). **Craftsmen** lower the packing threshold at the station
   (`PackBonusPerStar`, floor 60%). Mechanics and Chemistry pay off on supply runs (milestone 5). Doing the
   job earns specialty XP.
-- **Traits** now show on the NPC as buffs with a description, food-use multipliers apply, Quick Study
+- **Traits** now show on the NPC as buffs with a description, `eats=` and `nohungermood=` apply, Quick Study
   speeds XP, and **Cowardly** survivors flee instead of fighting (XNPCCore's own Flee action).
 - **Hungry / Injured** are real: a community out of food makes every member 10% slower and weaker,
   an untreated injury 15-20%, until the next rollover with supplies.
@@ -259,10 +263,12 @@ NPCs but cannot manage a community (v2).
   or their dialog (*I need you to go find supplies* > what to look for). Only a stationed, uninjured
   survivor with mood 25 or better goes, at most `MaxRunners` (3) at once. They vanish from the base
   (hidden and parked in place, not teleported) and are back at the next day rollover after `RunDays` (1).
-- **What they bring back**: `RunYieldBase` (2) bundles, +15% per Wits star above the first, +15% per
-  specialty star for the matching job (Mechanics for materials and fuel, Chemistry for medicine, Cooking
-  for food), trait multipliers (Tinkerer, Hoarder), and x1.25 when morale is above 75. Straight into the
-  stockpile before that day's needs are taken.
+- **What they bring back** (whole bundles, round ie1): `RunYieldBase` (2), +1 per `RunWitsStarsPerBundle`
+  (3) Wits stars, +1 per `RunSpecialistStarsPerBundle` (3) stars of the matching specialty (Mechanics for
+  materials and fuel, Chemistry for medicine, Cooking for food, Gardening for water), the traits' `runbundles=`
+  (Hoarder +1, Tinkerer +1 on materials and fuel, Scavenger +1 on a haul of 4 or more), `HighMoraleRunBundles`
+  (1) when morale is above 75 and the motor pool's `OutpostMotorPoolBundles` (1). Straight into the stockpile
+  before that day's needs are taken.
 - **Risk**: `RunRiskBase` (15%) minus 2% per Fighting and Shooting star above the first. A bad roll means
   they come back injured with half the haul, or - a quarter of bad rolls - never come back: a death like
   any other (morale penalty, deaths list); their hidden entity is removed when its chunk next loads.
@@ -367,7 +373,7 @@ walk back.
   (`RadioDistressChance`): a quest marks the building they are pinned in. Get within `RescueTriggerRange`
   and the survivor appears there with zombies closing in - `DistressZombiesBase` plus your gamestage, but
   never fewer than `DistressZombiesPerCombatStar` per combat star they have, so a veteran calling for
-  help means real trouble. Clear them and the run comes home safe with `RescueBonus` on the haul; ignore
+  help means real trouble. Clear them and the run comes home safe with `RescueBundles` (1) more (a mining run: `RescueBonus` x its items); ignore
   the call and the run ends the way bad runs do. If the survivor falls out there, they are dead.
 - The radio is also what outposts report in to (see **Outposts**).
 - **Enclaves (E6).** The window's right-hand column lists the enclaves you know, their open requests and a siege call
@@ -390,11 +396,16 @@ working with the outpost and the home both unloaded. The in-game checklist is `T
 - **What it makes** depends on what the building is (`sc poi`, and the `OutpostRows` / `OutpostPrefabs` tables):
   groceries, diners and farms make food; clinics make medical; army sites, gun stores and police make ammo;
   hardware, industry and junkyards make materials; gas stations and refineries make fuel. A building that matches
-  no row scavenges whatever you are shortest of. More outposts of the same kind give less each.
-- **Every rollover** each outpost adds its yield to the stockpile. The yield is scaled by tier, level, the people
-  posted there, what you built inside it (beds, facilities, crops), and its output mode (quiet / normal / push).
-  - Upkeep costs materials; hauling costs fuel. Unpaid upkeep halves the yield (run-down); unpaid haulage cuts it
-    to three quarters (on foot).
+  no row scavenges whatever you are shortest of. Every outpost of the same kind after the best makes 1 less (never
+  below 1).
+- **Every rollover** each outpost adds its yield to the stockpile, in whole bundles (round ie1, `ScEconomy`): 1 / 2 / 3
+  by level (`OutpostLevelYield`; a scavenge outpost one less, at least 1), +1 at tier 4 and 5, +1 per member posted,
+  +1 once for a matching specialty, +1 built up (2 beds and 1 facility inside, or 10 crops for a food outpost), quiet
+  -1 / push +1. Once it makes 2 or more, 1 of them is its row's second resource. No daily cap.
+  - Upkeep: `OutpostUpkeepByLevel` (1 / 1 / 2) materials a day per producing outpost (damaged, contested and idle ones
+    pay nothing); hauling: 1 fuel per `OutpostHaulPerFuel` (5) bundles delivered. No debt: a day the stockpile cannot
+    pay the upkeep in full the network is run-down (each makes 1 less), one it cannot pay the hauling it goes on foot
+    (each makes at most 2), until a day it pays in full.
   - Without power at the home radio (or a powered **relay** radio inside the outpost), bundles wait there,
     at most `OutpostPendingDays` of yield, and arrive once it reports in.
 - **Slots:** 1 + one per 4 members + one per 5 points of Leadership morale, at most `OutpostMax`. Outposts over the
@@ -414,15 +425,15 @@ working with the outpost and the home both unloaded. The in-game checklist is `T
 
 **People and growth**
 - Post up to two members (a second post at level 2). They are hidden at home like runners, still eat, and add
-  yield: more when their specialty fits.
+  1 bundle a day each, and 1 more once when one's specialty fits (gardeners fit water outposts too).
 - While you visit, their stand-ins guard the claim. If a stand-in dies there, that survivor died.
 - Levels 2 and 3 are bought from the stockpile.
 - Each kind of producing outpost gives a perk:
   - **canteen:** hunger hurts less;
   - **field clinic:** one free heal a day;
   - **armed escort:** safer runs;
-  - **salvage yard:** cheaper fees;
-  - **motor pool:** bigger runs.
+  - **salvage yard:** 1 building material less on each fee, upgrade and repair (never below 1);
+  - **motor pool:** 1 more bundle from every supply run.
 - Posted crafters and chemists turn surplus into ammo and medical.
 
 **Radio**
@@ -1837,13 +1848,15 @@ The two mods talk only through CVars on the local player; without SurvivorOrigin
 ## Configuration (`Config/blocks.xml`, block `ConfigSurvivorCommunity`)
 
 `MaxMembers`, `MaxFollowers`, `PostRadius`, `ResidentRoamZone`, `ResidentRoamPauseMin`, `ResidentRoamPauseMax`,
-`ResidentRoamZoneMargin`, `HomeKeepLoaded`, `HomeKeepLoadedRange`, `XnpcWarmWeapons`, `StuckSeconds`, `DefendBaseRadius`, `FoodPerMemberDay`, `AmmoPerRangedDay`, `WaterPerMemberDay`, `PointsPerBundle*`
+`ResidentRoamZoneMargin`, `HomeKeepLoaded`, `HomeKeepLoadedRange`, `XnpcWarmWeapons`, `StuckSeconds`, `DefendBaseRadius`, `MemberFoodPerDay`, `AmmoPerRangedDay`, `MemberWaterPerDay`, `PointsPerBundle*`
 (Food, Meds, Ammo, Materials, Fuel, Water, Luxury), `LuxuryItems`, `WellBlocks`, `WellWaterPerLevel`, `WellsPlaceLevelOne`, `DewCollectorBlocks`,
 `DewWaterPerLevel`, `FacilityUpgradeCost`, `DrinksLuxury`, `DrinksFood`, `DrinksMorale`, `DrinksMinutes`, `ValueOverrides`, `FuelItems`, `BundleOpen`, `BundleOpenValueShare`, `BundleOpen<Res>` (the seven pools), `BedsBySleepingBag`, `BedBlocks`, `BedBlocksExclude`, `FacilityBlocks`, `LowMoraleDays`, `MissingDaysToPurge`, `RunRiskBase`,
-`RunYieldBase`, `SuppliesFavours`, `PoiFavourRange`, `TraitsPerRecruit`, `DebugLogging`, and the
-`Traits` table (weight, food-use multiplier, morale/mood offsets, starting skill bonus, preferred
-specialty, XP / run-yield multipliers, timid), plus the milestone-3 numbers `MeleePerStar`, `RangedPerStar`,
-`SpeedPerStar`, `HealthPerStar`, `CookFoodPerStar`, `CropFoodPerStar`, `MedicPerStar`, `PackBonusPerStar`,
+`RunYieldBase`, `RunWitsStarsPerBundle`, `RunSpecialistStarsPerBundle`, `HighMoraleRunBundles`, `RescueBundles`,
+`SuppliesFavours`, `PoiFavourRange`, `TraitsPerRecruit`, `DebugLogging`, and the
+`Traits` table (weight, `eats=`, `nohungermood=`, morale/mood offsets, starting skill bonus, preferred
+specialty, XP multiplier, `runbundles=` / `runkinds=` / `runfrom=`, the mining runs' `yield=` / `haul=`, timid),
+plus the milestone-3 numbers `MeleePerStar`, `RangedPerStar`,
+`SpeedPerStar`, `HealthPerStar`, `CookStarsPerFood`, `CropsPerFood`, `MedicPerStar`, `PackBonusPerStar`,
 `ScanRadius`, `FollowXpSeconds`, `DailyWitsXp`, the starting skills `SkillFloorByTier`, `StandoutSkillChance`,
 `StartSkillCap`, and for the player-body survivors `SurvivorGearSets`, `SurvivorGearPieceChance`, `SurvivorGearAlwaysChest`, `SurvivorGearMixChance`,
 `SurvivorGearQualityMin/Max` (sc gear), `GearSetTiers`, `GearSetLastTier`, `GearTierWeights`, `GearQualityByTier`, `SurvivorOutfitShare`, `RaiderOutfitShare`, the `Outfits` table,

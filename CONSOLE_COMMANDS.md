@@ -34,7 +34,7 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 
 | Command | What it is for |
 |---|---|
-| `sc status` | Home position, day, morale, hungry/thirsty, beds, stock of every resource, member counts, ledger. |
+| `sc status` | Home position, day, morale, hungry/thirsty, beds, stock of every resource, the next rollover's needs and costs, member counts, ledger. |
 | `sc members` | Every member and prospect with id, status, post, skills, buffs. Where you find ids. |
 | `sc dump` | `status` plus `members` plus a config line. Paste this into bug reports. |
 | `sc day` | Simulates one day rollover (upkeep, morale, outposts, runs). [CHEAT] |
@@ -99,7 +99,7 @@ Syntax conventions: `<x>` required, `[x]` optional, `a|b` choose one. `sc` first
 ## 1. Community and members
 
 ### `sc status` (also bare `sc`) [READ]
-Prints host/registry state, home position, owner, day, morale, hungry/thirsty flags, beds, facilities, crops, daily water, stock of all seven resources, member counts, zone bounds and the recent ledger.
+Prints host/registry state, home position, owner, day, morale, hungry/thirsty flags, beds, facilities, crops, daily water, stock of all seven resources, the next rollover's whole-number needs (food eaten with the cook's saving, the garden, water, members still on the way who eat nothing yet) and the outposts' upkeep and haulage, member counts, zone bounds and the recent ledger.
 Example: `sc status`
 
 ### `sc members` [READ]
@@ -487,10 +487,10 @@ Example: `sc radio enc fighter`, `sc radio enc demand 7 force`
 An outpost is a POI you hold with a land claim. Establishing one needs you inside the POI with a claim of yours there.
 
 ### `sc outpost list` (default) [READ]
-Slots used, radio state, debts, one line per outpost (id, type, level, mode, state, staff, yield, distance).
+Slots used, radio state, the network's upkeep and haulage (RUN-DOWN / ON FOOT when the last rollover could not pay them), one line per outpost (id, type, level, mode, state, staff, yield, distance).
 
 ### `sc outpost yield` [READ]
-Each outpost's raw yield and tonight's estimate, plus network totals, upkeep and haulage.
+Each outpost's whole-number steps (level, tier, staff, match, built, mode, a late check-in, depletion), what it makes on the next rollover after the duplicates and the network's run-down / on foot, and its upkeep; then the network's total, upkeep and haulage. A damaged, contested or idle outpost makes nothing and pays no upkeep.
 
 ### `sc outpost security <id>` [READ]
 Security breakdown and attack chance for one outpost.
@@ -529,7 +529,7 @@ Starts an attack on the outpost (`raid` for a raid rather than a plain attack).
 `demand`: raiders demand ammo and food now. `pay` / `refuse`: answers the demand (as on the radio). `repair`: repairs a damaged outpost.
 
 ### `sc poi` [READ]
-Describes the POI you stand in: tier, sleepers, outpost type and why, cleared or not, distance from home, enclave or infestation there.
+Describes the POI you stand in: tier, sleepers, outpost type and why, what it would make a day at levels 1-3 unstaffed, cleared or not, distance from home, enclave or infestation there.
 
 ### `sc poi near [r]` [READ]
 Outpost candidates within `r` meters (default 500, 20-5000), nearest 25.
