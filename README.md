@@ -1687,11 +1687,10 @@ When you talk to a survivor, **their line shows in a panel above your responses*
   `VoiceDarkTonesFemale` (section 20); with `VoiceRaceByFace` off, the skin tone alone decides (`VoiceRaceBySkin`), as in
   the previous version.
 - Lines with a name or a number in them say only the part without it; the panel shows the whole line.
-- **More lines are ready for their recordings:** the training line after reading a magazine, refusals about the work kit,
-  field jobs, trading and a full party, a mining runner's radio lines, an enclave's request announcement and siege calls
-  on the radio, 0-XNPCCore 3.4.06's newer lines (thanks for a gift, going down, crafting, ammo and books) and the role
-  and emote replies. Each plays the moment its recording is added; until then it sounds as before (Voice Control's
-  text-to-speech, or the text alone).
+- **Every line has its recording** in all 16 voices (709 each): with the training line after reading a magazine, the
+  refusals about the work kit, field jobs, trading and a full party, a mining runner's radio lines, an enclave's request
+  announcements and siege calls on the radio, 0-XNPCCore 3.4.06's newer lines (thanks for a gift, going down, crafting,
+  ammo and books) and the role and emote replies.
 - Voices play through Voice Control's player with **lip sync** when Voice Control is set up on that NPC.
 
 ### Greetings, chatter and taunts
@@ -2087,11 +2086,6 @@ For console commands (testing and fixing), see [CONSOLE_COMMANDS.md](CONSOLE_COM
 - **Do not remove the mod from a save that used it.** Loading that save without SC can damage the chunks its blocks are in.
 - **Going back to an older build** drops the newer life skills (Construction to Entertainment): those members are left with
   none.
-- **Some lines are not recorded yet.** All 16 voices speak the 604 recorded lines. The newer ones (a mining runner's
-  radio lines, the training line after reading a magazine, refusals about the work kit, field jobs, trading and a full
-  party, an enclave's request announcement and siege calls on the radio, 0-XNPCCore 3.4.06's newer lines, and the role
-  and emote replies) are in place but sound as before until their recordings are added: Voice Control's
-  text-to-speech, or the text alone.
 - **Mining and digging clay are not resident jobs.** Residents do home jobs only; send them on a mining run instead, or
   take a member along for Mine, Loot here or Follow + loot.
 - **Breaking an enclave's containers open is not stopped,** only opening them.

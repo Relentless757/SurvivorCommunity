@@ -214,11 +214,11 @@
   there's room." instead of "I can't right now.".
 - **Lines that name an item play a recording too:** "Now I know how to make Forged Iron." plays "Now I know how to make
   something new.", and the caption still names the item.
-- **105 more lines per voice are ready for their recordings** (709 in all): 0-XNPCCore 3.4.06's gift, downed, crafting,
+- **105 more lines per voice, recorded in all 16 voices** (709 in all): 0-XNPCCore 3.4.06's gift, downed, crafting,
   patrol, ammo and book lines (with three ways to say thanks for a gift and three to call out when going down), the role
   and emote replies, Voice Control's go-there refusals, SC's own answers that Voice Control spoke in its voice (dismiss,
-  hire, pick-up, follow, trade, the training line), a mining runner's radio lines and an enclave's radio calls (those
-  play once a later update wires them). Until a line is recorded it sounds exactly as before.
+  hire, pick-up, follow, trade, the training line), a mining runner's radio lines, and an enclave's siege calls, its
+  half-time call and its request announcements on the radio.
 - **Fixed:** "I need fuel for that." no longer plays the recording of "I need more materials for that.".
 - **Fixed:** Voice Control 3.4.06's "I'm in your way - point past me." and "I'm not hired yet - what have you got to
   offer?" play their recordings again: punctuation no longer decides whether a line matches.

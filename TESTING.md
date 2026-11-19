@@ -37,6 +37,38 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round v9 (2026-11-18): the 105 new lines recorded in all 16 voices
+
+Why: the line list you reviewed (two lines reworded by you), recorded with ElevenLabs over three days: 1,680 clips, each
+checked against its words, levelled to -20 dBFS like the rest. Clips and captions only - no code change. Start-up:
+`patch verification: all 213 targets patched`; `python -I Tools/voice_lines.py check` reads 709 of 709 for every voice.
+
+- [ ] **Gifts:** give a member an item - one of "Thank you. I won't forget this.", "Thanks. I'll put it to good use." or
+      "That's good of you. Thank you." in their own voice, with that caption. A full pack or an unwanted item gets its
+      own line.
+- [ ] **Going down:** a member knocked down calls out in their own voice.
+- [ ] **Orders:** crafting, patrol, ammo, book and go-there replies, and a role on/off or an emote from the wheel, in
+      the member's voice (no Voice Control text-to-speech).
+- [ ] **Refusals:** the work kit as a weapon, a field job at home, trading with a member, a full party - SC's line in
+      the member's voice.
+- [ ] **Radio:** an enclave's siege call (`sc enclave siege <id> now`), its half-time call ("Where are you? We're losing
+      the wall! Hurry!") and a request announcement (`sc enclave request <id> offer missing`) - heard with a handheld
+      or near a powered station, in the speaker's voice.
+- [ ] **Ear check** (the end of these clips was trimmed by a few milliseconds of stray noise; listen that the last
+      sound is whole - play the .ogg in `Resources/Voices/<voice>/`):
+      Beth ack.roleoff.chemist.2, xn.craft.lost, xn.craft.noreach; David xn.give.atfeet; Jasper
+      ack.roleon.blacksmith.2, scEncReqHeardSaid_generator, scJobResidentField, xn.craft.inuse; Jess xn.loot.resume;
+      Jessica ack.emote.flipoff.2, scEncReqHeardSaid_generator, xn.ammo.unknown, xn.craft.inuse; Julian
+      ack.emote.insult.2, ack.roleon.crafter.2, xn.book.notbook; Layla ack.emote.threaten.1; Nate ack.emote.fistbump.1,
+      ack.emote.flipoff.2, ack.roleoff.cook.2, ack.roleon.cook.2; NativeF1 scVoiceNoTradeHostile, xn.ammo.same,
+      xn.craft.inuse, xn.craft.noreach; NativeF2 ack.emote.fistbump.1, xn.book.notbook, xn.craft.fuel; NativeM1
+      ack.emote.flipoff.2, ack.emote.warmup.2, ack.roleon.blacksmith.2; NativeM2 ack.roleoff.cook.2, ack.roleon.cook.2,
+      scRadioRunMineArrived_1, xn.book.notbook; Rene xn.craft.lost; Tiffany ack.emote.warmup.1; Vane
+      ack.emote.fistbump.1, ack.roleon.chemist.2, ack.roleon.crafter.2.
+- [ ] **Stray sound left in** (a short noise after the line ends, which the trim rule did not catch):
+      Beth xn.book.skill; Desmond xn.craft.trader; Jasper xn.craft.trader; Jessica xn.book.nothing; Layla
+      xn.give.atfeet; Rene xn.ammo.unknown, xn.book.skill.
+
 ## Round tl1 (2026-11-18): survivors and trader compounds
 
 Why: your report - a stranger you had talked to refused every talk afterwards, with "[LockManager] Failed to lock
