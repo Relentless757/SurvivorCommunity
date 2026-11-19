@@ -18,11 +18,12 @@ namespace SurvivorCommunity
     /// </summary>
     public static class ScPostArrow
     {
-        /// <summary>Metres: a placed post shows its arrow while looked at from this close.</summary>
+        /// <summary>Meters: a placed post shows its arrow while looked at from this close.</summary>
         private const float ArrowRange = 8f;
 
         private static GameObject root;
         private static Material mat;
+        private static Mesh mesh;
         private static bool shown, failed;
         private static int shownFrame = -10;
 
@@ -33,6 +34,7 @@ namespace SurvivorCommunity
             try
             {
                 if (mat != null) UnityEngine.Object.Destroy(mat);
+                if (mesh != null) UnityEngine.Object.Destroy(mesh);
                 if (root != null) UnityEngine.Object.Destroy(root);
             }
             catch (Exception e)
@@ -40,6 +42,7 @@ namespace SurvivorCommunity
                 ScLog.Once("post-arrow-reset", e);
             }
             mat = null;
+            mesh = null;
             root = null;
             shown = false;
             failed = false;
@@ -51,7 +54,7 @@ namespace SurvivorCommunity
         /// </summary>
         internal static void Focus(RenderDisplacedCube rdc, World world, WorldRayHitInfo hit, EntityAlive player, bool towerPostShown, Vector3i towerPost, Vector3 towerFacing)
         {
-            if (!ScConfig.WatchPostArrow || world == null || player == null) return;
+            if (!ScConfig.WatchPostArrow || !ScConfig.WatchPosts || world == null || player == null) return;
             if (towerPostShown)
             {
                 Show(towerPost, towerFacing);
@@ -124,7 +127,8 @@ namespace SurvivorCommunity
                 root.AddComponent<ScPostArrowKeeper>();
                 var mf = root.AddComponent<MeshFilter>();
                 var mr = root.AddComponent<MeshRenderer>();
-                mf.sharedMesh = ArrowMesh();
+                mesh = ArrowMesh();
+                mf.sharedMesh = mesh;
                 mr.sharedMaterial = mat;
                 mr.shadowCastingMode = ShadowCastingMode.Off;
                 mr.receiveShadows = false;
@@ -154,6 +158,9 @@ namespace SurvivorCommunity
             var m = new Mesh { name = "ScWatchPostArrow" };
             m.vertices = v;
             m.triangles = new[] { 0, 3, 2, 0, 2, 1, 4, 6, 5 };
+            var white = new Color[v.Length];
+            for (int i = 0; i < white.Length; i++) white[i] = Color.white;
+            m.colors = white;   // Hidden/Internal-Colored multiplies the vertex color by _Color
             m.RecalculateNormals();
             m.RecalculateBounds();
             return m;

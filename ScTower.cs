@@ -648,12 +648,6 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The ghost of the whole tower rides vanilla's placement ghost: shown while that ghost is (the kit held, aimed in
-        /// range), at its cell and rotation, green / yellow / white / red as vanilla colours its own. Client side, visual.
-        /// Vanilla's box frames the whole tower and its 1x1 cube is hidden (FrameTower).
-        /// </summary>
-        [HarmonyPatch(typeof(RenderDisplacedCube), nameof(RenderDisplacedCube.Update))]
-        /// <summary>
         /// Round fx1: where the tower's Watch post lands for a kit at kit turned by turns, and the way its guard will look (the
         /// post's block turned as the stamp turns it). False without a post.
         /// </summary>
@@ -668,6 +662,12 @@ namespace SurvivorCommunity
             return true;
         }
 
+        /// <summary>
+        /// The ghost of the whole tower rides vanilla's placement ghost: shown while that ghost is (the kit held, aimed in
+        /// range), at its cell and rotation, green / yellow / white / red as vanilla colours its own. Client side, visual.
+        /// Vanilla's box frames the whole tower and its 1x1 cube is hidden (FrameTower).
+        /// </summary>
+        [HarmonyPatch(typeof(RenderDisplacedCube), nameof(RenderDisplacedCube.Update))]
         public static class Patch_FocusPreview
         {
             [HarmonyPostfix]

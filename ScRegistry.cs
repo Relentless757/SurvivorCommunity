@@ -276,6 +276,9 @@ namespace SurvivorCommunity
         {
             try
             {
+                // round fx1 (the review): the registry loads before GameStartDone parses the config, and the Shooting XP
+                // migration below reads ShootingXpMult - parse it now (as ScInfestations.Rebuild already does in this load)
+                ScConfig.EnsureParsed();
                 string[] lines = File.ReadAllLines(path);
                 if (lines.Length == 0 || !lines[0].StartsWith("SCOM")) { ScLog.Err("registry: bad header in " + path); return false; }
                 string section = "";
@@ -1757,8 +1760,9 @@ namespace SurvivorCommunity
             if (m.BondKills > 0) sb.AppendLine("bondkills=" + m.BondKillDay.ToString(CultureInfo.InvariantCulture) + ":" + m.BondKills.ToString(CultureInfo.InvariantCulture));   // finding 2
             sb.AppendLine("ranged=" + (m.Ranged ? 1 : 0));
             sb.AppendLine("missing=" + m.MissingDays);
-            // round fx1: the scale Shooting's XP is in (before skills=, which reads it); a key older builds ignore - they then
-            // read the larger XP against their own thresholds and may give a star or two, never take one
+            // round fx1: the scale Shooting's XP is in (before skills=, which reads it). A key older builds ignore: they read
+            // the larger XP against their own thresholds, so the next kill can give several Shooting stars at once, and if
+            // they save, the key is gone and this build scales that XP up again. Going back to an older build is unsupported.
             sb.AppendLine("shootxp=" + ScSkills.XpScale(Skill.Shooting).ToString(CultureInfo.InvariantCulture));
             var sk = new StringBuilder();
             for (int i = 0; i < Member.SkillCount; i++) { if (i > 0) sk.Append(','); sk.Append(ScNames.SkillKeys[i]).Append(':').Append(m.Skills[i].Level).Append(':').Append(m.Skills[i].Xp); }
