@@ -55,7 +55,8 @@ so they must always agree. Start-up must say `patch verification: all 213 target
       is under N.
 - [ ] **A hungry day, whole:** `sc give food -999` (empties it), `sc day`: "NOT ENOUGH FOOD, your survivors went
       hungry". `sc members`: every mood is lower (the morale's food drop plus 10), except an Eats Like a Bird
-      member's, which stays as it was (`sc traits <name> set EatsLikeABird` makes one). `sc give food 20`, `sc day`: not
+      member's, which drops only by the days-of-food change, a few points at most (`sc traits <name> set
+      EatsLikeABird` makes one). `sc give food 20`, `sc day`: not
       hungry, and the stock went down by exactly N.
 - [ ] **The cook:** `sc spec <member at home> set Cooking 3`, `sc status`: "cook <name> -2" (1 at 1 or 2 stars, 4 at 7);
       the saving is never more than half of what is eaten. `sc day`: "used" is that much lower.
