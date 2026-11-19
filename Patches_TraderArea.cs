@@ -61,8 +61,8 @@ namespace SurvivorCommunity
             }
             catch (Exception e)
             {
-                ScLog.Err("EntityTrader.updateTime not found (game update?) - an SCore NPC that walked through a trader compound may "
-                          + "still despawn next to another NPC of its class there (" + e.GetType().Name + ")");
+                ScLog.Err("EntityTrader.updateTime not found (game update?) - an SCore NPC standing in a trader compound may still "
+                          + "greet as its trader, re-open it at night and despawn next to another NPC of its class (" + e.GetType().Name + ")");
             }
             return updateTimeRef;
         }
