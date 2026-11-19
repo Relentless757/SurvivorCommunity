@@ -240,6 +240,9 @@
 			     "secure the POI" favour may send you -->
 			<property name="SuppliesFavours" value="food:15|meds:5|ammo:60" />
 			<property name="PoiFavourRange" value="300" />
+			<!-- Round fx1: a cleared POI stays clear when zombies or animals wander in (outposts, favors, sc poi). Its own
+			     sleepers, raiders and hostile survivors still count. false = anything hostile inside counts. -->
+			<property name="PoiClearIgnoresWanderers" value="true" />
 			<property name="TraitsPerRecruit" value="2" />
 
 			<!-- STREAMER NAMES (round 30). A streamer's viewers in the game: SC gives the names in a text file to the new
@@ -281,6 +284,9 @@
 			<property name="ScanRadius" value="0" />
 			<property name="FollowXpSeconds" value="60" />
 			<property name="DailyWitsXp" value="3" />
+			<!-- Round fx1: Shooting needs this many times the XP of the other skills for each star (kills give the same 5 XP
+			     to Shooting or Fighting, and guns kill more). 1 = the same as the others. -->
+			<property name="ShootingXpMult" value="3" />
 			<!-- A new survivor's skills by its class tier (T1, T2, T3), when its profile is rolled (it spawns, or for another
 			     mod's survivors the first talk): every core skill starts at SkillFloorByTier stars, one random skill one
 			     higher, traits on top (never below the floor), none above StartSkillCap. StandoutSkillChance: the odds one
@@ -1744,6 +1750,9 @@
 			<property name="WatchPlaceSeconds" value="30" />
 			<property name="WatchAttentionCut" value="0.15" />
 			<property name="WatchAttentionCutMax" value="0.45" />
+			<!-- Round fx1: an arrow where the guard stands, pointing the way they will look: on a Watch post's placement
+			     ghost, over the Guard Tower kit's post, and on a placed post you look at. -->
+			<property name="WatchPostArrow" value="true" />
 			<!-- Base defense BD1 (round m1f), the community window's Facilities tab, Defense entry.
 			     Lights out: an order for a quiet night, from LightsOutBeforeDuskHours before dusk until dawn (24: at any time).
 			     Until the next dawn the people's part of the base's noise is multiplied by LightsOutPeopleNoise, and with

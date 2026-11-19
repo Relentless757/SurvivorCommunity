@@ -21,11 +21,27 @@ namespace SurvivorCommunity
         public const string ThirstyBuff = "buffSCThirsty";
         public const string InjuredBuff = "buffSCInjured";
 
+        /// <summary>Cumulative XP to reach a specialty star (the plain table).</summary>
         public static int NeededFor(int star)
         {
             if (star <= 1) return 0;
             if (star >= Thresholds.Length) return Thresholds[Thresholds.Length - 1];
             return Thresholds[star];
+        }
+
+        /// <summary>
+        /// Cumulative XP to reach a core skill's star: the table, times ShootingXpMult for Shooting (round fx1, 2026-11-19, the
+        /// user's ask to triple it - kills give Shooting and Fighting the same 5 XP, and guns kill more).
+        /// </summary>
+        public static int NeededFor(Skill s, int star)
+        {
+            return NeededFor(star) * XpScale(s);
+        }
+
+        /// <summary>How many times the table a skill's thresholds are (and the scale its saved XP is in).</summary>
+        public static int XpScale(Skill s)
+        {
+            return s == Skill.Shooting ? Math.Max(1, ScConfig.ShootingXpMult) : 1;
         }
 
         /// <summary>Adds XP, returns true when a star was gained.</summary>
@@ -39,7 +55,7 @@ namespace SurvivorCommunity
                          * ScEncAllies.XpMult(s);                                       // E6: an ally's club, Training and Advice (1 without)
             st.Xp += Math.Max(1, (int)Math.Round(amount * mult));
             bool gained = false;
-            while (st.Level < Member.MaxStars && st.Xp >= NeededFor(st.Level + 1))
+            while (st.Level < Member.MaxStars && st.Xp >= NeededFor(s, st.Level + 1))
             {
                 st.Level++;
                 gained = true;
@@ -125,7 +141,7 @@ namespace SurvivorCommunity
             m.Specialty = preferred;
             m.SpecLevel = 1;
             m.SpecXp = 0;
-            for (int i = 0; i < Member.SkillCount; i++) m.Skills[i].Xp = NeededFor(m.Skills[i].Level);
+            for (int i = 0; i < Member.SkillCount; i++) m.Skills[i].Xp = NeededFor((Skill)i, m.Skills[i].Level);
         }
 
         /// <summary>

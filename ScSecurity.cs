@@ -149,7 +149,10 @@ namespace SurvivorCommunity
             return found > 0;
         }
 
-        /// <summary>True when the POI holds no remaining enemies; otherwise 'why' says what is left.</summary>
+        /// <summary>
+        /// True when the POI holds no remaining enemies; otherwise 'why' says what is left. Zombies and animals that wandered
+        /// in after the clear don't count with PoiClearIgnoresWanderers (round fx1).
+        /// </summary>
         public static bool IsCleared(World w, PrefabInstance pi, out string why)
         {
             return IsCleared(w, pi, out why, true);
@@ -194,12 +197,18 @@ namespace SurvivorCommunity
                 scratch.Clear();
                 // every living thing in the footprint, counting the enemies: zombies and animals (EntityEnemy) and SC's
                 // raiders, which since M10 are EntityAliveSDXV4 (an EntityNPC, not an EntityEnemy) and would otherwise
-                // never keep a POI "contested"
+                // never keep a POI "contested". Round fx1 (2026-11-19, the user's report: zombies walking into a cleared POI
+                // kept it from becoming an outpost): with PoiClearIgnoresWanderers a zombie or animal counts only while it is
+                // a sleeper (one the sleeper volumes no longer list, e.g. after a vanilla reset); raiders and hostile
+                // survivors always count (the user's call: people holding the building are a real contest).
+                bool wanderersCount = !ScConfig.PoiClearIgnoresWanderers;
                 w.GetEntitiesInBounds(typeof(EntityAlive), FootprintBounds(pi), scratch);
                 for (int i = 0; i < scratch.Count; i++)
                 {
                     EntityAlive a = scratch[i] as EntityAlive;
-                    if (a != null && !a.IsDead() && (a is EntityEnemy || ScXnpc.IsRaider(a) || ScTrust.IsHostileToAny(a))) hostile++;
+                    if (a == null || a.IsDead()) continue;
+                    if (ScXnpc.IsRaider(a) || ScTrust.IsHostileToAny(a)) hostile++;
+                    else if (a is EntityEnemy && (wanderersCount || a.IsSleeper)) hostile++;
                 }
                 scratch.Clear();
             }

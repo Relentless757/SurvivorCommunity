@@ -231,14 +231,22 @@ namespace SurvivorCommunity
                 Member g = GuardOf(pos);
                 World w = ScCommunity.World;
                 if (g == null && w != null && ScZone.IsLoaded(pos) && !FlatTop(w, pos)) return string.Format(Localization.Get("scWatchActNoTop"), Label(pos));
-                if (g == null) return string.Format(Localization.Get("scWatchActEmpty"), Label(pos));
-                return string.Format(Localization.Get("scWatchActManned"), Label(pos), g.Name, HoursLeft(g));
+                if (g == null) return Faces(string.Format(Localization.Get("scWatchActEmpty"), Label(pos)), w, pos);
+                return Faces(string.Format(Localization.Get("scWatchActManned"), Label(pos), g.Name, HoursLeft(g)), w, pos);
             }
             catch (Exception e)
             {
                 ScLog.Once("watch-acttext", e);
                 return Localization.Get("scWatchPostName");
             }
+        }
+
+        /// <summary>Round fx1: the tooltip with the way the post's guard looks ("... - faces east"), while its chunk is loaded.</summary>
+        private static string Faces(string text, World w, Vector3i pos)
+        {
+            if (w == null || !ScZone.IsLoaded(pos)) return text;
+            BlockValue bv = w.GetBlock(pos);
+            return bv.Block is BlockScWatchPost ? string.Format(Localization.Get("scWatchActFaces"), text, Compass(Facing(bv))) : text;
         }
 
         // ------------------------------------------------------------------ the posts ----

@@ -1201,7 +1201,7 @@ namespace SurvivorCommunity
                 string src;
                 SkillState sh = m.Skill(Skill.Shooting);
                 sh.Level = ScShooting.Stars(npc, out src);
-                sh.Xp = ScSkills.NeededFor(sh.Level);
+                sh.Xp = ScSkills.NeededFor(Skill.Shooting, sh.Level);
             }
             p.Who = m;
             p.Id = ++ScRegistry.Community.NextBandPersonId;

@@ -1515,15 +1515,22 @@ namespace SurvivorCommunity
         {
             if (m == null) return "0";
             SkillState st = m.Skill(s);
-            return Fill(SkillFill(st.Level, st.Xp));
+            return Fill(SkillFill(st.Level, st.Xp, s));
         }
 
         /// <summary>(Level - 1 + progress to the next star) / (MaxStars - 1): XP is cumulative against ScSkills' thresholds.</summary>
         public static float SkillFill(int level, int xp)
         {
+            return SkillFill(level, xp, null);
+        }
+
+        /// <summary>The same for a core skill (round fx1: Shooting's thresholds are ShootingXpMult times the table); null = a specialty.</summary>
+        public static float SkillFill(int level, int xp, Skill? skill)
+        {
             level = Math.Max(1, Math.Min(Member.MaxStars, level));
             if (level >= Member.MaxStars) return 1f;
-            int lo = ScSkills.NeededFor(level), hi = ScSkills.NeededFor(level + 1);
+            int lo = skill.HasValue ? ScSkills.NeededFor(skill.Value, level) : ScSkills.NeededFor(level);
+            int hi = skill.HasValue ? ScSkills.NeededFor(skill.Value, level + 1) : ScSkills.NeededFor(level + 1);
             float frac = hi > lo ? Mathf.Clamp01((xp - lo) / (float)(hi - lo)) : 0f;
             return Mathf.Clamp01((level - 1 + frac) / (Member.MaxStars - 1));
         }

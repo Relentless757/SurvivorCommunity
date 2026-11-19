@@ -172,10 +172,27 @@ namespace SurvivorCommunity
         /// </summary>
         internal static List<string> GreetKeys(string rel)
         {
-            if (rel != Away) return ScBarks.KeysOf(GreetFamily(rel));
+            List<string> all = ScBarks.KeysOf(GreetFamily(rel));
+            if (rel != Away && !HasRetired(all)) return all;
             var keys = new List<string>();
-            foreach (string k in ScBarks.KeysOf(GreetFamily(rel))) if (!HomeOnly.Contains(k)) keys.Add(k);
+            foreach (string k in all) if (!Retired.Contains(k) && (rel != Away || !HomeOnly.Contains(k))) keys.Add(k);
             return keys;
+        }
+
+        /// <summary>
+        /// Round fx1 (2026-11-19, the user's call): greetings that stay recorded (in all 16 voices, so the clip check still
+        /// passes) but are never said. "I keep hearing good things about your place." (greet.recruit.3): a prospect has no
+        /// way to have heard of the place, and it played at any morale.
+        /// </summary>
+        private static readonly HashSet<string> Retired = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "greet.recruit.3"
+        };
+
+        private static bool HasRetired(List<string> keys)
+        {
+            for (int i = 0; i < keys.Count; i++) if (Retired.Contains(keys[i])) return true;
+            return false;
         }
 
         private static void TickGreetings(World w, EntityPlayerLocal lp, float now)

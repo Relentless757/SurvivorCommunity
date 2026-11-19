@@ -168,6 +168,7 @@
     <Compile Include="ScSiege.cs" />
     <Compile Include="BlockScWatchPost.cs" />
     <Compile Include="ScTower.cs" />
+    <Compile Include="ScPostArrow.cs" />
     <Compile Include="ScShooting.cs" />
     <Compile Include="ScTrust.cs" />
     <Compile Include="ScTypes.cs" />

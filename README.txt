@@ -222,7 +222,8 @@ Every survivor has four core skills, each 1 to 7 stars:
 - Shooting - What it does: +10% ranged damage per star above the first, and better aim (section 15); How it grows: Kills
   with a ranged weapon
 
-- Stars need 25, 60, 120, 220, 360 and 550 XP for stars 2 to 7.
+- Stars need 25, 60, 120, 220, 360 and 550 XP for stars 2 to 7. Shooting needs three times as much (75, 180, 360, 660,
+  1,080 and 1,650): guns kill far more often than melee.
 - New survivors start better the later in the game you meet them: early survivors start every skill at 1 star, middle
   ones at 2, late ones at 3, with one random skill a star higher. Traits add on top. Starting skills are capped at 4
   stars, except for a rare standout (4 to 8% of survivors) who has one skill at 5, 6 or 7 stars.
@@ -1118,7 +1119,9 @@ shows the ones your settings use.
   can be painted to match your floor. The guard stands on top of it, so use the cube, or a plate or catwalk turned
   upside down in a deck. Other shapes register but say a guard cannot stand on them.
 - Place it inside the home zone, up to 4 posts, with two blocks of air above it. A tower top is best. It faces the way
-  you look when you place it.
+  you look when you place it. An arrow shows that way: on the post's ghost while you place it, over the Guard Tower
+  kit's post, and on a placed post you look at, lying where the guard will stand. The post's tooltip says it too ("... -
+  faces east").
 - Assign a guard: hold E on the post and pick Assign guard. The community window opens on your residents; pick one.
   Relieve guard ends the watch early.
 - A shift lasts 12 game hours and takes 3 ammo bundles from the stockpile at its start (no shift with fewer). That ammo
@@ -1215,7 +1218,8 @@ both the outpost and your home are unloaded.
 Establishing an outpost
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-1. Clear a building at least 150 m from home.
+1. Clear a building at least 150 m from home. Zombies or animals that wander in after you cleared it don't count; its
+   own sleepers, raiders and hostile survivors do.
 2. Place a land claim inside it and pick Establish outpost on the claim's radial, or place an Outpost Claim Block, which
    establishes itself when placed.
 3. It needs the home radio station powered and a fee of 2 materials and 1 fuel from the stockpile.
@@ -2023,6 +2027,7 @@ Needs and morale
 - RefuseOrdersBelowMood = 0: Members refuse orders below this mood (0: never)
 - LowMoraleThreshold / LowMoraleDays = 25 / 2: Below this morale for this many days, someone threatens to leave
 - HighMoraleThreshold = 75: Above this morale, faster XP and bigger runs
+- ShootingXpMult = 3: Shooting needs this many times the XP of the other skills for each star (1: the same)
 - MemberBond = true: Members' Bond (section 4) adds to their mood; false: no Bond
 - BondCap / BondDecayPerDay = 15 / 1: Bond's limit either way, and how much it fades a day
 - BondGiftPerPoint / BondRevive / BondBloodMoon / BondDowned / BondKillOnHer = 1 / 3 / 4 / -2 / 1: Bond per gift point
@@ -2117,6 +2122,7 @@ Defense
 - BaseSiege = true: A blood moon you spend away is settled as a siege
 - BaseAttackGapDays = 2: Days between base attacks at least
 - WatchPosts / WatchMaxPosts = true / 4: Watch posts on, and how many
+- WatchPostArrow = true: An arrow shows the way a Watch post's guard will look
 - WatchShiftHours / WatchRestHours / WatchShiftAmmo = 12 / 12 / 3: A guard's shift, rest, and ammo bundles per shift
 - LightsOut = true: The Defense entry offers Lights out (section 9)
 - LightsOutPeopleNoise / LightsOutBeforeDuskHours = 0.5 / 2: The people's noise during lights out (0.5: halved); how
@@ -2268,6 +2274,8 @@ Raiders, outposts and the world
 - OutpostLevelYield / OutpostUpkeepByLevel = 1,2,3 / 1,1,2: What an outpost makes a day, and its upkeep in building
   material, by level
 - OutpostHaulPerFuel = 5: Bundles delivered per unit of fuel paid for hauling
+- PoiClearIgnoresWanderers = true: A cleared building stays clear when zombies or animals wander in (its sleepers,
+  raiders and hostile survivors still count); false: anything hostile inside counts
 - OutpostAttacks = true: Outpost risk: attacks, sieges, squatters, raider demands
 - OutpostGoodNews = true: Outposts sometimes find caches
 - Enclaves = true: Enclaves on the map
