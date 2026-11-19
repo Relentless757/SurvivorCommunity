@@ -50,7 +50,8 @@ and took on that trader's opening hours. Start-up must say `patch verification: 
 - [ ] **Two of a kind.** Two survivors of the same class (two women, or two men) standing together in a trader compound for
       a minute: neither one vanishes.
 - [ ] **The trader itself is unchanged:** it still closes at 22:00, refuses talk while closed, and warns you before it
-      closes.
+      closes. With a member standing inside the compound after 22:00, the compound stays closed (doors locked, lights
+      off) - before this round her body kept re-opening it.
 - [ ] **Wren:** the survivor from the report talks again (after a reload she is fresh anyway; at night, too).
 
 ## Merged build ms/m1all (2026-11-17): where the M1 rounds meet

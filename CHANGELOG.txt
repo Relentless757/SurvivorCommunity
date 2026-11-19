@@ -7,8 +7,9 @@ Fixes
 - A survivor who once walked through a trader's compound can be talked to again at night. SCore's NPCs run the game's
   trader code, so the first time one stood inside a trader compound it took that trader's opening hours on for good:
   from closing time it refused every talk ("Failed to lock EntityAliveSDXV4 ... Target refused to be locked on server").
-  It also greeted you as the trader, and despawned itself when another NPC of the same kind stood within 10 m. NPCs that
-  are not traders now never take a trader compound on; real traders are unchanged.
+  It also greeted you as the trader, despawned itself when another NPC of the same kind stood within 10 m, and (with
+  0-XNPCCore's always-open stock id) kept re-opening the compound at night. SCore's NPCs - survivors, members, enclave
+  people, 0-XNPCCore hires - now never take a trader compound on; the real traders are unchanged.
 
 
 Enclaves speak on the radio

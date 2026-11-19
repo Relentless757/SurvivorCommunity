@@ -16,11 +16,15 @@ namespace SurvivorCommunity
     ///     reported bug: no dialog, a "Failed to lock" warning on every E;
     ///   - every second it despawns itself when another NPC of the same entity class with a lower id stands within 10 m (vanilla's
     ///     "one trader per compound" rule) - SC's people share a few survivor classes, so a stranger or member could vanish;
-    ///   - it greets players with trader voice lines.
-    /// A real trader has a TraderInfo (its trader_id); an SCore NPC that is not a trader has none. For those, SC keeps the stored
-    /// area empty (a postfix clears it after every update) and stops the once-a-second trader block from running (the prefix
-    /// pushes vanilla's private updateTime out of reach), and the talk lock ignores a closed trader area. Vanilla traders and
-    /// SCore NPCs that are traders are untouched. Host / single player, main thread.
+    ///   - it greets players with trader voice lines;
+    ///   - and, since 0-XNPCCore gives every body trader id 64 (its stock) and its legacy NPCs id 1, it runs the trader's
+    ///     open/close tail with THAT trader's hours: id 64 has none (always open), so a body standing in a compound re-opened
+    ///     it at night (doors, lights) once a second, fighting the real trader's own tick (the Fable review of tl1).
+    /// "Has a TraderInfo" therefore says nothing about being a compound's trader. No SCore NPC is one: in this install only
+    /// 0-XNPCCore and SC define SCore classes, and the compound traders are vanilla EntityTraders. So for every SCore NPC
+    /// (EntityAliveSDXV4 / EntityAliveSDX) SC keeps the stored area empty (a postfix clears it after every update), stops the
+    /// once-a-second trader block from running (the prefix pushes vanilla's private updateTime out of reach), and lets the
+    /// talk lock ignore a closed trader area. Vanilla traders are untouched. Host / single player, main thread.
     /// </summary>
     public static class Patches_TraderArea
     {
@@ -28,18 +32,13 @@ namespace SurvivorCommunity
         private static bool refTried;
         private static readonly HashSet<int> told = new HashSet<int>();
 
-        /// <summary>An SCore NPC that is no trader: an EntityAliveSDXV4 with no TraderInfo (no trader_id).</summary>
+        /// <summary>
+        /// An SCore NPC - never a trader compound's own trader, whatever trader id it carries (0-XNPCCore's 64 stock id, its
+        /// legacy NPCs' 1, an enclave leader's 200+). A type test, so it never changes for a live body.
+        /// </summary>
         public static bool NotATrader(EntityTrader t)
         {
-            if (!(t is EntityAliveSDXV4)) return false;
-            try
-            {
-                return t.TraderInfo == null;
-            }
-            catch (Exception)
-            {
-                return true;            // a trader id with no trader behind it: nothing to keep it a trader for
-            }
+            return t is EntityAliveSDXV4 || t is EntityAliveSDX;
         }
 
         public static MethodBase UpdateTarget()
