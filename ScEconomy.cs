@@ -189,12 +189,12 @@ namespace SurvivorCommunity
             return t;
         }
 
-        /// <summary>"level 2 + tier 1 + staff 1 + match 1 + push 1 = 6" (the console's sc outpost yield).</summary>
+        /// <summary>"level 2: 2 + tier 1 + staff 1 + match 1 + push 1 = 6" (the console's sc outpost yield).</summary>
         public static string StepsText(Outpost o)
         {
             if (o == null) return "";
             var sb = new StringBuilder();
-            sb.Append(o.Scavenge ? "scavenge level " : "level ").Append(o.Level).Append(' ').Append(BaseUnits(o));
+            sb.Append(o.Scavenge ? "scavenge level " : "level ").Append(o.Level).Append(": ").Append(BaseUnits(o));
             Step(sb, "tier", TierBonus(o.Tier));
             Step(sb, "staff", StaffUnits(o));
             Step(sb, "match", MatchUnits(o));
@@ -229,17 +229,19 @@ namespace SurvivorCommunity
         {
             var producing = new List<Outpost>();
             var own = new Dictionary<int, int>();
+            var primary = new Dictionary<int, Resource>();       // read once: a scavenge outpost's is the stock's shortest
             foreach (Outpost o in ScRegistry.Outposts)
             {
                 if (!Produces(o, day)) continue;
                 producing.Add(o);
                 own[o.Id] = OwnUnits(o);
+                primary[o.Id] = ScOutposts.PrimaryToday(o);
             }
             var units = new Dictionary<int, int>(own);
             for (int r = 0; r < ScNames.ResourceCount; r++)
             {
                 var same = new List<Outpost>();
-                foreach (Outpost o in producing) if ((int)ScOutposts.PrimaryToday(o) == r) same.Add(o);
+                foreach (Outpost o in producing) if ((int)primary[o.Id] == r) same.Add(o);
                 if (same.Count < 2) continue;
                 same.Sort((a, b) => { int k = own[b.Id].CompareTo(own[a.Id]); return k != 0 ? k : a.Id.CompareTo(b.Id); });
                 for (int i = 1; i < same.Count; i++) units[same[i].Id] = LessNotBelowOne(units[same[i].Id], ScConfig.OutpostDupLess);

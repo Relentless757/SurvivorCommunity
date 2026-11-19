@@ -48,7 +48,7 @@ so they must always agree. Start-up must say `patch verification: all 213 target
 
 - [ ] **Old save loads:** load a save from before this build that has members and outposts. No errors in the log;
       `sc outpost list` shows "upkeep N mats a day, haulage N fuel tonight" (no "debt"), and the outposts' rows in the
-      community window show whole numbers ("+1 F/day").
+      community window show whole numbers ("+1 food/day").
 - [ ] **Food doubles:** F1, `sc status`: the "next rollover: food N (N eaten)" line, N = the members who have arrived (a
       Bottomless Stomach member counts 2). `sc give food 10`, then `sc day`: the day's message says "used N food" and
       `sc status` shows the stock 10 - N lower (plus any garden). The Home Status panel shows the food red while the stock
@@ -65,12 +65,12 @@ so they must always agree. Start-up must say `patch verification: all 213 target
       counts the cook (a cook makes it longer). The community window's "N days remaining" says the same.
 - [ ] **Members on the way eat nothing:** `sc enclave join <id> now` with an enclave that would join: `sc status` says
       "N on the way eat nothing yet" and its food and water count only those who have arrived; `sc day` takes only that.
-- [ ] **Outpost steps:** `sc outpost yield` shows each outpost as "level 1 1 = 1 -> tonight +1 food a day, upkeep 1".
-      `sc outpost level <id> 2`: "level 2 2", upkeep 1; `sc outpost level <id> 3`: "level 3 3", upkeep 2. `sc outpost
+- [ ] **Outpost steps:** `sc outpost yield` shows each outpost as "level 1: 1 = 1 -> tonight +1 food a day, upkeep 1".
+      `sc outpost level <id> 2`: "level 2: 2", upkeep 1; `sc outpost level <id> 3`: "level 3: 3", upkeep 2. `sc outpost
       post <id> <member>`: "+ staff 1", and "+ match 1" for a fitting specialty (a gardener at a water outpost too).
-      `sc outpost mode <id> push`: "+ push 1"; `quiet` on a level 1: "= 0 -> tonight nothing a day". A tier 4 or 5
+      `sc outpost mode <id> push`: "+ push 1"; `quiet` on a level 1: "- quiet 1 = 0 -> tonight nothing". A tier 4 or 5
       building shows "+ tier 1".
-- [ ] **The window agrees:** on the Outposts tab the row (e.g. "+3 F/day"), the detail ("+3 food a day"), each staffer's
+- [ ] **The window agrees:** on the Outposts tab the row (e.g. "+3 food/day"), the detail ("+3 food a day"), each staffer's
       "+1 a day" (the matching one "+2 a day"), "Level 2 - 2 a day" and the Costs line "N building material, N fuel a
       day" are the numbers `sc outpost yield` printed. Then `sc day`: the outposts' line delivers exactly that and pays
       "(upkeep N building material, haulage N fuel)" as the Costs line said; the Home Status panel's materials and fuel
