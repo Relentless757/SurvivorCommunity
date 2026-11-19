@@ -8,7 +8,12 @@ so a LocalPrefabs file can never shadow it, with the Watch post adjusted (the us
   upside-down plates gets an upside-down post: its top is the walking surface the guard stands on).
 Run it again after editing the tower in the editor (the post may be the old cube Watch Post or any of the shapes).
 
-    python import_guard_tower.py [source name] [mod folder]
+Paint saved with OcbCustomTextures installed (the user's 3.2 game) is turned back into vanilla's layout: that mod keeps a
+face's paint in 10 bits instead of vanilla's 8, so vanilla reads it as other paints and logs "Missing paint ID XML entry"
+(round tw1). It is found by the bits above vanilla's six 8-bit faces; --ocb forces the conversion (a prefab painted on
+few faces may not set them), --no-ocb turns it off.
+
+    python import_guard_tower.py [--ocb | --no-ocb] [source name] [mod folder]
 
 Defaults: Guard_Tower from %APPDATA%/7DaysToDie/LocalPrefabs, and the mod folder this script sits in (Tools/..).
 Needs poi_gen's .tts reader/writer (it round-trips every vanilla prefab byte for byte).
@@ -71,9 +76,19 @@ def write_nim(path, version, entries):
     path.write_bytes(bytes(out))
 
 
+def ocb_to_vanilla(v):
+    """OcbCustomTextures' six 10-bit faces -> vanilla's six 8-bit faces; None when a face names a paint above 255."""
+    faces = [(v >> (f * 10)) & 0x3FF for f in range(6)]
+    if any(t > 255 for t in faces):
+        return None
+    return sum(t << (f * 8) for f, t in enumerate(faces))
+
+
 def main():
-    src_name = sys.argv[1] if len(sys.argv) > 1 else "Guard_Tower"
-    mod = pathlib.Path(sys.argv[2]) if len(sys.argv) > 2 else pathlib.Path(__file__).resolve().parent.parent
+    args = [a for a in sys.argv[1:] if a not in ("--ocb", "--no-ocb")]
+    ocb_flag = "--ocb" if "--ocb" in sys.argv else "--no-ocb" if "--no-ocb" in sys.argv else None
+    src_name = args[0] if len(args) > 0 else "Guard_Tower"
+    mod = pathlib.Path(args[1]) if len(args) > 1 else pathlib.Path(__file__).resolve().parent.parent
     src = pathlib.Path(os.environ["APPDATA"]) / "7DaysToDie" / "LocalPrefabs" / src_name
     for ext in (".tts", ".blocks.nim", ".xml"):
         if not pathlib.Path(str(src) + ext).exists():
@@ -84,6 +99,18 @@ def main():
     p = TTSPrefab.load(str(src) + ".tts")
     if p.version < 18:
         sys.exit("prefab version %d: only 18+ (3.x) is supported" % p.version)
+    wide = sum(1 for v in p.textures.values() if v >> 48)
+    if ocb_flag == "--ocb" or (wide and ocb_flag != "--no-ocb"):
+        for off, v in list(p.textures.items()):
+            n = ocb_to_vanilla(v)
+            if n is None:
+                sys.exit("cell %s: paint %s names an OcbCustomTextures paint above 255 - vanilla can't show it; repaint it "
+                         "in the editor" % (p.offset_to_coord(off), hex(v)))
+            p.textures[off] = n
+        print("paint: %d cell(s) turned from OcbCustomTextures' 10-bit faces into vanilla's 8-bit ones (%s)"
+              % (len(p.textures), "forced" if ocb_flag else "%d had bits vanilla never sets" % wide))
+    elif wide:
+        print("warning: %d cell(s) carry paint bits vanilla never sets (--no-ocb kept them)" % wide)
     sx, sy, sz = p.size
 
     cells = {}

@@ -339,7 +339,7 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 - `sc watch rest <member> [clear]` · `sc watch place <post|member>` · `sc watch scan` · `sc watch fatigue`
 - `sc lightsout [on|off]` *(round m1f)* — Lights out: its state, every generator in the home zone and whether it switched
   it off; `on` orders it at any hour, `off` ends it (Lights on). `sc facility tab` prints the Facilities tab as text
-- `sc tower [info]` · `sc tower check|stamp [rot]`
+- `sc tower [info]` · `sc tower check|stamp [rot]` · `sc tower repaint [radius]`
 
 ## Outposts
 

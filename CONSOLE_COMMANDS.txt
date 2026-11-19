@@ -598,6 +598,12 @@ sc tower stamp [rot] [HOST] [DESTRUCTIVE]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Same as "check", then builds the tower at once (no kit used). Overwrites blocks in the footprint. Back up first.
 
+sc tower repaint [radius] [HOST]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Gives towers built before the paint fix (2026-11-18) their old wood paint back: every block within "radius" of you
+(default 16, 1-64) that still carries the old tower paint. Faces you painted yourself keep your paint. Blocks in chunks
+that aren't loaded are skipped. Example: "sc tower repaint"
+
 
 7. Radio
 --------

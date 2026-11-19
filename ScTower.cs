@@ -87,6 +87,10 @@ namespace SurvivorCommunity
                         }
                 // the stamp leaves a multi-block's cells to its parent's OnBlockAdded, untested for a tower (none in the user's)
                 if (children > 0) ScLog.Warn("guard tower: " + PrefabName + " has " + children + " multi-block cell(s) (doors, gates...) - they may not come out right");
+                int badPaint = UnreadablePaintCells(p);
+                if (badPaint > 0)
+                    ScLog.Err("guard tower: " + badPaint + " cell(s) of " + PrefabName + " carry paint this game can't read (saved with OcbCustomTextures "
+                              + "installed? run Tools/import_guard_tower.py again) - those faces show other paints and log \"Missing paint ID XML entry\"");
                 prefab = p;
                 ScLog.Out("guard tower: " + PrefabName + " loaded, size " + P(p.size) + ", anchor " + P(Anchor(p)) + " (on the ground; yOffset " + p.yOffset + " ignored)"
                           + (hasPost ? ", Watch post at " + P(postCell) + " (rotation " + p.GetBlock(postCell.x, postCell.y, postCell.z).rotation + ")" : ", no Watch post"));
@@ -488,6 +492,74 @@ namespace SurvivorCommunity
         {
             GameManager.Instance.SetBlocksRPC(plan.Changes);
             for (int i = 0; i < plan.SnapAt.Count; i++) w.ChunkCache.SnapTerrainToPositionAroundRPC(w, plan.SnapAt[i]);
+        }
+
+        /// <summary>
+        /// Round tw1 (2026-11-18, the user's report: "missing paint ID XML entry", and the tower's paint not as it was in 3.2).
+        /// The user's Guard_Tower was saved in 3.2 with OcbCustomTextures installed, which keeps a face's paint in 10 bits
+        /// instead of vanilla's 8. "Old wood" (paint 67) on all six faces is 0x010C4310C4310C43 that way, and every tower
+        /// block carried it. 3.4 has no OcbCustomTextures, so vanilla read 8 bits per face: Wood_old, Wood_black,
+        /// Adobe_trim_white, a missing paint 196 (the log line, once per face drawn), Log_cabin and Wood_old. The prefab now
+        /// carries vanilla's 0x434343434343; towers stamped before keep the old value until sc tower repaint fixes them.
+        /// </summary>
+        public const long OcbStampedPaint = 0x010C4310C4310C43;
+        public const int TowerPaint = 67;
+
+        /// <summary>
+        /// Prefab cells whose paint vanilla can't read: bits above the six 8-bit faces set (vanilla never sets them), or a
+        /// face naming a paint id painting.xml doesn't define.
+        /// </summary>
+        public static int UnreadablePaintCells(Prefab p)
+        {
+            BlockTextureData[] list = BlockTextureData.list;
+            int bad = 0;
+            for (int y = 0; y < p.size.y; y++)
+                for (int x = 0; x < p.size.x; x++)
+                    for (int z = 0; z < p.size.z; z++)
+                    {
+                        long v = p.GetTexture(x, y, z)[0];
+                        if (v == 0) continue;
+                        bool ok = (v >> 48) == 0;
+                        for (int f = 0; ok && f < 6 && list != null; f++)
+                        {
+                            int id = (int)((v >> (f * 8)) & 0xFF);
+                            if (id != 0 && (id >= list.Length || list[id] == null)) ok = false;
+                        }
+                        if (!ok) bad++;
+                    }
+            return bad;
+        }
+
+        /// <summary>
+        /// sc tower repaint: every block within radius (a cube around center) that still carries the paint towers were
+        /// stamped with before round tw1 gets "old wood" on its faces again. The test is the value's top 16 bits (0x010C here;
+        /// vanilla never sets them). A face the player painted since then keeps its paint: only the faces that still hold the
+        /// stamped value change. Air and unloaded chunks are skipped. Host / single player, main thread.
+        /// </summary>
+        public static int Repaint(World w, Vector3i center, int radius, out int scanned)
+        {
+            int fixedCells = 0;
+            scanned = 0;
+            long top = OcbStampedPaint >> 48;
+            for (int y = Math.Max(0, center.y - radius); y <= Math.Min(255, center.y + radius); y++)
+                for (int x = center.x - radius; x <= center.x + radius; x++)
+                    for (int z = center.z - radius; z <= center.z + radius; z++)
+                    {
+                        scanned++;
+                        long v = w.GetTextureFullArray(x, y, z)[0];
+                        if ((v >> 48) != top) continue;
+                        if (w.GetBlock(x, y, z).isair) continue;
+                        long n = 0;
+                        for (int f = 0; f < 6; f++)
+                        {
+                            long cur = (v >> (f * 8)) & 0xFF;
+                            long was = (OcbStampedPaint >> (f * 8)) & 0xFF;
+                            n |= (cur == was ? TowerPaint : cur) << (f * 8);
+                        }
+                        w.SetTexture(x, y, z, n);
+                        fixedCells++;
+                    }
+            return fixedCells;
         }
 
         public static string Counts(Plan plan)

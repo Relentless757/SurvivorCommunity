@@ -37,6 +37,24 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round tw1 (2026-11-18): the Guard Tower's paint
+
+Why: your report - "Missing paint ID XML entry" in the log, and the tower's paint not as it was in 3.2. The tower
+prefab was saved in 3.2 with OcbCustomTextures installed, which keeps each face's paint in 10 bits instead of the
+game's 8. 3.4 has no OcbCustomTextures, so it read "old wood on every side" as six different paints, one of them
+missing (id 196). The prefab now carries old wood in the game's own format, and `Tools/import_guard_tower.py`
+converts such paint when it copies the tower in. Start-up must say `patch verification: all 213 targets patched`, and
+the log must have no `guard tower: ... carry paint this game can't read` error.
+
+- [ ] **The tower you already built:** stand next to it, F1, `sc tower repaint`: "N block(s) repainted to old wood
+      within 16 of (...)" (about 70, more with longer legs). Every block shows old wood on every side, as in 3.2, and
+      looking at it no longer adds "Missing paint ID XML entry: 196" lines to the log. Run it again: "no tower blocks
+      with the old paint". For a tower farther away: `sc tower repaint 40`.
+- [ ] **A new tower** (the kit, or `sc tower stamp`): old wood on every side at once, and no "Missing paint ID" lines.
+- [ ] **Your own paint stays:** paint one face of an old tower with the paint brush before `sc tower repaint`; that face
+      keeps your paint, the rest turn to old wood.
+- [ ] **Save and reload:** the repainted tower keeps its paint.
+
 ## Round v9 (2026-11-18): the 105 new lines recorded in all 16 voices
 
 Why: the line list you reviewed (two lines reworded by you), recorded with ElevenLabs over three days: 1,680 clips, each
@@ -8281,7 +8299,8 @@ while you're not looking. After editing the tower in the editor, run `python Too
 (it copies `LocalPrefabs\Guard_Tower` in and turns the post again), then restart the game.
 
 Console: `sc tower` (the prefab: size, anchor, post, blocks), `sc tower check [rot]` (would it fit at the block you look
-at, and why not; rot 0-3, default: as the kit would face), `sc tower stamp [rot]` (built there at once, no kit used).
+at, and why not; rot 0-3, default: as the kit would face), `sc tower stamp [rot]` (built there at once, no kit used),
+`sc tower repaint [radius]` (round tw1: a tower built before 2026-11-18 gets its old wood paint back).
 
 - [ ] **Startup:** `patch verification: all 77 targets patched` (70 without Voice Control); the `config:` line ends with
       `guardTower=preview glow, legs +3, cut 2`. `sc tower` prints `scGuardTower: size (4, 7, 5), anchor (2, 0, 2) (on

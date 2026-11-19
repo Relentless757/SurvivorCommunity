@@ -1147,6 +1147,8 @@ The Guard Tower kit puts up a wooden watch tower with a Watch Post on its deck i
 - Once up it is ordinary blocks: repair, upgrade or break them like anything you built. Hold E on its Watch Post to
   assign a guard.
 - If the spot stopped fitting by the time the tower goes up, the kit comes back to your inventory with the reason.
+- A tower built before 2026-11-18 shows a mix of paints instead of old wood: stand next to it and run "sc tower repaint"
+  in the console (F1).
 
 
 10. The radio station and the handheld radio

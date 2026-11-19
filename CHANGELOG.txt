@@ -4,6 +4,11 @@ Next pre-release (not released yet)
 
 Fixes
 -----
+- The Guard Tower's paint is old wood again, as it was in 3.2. The tower was saved in a game that had OcbCustomTextures
+  installed, which stores paint in its own wider format. Without that mod the game read the paint as a mix of other
+  paints, one of them missing ("Missing paint ID XML entry: 196" in the log). New towers come out right. For a tower you
+  already built, stand next to it and run "sc tower repaint" in the console (F1); faces you painted yourself keep your
+  paint.
 - A survivor who once walked through a trader's compound can be talked to again at night. SCore's NPCs run the game's
   trader code, so the first time one stood inside a trader compound it took that trader's opening hours on for good:
   from closing time it refused every talk ("Failed to lock EntityAliveSDXV4 ... Target refused to be locked on server").
