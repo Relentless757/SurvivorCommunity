@@ -129,6 +129,7 @@ namespace SurvivorCommunity
                 ScLightsOut.Reset();                   // round m1f (BD1): Lights out
                 ScWatchFatigue.Reset();                // round m1f (BD1): watch fatigue's last terms
                 ScSalvage.Reset();                     // round m1f (BD1): salvage's noted horde size
+                Patches_TraderArea.Reset();            // round tl1: which NPCs were logged
                 ScCategories.Reset();
                 Patches_Npc.Reset();
                 });
@@ -523,6 +524,9 @@ namespace SurvivorCommunity
             Add(t, "AvatarSdcsNpcController::SdcsChooseMeleeFallback", Patches_Xnpc.MeleeFallbackTarget());
             Add(t, "AvatarSdcsNpcController::Update", Patches_Xnpc.UpdateTarget());
             Add(t, "EntityTrader::AllowActivationCommand", Patches_Xnpc.TalkPromptTarget());
+            // round tl1: SCore NPCs that are no trader never take on a trader compound (talk refused while it is closed)
+            Add(t, "EntityTrader::OnUpdateLive", Patches_TraderArea.UpdateTarget());
+            Add(t, "EntityTrader::OnLockRequestServer", Patches_TraderArea.LockTarget());
             Add(t, "AutoTurretFireController::shouldIgnoreTarget", Patches_Xnpc.AutoTurretTarget());
             Add(t, "MiniTurretFireController::shouldIgnoreTarget", Patches_Xnpc.MiniTurretTarget());
             Add(t, "MotionSensorController::shouldIgnoreTarget", Patches_Xnpc.MotionSensorTarget());

@@ -1,5 +1,12 @@
 # Next pre-release (not released yet)
 
+## Fixes
+- **A survivor who once walked through a trader's compound can be talked to again at night.** SCore's NPCs run the
+  game's trader code, so the first time one stood inside a trader compound it took that trader's opening hours on for
+  good: from closing time it refused every talk ("Failed to lock EntityAliveSDXV4 ... Target refused to be locked on
+  server"). It also greeted you as the trader, and despawned itself when another NPC of the same kind stood within
+  10 m. NPCs that are not traders now never take a trader compound on; real traders are unchanged.
+
 ## Enclaves speak on the radio
 - **You hear enclaves now.** When an enclave contacts you, the message still shows, and now its leader's own voice says
   their words over the radio, crackle and all: an ally answering **Send a fighter** or **Supply drop** (or that their

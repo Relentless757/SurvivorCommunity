@@ -37,6 +37,22 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round tl1 (2026-11-18): survivors and trader compounds
+
+Why: your report - a stranger you had talked to refused every talk afterwards, with "[LockManager] Failed to lock
+EntityAliveSDXV4 on channel 0. Target refused to be locked on server." in the log. She had stood in a trader's compound
+and took on that trader's opening hours. Start-up must say `patch verification: all 213 targets patched`.
+
+- [ ] **Talk after closing time.** Take a member (or walk a stranger) through a trader's compound in the day, then wait
+      until after 22:00: you can still talk to them, inside or outside the compound, with no "Failed to lock" warning.
+      With `DebugLogging` on the log says once "<name> (<id>) walked into a trader compound - SC keeps the NPC from
+      taking it on as its trader (round tl1)".
+- [ ] **Two of a kind.** Two survivors of the same class (two women, or two men) standing together in a trader compound for
+      a minute: neither one vanishes.
+- [ ] **The trader itself is unchanged:** it still closes at 22:00, refuses talk while closed, and warns you before it
+      closes.
+- [ ] **Wren:** the survivor from the report talks again (after a reload she is fresh anyway; at night, too).
+
 ## Merged build ms/m1all (2026-11-17): where the M1 rounds meet
 
 Why: steps for what only exists once the rounds are combined. Make a member a Night Owl with `sc traits <name> add

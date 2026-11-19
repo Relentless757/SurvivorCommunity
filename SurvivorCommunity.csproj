@@ -431,6 +431,7 @@
   <ItemGroup Condition="'$(ScGame)'=='34'">
     <Compile Include="ScMagsTrim.cs" />
     <Compile Include="ScPanelHurt.cs" />
+    <Compile Include="Patches_TraderArea.cs" />   <!-- round tl1 -->
     <Compile Include="ScWatchDesc.cs" />
   </ItemGroup>
   <!-- round m1f (2026-11-17): the community window's Facilities tab (it replaced the Activities tab) and base defense BD1 -
