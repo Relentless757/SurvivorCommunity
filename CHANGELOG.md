@@ -25,7 +25,6 @@
   enclave lines. When too many wait, the least urgent one is dropped.
 - **A siege calls again halfway.** If you are not there by half of the siege's time, they radio once more: "Where are you?
   We're losing the wall! Hurry!"
-- The request announcement and the siege calls stay messages only until their lines are recorded.
 - New setting `EnclaveVoiceLines` (README section 20); `sc radio enc <moment>` plays one now.
 
 ## Traits and life skills
@@ -197,7 +196,7 @@
 - **The order wheel answers in their own voice.** Picking an order on 0-XNPCCore's order wheel no longer has the survivor
   say the slot's name ("Close", "Far", "Jump down", "Aggressive", "Loot here"): she gives that order's reply in her
   recorded voice ("I'll stay close.", "Weapons free."). "Come here" leaves her "On my way." alone, and "Whatever" on the
-  Emotes page is done without a word. Roles, emotes and dances answer this way once their new lines are recorded. An
+  Emotes page is done without a word. Roles, emotes and dances answer this way too. An
   order she does not carry out (your party is full, or you are not her leader) keeps the slot's name.
   `VoiceWheelAcks` turns it off.
 - **One line at a time.** When one order makes two lines at once (Come here's "On my way." and then "Coming right
@@ -208,7 +207,7 @@
   stand-in, a member out of sight on a posting or a run, or someone hostile to you (they say nothing). Where a voice has no recording
   of the greeting, Voice Control greets as before. `ScGreetingsOwnAll`.
 - **Refusals said aloud.** A resident refusing a field job, a member refusing to fight with her work kit, and "Come with
-  me." when your party has no room are spoken too, once recorded, when she is within 30 m and neither asleep nor down,
+  me." when your party has no room are spoken too, when she is within 30 m and neither asleep nor down,
   and Voice Control's "yes" to the refused order is neither said nor shown. `VoiceSpokenRefusals`. A
   spoken "follow me" with no room in the party now answers "You've already got a full crew with you. Ask me again when
   there's room." instead of "I can't right now.".

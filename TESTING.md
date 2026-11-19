@@ -40,7 +40,7 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 ## Round v9 (2026-11-18): the 105 new lines recorded in all 16 voices
 
 Why: the line list you reviewed (two lines reworded by you), recorded with ElevenLabs over three days: 1,680 clips, each
-checked against its words, levelled to -20 dBFS like the rest. Clips and captions only - no code change. Start-up:
+checked against its words, leveled to -20 dBFS like the rest. Clips and captions only - no code change. Start-up:
 `patch verification: all 213 targets patched`; `python -I Tools/voice_lines.py check` reads 709 of 709 for every voice.
 
 - [ ] **Gifts:** give a member an item - one of "Thank you. I won't forget this.", "Thanks. I'll put it to good use." or
@@ -303,9 +303,8 @@ counters say which way each line went (`vc swapped`, `vc kept`, `vc one-line`, `
 
 **8. The line registry**
 
-- [ ] `python -I Tools/voice_lines.py check` exits 0. It notes the 9 enclave radio lines with no Localization row yet,
-      and each voice reads "604 of 709 lines" with "not recorded yet" lists per family. After a recording batch the
-      counts grow; a clip no line uses is the only per-voice failure.
+- [ ] `python -I Tools/voice_lines.py check` exits 0 and each voice reads "709 of 709 lines" (round v9 recorded the
+      rest); a clip no line uses is the only per-voice failure.
 - [ ] After copying a batch, `sc voice rescan` in game: the new clips play without a restart.
 
 **9. Judge these choices in game** (each is how this round was built; say if one should change)
@@ -421,8 +420,7 @@ true for the verbose lines. Locked & Loaded loaded for the first group.
 Why: ROADMAP item 2, round V-a, with your decisions of 2026-11-17. When an enclave or a drifter band contacts you, its
 speaker's own recorded voice now says their words beside the message you already get. Wiring only: the 14 lines
 recorded in round vo2 (`scEncCall*`, `scEncRaid*Said`, `scEncMove*Said`, `scEncJoinSaid*`, `scBand*Said`; all 16 voices
-have them). The siege call and the request announcement go through the same path but have no recording yet (round V-b),
-so they stay messages only.
+have them). The siege call and the request announcement go through the same path; round v9 recorded them.
 
 The rule (yours):
 
@@ -438,7 +436,7 @@ The rule (yours):
   people were never made: the message alone. The fighter's hello is the fighter's own voice; a band's lines its leader's,
   except a join through the talk: the one you talked to answers.
 - **The siege's call again:** at half the time to answer, with nobody there yet, the group calls once more (a message
-  and `scEncSiegeHurrySaid` at siege priority; not recorded yet, so the message alone). Once a siege, never again after
+  and `scEncSiegeHurrySaid` at siege priority, spoken since round v9). Once a siege, never again after
   a reload.
 - **The radio queue's order:** siege > horde warnings > runners > other enclave lines; a full queue (8) drops the least
   urgent.
@@ -518,21 +516,21 @@ and its counters count `enc said: on the radio`, `enc said: in person`, `enc sai
 - [ ] **No overlap with the radio.** Right after a join's parting line starts, queue a radio line (`sc radio enc drop
       <id>` with the handheld): `sc radio` shows "held <n> s for a line in person", and the radio line plays only after
       the parting line ends.
-- [ ] **Siege and request offer: still messages only.** `sc enclave siege <id> now` and `sc enclave request <id> offer
-      resource`: the messages as before, no voice; the verbose log says "no recording of scEncSiegeCallSaid_1 ..
-      scEncSiegeCallSaid_3 in <name>'s voices yet: the text alone" and "no recording of scEncReqHeardSaid_resource ...".
+- [ ] **Siege and request offer** (recorded in round v9): `sc enclave siege <id> now` and `sc enclave request <id> offer
+      resource`: the messages as before, and the speaker says one of the siege calls / the resource announcement by the
+      radio rule.
 - [ ] **The siege calls again at half time.** `sc enclave siege <id> now` and stay away (for a quicker test set
       `EnclaveSiegeMinutes` to 2 in `Config/blocks.xml` first). At half the time (the journal objective shows half
       left): the message "<group> on the radio: "Where are you? We're losing the wall! Hurry!"" with the warning
       sound, and the log line "siege at <group>: half the time to answer is gone and nobody has come - they call again,
-      mm:ss left (voice: no recording of scEncSiegeHurrySaid ...)". Only once.
+      mm:ss left (voice: ...)", and the speaker says it by the radio rule. Only once.
 - [ ] **Not when you are there.** Again, but reach the enclave (within 70 m) before half time: no second call.
 - [ ] Optional: be at the enclave through half time while another fight holds the arrival (a base attack next door),
       then leave before it goes live: the half-time call comes as you leave.
 - [ ] **Not twice after a reload.** Let the half-time call come, save and quit to the menu, load: no second call
       (verbose: "already past half its time when this session first saw it"). Reload a save from before half time: it
       comes once, at half time.
-- [ ] `sc radio enc hurry <id>` shows the message and says why it is silent (not recorded yet).
+- [ ] `sc radio enc hurry <id>` shows the message and plays the call by the radio rule.
 
 **Who speaks when the leader is gone**
 
@@ -2949,8 +2947,7 @@ should then say "NOTHING TO HEAL WITH" while she is near you.
 **The radio**
 
 - [ ] Her radio and yours, hurt her while she is more than 30 m from you: the caption "Paul on the radio: "I'm hurt bad
-      and I've got nothing left to patch myself up with. I'm coming home."" (F1: "Paul on the radio (HurtHome):
-      scRadioRunHurtHome_1 - no recording, the caption alone"). No "Done here. Heading back home." after it; "Almost home"
+      and I've got nothing left to patch myself up with. I'm coming home."" (spoken in Paul's voice since round v9). No "Done here. Heading back home." after it; "Almost home"
       at the base is still said.
 - [ ] Within 30 m of you: the on-screen line instead, with or without a radio. No radio on her and far off: nothing is
       said (the log line only).

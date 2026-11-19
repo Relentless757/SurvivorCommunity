@@ -961,7 +961,7 @@ but the haul is real items in your home crates, not stockpile units.
   community window and the messages name it: "an outcrop of Iron Ore (Pine Forest)", "rocky ground (Desert)", "a clay
   bank (Forest)".
 - The trip is a supply run's: they walk there, work the spot for 6 game hours, and walk back. The same risk, escort,
-  distress calls and radio apply. A mining runner with a radio has a few lines of their own (text only, no voice).
+  distress calls and radio apply. A mining runner with a radio has a few lines of their own.
 - What they bring for a whole run with an iron tool and 1 Wits star:
   - Mine on a vein: about 180 stone and 90 ore, mostly the vein's own ore (iron, coal, lead, nitrate, or oil shale in
     the desert), a little of the biome's others.
@@ -1480,8 +1480,8 @@ their words in their own voice: the same voice you hear when you talk to them.
   alone.
 - One voice at a time: a siege call goes first, then the base's horde warnings, then your runners, then the other
   enclave lines. When too many are waiting, the least urgent one is dropped.
-- The request announcement ("The radio crackles: ...") and the siege call (and its call again halfway through) are not
-  recorded yet: for now they are messages only.
+- The request announcement ("The radio crackles: ...") and the siege call (and its call again halfway through) are
+  spoken too, by the same rule.
 - "EnclaveVoiceLines" (section 20) turns these voices off; "VoiceLines" off silences them too.
 
 
@@ -1796,14 +1796,13 @@ Greetings, chatter and taunts
   number ("Now I know how to make Forged Iron.") plays a recording without the name; the caption still shows it.
 - The order wheel: a survivor no longer answers 0-XNPCCore's order wheel by saying the slot's name ("Close", "Jump
   down", "Loot here"). She gives that order's own reply in her voice ("I'll stay close."; the roles, emotes and dances
-  once their new lines are recorded). "Come here" leaves her "On my way." alone, and "Whatever" on the Emotes page is
-  done without a word. An order she does not carry out (your party is full, or you are not her leader) keeps the slot's
-  name, as before.
+  too). "Come here" leaves her "On my way." alone, and "Whatever" on the Emotes page is done without a word. An order
+  she does not carry out (your party is full, or you are not her leader) keeps the slot's name, as before.
 - One line at a time: when an order makes two lines at once (Come here's "On my way." and then "Coming right back."),
   the second no longer cuts off the first. Anything else, a call for help when she goes down included, is always heard.
 - Refusals said aloud: a resident refusing a field job, a member refusing to fight with her work kit, and "Come with
-  me." when your party has no room are spoken too (once recorded), not only shown, when she is within 30 m of you and
-  awake, not down and not already speaking. A spoken "follow me" with no room in the party gets the same answer.
+  me." when your party has no room are spoken too, not only shown, when she is within 30 m of you and awake, not down
+  and not already speaking. A spoken "follow me" with no room in the party gets the same answer.
 - Raider taunts: raiders call out when they spot you, hunt you, lose you, are hit, kill you, die, or fall back. One
   raider at most every 15 seconds, so a band does not all shout at once.
 - Runners on the radio speak through a radio filter (section 8).

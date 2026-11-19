@@ -467,8 +467,7 @@ Nothing else happens (no request, siege, move or join).
 - `<moment>`: `fighter`, `drop` and `fail` (an ally's answers to a radio call), `hello` (their fighter's hello: the one
   of theirs with you, else their speaker), `demand`, `paid` and `refused` (a raider enclave), `move`, `movelost` and
   `movenest` (a group moving), `join` and `joinfollow` (a leader as their whole group joins), `thanks` and `bandjoin`
-  (drifters), and `offer`, `siege` and `hurry` (the siege's call again at half time) - not recorded yet: these say why
-  they stay silent.
+  (drifters), and `offer`, `siege` and `hurry` (the siege's call again at half time).
 - `[id]`: the enclave (for `thanks` and `bandjoin`, the band). Default: the nearest group with somebody to speak (a
   hostile one for `demand`, `paid` and `refused`), the nearest drifter band.
 - `force` ignores `EnclaveVoiceLines` and the radio rule.
