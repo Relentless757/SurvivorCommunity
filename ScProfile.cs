@@ -154,7 +154,7 @@ namespace SurvivorCommunity
             {
                 int level = (int)b.GetCustomVar(skillVars[i]);
                 m.Skills[i].Level = Math.Max(1, Math.Min(Member.MaxStars, level));
-                m.Skills[i].Xp = ScSkills.NeededFor(m.Skills[i].Level);
+                m.Skills[i].Xp = ScSkills.NeededFor((Skill)i, m.Skills[i].Level);
             }
             int spec = (int)b.GetCustomVar(SpecVar);
             m.Specialty = Enum.IsDefined(typeof(Specialty), spec) ? (Specialty)spec : Specialty.None;

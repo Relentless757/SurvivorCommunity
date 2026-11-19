@@ -290,6 +290,7 @@ namespace SurvivorCommunity
                 Band bd = null;
                 BandPerson bp = null;
                 int bad = 0;
+                loadShootScale = 1;   // round fx1
                 for (int i = 1; i < lines.Length; i++)
                 {
                     string line = lines[i].Trim();
@@ -298,6 +299,7 @@ namespace SurvivorCommunity
                     {
                         Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitPerson(ref ep); CommitInfestation(ref inf); CommitRequest(ref rq);
                         CommitBand(ref bd); CommitBandPerson(ref bp);
+                        loadShootScale = 1;   // round fx1: a block without shootxp= was written before Shooting's thresholds grew
                         section = line.Trim('[', ']').ToLowerInvariant();
                         if (section == "member") m = new Member();
                         else if (section == "prospect") p = new Prospect();
@@ -1045,6 +1047,13 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// Round fx1: the scale the person block being read wrote its Shooting XP in (shootxp=, written before skills=; 1 for a
+        /// block from before the round). Saved XP is rescaled to today's ShootingXpMult, so a survivor's progress toward the
+        /// next star stays where it was when the thresholds change.
+        /// </summary>
+        private static int loadShootScale = 1;
+
         private static void ParseMember(Member m, string key, string val)
         {
             switch (key)
@@ -1069,6 +1078,7 @@ namespace SurvivorCommunity
                 case "ranged": m.Ranged = val == "1"; break;
                 case "missing": m.MissingDays = I(val); break;
                 case "pendingunhide": m.PendingUnhide = val == "1"; break;
+                case "shootxp": loadShootScale = Clamp(I(val), 1, 100); break;   // round fx1
                 case "skills":
                     foreach (string part in val.Split(','))
                     {
@@ -1077,7 +1087,10 @@ namespace SurvivorCommunity
                         if (kv.Length == 3 && ScNames.TrySkill(kv[0], out s))
                         {
                             m.Skill(s).Level = Clamp(I(kv[1]), 1, Member.MaxStars);
-                            m.Skill(s).Xp = Math.Max(0, I(kv[2]));
+                            int xp = Math.Max(0, I(kv[2]));
+                            int now = ScSkills.XpScale(s), was = s == Skill.Shooting ? loadShootScale : 1;
+                            if (now != was) xp = (int)Math.Min(int.MaxValue, Math.Round((double)xp * now / was));   // round fx1
+                            m.Skill(s).Xp = xp;
                         }
                     }
                     break;
@@ -1744,6 +1757,9 @@ namespace SurvivorCommunity
             if (m.BondKills > 0) sb.AppendLine("bondkills=" + m.BondKillDay.ToString(CultureInfo.InvariantCulture) + ":" + m.BondKills.ToString(CultureInfo.InvariantCulture));   // finding 2
             sb.AppendLine("ranged=" + (m.Ranged ? 1 : 0));
             sb.AppendLine("missing=" + m.MissingDays);
+            // round fx1: the scale Shooting's XP is in (before skills=, which reads it); a key older builds ignore - they then
+            // read the larger XP against their own thresholds and may give a star or two, never take one
+            sb.AppendLine("shootxp=" + ScSkills.XpScale(Skill.Shooting).ToString(CultureInfo.InvariantCulture));
             var sk = new StringBuilder();
             for (int i = 0; i < Member.SkillCount; i++) { if (i > 0) sk.Append(','); sk.Append(ScNames.SkillKeys[i]).Append(':').Append(m.Skills[i].Level).Append(':').Append(m.Skills[i].Xp); }
             sb.AppendLine("skills=" + sk);

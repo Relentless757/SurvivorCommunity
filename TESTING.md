@@ -37,6 +37,30 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round fx1 (2026-11-19): outposts and wanderers, Shooting XP, the watch post arrow, one greeting
+
+Why: your reports of 2026-11-19 - zombies that walk into a cleared building stop it becoming an outpost (as they did
+for LandClaimUpgrade); Shooting levels up very fast; it's hard to tell which way a guard will face; and a recruit's "I
+keep hearing good things about your place." Start-up must say `patch verification: all 213 targets patched`, and the
+`config:` line ends its watch part with `, arrow` and then `poiClear=ignores wanderers shootingXp=x3`.
+
+- [ ] **Outpost with a wanderer inside:** clear a building, then let a zombie walk in (or `spawnentity` one inside).
+      **Establish outpost** goes ahead; `sc poi near 50` says the building is cleared. One of its own sleepers still
+      alive keeps it "not cleared ... sleeper alive", and so does a raider or hostile survivor standing inside.
+- [ ] **The old rule:** with `PoiClearIgnoresWanderers` false, the wandering zombie makes it "1 enemy inside" again.
+- [ ] **Shooting XP:** in the community window, a member's Shooting bar stays where it was after loading this build
+      (their XP was converted). `sc members` shows their Shooting XP ("shooting N(Mxp)") three times what it was.
+      Gun kills now take about three times as long to earn the next star; Fighting is unchanged.
+- [ ] **Save and reload:** the Shooting bars stay where they were (the XP isn't multiplied again).
+- [ ] **Watch post arrow, placing:** hold a Watch Post (any shape) and aim at the floor: a yellow arrow lies on top of
+      the ghost, pointing the way you face. Place it, assign a guard: they look the way the arrow pointed.
+- [ ] **Placed post:** look at a Watch post from up close: the arrow shows on it, and the tooltip ends "- faces east"
+      (or whichever way). Look away: the arrow goes.
+- [ ] **Guard Tower kit:** hold the kit with its ghost up: the arrow sits over the tower's post, pointing away from the
+      ladder; turn it with R and the arrow turns too. Build it: the guard looks that way.
+- [ ] **Recruits:** talk to a prospect a few times over a few days: they never say "I keep hearing good things about
+      your place.", but still use their other three greetings.
+
 ## Round tw1 (2026-11-18): the Guard Tower's paint
 
 Why: your report - "Missing paint ID XML entry" in the log, and the tower's paint not as it was in 3.2. The tower

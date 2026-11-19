@@ -781,6 +781,7 @@ blockcommand_scwatchrelieve,UI,Radial blockcommand,,,,Relieve guard
 scWatchPostLabel,UI,Tooltip,,,,Watch post {0} ({1})
 scWatchActEmpty,UI,Tooltip,,,,{0}: no guard on watch
 scWatchActManned,UI,Tooltip,,,,"{0}: {1} on watch, {2} h left"
+scWatchActFaces,UI,Tooltip,,,,{0} - faces {1}
 scWatchActNotPost,UI,Tooltip,,,,Not a working watch post: {0}
 scWatchReady,UI,Tooltip,,,,{3} is ready. Hold E on it to assign a guard.
 scWatchAssigned,UI,Tooltip,,,,{0} takes the watch at {3} for {1} hours ({2} ammo bundles from the stockpile).

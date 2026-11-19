@@ -212,6 +212,12 @@ namespace SurvivorCommunity
         /// <summary>Supplies favour choices "food:15|meds:5|ammo:60" - one is rolled per prospect.</summary>
         public static readonly List<KeyValuePair<Resource, int>> SuppliesFavours = new List<KeyValuePair<Resource, int>>();
         public static int PoiFavourRange = 300;
+        /// <summary>
+        /// Round fx1 (2026-11-19, the user's report: zombies entering a POI kept it from being made an outpost): a cleared POI
+        /// stays clear when zombies or animals wander in (ScSecurity.IsCleared). Its own sleepers, raiders and hostile
+        /// survivors still count (the user's call). False = anything hostile inside counts, as before.
+        /// </summary>
+        public static bool PoiClearIgnoresWanderers = true;
         // ---- skill effects (fraction per star above the first) and specialty yields ----
         public static float MeleePerStar = 0.10f;
         public static float RangedPerStar = 0.10f;
@@ -229,6 +235,11 @@ namespace SurvivorCommunity
         public static int ScanRadius = 0;
         public static int FollowXpSeconds = 60;
         public static int DailyWitsXp = 3;
+        /// <summary>
+        /// Round fx1 (2026-11-19, the user's ask: "Survivors shooting skill levels up very fast. The XP requirement needs to be
+        /// tripled"): Shooting's star thresholds are ScSkills' table times this; the other skills keep the table.
+        /// </summary>
+        public static int ShootingXpMult = 3;
         /// <summary>
         /// A new survivor's lowest stars in every core skill by class tier (T1, T2, T3; round t3, the user's ask: T2 at least
         /// 2, T3 at least 3). Rolled when the profile is (ScSkills.RollStart); 0-XNPCCore's other classes and pack NPCs count as T1.
@@ -465,6 +476,12 @@ namespace SurvivorCommunity
         public static float WatchPlaceSeconds = 30f;
         /// <summary>Each manned post cuts attention gain by this share, all of them together by at most WatchAttentionCutMax.</summary>
         public static float WatchAttentionCut = 0.15f, WatchAttentionCutMax = 0.45f;
+        /// <summary>
+        /// Round fx1 (2026-11-19, the user's ask: show which way a posted member will face): an arrow where the guard stands,
+        /// pointing the way they look - on a Watch post's placement ghost, over the Guard Tower kit's post, and on a placed post
+        /// you look at (ScPostArrow).
+        /// </summary>
+        public static bool WatchPostArrow = true;
         // ---- base defence D4: attacks while the player is away, the defence rating, the siege (ScBaseAttack, ScDefence, ScSiege) ----
         /// <summary>A horde is called, and fought by the defenders alone, while the player is away (false: a call waits for them, as in D2).</summary>
         public static bool BaseAttacksAway = true;
@@ -1546,6 +1563,7 @@ namespace SurvivorCommunity
             BaseAttackDefendMargin = 10f; BaseAttackHomeMargin = 30f; BaseAttackLeaveRange = 150f; BaseAttackMaxHours = 4f; BaseAttackResumeSeconds = 15f; BaseAttackWinMorale = 4f;
             WatchPosts = true; WatchMaxPosts = 4; WatchShiftHours = 12f; WatchRestHours = 12f; WatchShiftAmmo = 3; WatchSightMult = 1.5f;
             WatchPlaceSeconds = 30f; WatchAttentionCut = 0.15f; WatchAttentionCutMax = 0.45f;
+            PoiClearIgnoresWanderers = true; ShootingXpMult = 3; WatchPostArrow = true;   // round fx1
             BaseAttacksAway = true; BaseAttackJoinRange = 100f; BaseAwayHoursBase = 2f; BaseAwayHoursPer10 = 1f; BaseAwayDamageBand = 35;
             BaseAwayAmmoPer = 10f; BaseAwayAmmoOverrun = 1.5f; BaseAwayHurtMin = 1; BaseAwayHurtMax = 2; BaseAwayHurtOverrun = 0.67f;
             BaseAwayDeathChance = 0.08f; BaseAwayDeathHorde = 15f; BaseAwayDeathSkillRef = 6f; BaseAwayDeathSkillStep = 0.125f;
@@ -2057,6 +2075,9 @@ namespace SurvivorCommunity
                 ParseFloat(p, "WatchPlaceSeconds", ref WatchPlaceSeconds, 5f, 600f);
                 ParseFloat(p, "WatchAttentionCut", ref WatchAttentionCut, 0f, 1f);
                 ParseFloat(p, "WatchAttentionCutMax", ref WatchAttentionCutMax, 0f, 1f);
+                p.ParseBool("WatchPostArrow", ref WatchPostArrow);                       // round fx1
+                p.ParseBool("PoiClearIgnoresWanderers", ref PoiClearIgnoresWanderers);   // round fx1
+                ParseInt(p, "ShootingXpMult", ref ShootingXpMult, 1, 10);                // round fx1
                 {
                     string bv;
                     if (p.Values.TryGetValue("BaseAttacksAway", out bv) && !string.IsNullOrEmpty(bv)) BaseAttacksAway = StringParsers.ParseBool(bv);
@@ -2802,7 +2823,8 @@ namespace SurvivorCommunity
                                                              + ", max " + BaseAttackMaxHours + "h, morale +" + BaseAttackWinMorale : "off")
                           + " watchPosts=" + (WatchPosts ? WatchMaxPosts + " posts, shift " + WatchShiftHours + "h (rest " + WatchRestHours + "h, " + WatchShiftAmmo
                                                            + " ammo), sight x" + WatchSightMult + ", placed after " + WatchPlaceSeconds + "s, attention -" + WatchAttentionCut
-                                                           + "/post (max -" + WatchAttentionCutMax + ")" : "off")
+                                                           + "/post (max -" + WatchAttentionCutMax + ")" + (WatchPostArrow ? ", arrow" : "") : "off")
+                          + " poiClear=" + (PoiClearIgnoresWanderers ? "ignores wanderers" : "counts wanderers") + " shootingXp=x" + ShootingXpMult
                           + " awayAttacks=" + (BaseAttacks && BaseAttacksAway ? BaseAwayHoursBase + "h+" + BaseAwayHoursPer10 + "h/10, join " + BaseAttackJoinRange + "m, band "
                                                            + BaseAwayDamageBand + ", ammo 1/" + BaseAwayAmmoPer + " (x" + BaseAwayAmmoOverrun + "), death " + BaseAwayDeathChance
                                                            + " (cap " + BaseAwayDeathCap + ", unhurt x" + BaseAwayDeathUnhurt + "), morale +" + BaseAwayHeldMorale + "/-"

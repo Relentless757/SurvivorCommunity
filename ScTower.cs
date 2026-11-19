@@ -52,6 +52,7 @@ namespace SurvivorCommunity
             cacheValid = false;
             nextTip = 0f;
             ScTowerGhost.Reset();
+            ScPostArrow.Reset();
         }
 
         /// <summary>The tower prefab from this mod's Prefabs folder (loaded once per game: block ids are per save).</summary>
@@ -652,10 +653,44 @@ namespace SurvivorCommunity
         /// Vanilla's box frames the whole tower and its 1x1 cube is hidden (FrameTower).
         /// </summary>
         [HarmonyPatch(typeof(RenderDisplacedCube), nameof(RenderDisplacedCube.Update))]
+        /// <summary>
+        /// Round fx1: where the tower's Watch post lands for a kit at kit turned by turns, and the way its guard will look (the
+        /// post's block turned as the stamp turns it). False without a post.
+        /// </summary>
+        public static bool PostOf(Prefab p, Vector3i kit, int turns, out Vector3i at, out Vector3 facing)
+        {
+            at = Vector3i.zero;
+            facing = Vector3.forward;
+            if (p == null || !hasPost) return false;
+            at = ToWorld(kit, Anchor(p), turns, postCell.x, postCell.y, postCell.z);
+            BlockValue pb = p.GetBlock(postCell.x, postCell.y, postCell.z);
+            facing = ScWatch.Facing(pb.Block.shape.RotateY(false, pb, turns));
+            return true;
+        }
+
         public static class Patch_FocusPreview
         {
             [HarmonyPostfix]
-            public static void Postfix(RenderDisplacedCube __instance, World _world, EntityAlive _player, PersistentPlayerData _ppLocal)
+            public static void Postfix(RenderDisplacedCube __instance, World _world, WorldRayHitInfo _hitInfo, EntityAlive _player, PersistentPlayerData _ppLocal)
+            {
+                bool towerPost = false;
+                Vector3i postAt = Vector3i.zero;
+                Vector3 postFacing = Vector3.forward;
+                TowerGhost(__instance, _world, _player, _ppLocal, ref towerPost, ref postAt, ref postFacing);
+                // round fx1: the watch post arrow (the placement ghost, the tower kit's post, a placed post looked at)
+                try
+                {
+                    ScPostArrow.Focus(__instance, _world, _hitInfo, _player, towerPost, postAt, postFacing);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("post-arrow-focus", e);
+                    ScPostArrow.Hide();
+                }
+            }
+
+            private static void TowerGhost(RenderDisplacedCube __instance, World _world, EntityAlive _player, PersistentPlayerData _ppLocal,
+                                           ref bool towerPost, ref Vector3i postAt, ref Vector3 postFacing)
             {
                 try
                 {
@@ -685,6 +720,7 @@ namespace SurvivorCommunity
                     Prefab p = Get();
                     ScTowerGhost.Show(p, pos, Turns(bv.rotation), ok, color, __instance.transparencyFade, __instance);
                     FrameTower(__instance, p, pos, Turns(bv.rotation));
+                    towerPost = PostOf(p, pos, Turns(bv.rotation), out postAt, out postFacing);
                 }
                 catch (Exception e)
                 {

@@ -4,6 +4,17 @@ Next pre-release (not released yet)
 
 Fixes
 -----
+- Zombies that wander into a cleared building no longer stop you making it an outpost. A zombie or animal walking in
+  after you cleared it doesn't count any more; the building's own sleepers, raiders and hostile survivors still do. The
+  same goes for a favor's "clear this building" (setting "PoiClearIgnoresWanderers").
+- Shooting levels up a third as fast. Guns kill far more often than melee, so Shooting raced ahead: it now needs three
+  times the XP of the other skills for each star ("ShootingXpMult"). Stars your people already have stay, and their
+  progress toward the next one stays where it was.
+- A survivor you're recruiting no longer says "I keep hearing good things about your place." They had no way to know,
+  and it played at any morale.
+- You can see which way a guard will look. An arrow on a Watch post points the way its guard will face: on the post's
+  ghost while you place it, over the Guard Tower kit's post, and on a placed post you look at. The post's tooltip says
+  it too ("... - faces east"). Setting "WatchPostArrow".
 - The Guard Tower's paint is old wood again, as it was in 3.2. The tower was saved in a game that had OcbCustomTextures
   installed, which stores paint in its own wider format. Without that mod the game read the paint as a mix of other
   paints, one of them missing ("Missing paint ID XML entry: 196" in the log). New towers come out right. For a tower you
