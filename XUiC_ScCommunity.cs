@@ -819,7 +819,7 @@ namespace SurvivorCommunity
             var made = new List<int>();
             for (int i = 0; i < ScNames.ResourceCount; i++) if (y[i] > 0) made.Add(i);
             if (made.Count == 0) return ScOutposts.StateLabel(o);
-            // biggest first; on a tie its own resource (the row's icon) first, then the resource order (the review's N5)
+            // biggest first; on a tie today's primary resource first, then the resource order (the review's N5)
             int own = (int)ScOutposts.PrimaryToday(o);
             made.Sort((a, b) => a == b ? 0 : y[a] != y[b] ? y[b].CompareTo(y[a]) : a == own ? -1 : b == own ? 1 : a.CompareTo(b));
             var parts = new List<string>(made.Count);
@@ -1730,7 +1730,7 @@ namespace SurvivorCommunity
             return Flags(m, c, run.Length == 0);
         }
 
-        private static string Flags(Member m, Community c, bool withInjured = true)
+        private static string Flags(Member m, Community c, bool withInjured)
         {
             var sb = new StringBuilder();
             if (withInjured && m.Injured) sb.Append(Localization.Get("scWinInjured"));

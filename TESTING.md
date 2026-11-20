@@ -57,7 +57,8 @@ all 213 targets patched`.
       "+1 meds, +1 fuel/day" in its row, biggest first; one resource still reads "+3 food/day".
 - [ ] **Journey line:** select someone on the way to an outpost in the Members tab: under the mood it reads "On the way
       to (outpost) - about N h, N m from home" in gold; walking home "Walking home from (outpost) - N m out, about N h";
-      a supply runner shows where their run is. An injured or hungry one adds the warning after it, in red.
+      a supply runner shows where their run is. When the community is hungry or thirsty (or they are the threat), the
+      warning follows the line, in red. An injured one stays gold with no "Injured" after it: the header says "+ Injured".
 - [ ] **sc run's reason:** `sc run <someone on the way> food` answers "refused: They are on the road to or from an
       outpost." (not "scOpOnTheWay"); `sc run <someone> food` with three runs out says why in words too.
 
@@ -143,11 +144,12 @@ verification: all 213 targets patched`.
       room not entered, 2 sleepers alive", and `sc outpost list` prints the long form under it as "contested: ...". *(Claude's self-test, 2026-11-20, ClaudeTest34: after sc outpost overrun 4: 'Retake: 1 room not entered', then 'contested: 2 sleepers alive' once I walked in.)*
 - [x] **Retake:** walk through the rooms it names and kill what wakes: within 10 s of the last one the message shows,
       it is active again, the map marker comes back, and the ledger has the line. The next `sc day` delivers from it. *(Claude's self-test, 2026-11-20, ClaudeTest34: retaken 9 s after the last kill, 'Container Lot is clear again - the outpost is yours.' in the ledger; map marker not checked; the next sc day didn't deliver from it only because it was over the slot cap.)*
-- [x] **Make one contested:** `sc outpost state <id> Contested` on a cleared outpost: within 10 s it is retaken by itself
+- [x] **Make one contested:** `sc outpost state <id> Contested` on a cleared outpost (since round fx2, one within the slot
+      limit; over it, it idles quietly): within 10 s it is retaken by itself
       (its building is still clear). For a real one, let a blood moon overrun it, or try `sc outpost attack <id>` and
       stay away (the result is rolled: held, damaged or overrun). *(Claude's self-test, 2026-11-20, ClaudeTest34: sc outpost state 3 Contested on a cleared lot: 'outpost 3 at Sizzle Shack is ours again' within about 10 s.)*
-- [ ] **Door-triggered rooms:** overrun (or `sc outpost state <id> Contested` and let squatters come) an outpost whose
-      building has a room that only opens with a door or switch: that room's sleepers stay gone, and walking the other
+- [ ] **Door-triggered rooms:** overrun (or `sc outpost state <id> Contested` and let squatters come) an outpost within
+      the slot limit whose building has a room that only opens with a door or switch: that room's sleepers stay gone, and walking the other
       rooms retakes it. *(Claude's self-test, 2026-11-20, ClaudeTest34: not run: it needs a building cleared by hand, door rooms included, before a claim fits.)*
 - [x] **Quitting:** quit to the menu with survivors around: the log has no "sdcs-release threw NullReferenceException". *(Claude's self-test, 2026-11-20, ClaudeTest34: quit to the menu twice with members loaded: no 'sdcs-release' line, no exception.)*
 
