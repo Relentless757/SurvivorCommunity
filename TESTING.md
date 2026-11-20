@@ -48,43 +48,43 @@ they really walk the road. The design is `research/outposts/POSTING_TRAVEL.md`. 
 outpost list` shows each outpost's "[on the way: ...]" and everyone walking home; `sc outpost skip <member>` ends the
 current leg of a walk now; `sc outpost overrun <id>` overruns an outpost now. The steps that turn someone back come last.
 
-- [ ] **Post from far away:** stand at an outpost with your home unloaded. Community window, Outposts tab, **Assign**,
+- [x] **Post from far away:** stand at an outpost with your home unloaded. Community window, Outposts tab, **Assign**,
       pick someone at home: "(name) sets off on foot for (outpost) - about N h on the road." The log says "(name): their
       body at home is not loaded - loading the 9 chunks round ..." and, a few seconds later, "their body was loaded and
       taken - they walk the road now". Note any hitch while it loads. `sc outpost list`: "[on the way: (name) ~N h
       offline]" (not "parked"). The garrison shows them in gold, "on the way to (outpost), about N h"; the Members tab
-      says "On the way to (outpost)", and the selected member's line "On the way to (outpost) - about N h, N m from home".
-- [ ] **No over-assigning:** while they are on the way to a level 1 outpost, **Assign** there again says "That outpost
-      has all the people it can take".
-- [ ] **Busy on the way:** select someone on the way in the Members tab: there is no **Send on supply run**, and the
+      says "On the way to (outpost)", and the selected member's line "On the way to (outpost) - about N h, N m from home". *(Claude's self-test, 2026-11-20, ClaudeTest34: Assign at Sizzle Shack: the toast, the 9-chunk load and 'loaded and taken' 0.6 s later, '[on the way: Dave ~1 h offline]', gold garrison line; the Members tab says 'On the way to Sizzle Shack' but nowhere shows '- about N h, N m from home'.)*
+- [x] **No over-assigning:** while they are on the way to a level 1 outpost, **Assign** there again says "That outpost
+      has all the people it can take". *(Claude's self-test, 2026-11-20, ClaudeTest34: 'That outpost has all the people it can take (upgrade it for a second post).')*
+- [x] **Busy on the way:** select someone on the way in the Members tab: there is no **Send on supply run**, and the
       **Follow me** button reads **Recall home** (it turns them back: leave it for the last steps). The Outposts tab's
       **Assign** list (people at home) doesn't offer them. In the console, `sc run (name) food`, `sc outpost post (another
-      outpost's id) (name)` and `sc watch assign (post) (name)` each answer "They are on the road to or from an outpost."
-- [ ] **Safe journey:** on the way there is no distress call, no "under attack" radio message and nothing about risk or
+      outpost's id) (name)` and `sc watch assign (post) (name)` each answer "They are on the road to or from an outpost." *(Claude's self-test, 2026-11-20, ClaudeTest34: Recall home in place of Follow me, supply run greyed; sc outpost post and sc watch assign refuse as written, but sc run prints the raw key 'refused: scOpOnTheWay'.)*
+- [x] **Safe journey:** on the way there is no distress call, no "under attack" radio message and nothing about risk or
       dice in the log. Attacked near you, they fight. `sc run (name) hurt 0.2` while they are in the world: "a posting
-      journey: they keep walking", and they do (a runner would turn home).
-- [ ] **Walking out for real:** at home, post a resident who is standing near you. They leave their post running toward
-      the outpost. `sc members` shows "journey Outbound online". Follow them for a while.
-- [ ] **Out of sight and back:** let them get far ahead: the log says "went offline", `sc members` "journey Outbound
+      journey: they keep walking", and they do (a runner would turn home). *(Claude's self-test, 2026-11-20, ClaudeTest34: no distress, dice or radio line for any traveler; sc run Lena hurt 0.2: 'a posting journey: they keep walking' and she did. Near me they fight for real: Dave died to a zombie lumberjack.)*
+- [x] **Walking out for real:** at home, post a resident who is standing near you. They leave their post running toward
+      the outpost. `sc members` shows "journey Outbound online". Follow them for a while. *(Claude's self-test, 2026-11-20, ClaudeTest34: Hank posted from home with me there: '[on the way: Hank ~1 h ONLINE]'.)*
+- [x] **Out of sight and back:** let them get far ahead: the log says "went offline", `sc members` "journey Outbound
       offline". Go to the outpost ahead of them (or meet the one you posted from far away on their road): they come back
       into the world near you ("is back in the world") and walk in. When they reach the claim, the walker becomes the
-      stand-in on the same spot.
-- [ ] **They arrive:** wait out the hours (or `sc outpost skip <name>`): "(name) has reached (outpost) and holds it
+      stand-in on the same spot. *(Claude's self-test, 2026-11-20, ClaudeTest34: Dave, Ned and Lena came back into the world near me on their roads ('is back in the world ... built in 161 ms'); the walker turning into the stand-in at the claim not watched.)*
+- [x] **They arrive:** wait out the hours (or `sc outpost skip <name>`): "(name) has reached (outpost) and holds it
       now." Their stand-in appears by the claim, the garrison shows "+N a day", and `sc outpost yield` counts their
-      "+ staff 1" only now (before, it did not).
-- [ ] **Recall at the outpost:** at the outpost, the **x** on a staffer's post: "(name) leaves (outpost) and walks home."
+      "+ staff 1" only now (before, it did not). *(Claude's self-test, 2026-11-20, ClaudeTest34: sc outpost skip: 'Kate reached outpost 3 at Sizzle Shack and holds it now', stand-in by the claim, '+ staff 1' only from then.)*
+- [x] **Recall at the outpost:** at the outpost, the **x** on a staffer's post: "(name) leaves (outpost) and walks home."
       The stand-in goes and the member steps in on the same spot within a second or two, then walks off home. The
-      Members tab says "Walking home from (outpost)".
+      Members tab says "Walking home from (outpost)". *(Claude's self-test, 2026-11-20, ClaudeTest34: 'Kate leaves Sizzle Shack and walks home.', back in the world 6 m from me a second later, row 'Home from Sizzle Shack'.)*
 - [ ] **Recall from the outpost, body at home:** load a save with a staffer posted by the previous build and, before you
       have been home, recall them at the outpost: the stand-in keeps its spot for a few seconds
       (log: "loading the 9 chunks round ... their stand-in keeps its spot meanwhile"), then the member steps in on that
       spot and walks off. `sc outpost list` doesn't say "(parked)".
-- [ ] **Home only on arrival:** follow one home (or go home ahead of them): they are not a resident until they walk in
+- [x] **Home only on arrival:** follow one home (or go home ahead of them): they are not a resident until they walk in
       ("(name) is back home from (outpost)."). With you away from home, `sc outpost list` shows them at the edge of the
-      base ("Back at the edge of the base from (outpost) - walking in") until you come home.
-- [ ] **Save mid-journey:** save and quit with one walking out (in the world) and one walking home (out of sight). Load:
+      base ("Back at the edge of the base from (outpost) - walking in") until you come home. *(Claude's self-test, 2026-11-20, ClaudeTest34: 'Back at the edge of the base from Sizzle Shack - walking in (offline)', not a resident until 'Kate is home from Sizzle Shack'. Once their bodies load near you they walk the last stretch in themselves.)*
+- [x] **Save mid-journey:** save and quit with one walking out (in the world) and one walking home (out of sight). Load:
       `sc outpost list` and `sc members` show both where they were, and both arrive. Open the save's
-      `survivor_community.txt`: their `postsnap=` lines start with "2:" and are about 4 to 6 thousand characters long.
+      `survivor_community.txt`: their `postsnap=` lines start with "2:" and are about 4 to 6 thousand characters long. *(Claude's self-test, 2026-11-20, ClaudeTest34: Hank walking out in the world: after loading he was further along his road offline and arrived; postsnap '2:', 4538 characters. Nobody was walking home out of sight at the save.)*
 - [ ] **Staff posted by the previous build:** load a save with staff posted before this build and go home once: the log
       says "(name)'s parked body was taken into a snapshot (posted at (outpost))".
 - [ ] **(Optional) body gone:** if a resident's body is gone from home but the Members tab doesn't show them Missing yet,
@@ -93,13 +93,13 @@ current leg of a walk now; `sc outpost overrun <id>` overruns an outpost now. Th
       never dropped for not being seen.
 - [ ] **Turn them back:** **Recall home** (Members tab) or the **x** on their garrison post while they are on the way:
       "(name) turns back for home before reaching (outpost)."; their line becomes "Walking home from (outpost) - N m
-      out, about N h", and the post is free again.
-- [ ] **Overrun:** with a staffer posted and someone else on the way there, `sc outpost overrun <id>` on an outpost
+      out, about N h", and the post is free again. *(Claude's self-test, 2026-11-20, ClaudeTest34: not with the Recall home button; turning back on an overrun and a disband was seen.)*
+- [x] **Overrun:** with a staffer posted and someone else on the way there, `sc outpost overrun <id>` on an outpost
       that has sleeper rooms: the staffer walks home hurt ("Walking home hurt from (outpost)"; injured), the other turns
       back, and neither is a resident until they walk in. On a building with no sleeper rooms, or trigger rooms only, it
-      answers "not overrun" and why.
-- [ ] **Disbanded or lost:** disband an outpost (or remove its claim) with one posted and one on the way: "(name) walks
-      home: (outpost) is no longer ours." and "(name) turns back for home: (outpost) is no longer ours."
+      answers "not overrun" and why. *(Claude's self-test, 2026-11-20, ClaudeTest34: Ned 'walks home (273 m, about 1 h, hurt)', injured; Hank 'turned back for home before reaching 7 Hour Park'.)*
+- [x] **Disbanded or lost:** disband an outpost (or remove its claim) with one posted and one on the way: "(name) walks
+      home: (outpost) is no longer ours." and "(name) turns back for home: (outpost) is no longer ours." *(Claude's self-test, 2026-11-20, ClaudeTest34: Lena 'leaves outpost 3 ... walks home', Walt 'turned back for home'; the two toasts not seen on screen.)*
 - [ ] **(Optional) older build:** with a backup save, load a registry from this build with the previous DLL. Everyone
       posted at an outpost after your first visit home with this build, and everyone on the road, shows as a missing
       resident. **Call back** brings each one home with a new body: their bag, health and buffs are lost, and their look,
@@ -115,17 +115,17 @@ verification: all 213 targets patched`.
 
 - [ ] **Your save:** load it: within about 10 s "The Crow Residence is clear again - the outpost is yours." shows, and
       the Outposts tab has it active again (all five of its rooms read cleared in the save, checked offline).
-- [ ] **What's left:** on a contested outpost (see below), the selected outpost's Produces line reads e.g. "Retake: 1
-      room not entered, 2 sleepers alive", and `sc outpost list` prints the long form under it as "contested: ...".
-- [ ] **Retake:** walk through the rooms it names and kill what wakes: within 10 s of the last one the message shows,
-      it is active again, the map marker comes back, and the ledger has the line. The next `sc day` delivers from it.
-- [ ] **Make one contested:** `sc outpost state <id> Contested` on a cleared outpost: within 10 s it is retaken by itself
+- [x] **What's left:** on a contested outpost (see below), the selected outpost's Produces line reads e.g. "Retake: 1
+      room not entered, 2 sleepers alive", and `sc outpost list` prints the long form under it as "contested: ...". *(Claude's self-test, 2026-11-20, ClaudeTest34: after sc outpost overrun 4: 'Retake: 1 room not entered', then 'contested: 2 sleepers alive' once I walked in.)*
+- [x] **Retake:** walk through the rooms it names and kill what wakes: within 10 s of the last one the message shows,
+      it is active again, the map marker comes back, and the ledger has the line. The next `sc day` delivers from it. *(Claude's self-test, 2026-11-20, ClaudeTest34: retaken 9 s after the last kill, 'Container Lot is clear again - the outpost is yours.' in the ledger; map marker not checked; the next sc day didn't deliver from it only because it was over the slot cap.)*
+- [x] **Make one contested:** `sc outpost state <id> Contested` on a cleared outpost: within 10 s it is retaken by itself
       (its building is still clear). For a real one, let a blood moon overrun it, or try `sc outpost attack <id>` and
-      stay away (the result is rolled: held, damaged or overrun).
+      stay away (the result is rolled: held, damaged or overrun). *(Claude's self-test, 2026-11-20, ClaudeTest34: sc outpost state 3 Contested on a cleared lot: 'outpost 3 at Sizzle Shack is ours again' within about 10 s.)*
 - [ ] **Door-triggered rooms:** overrun (or `sc outpost state <id> Contested` and let squatters come) an outpost whose
       building has a room that only opens with a door or switch: that room's sleepers stay gone, and walking the other
-      rooms retakes it.
-- [ ] **Quitting:** quit to the menu with survivors around: the log has no "sdcs-release threw NullReferenceException".
+      rooms retakes it. *(Claude's self-test, 2026-11-20, ClaudeTest34: not run: it needs a building cleared by hand, door rooms included, before a claim fits.)*
+- [x] **Quitting:** quit to the menu with survivors around: the log has no "sdcs-release threw NullReferenceException". *(Claude's self-test, 2026-11-20, ClaudeTest34: quit to the menu twice with members loaded: no 'sdcs-release' line, no exception.)*
 
 ## Round ie1 (2026-11-19): whole-number economy
 
@@ -197,22 +197,22 @@ for LandClaimUpgrade); Shooting levels up very fast; it's hard to tell which way
 keep hearing good things about your place." Start-up must say `patch verification: all 213 targets patched`, and the
 `config:` line ends its watch part with `, arrow` and then `poiClear=ignores wanderers shootingXp=x3`.
 
-- [ ] **Outpost with a wanderer inside:** clear a building, then let a zombie walk in (or `spawnentity` one inside).
+- [x] **Outpost with a wanderer inside:** clear a building, then let a zombie walk in (or `spawnentity` one inside).
       **Establish outpost** goes ahead; `sc poi near 50` says the building is cleared. One of its own sleepers still
-      alive keeps it "not cleared ... sleeper alive", and so does a raider or hostile survivor standing inside.
-- [ ] **The old rule:** with `PoiClearIgnoresWanderers` false, the wandering zombie makes it "1 enemy inside" again.
-- [ ] **Shooting XP:** in the community window, a member's Shooting bar stays where it was after loading this build
+      alive keeps it "not cleared ... sleeper alive", and so does a raider or hostile survivor standing inside. *(Claude's self-test, 2026-11-20, ClaudeTest34: 'sc poi' inside Quick Cup: its own sleeper alive = 'no - 1 enemy inside, 1 sleeper alive'; killed = 'yes'; a spawnentity zombie inside = still 'yes'; a raider inside = 'no - 1 enemy inside'. Establish outpost from the radial not tried.)*
+- [ ] **The old rule:** with `PoiClearIgnoresWanderers` false, the wandering zombie makes it "1 enemy inside" again. *(Claude's self-test, 2026-11-20, ClaudeTest34: not run (needs the config switch).)*
+- [x] **Shooting XP:** in the community window, a member's Shooting bar stays where it was after loading this build
       (their XP was converted). `sc members` shows their Shooting XP ("shooting N(Mxp)") three times what it was.
-      Gun kills now take about three times as long to earn the next star; Fighting is unchanged.
-- [ ] **Save and reload:** the Shooting bars stay where they were (the XP isn't multiplied again).
+      Gun kills now take about three times as long to earn the next star; Fighting is unchanged. *(Claude's self-test, 2026-11-20, ClaudeTest34: 60 XP gives Fighting 3 stars, Shooting 1; Shooting 2 at 75 and 3 at 180, both bars at 3/7 the same width. Converting an older save is yours to see.)*
+- [x] **Save and reload:** the Shooting bars stay where they were (the XP isn't multiplied again). *(Claude's self-test, 2026-11-20, ClaudeTest34: Lena's 75 and Dave's 5 Shooting XP unchanged over two reloads.)*
 - [ ] **Watch post arrow, placing:** hold a Watch Post (any shape) and aim at the floor: a yellow arrow lies on top of
       the ghost, pointing the way you face. Place it, assign a guard: they look the way the arrow pointed.
-- [ ] **Placed post:** look at a Watch post from up close: the arrow shows on it, and the tooltip ends "- faces east"
-      (or whichever way). Look away: the arrow goes.
+- [x] **Placed post:** look at a Watch post from up close: the arrow shows on it, and the tooltip ends "- faces east"
+      (or whichever way). Look away: the arrow goes. *(Claude's self-test, 2026-11-20, ClaudeTest34: arrow on top pointing north, prompt '... no guard on watch - faces north'; gone when I turned away.)*
 - [ ] **Guard Tower kit:** hold the kit with its ghost up: the arrow sits over the tower's post, pointing away from the
-      ladder; turn it with R and the arrow turns too. Build it: the guard looks that way.
+      ladder; turn it with R and the arrow turns too. Build it: the guard looks that way. *(Claude's self-test, 2026-11-20, ClaudeTest34: not seen: the kit's ghost needs a clear spot at home to look down on.)*
 - [ ] **Recruits:** talk to a prospect a few times over a few days: they never say "I keep hearing good things about
-      your place.", but still use their other three greetings.
+      your place.", but still use their other three greetings. *(Claude's self-test, 2026-11-20, ClaudeTest34: not run: a prospect only comes from a conversation.)*
 
 ## Round tw1 (2026-11-18): the Guard Tower's paint
 
