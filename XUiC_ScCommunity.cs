@@ -803,7 +803,11 @@ namespace SurvivorCommunity
             return o.Scavenge ? "ui_game_symbol_backpack" : ResourceIcon(o.Primary);
         }
 
-        /// <summary>A row's right-hand text: the biggest resource a day, or the state when it makes nothing.</summary>
+        /// <summary>
+        /// A row's right-hand text: what it makes a day, biggest first ("+2 meds, +1 fuel/day"), or the state when it makes
+        /// nothing. Round fx2 (2026-11-20, found in Claude's self-test): it showed only the biggest resource, so a fire station
+        /// at "+1 medical, +1 fuel a day" read "+1 meds/day" in its row. The label shrinks a longer line to fit.
+        /// </summary>
         public static string OutpostRowStatus(Outpost o)
         {
             if (o == null) return "";
@@ -812,10 +816,14 @@ namespace SurvivorCommunity
             if (ScOutpostRisk.DamagedNow(o)) return Localization.Get("scUiOpRowDamaged");
             if (o.State != OutpostState.Active) return ScOutposts.StateLabel(o);
             int[] y = ScOutposts.ShownYield(o);
-            int best = -1;
-            for (int i = 0; i < ScNames.ResourceCount; i++) if (y[i] > 0 && (best < 0 || y[i] > y[best])) best = i;
-            if (best < 0) return ScOutposts.StateLabel(o);
-            return string.Format(Localization.Get("scUiOpRowYield"), y[best].ToString(CultureInfo.InvariantCulture), Localization.Get("scResShort" + (Resource)best));
+            var made = new List<int>();
+            for (int i = 0; i < ScNames.ResourceCount; i++) if (y[i] > 0) made.Add(i);
+            if (made.Count == 0) return ScOutposts.StateLabel(o);
+            made.Sort((a, b) => y[a] != y[b] ? y[b].CompareTo(y[a]) : a.CompareTo(b));   // biggest first, then the resource order
+            var parts = new List<string>(made.Count);
+            foreach (int r in made)
+                parts.Add(string.Format(Localization.Get("scUiOpRowPart"), y[r].ToString(CultureInfo.InvariantCulture), Localization.Get("scResShort" + (Resource)r)));
+            return string.Format(Localization.Get("scUiOpRowList"), string.Join(", ", parts.ToArray()));
         }
 
         public static string OutpostStateColor(Outpost o)
@@ -1354,10 +1362,11 @@ namespace SurvivorCommunity
                     _value = sel != null ? string.Format(Localization.Get("scWinTraits"), TraitText(sel)) : "";
                     return true;
                 case "selflags":
-                    _value = sel != null ? Flags(sel, c) : "";
+                    _value = sel != null ? DetailLine(sel, c) : "";
                     return true;
                 case "selflagscolor":
-                    _value = "255,140,120,255";
+                    // round fx2: gold for a journey or run line alone, the warning red once a flag is in it
+                    _value = sel != null && Flags(sel, c).Length == 0 ? "206,178,120,255" : "255,140,120,255";
                     return true;
                 case "selrun":
                     _value = sel == null ? "" : sel.Status == MemberStatus.Transit ? ScGarrison.TransitLine(sel) : ScRuns.StatusLine(sel);   // round op1
@@ -1688,6 +1697,20 @@ namespace SurvivorCommunity
             var sb = new StringBuilder();
             for (int i = 0; i < m.Traits.Count; i++) { if (i > 0) sb.Append(", "); sb.Append(ScTraits.Display(m.Traits[i])); }
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// The member detail's line under the mood word. Round fx2 (2026-11-20, found in Claude's self-test): the journey or run
+        /// line ("On the way to X - about 1 h, 312 m from home", "Walking home from X - ...", a supply run's) was built for the
+        /// selrun binding, which no label in either layout ever used, so the detail only said "On the way to X". It leads this
+        /// line now, followed by the warning flags; the label shrinks the text to its two lines.
+        /// </summary>
+        private static string DetailLine(Member m, Community c)
+        {
+            string run = m.Status == MemberStatus.Transit ? ScGarrison.TransitLine(m) : ScRuns.StatusLine(m);
+            string flags = Flags(m, c);
+            if (string.IsNullOrEmpty(run)) return flags;
+            return flags.Length > 0 ? run + " - " + flags : run;
         }
 
         private static string Flags(Member m, Community c)

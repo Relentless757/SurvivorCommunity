@@ -1497,7 +1497,8 @@ namespace SurvivorCommunity
             if (m == null) { Output("[SC] no member '" + p[1] + "'"); return; }
             string err;
             bool ok = ScRuns.Send(m, ScCommunity.FindNpc(m.Id), r, ScCommunity.LocalPlayer, out err);
-            Output("[SC] " + (ok ? m.Name + " sent for " + r + (ScRunners.IsPhysical(m) ? " on foot to " + m.RunDestName + " " + m.RunDest : "") + ", back around day " + m.RunEndDay + " (expected " + ScRuns.Yield(m, r) + ")" : "refused: " + err));
+            // round fx2: the refusal is a localization key (it printed "refused: scOpOnTheWay"); the text, as sc outpost post prints it
+            Output("[SC] " + (ok ? m.Name + " sent for " + r + (ScRunners.IsPhysical(m) ? " on foot to " + m.RunDestName + " " + m.RunDest : "") + ", back around day " + m.RunEndDay + " (expected " + ScRuns.Yield(m, r) + ")" : "refused: " + Localization.Get(err ?? "scInternal")));
         }
 
         /// <summary>sc portrait &lt;id|name|all&gt; re-shoots; sc portrait frame [fov dist yaw eyelift aimlift] shows or tunes the framing.</summary>

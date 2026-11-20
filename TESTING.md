@@ -37,6 +37,30 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round fx2 (2026-11-20): outpost slots live, row resources, journey line, sc run's reason
+
+Why: four things Claude's self-test of ie1, oc1 and op1 found on 2026-11-20 (you asked for them as one round). Slots are
+1 + members / 4 (plus Leadership), so 8 members hold 3 outposts and 7 hold 2. Start-up must say `patch verification:
+all 213 targets patched`.
+
+- [ ] **Slots now, not at the rollover:** hold as many outposts as you have slots, then lose a member (**Ask to leave**,
+      or one dies) so a slot goes. Within about 10 s: "1 outpost(s) went idle: the community can only hold N now.", the
+      newest outpost's row says idle, `sc outpost yield` says "[Idle] makes nothing and pays no upkeep", and the Costs
+      line and the Home Status panel drop its upkeep. `sc day` then delivers and charges exactly what `sc outpost
+      yield` said beforehand. The log says "outpost N at (name) goes idle: N held, N slot(s)".
+- [ ] **And back:** recruit someone (`sc spawn`, `sc recruit <id>`) to get the slot back: within about 10 s the outpost
+      works again (log "... works again"). If sleepers came back into its building while it was idle, it turns contested
+      at once (with the usual message) instead.
+- [ ] **A retake over the limit:** with more outposts than slots, `sc outpost state <newest id> Contested`: within about
+      10 s it is idle again, not active.
+- [ ] **Row resources:** an outpost making two resources (a fire station at level 2: `sc outpost level <id> 2`) reads
+      "+1 meds, +1 fuel/day" in its row, biggest first; one resource still reads "+3 food/day".
+- [ ] **Journey line:** select someone on the way to an outpost in the Members tab: under the mood it reads "On the way
+      to (outpost) - about N h, N m from home" in gold; walking home "Walking home from (outpost) - N m out, about N h";
+      a supply runner shows where their run is. An injured or hungry one adds the warning after it, in red.
+- [ ] **sc run's reason:** `sc run <someone on the way> food` answers "refused: They are on the road to or from an
+      outpost." (not "scOpOnTheWay"); `sc run <someone> food` with three runs out says why in words too.
+
 ## Round op1 (2026-11-19): members travel to their outposts
 
 Why: your request of 2026-11-19 - "members shouldn't have to be close to an outpost to be assigned to them. They should

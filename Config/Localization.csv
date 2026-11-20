@@ -529,7 +529,8 @@ scUiOpUntracked,UI,Menu,,,,Waypoint cleared.
 scUiOpDisband,UI,Menu,,,,Disband
 scUiOpDisbandConfirm,UI,Menu,,,,Confirm disband
 scUiOpForget,UI,Menu,,,,Forget
-scUiOpRowYield,UI,Menu,,,,+{0} {1}/day
+scUiOpRowPart,UI,Menu,,,,+{0} {1}
+scUiOpRowList,UI,Menu,,,,{0}/day
 scUiOpPerDayShort,UI,Menu,,,,+{0}/day
 scUiOpSummary,UI,Menu,,,,{0} of {1} outposts held - radio {2}
 scUiOpSub,UI,Menu,,,,{0} - tier {1} - held since day {2}

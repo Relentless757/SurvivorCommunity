@@ -680,33 +680,12 @@ namespace SurvivorCommunity
                 CheckClaims(player);
                 ScGarrison.Validate(player);
 
-                // slots: the newest outposts over the limit idle (nothing destroyed)
-                int slots = Slots(), rank = 0, nowIdle = 0;
-                foreach (Outpost o in list)
-                {
-                    if (!o.Holding) continue;
-                    rank++;
-                    if (rank > slots) { if (o.State != OutpostState.Idle) { o.State = OutpostState.Idle; nowIdle++; } }
-                    else if (o.State == OutpostState.Idle) o.State = OutpostState.Active;
-                }
-                if (nowIdle > 0 && player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpIdle"), nowIdle, slots), "ui_denied");
+                // slots: the newest outposts over the limit idle (nothing destroyed) - round fx2: ApplySlots, which Tick runs too
+                int slots = Slots();
+                ApplySlots(w, player);
 
                 // contested: the persisted sleeper volumes say the POI filled up again
-                foreach (Outpost o in list)
-                {
-                    if (o.State != OutpostState.Active && o.State != OutpostState.Contested) continue;
-                    PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
-                    if (pi == null) continue;
-                    string why;
-                    bool cleared = ScSecurity.IsCleared(w, pi, out why, false, true);   // round oc1: an unwoken trigger room doesn't count
-                    if (!cleared && o.State == OutpostState.Active)
-                    {
-                        o.State = OutpostState.Contested;
-                        if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpContested"), o.Name, why), "ui_denied");
-                        ScLog.Out("outpost " + o.Id + " at " + o.Name + " is contested: " + why);
-                    }
-                    else if (cleared && o.State == OutpostState.Contested) Retake(o, pi, player);
-                }
+                foreach (Outpost o in list) ContestCheck(o, w, player);
 
                 // production (round ie1): whole units per outpost from ScEconomy.NetworkYields, the numbers the window, the Home
                 // Status panel and the console read too; nothing is carried to the next day
@@ -958,12 +937,79 @@ namespace SurvivorCommunity
                     RefreshMarkers(player);
                 }
                 if (CheckClaims(player)) ScRegistry.SaveAtomic();
+                // round fx2: the slot limit now, not only at the rollover - before the retake check, the rollover's order
+                if (ApplySlots(w, player))
+                {
+                    Rebuild();
+                    RefreshMarkers(player);
+                    ScRegistry.SaveAtomic();
+                }
                 RetakeCheck(w, player);
             }
             catch (Exception e)
             {
                 ScLog.Once("outpost-tick", e);
             }
+        }
+
+        /// <summary>
+        /// Round fx2 (2026-11-20, found in Claude's self-test): the slot limit. The oldest Slots() held outposts (by id) work and
+        /// the newer ones idle - nothing is lost, and they come back the same way when there is room again. It used to run only
+        /// at the rollover, so after a death (or Leadership) lowered the slots, the window, the Home Status panel and sc outpost
+        /// yield went on counting an outpost the rollover then idled - delivering and charging less than they said. Tick runs it
+        /// every 10 s now, and the rollover first. One coming back from idle is checked for sleepers at once (ContestCheck), as
+        /// the rollover does right after its slots. Returns true when an outpost's state changed.
+        /// </summary>
+        internal static bool ApplySlots(World w, EntityPlayerLocal player)
+        {
+            List<Outpost> list = ScRegistry.Outposts;
+            list.Sort((a, b) => a.Id.CompareTo(b.Id));
+            int slots = Slots(), rank = 0, nowIdle = 0;
+            bool changed = false;
+            List<Outpost> back = null;
+            foreach (Outpost o in list)
+            {
+                if (!o.Holding) continue;
+                rank++;
+                if (rank > slots)
+                {
+                    if (o.State == OutpostState.Idle) continue;
+                    o.State = OutpostState.Idle;
+                    nowIdle++;
+                    changed = true;
+                    ScLog.Out("outpost " + o.Id + " at " + o.Name + " goes idle: " + HeldCount() + " held, " + slots + " slot(s)");
+                }
+                else if (o.State == OutpostState.Idle)
+                {
+                    o.State = OutpostState.Active;
+                    changed = true;
+                    (back ?? (back = new List<Outpost>())).Add(o);
+                    ScLog.Out("outpost " + o.Id + " at " + o.Name + " works again: " + HeldCount() + " held, " + slots + " slot(s)");
+                }
+            }
+            if (nowIdle > 0 && player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpIdle"), nowIdle, slots), "ui_denied");
+            if (back != null) foreach (Outpost o in back) ContestCheck(o, w, player);
+            return changed;
+        }
+
+        /// <summary>
+        /// The rollover's contested check for one outpost (round fx2: shared with ApplySlots): an active one whose building's
+        /// persisted sleeper volumes say it filled up again turns contested; a contested one that reads clear is retaken.
+        /// </summary>
+        private static void ContestCheck(Outpost o, World w, EntityPlayerLocal player)
+        {
+            if (o == null || w == null || (o.State != OutpostState.Active && o.State != OutpostState.Contested)) return;
+            PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
+            if (pi == null) return;
+            string why;
+            bool cleared = ScSecurity.IsCleared(w, pi, out why, false, true);   // round oc1: an unwoken trigger room doesn't count
+            if (!cleared && o.State == OutpostState.Active)
+            {
+                o.State = OutpostState.Contested;
+                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpContested"), o.Name, why), "ui_denied");
+                ScLog.Out("outpost " + o.Id + " at " + o.Name + " is contested: " + why);
+            }
+            else if (cleared && o.State == OutpostState.Contested) Retake(o, pi, player);
         }
 
         /// <summary>

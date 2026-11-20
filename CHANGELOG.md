@@ -105,6 +105,17 @@
   server"). It also greeted you as the trader, despawned itself when another NPC of the same kind stood within 10 m,
   and (with 0-XNPCCore's always-open stock id) kept re-opening the compound at night. SCore's NPCs - survivors,
   members, enclave people, 0-XNPCCore hires - now never take a trader compound on; the real traders are unchanged.
+- **When your community can hold fewer outposts, the newest one goes idle at once.** It used to wait for the day's
+  rollover. Until then, after a member died (or Leadership dropped), the community window, the Home Status panel and
+  `sc outpost yield` still counted it, and the rollover delivered and charged less than they said. Now it goes idle
+  within seconds, with a message, and comes back the same way when there is room again. A retaken outpost that is
+  over the limit goes idle too.
+- **An outpost's row lists everything it sends home** ("+2 meds, +1 fuel/day"); it showed only the biggest.
+- **The member detail says how far along a journey or run is.** Under the mood it now reads, for example, "On the way to
+  (outpost) - about 1 h, 312 m from home", "Walking home from (outpost) - ...", or where a supply runner is. The line was
+  made but never shown.
+- **`sc run` gives the reason it refused in words** ("They are on the road to or from an outpost."), not as a
+  localization key.
 
 ## Enclaves speak on the radio
 - **You hear enclaves now.** When an enclave contacts you, the message still shows, and now its leader's own voice says
