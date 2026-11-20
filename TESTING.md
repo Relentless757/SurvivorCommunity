@@ -53,6 +53,9 @@ verification: all 213 targets patched`.
 - [ ] **Make one contested:** `sc outpost state <id> Contested` on a cleared outpost: within 10 s it is retaken by itself
       (its building is still clear). For a real one, let a blood moon overrun it, or try `sc outpost attack <id>` and
       stay away (the result is rolled: held, damaged or overrun).
+- [ ] **Door-triggered rooms:** overrun (or `sc outpost state <id> Contested` and let squatters come) an outpost whose
+      building has a room that only opens with a door or switch: that room's sleepers stay gone, and walking the other
+      rooms retakes it.
 - [ ] **Quitting:** quit to the menu with survivors around: the log has no "sdcs-release threw NullReferenceException".
 
 ## Round ie1 (2026-11-19): whole-number economy

@@ -606,11 +606,15 @@ namespace SurvivorCommunity
             return result;
         }
 
+        /// <summary>
+        /// A room an overrun can bring back: not quest-excluded and (round oc1) not a trigger room, which Overrun leaves
+        /// alone - a building of trigger rooms only takes "damaged" instead of an overrun retaken ten seconds later.
+        /// </summary>
         private static bool HasSleepers(Outpost o)
         {
             PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
             if (pi == null || pi.sleeperVolumes == null) return false;
-            foreach (SleeperVolume v in pi.sleeperVolumes) if (v != null && !v.isQuestExclude) return true;
+            foreach (SleeperVolume v in pi.sleeperVolumes) if (v != null && !v.isQuestExclude && !ScSleeperCap.IsTriggerRoom(v)) return true;
             return false;
         }
 

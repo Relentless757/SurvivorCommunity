@@ -252,13 +252,21 @@ namespace SurvivorCommunity
         /// </summary>
         public static string RemainingShort(PrefabInstance pi, bool heldOutpost)
         {
-            if (pi == null || pi.sleeperVolumes == null) return "";
-            int alive = 0, unentered = 0, behind = 0, waking = 0;
+            World w = GameManager.Instance != null ? GameManager.Instance.World : null;
+            if (pi == null || pi.sleeperVolumes == null || w == null) return "";
+            int alive = 0, unentered = 0, behind = 0, waking = 0, revisit = 0;
+            ulong now = w.worldTime;
             foreach (SleeperVolume v in pi.sleeperVolumes)
             {
                 if (v == null) continue;
                 if (v.respawnMap != null && v.respawnMap.Count > 0) { alive += v.respawnMap.Count; continue; }
-                if (v.isQuestExclude || v.wasCleared) continue;
+                if (v.isQuestExclude) continue;
+                if (v.wasCleared)
+                {
+                    // the review: a cleared room whose respawn time has come (outside the land claim) - IsCleared's "due"
+                    if (now >= v.respawnTime && GameUtils.CheckForAnyPlayerHome(w, v.BoxMin, v.BoxMax) == GameUtils.EPlayerHomeType.None) revisit++;
+                    continue;
+                }
                 if (v.isSpawned) waking++;
                 else if (ScSleeperCap.IsTriggerRoom(v)) { if (!heldOutpost) behind++; }
                 else unentered++;
@@ -268,6 +276,7 @@ namespace SurvivorCommunity
             Part(sb, behind > 0, behind + (behind == 1 ? " room behind a door" : " rooms behind a door"));
             Part(sb, waking > 0, waking + (waking == 1 ? " room waking" : " rooms waking"));
             Part(sb, alive > 0, alive + (alive == 1 ? " sleeper alive" : " sleepers alive"));
+            Part(sb, revisit > 0, revisit + (revisit == 1 ? " room to revisit" : " rooms to revisit"));
             return sb.ToString();
         }
 

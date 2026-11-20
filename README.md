@@ -1249,10 +1249,10 @@ What it makes depends on the building:
   staff come home hurt; nobody dies in a fight you did not attend).
 - **Blood moons** roll every outpost you were not standing at.
 - **Neglected** outposts get squatters: something moves into the back rooms, and you must clear it again.
-- **Retaking a contested outpost:** go back and clear the building. Its sleepers only wake once you walk into each part of
-  it, so walk through every room. The selected outpost's Produces line says what is left ("Retake: 1 room not entered, 2
-  sleepers alive"), and the outpost is yours again within seconds of the last one, with a message. Rooms that only a door
-  or switch wakes are never brought back by an overrun or squatters.
+- **Retaking a contested outpost:** go back and clear the building. Its sleepers only wake once you walk into each part
+  of it, so walk through every room. The selected outpost's Produces line says what is left ("Retake: 1 room not
+  entered, 2 sleepers alive", "1 room to revisit"), and the outpost is yours again within seconds of the last one, with
+  a message. Rooms that only a door or switch wakes are never brought back by an overrun or squatters.
 - **Raider demands:** past gamestage 30, the nearest hostile enclave within 2 km may demand **2 ammo and 2 food** for an
   outpost by the next day. **Pay** on the radio and they leave it alone for a few days. **Refuse** (or ignore it) and they
   raid it with their own people (section 12).
