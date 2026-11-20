@@ -2228,7 +2228,12 @@ namespace SurvivorCommunity
                    + "; upkeep " + ScEconomy.Upkeep(ScCommunity.Today + 1) + " mats a day" + (c.OutpostRunDown ? " RUN-DOWN" : "")      // round ie1: no debt
                    + ", haulage " + ScEconomy.Haulage(ScOutposts.ProjectedDelivery(ScCommunity.Today + 1)) + " fuel tonight" + (c.OutpostOnFoot ? " ON FOOT" : "")
                    + (c.OutpostLoss > 0f ? ", loss penalty " + c.OutpostLoss.ToString("0.#") : ""));
-            foreach (Outpost o in ScOutposts.All) Output("[SC]   #" + o.Id + " " + OutpostLine(o));
+            foreach (Outpost o in ScOutposts.All)
+            {
+                Output("[SC]   #" + o.Id + " " + OutpostLine(o));
+                string left = ScOutposts.ContestedWhy(o);   // round oc1: what keeps a contested one from being retaken
+                if (left.Length > 0) Output("[SC]      contested: " + left);
+            }
         }
 
         /// <summary>

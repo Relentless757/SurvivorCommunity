@@ -1,5 +1,11 @@
 # Next pre-release (not released yet)
 
+## Fixes
+- **A contested outpost is yours again as soon as you clear it.** It was only checked again at the next day's rollover,
+  so after you cleared it the tab kept saying contested. Now it turns active within seconds of the last sleeper, with a
+  message, and the Outposts tab (and `sc outpost list`) says what is still left: sleeper areas you haven't walked into
+  yet (they only wake when you do), sleepers alive, or areas not cleared.
+
 ## Whole-number economy
 - **Every daily change to the stockpile is a whole number now.** Nothing is carried over in hidden fractions and nothing
   is owed: what the windows show ("+2 food a day") is what arrives, every day, instead of 1, 1, 1, 1, 2.

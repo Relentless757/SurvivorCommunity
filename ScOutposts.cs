@@ -705,12 +705,7 @@ namespace SurvivorCommunity
                         if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpContested"), o.Name, why), "ui_denied");
                         ScLog.Out("outpost " + o.Id + " at " + o.Name + " is contested: " + why);
                     }
-                    else if (cleared && o.State == OutpostState.Contested)
-                    {
-                        o.State = OutpostState.Active;
-                        if (pi.sleeperVolumes != null && pi.sleeperVolumes.Count > 0) ScLeadership.Count(ScLeadership.OutpostRetakenEvent);
-                        ScLog.Out("outpost " + o.Id + " at " + o.Name + " is ours again");
-                    }
+                    else if (cleared && o.State == OutpostState.Contested) Retake(o, pi, player);
                 }
 
                 // production (round ie1): whole units per outpost from ScEconomy.NetworkYields, the numbers the window, the Home
@@ -963,11 +958,59 @@ namespace SurvivorCommunity
                     RefreshMarkers(player);
                 }
                 if (CheckClaims(player)) ScRegistry.SaveAtomic();
+                RetakeCheck(w, player);
             }
             catch (Exception e)
             {
                 ScLog.Once("outpost-tick", e);
             }
+        }
+
+        /// <summary>
+        /// Round oc1 (2026-11-19, the user's report: "When an outpost becomes occupied by sleepers again, clearing it never
+        /// clears the 'contested' status"): a contested outpost was only looked at again at the day's rollover, so after the
+        /// player cleared it the tab kept saying contested until the next day. Every 10 s (the ticker's beat) each contested
+        /// outpost is checked the rollover's way (ScSecurity.IsCleared on the sleeper volumes) and is retaken the moment it
+        /// reads clear.
+        /// </summary>
+        private static void RetakeCheck(World w, EntityPlayerLocal player)
+        {
+            bool changed = false;
+            foreach (Outpost o in ScRegistry.Outposts)
+            {
+                if (o.State != OutpostState.Contested) continue;
+                PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
+                if (pi == null) continue;
+                string why;
+                if (!ScSecurity.IsCleared(w, pi, out why, false)) continue;
+                Retake(o, pi, player);
+                changed = true;
+            }
+            if (!changed) return;
+            Rebuild();
+            RefreshMarkers(player);
+            ScRegistry.SaveAtomic();
+        }
+
+        /// <summary>Round oc1: what still keeps a contested outpost's building from reading clear ("" when nothing, or not contested).</summary>
+        public static string ContestedWhy(Outpost o)
+        {
+            World w = ScCommunity.World;
+            if (o == null || o.State != OutpostState.Contested || w == null) return "";
+            PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
+            string why;
+            if (pi == null || ScSecurity.IsCleared(w, pi, out why, false)) return "";
+            return why ?? "";
+        }
+
+        /// <summary>A contested outpost reads clear again: it is ours and produces from the next rollover (oc1: told, not only logged).</summary>
+        private static void Retake(Outpost o, PrefabInstance pi, EntityPlayerLocal player)
+        {
+            o.State = OutpostState.Active;
+            if (pi.sleeperVolumes != null && pi.sleeperVolumes.Count > 0) ScLeadership.Count(ScLeadership.OutpostRetakenEvent);
+            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpRetaken"), o.Name), "");
+            NoteLedger(string.Format(Localization.Get("scOpRetaken"), o.Name));
+            ScLog.Out("outpost " + o.Id + " at " + o.Name + " is ours again");
         }
 
         /// <summary>Forgets remembered radios that are gone (loaded and no longer a radio) or outside a moved home.</summary>

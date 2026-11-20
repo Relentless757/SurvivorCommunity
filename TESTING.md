@@ -37,6 +37,22 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round oc1 (2026-11-19): contested outposts are retaken when cleared
+
+Why: your report - "When an outpost becomes occupied by sleepers again, clearing it never clears the 'contested'
+status." The log of 2026-11-19 shows The Crow Residence overrun at 20:52 and cleared from about 21:01, with no day
+rollover after it: a contested outpost was only looked at again at the rollover. Start-up must say `patch
+verification: all 213 targets patched`.
+
+- [ ] **Your save:** load it: within about 10 s The Crow Residence either turns active ("The Crow Residence is clear
+      again - the outpost is yours ...") or its row on the Outposts tab says what is left after "sleepers are back,
+      clear it again" (e.g. "(2 of 9 sleeper areas not entered yet - walk through every room)"). `sc outpost list`
+      prints the same under it as "contested: ...".
+- [ ] **Retake:** walk through the rooms it names and kill what wakes: within 10 s of the last one the message shows,
+      the row is active again, the map marker comes back, and the ledger has the line. The next `sc day` delivers from it.
+- [ ] **Make one contested:** `sc outpost state <id> Contested` on a cleared outpost: within 10 s it is retaken by itself
+      (its building is still clear). For a real one, let a blood moon overrun it (or `sc outpost attack <id>` and miss it).
+
 ## Round ie1 (2026-11-19): whole-number economy
 
 Why: your decisions on the integer economy (`research/balance/INTEGER_ECONOMY.md`, section 7). Every daily change to the

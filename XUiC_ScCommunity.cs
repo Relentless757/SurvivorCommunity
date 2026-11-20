@@ -886,7 +886,12 @@ namespace SurvivorCommunity
                     string alert = ScOutpostRisk.Alert(o);
                     if (alert.Length > 0) { value = alert; return true; }
                     if (ScConfig.OutpostAttacks && o.Holding) value += " - " + string.Format(Localization.Get("scUiOpSecurity"), ScOutpostRisk.Security(o));
-                    if (o.State == OutpostState.Contested) value += " - " + Localization.Get("scUiOpContestedHint");
+                    if (o.State == OutpostState.Contested)
+                    {
+                        // round oc1: what is left to do there ("2 of 9 sleeper areas not entered yet ..."), read live
+                        string left = ScOutposts.ContestedWhy(o);
+                        value += " - " + Localization.Get("scUiOpContestedHint") + (left.Length > 0 ? " (" + left + ")" : "");
+                    }
                     else if (o.State == OutpostState.Idle) value += " - " + Localization.Get("scUiOpIdleHint");
                     else if (o.State == OutpostState.Lost) value += " - " + Localization.Get("scUiOpLostHint");
                     return true;
