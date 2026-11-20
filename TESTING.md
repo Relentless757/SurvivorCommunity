@@ -103,7 +103,8 @@ current leg of a walk now; `sc outpost overrun <id>` overruns an outpost now. Th
 - [ ] **(Optional) older build:** with a backup save, load a registry from this build with the previous DLL. Everyone
       posted at an outpost after your first visit home with this build, and everyone on the road, shows as a missing
       resident. **Call back** brings each one home with a new body: their bag, health and buffs are lost, and their look,
-      handed gear and ammo come back. Nobody is lost.
+      handed gear and ammo come back. The older build still removes anyone not called back within 30 days, so call
+      them back.
 
 ## Round oc1 (2026-11-19): contested outposts are retaken when cleared
 

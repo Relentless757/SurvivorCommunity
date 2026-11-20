@@ -75,6 +75,12 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, Fetch> fetches = new Dictionary<int, Fetch>();
         private static readonly List<int> fetchScratch = new List<int>();
 
+        /// <summary>
+        /// The op1 re-check (MEDIUM): a body is being fetched - a few home chunks are loaded for it while the player may be far
+        /// away, so ScZone.HomeLoaded can read true. The daily purge and the shelter scan wait while this holds.
+        /// </summary>
+        public static bool Fetching { get { return fetches.Count > 0; } }
+
         public static void Reset()
         {
             ReleaseFetches(null);

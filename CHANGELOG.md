@@ -22,7 +22,7 @@
   steps in there. If that fails, they travel out of sight until you next come home (logged). If their body is gone from
   home, a new posting is called off and you are told to use Call back.
 - People posted by an older build are taken on the road the first time you are home, or when you recall them.
-- Posting journeys walk whatever `PhysicalRuns` says.
+- Posting journeys always walk, whatever `PhysicalRuns` says.
 - **Console:** `sc outpost post` works from anywhere and says how long the walk is; `sc outpost recall` also turns back
   someone on the way; new `sc outpost skip <member>` ends the current leg of the walk now, and `sc outpost overrun <id>`
   overruns an outpost now (only one with a room an overrun can bring back, as a real one). `sc outpost list` shows who is

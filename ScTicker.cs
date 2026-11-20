@@ -455,7 +455,9 @@ namespace SurvivorCommunity
                     if ((m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) && !ScRegistry.PredatesMigration(m)) continue;
                     bool loaded = ScNpc.HasBody(w, m.Id);      // a body still being built counts, unforced
                     if (!loaded) m.MissingDays++;
-                    if (m.MissingDays > ScConfig.MissingDaysToPurge && ScZone.HomeLoaded) gone.Add(m.Id);
+                    // the op1 re-check: never while a posting's body fetch has a few home chunks loaded - HomeLoaded then reads
+                    // true with the player far away, and every resident outside those chunks would look gone
+                    if (m.MissingDays > ScConfig.MissingDaysToPurge && ScZone.HomeLoaded && !ScGarrison.Fetching) gone.Add(m.Id);
                 }
                 for (int i = 0; i < gone.Count; i++)
                 {

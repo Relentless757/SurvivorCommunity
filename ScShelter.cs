@@ -150,7 +150,9 @@ namespace SurvivorCommunity
                     nextCheck = now + 1f;                 // the zone's signature at most once a second
                     string sig = ZoneSig();
                     bool due = force || sig != zoneSig || now >= nextScan || (wanted && cands.Count == 0 && now - lastDone > 30f);
-                    if (!due || !ScZone.HomeLoaded) { if (!ScZone.HomeLoaded) homeSeenAt = -1f; return; }
+                    // the op1 re-check: a posting's body fetch loads a few home chunks with the player away - not a scan's view
+                    bool homeUp = ScZone.HomeLoaded && !ScGarrison.Fetching;
+                    if (!due || !homeUp) { if (!homeUp) homeSeenAt = -1f; return; }
                     // the first scan of a session waits for ScScan's first count of loaded chunks (the beds), at most FirstWait
                     if (homeSeenAt < 0f) homeSeenAt = now;
                     if (scans == 0 && !force && !wanted && ScScan.LastLoaded == 0 && now - homeSeenAt < FirstWait) return;
