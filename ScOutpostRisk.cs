@@ -297,7 +297,8 @@ namespace SurvivorCommunity
             PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
             if (w == null || pi == null || pi.sleeperVolumes == null) return;
             var cleared = new List<SleeperVolume>();
-            foreach (SleeperVolume v in pi.sleeperVolumes) if (v != null && !v.isQuestExclude && v.wasCleared) cleared.Add(v);
+            // round oc1 (the review's F1): never a trigger room - only its door or switch wakes it, and that fires once
+            foreach (SleeperVolume v in pi.sleeperVolumes) if (v != null && !v.isQuestExclude && v.wasCleared && !ScSleeperCap.IsTriggerRoom(v)) cleared.Add(v);
             if (cleared.Count == 0) return;
             GameRandom rnd = w.GetGameRandom();
             cleared[rnd != null ? rnd.RandomRange(0, cleared.Count) : 0].DespawnAndReset(w);
@@ -619,7 +620,9 @@ namespace SurvivorCommunity
             World w = ScCommunity.World;
             PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
             if (w != null && pi != null && pi.sleeperVolumes != null)
-                foreach (SleeperVolume v in pi.sleeperVolumes) if (v != null && !v.isQuestExclude) v.DespawnAndReset(w);
+                // round oc1 (the review's F1): trigger rooms are left as they are - only their door or switch wakes them, it fires
+                // once, and a re-armed one would keep the outpost contested for good (ScInfestations.Rearm skips them too)
+                foreach (SleeperVolume v in pi.sleeperVolumes) if (v != null && !v.isQuestExclude && !ScSleeperCap.IsTriggerRoom(v)) v.DespawnAndReset(w);
             foreach (Member m in ScGarrison.Staff(o))
             {
                 m.Injured = true;

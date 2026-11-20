@@ -164,6 +164,17 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool IsCleared(World w, PrefabInstance pi, out string why, bool hostileScan)
         {
+            return IsCleared(w, pi, out why, hostileScan, false);
+        }
+
+        /// <summary>
+        /// heldOutpost (round oc1, the review's F1): a trigger room (one only its door or switch wakes) that never woke is
+        /// not counted. A held outpost's rooms were all cleared once; vanilla never wakes an empty trigger room as the player
+        /// walks in, and its trigger fires only once, so an older overrun that re-armed one left the outpost contested for
+        /// good. To establish or for a favor such a room still counts ("behind a door or switch").
+        /// </summary>
+        public static bool IsCleared(World w, PrefabInstance pi, out string why, bool hostileScan, bool heldOutpost)
+        {
             why = null;
             if (pi == null || pi.prefab == null) { why = "no prefab"; return false; }
             if (w == null) { why = "no world"; return false; }
@@ -172,7 +183,7 @@ namespace SurvivorCommunity
             var pl = (pi.prefab.SleeperVolumeList != null) ? pi.prefab.SleeperVolumeList.List : null;
             if (pl != null) for (int i = 0; i < pl.Count; i++) if (pl[i] != null && !pl[i].isQuestExclude) defined++;
 
-            int volumes = 0, uncleared = 0, unentered = 0, alive = 0, due = 0;
+            int volumes = 0, uncleared = 0, unentered = 0, behindTrigger = 0, alive = 0, due = 0;
             ulong now = w.worldTime;
             List<SleeperVolume> vols = pi.sleeperVolumes;
             if (vols != null)
@@ -188,7 +199,13 @@ namespace SurvivorCommunity
                     // round oc1 (2026-11-19): a volume not cleared with no sleepers on record was never triggered - the player
                     // has not walked into that part of the building yet (vanilla spawns a volume's sleepers only then; an
                     // outpost's overrun or neglect re-arms them with DespawnAndReset). isSpawned is not saved, respawnMap is.
-                    if (!v.wasCleared) { if (v.isSpawned) uncleared++; else unentered++; continue; }
+                    if (!v.wasCleared)
+                    {
+                        if (v.isSpawned) uncleared++;
+                        else if (ScSleeperCap.IsTriggerRoom(v)) { if (!heldOutpost) behindTrigger++; }
+                        else unentered++;
+                        continue;
+                    }
                     if (now >= v.respawnTime && GameUtils.CheckForAnyPlayerHome(w, v.BoxMin, v.BoxMax) == GameUtils.EPlayerHomeType.None) due++;
                 }
             }
@@ -216,16 +233,42 @@ namespace SurvivorCommunity
                 scratch.Clear();
             }
 
-            if (alive == 0 && uncleared == 0 && unentered == 0 && due == 0 && ungenerated == 0 && hostile == 0) return true;
+            if (alive == 0 && uncleared == 0 && unentered == 0 && behindTrigger == 0 && due == 0 && ungenerated == 0 && hostile == 0) return true;
             var sb = new StringBuilder();
             Part(sb, ungenerated > 0, ungenerated + " of " + defined + " sleeper areas not explored yet");
             Part(sb, hostile > 0, hostile + (hostile == 1 ? " enemy inside" : " enemies inside"));
             Part(sb, alive > 0, alive + (alive == 1 ? " sleeper alive" : " sleepers alive"));
             Part(sb, uncleared > 0, uncleared + " of " + volumes + " sleeper areas not cleared");
             Part(sb, unentered > 0, unentered + " of " + volumes + " sleeper areas not entered yet - walk through every room");
+            Part(sb, behindTrigger > 0, behindTrigger + " sleeper area(s) behind a door or switch not opened yet");
             Part(sb, due > 0, due + " sleeper area(s) due to respawn - revisit");
             why = sb.ToString();
             return false;
+        }
+
+        /// <summary>
+        /// Round oc1: what the sleeper volumes still hold, short, for a narrow label ("1 room not entered, 2 sleepers alive";
+        /// "" when nothing). The same reading as IsCleared's volume part (heldOutpost: an unwoken trigger room left out).
+        /// </summary>
+        public static string RemainingShort(PrefabInstance pi, bool heldOutpost)
+        {
+            if (pi == null || pi.sleeperVolumes == null) return "";
+            int alive = 0, unentered = 0, behind = 0, waking = 0;
+            foreach (SleeperVolume v in pi.sleeperVolumes)
+            {
+                if (v == null) continue;
+                if (v.respawnMap != null && v.respawnMap.Count > 0) { alive += v.respawnMap.Count; continue; }
+                if (v.isQuestExclude || v.wasCleared) continue;
+                if (v.isSpawned) waking++;
+                else if (ScSleeperCap.IsTriggerRoom(v)) { if (!heldOutpost) behind++; }
+                else unentered++;
+            }
+            var sb = new StringBuilder();
+            Part(sb, unentered > 0, unentered + (unentered == 1 ? " room not entered" : " rooms not entered"));
+            Part(sb, behind > 0, behind + (behind == 1 ? " room behind a door" : " rooms behind a door"));
+            Part(sb, waking > 0, waking + (waking == 1 ? " room waking" : " rooms waking"));
+            Part(sb, alive > 0, alive + (alive == 1 ? " sleeper alive" : " sleepers alive"));
+            return sb.ToString();
         }
 
         private static void Part(StringBuilder sb, bool when, string text)

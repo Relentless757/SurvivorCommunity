@@ -886,12 +886,7 @@ namespace SurvivorCommunity
                     string alert = ScOutpostRisk.Alert(o);
                     if (alert.Length > 0) { value = alert; return true; }
                     if (ScConfig.OutpostAttacks && o.Holding) value += " - " + string.Format(Localization.Get("scUiOpSecurity"), ScOutpostRisk.Security(o));
-                    if (o.State == OutpostState.Contested)
-                    {
-                        // round oc1: what is left to do there ("2 of 9 sleeper areas not entered yet ..."), read live
-                        string left = ScOutposts.ContestedWhy(o);
-                        value += " - " + Localization.Get("scUiOpContestedHint") + (left.Length > 0 ? " (" + left + ")" : "");
-                    }
+                    if (o.State == OutpostState.Contested) value += " - " + Localization.Get("scUiOpContestedHint");
                     else if (o.State == OutpostState.Idle) value += " - " + Localization.Get("scUiOpIdleHint");
                     else if (o.State == OutpostState.Lost) value += " - " + Localization.Get("scUiOpLostHint");
                     return true;
@@ -902,6 +897,10 @@ namespace SurvivorCommunity
                 case "opyield":
                 {
                     if (o == null) { value = ""; return true; }
+                    // round oc1 (the review's F2): a contested outpost makes nothing; its Produces line says what is left to
+                    // retake it, short ("1 room not entered, 2 sleepers alive") - the State label is too narrow for it
+                    string left = ScOutposts.ContestedLeftShort(o);
+                    if (left.Length > 0) { value = string.Format(Localization.Get("scUiOpRetakeLeft"), left); return true; }
                     value = ScOutposts.YieldText(o.Holding ? ScOutposts.Estimate(o) : new int[ScNames.ResourceCount]);
                     int built = ScEconomy.BuiltUnits(o);                                // round ie1: +1 built up, not a percentage
                     if (built > 0) value += " " + string.Format(Localization.Get("scUiOpBuiltBonus"), built);

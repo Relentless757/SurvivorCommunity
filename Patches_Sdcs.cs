@@ -152,12 +152,44 @@ namespace SurvivorCommunity
                 // the meshes and materials stitched for this rig are instances, and the asset handles are
                 // refcounted per rig - players never despawn so vanilla never frees them
                 SDCSUtils.AssetRefs refs = SDCSUtils.RemoveAssetOwnerForRig(m.baseRig);
-                SDCSUtils.DestroyViz(m.baseRig, true);
+                DestroyVizSafe(m.baseRig);
                 if (refs != null) refs.ReleaseAssets();
             }
             catch (Exception e)
             {
                 ScLog.Once("sdcs-release", e);
+            }
+        }
+
+        private static readonly List<SkinnedMeshRenderer> vizSmrs = new List<SkinnedMeshRenderer>();
+        private static readonly List<Material> vizMats = new List<Material>();
+
+        /// <summary>
+        /// Round oc1 (2026-11-19, the user's log: "sdcs-release threw NullReferenceException" in MeshMorph.IsInstance, as the
+        /// world unloaded): vanilla SDCSUtils.DestroyViz(rig, keepRig: true), but a renderer whose mesh is gone is skipped.
+        /// Vanilla reads sharedMesh.name without a null check; while the world unloads Unity has often destroyed a stitched
+        /// mesh first, so it threw and the rest of the rig's meshes and materials - and the asset handles after it - were
+        /// never freed.
+        /// </summary>
+        private static void DestroyVizSafe(GameObject baseRig)
+        {
+            if (!baseRig) return;
+            Transform t = baseRig.transform;
+            for (int i = 0; i < t.childCount; i++)
+            {
+                Transform child = t.GetChild(i);
+                if (child == null || child.name == "Origin") continue;
+                child.GetComponentsInChildren(true, vizSmrs);
+                foreach (SkinnedMeshRenderer smr in vizSmrs)
+                {
+                    if (smr == null) continue;
+                    Mesh mesh = smr.sharedMesh;
+                    if (mesh != null && mesh.name != null && mesh.name.StartsWith(MeshMorph.cMeshPrefix)) UnityEngine.Object.Destroy(mesh);
+                    smr.GetSharedMaterials(vizMats);
+                    Utils.CleanupMaterials(vizMats);
+                    vizMats.Clear();
+                }
+                vizSmrs.Clear();
             }
         }
 

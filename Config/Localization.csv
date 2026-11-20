@@ -463,7 +463,8 @@ scOpDisbandConfirm,UI,Tooltip,,,,Disband the outpost at {0}? Pick Disband again 
 scOpLostClaim,UI,Tooltip,,,,The outpost at {0} is lost: its land claim is gone.
 scOpIdle,UI,Tooltip,,,,{0} outpost(s) went idle: the community can only hold {1} now.
 scOpContested,UI,Tooltip,,,,{0} is contested ({1}). Clear it again to get it producing.
-scOpRetaken,UI,Tooltip,,,,{0} is clear again - the outpost is yours and produces from the next day.
+scOpRetaken,UI,Tooltip,,,,{0} is clear again - the outpost is yours.
+scUiOpRetakeLeft,UI,Menu,,,,Retake: {0}
 scOpRunDown,UI,Tooltip,,,,Outposts are run-down: not enough building material for the upkeep. Each makes 1 less a day until the stockpile pays in full.
 scOpRecovered,UI,Tooltip,,,,Outposts are back to full work.
 scOpOnFoot,UI,Tooltip,,,,Not enough fuel for haulage: the outposts carry on foot (at most 2 a day each) until the stockpile pays in full.

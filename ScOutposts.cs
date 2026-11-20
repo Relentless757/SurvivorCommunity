@@ -698,7 +698,7 @@ namespace SurvivorCommunity
                     PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
                     if (pi == null) continue;
                     string why;
-                    bool cleared = ScSecurity.IsCleared(w, pi, out why, false);
+                    bool cleared = ScSecurity.IsCleared(w, pi, out why, false, true);   // round oc1: an unwoken trigger room doesn't count
                     if (!cleared && o.State == OutpostState.Active)
                     {
                         o.State = OutpostState.Contested;
@@ -982,7 +982,7 @@ namespace SurvivorCommunity
                 PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
                 if (pi == null) continue;
                 string why;
-                if (!ScSecurity.IsCleared(w, pi, out why, false)) continue;
+                if (!ScSecurity.IsCleared(w, pi, out why, false, true)) continue;
                 Retake(o, pi, player);
                 changed = true;
             }
@@ -999,11 +999,20 @@ namespace SurvivorCommunity
             if (o == null || o.State != OutpostState.Contested || w == null) return "";
             PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
             string why;
-            if (pi == null || ScSecurity.IsCleared(w, pi, out why, false)) return "";
+            if (pi == null || ScSecurity.IsCleared(w, pi, out why, false, true)) return "";
             return why ?? "";
         }
 
-        /// <summary>A contested outpost reads clear again: it is ours and produces from the next rollover (oc1: told, not only logged).</summary>
+        /// <summary>Round oc1 (the review's F2): ContestedWhy, short, for the window's Produces line ("" when not contested or nothing is left).</summary>
+        public static string ContestedLeftShort(Outpost o)
+        {
+            World w = ScCommunity.World;
+            if (o == null || o.State != OutpostState.Contested || w == null) return "";
+            PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
+            return pi != null ? ScSecurity.RemainingShort(pi, true) : "";
+        }
+
+        /// <summary>A contested outpost reads clear again: it is ours again (oc1: told, not only logged).</summary>
         private static void Retake(Outpost o, PrefabInstance pi, EntityPlayerLocal player)
         {
             o.State = OutpostState.Active;

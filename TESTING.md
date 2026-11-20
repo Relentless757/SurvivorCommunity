@@ -44,14 +44,16 @@ status." The log of 2026-11-19 shows The Crow Residence overrun at 20:52 and cle
 rollover after it: a contested outpost was only looked at again at the rollover. Start-up must say `patch
 verification: all 213 targets patched`.
 
-- [ ] **Your save:** load it: within about 10 s The Crow Residence either turns active ("The Crow Residence is clear
-      again - the outpost is yours ...") or its row on the Outposts tab says what is left after "sleepers are back,
-      clear it again" (e.g. "(2 of 9 sleeper areas not entered yet - walk through every room)"). `sc outpost list`
-      prints the same under it as "contested: ...".
+- [ ] **Your save:** load it: within about 10 s "The Crow Residence is clear again - the outpost is yours." shows, and
+      the Outposts tab has it active again (all five of its rooms read cleared in the save, checked offline).
+- [ ] **What's left:** on a contested outpost (see below), the selected outpost's Produces line reads e.g. "Retake: 1
+      room not entered, 2 sleepers alive", and `sc outpost list` prints the long form under it as "contested: ...".
 - [ ] **Retake:** walk through the rooms it names and kill what wakes: within 10 s of the last one the message shows,
-      the row is active again, the map marker comes back, and the ledger has the line. The next `sc day` delivers from it.
+      it is active again, the map marker comes back, and the ledger has the line. The next `sc day` delivers from it.
 - [ ] **Make one contested:** `sc outpost state <id> Contested` on a cleared outpost: within 10 s it is retaken by itself
-      (its building is still clear). For a real one, let a blood moon overrun it (or `sc outpost attack <id>` and miss it).
+      (its building is still clear). For a real one, let a blood moon overrun it, or try `sc outpost attack <id>` and
+      stay away (the result is rolled: held, damaged or overrun).
+- [ ] **Quitting:** quit to the menu with survivors around: the log has no "sdcs-release threw NullReferenceException".
 
 ## Round ie1 (2026-11-19): whole-number economy
 
