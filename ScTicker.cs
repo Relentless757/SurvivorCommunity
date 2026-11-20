@@ -213,10 +213,11 @@ namespace SurvivorCommunity
                     continue;   // unloaded, still being built (linked next tick), or gone - the daily tick tracks MissingDays
                 }
                 if (npc.IsDead()) continue;   // SetDead postfix handles it
-                if (ScRunners.IsPhysical(m) && m.Offline)
+                if (ScRunners.HeldOffline(m))
                 {
                     // the snapshot IS this runner: an entity under the id is an old chunk copy (hidden, then removed by
-                    // ScRunners) or a stranger who inherited the id (left alone - the runner returns under a new id)
+                    // ScRunners) or a stranger who inherited the id (left alone - the runner returns under a new id). Round op1:
+                    // the same for a posting traveler offline and a posted member whose body walked to the outpost
                     if (ScRunners.IsStaleCopy(m, npc))
                     {
                         if (!npc.Buffs.HasCustomVar("onMission")) ScNpc.SendOnMission(npc, true);
@@ -390,12 +391,14 @@ namespace SurvivorCommunity
                         break;
                     }
                     case MemberStatus.OnRun when ScRunners.IsPhysical(m):
+                    case MemberStatus.Transit when ScRunners.IsPhysical(m):         // round op1: a posting traveler on the road
                         // a physical runner is out in the world, walking: never hidden, always on the travel order
                         if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);
                         if (!ScRunners.HasTravelOrder(npc)) ScRunners.ApplyTravelOrder(npc);
                         break;
                     case MemberStatus.OnRun:
                     case MemberStatus.Garrison:
+                    case MemberStatus.Transit:                                       // round op1: parked - ScGarrison takes the body into a snapshot
                         // hidden NPCs come back visible from a chunk load; keep them hidden (and parked) until the run
                         // resolves / the posting ends (a posted member is bookkeeping at the outpost, the body waits home)
                         if (!npc.Buffs.HasCustomVar("onMission") || npc.enabled) { ScRuns.Park(npc); ScNpc.SendOnMission(npc, true); }
@@ -439,6 +442,8 @@ namespace SurvivorCommunity
                 foreach (var m in ScRegistry.Members.Values)
                 {
                     if (ScRunners.IsPhysical(m)) continue;     // a runner out of range has no entity by design
+                    // round op1: nor has a posting traveler (parked: ScGarrison sees them home) or a posted member whose body is the snapshot
+                    if (m.Status == MemberStatus.Transit || ScRunners.HeldOffline(m)) continue;
                     if (m.Status == MemberStatus.Arriving) continue;    // nor has one still on the way to the base (E12, ScEncJoin)
                     // a follower left holding a spot far out (a voice "stay", "guard", a patrol - ScOrders) is unloaded by
                     // design too, for as long as the player stays away: never counted missing. Only an old save's record

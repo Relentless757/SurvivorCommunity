@@ -420,6 +420,7 @@ namespace SurvivorCommunity
             if (GuardOf(post) != null) { error = "scWatchManned"; return false; }
             if (m == null) { error = "scInternal"; return false; }
             if (OnWatch(m)) { error = "scWatchElsewhere"; return false; }
+            if (m.Status == MemberStatus.Transit) { error = "scOpOnTheWay"; return false; }     // round op1: on the road to or from an outpost
             if (m.Status != MemberStatus.Resident || ScMissing.IsMissing(m)) { error = "scWatchNotHome"; return false; }
             if (m.Injured) { error = "scWatchInjured"; return false; }
 #if SC_V34

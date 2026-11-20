@@ -73,7 +73,7 @@ namespace SurvivorCommunity
             {
                 if (body == null || src == null || body.IsDead()) return;
                 Member m = ScRegistry.GetMember(body.entityId);
-                if (m == null || !ScRunners.IsPhysical(m) || m.Offline) return;
+                if (m == null || !ScRunners.IsRun(m) || m.Offline) return;      // round op1: a run's call - never on a posting journey
                 World w = ScCommunity.World;
                 EntityAlive attacker = w != null ? w.GetEntity(src.getEntityId()) as EntityAlive : null;
                 if (!IsFoe(body, attacker)) return;

@@ -548,8 +548,9 @@ namespace SurvivorCommunity
                     if (ScRunners.XZ(leader.position, e.position) > ScConfig.StandOffFollowerLeash) { why = "a follower away from home, farther than " + ScConfig.StandOffFollowerLeash.ToString("0", CultureInfo.InvariantCulture) + " m from you"; return Region.None; }
                     return Region.Leader;
                 case MemberStatus.OnRun:
+                case MemberStatus.Transit:                                                  // round op1: a posting journey, as a run
                     if (ScRunners.IsPhysical(m) && !m.Offline && m.RunLeg == RunLeg.Back && home) return Region.Home;
-                    why = "on a run (round r2's flight and turn home)";
+                    why = m.Status == MemberStatus.Transit ? "on the road to or from an outpost" : "on a run (round r2's flight and turn home)";
                     return Region.None;
                 default:
                     why = m.Status.ToString();

@@ -613,6 +613,15 @@ namespace SurvivorCommunity
             return false;
         }
 
+        /// <summary>Round op1 (sc outpost overrun, tests): an unattended attack's worst outcome, now - the garrison walks home hurt.</summary>
+        internal static void ForceOverrun(Outpost o, EntityPlayerLocal player)
+        {
+            if (o == null || !o.Holding) return;
+            ScLog.Out("outpost " + o.Id + " (" + o.Name + ") OVERRUN (console)");
+            Overrun(o, player);
+            ScRegistry.SaveAtomic();
+        }
+
         /// <summary>Overrun: the POI's sleepers are back (clear it again to retake it); the garrison falls back hurt.</summary>
         private static void Overrun(Outpost o, EntityPlayerLocal player)
         {
@@ -623,8 +632,9 @@ namespace SurvivorCommunity
             foreach (Member m in ScGarrison.Staff(o))
             {
                 m.Injured = true;
-                ScGarrison.Recall(m, player, null);
+                ScGarrison.Recall(m, player, null);                                       // round op1: they walk home, hurt
             }
+            ScGarrison.TurnBack(o, player, null);                                         // round op1: and anyone on the way there turns round
             o.State = OutpostState.Contested;
             for (int i = 0; i < ScNames.ResourceCount; i++) { o.Pending[i] = 0; o.Stash[i] = 0; }
             ScRegistry.Community.OutpostLoss += ScConfig.OutpostLostPenalty * 0.5f;

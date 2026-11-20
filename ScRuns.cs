@@ -31,6 +31,7 @@ namespace SurvivorCommunity
             if (!ScCommunity.IsHost) { error = "scHostOnly"; return false; }
             if (m == null) { error = "scInternal"; return false; }
             if (m.Status == MemberStatus.OnRun) { error = "scOnRun"; return false; }
+            if (m.Status == MemberStatus.Transit) { error = "scOpOnTheWay"; return false; }     // round op1: on the road to or from an outpost
             if (m.Status != MemberStatus.Resident) { error = "scRunNotHome"; return false; }
             if (ScWatch.OnWatch(m)) { error = "scWatchBusy"; return false; }     // relieve them at the Watch post first (D3)
             if (npc == null) { error = "scNotLoaded"; return false; }
@@ -286,7 +287,8 @@ namespace SurvivorCommunity
             var late = new System.Collections.Generic.List<Member>();
             foreach (var m in ScRegistry.Members.Values)
             {
-                if (m.Status != MemberStatus.OnRun) continue;
+                // round op1: a posting traveler on the legs is late the same way (only ever waiting at the gate: ScRunners.ForceHome)
+                if (m.Status != MemberStatus.OnRun && !(m.Status == MemberStatus.Transit && ScRunners.IsPhysical(m))) continue;
                 if (ScRunners.IsPhysical(m))
                 {
                     // a physical run ends when they walk home; the rollover only rescues one far past its ETA

@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list | tab] | facility level <x y z> <1-5>, drinks [on|off], lightsout [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res|mine|clay> | run <id|name> <recall|home|skip|offline|hurt [share]>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name> [tone], paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home [set], dump, save, sleep, downed [id|name], down <id|name>, revive <id|name>, chat [<a> <b> [force] | meet <a> <b> | gather [end] | lines [id|name]], craft [table | station [radius] | <id|name> [spec <Specialty> | end]], ui [reset], xnpc [id|name], mags [id|name [trim [confirm]]], team [id|name [auto | hurt [share]]], meds [id|name [give]], retreat [id|name | shelters [n | rescan]], trust <id|name> [forgive], recruit <id|name>, names [reload | reset | test [n] [male|female]], noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan | watch fatigue, tower [info] | tower check [rot] | tower stamp [rot] | tower repaint [radius], bond [id|name [add <n> | set <n> | event <gift [points]|revive|bloodmoon|down|kill>] | decay], perks [id|name [apply]], party, traits [sim [n] | <id|name> [set <trait> [trait ...] [force] | add <trait> [force] | remove <trait>]], spec [sim [n] | <id|name> [set <Specialty> [stars] [force]]]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list | tab] | facility level <x y z> <1-5>, drinks [on|off], lightsout [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res|mine|clay> | run <id|name> <recall|home|skip|offline|hurt [share]>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name> [tone], paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | skip <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | overrun <id> | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home [set], dump, save, sleep, downed [id|name], down <id|name>, revive <id|name>, chat [<a> <b> [force] | meet <a> <b> | gather [end] | lines [id|name]], craft [table | station [radius] | <id|name> [spec <Specialty> | end]], ui [reset], xnpc [id|name], mags [id|name [trim [confirm]]], team [id|name [auto | hurt [share]]], meds [id|name [give]], retreat [id|name | shelters [n | rescan]], trust <id|name> [forgive], recruit <id|name>, names [reload | reset | test [n] [male|female]], noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan | watch fatigue, tower [info] | tower check [rot] | tower stamp [rot] | tower repaint [radius], bond [id|name [add <n> | set <n> | event <gift [points]|revive|bloodmoon|down|kill>] | decay], perks [id|name [apply]], party, traits [sim [n] | <id|name> [set <trait> [trait ...] [force] | add <trait> [force] | remove <trait>]], spec [sim [n] | <id|name> [set <Specialty> [stars] [force]]]"; }
         public override string getHelp() { return getDescription(); }
 
         /// <summary>
@@ -202,9 +202,10 @@ namespace SurvivorCommunity
             Output(sb.ToString());
             if (ScRegistry.Loaded) Output("[SC] " + ScEconomy.NeedsLine());     // round ie1: the next rollover's whole-number needs and costs
             int arriving = ScRegistry.CountStatus(MemberStatus.Arriving);      // E12: a whole enclave's, still on the way
+            int transit = ScRegistry.CountStatus(MemberStatus.Transit);        // round op1: on the road to or from an outpost
             Output("[SC] members=" + ScRegistry.Members.Count + " (residents " + ScRegistry.CountStatus(MemberStatus.Resident)
                    + ", following " + ScRegistry.FollowerCount + ", on run " + ScRegistry.CountStatus(MemberStatus.OnRun)
-                   + (arriving > 0 ? ", on the way " + arriving : "") + ") prospects=" + ScRegistry.Prospects.Count);
+                   + (arriving > 0 ? ", on the way " + arriving : "") + (transit > 0 ? ", to/from outposts " + transit : "") + ") prospects=" + ScRegistry.Prospects.Count);
             if (c.HasHome)
             {
                 int xMin, xMax, zMin, zMax;
@@ -229,7 +230,9 @@ namespace SurvivorCommunity
                     + " persist=" + npc.Buffs.HasCustomVar("Persist"));
                 Output("[SC] " + m.Id + " " + m.Name + " (" + m.Class + ") " + m.Status + " post " + m.Post + " mood " + m.Mood
                        + (m.Injured ? " INJURED" : "") + (m.Ranged ? " ranged" : " melee") + " missing " + m.MissingDays
-                       + (ScRunners.IsPhysical(m) ? " run " + m.RunLeg + (m.Offline ? " offline" : " online") : "") + " - " + live);
+                       + (ScRunners.IsPhysical(m) ? (m.Status == MemberStatus.Transit ? " journey " : " run ") + m.RunLeg + (m.Offline ? " offline" : " online") : "")
+                       + (ScGarrison.Parked(m) ? " (body parked at home" + (m.Status == MemberStatus.Transit ? ", " + m.RunLeg : "") + ")" : "")   // round op1
+                       + " - " + live);
                 Output("[SC]    skills " + string.Join(" ", new[] {
                     "cardio " + m.Skill(Skill.Cardio).Level + "(" + m.Skill(Skill.Cardio).Xp + "xp)", "wits " + m.Skill(Skill.Wits).Level + "(" + m.Skill(Skill.Wits).Xp + "xp)",
                     "fighting " + m.Skill(Skill.Fighting).Level + "(" + m.Skill(Skill.Fighting).Xp + "xp)", "shooting " + m.Skill(Skill.Shooting).Level + "(" + m.Skill(Skill.Shooting).Xp + "xp)" })
@@ -1444,7 +1447,8 @@ namespace SurvivorCommunity
                     npc.Health = Mathf.Max(1, Mathf.RoundToInt(max * Mathf.Clamp(share, 0.01f, 1f)));
                     bool heal = ScMedic.CanTreatSelf(npc);
                     Output("[SC] " + m.Name + " is at " + npc.Health + "/" + max + " hp (" + m.RunLeg + ") - "
-                           + (npc.Health > max * ScConfig.RunHomeBelowHealth ? "above RunHomeBelowHealth (" + ScConfig.RunHomeBelowHealth + "): she stays on the job"
+                           + (m.Status == MemberStatus.Transit ? "a posting journey: they keep walking (round op1: never given up hurt)"
+                              : npc.Health > max * ScConfig.RunHomeBelowHealth ? "above RunHomeBelowHealth (" + ScConfig.RunHomeBelowHealth + "): she stays on the job"
                               : heal ? "she has a way to heal: she bandages first and stays on the job"
                               : m.RunHurt || (m.RunLeg != RunLeg.Outbound && m.RunLeg != RunLeg.AtSite) ? "already on her way home"
                               : "nothing to heal with: she gives the job up in about 2 s (sc runners)"));
@@ -2092,18 +2096,29 @@ namespace SurvivorCommunity
                     if (m == null) { Output("[SC] usage: sc outpost post <id> <member id|name>"); return; }
                     string err;
                     bool ok = ScGarrison.Post(m, ScCommunity.FindNpc(m.Id), o, pl, out err);
-                    Output("[SC] " + (ok ? m.Name + " posted at " + o.Name : "refused: " + Localization.Get(err ?? "scInternal")));
+                    // round op1: posting works from anywhere - they set off on foot (embodied: the body walks; parked: it waits home)
+                    Output("[SC] " + (ok ? m.Name + " sets off for " + o.Name + " (" + (ScGarrison.Parked(m) ? "parked: their body is not loaded, it waits at home" : "on foot from where they stood")
+                                           + ", about " + ScGarrison.EtaHours(m) + " h)" : "refused: " + Localization.Get(err ?? "scInternal")));
                     return;
                 }
                 case "recall":
                 {
+                    // round op1: a posted member walks home; one on the way to an outpost turns round
                     Member m = p.Count > 2 ? FindMember(p[2]) : null;
-                    if (m == null || m.Status != MemberStatus.Garrison) { Output("[SC] usage: sc outpost recall <member id|name> (a posted member)"); return; }
-                    ScGarrison.Recall(m, pl, "scOpRecalled");
+                    if (m == null || (m.Status != MemberStatus.Garrison && !ScGarrison.HeadingOut(m)))
+                    {
+                        Output("[SC] usage: sc outpost recall <member id|name> (a posted member, or one on the way to an outpost)");
+                        return;
+                    }
+                    bool wasOut = ScGarrison.HeadingOut(m);
+                    ScGarrison.Recall(m, pl, wasOut ? "scOpTurnedBack" : "scOpRecalled");
                     ScRegistry.SaveAtomic();
-                    Output("[SC] " + m.Name + " recalled");
+                    Output("[SC] " + m.Name + (wasOut ? " turns back for home" : " walks home") + " (" + m.Status + ", " + m.RunLeg + ", about " + ScGarrison.EtaHours(m) + " h to the gate)");
                     return;
                 }
+                case "skip":
+                    OutpostSkip(p.Count > 2 ? FindMember(p[2]) : null, pl);
+                    return;
                 case "upgrade":
                 {
                     Outpost o = OutpostArg(p);
@@ -2111,6 +2126,15 @@ namespace SurvivorCommunity
                     string msg;
                     bool ok = ScOutpostPerks.Upgrade(o, pl, out msg);
                     Output("[SC] " + (ok ? "" : "refused: ") + msg);
+                    return;
+                }
+                case "overrun":
+                {
+                    // round op1 (tests): overrun now - its staff walk home hurt, anyone on the way turns back
+                    Outpost o = OutpostArg(p);
+                    if (o == null) return;
+                    ScOutpostRisk.ForceOverrun(o, pl);
+                    Output("[SC] " + o.Name + " overrun - " + ScOutposts.StateLabel(o));
                     return;
                 }
                 case "attack":
@@ -2175,7 +2199,7 @@ namespace SurvivorCommunity
                     return;
                 }
                 default:
-                    Output("[SC] sc outpost list | add [row|scavenge] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3>");
+                    Output("[SC] sc outpost list | add [row|scavenge] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | skip <member> | upgrade <id> | level <id> <1-3> | overrun <id>");
                     return;
             }
         }
@@ -2205,15 +2229,35 @@ namespace SurvivorCommunity
             return false;
         }
 
+        /// <summary>
+        /// sc outpost skip &lt;member&gt; (round op1, tests): the current leg of a posting journey ends now - an embodied traveler in the
+        /// world is taken offline first, then the next tick moves them on (to the post, or to the gate). One at the gate walks in
+        /// once you are home.
+        /// </summary>
+        private static void OutpostSkip(Member m, EntityPlayerLocal pl)
+        {
+            World w = ScCommunity.World;
+            if (m == null || m.Status != MemberStatus.Transit || w == null) { Output("[SC] usage: sc outpost skip <member id|name> (one on the road to or from an outpost)"); return; }
+            if (m.RunLeg == RunLeg.Back) { Output("[SC] " + m.Name + " waits at the gate - they walk in once you are home"); return; }
+            EntityAlive npc = ScRunners.IsPhysical(m) && !m.Offline ? ScNpc.As(w.GetEntity(m.Id)) : null;
+            if (npc != null && !ScRunners.GoOffline(w, m, npc, "console skip", false)) { Output("[SC] could not take " + m.Name + " offline"); return; }
+            m.LegEnd = w.worldTime;                                                       // the next tick moves them on to the next leg
+            ScRegistry.SaveAtomic();
+            Output("[SC] " + m.Name + ": " + m.RunLeg + " ends now (" + (ScGarrison.Parked(m) ? "parked" : "embodied") + ")");
+        }
+
         private static string OutpostLine(Outpost o)
         {
             var staff = ScGarrison.Staff(o);
             var names = new List<string>();
-            foreach (Member sm in staff) names.Add(sm.Name);
+            foreach (Member sm in staff) names.Add(sm.Name + (ScGarrison.Parked(sm) ? " (body at home)" : ""));
+            var coming = new List<string>();                                              // round op1: on the way there
+            foreach (Member tm in ScGarrison.OnTheWay(o)) coming.Add(tm.Name + " ~" + ScGarrison.EtaHours(tm) + " h" + (ScGarrison.Parked(tm) ? " parked" : tm.Offline ? " offline" : " ONLINE"));
             return o.Name + " (" + o.Prefab + ", T" + o.Tier + ", L" + o.Level + ", " + ScOutposts.TypeLabel(o) + ", " + ScOutpostPerks.ModeLabel(o) + ") " + ScOutposts.StateLabel(o)
                    + (ScOutposts.RelayOnline(o) ? " [relay]" : "")
                    + " built[" + ScOutpostPerks.InvestText(o) + "]" + (o.StashTotal > 0 ? " stash " + o.StashTotal : "")
                    + (names.Count > 0 ? " [staff: " + string.Join(", ", names.ToArray()) + "]" : "")
+                   + (coming.Count > 0 ? " [on the way: " + string.Join(", ", coming.ToArray()) + "]" : "")
                    + " - " + ScOutposts.YieldText(ScOutposts.Estimate(o))
                    + (o.PendingTotal > 0 ? ", " + o.PendingTotal + " waiting" : "")
                    + " | flag " + o.Flag + ", " + Mathf.RoundToInt(ScOutposts.DistanceToHome(o.Poi, o.Size)) + " m from home, since day " + o.Day
@@ -2229,6 +2273,10 @@ namespace SurvivorCommunity
                    + ", haulage " + ScEconomy.Haulage(ScOutposts.ProjectedDelivery(ScCommunity.Today + 1)) + " fuel tonight" + (c.OutpostOnFoot ? " ON FOOT" : "")
                    + (c.OutpostLoss > 0f ? ", loss penalty " + c.OutpostLoss.ToString("0.#") : ""));
             foreach (Outpost o in ScOutposts.All) Output("[SC]   #" + o.Id + " " + OutpostLine(o));
+            // round op1: everyone walking home from an outpost
+            foreach (var m in ScRegistry.Members.Values)
+                if (m.Status == MemberStatus.Transit && !ScGarrison.HeadingOut(m))
+                    Output("[SC]   " + m.Name + " [" + m.Id + "] " + ScGarrison.TransitLine(m) + (ScGarrison.Parked(m) ? " (parked)" : m.Offline ? " (offline)" : " (ONLINE)"));
         }
 
         /// <summary>

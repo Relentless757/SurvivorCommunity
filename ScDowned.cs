@@ -200,7 +200,8 @@ namespace SurvivorCommunity
         internal static bool BleedsWithoutLeader(EntityAlive npc)
         {
             Member m = MemberOfBody(npc);
-            if (m == null || m.Status == MemberStatus.OnRun || m.Status == MemberStatus.Garrison || m.Status == MemberStatus.Arriving) return false;
+            if (m == null || m.Status == MemberStatus.OnRun || m.Status == MemberStatus.Garrison || m.Status == MemberStatus.Arriving
+                || m.Status == MemberStatus.Transit) return false;                       // round op1: on the road, as a runner
             EntityPlayerLocal p = ScCommunity.LocalPlayer;
             return p != null && !p.IsDead();
         }

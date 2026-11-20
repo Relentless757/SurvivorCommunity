@@ -19,6 +19,11 @@ namespace SurvivorCommunity
     /// before the world is saved, and a stale copy that a chunk loads while the runner is offline is hidden and
     /// removed (PostInit guard). The run's dice are only rolled while the runner is offline: an escorted runner
     /// faces real zombies instead.
+    ///
+    /// Round op1 (2026-11-19): a member posted to an outpost walks there and back on these same legs (MemberStatus.Transit,
+    /// ScGarrison): Outbound ends beside the claim (ScGarrison.ArriveOnline / ArriveOffline instead of EnterSite), Inbound at the
+    /// gate with nothing to bank, Back as a runner's. A safe journey: no dice, no distress, no radio, never given up hurt (IsRun
+    /// gates those steps).
     /// </summary>
     public static class ScRunners
     {
@@ -109,6 +114,12 @@ namespace SurvivorCommunity
             public float HeldTotal;
             public RunLeg HeldLeg = RunLeg.None;
             public readonly HashSet<int> HeldReleased = new HashSet<int>();
+            /// <summary>
+            /// Round op1: the next re-create takes the place of an outpost stand-in that was just removed on this spot (a recall
+            /// at the outpost) - no offline dwell and no pop-in wait, so the real body steps in where the stand-in stood.
+            /// Cleared by the re-create.
+            /// </summary>
+            public bool SwapIn;
         }
 
         public static Session S(int id)
@@ -129,7 +140,31 @@ namespace SurvivorCommunity
             Unhook();
         }
 
-        public static bool IsPhysical(Member m) { return m != null && m.Status == MemberStatus.OnRun && m.RunLeg != RunLeg.None; }
+        /// <summary>
+        /// A member on the runner legs whose body is the walker or the snapshot: a physical supply (or mining) run, and round op1
+        /// (2026-11-19) a posting journey (Transit) with a snapshot. A parked traveler (Transit, no snapshot: the body waits
+        /// hidden at home, ScGarrison walks the legs on the clock) is not one - its body must stay in its chunk's save.
+        /// </summary>
+        public static bool IsPhysical(Member m)
+        {
+            return m != null && m.RunLeg != RunLeg.None
+                   && (m.Status == MemberStatus.OnRun || (m.Status == MemberStatus.Transit && !string.IsNullOrEmpty(m.Snap)));
+        }
+
+        /// <summary>Round op1: a supply or mining run on the legs (not a posting journey) - the dice, distress, haul and radio steps.</summary>
+        public static bool IsRun(Member m) { return m != null && m.Status == MemberStatus.OnRun && m.RunLeg != RunLeg.None; }
+
+        /// <summary>
+        /// Round op1: no entity may represent this member - the snapshot is them. An offline physical runner or traveler, and a
+        /// posted member whose body walked to the outpost (Garrison with a snapshot: their stand-in is a separate entity). An
+        /// entity under the id is an old chunk copy (hidden and removed) or a stranger who inherited the id.
+        /// </summary>
+        public static bool HeldOffline(Member m)
+        {
+            if (m == null) return false;
+            if (m.Status == MemberStatus.Garrison) return !string.IsNullOrEmpty(m.Snap);
+            return IsPhysical(m) && m.Offline;
+        }
 
         /// <summary>
         /// Thread-safe (the IsSavedToFile postfix asks from the chunk-save thread): is this entity a physical runner's
@@ -202,7 +237,7 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool IsStaleCopy(Member m, EntityAlive npc)
         {
-            if (npc == null || !IsPhysical(m) || !m.Offline || npc.entityId == RecreatingId) return false;
+            if (npc == null || !HeldOffline(m) || npc.entityId == RecreatingId) return false;     // round op1: posted staff held offline too
             if (!string.IsNullOrEmpty(m.Class) && !string.Equals(ScCommunity.ClassName(npc), m.Class, StringComparison.OrdinalIgnoreCase)) return false;
             return m.Born == 0 || npc.WorldTimeBorn == 0 || npc.WorldTimeBorn == m.Born;
         }
@@ -271,9 +306,10 @@ namespace SurvivorCommunity
 
         private static ulong EtaTicks(Member m)
         {
+            ulong leg = m.LegEnd > m.LegStart ? m.LegEnd - m.LegStart : 0UL;
+            if (m.Status == MemberStatus.Transit) return leg;                                  // round op1: no site, and out there they stay
             Vector3 site = C(m.RunSite == Vector3i.zero ? m.LegTo : m.RunSite);
             ulong home = (ulong)(XZ(site, ScCommunity.PostCenter(m)) / MetresPerTick);
-            ulong leg = m.LegEnd > m.LegStart ? m.LegEnd - m.LegStart : 0UL;
             switch (m.RunLeg)
             {
                 case RunLeg.Outbound: return leg + (ulong)(SiteHours(m) * TicksPerHour) + home;
@@ -319,6 +355,36 @@ namespace SurvivorCommunity
                 case RunLeg.AtSite: return C(m.RunSite);
                 default: return ScCommunity.PostCenter(m);
             }
+        }
+
+        /// <summary>
+        /// Round op1 (the window's "about N h" for a posting journey): game hours left on the current walking leg - from the
+        /// walker's distance to the leg's goal at the offline pace while their body is in the world (it may be ahead of the plan
+        /// or behind it), else from the leg's end on the world clock. 0 on the Back leg and at the end.
+        /// </summary>
+        public static float HoursLeft(Member m)
+        {
+            if (m == null || (m.RunLeg != RunLeg.Outbound && m.RunLeg != RunLeg.Inbound)) return 0f;
+            World w = ScCommunity.World;
+            ulong now = w != null ? w.worldTime : 0UL;
+            if (!m.Offline && w != null && IsPhysical(m))
+            {
+                EntityAlive npc = ScNpc.As(ScNpc.Loaded(w, m.Id));
+                if (npc != null) return XZ(npc.position, LegGoal(m)) / MetresPerTick / TicksPerHour;
+            }
+            return m.LegEnd > now ? (m.LegEnd - now) / (float)TicksPerHour : 0f;
+        }
+
+        /// <summary>
+        /// The world clock went backwards (an older save, a time command): the leg keeps its length from now. Round op1: shared
+        /// by the runner tick and ScGarrison's parked journeys.
+        /// </summary>
+        public static void ClockBack(Member m, ulong now)
+        {
+            if (m == null || m.LegStart <= now + TicksPerHour) return;
+            ulong len = m.LegEnd > m.LegStart ? m.LegEnd - m.LegStart : 0UL;
+            m.LegStart = now;
+            m.LegEnd = now + len;
         }
 
         public static PrefabInstance Dest(Member m)
@@ -515,13 +581,7 @@ namespace SurvivorCommunity
                 try
                 {
                     if (ScRegistry.GetMember(m.Id) != m || !IsPhysical(m)) continue;     // died, left or arrived during this loop
-                    if (m.LegStart > now + TicksPerHour)
-                    {
-                        // the world clock went backwards (an older save, a time command): the leg keeps its length from now
-                        ulong len = m.LegEnd > m.LegStart ? m.LegEnd - m.LegStart : 0UL;
-                        m.LegStart = now;
-                        m.LegEnd = now + len;
-                    }
+                    ClockBack(m, now);                                                   // the world clock went backwards: the leg keeps its length from now
                     if (!m.Offline)
                     {
                         EntityAlive npc = ScNpc.As(w.GetEntity(m.Id));
@@ -567,8 +627,9 @@ namespace SurvivorCommunity
             s.LastTickPos = npc.position;
             s.LastTickTime = t;
 #if SC_V34
-            // R2: whether they carry a handheld radio, every 5 s while the body is here (the record answers while it is not)
-            if (t >= s.NextRadioCheck)
+            // R2: whether they carry a handheld radio, every 5 s while the body is here (the record answers while it is not).
+            // Round op1: not on a posting journey - it is logistics, no radio talk and no call for help (RunRadio stays false)
+            if (IsRun(m) && t >= s.NextRadioCheck)
             {
                 s.NextRadioCheck = t + 5f;
                 if (ScHandheld.NoteCarried(m, npc, "seen on the run")) ScRegistry.SaveAtomic();
@@ -578,6 +639,10 @@ namespace SurvivorCommunity
 
             switch (m.RunLeg)
             {
+                case RunLeg.Outbound when m.Status == MemberStatus.Transit:
+                    // round op1: a posting journey ends beside the claim (not at the POI's edge): the walker becomes the post's staff
+                    if (XZ(npc.position, C(m.LegTo)) <= ScConfig.RunArriveSite) { ScGarrison.ArriveOnline(w, player, m, npc); return; }
+                    break;
                 case RunLeg.Outbound:
                 {
                     PrefabInstance pi = Dest(m);
@@ -768,8 +833,17 @@ namespace SurvivorCommunity
         }
 
         /// <summary>At the gate: the haul counts now, whether or not the player is home to see it.</summary>
-        private static void EnterBack(EntityPlayerLocal player, Member m, ulong now)
+        internal static void EnterBack(EntityPlayerLocal player, Member m, ulong now)
         {
+            if (m.Status == MemberStatus.Transit)
+            {
+                // round op1: walking home from an outpost - nothing to bank, nothing said on the radio; the last stroll in, as a runner's
+                Vector3 at = C(m.LegTo);
+                BeginLeg(m, RunLeg.Back, at, at, now);
+                ScLog.Out(m.Name + " is at the edge of the base, home from " + m.RunDestName + (m.Offline ? " (offline: walks in once you are near)" : ""));
+                ScRegistry.SaveAtomic();
+                return;
+            }
 #if SC_V34
             ScRadioTalk.Say(m, RadioTalk.Near, player, false);                                  // R2: "Almost home."
 #endif
@@ -806,19 +880,26 @@ namespace SurvivorCommunity
         /// <summary>Inside the zone / near the post: a resident again, saved with their chunk as before.</summary>
         public static void Arrive(EntityPlayerLocal player, Member m, EntityAlive npc)
         {
+            bool posting = m.Status == MemberStatus.Transit;                                  // round op1: home from an outpost
+            string from = m.RunDestName;
             npc.Buffs.RemoveCustomVar(OnRunCvar);
             ClearRun(m);
-            ScCommunity.Station(m, npc);                                                      // Resident, Guard order; no teleport within 40 m
+            if (posting) { m.OutpostId = -1; m.Status = MemberStatus.Resident; }                // Station says so too, unless it defers (downed)
+            ScCommunity.Station(m, npc);                                                     // Resident, Guard order; no teleport within 40 m
             RebuildRunnerSet();
             ScRegistry.SaveAtomic();
+            if (posting) ScGarrison.HomeAgain(m, player, from);
             ScLog.Out(m.Name + " walked back in and is at their post again");
         }
 
-        public static void ClearRun(Member m)
+        public static void ClearRun(Member m) { ClearRun(m, false); }
+
+        /// <summary>The run's fields back to none. keepSnap (round op1): an arrived posting traveler keeps the snapshot - it is them.</summary>
+        public static void ClearRun(Member m, bool keepSnap)
         {
             m.RunLeg = RunLeg.None;
             m.Offline = false;
-            m.Snap = null;
+            if (!keepSnap) m.Snap = null;
             m.RunEndDay = -1;
             m.RunDest = Vector3i.zero;
             m.RunDestName = "";
@@ -854,6 +935,9 @@ namespace SurvivorCommunity
         {
             switch (m.RunLeg)
             {
+                case RunLeg.Outbound when m.Status == MemberStatus.Transit:
+                    if (now >= m.LegEnd) ScGarrison.ArriveOffline(player, m);                   // round op1: they reached the claim out of sight
+                    return;                                                                     // no dice on a posting journey
                 case RunLeg.Outbound:
                     if (now >= m.LegEnd) EnterSite(w, player, m, C(m.LegTo), now);
                     break;
@@ -939,6 +1023,9 @@ namespace SurvivorCommunity
         public static bool ForceHome(Member m, EntityPlayerLocal player)
         {
             if (!IsPhysical(m)) return false;
+            // round op1: a posting journey's walking legs end on their own clock (no site, no dice): only one waiting at the gate is
+            // ever brought in here
+            if (m.Status == MemberStatus.Transit && m.RunLeg != RunLeg.Back) return false;
             World w = ScCommunity.World;
             if (w == null) return false;
             ulong now = w.worldTime;
@@ -976,6 +1063,7 @@ namespace SurvivorCommunity
             ScLog.Warn(m.Name + " could not be brought back into the world at the post - the run ends, use Call back if they do not appear");
             ClearRun(m);
             m.Status = MemberStatus.Resident;
+            m.OutpostId = -1;                                                                   // round op1: one walking home from an outpost too
             m.MissingDays = 0;
             RebuildRunnerSet();
             ScRegistry.SaveAtomic();
@@ -995,6 +1083,8 @@ namespace SurvivorCommunity
         {
             error = null;
             if (!ScCommunity.IsHost) { error = "scHostOnly"; return false; }
+            // round op1: a posting traveler met on the road ("Head home now", sc run recall) - ScGarrison turns them round
+            if (m != null && m.Status == MemberStatus.Transit) return ScGarrison.TurnHome(m, player, null, out error);   // the caller says "turns for home"
             if (!IsPhysical(m)) { error = "scRunNotOut"; return false; }
             World w = ScCommunity.World;
             if (w == null) { error = "scInternal"; return false; }
@@ -1041,7 +1131,8 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool TooHurtForTheJob(Member m, EntityAlive npc)
         {
-            return m != null && !m.RunHurt && (m.RunLeg == RunLeg.Outbound || m.RunLeg == RunLeg.AtSite)
+            // round op1: a run's question only - a posting journey is not a job to give up (it is safe: the walk goes on)
+            return IsRun(m) && !m.RunHurt && (m.RunLeg == RunLeg.Outbound || m.RunLeg == RunLeg.AtSite)
                    && ScMedic.HurtNoMeds(npc, ScConfig.RunHomeBelowHealth);
         }
 
@@ -1434,15 +1525,16 @@ namespace SurvivorCommunity
         private static bool TryMaterialize(World w, EntityPlayerLocal player, Member m, ulong now, float t)
         {
             Session s = S(m.Id);
-            if (t - s.OfflineSince < ScConfig.RunOfflineDwellSeconds) return false;
+            if (!s.SwapIn && t - s.OfflineSince < ScConfig.RunOfflineDwellSeconds) return false;
             Vector3 v = VirtualPos(m, now);
             int D = ViewDim(player);
             int margin = ScConfig.RunOnlineRingMargin;
             float dist = XZ(v, player.position);
-            if (player.IsDead() || Ring(player, v) > D - margin || dist > 16f * (D - margin)) { s.SettledSince = -1f; s.PopInBlockedSince = -1f; return false; }
+            if (player.IsDead() || Ring(player, v) > D - margin || dist > 16f * (D - margin)) { s.SettledSince = -1f; s.PopInBlockedSince = -1f; s.SwapIn = false; return false; }
             // vanilla's pop-in rule: nothing appears within 50 m in front of the player - given up after a while so a
-            // runner waiting at the gate still comes home while the player looks that way
-            if (dist < ScConfig.RunNoPopInRange && player.IsInViewCone(v))
+            // runner waiting at the gate still comes home while the player looks that way. Round op1: not for the body that
+            // takes a stand-in's place on its spot (SwapIn) - the stand-in just went from there
+            if (!s.SwapIn && dist < ScConfig.RunNoPopInRange && player.IsInViewCone(v))
             {
                 if (s.PopInBlockedSince < 0f) s.PopInBlockedSince = t;
                 if (t - s.PopInBlockedSince < ScConfig.RunPopInMaxWait) return false;
@@ -1573,6 +1665,7 @@ namespace SurvivorCommunity
             s.OnlineSince = t;
             s.SettledSince = -1f;
             s.PopInBlockedSince = -1f;
+            s.SwapIn = false;                                                                   // round op1: once
             s.ProgressPos = e.position;
             s.ProgressSince = t;
             s.HasWaypoint = false;
@@ -1689,7 +1782,7 @@ namespace SurvivorCommunity
             if (TryCapture(npc, out snap)) m.Snap = snap;
             else if (!forced || string.IsNullOrEmpty(m.Snap)) { ScLog.Warn(m.Name + ": snapshot failed - staying in the world (" + why + ")"); return false; }
 #if SC_V34
-            ScHandheld.NoteCarried(m, npc, "went offline");                                   // R2: the record answers until the body is back
+            if (IsRun(m)) ScHandheld.NoteCarried(m, npc, "went offline");                     // R2: the record answers until the body is back (round op1: runs only)
 #endif
             ReplanFrom(m, npc.position, w.worldTime);
             m.Offline = true;
@@ -1704,6 +1797,49 @@ namespace SurvivorCommunity
             try { w.RemoveEntity(id, EnumRemoveEntityReason.Unloaded); }
             finally { capturingId = -1; }
             ScLog.Out(m.Name + " went offline (" + why + ") at " + World.worldToBlockPos(npc.position) + ", " + m.RunLeg + ", snapshot " + SnapBytes(m) + " bytes");
+            return true;
+        }
+
+        /// <summary>
+        /// Round op1: a member starts (or goes on) offline right now, with no body in the world - a posting traveler whose walk home
+        /// begins at the outpost from their snapshot. swapIn: they take the place of the stand-in just removed on that spot (the
+        /// next re-create skips the dwell and the pop-in wait, Session.SwapIn).
+        /// </summary>
+        public static void OfflineNow(Member m, bool swapIn)
+        {
+            Session s = S(m.Id);
+            s.OfflineSince = Time.unscaledTime;
+            s.HasWaypoint = false;
+            s.SettledSince = -1f;
+            s.PopInBlockedSince = -1f;
+            s.SwapIn = swapIn;
+        }
+
+        /// <summary>
+        /// Round op1: a body that waited parked at home (hidden, saved with its chunk) - a posting traveler's, or a posted member's
+        /// (ScGarrison.TryEmbody) - is taken into a snapshot and out of the world, so from now on the registry carries them like a
+        /// runner: a traveler can be met on the road, a posted member walks home from the outpost for real. The leg is
+        /// left exactly as it was (unlike GoOffline, which re-plans from where the body stands: this one stands at home while the
+        /// walk is somewhere along the way). The snapshot and the save come before the removal, as in GoOffline; a capture that
+        /// fails leaves them parked. Removing the body marks its chunk modified, so the next chunk save drops it; a copy an older
+        /// chunk file still holds is a stale copy (HeldOffline) and goes when it loads.
+        /// </summary>
+        public static bool Embody(World w, Member m, EntityAlive npc, string why)
+        {
+            if (w == null || m == null || npc == null || npc.IsDead() || npc.IsMarkedForUnload() || npc.entityId != m.Id) return false;
+            string snap;
+            if (!TryCapture(npc, out snap)) { ScLog.Warn(m.Name + ": could not take their parked body into a snapshot (" + why + ") - it stays parked at home for now"); return false; }
+            int id = npc.entityId;
+            m.Snap = snap;
+            m.Offline = true;
+            OfflineNow(m, false);
+            RebuildRunnerSet();                                                                 // a physical traveler now: chunks never save them again
+            ScRegistry.SaveAtomic();                                                            // BEFORE the removal: a crash now finds the snapshot
+            ClearScoreCaches(id);
+            capturingId = id;
+            try { w.RemoveEntity(id, EnumRemoveEntityReason.Unloaded); }
+            finally { capturingId = -1; }
+            ScLog.Out(m.Name + "'s parked body was taken into a snapshot (" + why + ") - " + m.RunLeg + ", snapshot " + SnapBytes(m) + " bytes");
             return true;
         }
 
@@ -1757,7 +1893,7 @@ namespace SurvivorCommunity
                 if (TryCapture(npc, out snap)) m.Snap = snap;
                 else ScLog.Warn(m.Name + ": capture at unload failed - keeping the previous snapshot");
 #if SC_V34
-                ScHandheld.NoteCarried(m, npc, "captured at an unload");                     // R2: the record answers until the body is back
+                if (IsRun(m)) ScHandheld.NoteCarried(m, npc, "captured at an unload");       // R2: the record answers until the body is back (round op1: runs only)
 #endif
                 ulong now = npc.world != null ? npc.world.worldTime : 0UL;
                 Vector3 from = fell ? (s.HasGoodPos ? s.LastGoodPos : VirtualPos(m, now)) : npc.position;
