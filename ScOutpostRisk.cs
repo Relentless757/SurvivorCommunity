@@ -618,13 +618,24 @@ namespace SurvivorCommunity
             return false;
         }
 
-        /// <summary>Round op1 (sc outpost overrun, tests): an unattended attack's worst outcome, now - the garrison walks home hurt.</summary>
-        internal static void ForceOverrun(Outpost o, EntityPlayerLocal player)
+        /// <summary>
+        /// Round op1 (sc outpost overrun, tests): an unattended attack's worst outcome, now - the garrison walks home hurt. The op1
+        /// review's NIT: only where a real one could happen - a building with a room an overrun can bring back (HasSleepers; since
+        /// round oc1 one of trigger rooms only takes "damaged"). why: what kept it from happening.
+        /// </summary>
+        internal static bool ForceOverrun(Outpost o, EntityPlayerLocal player, out string why)
         {
-            if (o == null || !o.Holding) return;
+            why = null;
+            if (o == null || !o.Holding) { why = "that outpost is not held"; return false; }
+            if (!HasSleepers(o))
+            {
+                why = o.Name + " has no room an overrun can bring back (none, or trigger rooms only) - an unattended attack there ends \"damaged\" instead";
+                return false;
+            }
             ScLog.Out("outpost " + o.Id + " (" + o.Name + ") OVERRUN (console)");
             Overrun(o, player);
             ScRegistry.SaveAtomic();
+            return true;
         }
 
         /// <summary>Overrun: the POI's sleepers are back (clear it again to retake it); the garrison falls back hurt.</summary>

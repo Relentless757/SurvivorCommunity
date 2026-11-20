@@ -239,6 +239,7 @@ namespace SurvivorCommunity
                 }
                 if (m.Born == 0) m.Born = npc.WorldTimeBorn;
                 m.MissingDays = 0;
+                ScGarrison.NoteBody(m, npc);          // round op1 review (M1): the chunk their body stands in, for a brief load later
 
                 // A SCore Dismiss (the vanilla dialog entry or the companion window's button) writes
                 // Persist=0 and zeroes the Leader AND Owner cvars: that is the player letting a follower go,
@@ -442,8 +443,11 @@ namespace SurvivorCommunity
                 foreach (var m in ScRegistry.Members.Values)
                 {
                     if (ScRunners.IsPhysical(m)) continue;     // a runner out of range has no entity by design
-                    // round op1: nor has a posting traveler (parked: ScGarrison sees them home) or a posted member whose body is the snapshot
-                    if (m.Status == MemberStatus.Transit || ScRunners.HeldOffline(m)) continue;
+                    // round op1: nor has a posting traveler (parked: ScGarrison sees them home) or a posted member whose body is the snapshot.
+                    // The op1 review (L2): no posted member at all is counted - one whose body is gone would be dropped after
+                    // MissingDaysToPurge days with no Call back (ScMissing lists residents only). Recalled, they walk home and become a
+                    // resident with no body, whom ScMissing then lists. Only an old save's member of a class that no longer exists still runs out.
+                    if ((m.Status == MemberStatus.Transit || m.Status == MemberStatus.Garrison) && !ScRegistry.PredatesMigration(m)) continue;
                     if (m.Status == MemberStatus.Arriving) continue;    // nor has one still on the way to the base (E12, ScEncJoin)
                     // a follower left holding a spot far out (a voice "stay", "guard", a patrol - ScOrders) is unloaded by
                     // design too, for as long as the player stays away: never counted missing. Only an old save's record

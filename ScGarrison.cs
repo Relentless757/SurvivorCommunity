@@ -47,14 +47,49 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, float> absentSince = new Dictionary<int, float>();
         private static readonly List<Member> journeyScratch = new List<Member>();
 
+        /// <summary>Round op1 review (M1): the longest a parked body is waited for (real seconds) before the observer goes.</summary>
+        private const float FetchSeconds = 30f;
+        /// <summary>Round op1 review (L2): the chunks where the body last stood are in, and no body of theirs for this long: it is gone.</summary>
+        private const float FetchGoneSeconds = 3f;
+        /// <summary>Round op1 review (M1): at most this many brief loads at once; one more travels parked (logged).</summary>
+        private const int MaxFetches = 4;
+
+        /// <summary>
+        /// Round op1 review (M1, the user's "Load their body briefly", 2026-11-19): a parked body being loaded so it can be taken into
+        /// a snapshot - the temporary chunk observer, where it stands, the deadline, and the stand-in kept on its spot meanwhile
+        /// (a recall at the outpost: the real body steps in there). Session only: a quit drops it, and they travel parked.
+        /// </summary>
+        private sealed class Fetch
+        {
+            public ChunkManager.ChunkObserver Observer;
+            public Vector3 Centre;
+            public float Deadline;
+            public float AbsentSince = -1f;
+            public string Why = "";
+            public bool Posting;
+            public bool KnownSpot;
+            public bool Swap;
+            public Vector3 SwapAt;
+        }
+
+        private static readonly Dictionary<int, Fetch> fetches = new Dictionary<int, Fetch>();
+        private static readonly List<int> fetchScratch = new List<int>();
+
         public static void Reset()
         {
+            ReleaseFetches(null);
             nextTick = 0f;
             nextCount.Clear();
             Orphans.Clear();
             embodyRetry.Clear();
             absentSince.Clear();
             journeyScratch.Clear();
+        }
+
+        /// <summary>Round op1 review (M1): WorldShuttingDown, before the save - no brief load outlives the world.</summary>
+        public static void OnWorldShuttingDown()
+        {
+            ReleaseFetches("the world is shutting down");
         }
 
         /// <summary>Stand-ins that loaded from a save (the framework PostInit postfix): removed on the next tick.</summary>
@@ -291,7 +326,10 @@ namespace SurvivorCommunity
                 ScRegistry.SaveAtomic();
                 Told(player, "scOpSetsOff", m, o.Name);
                 ScLog.Out(m.Name + " set off from home for outpost " + o.Id + " at " + o.Name + " (" + Far(m) + " m, about " + EtaHours(m)
-                          + " h) - their body is not loaded: it waits parked at home and walks the road once it is");
+                          + " h) - their body is not loaded");
+                // round op1 review (M1): their body is loaded briefly and taken into a snapshot, so they really walk the road; until
+                // then (and for good, should that fail) they travel parked
+                StartFetch(m, "posted to " + o.Name, true, false, Vector3.zero);
                 return true;
             }
             catch (Exception e)
@@ -409,16 +447,23 @@ namespace SurvivorCommunity
                 return;
             }
             if (w == null) { HomeAtOnce(m, player, tellKey != null ? "scOpHomeFrom" : null); return; }
-            RemoveStandIn(m);
+            string why = "called home from " + name;
+            // a parked body that is loaded is taken now; one that is not is loaded briefly (round op1 review, M1) - meanwhile the
+            // stand-in keeps its spot, and the real body steps in there once it is taken (FetchDone)
+            bool body = embodied || TryEmbody(w, m, Time.unscaledTime, why);
+            bool keep = !body && standIn != null;
+            int keptId = keep ? m.StandInId : -1;
+            if (!keep) RemoveStandIn(m);
             m.Status = MemberStatus.Transit;
             ScStuck.ResetGain(m);
             m.RunDest = o != null ? o.Poi : Vector3i.zero;
             m.RunDestName = name;
             ResetRunFields(m);
+            if (keep) m.StandInId = keptId;
             m.Offline = true;
             ScRunners.BeginLeg(m, RunLeg.Inbound, from, ScRunners.GatePoint(m, from, player), w.worldTime);
-            if (embodied) ScRunners.OfflineNow(m, standIn != null);
-            else TryEmbody(w, m, Time.unscaledTime, "called home from " + name);       // their body at home, loaded: they walk in for real
+            if (body) ScRunners.OfflineNow(m, standIn != null);
+            else StartFetch(m, why, false, keep, from);
             ScRegistry.SaveAtomic();
             Told(player, tellKey, m, name);
             ScLog.Out(m.Name + " leaves outpost " + (o != null ? o.Id.ToString() : "?") + " at " + name + " and walks home (" + Far(m) + " m, about " + EtaHours(m) + " h"
@@ -431,6 +476,25 @@ namespace SurvivorCommunity
             Outpost o = ScOutposts.ById(m.OutpostId);
             RemoveStandIn(m);
             string name = o != null ? o.Name : !string.IsNullOrEmpty(m.RunDestName) ? m.RunDestName : "?";
+            if (!string.IsNullOrEmpty(m.Snap) && ScRunners.Deserialize(m.Snap) != null)
+            {
+                // the op1 review (L4): a readable snapshot is their body (bag, health, buffs) - kept. They wait at their post on the
+                // Back leg and walk in once you are near (the runner's re-create), rather than turn into a resident with no body
+                World w = ScCommunity.World;
+                Vector3 post = ScCommunity.PostCenter(m);
+                m.Status = MemberStatus.Transit;
+                ScStuck.ResetGain(m);
+                m.RunDest = o != null ? o.Poi : Vector3i.zero;
+                m.RunDestName = name;
+                ResetRunFields(m);
+                m.Offline = true;
+                ScRunners.BeginLeg(m, RunLeg.Back, post, post, w != null ? w.worldTime : 0UL);
+                ScRunners.OfflineNow(m, false);
+                ScRegistry.SaveAtomic();
+                Told(player, tellKey, m, name);
+                ScLog.Out(m.Name + " is sent home from " + name + " at once - their snapshot kept: they walk in at their post once you are near");
+                return;
+            }
             ScRunners.ClearRun(m);
             m.Status = MemberStatus.Resident;
             m.OutpostId = -1;
@@ -540,7 +604,8 @@ namespace SurvivorCommunity
                     if (ScRunners.IsPhysical(m)) continue;                               // embodied: ScRunners walks them
                     if (m.RunLeg == RunLeg.None) { HomeParked(m, player); continue; }    // never left on no leg
                     ScRunners.ClockBack(m, now);
-                    if (TryEmbody(w, m, t, "on the road, " + m.RunLeg)) continue;        // a runner on the road from now on
+                    // a runner on the road from now on (a brief load in flight does this itself: FetchDone, with its stand-in swap)
+                    if (!fetches.ContainsKey(m.Id) && TryEmbody(w, m, t, "on the road, " + m.RunLeg)) continue;
                     switch (m.RunLeg)
                     {
                         case RunLeg.Outbound:
@@ -616,6 +681,8 @@ namespace SurvivorCommunity
         private static void HomeParked(Member m, EntityPlayerLocal player)
         {
             string from = m.RunDestName;
+            EndFetch(m.Id, null);
+            RemoveStandIn(m);                                                          // one a brief load kept on its spot
             ScRunners.ClearRun(m);
             m.Status = MemberStatus.Resident;
             m.OutpostId = -1;
@@ -629,6 +696,216 @@ namespace SurvivorCommunity
             ScRunners.RebuildRunnerSet();
             ScRegistry.SaveAtomic();
             HomeAgain(m, player, from);
+        }
+
+        // ------------------------------------------------------------------ loading a parked body briefly (round op1 review, M1) ----
+
+        /// <summary>
+        /// Round op1 review (M1): the relink, for every loaded member body each second - the chunk it stands in, kept in BodyAt when
+        /// it changes (no save of its own: the next registry save carries it).
+        /// </summary>
+        public static void NoteBody(Member m, EntityAlive npc)
+        {
+            if (m == null || npc == null) return;
+            Vector3i at = npc.GetBlockPosition();
+            if (m.BodyAt != Vector3i.zero && World.toChunkXZ(at.x) == World.toChunkXZ(m.BodyAt.x) && World.toChunkXZ(at.z) == World.toChunkXZ(m.BodyAt.z)) return;
+            m.BodyAt = at;
+        }
+
+        /// <summary>
+        /// Round op1 review (M1, the user's "Load their body briefly"): a parked traveler's body is not loaded - a temporary chunk
+        /// observer loads the few chunks round where it last stood (BodyAt; their post when this build never saw it), and
+        /// TickFetches takes it into a snapshot the moment it is there, then drops the observer. viewDim 0: ChunkManager holds rings
+        /// 0..viewDim+1 round the centre chunk, so the body's chunk and its 8 neighbors - the least that lets the centre one be lit
+        /// and run Chunk.OnLoad, which spawns the entities it saved (asynchronously); bBuildVisualMeshAround false: no visual meshes,
+        /// only the colliders a non-viewing observer's chunks get. The cost is those 9 chunks and whoever else they hold (residents
+        /// near the body load too, and go again with the observer). swap: a stand-in kept at swapAt, where the real body steps in.
+        /// False (logged) when none was started: they travel parked.
+        /// </summary>
+        private static bool StartFetch(Member m, string why, bool posting, bool swap, Vector3 swapAt)
+        {
+            try
+            {
+                if (m == null || GameManager.Instance == null || GameManager.Instance.World == null) return false;
+                EndFetch(m.Id, null);
+                if (fetches.Count >= MaxFetches)
+                {
+                    ScLog.Out(m.Name + ": " + MaxFetches + " bodies are already being loaded - they travel parked (" + why + ")");
+                    if (swap) RemoveStandIn(m);
+                    return false;
+                }
+                bool known = m.BodyAt != Vector3i.zero;
+                Vector3 centre = known ? ScRunners.C(m.BodyAt) : ScCommunity.PostCenter(m);
+                ChunkManager.ChunkObserver obs = GameManager.Instance.AddChunkObserver(centre, false, 0, -1);
+                fetches[m.Id] = new Fetch
+                {
+                    Observer = obs, Centre = centre, Deadline = Time.unscaledTime + FetchSeconds, Why = why ?? "", Posting = posting,
+                    KnownSpot = known, Swap = swap, SwapAt = swapAt
+                };
+                ScLog.Out(m.Name + ": their body at home is not loaded - loading the 9 chunks round " + World.worldToBlockPos(centre)
+                          + (known ? " (where it last stood)" : " (their post: this build never saw where it stood)") + " for up to "
+                          + FetchSeconds.ToString("0") + " s to take it into a snapshot (" + why + ")" + (swap ? "; their stand-in keeps its spot meanwhile" : ""));
+                return true;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("garrison-fetch-start", e);
+                if (swap) RemoveStandIn(m);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Round op1 review (M1), every second: each brief load - the body is there (taken: FetchDone), the deadline passed or the
+        /// capture failed (they travel parked, logged), or (L2) the chunks where it last stood are all in and no body of theirs is
+        /// anywhere, not even one being built (NotThere). The observer goes in every case.
+        /// </summary>
+        private static void TickFetches(World w, EntityPlayerLocal player, float t)
+        {
+            if (fetches.Count == 0) return;
+            fetchScratch.Clear();
+            fetchScratch.AddRange(fetches.Keys);
+            foreach (int id in fetchScratch)
+            {
+                Fetch f;
+                if (!fetches.TryGetValue(id, out f)) continue;
+                try
+                {
+                    Member m = ScRegistry.GetMember(id);
+                    if (m == null || m.Status != MemberStatus.Transit) { EndFetch(id, "no longer on the road"); continue; }
+                    if (!Parked(m)) { FetchDone(w, player, m, f, true, "their body was taken already"); continue; }
+                    EntityAlive body = TheirBody(m);
+                    if (body != null)
+                    {
+                        bool ok = ScRunners.Embody(w, m, body, f.Why);
+                        FetchDone(w, player, m, f, ok, ok ? "taken" : "the capture failed");
+                        continue;
+                    }
+                    if (t >= f.Deadline) { FetchDone(w, player, m, f, false, "it did not load within " + FetchSeconds.ToString("0") + " s"); continue; }
+                    if (f.KnownSpot && AreaIn(w, f.Centre) && !ScNpc.HasBody(w, id))
+                    {
+                        if (f.AbsentSince < 0f) f.AbsentSince = t;
+                        else if (t - f.AbsentSince >= FetchGoneSeconds) NotThere(player, m, f);
+                    }
+                    else f.AbsentSince = -1f;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("garrison-fetch-" + id, e);
+                    EndFetch(id, "an error");
+                }
+            }
+            fetchScratch.Clear();
+        }
+
+        /// <summary>
+        /// Round op1 review (M1): the brief load is over. Taken: with a stand-in kept, it steps aside and the walk home starts again
+        /// on its spot now, the real body stepping in there (Session.SwapIn); else they travel parked - logged - and a kept stand-in goes.
+        /// </summary>
+        private static void FetchDone(World w, EntityPlayerLocal player, Member m, Fetch f, bool embodied, string why)
+        {
+            EndFetch(m.Id, null);
+            if (embodied)
+            {
+                if (f.Swap && m.RunLeg == RunLeg.Inbound)
+                {
+                    RemoveStandIn(m);
+                    ScRunners.BeginLeg(m, RunLeg.Inbound, f.SwapAt, ScRunners.GatePoint(m, f.SwapAt, player), w.worldTime);
+                    ScRunners.OfflineNow(m, true);
+                }
+                else if (f.Swap) RemoveStandIn(m);
+                ScLog.Out(m.Name + ": their body was loaded and " + why + " - they walk the road now (" + f.Why + ")");
+            }
+            else
+            {
+                RemoveStandIn(m);
+                ScLog.Out(m.Name + ": " + why + " - they travel parked: their body stays at home and walks the road from the next time it is loaded (" + f.Why + ")");
+            }
+            ScRegistry.SaveAtomic();
+        }
+
+        /// <summary>
+        /// Round op1 review (L2): where their body last stood is loaded and it is not there - gone (something outside the mod removed
+        /// it). A posting just made is called off: a resident again, one with no body, whom ScMissing lists for Call back when you
+        /// are home - told now. One walking home goes on parked: at the edge of the base they become that resident too.
+        /// </summary>
+        private static void NotThere(EntityPlayerLocal player, Member m, Fetch f)
+        {
+            EndFetch(m.Id, null);
+            RemoveStandIn(m);
+            if (f.Posting && HeadingOut(m))
+            {
+                string name = TransitName(m);
+                ScRunners.ClearRun(m);
+                m.Status = MemberStatus.Resident;
+                m.OutpostId = -1;
+                m.StandInId = -1;
+                ScRunners.RebuildRunnerSet();
+                ScRegistry.SaveAtomic();
+                Told(player, "scOpBodyMissing", m, name);
+                ScLog.Warn(m.Name + ": no body of theirs where it last stood (" + World.worldToBlockPos(f.Centre) + ", its chunks loaded) - the posting to "
+                           + name + " is off; a resident again, missing (Call back)");
+                return;
+            }
+            ScLog.Warn(m.Name + ": no body of theirs where it last stood (" + World.worldToBlockPos(f.Centre) + ", its chunks loaded) - they travel parked ("
+                       + f.Why + "); at home they are a resident with no body (Call back)");
+            ScRegistry.SaveAtomic();
+        }
+
+        /// <summary>The body's chunk and its 8 neighbors are loaded, past decoration and their OnLoad (the saved entities spawned).</summary>
+        private static bool AreaIn(World w, Vector3 centre)
+        {
+            int cx = World.toChunkXZ(Mathf.FloorToInt(centre.x)), cz = World.toChunkXZ(Mathf.FloorToInt(centre.z));
+            List<long> fresh = w.newlyLoadedChunksThisUpdate;
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dz = -1; dz <= 1; dz++)
+                {
+                    Chunk ch = w.GetChunkSync(cx + dx, cz + dz) as Chunk;
+                    if (ch == null || ch.NeedsDecoration || ch.InProgressUnloading) return false;
+                    if (fresh != null)
+                    {
+                        long key = WorldChunkCache.MakeChunkKey(cx + dx, cz + dz);
+                        lock (fresh) { if (fresh.Contains(key)) return false; }
+                    }
+                }
+            }
+            return true;
+        }
+
+        /// <summary>Round op1 review (M1): a brief load's observer goes (never left running). why: logged when not null.</summary>
+        private static void EndFetch(int id, string why)
+        {
+            Fetch f;
+            if (!fetches.TryGetValue(id, out f)) return;
+            fetches.Remove(id);
+            ReleaseObserver(f);
+            if (why != null) ScLog.Out("brief load for member " + id + " dropped (" + why + ")");
+        }
+
+        private static void ReleaseObserver(Fetch f)
+        {
+            if (f == null || f.Observer == null) return;
+            try
+            {
+                if (GameManager.Instance != null && GameManager.Instance.World != null) GameManager.Instance.RemoveChunkObserver(f.Observer);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("garrison-fetch-release", e);
+            }
+            finally
+            {
+                f.Observer = null;
+            }
+        }
+
+        private static void ReleaseFetches(string why)
+        {
+            if (fetches.Count == 0) return;
+            foreach (Fetch f in fetches.Values) ReleaseObserver(f);
+            if (why != null) ScLog.Out(fetches.Count + " brief load(s) of parked bodies dropped (" + why + ") - they travel parked");
+            fetches.Clear();
         }
 
         // ------------------------------------------------------------------ text ----
@@ -718,6 +995,7 @@ namespace SurvivorCommunity
                 float now = Time.unscaledTime;
                 if (now < nextTick) return;
                 nextTick = now + 1f;
+                TickFetches(w, player, now);          // round op1 review (M1): parked bodies loaded briefly, taken, observers dropped
                 TickJourneys(w, player, now);
                 if (ScRegistry.Outposts.Count == 0) return;
                 int today = ScCommunity.Today;

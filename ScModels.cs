@@ -268,6 +268,13 @@ namespace SurvivorCommunity
         /// home from (Inbound, Back - for the window's text only).
         /// </summary>
         public int OutpostId = -1;
+        /// <summary>
+        /// Round op1 review (M1): where their body last stood while it was loaded (the relink notes it whenever it crosses into
+        /// another chunk; zero = never seen by this build). A posting or recall made while their body is not loaded briefly
+        /// loads the chunks around it (ScGarrison's fetch) to take it into a snapshot. Saved as bodyat=x,y,z (a key older
+        /// builds ignore).
+        /// </summary>
+        public Vector3i BodyAt;
         /// <summary>Physical supply run (ScRunners). Saved only while OnRun with a leg other than None.</summary>
         public RunLeg RunLeg = RunLeg.None;
         /// <summary>The destination POI (its boundingBoxPosition key) and its name.</summary>

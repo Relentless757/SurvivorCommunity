@@ -116,8 +116,9 @@ Most useful for testing
 - sc radio enc <moment> [id]: Hear an enclave's or a drifter band's line now, by the radio rule (fighter, drop, demand,
   join, thanks, hurry ...). [CHEAT]
 - sc outpost list / yield: Outposts and tonight's yield, staff and who is on the way. [READ]
-- sc outpost post <id> <member> / recall <member> / skip <member>: Post someone (they walk there); recall or turn them
-  back; end the current leg of the walk now.
+- sc outpost post <id> <member> / recall <member>: Post someone (they walk there); recall or turn them back.
+- sc outpost skip <member>: End the current leg of a walk to or from an outpost now. [CHEAT]
+- sc outpost overrun <id>: Overrun an outpost now: staff walk home hurt, anyone on the way turns back. [CHEAT]
 - sc poi / sc poi near [r]: The POI you stand in; outpost candidates nearby. [READ]
 - sc band spawn [drifters|raiders]: Put a band on the road, walking at you. [CHEAT]
 - sc infest add: Infest the POI you stand in. [CHEAT]
@@ -462,7 +463,10 @@ Drives a physical run (tests): "recall" turns them home; "home" forces them to t
 them); "skip" ends the current leg now; "offline" takes the body offline; "hurt [share]" (round r2) sets their body's
 health to that share of its max (0.01-1, default 0.3; their body must be in the world) and says what follows - with
 nothing to heal with, at or below "RunHomeBelowHealth" on the way out or at the site, they give the job up and head home
-about 2 s later. Example: "sc run Dana skip", "sc run Dana hurt 0.25"
+about 2 s later. On someone walking to or from an outpost (they are driven like a runner when their body walks):
+"recall" turns them back, "skip" and "offline" work, "home" brings in only one waiting at the edge of the base (on the
+way it points you to "sc outpost skip"), and "hurt" says they keep walking. Example: "sc run Dana skip",
+"sc run Dana hurt 0.25"
 
 sc runners [READ]
 ~~~~~~~~~~~~~~~~~
@@ -714,7 +718,9 @@ Sets the outpost's work mode.
 sc outpost post <id> <member> and sc outpost recall <member>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Posts a member at home to an outpost's garrison from anywhere: they set off on foot and become staff when they reach the
-claim (the answer says whether their body walks or waits parked at home, and the hours to go). "recall" starts a posted
+claim (the answer says whether their body walks or waits parked at home, and the hours to go). A body that is not loaded
+is loaded for a moment and taken on the road (the log says "loading the 9 chunks round ..." and then "they walk the road
+now"); if that fails they travel parked. Posting journeys walk whatever "PhysicalRuns" says. "recall" starts a posted
 member's walk home, or turns back one still on the way there; they are a resident again when they walk in.
 
 sc outpost skip <member> [CHEAT]
@@ -734,7 +740,8 @@ Starts an attack on the outpost ("raid" for a raid rather than a plain attack).
 sc outpost overrun <id> [CHEAT]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Overruns the outpost now, as an unattended attack can: its sleepers are back (contested), its staff walk home hurt and
-anyone on the way there turns back.
+anyone on the way there turns back. Like a real overrun, only an outpost with a room an overrun can bring back: one with
+no sleeper rooms, or trigger rooms only, answers "not overrun" and why (an unattended attack there ends "damaged").
 
 sc outpost demand <id>, pay <id>, refuse <id>, repair <id> [CHEAT]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

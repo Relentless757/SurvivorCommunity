@@ -1418,6 +1418,8 @@ namespace SurvivorCommunity
                     break;
                 }
                 case "home":
+                    // the op1 review's NIT: ForceHome only ever brings in a posting traveler waiting at the gate
+                    if (m.Status == MemberStatus.Transit && m.RunLeg != RunLeg.Back) { Output("[SC] " + m.Name + " is on a posting journey (" + m.RunLeg + ") - sc outpost skip " + m.Name + " ends its leg instead"); break; }
                     if (npc != null && !ScRunners.GoOffline(w, m, npc, "console home", false)) { Output("[SC] could not take " + m.Name + " offline"); break; }
                     ScRunners.ForceHome(m, player);
                     Output("[SC] " + (ScRegistry.GetMember(m.Id) == m ? m.Name + " is at the gate (" + m.RunLeg + ")" : m.Name + " did not make it (the run's dice)"));
@@ -2133,8 +2135,9 @@ namespace SurvivorCommunity
                     // round op1 (tests): overrun now - its staff walk home hurt, anyone on the way turns back
                     Outpost o = OutpostArg(p);
                     if (o == null) return;
-                    ScOutpostRisk.ForceOverrun(o, pl);
-                    Output("[SC] " + o.Name + " overrun - " + ScOutposts.StateLabel(o));
+                    string why;
+                    bool ok = ScOutpostRisk.ForceOverrun(o, pl, out why);
+                    Output("[SC] " + (ok ? o.Name + " overrun - " + ScOutposts.StateLabel(o) : "not overrun: " + why));
                     return;
                 }
                 case "attack":

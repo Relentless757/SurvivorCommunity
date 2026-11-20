@@ -175,6 +175,7 @@ namespace SurvivorCommunity
                     ScRunners.OnWorldShuttingDown();   // first: runners in the world go back to their snapshot before the world is saved
                     ScEnclavePeople.OnWorldShuttingDown();   // enclave bodies recorded and taken out before the save (E2)
                     ScBands.OnWorldShuttingDown();           // band bodies the same, their walk re-planned from where they were (E13a)
+                    ScGarrison.OnWorldShuttingDown();        // round op1 review (M1): no brief load of a parked body outlives the world
                     // a dead NPC's window still held by a remote player drops at the body now (the world is saved after this event)
                     if (ScCommunity.IsHost) Patches_Npc.Patch_SetDead.ReleaseAll(true);
 #if SC_V34

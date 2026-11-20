@@ -793,7 +793,8 @@ namespace SurvivorCommunity
                     ScLog.Out("a stale stand-in of " + m.Name + " (entity " + standIn.entityId + ", current " + m.StandInId + ") died - no effect");
                     return;
                 }
-                if (m.Status == MemberStatus.Garrison) { ScGarrison.OnStandInDied(m, player); return; }   // fell holding an outpost
+                // fell holding an outpost - or (round op1 review, M1) in the seconds a recalled member's stand-in waits for their body
+                if (m.Status == MemberStatus.Garrison || m.Status == MemberStatus.Transit) { ScGarrison.OnStandInDied(m, player); return; }
                 m.StandInId = -1;
                 ScQuests.CloseRescue(player, m, false);
                 World w = ScCommunity.World;

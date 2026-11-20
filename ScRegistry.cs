@@ -97,6 +97,8 @@ namespace SurvivorCommunity
     ///                (on the road to or from an outpost - MemberStatus.Transit), posted=N (posted, the body is the snapshot) and
     ///                postsnap=1:N:base64url (that snapshot, or a traveler's), each with status=Resident: an older build has a resident
     ///                with no body (missing; "Call back" brings them) or, for a parked traveler, a resident whose hidden body is home.
+    ///                The op1 review: postsnap= is "2:<bytes>:<base64url of gzip>" (Unpack reads "1:" too); bodyat=x,y,z, any status,
+    ///                where the member's body last stood while loaded (the brief load of a parked body looks there).
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -1183,6 +1185,7 @@ namespace SurvivorCommunity
                 case "transit": ParseTransit(m, val); break;                           // round op1: on the road to or from an outpost
                 case "posted": m.OutpostId = I(val); break;                            // round op1: posted, the body is the snapshot
                 case "postsnap": m.Snap = val; break;                                   // round op1: that snapshot, or a traveler's
+                case "bodyat": { Vector3i v; if (TryVec(val, out v)) m.BodyAt = v; break; }   // round op1 review: where their body last stood
                 case "watch":
                 {
                     // post x,y,z : start : prepaid points : home post x,y,z (base defence D3)
@@ -1833,7 +1836,8 @@ namespace SurvivorCommunity
                               + (m.Offline ? 1 : 0) + ":" + Clean(m.RunDestName));
             }
             if ((heldPost || m.Status == MemberStatus.Transit) && !string.IsNullOrEmpty(m.Snap))
-                sb.AppendLine("postsnap=" + m.Snap);                                    // round op1: base64url, never Clean()ed (as snap=)
+                sb.AppendLine("postsnap=" + m.Snap);                                    // round op1: base64url (gzip'd: "2:"), never Clean()ed (as snap=)
+            if (m.BodyAt != Vector3i.zero) sb.AppendLine("bodyat=" + Vec(m.BodyAt));    // round op1 review (a key older builds ignore)
             if (m.Status == MemberStatus.OnRun && m.RunLeg != RunLeg.None)
             {
                 sb.AppendLine("leg=" + m.RunLeg);

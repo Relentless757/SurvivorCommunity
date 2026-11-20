@@ -679,7 +679,7 @@ namespace SurvivorCommunity
             if (t >= s.NextSnap && !ScMedic.IsUsing(m.Id))
             {
                 string snap;
-                if (TryCapture(npc, out snap)) { m.Snap = snap; ReplanFrom(m, npc.position, now); ScRegistry.SaveAtomic(); }
+                if (TryCapture(npc, out snap, Zip(m))) { m.Snap = snap; ReplanFrom(m, npc.position, now); ScRegistry.SaveAtomic(); }
                 s.NextSnap = t + Math.Max(10f, ScConfig.RunSnapRefreshSeconds);
             }
 
@@ -1645,7 +1645,7 @@ namespace SurvivorCommunity
             {
                 Rekey(w, player, m, e, oldId, fresh);
                 string resnap;
-                if (TryCapture(e, out resnap)) m.Snap = resnap;                                 // the crash fallback under the new id
+                if (TryCapture(e, out resnap, Zip(m))) m.Snap = resnap;                         // the crash fallback under the new id
             }
             s = S(m.Id);
             if (fresh)
@@ -1779,7 +1779,7 @@ namespace SurvivorCommunity
             TurnHomeHurtAtCapture(w, m, npc, true);
             int id = npc.entityId;
             string snap;
-            if (TryCapture(npc, out snap)) m.Snap = snap;
+            if (TryCapture(npc, out snap, Zip(m))) m.Snap = snap;
             else if (!forced || string.IsNullOrEmpty(m.Snap)) { ScLog.Warn(m.Name + ": snapshot failed - staying in the world (" + why + ")"); return false; }
 #if SC_V34
             if (IsRun(m)) ScHandheld.NoteCarried(m, npc, "went offline");                     // R2: the record answers until the body is back (round op1: runs only)
@@ -1828,18 +1828,26 @@ namespace SurvivorCommunity
         {
             if (w == null || m == null || npc == null || npc.IsDead() || npc.IsMarkedForUnload() || npc.entityId != m.Id) return false;
             string snap;
-            if (!TryCapture(npc, out snap)) { ScLog.Warn(m.Name + ": could not take their parked body into a snapshot (" + why + ") - it stays parked at home for now"); return false; }
+            if (!TryCapture(npc, out snap, true))
+            {
+                // the review's NIT: said once per member (a retry comes every EmbodyRetrySeconds)
+                ScLog.Once("embody-fail-" + m.Id, m.Name + ": could not take their parked body into a snapshot (" + why + ") - it stays parked at home for now");
+                return false;
+            }
             int id = npc.entityId;
             m.Snap = snap;
             m.Offline = true;
             OfflineNow(m, false);
-            RebuildRunnerSet();                                                                 // a physical traveler now: chunks never save them again
+            // a traveler is physical from now on (the chunk-save veto knows them); a posted member is HeldOffline - for either, the
+            // body itself is removed just below, and its chunk is saved without it
+            RebuildRunnerSet();
             ScRegistry.SaveAtomic();                                                            // BEFORE the removal: a crash now finds the snapshot
             ClearScoreCaches(id);
             capturingId = id;
             try { w.RemoveEntity(id, EnumRemoveEntityReason.Unloaded); }
             finally { capturingId = -1; }
-            ScLog.Out(m.Name + "'s parked body was taken into a snapshot (" + why + ") - " + m.RunLeg + ", snapshot " + SnapBytes(m) + " bytes");
+            ScLog.Out(m.Name + "'s parked body was taken into a snapshot (" + why + ") - " + m.Status + (m.RunLeg != RunLeg.None ? " " + m.RunLeg : "")
+                      + ", snapshot " + SnapBytes(m) + " bytes, " + SnapChars(m) + " characters in the registry");
             return true;
         }
 
@@ -1890,7 +1898,7 @@ namespace SurvivorCommunity
                 TurnHomeHurtAtCapture(npc.world, m, npc, false);
                 Session s = S(m.Id);
                 string snap;
-                if (TryCapture(npc, out snap)) m.Snap = snap;
+                if (TryCapture(npc, out snap, Zip(m))) m.Snap = snap;
                 else ScLog.Warn(m.Name + ": capture at unload failed - keeping the previous snapshot");
 #if SC_V34
                 if (IsRun(m)) ScHandheld.NoteCarried(m, npc, "captured at an unload");       // R2: the record answers until the body is back (round op1: runs only)
@@ -1966,18 +1974,47 @@ namespace SurvivorCommunity
             return "1:" + bytes.Length + ":" + Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
         }
 
-        /// <summary>Pack's bytes back, or null: empty, another version, a length that does not match, not base64url.</summary>
+        /// <summary>
+        /// Round op1 review (L5): "2:&lt;bytes&gt;:&lt;base64url of the gzip'd bytes&gt;" - Pack's form for the snapshots a posted member
+        /// carries for good (postsnap=: a key only this build reads, so an older build never meets a "2:" blob). &lt;bytes&gt; is the
+        /// length before compression, so SnapBytes reads the same either way. A 3.4 snapshot of about 9.9 KB went from 13.2 K
+        /// characters to 4.5 K (gzip, as vanilla's MapChunkDatabaseByRegion uses it). Runners' snap= and every other Pack user stay
+        /// "1:" (an older build reads those).
+        /// </summary>
+        public static string PackZ(byte[] bytes)
+        {
+            using (var ms = new MemoryStream())
+            {
+                using (var gz = new System.IO.Compression.GZipStream(ms, System.IO.Compression.CompressionMode.Compress, true)) gz.Write(bytes, 0, bytes.Length);
+                return "2:" + bytes.Length + ":" + Convert.ToBase64String(ms.ToArray()).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+            }
+        }
+
+        /// <summary>Pack's (or PackZ's) bytes back, or null: empty, another version, a length that does not match, not base64url, bad gzip.</summary>
         public static byte[] Unpack(string s)
         {
             try
             {
                 if (string.IsNullOrEmpty(s)) return null;
                 int a = s.IndexOf(':'), b = a < 0 ? -1 : s.IndexOf(':', a + 1);
-                if (a < 0 || b < 0 || s.Substring(0, a) != "1") return null;
+                if (a < 0 || b < 0) return null;
+                string v = s.Substring(0, a);
+                if (v != "1" && v != "2") return null;
                 int len = int.Parse(s.Substring(a + 1, b - a - 1));
                 string p = s.Substring(b + 1).Replace('-', '+').Replace('_', '/');
                 p = p.PadRight(p.Length + (4 - p.Length % 4) % 4, '=');
                 byte[] bytes = Convert.FromBase64String(p);
+                if (v == "2")
+                {
+                    if (len < 0 || len > 4 * 1024 * 1024) return null;
+                    using (var src = new MemoryStream(bytes))
+                    using (var gz = new System.IO.Compression.GZipStream(src, System.IO.Compression.CompressionMode.Decompress))
+                    using (var dst = new MemoryStream(len))
+                    {
+                        gz.CopyTo(dst);
+                        bytes = dst.ToArray();
+                    }
+                }
                 return bytes.Length == len ? bytes : null;
             }
             catch (Exception)
@@ -1985,6 +2022,15 @@ namespace SurvivorCommunity
                 return null;
             }
         }
+
+        /// <summary>Round op1 review (L5): the characters a snapshot takes in the registry file (for the log).</summary>
+        public static int SnapChars(Member m) { return m != null && m.Snap != null ? m.Snap.Length : 0; }
+
+        /// <summary>
+        /// Round op1 review (L5): a posting journey's snapshot, and a posted member's, is kept gzip'd (PackZ): they carry it for
+        /// as long as they are posted. A runner's stays plain - snap= is read by older builds.
+        /// </summary>
+        private static bool Zip(Member m) { return m != null && (m.Status == MemberStatus.Transit || m.Status == MemberStatus.Garrison); }
 
         public static int SnapBytes(Member m)
         {
@@ -1994,8 +2040,13 @@ namespace SurvivorCommunity
             return b > a && int.TryParse(m.Snap.Substring(a + 1, b - a - 1), out n) ? n : 0;
         }
 
-        /// <summary>new EntityCreationData(npc, false) - the persistence form VehicleManager uses - serialised at once, read back and checked.</summary>
-        public static bool TryCapture(EntityAlive npc, out string snap)
+        /// <summary>
+        /// new EntityCreationData(npc, false) - the persistence form VehicleManager uses - serialised at once, read back and checked.
+        /// compress (round op1 review, L5): PackZ instead of Pack, read back through the same Unpack; the size limit is on the bytes.
+        /// </summary>
+        public static bool TryCapture(EntityAlive npc, out string snap) { return TryCapture(npc, out snap, false); }
+
+        public static bool TryCapture(EntityAlive npc, out string snap, bool compress)
         {
             snap = null;
             try
@@ -2021,7 +2072,7 @@ namespace SurvivorCommunity
                     }
                     bytes = ms.ToArray();
                 }
-                string s = Pack(bytes);
+                string s = compress ? PackZ(bytes) : Pack(bytes);
                 EntityCreationData back = Deserialize(s);
                 if (back == null || back.id != npc.entityId || back.entityClass != npc.entityClass || bytes.Length > ScConfig.RunSnapMaxBytes
                     || back.entityData == null || back.entityData.Length <= 0)

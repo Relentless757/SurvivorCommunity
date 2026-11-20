@@ -583,6 +583,7 @@ scOpArrived,UI,Tooltip,,,,{0} has reached {1} and holds it now.
 scOpTurnedBack,UI,Tooltip,,,,{0} turns back for home before reaching {1}.
 scOpTurnedBackGone,UI,Tooltip,,,,{0} turns back for home: {1} is no longer ours.
 scOpHomeFrom,UI,Tooltip,,,,{0} is back home from {1}.
+scOpBodyMissing,UI,Tooltip,,,,"{0} is not at home: their body is missing. The posting to {1} is off - use Call back in the Members tab, then post them again."
 scOpWalkIn,UI,Tooltip,,,,- a {0} turned up at {1}
 scOpWalkInTip,UI,Tooltip,,,,"Your people at {1} say a {0} turned up there, asking to join."
 scStPosted,UI,Menu,,,,Holding {0}

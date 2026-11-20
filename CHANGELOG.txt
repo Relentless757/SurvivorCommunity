@@ -19,14 +19,23 @@ Members walk to their outposts
   at home.
 - A walker who reaches the claim while you are there becomes the stand-in on the spot; recalled while you are there, the
   stand-in steps aside and the member walks off from the same place.
-- Someone posted while you are away from home travels out of sight until you next come home, and can be met on the road
-  from then on. People posted by an older build walk home the same way, and can be seen on that walk once you have been
-  home.
+- Someone posted while you are away from home sets out for real too. SC loads the few chunks around their body for a
+  moment and takes them on the road. Anyone else standing in those chunks loads for that moment as well, so a crowded
+  base can cause a short hitch. Recalled from the outpost the same way, their stand-in keeps its spot until the member
+  steps in there. If that fails, they travel out of sight until you next come home (logged). If their body is gone from
+  home, a new posting is called off and you are told to use Call back.
+- People posted by an older build are taken on the road the first time you are home, or when you recall them.
+- Posting journeys walk whatever "PhysicalRuns" says.
 - Console: "sc outpost post" works from anywhere and says how long the walk is; "sc outpost recall" also turns back
   someone on the way; new "sc outpost skip <member>" ends the current leg of the walk now, and "sc outpost overrun <id>"
-  overruns an outpost now. "sc outpost list" shows who is on the way and who is walking home.
-- Saves: a save made mid-journey carries on from where they were. An older build reads members on the road, and staff
-  who walked to their outpost, as missing residents: Call back brings them home.
+  overruns an outpost now (only one with a room an overrun can bring back, as a real one). "sc outpost list" shows who
+  is on the way and who is walking home.
+- Saves: a save made mid-journey carries on from where they were. A posted member's record carries their body, kept
+  compressed (about 4.5 K characters each, a third of a runner's).
+- Going back to an older build costs your outposts' people their bodies. The first time you are home, this build takes
+  the body of everyone posted at an outpost, including people posted by an older build, into its own record. An older
+  build shows them, and everyone on the road, as missing residents. Call back brings each one home with a new body: what
+  was in their bag, their current health and their buffs are lost.
 
 
 Whole-number economy

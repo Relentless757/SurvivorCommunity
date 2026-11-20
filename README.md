@@ -1219,6 +1219,10 @@ What it makes depends on the building:
   anyone at home from anywhere: they **walk there from home**, the way a runner goes on a supply run.
   - If you are near them, they leave their post on foot and you can follow or escort them; otherwise they set off out of
     sight. Like a runner, they appear on the road when you come near them and you can meet them there.
+  - If you are away from home, their body is not loaded. SC loads the few chunks around it for a moment (the body's
+    chunk and its 8 neighbors, no graphics), takes them on the road and lets the chunks go again, usually within a few
+    seconds. Anyone else standing in those chunks loads for that moment too, so a crowded base can cause a short
+    hitch.
   - The journey is safe: no dice, no distress calls, no radio calls. If something attacks them while you are near, they
     fight, and they keep going even when hurt.
   - **On the way** they already hold the post (you can't assign more people than it has posts), but they add nothing
@@ -1231,13 +1235,16 @@ What it makes depends on the building:
     are there turns into the stand-in on the spot.
 - **Recall** (the **x** on a garrison post, **Recall home** in the Members tab, or `sc outpost recall`) turns someone on
   the way back, or starts a posted member's **walk home** from the claim. Recalled while you are at the outpost, the
-  stand-in steps aside and the member walks off from there. Walking home they are not residents yet: they become residents
-  when they walk in. Out of sight, one who reached the edge of the base waits there until you are home.
+  stand-in steps aside and the member walks off from there (when their body was at home, the stand-in keeps its spot for
+  the moment it takes to load it). Walking home they are not residents yet: they become residents when they walk in. Out
+  of sight, one who reached the edge of the base waits there until you are home.
 - **Sent home by the game:** when an outpost is lost or disbanded its staff walk home the same way, and when it is overrun
   they walk home hurt. Anyone on the way to it turns back.
-- Someone you post while you are away from home has no body loaded to walk with, so they travel out of sight. The next
-  time you come home they set out for real, and you can meet them on the road from then on. Members posted by an older
-  build are set up the same way the first time you are home.
+- If their body can't be loaded or taken (after 30 seconds at most), they travel out of sight instead, and set out for
+  real the next time you are home; the log says so. If their body is gone from home altogether, a new posting is called
+  off and the message tells you to use **Call back** first. Members posted by an older build are taken on the road the
+  first time you are home (or when you recall them).
+- Posting journeys always walk, whatever `PhysicalRuns` says (that setting is for supply runs).
 - **Levels:** level 2 costs 4 materials and 2 fuel (held 3 days first), level 3 costs 8 materials and 4 fuel (held 7
   days, and someone must be posted there). Each level makes 1 more a day; level 3 costs 1 more upkeep.
 - **Modes:** quiet makes 1 less a day at half the risk; push makes 1 more at a higher risk.
@@ -1970,7 +1977,7 @@ These are the ones you are most likely to change. The file has many more.
 
 | Setting | Default | What it does |
 |---|---|---|
-| `PhysicalRuns` | true | Runners walk to a real building (false: hidden one-day runs) |
+| `PhysicalRuns` | true | Runners walk to a real building (false: hidden one-day runs). Posting journeys always walk |
 | `MaxRunners` | 3 | Most runners out at once |
 | `RunMinDist` / `RunMaxDist` | 150 / 700 | How far runners go (meters) |
 | `RunSiteHours` | 6 | Game hours spent searching the site |
@@ -2151,8 +2158,11 @@ For console commands (testing and fixing), see [CONSOLE_COMMANDS.md](CONSOLE_COM
 - **Do not remove the mod from a save that used it.** Loading that save without SC can damage the chunks its blocks are in.
 - **Going back to an older build** drops the newer life skills (Construction to Entertainment): those members are left with
   none.
-- **Going back to an older build** also shows members on the road to or from an outpost, and staff who walked to their
-  outpost, as missing residents: **Call back** brings them home, without what was in their bag.
+- **Going back to an older build costs your outposts' people their bodies.** This build takes the body of everyone posted
+  at an outpost into its own record the first time you are home, including people posted by an older build, and removes
+  it from the world. It does the same for everyone on the road to or from an outpost. An older build can't read that
+  record, so it shows all of them as missing residents. **Call back** brings each one home, but with a new body: what was
+  in their bag is lost, and so are their current health and buffs. Their look, handed gear and ammo come back.
 - **Mining and digging clay are not resident jobs.** Residents do home jobs only; send them on a mining run instead, or
   take a member along for Mine, Loot here or Follow + loot.
 - **Breaking an enclave's containers open is not stopped,** only opening them.
