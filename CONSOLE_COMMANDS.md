@@ -511,7 +511,7 @@ Sets the waiting (undelivered) yield of the outpost's main resource.
 Re-reads the POI and re-sets the type and tier.
 
 ### `sc outpost state <id> <Active|Idle|Contested|Lost>` [CHEAT]
-Forces the state. Within about 10 s the slot limit puts Active and Idle back where they belong: an outpost within the limit works, one over it idles. A contested one over the limit idles too, quietly; a contested one within the limit is retaken once its building reads clear.
+Forces the state. Within about 10 s the slot limit puts Active and Idle back where they belong: an outpost within the limit works, one over it idles. A contested one stays contested, within the limit or over it, until its building reads clear; then it is retaken (message, ledger line, Leadership credit) and, over the limit, goes idle right after.
 
 ### `sc outpost level <id> <1-3>` [CHEAT]
 Sets the level (free).

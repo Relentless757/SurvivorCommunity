@@ -1165,7 +1165,7 @@ both the outpost and your home are unloaded.
    establishes itself when placed.
 3. It needs the **home radio station powered** and a fee of **2 materials and 1 fuel** from the stockpile.
 
-You can hold **1 outpost, plus 1 per 4 members**, at most **4**. Outposts over the limit go idle; nothing is destroyed.
+You can hold **1 outpost, plus 1 per 4 members**, at most **4**. Outposts over the limit go idle; nothing is destroyed. One overrun by sleepers stays contested until you clear it, then idles.
 Your home and outposts are never switched off by the land claim limit; to place another claim, disband an outpost.
 
 ### What an outpost makes

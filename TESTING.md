@@ -37,6 +37,25 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round fx3 (2026-11-20): clearing an overrun outpost over the limit is a retake
+
+Why: you decided clearing an overrun outpost should always give the "clear again" message and the Leadership credit. In
+fx2 an overrun outpost over the slot limit went idle, so clearing it later said nothing and counted nothing. Now it stays
+contested over the limit (it makes nothing and pays no upkeep either way) and goes idle only once it is retaken. With
+DebugLogging on, the log shows the credit as "leadership event sc_ev_outpost_retaken".
+
+- [ ] **Retaken over the limit:** with more outposts than slots, `sc outpost state <newest id> Contested` on a cleared
+      outpost: within about 10 s "(outpost) is clear again - the outpost is yours." and then "1 outpost(s) went idle: the
+      community can only hold N now."; the ledger has the clear-again line, the log has the leadership event, and the
+      row says idle.
+- [ ] **A real one stays contested:** an outpost over the limit whose building has sleepers again (overrun, or
+      `sc outpost state <id> Contested` after the POI's sleepers respawned): its row keeps saying contested, with what is
+      left, for more than 10 s - it does not go idle. Clear the rooms: the same two messages, the ledger line and the
+      leadership event.
+- [ ] **At the rollover:** `sc outpost state <newest id> Contested` on a cleared outpost over the limit and `sc day` right
+      after it, within 10 s (if the 10 s check gets there first you see the first step's result instead: try again):
+      it is retaken and goes idle in the same rollover, and that day delivers nothing from it.
+
 ## Round fx2 (2026-11-20): outpost slots live, row resources, journey line, sc run's reason
 
 Why: four things Claude's self-test of ie1, oc1 and op1 found on 2026-11-20 (you asked for them as one round). Slots are
@@ -51,8 +70,7 @@ all 213 targets patched`.
 - [ ] **And back:** recruit someone (`sc spawn`, `sc recruit <id>`) to get the slot back: within about 10 s "(outpost) is
       working again: the community can hold N outpost(s) now." and its row reads its yield again. If sleepers came back
       into its building while it was idle, it turns contested at once (with the usual message) instead.
-- [ ] **Contested over the limit:** with more outposts than slots, `sc outpost state <newest id> Contested`: within about
-      10 s it is idle again, quietly (no "went idle" message; the log says "(contested) goes idle"), not active.
+- **Contested over the limit:** replaced by round fx3 (above): it stays contested until it is retaken.
 - [ ] **Row resources:** an outpost making two resources (a fire station at level 2: `sc outpost level <id> 2`) reads
       "+1 meds, +1 fuel/day" in its row, biggest first; one resource still reads "+3 food/day".
 - [ ] **Journey line:** select someone on the way to an outpost in the Members tab: under the mood it reads "On the way
@@ -144,12 +162,12 @@ verification: all 213 targets patched`.
       room not entered, 2 sleepers alive", and `sc outpost list` prints the long form under it as "contested: ...". *(Claude's self-test, 2026-11-20, ClaudeTest34: after sc outpost overrun 4: 'Retake: 1 room not entered', then 'contested: 2 sleepers alive' once I walked in.)*
 - [x] **Retake:** walk through the rooms it names and kill what wakes: within 10 s of the last one the message shows,
       it is active again, the map marker comes back, and the ledger has the line. The next `sc day` delivers from it. *(Claude's self-test, 2026-11-20, ClaudeTest34: retaken 9 s after the last kill, 'Container Lot is clear again - the outpost is yours.' in the ledger; map marker not checked; the next sc day didn't deliver from it only because it was over the slot cap.)*
-- [x] **Make one contested:** `sc outpost state <id> Contested` on a cleared outpost (since round fx2, one within the slot
-      limit; over it, it idles quietly): within 10 s it is retaken by itself
+- [x] **Make one contested:** `sc outpost state <id> Contested` on a cleared outpost: within 10 s it is retaken by itself
+      (since round fx3, one over the slot limit then goes idle at once)
       (its building is still clear). For a real one, let a blood moon overrun it, or try `sc outpost attack <id>` and
       stay away (the result is rolled: held, damaged or overrun). *(Claude's self-test, 2026-11-20, ClaudeTest34: sc outpost state 3 Contested on a cleared lot: 'outpost 3 at Sizzle Shack is ours again' within about 10 s.)*
-- [ ] **Door-triggered rooms:** overrun (or `sc outpost state <id> Contested` and let squatters come) an outpost within
-      the slot limit whose building has a room that only opens with a door or switch: that room's sleepers stay gone, and walking the other
+- [ ] **Door-triggered rooms:** overrun (or `sc outpost state <id> Contested` and let squatters come) an outpost whose
+      building has a room that only opens with a door or switch: that room's sleepers stay gone, and walking the other
       rooms retakes it. *(Claude's self-test, 2026-11-20, ClaudeTest34: not run: it needs a building cleared by hand, door rooms included, before a claim fits.)*
 - [x] **Quitting:** quit to the menu with survivors around: the log has no "sdcs-release threw NullReferenceException". *(Claude's self-test, 2026-11-20, ClaudeTest34: quit to the menu twice with members loaded: no 'sdcs-release' line, no exception.)*
 

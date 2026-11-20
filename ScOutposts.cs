@@ -686,6 +686,8 @@ namespace SurvivorCommunity
 
                 // contested: the persisted sleeper volumes say the POI filled up again
                 foreach (Outpost o in list) ContestCheck(o, w, player);
+                // round fx3: one retaken just now while over the limit idles before it produces
+                ApplySlots(w, player);
 
                 // production (round ie1): whole units per outpost from ScEconomy.NetworkYields, the numbers the window, the Home
                 // Status panel and the console read too; nothing is carried to the next day
@@ -957,7 +959,9 @@ namespace SurvivorCommunity
         /// at the rollover, so after a death (or Leadership) lowered the slots, the window, the Home Status panel and sc outpost
         /// yield went on counting an outpost the rollover then idled - delivering and charging less than they said. Tick runs it
         /// every 10 s now, and the rollover first. One coming back from idle is checked for sleepers at once (ContestCheck), as
-        /// the rollover does right after its slots. Returns true when an outpost's state changed.
+        /// the rollover does right after its slots. Round fx3: only an active outpost goes idle; a contested one keeps its state
+        /// until it is retaken, then idles on the next pass (RetakeCheck and the rollover run one straight after a retake).
+        /// Returns true when an outpost's state changed.
         /// </summary>
         internal static bool ApplySlots(World w, EntityPlayerLocal player)
         {
@@ -972,13 +976,12 @@ namespace SurvivorCommunity
                 rank++;
                 if (rank > slots)
                 {
-                    if (o.State == OutpostState.Idle) continue;
-                    // the review's L1: only a working outpost going idle is news ("went idle: the community can only hold N");
-                    // a contested one over the limit made nothing already - it idles quietly (logged) and is checked for
-                    // sleepers again when it gets a slot back
-                    if (o.State == OutpostState.Active) nowIdle++;
-                    ScLog.Out("outpost " + o.Id + " at " + o.Name + (o.State == OutpostState.Contested ? " (contested)" : "") + " goes idle: "
-                              + HeldCount() + " held, " + slots + " slot(s)");
+                    // round fx3 (the user, 2026-11-20: clearing it should still give the "clear again" message and the
+                    // Leadership XP): a contested outpost stays contested over the limit - it makes nothing and pays no upkeep
+                    // either way - so clearing it retakes it as usual (RetakeCheck), and only then does it go idle here
+                    if (o.State != OutpostState.Active) continue;
+                    nowIdle++;
+                    ScLog.Out("outpost " + o.Id + " at " + o.Name + " goes idle: " + HeldCount() + " held, " + slots + " slot(s)");
                     o.State = OutpostState.Idle;
                     changed = true;
                 }
@@ -1044,6 +1047,7 @@ namespace SurvivorCommunity
                 changed = true;
             }
             if (!changed) return;
+            ApplySlots(w, player);    // round fx3: retaken while over the limit - it idles now, with the usual message
             Rebuild();
             RefreshMarkers(player);
             ScRegistry.SaveAtomic();

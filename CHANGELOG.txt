@@ -115,9 +115,10 @@ Fixes
 - When your community can hold fewer outposts, the newest one goes idle at once. It used to wait for the day's rollover.
   Until then, after a member died (or Leadership dropped), the community window, the Home Status panel and
   "sc outpost yield" still counted it, and the rollover delivered and charged less than they said. Now it goes idle
-  within seconds, with a message, and works again within seconds, with a message, when there is room again. A contested
-  outpost over the limit goes idle too (it made nothing either way); when it gets its slot back it is checked for
-  sleepers at once and turns contested again if they are still there.
+  within seconds, with a message, and works again within seconds, with a message, when there is room again. An idle
+  outpost that gets its slot back is checked for sleepers at once and turns contested if they came back. An outpost
+  overrun by sleepers stays contested even over the limit, so clearing it still gives the "clear again" message, the
+  ledger line and the Leadership credit; then it goes idle if there is no room for it.
 - An outpost's row lists everything it sends home ("+2 meds, +1 fuel/day"); it showed only the biggest.
 - The member detail says how far along a journey or run is. Under the mood it now reads, for example, "On the way to
   (outpost) - about 1 h, 312 m from home", "Walking home from (outpost) - ...", or where a supply runner is. The line
