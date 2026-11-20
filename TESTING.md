@@ -48,11 +48,11 @@ all 213 targets patched`.
       newest outpost's row says idle, `sc outpost yield` says "[Idle] makes nothing and pays no upkeep", and the Costs
       line and the Home Status panel drop its upkeep. `sc day` then delivers and charges exactly what `sc outpost
       yield` said beforehand. The log says "outpost N at (name) goes idle: N held, N slot(s)".
-- [ ] **And back:** recruit someone (`sc spawn`, `sc recruit <id>`) to get the slot back: within about 10 s the outpost
-      works again (log "... works again"). If sleepers came back into its building while it was idle, it turns contested
-      at once (with the usual message) instead.
-- [ ] **A retake over the limit:** with more outposts than slots, `sc outpost state <newest id> Contested`: within about
-      10 s it is idle again, not active.
+- [ ] **And back:** recruit someone (`sc spawn`, `sc recruit <id>`) to get the slot back: within about 10 s "(outpost) is
+      working again: the community can hold N outpost(s) now." and its row reads its yield again. If sleepers came back
+      into its building while it was idle, it turns contested at once (with the usual message) instead.
+- [ ] **Contested over the limit:** with more outposts than slots, `sc outpost state <newest id> Contested`: within about
+      10 s it is idle again, quietly (no "went idle" message; the log says "(contested) goes idle"), not active.
 - [ ] **Row resources:** an outpost making two resources (a fire station at level 2: `sc outpost level <id> 2`) reads
       "+1 meds, +1 fuel/day" in its row, biggest first; one resource still reads "+3 food/day".
 - [ ] **Journey line:** select someone on the way to an outpost in the Members tab: under the mood it reads "On the way
@@ -196,7 +196,7 @@ so they must always agree. Start-up must say `patch verification: all 213 target
 - [x] **Outposts of a kind:** with two food outposts, the weaker one makes 1 less (never below 1) in `sc outpost yield`. *(Claude's self-test, 2026-11-20, ClaudeTest34: the second food outpost makes 1 less; its line reads 'level 2: 2 = 2 -> tonight +1' without a step for the 1.)*
 - [x] **No upkeep while contested:** `sc outpost state <id> Contested`: `sc outpost yield` says "makes nothing and pays no
       upkeep", and the network's upkeep drops by its level's 1 or 2. (At the next rollover a cleared building turns
-      Active again by itself.) `sc outpost state <id> Active` puts it back. *(Claude's self-test, 2026-11-20, ClaudeTest34: network upkeep 4 -> 3; the cleared building was retaken within 10 s by oc1's check.)*
+      Active again by itself.) `sc outpost state <id> Active` puts it back (since round fx2, only within the slot limit). *(Claude's self-test, 2026-11-20, ClaudeTest34: network upkeep 4 -> 3; the cleared building was retaken within 10 s by oc1's check.)*
 - [x] **Run-down, no debt:** `sc give mats -999`, `sc day`: "Outposts are run-down ... Each makes 1 less a day";
       `sc outpost yield` shows "(run-down: -1 each)" and every outpost 1 less (a level 1 makes nothing). `sc give mats
       20`, `sc day`: "Outposts are back to full work" (that day's delivery is still the run-down one), and the next `sc

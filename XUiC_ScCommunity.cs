@@ -819,7 +819,9 @@ namespace SurvivorCommunity
             var made = new List<int>();
             for (int i = 0; i < ScNames.ResourceCount; i++) if (y[i] > 0) made.Add(i);
             if (made.Count == 0) return ScOutposts.StateLabel(o);
-            made.Sort((a, b) => y[a] != y[b] ? y[b].CompareTo(y[a]) : a.CompareTo(b));   // biggest first, then the resource order
+            // biggest first; on a tie its own resource (the row's icon) first, then the resource order (the review's N5)
+            int own = (int)ScOutposts.PrimaryToday(o);
+            made.Sort((a, b) => a == b ? 0 : y[a] != y[b] ? y[b].CompareTo(y[a]) : a == own ? -1 : b == own ? 1 : a.CompareTo(b));
             var parts = new List<string>(made.Count);
             foreach (int r in made)
                 parts.Add(string.Format(Localization.Get("scUiOpRowPart"), y[r].ToString(CultureInfo.InvariantCulture), Localization.Get("scResShort" + (Resource)r)));
@@ -1366,7 +1368,7 @@ namespace SurvivorCommunity
                     return true;
                 case "selflagscolor":
                     // round fx2: gold for a journey or run line alone, the warning red once a flag is in it
-                    _value = sel != null && Flags(sel, c).Length == 0 ? "206,178,120,255" : "255,140,120,255";
+                    _value = sel != null && DetailFlags(sel, c, RunLine(sel)).Length == 0 ? "206,178,120,255" : "255,140,120,255";
                     return true;
                 case "selrun":
                     _value = sel == null ? "" : sel.Status == MemberStatus.Transit ? ScGarrison.TransitLine(sel) : ScRuns.StatusLine(sel);   // round op1
@@ -1707,16 +1709,31 @@ namespace SurvivorCommunity
         /// </summary>
         private static string DetailLine(Member m, Community c)
         {
-            string run = m.Status == MemberStatus.Transit ? ScGarrison.TransitLine(m) : ScRuns.StatusLine(m);
-            string flags = Flags(m, c);
-            if (string.IsNullOrEmpty(run)) return flags;
+            string run = RunLine(m);
+            string flags = DetailFlags(m, c, run);
+            if (run.Length == 0) return flags;
             return flags.Length > 0 ? run + " - " + flags : run;
         }
 
-        private static string Flags(Member m, Community c)
+        /// <summary>A traveler's or runner's line, "" for anyone else.</summary>
+        private static string RunLine(Member m)
+        {
+            return (m.Status == MemberStatus.Transit ? ScGarrison.TransitLine(m) : ScRuns.StatusLine(m)) ?? "";
+        }
+
+        /// <summary>
+        /// The warning flags after the run line (the review's N6): without "Injured" when a run line leads - the header already
+        /// says "+ Injured" and a hurt walker's line says hurt, so it read "Walking home hurt from X - ... - Injured".
+        /// </summary>
+        private static string DetailFlags(Member m, Community c, string run)
+        {
+            return Flags(m, c, run.Length == 0);
+        }
+
+        private static string Flags(Member m, Community c, bool withInjured = true)
         {
             var sb = new StringBuilder();
-            if (m.Injured) sb.Append(Localization.Get("scWinInjured"));
+            if (withInjured && m.Injured) sb.Append(Localization.Get("scWinInjured"));
             if (c.Hungry) { if (sb.Length > 0) sb.Append(", "); sb.Append(Localization.Get("scWinHungry")); }
             if (c.Thirsty) { if (sb.Length > 0) sb.Append(", "); sb.Append(Localization.Get("scWinThirsty")); }
             if (c.ThreatMemberId == m.Id) { if (sb.Length > 0) sb.Append(", "); sb.Append(Localization.Get("scWinThreat")); }

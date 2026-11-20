@@ -462,6 +462,7 @@ scOpDisbanded,UI,Tooltip,,,,The outpost at {0} is disbanded. The land claim stay
 scOpDisbandConfirm,UI,Tooltip,,,,Disband the outpost at {0}? Pick Disband again within 5 seconds.
 scOpLostClaim,UI,Tooltip,,,,The outpost at {0} is lost: its land claim is gone.
 scOpIdle,UI,Tooltip,,,,{0} outpost(s) went idle: the community can only hold {1} now.
+scOpWorking,UI,Tooltip,,,,{0} is working again: the community can hold {1} outpost(s) now.
 scOpContested,UI,Tooltip,,,,{0} is contested ({1}). Clear it again to get it producing.
 scOpRetaken,UI,Tooltip,,,,{0} is clear again - the outpost is yours.
 scUiOpRetakeLeft,UI,Menu,,,,Retake: {0}

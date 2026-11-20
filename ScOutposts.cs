@@ -940,8 +940,7 @@ namespace SurvivorCommunity
                 // round fx2: the slot limit now, not only at the rollover - before the retake check, the rollover's order
                 if (ApplySlots(w, player))
                 {
-                    Rebuild();
-                    RefreshMarkers(player);
+                    RefreshMarkers(player);       // (no Rebuild: its boxes follow Holding, which slots don't change)
                     ScRegistry.SaveAtomic();
                 }
                 RetakeCheck(w, player);
@@ -974,10 +973,14 @@ namespace SurvivorCommunity
                 if (rank > slots)
                 {
                     if (o.State == OutpostState.Idle) continue;
+                    // the review's L1: only a working outpost going idle is news ("went idle: the community can only hold N");
+                    // a contested one over the limit made nothing already - it idles quietly (logged) and is checked for
+                    // sleepers again when it gets a slot back
+                    if (o.State == OutpostState.Active) nowIdle++;
+                    ScLog.Out("outpost " + o.Id + " at " + o.Name + (o.State == OutpostState.Contested ? " (contested)" : "") + " goes idle: "
+                              + HeldCount() + " held, " + slots + " slot(s)");
                     o.State = OutpostState.Idle;
-                    nowIdle++;
                     changed = true;
-                    ScLog.Out("outpost " + o.Id + " at " + o.Name + " goes idle: " + HeldCount() + " held, " + slots + " slot(s)");
                 }
                 else if (o.State == OutpostState.Idle)
                 {
@@ -988,7 +991,15 @@ namespace SurvivorCommunity
                 }
             }
             if (nowIdle > 0 && player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpIdle"), nowIdle, slots), "ui_denied");
-            if (back != null) foreach (Outpost o in back) ContestCheck(o, w, player);
+            if (back != null)
+            {
+                foreach (Outpost o in back)
+                {
+                    ContestCheck(o, w, player);    // sleepers came back while it idled: contested at once, with its own message
+                    // the review's L2: coming back is told too, as going idle is
+                    if (o.State == OutpostState.Active && player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpWorking"), o.Name, slots), "");
+                }
+            }
             return changed;
         }
 
