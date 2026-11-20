@@ -24,7 +24,7 @@ namespace SurvivorCommunity
         public const string RescueEvent = "sc_ev_rescue";
         /// <summary>An outpost established (not in the 2026-09-27 contract yet: SurvivorOrigins ignores it until it reads it).</summary>
         public const string OutpostEvent = "sc_ev_outpost";
-        /// <summary>A contested outpost cleared again (same: for a future SurvivorOrigins release).</summary>
+        /// <summary>A contested outpost cleared again (SurvivorOrigins pays Leadership XP for it since 2026-11-20, RetakeXp).</summary>
         public const string OutpostRetakenEvent = "sc_ev_outpost_retaken";
         /// <summary>A home attack held (base defence D2; same: for a future SurvivorOrigins release).</summary>
         public const string DefendEvent = "sc_ev_defend";

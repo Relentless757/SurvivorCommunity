@@ -12,7 +12,7 @@ namespace SurvivorCommunity
         Active,
         /// <summary>Over the slot limit (members left, Leadership dropped): no yield, no upkeep, nothing lost.</summary>
         Idle,
-        /// <summary>The POI's sleepers are back (a console or Twitch reset): no yield until it is cleared again (round ie1: and no upkeep).</summary>
+        /// <summary>The POI's sleepers are back (refilled, neglect, an overrun, a console or Twitch reset): no yield until it is cleared again (round ie1: and no upkeep; round fx3: it keeps this state over the slot limit).</summary>
         Contested,
         /// <summary>The land claim is gone: the record stays a few days for the ledger and the window, then drops.</summary>
         Lost
@@ -124,7 +124,7 @@ namespace SurvivorCommunity
     /// no debt - a day the upkeep is not paid in full runs the network down (each makes OutpostRunDownLess less), one the
     /// haulage is not makes it carry on foot (each at most OutpostOnFootMax). Deliveries need the home radio to have reported in that day;
     /// otherwise the bundles wait at the outpost (capped at OutpostPendingDays of yield). Slots grow with the
-    /// community and Leadership; outposts over the limit go Idle, never destroyed. Host only, main thread.
+    /// community and Leadership; working outposts over the limit go Idle, never destroyed (a contested one stays contested until it is retaken - round fx3). Host only, main thread.
     /// </summary>
     public static class ScOutposts
     {
