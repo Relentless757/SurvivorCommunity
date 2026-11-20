@@ -37,6 +37,64 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round op1 (2026-11-19): members travel to their outposts
+
+Why: your request of 2026-11-19 - "members shouldn't have to be close to an outpost to be assigned to them. They should
+travel to it from base similar to how they did supply runs." Your decisions: a safe journey (they walk for real, seen and
+fighting when you are near, but no off-screen dice and no distress), and they walk home on a recall and whenever the game
+sends staff home, residents only when they arrive. The design is `research/outposts/POSTING_TRAVEL.md`. The DLL ships
+with `Config/Localization.csv` (new rows). Start-up must say `patch verification: all 213 targets patched`. Helpers:
+`sc outpost list` shows each outpost's "[on the way: ...]" and everyone walking home; `sc outpost skip <member>` ends
+the current leg of a walk now; `sc outpost overrun <id>` overruns an outpost now.
+
+- [ ] **Post from far away:** stand at an outpost with your home unloaded. Community window, Outposts tab, **Assign**,
+      pick someone at home: "(name) sets off on foot for (outpost) - about N h on the road." The garrison shows them in
+      gold, "on the way to (outpost), about N h"; the Members tab says "On the way to (outpost)", and the selected
+      member's line "On the way to (outpost) - about N h, N m from home". `sc outpost list`: "[on the way: (name) ~N h
+      parked]".
+- [ ] **No over-assigning:** while they are on the way to a level 1 outpost, **Assign** there again says "That outpost
+      has all the people it can take".
+- [ ] **They arrive:** wait out the hours (or `sc outpost skip <name>`): "(name) has reached (outpost) and holds it
+      now." Their stand-in appears by the claim, the garrison shows "+N a day", and `sc outpost yield` counts their
+      "+ staff 1" only now (before, it did not).
+- [ ] **Walking out for real:** at home, post a resident who is standing near you. They leave their post running toward
+      the outpost. `sc members` shows "journey Outbound online". Follow them for a while.
+- [ ] **Out of sight and back:** let them get far ahead: the log says "went offline", `sc members` "journey Outbound
+      offline". Go to the outpost ahead of them: they come back into the world on the road near you ("is back in the
+      world") and walk in. When they reach the claim, the walker becomes the stand-in on the same spot.
+- [ ] **Safe journey:** on the way there is no distress call, no "under attack" radio message and nothing about risk or
+      dice in the log. Attacked near you, they fight. `sc run (name) hurt 0.2` while they are in the world: they keep
+      walking to the outpost (a runner would turn home).
+- [ ] **Busy on the way:** select someone on the way: **Send on supply run**, **Follow me**, **Assign** at another
+      outpost and a watch post's **Assign guard** each say "They are on the road to or from an outpost."
+- [ ] **Turn them back:** **Recall home** (Members tab) or the **x** on their garrison post while they are on the way:
+      "(name) turns back for home before reaching (outpost)."; their line becomes "Walking home from (outpost) - N m
+      out, about N h", and the post is free again.
+- [ ] **Recall at the outpost:** at the outpost, the **x** on the post of a staffer who walked there in front of you
+      (or whom you have been home since posting): "(name) leaves (outpost) and walks home." The stand-in goes and the
+      member steps in on the same spot within a second or two, then walks off home. The Members tab says "Walking home
+      from (outpost)".
+- [ ] **Recall someone parked:** the **x** on a staffer you posted from far away, with no visit home since: the stand-in
+      goes and they travel home out of sight (`sc outpost list`: "(parked)"). Go home: the log says their parked body
+      was taken into a snapshot, and they come into the world on the road (or at the edge of the base) and walk in.
+- [ ] **Home only on arrival:** follow one home (or go home ahead of them): they are not a resident until they walk in
+      ("(name) is back home from (outpost)."). With you away from home, `sc outpost list` shows them at the edge of the
+      base ("Back at the edge of the base from (outpost) - walking in") until you come home.
+- [ ] **Overrun:** with a staffer posted and someone else on the way there, `sc outpost overrun <id>`: the staffer walks
+      home hurt ("Walking home hurt from (outpost)"; injured), the other turns back, and neither is a resident until they
+      walk in.
+- [ ] **Disbanded or lost:** disband an outpost (or remove its claim) with one posted and one on the way: "(name) walks
+      home: (outpost) is no longer ours." and "(name) turns back for home: (outpost) is no longer ours."
+- [ ] **Save mid-journey:** save and quit with one walking out (in the world) and one walking home (out of sight). Load:
+      `sc outpost list` and `sc members` show both where they were, and both arrive.
+- [ ] **Staff posted by the previous build:** load a save with staff posted before this build. Go home once: the log
+      says "(name)'s parked body was taken into a snapshot (posted at (outpost))". Recall them while you are at the
+      outpost: they step in where the stand-in stood and walk home.
+- [ ] **Posted while away, then home:** post someone while you are away from home, then go home before they arrive: the
+      log says their parked body was taken into a snapshot, and you can meet them on the road.
+- [ ] **(Optional) older build:** with a backup save, load a registry from this build with the previous DLL: people on
+      the road and staff who walked to their outpost show as missing residents with **Call back**; nobody is lost.
+
 ## Round oc1 (2026-11-19): contested outposts are retaken when cleared
 
 Why: your report - "When an outpost becomes occupied by sleepers again, clearing it never clears the 'contested'

@@ -573,14 +573,30 @@ scOpPostNotHome,UI,Tooltip,,,,Only someone stationed at home can be posted to an
 scOpPostInjured,UI,Tooltip,,,,Too hurt to hold an outpost.
 scOpPostFull,UI,Tooltip,,,,That outpost has all the people it can take (upgrade it for a second post).
 scOpPosted,UI,Tooltip,,,,{0} heads out to hold {1}.
-scOpRecalled,UI,Tooltip,,,,{0} is back home from {1}.
-scOpRecalledGone,UI,Tooltip,,,,{0} comes home: {1} is no longer ours.
+scOpRecalled,UI,Tooltip,,,,{0} leaves {1} and walks home.
+scOpRecalledGone,UI,Tooltip,,,,{0} walks home: {1} is no longer ours.
 scOpStaffDied,UI,Tooltip,,,,{0} died holding the outpost.
 scOpPostedAway,UI,Tooltip,,,,Holding an outpost - recall them home first.
+scOpOnTheWay,UI,Tooltip,,,,They are on the road to or from an outpost.
+scOpSetsOff,UI,Tooltip,,,,{0} sets off on foot for {1} - about {2} h on the road.
+scOpArrived,UI,Tooltip,,,,{0} has reached {1} and holds it now.
+scOpTurnedBack,UI,Tooltip,,,,{0} turns back for home before reaching {1}.
+scOpTurnedBackGone,UI,Tooltip,,,,{0} turns back for home: {1} is no longer ours.
+scOpHomeFrom,UI,Tooltip,,,,{0} is back home from {1}.
 scOpWalkIn,UI,Tooltip,,,,- a {0} turned up at {1}
 scOpWalkInTip,UI,Tooltip,,,,"Your people at {1} say a {0} turned up there, asking to join."
 scStPosted,UI,Menu,,,,Holding {0}
 scStPostedShort,UI,Menu,,,,At {0}
+scStTransitOut,UI,Menu,,,,On the way to {0}
+scStTransitOutShort,UI,Menu,,,,To {0}
+scStTransitHome,UI,Menu,,,,Walking home from {0}
+scStTransitHomeShort,UI,Menu,,,,Home from {0}
+scStatusTransitOut,UI,Menu,,,,on the way to an outpost
+scStatusTransitHome,UI,Menu,,,,walking home from an outpost
+scWinTransitOut,UI,Menu,,,,"On the way to {0} - about {1} h, {2} m from home"
+scWinTransitHome,UI,Menu,,,,"Walking home from {0} - {2} m out, about {1} h"
+scWinTransitHomeHurt,UI,Menu,,,,"Walking home hurt from {0} - {2} m out, about {1} h"
+scWinTransitBack,UI,Menu,,,,Back at the edge of the base from {0} - walking in
 scStatusPosted,UI,Menu,,,,holding an outpost
 scFilterPosted,UI,Menu,,,,At outposts
 scWinRecall,UI,Menu,,,,Recall home
@@ -602,6 +618,7 @@ scUiGarrison,UI,Menu,,,,Garrison
 scUiStaffEmpty,UI,Menu,,,,Empty post
 scUiStaffLocked,UI,Menu,,,,Second post at level 2
 scUiStaffBonus,UI,Menu,,,,+{0} a day
+scUiStaffOnTheWay,UI,Menu,,,,"on the way to {0}, about {1} h"
 scUiOpLevelYield,UI,Menu,,,,Level {0} - {1} a day
 scUiOpNextLevel,UI,Menu,,,,"Next: {0} building material, {1} fuel"
 scUiOpNextWait,UI,Menu,,,,Can grow in {0} day(s)

@@ -93,6 +93,10 @@ namespace SurvivorCommunity
     ///                badly hurt with no way to heal and is on her way home), written with the run's leg= keys while set.
     ///   Round 30 (ScStreamerNames; both games, a key an older build ignores and drops at its next save): [community]
     ///                streamname=Sarah, one line for each streamer name given out in this save, in the order given.
+    ///   Round op1 (ScGarrison's journeys; keys an older build ignores): [member] transit=leg:outpost:x,y,z:x,y,z:start:end:offline:name
+    ///                (on the road to or from an outpost - MemberStatus.Transit), posted=N (posted, the body is the snapshot) and
+    ///                postsnap=1:N:base64url (that snapshot, or a traveler's), each with status=Resident: an older build has a resident
+    ///                with no body (missing; "Call back" brings them) or, for a parked traveler, a resident whose hidden body is home.
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -827,6 +831,26 @@ namespace SurvivorCommunity
             {
                 // E12: a member written as a resident with arrive= is still on the way (ScEncJoin)
                 if (m.ArriveAt > 0UL && m.Status == MemberStatus.Resident) m.Status = MemberStatus.Arriving;
+                // round op1: written as a resident too - one on the road to or from an outpost (transit= gave them a leg), and one
+                // posted there whose body is the snapshot (posted= and postsnap=)
+                else if (m.Status == MemberStatus.Resident && m.RunLeg != RunLeg.None && m.OutpostId >= 0)
+                {
+                    m.Status = MemberStatus.Transit;
+                    m.RunEndDay = GameUtils.WorldTimeToDays(m.LegEnd);
+                }
+                else if (m.Status == MemberStatus.Resident && m.OutpostId >= 0 && !string.IsNullOrEmpty(m.Snap))
+                {
+                    m.Status = MemberStatus.Garrison;
+                    m.Offline = true;
+                }
+                else if (m.Status == MemberStatus.Resident)
+                {
+                    // a resident has none of these (a half-read line: a resident at home, ScMissing's Call back if bodiless)
+                    m.OutpostId = -1;
+                    m.RunLeg = RunLeg.None;
+                    m.Snap = null;
+                    m.Offline = false;
+                }
                 if (m.Id > 0) Members[m.Id] = m; else degraded = true;
                 m = null;
             }
@@ -1156,6 +1180,9 @@ namespace SurvivorCommunity
                 case "rollpending": m.RollPending = val == "1"; break;
                 case "runhurt": m.RunHurt = val == "1"; break;                          // round r2 (ScRunners.TurnHomeHurt)
                 case "snap": m.Snap = val; break;
+                case "transit": ParseTransit(m, val); break;                           // round op1: on the road to or from an outpost
+                case "posted": m.OutpostId = I(val); break;                            // round op1: posted, the body is the snapshot
+                case "postsnap": m.Snap = val; break;                                   // round op1: that snapshot, or a traveler's
                 case "watch":
                 {
                     // post x,y,z : start : prepaid points : home post x,y,z (base defence D3)
@@ -1213,6 +1240,32 @@ namespace SurvivorCommunity
                     break;
                 }
             }
+        }
+
+        /// <summary>
+        /// Round op1: transit=leg:outpost:from x,y,z:to x,y,z:start:end:offline:name (split on the first seven colons; the name
+        /// may hold more). Only a whole, sane line sets anything: Commit turns a resident with a leg and an outpost into Transit.
+        /// </summary>
+        private static void ParseTransit(Member m, string val)
+        {
+            string[] f = val.Split(new[] { ':' }, 8);
+            RunLeg leg;
+            Vector3i from, to;
+            ulong a, b;
+            int id;
+            if (f.Length < 7 || !Enum.TryParse(f[0], true, out leg) || (leg != RunLeg.Outbound && leg != RunLeg.Inbound && leg != RunLeg.Back)
+                || !int.TryParse(f[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out id) || id < 0
+                || !TryVec(f[2], out from) || !TryVec(f[3], out to)
+                || !ulong.TryParse(f[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out a)
+                || !ulong.TryParse(f[5], NumberStyles.Integer, CultureInfo.InvariantCulture, out b)) return;
+            m.RunLeg = leg;
+            m.OutpostId = id;
+            m.LegFrom = from;
+            m.LegTo = to;
+            m.LegStart = a;
+            m.LegEnd = b;
+            m.Offline = f[6] == "1";
+            m.RunDestName = f.Length > 7 ? f[7] : "";
         }
 
         private static void ParseProspect(Prospect p, string key, string val)
@@ -1744,8 +1797,13 @@ namespace SurvivorCommunity
             sb.AppendLine("name=" + Clean(m.Name));
             sb.AppendLine("born=" + m.Born.ToString(CultureInfo.InvariantCulture));
             // E12: one on the way is written a resident (an older build knows no Arriving: a resident with no body is missing
-            // there, and "Call back" brings them) with arrive= below, which makes them Arriving again here
-            sb.AppendLine("status=" + (m.Status == MemberStatus.Arriving ? MemberStatus.Resident : m.Status));
+            // there, and "Call back" brings them) with arrive= below, which makes them Arriving again here.
+            // Round op1: so is one on the road to or from an outpost (Transit; with transit= below), and a posted member whose body
+            // is the snapshot (posted= below) - an older build would count a posted member with no body missing and drop them
+            // after MissingDaysToPurge days, with no Call back for posted members. A parked traveler's hidden body is simply home there.
+            bool heldPost = m.Status == MemberStatus.Garrison && !string.IsNullOrEmpty(m.Snap);
+            bool asResident = m.Status == MemberStatus.Arriving || m.Status == MemberStatus.Transit || heldPost;
+            sb.AppendLine("status=" + (asResident ? MemberStatus.Resident : m.Status));
             sb.AppendLine("post=" + Vec(m.Post));
             sb.AppendLine("join=" + m.JoinDay);
             sb.AppendLine("mood=" + m.Mood);
@@ -1765,7 +1823,17 @@ namespace SurvivorCommunity
             sb.AppendLine("spec=" + m.Specialty + ":" + m.SpecLevel + ":" + m.SpecXp);
             if (m.Traits.Count > 0) sb.AppendLine("traits=" + string.Join(",", m.Traits.ToArray()));
             if (m.Status == MemberStatus.OnRun) sb.AppendLine("run=" + ScNames.Key(m.RunKind) + ":" + m.RunEndDay);
-            if (m.Status == MemberStatus.Garrison) sb.AppendLine("outpost=" + m.OutpostId);
+            if (m.Status == MemberStatus.Garrison && !heldPost) sb.AppendLine("outpost=" + m.OutpostId);
+            if (heldPost) sb.AppendLine("posted=" + m.OutpostId);                       // round op1 (a key older builds ignore)
+            if (m.Status == MemberStatus.Transit && m.RunLeg != RunLeg.None)
+            {
+                // round op1 (keys older builds ignore; never leg= and the rest, which an older build reads for any status)
+                sb.AppendLine("transit=" + m.RunLeg + ":" + m.OutpostId.ToString(CultureInfo.InvariantCulture) + ":" + Vec(m.LegFrom) + ":" + Vec(m.LegTo) + ":"
+                              + m.LegStart.ToString(CultureInfo.InvariantCulture) + ":" + m.LegEnd.ToString(CultureInfo.InvariantCulture) + ":"
+                              + (m.Offline ? 1 : 0) + ":" + Clean(m.RunDestName));
+            }
+            if ((heldPost || m.Status == MemberStatus.Transit) && !string.IsNullOrEmpty(m.Snap))
+                sb.AppendLine("postsnap=" + m.Snap);                                    // round op1: base64url, never Clean()ed (as snap=)
             if (m.Status == MemberStatus.OnRun && m.RunLeg != RunLeg.None)
             {
                 sb.AppendLine("leg=" + m.RunLeg);

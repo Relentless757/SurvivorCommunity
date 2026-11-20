@@ -99,6 +99,9 @@ namespace SurvivorCommunity
                 if (m == null || w == null) { error = "scInternal"; return false; }
                 if (m.Status == MemberStatus.OnRun) { error = "scOnRun"; return false; }      // a runner out of range has no body by design
                 if (m.Status == MemberStatus.Arriving) { error = "scEncJoinOnTheWay"; return false; }     // E12: still on the way - they turn up at home
+                if (m.Status == MemberStatus.Transit) { error = "scOpOnTheWay"; return false; }           // round op1: on the road to or from an outpost
+                // round op1: posted with their body in the registry - a second body at home would double them on the walk home
+                if (ScRunners.HeldOffline(m)) { error = "scOpPostedAway"; return false; }
                 if (ScNpc.IsFramework(w.GetEntity(m.Id))) { error = "scMissingNotMissing"; return false; }
                 if (!force && !IsMissing(m)) { error = "scMissingNotYet"; return false; }
                 if (!ScZone.IsLoaded(m.Post)) { error = "scNotLoaded"; return false; }

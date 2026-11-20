@@ -79,7 +79,8 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc radio give <member>` | Put a handheld radio in a member's inventory. [CHEAT] |
 | `sc radio horde <moment>` | Hear a horde warning now (gather, spotted, clear, call, arrived, held, damaged, overrun). [CHEAT] |
 | `sc radio enc <moment> [id]` | Hear an enclave's or a drifter band's line now, by the radio rule (fighter, drop, demand, join, thanks, hurry ...). [CHEAT] |
-| `sc outpost list` / `yield` | Outposts and tonight's yield. [READ] |
+| `sc outpost list` / `yield` | Outposts and tonight's yield, staff and who is on the way. [READ] |
+| `sc outpost post <id> <member>` / `recall <member>` / `skip <member>` | Post someone (they walk there); recall or turn them back; end the current leg of the walk now. |
 | `sc poi` / `sc poi near [r]` | The POI you stand in; outpost candidates nearby. [READ] |
 | `sc band spawn [drifters\|raiders]` | Put a band on the road, walking at you. [CHEAT] |
 | `sc infest add` | Infest the POI you stand in. [CHEAT] |
@@ -487,7 +488,7 @@ Example: `sc radio enc fighter`, `sc radio enc demand 7 force`
 An outpost is a POI you hold with a land claim. Establishing one needs you inside the POI with a claim of yours there.
 
 ### `sc outpost list` (default) [READ]
-Slots used, radio state, the network's upkeep and haulage (RUN-DOWN / ON FOOT when the last rollover could not pay them), one line per outpost (id, type, level, mode, state, staff, yield, distance).
+Slots used, radio state, the network's upkeep and haulage (RUN-DOWN / ON FOOT when the last rollover could not pay them), one line per outpost (id, type, level, mode, state, staff, who is on the way there with the hours left, yield, distance), then everyone walking home from an outpost. "body at home" / "parked": the member's body waits at home and they travel out of sight until you next come home; "offline" / "ONLINE": they walk the road like a runner.
 
 ### `sc outpost yield` [READ]
 Each outpost's whole-number steps (level, tier, staff, match, built, mode, a late check-in, depletion), what it makes on the next rollover after the duplicates and the network's run-down / on foot, and its upkeep; then the network's total, upkeep and haulage. A damaged, contested or idle outpost makes nothing and pays no upkeep.
@@ -517,13 +518,19 @@ Sets the level (free).
 Sets the outpost's work mode.
 
 ### `sc outpost post <id> <member>` and `sc outpost recall <member>`
-Posts a member to an outpost's garrison; recalls a posted member.
+Posts a member at home to an outpost's garrison from anywhere: they set off on foot and become staff when they reach the claim (the answer says whether their body walks or waits parked at home, and the hours to go). `recall` starts a posted member's walk home, or turns back one still on the way there; they are a resident again when they walk in.
+
+### `sc outpost skip <member>` [CHEAT]
+Ends the current leg of a member's walk to or from an outpost now, for tests: on the way out they arrive at the outpost on the next tick; walking home they reach the edge of the base (and walk in once you are home). A walker in the world is taken out of it first.
 
 ### `sc outpost upgrade <id>`
 Does the paid upgrade (costs stock).
 
 ### `sc outpost attack <id> [raid]` [CHEAT]
 Starts an attack on the outpost (`raid` for a raid rather than a plain attack).
+
+### `sc outpost overrun <id>` [CHEAT]
+Overruns the outpost now, as an unattended attack can: its sleepers are back (contested), its staff walk home hurt and anyone on the way there turns back.
 
 ### `sc outpost demand <id>`, `pay <id>`, `refuse <id>`, `repair <id>` [CHEAT]
 `demand`: raiders demand ammo and food now. `pay` / `refuse`: answers the demand (as on the radio). `repair`: repairs a damaged outpost.

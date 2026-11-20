@@ -76,9 +76,10 @@ namespace SurvivorCommunity
             World w = World;
             if (w == null) return null;
             // an offline physical runner has no entity: whatever holds the id is a stale copy or a stranger; nor has one of a
-            // whole enclave still on the way (E12, ScEncJoin: their key is no entity's)
+            // whole enclave still on the way (E12, ScEncJoin: their key is no entity's). Round op1: nor a posting traveler offline,
+            // nor a posted member whose body is the snapshot (ScRunners.HeldOffline)
             Member m = ScRegistry.GetMember(id);
-            if (m != null && ScRunners.IsPhysical(m) && m.Offline) return null;
+            if (m != null && ScRunners.HeldOffline(m)) return null;
             if (m != null && m.Status == MemberStatus.Arriving) return null;
             return ScNpc.As(ScNpc.Loaded(w, id));       // a body still being built is not forced (ScNpc.IsPending)
         }
@@ -1157,6 +1158,7 @@ namespace SurvivorCommunity
             if (m.Status == MemberStatus.Following) return true;
             if (m.Status == MemberStatus.OnRun) { error = "scOnRun"; return false; }
             if (m.Status == MemberStatus.Garrison) { error = "scOpPostedAway"; return false; }
+            if (m.Status == MemberStatus.Transit) { error = "scOpOnTheWay"; return false; }     // round op1: on the road to or from an outpost
             if (ScWatch.OnWatch(m)) { error = "scWatchBusy"; return false; }     // relieve them at the Watch post first (D3)
 #if SC_V34
             if (ScDowned.RefuseVerb(m)) { error = "scDownedBusy"; return false; }   // round U2: not while she is down (Follow ends a shift's link)
@@ -1219,6 +1221,8 @@ namespace SurvivorCommunity
 #endif
             if (m.Status == MemberStatus.OnRun) { error = "scOnRun"; return false; }
             if (m.Status == MemberStatus.Garrison) { ScGarrison.Recall(m, player, "scOpRecalled"); ScRegistry.SaveAtomic(); return true; }
+            // round op1: one on the way to an outpost turns round (already walking home: they are coming)
+            if (m.Status == MemberStatus.Transit) return ScGarrison.TurnHome(m, player, "scOpTurnedBack", out error);
             if (!ScZone.HasHome) { error = "scNeedHome"; return false; }
             Vector3i here = npc.GetBlockPosition();
             bool nearPost = m.Post != Vector3i.zero && Vector3.Distance(npc.position, new Vector3(m.Post.x, m.Post.y, m.Post.z)) < 40f;
@@ -1262,8 +1266,9 @@ namespace SurvivorCommunity
                 ScWork.EndFor(m, "leaving");          // C1: off the work shift first
 #endif
                 if (m.Status == MemberStatus.OnRun && m.RunDistress) ScRadio.EndDistress(World, LocalPlayer, m);   // no orphaned rescue quest
-                m.Snap = null;
+                // round op1: the body looked up before the snapshot goes - a posting traveler's snapshot is what says they have none
                 EntityAlive npc = FindNpc(m.Id);
+                m.Snap = null;
                 EntityPlayerLocal player = LocalPlayer;
                 if (npc != null)
                 {

@@ -2,6 +2,33 @@ Next pre-release (not released yet)
 ===================================
 
 
+Members walk to their outposts
+------------------------------
+- You can post a member to an outpost from anywhere. They no longer have to be near you: they set off from home on foot,
+  the way a runner leaves on a supply run, and take up the post when they reach the outpost's claim. Near you they walk
+  out of the base and you can follow them; out of sight they travel on, and you can meet them on the road.
+- The journey is safe: no dice, no distress calls, no radio calls, and they keep going even when hurt. If something
+  attacks them while you are near, they fight.
+- On the way they already hold their post, so you can't assign more people than an outpost has posts, but they add
+  nothing until they arrive. The Outposts tab shows them in the garrison as "on the way to (outpost), about N h", and
+  the Members tab says "On the way to (outpost)". They can't be sent on a run, posted elsewhere, put on watch or asked
+  to follow until they get there.
+- They walk home too. Recall a posted member (the x on their post, or Recall home) and they leave the claim on foot;
+  recall one still on the way and they turn back. When an outpost is lost, disbanded or overrun, its staff walk home the
+  same way (hurt after an overrun) and anyone heading there turns back. They are residents again only when they walk in
+  at home.
+- A walker who reaches the claim while you are there becomes the stand-in on the spot; recalled while you are there, the
+  stand-in steps aside and the member walks off from the same place.
+- Someone posted while you are away from home travels out of sight until you next come home, and can be met on the road
+  from then on. People posted by an older build walk home the same way, and can be seen on that walk once you have been
+  home.
+- Console: "sc outpost post" works from anywhere and says how long the walk is; "sc outpost recall" also turns back
+  someone on the way; new "sc outpost skip <member>" ends the current leg of the walk now, and "sc outpost overrun <id>"
+  overruns an outpost now. "sc outpost list" shows who is on the way and who is walking home.
+- Saves: a save made mid-journey carries on from where they were. An older build reads members on the road, and staff
+  who walked to their outpost, as missing residents: Call back brings them home.
+
+
 Whole-number economy
 --------------------
 - Every daily change to the stockpile is a whole number now. Nothing is carried over in hidden fractions and nothing is

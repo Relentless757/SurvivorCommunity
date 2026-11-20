@@ -22,7 +22,16 @@ namespace SurvivorCommunity
         /// morale and the roster), but no orders, runs, postings or watches, and never missing. Saved as Resident with
         /// arrive= (an older build has a resident with no body: missing, and "Call back" brings them).
         /// </summary>
-        Arriving
+        Arriving,
+        /// <summary>
+        /// Round op1 (2026-11-19, ScGarrison): on the road to or from an outpost, on the runner legs (ScRunners) - Outbound to
+        /// OutpostId, Inbound / Back home from it. A safe journey: no dice, no distress, no radio talk. Embodied (Snap set: the
+        /// walker or their snapshot, IsPhysical) or parked (Snap null: the body waits hidden at home while the legs run on the
+        /// clock). Holds a post at the outpost on the way out (the cap counts them) but adds nothing until they arrive. No
+        /// runs, postings, watches or following meanwhile. Saved as Resident with transit= (an older build: a resident with
+        /// no body - missing, "Call back" - or, parked, simply home).
+        /// </summary>
+        Transit
     }
 
     /// <summary>Where a physical runner is in the trip (None = the legacy hidden-at-home run).</summary>
@@ -254,7 +263,10 @@ namespace SurvivorCommunity
         /// magazines. Null = none (a gun without magazines, no L&amp;L, or a save from before M11).
         /// </summary>
         public string Mags;
-        /// <summary>The outpost a Garrison member holds (-1 otherwise).</summary>
+        /// <summary>
+        /// The outpost a Garrison member holds (-1 otherwise). Round op1: while Transit, the outpost they walk to (Outbound) or
+        /// home from (Inbound, Back - for the window's text only).
+        /// </summary>
         public int OutpostId = -1;
         /// <summary>Physical supply run (ScRunners). Saved only while OnRun with a leg other than None.</summary>
         public RunLeg RunLeg = RunLeg.None;
@@ -268,7 +280,11 @@ namespace SurvivorCommunity
         public ulong LegStart, LegEnd;
         /// <summary>No entity may represent the runner: the snapshot is the runner.</summary>
         public bool Offline;
-        /// <summary>"1:&lt;bytes&gt;:&lt;base64url&gt;" - the runner's EntityCreationData.</summary>
+        /// <summary>
+        /// "1:&lt;bytes&gt;:&lt;base64url&gt;" - the runner's EntityCreationData. Round op1: also a posting traveler's (Transit) and an
+        /// arrived staffer's whose body walked there (Garrison: ScRunners.HeldOffline - no world body, the snapshot is them);
+        /// null for one whose body waits parked at home.
+        /// </summary>
         public string Snap;
         /// <summary>What they found at the site, deposited at the gate.</summary>
         public int RunCarry;

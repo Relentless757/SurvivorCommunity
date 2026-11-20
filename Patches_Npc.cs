@@ -536,9 +536,10 @@ namespace SurvivorCommunity
                     if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScBands.BandCvar)) { ScBands.Orphans.Add(__instance.entityId); return; }
                     // an offline physical runner exists only as its snapshot: this is an old chunk copy (hidden now,
                     // removed next tick - never Doomed, the id comes back with the real runner) or a stranger who
-                    // inherited the id (untouched: no spawner/Persist stamp for them)
+                    // inherited the id (untouched: no spawner/Persist stamp for them). Round op1: a posting traveler offline and
+                    // a posted member whose body walked to the outpost too (ScRunners.HeldOffline)
                     Member rm = ScRegistry.GetMember(__instance.entityId);
-                    if (rm != null && ScRunners.IsPhysical(rm) && rm.Offline && __instance.entityId != ScRunners.RecreatingId)
+                    if (rm != null && ScRunners.HeldOffline(rm) && __instance.entityId != ScRunners.RecreatingId)
                     {
                         if (ScRunners.IsStaleCopy(rm, __instance)) { ScNpc.SendOnMission(__instance, true); ScRunners.StaleIds.Add(__instance.entityId); }
                         return;

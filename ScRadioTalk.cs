@@ -362,7 +362,7 @@ namespace SurvivorCommunity
                 bool changed = false;
                 foreach (Member m in ScRegistry.Members.Values)
                 {
-                    if (!m.RunRadio || !ScRunners.IsPhysical(m)) continue;
+                    if (!m.RunRadio || !ScRunners.IsRun(m)) continue;          // round op1: runs only (a posting journey says nothing)
                     if (m.RunLeg == RunLeg.Outbound && !Said(m, RadioTalk.Out))
                     {
                         if (ScRunners.XZ(ScRunners.Where(m), ScCommunity.PostCenter(m)) >= OutRange) { Say(m, RadioTalk.Out, player, false); changed = true; }

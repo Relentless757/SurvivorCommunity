@@ -361,7 +361,7 @@ namespace SurvivorCommunity
                 case Filter.Following: return m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation;
                 case Filter.OnRun: return m.Status == MemberStatus.OnRun;
                 case Filter.Injured: return m.Injured;
-                case Filter.Posted: return m.Status == MemberStatus.Garrison;
+                case Filter.Posted: return m.Status == MemberStatus.Garrison || m.Status == MemberStatus.Transit;   // round op1: and on the road
                 default: return true;
             }
         }
@@ -645,7 +645,7 @@ namespace SurvivorCommunity
             Outpost o = OutpostSelected;
             if (o == null) return;
             if (assignOutpostId >= 0) { assignOutpostId = -1; message = ""; filter = Filter.All; filterDirty = true; RefreshBindingsSelfAndChildren(); return; }
-            if (!o.Holding || ScGarrison.StaffCount(o) >= ScGarrison.StaffCap(o))
+            if (!o.Holding || ScGarrison.Assigned(o) >= ScGarrison.StaffCap(o))     // round op1: those on the way hold their post
             {
                 opMessage = Localization.Get(!o.Holding ? "scOpPostLost" : "scOpPostFull");
                 RefreshBindingsSelfAndChildren();
@@ -678,7 +678,7 @@ namespace SurvivorCommunity
             message = "";
             tab = Tab.Outposts;
             opSelectedId = o.Id;
-            opMessage = string.Format(Localization.Get("scOpPosted"), m.Name, o.Name);
+            opMessage = string.Format(Localization.Get("scOpSetsOff"), m.Name, o.Name, ScGarrison.EtaHours(m));   // round op1: on foot, about N h
             Refresh();
             return true;
         }
@@ -740,12 +740,13 @@ namespace SurvivorCommunity
             Outpost o = OutpostSelected;
             EntityPlayerLocal p = Player;
             if (o == null) return;
-            List<Member> staff = ScGarrison.Staff(o);
+            List<Member> staff = ScGarrison.Slots(o);                      // round op1: staff, then those on the way
             if (slot >= staff.Count) return;
             Member m = staff[slot];
+            bool onTheWay = ScGarrison.HeadingOut(m);
             ScGarrison.Recall(m, p, null);
             ScRegistry.SaveAtomic();
-            opMessage = string.Format(Localization.Get("scOpRecalled"), m.Name, o.Name);
+            opMessage = string.Format(Localization.Get(onTheWay ? "scOpTurnedBack" : "scOpRecalled"), m.Name, o.Name);
             Refresh();
         }
 
@@ -756,20 +757,23 @@ namespace SurvivorCommunity
             int slot = name[2] - '1';
             string field = name.Substring(3);
             if (field != "name" && field != "icon" && field != "bonus" && field != "namecolor" && field != "recallvisible") return false;
-            List<Member> staff = o != null ? ScGarrison.Staff(o) : new List<Member>();
+            // round op1: the staff, then those on the way (their post is held for them: "on the way to X, about N h")
+            List<Member> staff = o != null ? ScGarrison.Slots(o) : new List<Member>();
             Member m = slot < staff.Count ? staff[slot] : null;
             bool open = o != null && slot < ScGarrison.StaffCap(o);
+            bool onTheWay = ScGarrison.HeadingOut(m);
             switch (field)
             {
                 case "name":
                     value = m != null ? m.Name : o == null ? "" : Localization.Get(open ? "scUiStaffEmpty" : "scUiStaffLocked");
                     return true;
                 case "icon": value = m != null ? RoleIcon(m) : "ui_game_symbol_player"; return true;
-                case "namecolor": value = m != null ? "226,220,208,255" : "140,134,124,255"; return true;
+                case "namecolor": value = onTheWay ? "206,178,120,255" : m != null ? "226,220,208,255" : "140,134,124,255"; return true;
                 case "recallvisible": value = (m != null).ToString(); return true;
                 case "bonus":
                 {
                     if (m == null || o == null) { value = ""; return true; }
+                    if (onTheWay) { value = ScGarrison.SlotText(m); return true; }
                     // round ie1: whole units a day - the staff step, and the match step for the one whose specialty counts
                     value = string.Format(Localization.Get("scUiStaffBonus"), ScEconomy.StaffShare(o, m));
                     return true;
@@ -1009,6 +1013,15 @@ namespace SurvivorCommunity
                 Refresh();
                 return;
             }
+            if (m.Status == MemberStatus.Transit)
+            {
+                // round op1: on the way to an outpost - turn round now (no radio needed: a posting is not a run); walking home already: coming
+                string terr;
+                if (ScGarrison.TurnHome(m, p, null, out terr)) message = string.Format(Localization.Get("scOpTurnedBack"), m.Name, ScGarrison.TransitName(m));
+                else { message = Localization.Get(terr ?? "scInternal"); p.PlayOneShot("ui_denied"); }
+                Refresh();
+                return;
+            }
             if (ScRunners.IsPhysical(m))
             {
                 // out on a physical run: turn round now
@@ -1041,7 +1054,7 @@ namespace SurvivorCommunity
             if (m.Status == MemberStatus.Garrison)
             {
                 Outpost po = ScGarrison.PostOf(m);
-                ScGarrison.Recall(m, p, "scOpRecalled");
+                ScGarrison.Recall(m, p, null);                                 // round op1: they walk home (the line below says so)
                 ScRegistry.SaveAtomic();
                 message = string.Format(Localization.Get("scOpRecalled"), m.Name, po != null ? po.Name : "?");
                 Refresh();
@@ -1347,7 +1360,7 @@ namespace SurvivorCommunity
                     _value = "255,140,120,255";
                     return true;
                 case "selrun":
-                    _value = sel != null ? ScRuns.StatusLine(sel) : "";
+                    _value = sel == null ? "" : sel.Status == MemberStatus.Transit ? ScGarrison.TransitLine(sel) : ScRuns.StatusLine(sel);   // round op1
                     return true;
 
                 // ---- orders ----
@@ -1369,7 +1382,7 @@ namespace SurvivorCommunity
                 case "followlabel":
                     _value = ScMissing.IsMissing(sel) ? Localization.Get("scWinCallBack")
                            : ScRunners.IsPhysical(sel) ? Localization.Get("scWinRecall")
-                           : sel != null && sel.Status == MemberStatus.Garrison ? Localization.Get("scWinRecall")
+                           : sel != null && (sel.Status == MemberStatus.Garrison || sel.Status == MemberStatus.Transit) ? Localization.Get("scWinRecall")   // round op1
                            : sel != null && (sel.Status == MemberStatus.Following || sel.Status == MemberStatus.PendingStation)
                         ? Localization.Get("scWinHome") : Localization.Get("scWinFollow");
                     return true;
@@ -1377,7 +1390,8 @@ namespace SurvivorCommunity
                     // greyed: a runner that can't be called back, one still on the way (E12)
                     _value = sel != null && ((sel.Status == MemberStatus.OnRun
                              && !(ScRunners.IsPhysical(sel) && (sel.RunLeg == RunLeg.Outbound || (sel.RunLeg == RunLeg.AtSite && !ScRunners.Pinned(sel)))))
-                             || sel.Status == MemberStatus.Arriving || RecallNeedsRadio(sel))
+                             || sel.Status == MemberStatus.Arriving || RecallNeedsRadio(sel)
+                             || (sel.Status == MemberStatus.Transit && !ScGarrison.HeadingOut(sel)))       // round op1: walking home already
                         ? "70,70,70,255" : "50,80,120,255";
                     return true;
                 case "homevisible":
@@ -1606,6 +1620,7 @@ namespace SurvivorCommunity
                 case MemberStatus.PendingStation: s = Localization.Get("scStHeadingHome"); break;
                 case MemberStatus.OnRun: s = ScRuns.ShortStatus(m, brief); break;
                 case MemberStatus.Garrison: s = ScGarrison.StatusText(m, brief); break;
+                case MemberStatus.Transit: s = ScGarrison.StatusText(m, brief); break;              // round op1: "On the way to X"
                 case MemberStatus.Resident when ScMissing.IsMissing(m): s = Localization.Get("scStMissing"); break;
                 case MemberStatus.Resident when ScWatch.OnWatch(m): s = ScWatch.StatusText(m, brief); break;   // base defence D3
                 default: s = Localization.Get("scStAtBase"); break;
@@ -1691,7 +1706,8 @@ namespace SurvivorCommunity
             if (m == null) return "";
             return ScMorale.StatusText(m) + " - " + string.Format(Localization.Get("scWinMood"), m.Mood, ScMorale.MoodWord(m.Mood))
                    + (m.Injured ? " - " + Localization.Get("scWinInjured") : "")
-                   + (m.Status == MemberStatus.OnRun ? " - " + ScRuns.StatusLine(m) : "");
+                   + (m.Status == MemberStatus.OnRun ? " - " + ScRuns.StatusLine(m) : "")
+                   + (m.Status == MemberStatus.Transit ? " - " + ScGarrison.TransitLine(m) : "");   // round op1
         }
 
         public static string RowSkills(Member m)
@@ -1710,7 +1726,8 @@ namespace SurvivorCommunity
                 case MemberStatus.Following:
                 case MemberStatus.PendingStation: return selected ? "110,150,200,255" : "80,110,150,255";
                 case MemberStatus.OnRun: return selected ? "150,150,150,255" : "100,100,100,255";
-                case MemberStatus.Garrison: return selected ? "180,150,100,255" : "130,105,70,255";
+                case MemberStatus.Garrison:
+                case MemberStatus.Transit: return selected ? "180,150,100,255" : "130,105,70,255";     // round op1: on the road, as posted
                 case MemberStatus.Arriving: return selected ? "160,150,120,255" : "115,105,80,255";     // E12: on the way
                 default: return selected ? "120,180,120,255" : "85,130,85,255";
             }

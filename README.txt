@@ -384,8 +384,8 @@ a whole number of bundle units: nothing is carried over to the next day, and not
 - Food: 1 bundle unit per member a day (Bottomless Stomach eats 2), less what your best cook at home saves. Your
   gardeners' harvest goes into the stockpile first.
 - Water: 1 bundle unit per member a day, minus what your dew collectors and wells make.
-- Members posted at an outpost or out on a run eat and drink as well. Members still on their way to the base (a group
-  that joined you) eat and drink nothing until they arrive.
+- Members posted at an outpost, on the road to or from one, or out on a run eat and drink as well. Members still on
+  their way to the base (a group that joined you) eat and drink nothing until they arrive.
 - Medical: one medical unit per injured member, which heals them (a good medic heals several with one).
 - Ammo has no daily upkeep. It is spent only when a member's gun is refilled at home or at an outpost (section 15).
 
@@ -1273,11 +1273,29 @@ At the outpost (the claim's radial)
 People, levels and perks
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Post members at an outpost from the Outposts tab (Assign): one post, and a second at level 2. Posted members are away
-  from home like runners, still eat and drink, and add 1 bundle a day each (1 more once when one's specialty fits: cooks
-  and gardeners for food, medics and chemists for medical, good shots for ammo, craftsmen for materials, mechanics for
-  fuel, gardeners for water). While you visit, their stand-ins guard the claim. If a stand-in dies there, that member
-  died.
+- Post members at an outpost from the Outposts tab (Assign): one post, and a second at level 2. You can post anyone at
+  home from anywhere: they walk there from home, the way a runner goes on a supply run.
+  - If you are near them, they leave their post on foot and you can follow or escort them; otherwise they set off out of
+    sight. Like a runner, they appear on the road when you come near them and you can meet them there.
+  - The journey is safe: no dice, no distress calls, no radio calls. If something attacks them while you are near, they
+    fight, and they keep going even when hurt.
+  - On the way they already hold the post (you can't assign more people than it has posts), but they add nothing until
+    they arrive. The outpost's garrison shows them as "on the way to (outpost), about N h"; the Members tab says "On the
+    way to (outpost)". Meanwhile they can't be sent on a run, posted elsewhere, put on watch or asked to follow.
+  - Once there, they take up the post: 1 bundle a day each, plus 1 more once when one's specialty fits (cooks and
+    gardeners for food, medics and chemists for medical, good shots for ammo, craftsmen for materials, mechanics for
+    fuel, gardeners for water). Posted members are away from home like runners and still eat and drink. While you visit,
+    their stand-ins guard the claim. If a stand-in dies there, that member died. A walker who reaches the claim while
+    you are there turns into the stand-in on the spot.
+- Recall (the x on a garrison post, Recall home in the Members tab, or "sc outpost recall") turns someone on the way
+  back, or starts a posted member's walk home from the claim. Recalled while you are at the outpost, the stand-in steps
+  aside and the member walks off from there. Walking home they are not residents yet: they become residents when they
+  walk in. Out of sight, one who reached the edge of the base waits there until you are home.
+- Sent home by the game: when an outpost is lost or disbanded its staff walk home the same way, and when it is overrun
+  they walk home hurt. Anyone on the way to it turns back.
+- Someone you post while you are away from home has no body loaded to walk with, so they travel out of sight. The next
+  time you come home they set out for real, and you can meet them on the road from then on. Members posted by an older
+  build are set up the same way the first time you are home.
 - Levels: level 2 costs 4 materials and 2 fuel (held 3 days first), level 3 costs 8 materials and 4 fuel (held 7 days,
   and someone must be posted there). Each level makes 1 more a day; level 3 costs 1 more upkeep.
 - Modes: quiet makes 1 less a day at half the risk; push makes 1 more at a higher risk.
@@ -1305,7 +1323,7 @@ Risk (on in this build)
 - Each outpost has a security rating from its staff, its tier, your visits, ammo in stock, the defenses you built there
   (spikes, wire, traps, turrets, mines) and fights won.
 - Attack calls give you 10 game hours to get there and fight. An attack you do not attend is settled on security: held,
-  damaged (no yield for 2 days, or repair it for materials) or overrun (the sleepers are back and the staff come home
+  damaged (no yield for 2 days, or repair it for materials) or overrun (the sleepers are back and the staff walk home
   hurt; nobody dies in a fight you did not attend).
 - Blood moons roll every outpost you were not standing at.
 - Neglected outposts get squatters: something moves into the back rooms, and you must clear it again.
@@ -1866,11 +1884,13 @@ Members
 - Left: one row per member with their status, mood, skills and specialty. Injured rows are red. A filter (All members,
   At base, Following, On a run, Injured, At outposts) and a search box narrow the list.
 - The selected member: their health, mood, skills, specialty, traits and status (at home, following, on a run, on watch,
-  holding an outpost, missing, on the way, down). A downed member's row shows "Down - 42 s", the seconds left to revive
-  her; selected, also which medic is coming or that nobody can.
+  holding an outpost, on the road to or from an outpost with the hours left, missing, on the way, down). A downed
+  member's row shows "Down - 42 s", the seconds left to revive her; selected, also which medic is coming or that nobody
+  can.
 - Orders:
   - Follow me / Go home for a member at home or following.
-  - Recall home for a runner (needs their radio, or you with them) or a member posted at an outpost.
+  - Recall home for a runner (needs their radio, or you with them), a member posted at an outpost (they walk home), or
+    one on the way to an outpost (they turn back; no radio needed).
   - Call back for a missing member.
   - Ask to leave (press twice).
   - Send on supply run, then pick Food, Water, Medical, Ammo, Materials or Fuel.
@@ -1883,8 +1903,8 @@ Outposts
 ~~~~~~~~
 
 Your outposts with their status, what each sends home, distance and what is waiting there; the network summary (slots,
-radio, deliveries, costs); perks in force; and the buttons Track on map, Assign (post a member), Upgrade, Mode and
-Disband.
+radio, deliveries, costs); perks in force; and the buttons Track on map, Assign (post a member: they walk there),
+Upgrade, Mode and Disband. The garrison lists the staff and anyone on the way, each with an x to recall them.
 
 Facilities
 ~~~~~~~~~~
@@ -2305,6 +2325,8 @@ For console commands (testing and fixing), see CONSOLE_COMMANDS.txt.
 - Do not remove the mod from a save that used it. Loading that save without SC can damage the chunks its blocks are in.
 - Going back to an older build drops the newer life skills (Construction to Entertainment): those members are left with
   none.
+- Going back to an older build also shows members on the road to or from an outpost, and staff who walked to their
+  outpost, as missing residents: Call back brings them home, without what was in their bag.
 - Mining and digging clay are not resident jobs. Residents do home jobs only; send them on a mining run instead, or take
   a member along for Mine, Loot here or Follow + loot.
 - Breaking an enclave's containers open is not stopped, only opening them.
