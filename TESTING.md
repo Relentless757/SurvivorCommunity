@@ -45,18 +45,18 @@ contested over the limit (it makes nothing and pays no upkeep either way) and go
 DebugLogging on, the log shows the credit as "leadership event sc_ev_outpost_retaken"; with Survivor Origins installed
 (its own round of the same day), Leadership then gains 100 XP for it within a few seconds.
 
-- [ ] **Retaken over the limit:** with more outposts than slots, `sc outpost state <newest id> Contested` on a cleared
+- [x] **Retaken over the limit:** with more outposts than slots, `sc outpost state <newest id> Contested` on a cleared
       outpost: within about 10 s "(outpost) is clear again - the outpost is yours." and then "1 outpost(s) went idle: the
       community can only hold N now."; the ledger has the clear-again line, the log has the leadership event, the row
-      says idle, and (with Survivor Origins) the Skills page shows Leadership 100 XP further on.
-- [ ] **A real one stays contested:** `sc outpost overrun <id>` on an outpost over the limit (it works on an idle one
+      says idle, and (with Survivor Origins) the Skills page shows Leadership 100 XP further on. *(Claude's self-test, 2026-11-20, ClaudeTest34, build 8375b931: 3 outposts, 2 slots, idle Sizzle Shack: both messages on screen about 2 s after the command, in that order; the log's leadership event, 'is ours again' and 'goes idle' in the same second; ledger line; row idle. Survivor Origins is not installed in 3.4, so the XP part is untested.)*
+- [x] **A real one stays contested:** `sc outpost overrun <id>` on an outpost over the limit (it works on an idle one
       too; its sleepers come back): its row keeps saying contested for more than 10 s - it does not go idle - and the
       detail's Produces line says what is left ("Retake: ..."). Clear the rooms: the same two messages, the ledger line
-      and the leadership event.
-- [ ] **At the rollover:** `sc outpost state <newest id> Contested` on a cleared outpost over the limit and `sc day` right
+      and the leadership event. *(Claude's self-test, 2026-11-20, ClaudeTest34, build 8375b931: overrun on the idle Sizzle Shack: contested in red for 47 s, 'Retake: 3 sleepers alive'; killall on the 4 zombies inside: both messages and the event.)*
+- [x] **At the rollover:** `sc outpost state <newest id> Contested` on a cleared outpost over the limit and `sc day` right
       after it, within 10 s (if the 10 s check gets there first you see the first step's result instead: try again):
       it is retaken and goes idle in the same rollover, and that day delivers nothing from it. The log tells the two
-      paths apart: on the rollover's, "is ours again" and "goes idle" carry the same timestamp as "outposts day N".
+      paths apart: on the rollover's, "is ours again" and "goes idle" carry the same timestamp as "outposts day N". *(Claude's self-test, 2026-11-20, ClaudeTest34, build 8375b931: first try: all four lines at 18:45:35.760, delivered +5 food, +1 building material, nothing from the fire station.)*
 
 ## Round fx2 (2026-11-20): outpost slots live, row resources, journey line, sc run's reason
 
@@ -64,23 +64,23 @@ Why: four things Claude's self-test of ie1, oc1 and op1 found on 2026-11-20 (you
 1 + members / 4 (plus Leadership), so 8 members hold 3 outposts and 7 hold 2. Start-up must say `patch verification:
 all 213 targets patched`.
 
-- [ ] **Slots now, not at the rollover:** hold as many outposts as you have slots, then lose a member (**Ask to leave**,
+- [x] **Slots now, not at the rollover:** hold as many outposts as you have slots, then lose a member (**Ask to leave**,
       or one dies) so a slot goes. Within about 10 s: "1 outpost(s) went idle: the community can only hold N now.", the
       newest outpost's row says idle, `sc outpost yield` says "[Idle] makes nothing and pays no upkeep", and the Costs
       line and the Home Status panel drop its upkeep. `sc day` then delivers and charges exactly what `sc outpost
-      yield` said beforehand. The log says "outpost N at (name) goes idle: N held, N slot(s)".
-- [ ] **And back:** recruit someone (`sc spawn`, `sc recruit <id>`) to get the slot back: within about 10 s "(outpost) is
+      yield` said beforehand. The log says "outpost N at (name) goes idle: N held, N slot(s)". *(Claude's self-test, 2026-11-20, ClaudeTest34, build 8375b931: 8 -> 7 members by Ask to leave: idle 2-3 s later with the message; Costs 4 -> 3 mats; sc day 'delivered +5 food, +1 building material, upkeep paid 3 of 3 mats, haulage paid 1 of 1 fuel' = the yield.)*
+- [x] **And back:** recruit someone (`sc spawn`, `sc recruit <id>`) to get the slot back: within about 10 s "(outpost) is
       working again: the community can hold N outpost(s) now." and its row reads its yield again. If sleepers came back
-      into its building while it was idle, it turns contested at once (with the usual message) instead.
+      into its building while it was idle, it turns contested at once (with the usual message) instead. *(Claude's self-test, 2026-11-20, ClaudeTest34, build 8375b931: recruited Iris: 'Sizzle Shack is working again: the community can hold 3 outpost(s) now.' 8 s later. The contested-at-once branch was not reproduced.)*
 - **Contested over the limit:** replaced by round fx3 (above): it stays contested until it is retaken.
-- [ ] **Row resources:** an outpost making two resources (a fire station at level 2: `sc outpost level <id> 2`) reads
-      "+1 meds, +1 fuel/day" in its row, biggest first; one resource still reads "+3 food/day".
-- [ ] **Journey line:** select someone on the way to an outpost in the Members tab: under the mood it reads "On the way
+- [x] **Row resources:** an outpost making two resources (a fire station at level 2: `sc outpost level <id> 2`) reads
+      "+1 meds, +1 fuel/day" in its row, biggest first; one resource still reads "+3 food/day". *(Claude's self-test, 2026-11-20, ClaudeTest34, build 8375b931: Sizzle Shack as a level 2 fire station: '+1 meds, +1 fuel/day'; the farm '+5 food/day'.)*
+- [x] **Journey line:** select someone on the way to an outpost in the Members tab: under the mood it reads "On the way
       to (outpost) - about N h, N m from home" in gold; walking home "Walking home from (outpost) - N m out, about N h";
       a supply runner shows where their run is. When the community is hungry or thirsty (or they are the threat), the
-      warning follows the line, in red. An injured one stays gold with no "Injured" after it: the header says "+ Injured".
-- [ ] **sc run's reason:** `sc run <someone on the way> food` answers "refused: They are on the road to or from an
-      outpost." (not "scOpOnTheWay"); `sc run <someone> food` with three runs out says why in words too.
+      warning follows the line, in red. An injured one stays gold with no "Injured" after it: the header says "+ Injured". *(Claude's self-test, 2026-11-20, ClaudeTest34, build 8375b931: Walt 'On the way to 7 Hour Park - about 1 h, 89 m from home - Thirsty' in red, then gold after a watered rollover; Kate 'Walking to Grumpy's Pub for food - 52 m out, back around day 3'. Walking home and injured not checked.)*
+- [x] **sc run's reason:** `sc run <someone on the way> food` answers "refused: They are on the road to or from an
+      outpost." (not "scOpOnTheWay"); `sc run <someone> food` with three runs out says why in words too. *(Claude's self-test, 2026-11-20, ClaudeTest34, build 8375b931: 'refused: They are on the road to or from an outpost.' and 'refused: They are too far away right now.'; three runs out not tried.)*
 
 ## Round op1 (2026-11-19): members travel to their outposts
 
