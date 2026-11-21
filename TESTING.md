@@ -37,6 +37,131 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round nc1 (2026-11-21): 0-XNPCCore 3.4.06 final + 0-SCore 3.4.25.925
+
+Why: the compatibility audit of the two updates and your decisions (D1-D6). Build `sc34_nc1`, **not deployed yet**. Needs
+0-SCore 3.4.25.925 and 0-XNPCCore 3.4.06 final in the install. `sc xnpc` (no id) prints the hook counters named below.
+
+**Start-up**
+
+- [ ] The log has `patch verification: all N targets patched` and no `MISSING PATCH` line, in particular none for
+      `SdcsMagStageForWrite`, `SdcsMagHandOffForUnload`, `SdcsMagSaveHeld`, `VCCommandRouter::MutateSetWeaponPref` or
+      `MutateStealthKill`, and no `patched an unlisted method` warning for any of them (`SdcsMagSaveHeld` used to give one).
+
+**1. The held gun's rounds have one owner (X26)**
+
+- [ ] A member holding a loaded gun (no Locked & Loaded first). `sc xnpc <id>`'s `ammo:` line: `magazine N; 0-XNPCCore's
+      table none`. Save, quit to the menu, load: still `magazine N`, `table none`. `x26-write-stage-skipped` went up.
+- [ ] Walk far enough that her area unloads, come back: still `magazine N`, `table none`; `x26-unload-handoff-skipped` +1.
+- [ ] Take the gun away in the member panel after that: you get the gun with its N rounds and her bag gets **no** extra
+      loose rounds of that ammo (no "banked by 0-XNPCCore ... went into her bag" line).
+- [ ] With Locked & Loaded: the same steps; `remags npc <id>` shows the same magazines before and after (no extra
+      magazine), and drawing the gun after a load (`sc arms <name> melee`, then `ranged`) does not reload it.
+- [ ] A save made with the 3.4.06 final update before this build (if you have one where she held a gun): the first load
+      logs "0-XNPCCore's saved copy of the <gun>'s N round(s) dropped" (verbose) and `x26-stale-table-cleared` +1;
+      `table none` after it.
+
+**2. Down stays down across an unload**
+
+- [ ] `sc down <name>` on a resident at home, walk away until her area unloads (`sc members` says unloaded), come back
+      within the bleed time. She is still down with the seconds she had left; the log says "was loaded again while down -
+      0-XNPCCore kept her down: the same down"; **no** second "is down" message; her Bond dropped once, not twice
+      (`sc bond <name>`).
+      `sc downed`: "kept down on the reload 1". Revive her: one "back on their feet".
+- [ ] Down, then save, quit and load the game: she is standing (0-XNPCCore's new session) and no "back on their feet".
+
+**3. Residents fight what is in reach (Tom)**
+
+- [ ] Tom (7242) or any resident at home in a melee fight with a zombie in reach while another one stands outside the
+      base 25+ m away: he keeps swinging at the near one instead of walking off toward the far one. `sc xnpc`:
+      `mayengage-beyond-radius` goes up, `mayengage-pass` still counts the rest.
+- [ ] A guard on watch still shoots zombies coming at the base from beyond 22 m. During a base attack residents fight
+      anything in the defended area.
+
+**4. The weapon toggle is an order (D4)**
+
+- [ ] Order wheel, "Melee -> Ranged" on a member who holds her melee weapon: she draws her gun; `sc team <id>`'s hand line
+      says "YOU ORDERED HER GUN (0-XNPCCore's weapon toggle: ranged)"; `arms-toggle-ranged` +1. In a matched fight she now
+      stays on the gun (posture KITE, "you ordered her gun").
+- [ ] "Ranged -> Melee" while she already holds the melee weapon (no swap happens): `sc team <id>` still shows the melee
+      order; she stays MELEE.
+- [ ] Say "use your <gun>" by voice after toggling melee: `sc team <id>` shows "(0-XNPCCore's weapon toggle: ranged)" -
+      the spoken order set the toggle too. `sc team <id> auto` clears both (no "YOU ORDERED", no toggle).
+- [ ] Toggle "ranged" on a member whose gun has no ammo: Voice Control's "no ammo" line, she keeps her melee weapon and
+      fights with it ("nothing to shoot with").
+- [ ] Toggle "ranged", corner her (a wall behind her, a zombie in front) and let her magazine run out: she swaps to her
+      melee weapon until she has room ("is cornered and reloading"), `x5-cornered-pref-swap` +1, and the gun comes back
+      once she has room.
+
+**5. No swap during a quiet kill**
+
+- [ ] Hunting stance on a follower (order wheel "Hunting"), crouch near an unaware zombie: she stalks it and strikes; her
+      weapon is not swapped during the stalk (`x5-stealth-no-swap` goes up while it runs). `sc xnpc <id>`'s member state
+      says `engage=hunting`.
+
+**6. A quiet kill with a torch is no melee order**
+
+- [ ] At night with a torch in her hand, order the quiet kill on a zombie ("take them out quietly" / the wheel): she
+      swaps to her melee weapon for it; afterwards `sc team <id>` shows **no** "YOU ORDERED HER MELEE WEAPON";
+      `arms-swap-no-order` +1. While the order waits `sc xnpc <id>` shows `quietKill=<zombie id>`.
+- [ ] Send her home (`@name dismiss` or the window's Go home) while the order waits: `quietKill` is gone once she is
+      stationed.
+
+**7. The restored gun stays in hand after a load (SdcsLastRanged)**
+
+- [ ] Toggle "ranged" on a member, let her shoot, put her briefly on melee and back (`sc arms <name> melee`, `ranged`),
+      save and load: she comes in holding the same gun with its rounds (not another weapon); `x5-lastranged-synced` +1.
+
+**8. Deferred check: giving her weapon away (X16)**
+
+- [ ] Observe only (nothing changed for it): hand a member a better gun through her inventory window and let 0-XNPCCore
+      equip it (it joins her pair: "keeps the <gun> (any-weapon)"). Then ask her through Voice Control to give that gun
+      to you (its give-item). Write down what you get and `sc loadout <name>` before and after: a gun she no longer has in
+      her pair is fine; the same gun both in your hands and still in her pair (or the old gun coming back twice) is the
+      bug to report.
+
+**9. Wheel replies and stationing**
+
+- [ ] The wheel's "Hunting" and the quiet kill: Voice Control says its own line (no SC recording yet). The toggle answers
+      "Going ranged." / "Going melee." as before.
+- [ ] Station a follower who had a pending quiet-kill order: no stalking off the post afterwards.
+
+**10. The fight posture holds through a lost target**
+
+- [ ] A member in a melee fight: `sc team <id>` keeps MELEE through the fight; no "posture MELEE (was none for 0.x s)"
+      lines mid-fight in the verbose log; `sc xnpc` (no id) counts "target lapse(s) held" on its postures line and
+      `posture-lapse-held` rises.
+
+**D2. Cornered healing**
+
+- [ ] `sc team <id> hurt 0.5`, then corner her at home (walls on three sides, a zombie in front) with a first aid bandage
+      in her pack: she keeps fighting - log "has no room to back off ... keeps fighting at N/M and heals at once only at
+      or below 35%", `heal-cornered-fights-on` +1, `sc meds <name>`: "CORNERED - fights on above 35%". No bandage after
+      6 s either.
+- [ ] Let her drop under 35% (`sc team <id> hurt 0.3`): she bandages at once ("heals now (round k2b)",
+      `heal-now-cornered` +1).
+- [ ] With room behind her: she backs off and then bandages, as before (`heal-backoff`, `heal-backoff-clear`).
+- [ ] `CorneredHealBelow` 1 in `Config/blocks.xml`: cornered, she bandages at once again at any health.
+
+**D3. The re-down warning**
+
+- [ ] `sc down <name>`, revive her (E with a bandage): the message reads "<name> is back on their feet. If they go down
+      again in the next 10 minutes, they die." (a resident medic: "<medic> got <name> back on their feet. If ...").
+- [ ] The community window: her row shows "At base + Fragile 10 min" (counting down), her details "fragile for N min:
+      going down again now kills them". `sc members` and `sc xnpc <id>` show "FRAGILE N s (a second down is a real
+      death)"; `sc downed <name>` "a second down within N s is a real death". It disappears when the window runs out.
+- [ ] While she is down, `sc members` shows "DOWN (N s to revive)".
+
+**D6. Enemy distances (0-SCore 3.4.25)**
+
+- [ ] By day, a zombie in plain view about 20 m from a roaming resident: she keeps roaming (and chatting); at about 12 m
+      she goes back to her post. Same for the campfire gathering. Before this build they stopped for one ~30 m away.
+
+**Dismembering kills (D1, accepted)**
+
+- [ ] A killing headshot that dismembers a member (or an explosion) kills her outright instead of downing her; the
+      community records a plain death.
+
 ## Round fd2 (2026-11-21): the day's net per resource, farm plots, feast vs rationing, marksmen up close, a quieter log
 
 Why: you asked for the daily +/- beside each resource, Farm plots in the facility list (scrolling), and a feast and

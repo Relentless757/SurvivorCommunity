@@ -813,6 +813,10 @@
 			     leader near) the same steps with no other bound. With no room to back off, sheltering in her room, on watch or
 			     told to stay, she uses it at once; and as soon as the enemy keeps up with her (the gap not 1 m larger after
 			     2 s of backing off), too. false: she waits where she is (below).
+			     CorneredHealBelow (round nc1, the user's choice): with HealBackOff, a member with no room to back off at all
+			     keeps fighting while her health is above this share of her max (MedicMaxWait does not make her use it either),
+			     and uses the item at once only at or below it; every 4 s she looks for room again. Every other case above
+			     is unchanged. 1: she uses it at once whenever she is cornered (as before); 0: never while cornered.
 			     MedicMaxWait: with HealBackOff, once she has been held this many seconds without getting clear (the
 			     back-off kept from running by another action, or slowed) she uses it anyway, at any health (0: at once, no
 			     back-off). Without it (and for a stand-in): once she has waited this
@@ -832,6 +836,7 @@
 			<property name="MedicSafeDistance" value="3" />
 			<property name="MedicMaxWait" value="6" />
 			<property name="HealBackOff" value="true" />
+			<property name="CorneredHealBelow" value="0.35" />
 			<property name="RegenOutOfCombat" value="true" />
 			<property name="RegenRatePerSecond" value="0.2" />
 			<property name="RegenCapShare" value="0.6" />

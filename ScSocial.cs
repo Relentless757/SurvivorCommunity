@@ -46,8 +46,9 @@ namespace SurvivorCommunity
     /// (ScWork, the Owner cvar, ScVoice.Holds, Voice Control's chat), on watch, following (status and the Leader cvar), on a
     /// run or away (only Resident members are seen), missing, downed (0-XNPCCore's SdcsDowned.IsDowned), healing, retreating
     /// or sheltering (ScRetreat), in any posture but none or HOLD (ScPosture), with a live foe within 30 m
-    /// (ScCommunity.LiveFoe) or an enemy in sight within 30 m (SCore's IsEnemyNearby - the gate ScChat and ScGather carry as
-    /// EnemyNotNear), during a base attack, or while a talk window is open. See Why.
+    /// (ScCommunity.LiveFoe) or an enemy in sight within about 15 m (SCore's IsEnemyNearby at 15, which since 0-SCore 3.4.25 reaches
+    /// as far as its old 30 did - the gate ScChat and ScGather carry as EnemyNotNear), during a base attack, or while a talk window
+    /// is open. See Why.
     ///
     /// Purity: the state below is written only here, by Tick (the 1 Hz host ticker) and the console; the UAI considerations
     /// (ScSmallTalkHeld, ScGathering) and the meet hook only read it. Host / single player (SC is single-player), main thread.
@@ -55,6 +56,12 @@ namespace SurvivorCommunity
     public static class ScSocial
     {
         private const float FightRange = 30f;
+        /// <summary>
+        /// Round nc1 (0-SCore 3.4.25.925): the distance handed to SCore's IsEnemyNearby - half of FightRange, since that SCore's box
+        /// reaches the full distance (it reached half of it before), so the gate fires where it did; the EnemyNotNear on ScChat
+        /// and ScGather is halved alike (Config/utilityai.xml).
+        /// </summary>
+        private const float EnemyNearbyDistance = 15f;
         /// <summary>How long a planned walk-over waits for the walker's next roam walk to start, and for it to arrive.</summary>
         private const float MeetPlanSeconds = 30f, MeetWalkSeconds = 40f;
         /// <summary>Between two walk-over rolls.</summary>
@@ -1253,10 +1260,10 @@ namespace SurvivorCommunity
             catch (Exception e) { ScLog.Once("social-greeting", e); return false; }
         }
 
-        /// <summary>SCore's IsEnemyNearby (an enemy that can be seen within 30 m, or a fresh revenge target): what EnemyNotNear on ScChat and ScGather asks.</summary>
+        /// <summary>SCore's IsEnemyNearby (an enemy that can be seen within 15 m, or a fresh revenge target): what EnemyNotNear on ScChat and ScGather asks.</summary>
         private static bool EnemyInSight(EntityAlive npc)
         {
-            try { return UAI.SCoreUtils.IsEnemyNearby(npc, FightRange); }
+            try { return UAI.SCoreUtils.IsEnemyNearby(npc, EnemyNearbyDistance); }
             catch (Exception e) { ScLog.Once("social-enemy-near", e); return false; }
         }
 

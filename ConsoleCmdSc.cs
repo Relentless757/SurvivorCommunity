@@ -3061,6 +3061,11 @@ namespace SurvivorCommunity
             var sb = new StringBuilder();
             ItemValue hv = e.inventory.holdingItemItemValue;
             sb.Append("magazine ").Append(hv != null ? hv.Meta : 0);
+#if SC_V34
+            // round nc1 (X26): 0-XNPCCore's banked rounds for this gun (its magazine table) - none after a load or an unload now
+            string rc = NPCSdcsCharacters.Pure.GivenWeaponRules.TableRoundsCVar(held.Id);
+            sb.Append("; 0-XNPCCore's table ").Append(e.Buffs != null && e.Buffs.HasCustomVar(rc) ? e.Buffs.GetCustomVar(rc).ToString("0") : "none");
+#endif
             if (ScMags.Active)
             {
                 string mags = ScMags.Describe(e, held);

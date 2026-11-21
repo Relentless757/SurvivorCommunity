@@ -463,7 +463,8 @@ namespace SurvivorCommunity
         /// Stay order: heal-now-shelter / heal-now-post), when the back-off found no room for this wait or the enemy keeps up
         /// with her (its heal-now verdict; heal-now-cornered / heal-now-gained, counted by the task), or once the wait has run
         /// MedicMaxWait without her getting clear (heal-now-timeout; its line says whether a back-off ran at all). DesperateBelow
-        /// plays no part for her.
+        /// plays no part for her. Round nc1 (D2): with no room to back off and her health above CorneredHealBelow she fights on
+        /// instead - no heal-now verdict, and the MedicMaxWait timeout waits too (ScHealBackOff.CorneredFightsOn).
         /// </summary>
         private static bool HeldByReach(EntityAlive e, string pick, int max, float now)
         {
@@ -522,6 +523,8 @@ namespace SurvivorCommunity
                 if (!ScHealBackOff.HealNowFor(e, since, out why))
                 {
                     if (waited < ScConfig.MedicMaxWait) return true;    // held: ScHealBackOff (8.3) walks her clear
+                    // round nc1 (D2): cornered above CorneredHealBelow she fights on - no "anyway" with the zombie on her
+                    if (ScHealBackOff.CorneredFightsOn(e, since)) return true;
                     timeout = true;
                     // the Fable review (F8): "backing off" only when a back-off walk did start in this wait
                     why = ScHealBackOff.BackedOffFor(e, since)

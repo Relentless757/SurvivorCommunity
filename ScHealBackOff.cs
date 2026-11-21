@@ -31,6 +31,11 @@ namespace SurvivorCommunity
     ///     heal-now-shelter, heal-now-post). These replace round k2's MedicMaxWait / 25% exception for members.
     ///   - While the task walks her, SC's X5 tick holds the weapon swaps (round k4's hand rule, 0-XNPCCore's 3 m swap): the item
     ///     takes her hand next.
+    ///   - Round nc1 (the user's decision D2; Tom healed 12 times in one fight, each heal-now zeroing 0-XNPCCore's attacks for about
+    ///     2.5 s): no room to back off with her health above CorneredHealBelow (35%) is no heal-now any more - she keeps fighting
+    ///     (heal-cornered-fights-on), the action stays out of her way and looks for room again every CorneredRecheckSeconds (4 s),
+    ///     and MedicMaxWait's "anyway" waits too (CorneredFightsOn); at or below the line the next look heals her at once
+    ///     (heal-now-cornered). The enemy keeping up, sheltering, on watch and a Stay order are not "cornered": as before.
     /// No flip faster than the item: a use starts ScMedic's 12 s cooldown, during which no hold (and so no back-off) can start;
     /// an episode that never gets her clear ends in a use after MedicMaxWait at the latest. HealBackOff false: none of this -
     /// round k2's hold as it was.
@@ -83,16 +88,24 @@ namespace SurvivorCommunity
             public readonly ScBackOff.Last Memory = new ScBackOff.Last();
             /// <summary>F4: the gain clock of this wait's back-off - the next check, and the nearest pursuer's gap at the last (0: not started).</summary>
             public float GainAt, GainGap;
+            /// <summary>
+            /// Round nc1 (D2): cornered above CorneredHealBelow in the wait that began at FightOnWait (-1 none) - she fights on; the
+            /// back-off is looked for again from FightOnUntil (CorneredRecheckSeconds), at once once her health drops to the line.
+            /// </summary>
+            public float FightOnWait = -1f, FightOnUntil;
         }
 
+        /// <summary>Round nc1 (D2): a cornered member who fights on looks for room to back off again this often.</summary>
+        private const float CorneredRecheckSeconds = 4f;
+
         private static readonly Dictionary<int, State> states = new Dictionary<int, State>();
-        private static int episodes, clears, cornered, keptUp;
+        private static int episodes, clears, cornered, keptUp, foughtOn;
         private static float nextPrune;
 
         public static void Reset()
         {
             states.Clear();
-            episodes = clears = cornered = keptUp = 0;
+            episodes = clears = cornered = keptUp = foughtOn = 0;
             nextPrune = 0f;
         }
 
@@ -153,7 +166,40 @@ namespace SurvivorCommunity
             if (!states.TryGetValue(e.entityId, out st)) return true;
             float now = Time.time;
             if (now < st.ClearUntil) return false;
+            // round nc1 (D2): cornered above CorneredHealBelow she fights on - the back-off is looked for again only after
+            // CorneredRecheckSeconds, or at once when her health drops to the line
+            if (now < st.FightOnUntil && FightsOn(e, st, now - waited)) return false;
             return !HealNowFor(e, now - waited, out why);
+        }
+
+        /// <summary>
+        /// Round nc1 (the user's decision D2): a member CORNERED - no room to back off, the task's heal-now-cornered - keeps fighting
+        /// while her health is above CorneredHealBelow (35%); at or below it she heals at once, as before. Not cornered: unchanged
+        /// (she backs off to heal). Heal-now's other verdicts (the enemy keeps up, sheltering, on watch, told to stay) are not
+        /// "cornered" and stay as they were. True while this wait (waitSince, ScMedic's heldSince) found no room above the line;
+        /// ScMedic's MedicMaxWait timeout waits on it too (CorneredFightsOn). A pure read.
+        /// </summary>
+        private static bool FightsOn(EntityAlive e, State st, float waitSince)
+        {
+            return st.FightOnWait >= 0f && Mathf.Abs(st.FightOnWait - waitSince) <= SameWait && AboveCorneredLine(e);
+        }
+
+        /// <summary>Round nc1 (D2): her health is above CorneredHealBelow (a cornered member fights on). A pure read.</summary>
+        private static bool AboveCorneredLine(EntityAlive e)
+        {
+            int max = e != null ? e.GetMaxHealth() : 0;
+            return max > 0 && ScConfig.CorneredHealBelow < 1f && e.Health > max * ScConfig.CorneredHealBelow;
+        }
+
+        /// <summary>
+        /// Round nc1 (D2, ScMedic.HeldByReach): the wait that began at waitSince found no room to back off with her health above
+        /// CorneredHealBelow - she fights on, and MedicMaxWait's "use it anyway" waits too (it would heal her with the zombie on
+        /// her, which D2 rules out above the line). A pure read.
+        /// </summary>
+        internal static bool CorneredFightsOn(EntityAlive e, float waitSince)
+        {
+            State st;
+            return e != null && states.TryGetValue(e.entityId, out st) && FightsOn(e, st, waitSince);
         }
 
         /// <summary>The task is walking her to a point right now (SC's X5 tick holds the weapon swaps meanwhile). A pure read.</summary>
@@ -269,6 +315,24 @@ namespace SurvivorCommunity
             string why;
             if (!ScBackOff.Pick(self, t, MaxStep, region, leader, st.Memory, out p, out step, out angle, out why))
             {
+                // round nc1 (D2): cornered above CorneredHealBelow she fights on (no heal-now); the back-off is looked for again in
+                // CorneredRecheckSeconds, and at or below the line the next look heals her at once (below)
+                if (AboveCorneredLine(self))
+                {
+                    bool first = st.FightOnWait < 0f || Mathf.Abs(st.FightOnWait - st.WaitSince) > SameWait;
+                    st.FightOnWait = st.WaitSince;
+                    st.FightOnUntil = now + CorneredRecheckSeconds;
+                    st.GainAt = 0f;                                  // standing and fighting is no back-off: F4's clock starts again at the next look
+                    if (first)
+                    {
+                        foughtOn++;
+                        Patches_Xnpc.Count("heal-cornered-fights-on");
+                        Note(st, "CORNERED " + bound + " - fights on above " + Pct(ScConfig.CorneredHealBelow), now);
+                        ScLog.Out(ScMedic.BodyName(self) + " has no room to back off from " + Who(t) + " " + bound + " - " + ScMedic.She(self) + " keeps fighting at "
+                                  + self.Health + "/" + self.GetMaxHealth() + " and heals at once only at or below " + Pct(ScConfig.CorneredHealBelow) + " (round nc1, D2)");
+                    }
+                    return false;
+                }
                 st.HealNowWait = st.WaitSince;
                 st.HealNowUntil = now + HealNowSeconds;
                 st.HealNowWhy = "no room to back off " + bound + " (" + why + ")";
@@ -284,6 +348,8 @@ namespace SurvivorCommunity
             st.Step = step;
             st.Angle = angle;
             st.Bound = bound;
+            st.FightOnWait = -1f;                                    // round nc1 (D2): room again - the back-off's own rules (MedicMaxWait)
+            st.FightOnUntil = 0f;
             st.Walking = true;
             st.WalkAt = now;
             Note(st, "backed off " + step.ToString("0", CultureInfo.InvariantCulture) + " m " + bound, now);
@@ -391,6 +457,8 @@ namespace SurvivorCommunity
 
         private static string Who(EntityAlive t) { return t.EntityName + " (" + t.entityId + ")"; }
 
+        private static string Pct(float share) { return (share * 100f).ToString("0", CultureInfo.InvariantCulture) + "%"; }
+
         // ------------------------------------------------------------------ console ----
 
         /// <summary>Her back-off to heal during a wait (sc xnpc's medic line, sc meds).</summary>
@@ -409,6 +477,9 @@ namespace SurvivorCommunity
                 return "BACKING OFF TO HEAL to " + ScRetreat.Cell(st.Point) + " (" + st.Step.ToString("0", CultureInfo.InvariantCulture) + " m, "
                        + st.Angle.ToString("0", CultureInfo.InvariantCulture) + " degrees, " + st.Bound + ")";
             if (now < st.HealNowUntil) return "HEALS NOW: " + st.HealNowWhy;
+            float held;
+            if (ScMedic.WaitingToHeal(e, out held) && FightsOn(e, st, now - held))
+                return "CORNERED - fights on above " + Pct(ScConfig.CorneredHealBelow) + " (round nc1, D2)";
             if (now < st.ClearUntil) return "CLEAR - heals now";
             return "backs off to heal (round k2b)";
         }
@@ -438,7 +509,8 @@ namespace SurvivorCommunity
         public static string Report()
         {
             if (!ScConfig.HealBackOff) return "OFF (HealBackOff false: round k2's hold with the MedicMaxWait / 25% exception)";
-            return "on - " + episodes + " back-off(s) to heal, " + clears + " got clear, " + cornered + " cornered and " + keptUp + " kept up with (healed at once) this session";
+            return "on - " + episodes + " back-off(s) to heal, " + clears + " got clear, " + cornered + " cornered and " + keptUp + " kept up with (healed at once), "
+                   + foughtOn + " cornered above " + Pct(ScConfig.CorneredHealBelow) + " (fought on: round nc1, D2) this session";
         }
     }
 }

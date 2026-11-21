@@ -250,7 +250,7 @@ namespace SurvivorCommunity
 #endif
             if (ScWatch.OnWatch(m)) return "on watch (a guard keeps her gun)";
             if (ScTraits.IsTimid(m)) return "Cowardly (hangs back with her gun; runs only when outmatched)";
-            if (ScArms.OrderedRanged(e)) return "you ordered her gun (order her melee weapon, or sc team " + e.entityId + " auto, to undo)";
+            if (ScArms.OrderedRanged(e)) return "you ordered her gun (by talking or the weapon toggle; order her melee weapon, or sc team " + e.entityId + " auto, to undo)";
             Loadout l = ScLoadout.Current(e);
             if (l == null || string.IsNullOrEmpty(l.Melee)) return "no melee weapon in her pair";
             if (v.LowHp) return "hurt (" + Pct(HealthShare(e)) + " - melee again from " + Pct(ScConfig.TeamLowHealthBack) + ")";
@@ -804,13 +804,17 @@ namespace SurvivorCommunity
             return ic != null && ScAmmo.RangedAction(ic) == null;
         }
 
-        /// <summary>sc team auto: the player's weapon orders off (sc_order_melee, sc_order_ranged) - she chooses by the rules again.</summary>
+        /// <summary>
+        /// sc team auto: the player's weapon orders off (sc_order_melee, sc_order_ranged) - she chooses by the rules again. Round nc1
+        /// (D4): 0-XNPCCore's weapon toggle with them (SdcsWeaponPref to none), since the toggle is an order of SC's now.
+        /// </summary>
         public static string ClearOrders(EntityAlive e)
         {
             if (e == null || e.Buffs == null) return "no body";
             bool any = false;
             if (e.Buffs.HasCustomVar(ScArms.OrderedMeleeCvar)) { e.Buffs.RemoveCustomVar(ScArms.OrderedMeleeCvar); any = true; }
             if (e.Buffs.HasCustomVar(ScArms.OrderedRangedCvar)) { e.Buffs.RemoveCustomVar(ScArms.OrderedRangedCvar); any = true; }
+            if (ScArms.PrefKind(e) != 0) { ScArms.SetPref(e, 0); any = true; }
             return ScCommunity.DisplayName(e) + (any ? ": your weapon order is cleared - she picks her weapon by the rules again" : " had no weapon order from you");
         }
 

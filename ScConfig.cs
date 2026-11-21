@@ -1218,6 +1218,12 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool HealBackOff = true;
         /// <summary>
+        /// Round nc1 (the user's decision D2): with HealBackOff, a member CORNERED - no room to back off - keeps fighting while her
+        /// health is above this share of her max, and heals at once only at or below it (ScHealBackOff, ScMedic's MedicMaxWait waits
+        /// too). Not cornered: unchanged. 1: heals at once whenever cornered (before this round); 0: never while cornered.
+        /// </summary>
+        public static float CorneredHealBelow = 0.35f;
+        /// <summary>
         /// Members regain health slowly out of combat, up to RegenCapShare of their max. Out of combat (the Fable review's F3, the
         /// user: "Only threats to her"): no awake enemy within RegenEnemyRadius that is after her or can see her, and none at all
         /// within RegenNearRadius.
@@ -1548,6 +1554,7 @@ namespace SurvivorCommunity
             MedicSafeDistance = 3f;
             MedicMaxWait = 6f;
             HealBackOff = true;
+            CorneredHealBelow = 0.35f;            // round nc1 (D2)
             ScHealBackOff.Reset();                 // round k2b: the per-world back-off-to-heal state
             RegenOutOfCombat = true;
             RegenRatePerSecond = 0.2f;
@@ -2677,6 +2684,7 @@ namespace SurvivorCommunity
                 ParseFloat(p, "MedicSafeDistance", ref MedicSafeDistance, 0f, 10f);
                 ParseFloat(p, "MedicMaxWait", ref MedicMaxWait, 0f, 120f);
                 ParseBoolKey(p, "HealBackOff", ref HealBackOff);   // round k2b (ScHealBackOff)
+                ParseFloat(p, "CorneredHealBelow", ref CorneredHealBelow, 0f, 1f);   // round nc1 (D2: cornered, she fights on above it)
                 ParseBoolKey(p, "RegenOutOfCombat", ref RegenOutOfCombat);
                 ParseFloat(p, "RegenRatePerSecond", ref RegenRatePerSecond, 0f, 5f);
                 ParseFloat(p, "RegenCapShare", ref RegenCapShare, 0f, 1f);
@@ -3323,7 +3331,8 @@ namespace SurvivorCommunity
                 ? "medical use wherever she is (MedicSafeDistance 0)"
                 : HealBackOff
                     ? "no medical use while an enemy after her is within " + F2(MedicSafeDistance) + " m: she backs off until it is beyond "
-                      + F2(MedicSafeDistance + ScHealBackOff.ClearMargin) + " m, then uses it; with no room to back off, sheltering, on watch or told to stay, at once;"
+                      + F2(MedicSafeDistance + ScHealBackOff.ClearMargin) + " m, then uses it; with no room to back off she fights on above "
+                      + MedsPct(CorneredHealBelow) + " (CorneredHealBelow, round nc1) and uses it at once below; sheltering, on watch or told to stay, at once;"
                       + " when it keeps up with her (the gap not 1 m larger in 2 s), or after " + F2(MedicMaxWait) + " s held without getting clear, anyway (HealBackOff, round k2b)"
                     : "no medical use while an enemy after her is within " + F2(MedicSafeDistance) + " m (after " + F2(MedicMaxWait) + " s under 25% health she uses it anyway)";
             string regen = RegenOutOfCombat && RegenRatePerSecond > 0f && RegenCapShare > 0f

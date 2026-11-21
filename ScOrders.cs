@@ -38,12 +38,15 @@ namespace SurvivorCommunity
         // a stationed member looting or driving over their post (VCCommandRouter sets them, nothing at a post clears them).
         // X2 (0-XNPCCore 3.4.03): SdcsHolsteredByOrder, "put your weapon away" kept through a save (the world-entry re-arm
         // leaves the hand bare while it is set; only Voice Control's dismiss clears it), so a resident is armed at the post
+        // Round nc1 (0-XNPCCore 3.4.06 final): its quiet-kill order (SdcsStealthTargetId, SdcsStealthOrderAt: the enemy she was
+        // told to take out quietly and when) - a stationed member must not stalk off her post after it (only another order of
+        // Voice Control's or its own 20 s give-up clears it)
         public static readonly string[] VoiceMovementCvars =
         {
             "vcFormationDist", "vcFormationAngle", "vcMoveToActive", "vcMoveToFailed", "vcMoveToX", "vcMoveToY", "vcMoveToZ",
             "vcTargetX", "vcTargetY", "vcTargetZ", "CrouchOverride", "$XVC_PendingCommand", "$XVC_LadderHold", "$XVC_LadderFollowMode",
             "SdcsLootMode", "SdcsMedicRole", "SdcsVehicleOrder", "SdcsRememberBase", "SdcsMineFilter", "SdcsPickFilter",
-            "SdcsHolsteredByOrder"
+            "SdcsHolsteredByOrder", "SdcsStealthTargetId", "SdcsStealthOrderAt"
         };
 #else
         public static readonly string[] VoiceMovementCvars =
@@ -151,7 +154,13 @@ namespace SurvivorCommunity
             if (npc.Buffs.HasCustomVar("vcEngage"))
             {
                 int engage = (int)npc.Buffs.GetCustomVar("vcEngage");
+#if SC_V34
+                // round nc1: Voice Control 3.4.06 final's stance 3 is HUNTING (its SetEngage 4, a leashed stalker that takes enemies
+                // out quietly); its disengage (SetEngage 3) breaks off and leaves hold fire (2) behind, never a 3
+                sb.Append(" engage=").Append(engage == 1 ? "aggressive" : engage == 2 ? "hold fire" : engage == 3 ? "hunting" : "defensive");
+#else
                 sb.Append(" engage=").Append(engage == 1 ? "aggressive" : engage == 2 ? "hold fire" : engage == 3 ? "disengage" : "defensive");
+#endif
             }
             if (npc.Buffs.GetCustomVar("vcFollowMin") > 0f) sb.Append(" followMin=").Append(npc.Buffs.GetCustomVar("vcFollowMin").ToString("0.#"));
             if (npc.Buffs.GetCustomVar("vcFormationDist") > 0f)
@@ -160,6 +169,8 @@ namespace SurvivorCommunity
             if (npc.Buffs.GetCustomVar("CrouchOverride") >= 1f) sb.Append(" crouched");
 #if SC_V34
             if (npc.Buffs.GetCustomVar("SdcsLootMode") > 0f) sb.Append(" job=").Append(npc.Buffs.GetCustomVar("SdcsLootMode").ToString("0"));   // C1: 10 = crafting
+            if (npc.Buffs.GetCustomVar("SdcsStealthTargetId") > 0f) sb.Append(" quietKill=").Append(npc.Buffs.GetCustomVar("SdcsStealthTargetId").ToString("0"));   // round nc1
+            sb.Append(ScDowned.ConsoleState(npc));   // round nc1 (D3): DOWN, or the fragile time after a revive (sc members, sc xnpc)
 #endif
             return sb.ToString();
         }

@@ -1036,6 +1036,9 @@ namespace SurvivorCommunity
                     ClearStaleMagTables(e);
                     e.Buffs.SetCustomVar(X18CleanedCvar, 1f);
                 }
+#if SC_V34
+                ScArms.SyncOrderPref(e);                 // round nc1 (D4): an older weapon order of SC's gets 0-XNPCCore's preference too
+#endif
                 ApplyWeaponMods(e);                      // rounds n05/n08: attachments on the pair, after SCore's toolbelt fill
                 bool raider = ScXnpc.IsRaider(e);
                 if (raider) SetRaiderXp(e);              // every PostInit, before the seeded raider returns below

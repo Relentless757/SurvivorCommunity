@@ -64,6 +64,11 @@ namespace SurvivorCommunity
     /// gone or beyond 5 m is held. Round tm1's MeleeFirst and AdoptBout, round n08's GunFirst and round tm2's no-swing clock,
     /// reach-gun hold and no-swing spot are folded into it. Strangers, enclave people and raiders keep the overwhelmed rule
     /// above (CloseRange). A gun order from the player (OrderedRangedCvar) is KITE, a melee order (OrderedMeleeCvar) MELEE.
+    ///
+    /// Round nc1 (0-XNPCCore 3.4.06 final). Its weapon toggle (Voice Control's SetWeaponPref, the cvar SdcsWeaponPref) is SC's weapon
+    /// order (the user's D4: the toggle wins; Patch_VcWeaponPref, NoteOrderKind writes it back for SC's own orders); with the ranged
+    /// preference 0-XNPCCore vetoes its own 3 m swap, so R2's melee is SC's swap then (KiteHand). Nothing is swapped while its quiet
+    /// kill runs (StealthKillRuns), and the draw its quiet-kill order makes is no order (Patch_VcStealthKill).
     /// </summary>
     public static class ScArms
     {
@@ -843,37 +848,107 @@ namespace SurvivorCommunity
         /// </summary>
         public const string OrderedRangedCvar = "sc_order_ranged";
 
-        public static bool OrderedMelee(EntityAlive e)
+        /// <summary>
+        /// Round nc1 (D4): 0-XNPCCore 3.4.06 final's weapon preference, written by Voice Control's weapon toggle (the order wheel's
+        /// "Melee -> Ranged" / "Ranged -> Melee", its SetWeaponPref: 1 melee, 2 ranged, 0 none) and read by 0-XNPCCore's close-range
+        /// swap (ranged: no swap to melee up close), its dry failover, its world-entry step and its AnyWeapon pick
+        /// (WeaponPreferenceRules). The user's decision D4: the toggle WINS - it is an SC weapon order exactly like ordering her gun
+        /// or her melee weapon by talking, so SC's orders and the toggle are kept in sync both ways: the toggle writes SC's two
+        /// order cvars (Patch_VcWeaponPref), SC's orders write this one (NoteOrderKind), "sc team &lt;id&gt; auto" clears all three
+        /// (ScTeam.ClearOrders), and OrderedMelee / OrderedRanged read it when neither of SC's cvars is set (a toggle given before
+        /// this round). SC's no-ammo and safety rules still apply to it as to any order (ScPosture.Want, R2 below).
+        /// </summary>
+        public const string WeaponPrefCvar = "SdcsWeaponPref";
+        private const int PrefMelee = 1, PrefRanged = 2;
+
+        /// <summary>Round nc1: 0-XNPCCore's weapon preference (WeaponPrefCvar): 1 melee, 2 ranged, else 0 (none). A read.</summary>
+        internal static int PrefKind(EntityAlive e)
         {
-            return e != null && e.Buffs != null && e.Buffs.GetCustomVar(OrderedMeleeCvar) >= 0.5f;
+            if (e == null || e.Buffs == null) return 0;
+            int k = Mathf.RoundToInt(e.Buffs.GetCustomVar(WeaponPrefCvar));
+            return k == PrefMelee || k == PrefRanged ? k : 0;
         }
 
-        /// <summary>Round tm1: the player's last weapon order for her named her gun or bow (OrderedRangedCvar).</summary>
+        public static bool OrderedMelee(EntityAlive e)
+        {
+            if (e == null || e.Buffs == null) return false;
+            if (e.Buffs.GetCustomVar(OrderedMeleeCvar) >= 0.5f) return true;
+            return e.Buffs.GetCustomVar(OrderedRangedCvar) < 0.5f && PrefKind(e) == PrefMelee;   // round nc1 (D4): the toggle alone
+        }
+
+        /// <summary>Round tm1: the player's last weapon order for her named her gun or bow (OrderedRangedCvar; round nc1: or the toggle's ranged).</summary>
         public static bool OrderedRanged(EntityAlive e)
         {
-            return e != null && e.Buffs != null && e.Buffs.GetCustomVar(OrderedRangedCvar) >= 0.5f;
+            if (e == null || e.Buffs == null) return false;
+            if (e.Buffs.GetCustomVar(OrderedRangedCvar) >= 0.5f) return true;
+            return e.Buffs.GetCustomVar(OrderedMeleeCvar) < 0.5f && PrefKind(e) == PrefRanged;   // round nc1 (D4): the toggle alone
         }
 
         /// <summary>
         /// A weapon order from the player (route "dialog" or "voice"; never "any-weapon", 0-XNPCCore's own pick-up of a newly
         /// handed weapon): a melee weapon sets OrderedMeleeCvar and clears OrderedRangedCvar, a gun or bow the other way round
-        /// (round tm1: before it a gun order only cleared the melee order).
+        /// (round tm1: before it a gun order only cleared the melee order). Round nc1: not inside Voice Control's quiet-kill order
+        /// or its weapon toggle (vcOrderScope) - the quiet kill's draw is no order, and the toggle makes its own (Patch_VcWeaponPref).
         /// </summary>
         private static void NoteOrder(EntityAlive npc, string itemName, string route)
         {
             if (npc == null || npc.Buffs == null || route == "any-weapon") return;
             string family = ScLoadout.FamilyOf(itemName);
-            if (family == "melee")
+            if (family == null) return;
+            NoteOrderKind(npc, family != "melee");
+        }
+
+        /// <summary>
+        /// The player's weapon order for her: her gun or bow (ranged), else her melee weapon - SC's two order cvars and, since round
+        /// nc1 (D4), 0-XNPCCore's weapon preference with them (2 ranged, 1 melee), so its own rules agree with the order: a gun order
+        /// is its "ranged" (no 3 m swap of its own - R2's melee is then SC's swap, KiteHand), a melee order its "melee" (no gun
+        /// re-armed as she comes into the world).
+        /// </summary>
+        internal static void NoteOrderKind(EntityAlive npc, bool ranged)
+        {
+            if (npc == null || npc.Buffs == null) return;
+            if (!ranged)
             {
                 npc.Buffs.SetCustomVar(OrderedMeleeCvar, 1f);
                 if (npc.Buffs.HasCustomVar(OrderedRangedCvar)) npc.Buffs.RemoveCustomVar(OrderedRangedCvar);
             }
-            else if (family != null)
+            else
             {
                 if (npc.Buffs.HasCustomVar(OrderedMeleeCvar)) npc.Buffs.RemoveCustomVar(OrderedMeleeCvar);
                 npc.Buffs.SetCustomVar(OrderedRangedCvar, 1f);
             }
+            SetPref(npc, ranged ? PrefRanged : PrefMelee);
         }
+
+        /// <summary>
+        /// Round nc1: 0-XNPCCore's weapon preference set (0 clears it), the way Voice Control's toggle writes it (synced and sent to
+        /// the clients). An unchanged value writes nothing (SetCustomVar's own test).
+        /// </summary>
+        internal static void SetPref(EntityAlive npc, int kind)
+        {
+            if (npc == null || npc.Buffs == null) return;
+            if (kind == 0 && !npc.Buffs.HasCustomVar(WeaponPrefCvar)) return;
+            npc.Buffs.SetCustomVar(WeaponPrefCvar, kind, true, CVarOperation.set, true);
+        }
+
+        /// <summary>
+        /// Round nc1 (D4, ScLoadout.AfterPostInit): a body loaded with a weapon order of SC's from before this round and no weapon
+        /// preference gets the matching one, so 0-XNPCCore's rules agree with that order too (the sync both ways). A preference
+        /// already there is left alone (OrderedMelee / OrderedRanged read SC's own cvars first).
+        /// </summary>
+        internal static void SyncOrderPref(EntityAlive e)
+        {
+            if (e == null || e.Buffs == null || PrefKind(e) != 0) return;
+            if (e.Buffs.GetCustomVar(OrderedRangedCvar) >= 0.5f) SetPref(e, PrefRanged);
+            else if (e.Buffs.GetCustomVar(OrderedMeleeCvar) >= 0.5f) SetPref(e, PrefMelee);
+        }
+
+        /// <summary>
+        /// Round nc1 (items 6 and D4): above 0 while Voice Control's MutateStealthKill or MutateSetWeaponPref runs - the swap either
+        /// makes through MutateSwapWeapon reaches Patch_VoiceSwap / OnSwap, where it must not count as a "use X" order. Main
+        /// thread (Voice Control's commands run there), a depth for safety.
+        /// </summary>
+        private static int vcOrderScope;
 
         // ------------------------------------------------------------------ the one hand rule (round k4) ----
 
@@ -905,6 +980,9 @@ namespace SurvivorCommunity
                 if (e == null || e.isEntityRemote || e.inventory == null || !ScXnpc.IsBody(e)) return true;
 #if SC_V34
                 if (ScXnpc.IsBanditRaider(e)) return true;
+                // round nc1 (the audit, item 5): while 0-XNPCCore's quiet kill runs (its stalk and strike) SC swaps nothing - not the
+                // posture's weapon, not the overwhelmed rule's gun; 0-XNPCCore's own close-range tick runs as it would without SC
+                if (StealthKillRuns(e)) { Patches_Xnpc.Count("x5-stealth-no-swap"); return true; }
 #endif
                 ScPosture.View pv;
                 if (ScXnpc.IsRaider(e) || MemberOf(e) == null || !ScPosture.Of(e, out pv)) return CloseRange(ctrl, e);
@@ -1052,6 +1130,23 @@ namespace SurvivorCommunity
                 st.CorneredGun = hg.GetItemName();
                 st.CorneredAt = now;
                 st.RoomSince = 0f;
+                // round nc1 (D4: SC's safety rules still apply under the weapon toggle): with her weapon preference ranged - the
+                // toggle, or a gun order of SC's, which now writes it - 0-XNPCCore vetoes its own 3 m swap to melee
+                // (WeaponPreferenceRules.CloseMeleeVeto), so R2's melee never came. SC makes that swap itself then, as MELEE's swap
+                // does: the pair's melee weapon through 0-XNPCCore's own equip and into its bout, her gun remembered (TakeMelee,
+                // JoinBout); R2's hold, its ends and the gun's return run as after 0-XNPCCore's swap. An equip that does not take
+                // leaves her with the gun (the veto's outcome, as before this round)
+                if (PrefKind(e) == PrefRanged)
+                {
+                    Loadout rl = ScLoadout.Current(e);
+                    if (rl != null && !string.IsNullOrEmpty(rl.Melee) && now >= st.MeleeBackoffUntil && TakeMelee(c, e, rl, st, now))
+                    {
+                        ScPosture.NoteSwap(e, rl.Melee, false, reloading);
+                        JoinBout(c, e, rl, now);
+                        Patches_Xnpc.Count("x5-cornered-pref-swap");
+                        return false;
+                    }
+                }
                 return true;
             }
             Patches_Xnpc.Count("x5-kite-keep-gun");
@@ -1325,6 +1420,8 @@ namespace SurvivorCommunity
             if (l != null) sb.Append(" (pair ").Append(l.Ranged ?? "-").Append(" / ").Append(l.Melee ?? "-").Append(')');
             if (OrderedMelee(e)) sb.Append(", YOU ORDERED HER MELEE WEAPON");
             if (OrderedRanged(e)) sb.Append(", YOU ORDERED HER GUN");
+            int pref = PrefKind(e);                                                 // round nc1 (D4): the toggle, kept in sync
+            if (pref != 0) sb.Append(" (0-XNPCCore's weapon toggle: ").Append(pref == PrefRanged ? "ranged" : "melee").Append(')');
             float now = Time.time;
             Watch st;
             if (watch.TryGetValue(e.entityId, out st))
@@ -1573,7 +1670,11 @@ namespace SurvivorCommunity
             try
             {
                 if (!ScCommunity.IsHost || npc == null || string.IsNullOrEmpty(itemName) || !ScRegistry.Loaded || !ScXnpc.IsBody(npc)) return;
-                NoteOrder(npc, itemName, route);             // round n08: a melee order stops gun first
+                // round n08: a melee order stops gun first. Round nc1 (items 6 and D4): not the draw of a quiet kill (a torch in her
+                // hand: Voice Control swaps to her melee weapon for the stalk - before, that set the melee order for good) nor the
+                // weapon toggle's swap (Patch_VcWeaponPref makes the toggle's own order, whatever the swap could find)
+                if (vcOrderScope > 0) Patches_Xnpc.Count("arms-swap-no-order");
+                else NoteOrder(npc, itemName, route);
                 Member m = ScRegistry.GetMember(npc.entityId);
                 if (m == null) return;                       // a stranger's or a prospect's hand stays 0-XNPCCore's business
                 ItemClass ic = ItemClass.GetItemClass(itemName, true);
@@ -2095,6 +2196,122 @@ namespace SurvivorCommunity
                     ScLog.Once("arms-voice-swap", e);
                 }
             }
+        }
+
+        // ------------------------------------------------------------------ the weapon toggle and the quiet kill (round nc1) ----
+
+        /// <summary>Round nc1: Voice Control 3.4.06 final's weapon toggle (VCCommandRouter.MutateSetWeaponPref(EntityAlive, string), internal).</summary>
+        public static MethodBase VcWeaponPrefTarget()
+        {
+            Type t = ScTypes.Find("XNPCVoiceControl.Net.VCCommandRouter");
+            return t != null ? AccessTools.DeclaredMethod(t, "MutateSetWeaponPref", new[] { typeof(EntityAlive), typeof(string) }) : null;
+        }
+
+        /// <summary>Round nc1: Voice Control 3.4.06 final's quiet-kill order (VCCommandRouter.MutateStealthKill(EntityAlive, EntityPlayer, string), internal).</summary>
+        public static MethodBase VcStealthKillTarget()
+        {
+            Type t = ScTypes.Find("XNPCVoiceControl.Net.VCCommandRouter");
+            return t != null ? AccessTools.DeclaredMethod(t, "MutateStealthKill", new[] { typeof(EntityAlive), typeof(EntityPlayer), typeof(string) }) : null;
+        }
+
+        /// <summary>
+        /// Round nc1 (the user's decision D4: "the toggle wins"). Voice Control's weapon toggle ("Melee -> Ranged" / "Ranged -> Melee"
+        /// on the order wheel, a squad's too, and its spoken form) writes 0-XNPCCore's SdcsWeaponPref and swaps her hand when the
+        /// pick differs. SC's hand rule ignored the preference, and with no swap (she already held that kind) SC never saw an
+        /// order at all, so the toggle and SC's posture fought over her hand. Now the toggle IS SC's weapon order, exactly as
+        /// "use your ..." by voice: when it has run, SC's two order cvars follow its argument ("ranged" is her gun, anything else her
+        /// melee weapon - Voice Control's own reading of it), whatever its pick could find (with no usable gun Voice Control takes
+        /// her melee weapon and says so, and ScPosture's no-ammo rule does the same). The swap inside it makes no order of its own
+        /// (vcOrderScope, OnSwap). SC's bodies on the host only; off without Voice Control (Prepare). __0 the NPC, __1 the argument
+        /// (bound by position: Voice Control is not referenced).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_VcWeaponPref
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try { return VcWeaponPrefTarget() != null; }
+                catch (Exception e) { ScLog.Once("arms-vc-pref-bind", e); return false; }
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return VcWeaponPrefTarget(); }
+
+            [HarmonyPrefix]
+            public static void Prefix() { vcOrderScope++; }
+
+            [HarmonyFinalizer]
+            public static void Finalizer(EntityAlive __0, string __1, Exception __exception)
+            {
+                vcOrderScope = Math.Max(0, vcOrderScope - 1);
+                try
+                {
+                    if (__exception != null || __0 == null || !ScCommunity.IsHost || !ScXnpc.IsBody(__0)) return;
+                    bool ranged = string.Equals(__1, "ranged", StringComparison.OrdinalIgnoreCase);
+                    NoteOrderKind(__0, ranged);
+                    Patches_Xnpc.Count(ranged ? "arms-toggle-ranged" : "arms-toggle-melee");
+                    ScLog.Verbose(ScCommunity.DisplayName(__0) + " (id " + __0.entityId + "): the weapon toggle - SC's order is now "
+                                  + (ranged ? "her gun" : "her melee weapon") + " (round nc1, D4)");
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("arms-vc-pref", e);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Round nc1 (the audit, item 6). Voice Control 3.4.06 final's quiet-kill order ("take them out quietly" on an enemy you
+        /// look at) swaps a torch in her hand for her melee weapon through MutateSwapWeapon, which ends in Patch_VoiceSwap - and
+        /// OnSwap took that draw for a melee order and kept her on her melee weapon for good. Inside the order no swap is an order
+        /// (vcOrderScope). Off without Voice Control (Prepare).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_VcStealthKill
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try { return VcStealthKillTarget() != null; }
+                catch (Exception e) { ScLog.Once("arms-vc-stealth-bind", e); return false; }
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return VcStealthKillTarget(); }
+
+            [HarmonyPrefix]
+            public static void Prefix() { vcOrderScope++; }
+
+            [HarmonyFinalizer]
+            public static void Finalizer() { vcOrderScope = Math.Max(0, vcOrderScope - 1); }
+        }
+
+        /// <summary>
+        /// Round nc1 (the audit, item 5): 0-XNPCCore 3.4.06 final's quiet kill is running on her - its UAI task
+        /// (UAITaskStealthKillSdcs: a crouched stalk to the target and one strike with what she holds). Its own UAI action owns her
+        /// hand meanwhile. False on an 0-XNPCCore without it (logged once), or on any fault. Main thread (the X5 tick).
+        /// </summary>
+        private static bool StealthKillRuns(EntityAlive e)
+        {
+            if (stealthTypeMissing) return false;
+            try { return StealthTaskRunning(e); }
+            catch (Exception ex)
+            {
+                stealthTypeMissing = true;
+                ScLog.Warn("0-XNPCCore's quiet kill (UAI.UAITaskStealthKillSdcs) is not there (" + ex.GetType().Name + ") - SC's hand rule cannot tell when it runs (0-XNPCCore before 3.4.06 final?)");
+                return false;
+            }
+        }
+
+        private static bool stealthTypeMissing;
+
+        /// <summary>The type test in a method of its own (NoInlining): on an 0-XNPCCore without the type the JIT throws here, inside StealthKillRuns' try.</summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static bool StealthTaskRunning(EntityAlive e)
+        {
+            UAI.Context ctx = e != null ? e.utilityAIContext : null;
+            return ctx != null && ctx.ActionData.Action != null && ctx.ActionData.CurrentTask is UAI.UAITaskStealthKillSdcs;
         }
 
         // ------------------------------------------------------------------ diagnostics ----

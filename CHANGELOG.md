@@ -1,5 +1,42 @@
 # Next pre-release (not released yet)
 
+## 0-XNPCCore 3.4.06 (final) and 0-SCore 3.4.25.925
+
+- **Now needs 0-SCore 3.4.25.925 or newer**, with 0-XNPCCore 3.4.06 (final) and its Voice Control. 0-SCore 3.4.25 sees
+  enemies twice as far out as before for "is an enemy near?", so SC's own distances for it are halved: residents stop
+  roaming, chatting and gathering and go back to their posts for an enemy at the same distance as before. With an older
+  0-SCore they would carry on until an enemy was half as far away.
+- **No more doubled rounds after a save.** Since 0-XNPCCore 3.4.06 final, the rounds in a member's gun were kept twice
+  every time the game was saved or her area unloaded behind you: in the gun, and again in 0-XNPCCore's own record. Taking
+  her gun away then gave you the loaded gun plus the same rounds loose in her bag; she found extra rounds on a later
+  draw; with Locked & Loaded she gained a magazine; and she reloaded every time she drew her gun. SC alone keeps those
+  rounds again, and a save made since the update is cleaned up the first time it loads.
+- **Down stays down.** A downed member whose area unloads (you walked away) is still down when you come back, as
+  0-XNPCCore now keeps her. You no longer get a second "is down" message for the same fall, and her Bond no longer drops
+  twice for it.
+- **A dismembering killing hit kills outright.** A killing hit that dismembers a member (a headshot that takes her head
+  off) or blows her apart now kills her instead of knocking her down: that is 0-XNPCCore's rule now.
+- **The re-down warning.** Going down again within 10 minutes of a revive is a real death (0-XNPCCore's window, its
+  `RedownWindowSeconds`). The "back on their feet" message now says so, with the minutes left, and the community window
+  shows "Fragile N min" on the member's row until it runs out. `sc members` and `sc xnpc <id>` show it too.
+- **Cornered, she keeps fighting.** A member with no room to back off to heal used to bandage at once, with the zombie on
+  her, every time - one member did it 12 times in one fight, and each bandage stops her attacking for a few seconds. Now
+  she keeps fighting while her health is above 35% and bandages at once only below it. With room to back off nothing
+  changes: she backs off, then heals. `CorneredHealBelow` in `Config/blocks.xml` sets the 35%.
+- **The weapon toggle is an order.** 0-XNPCCore's new "Melee -> Ranged" / "Ranged -> Melee" toggle on the order wheel now
+  works like telling her "use your gun" or "use your melee weapon": she keeps that weapon until you order the other one
+  (or `sc team <id> auto`). Before, the toggle and SC's own weapon choice fought over her hand. A gun order still gives way
+  when the gun has no ammo, a badly hurt member still keeps her distance, and cornered while reloading she still swings
+  her melee weapon until she has room. Ordering her weapon by talking sets the toggle too.
+- **Residents fight what is in reach.** A resident at home sometimes walked off from the zombie in front of him toward
+  one 25 m away, outside the base. Residents now finish the fight at hand, and leave enemies farther out than the base
+  defense reaches (`DefendBaseRadius`, 22 m) alone unless those come at them. Guards on watch still shoot whatever comes.
+- **Quiet kills.** Telling a member to take an enemy out quietly while she holds a torch no longer keeps her on her melee
+  weapon for good afterwards, and SC no longer swaps her weapon in the middle of the stalk. A member sent home no longer
+  carries on stalking an enemy from before. The console shows the new hunting stance as "hunting".
+- After a load SC's restored gun is no longer swapped out again when her weapon preference is ranged.
+- A member's fight posture no longer flickers to "no fight" and back for a moment when her target is lost for a tick.
+
 ## Survivors
 
 - **Marksmen use their melee weapon up close.** A member whose best skill is Shooting used to keep her gun against

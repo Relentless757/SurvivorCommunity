@@ -67,6 +67,11 @@ namespace SurvivorCommunity
     ///                                                                  Loaded gives back when a gun is put away is marked, and
     ///                                                                  goes back in, seated, when the gun is drawn (ScMags; X16's
     ///                                                                  finalizer does it after an 0-XNPCCore equip)
+    ///   X26 AvatarSdcsNpcController.SdcsMagStageForWrite / SdcsMagHandOffForUnload
+    ///                                                       prefix   (3.4 build, round nc1, 0-XNPCCore 3.4.06 final) X13
+    ///                                                                  alone saves the held gun's rounds of SC's bodies:
+    ///                                                                  0-XNPCCore's new save-time and unload copies into its
+    ///                                                                  magazine table are skipped (one owner again)
     ///   (3.4 build) X7 also builds an adopted creator face and stands aside while the hand is holstered (D8)
     ///
     /// Every target is DECLARED on the type named (CLAUDE.md pattern #4: a base-class match would patch every player body),
@@ -99,6 +104,11 @@ namespace SurvivorCommunity
         private static int holsterYields;
         /// <summary>3.4 X1: X20 runs every frame for every body: the frames a member's base restock was skipped.</summary>
         private static int restockSkips;
+        /// <summary>
+        /// Round nc1 (X26): 0-XNPCCore's save-time stage of the held gun skipped on one of SC's bodies. Interlocked: an entity
+        /// write can run on the chunk-save thread (as X13's own counters, ScAmmo.gunsSaved).
+        /// </summary>
+        private static int magStageSkips;
 #endif
 
         public static void Reset()
@@ -115,6 +125,7 @@ namespace SurvivorCommunity
 #if SC_V34
             holsterYields = 0;
             restockSkips = 0;
+            System.Threading.Interlocked.Exchange(ref magStageSkips, 0);
 #endif
             Patch_ModelLayer.Reset();
         }
@@ -155,6 +166,7 @@ namespace SurvivorCommunity
 #if SC_V34
             parts.Add("x7-holster-yield-frames=" + holsterYields);
             parts.Add("x20-member-base-restock-skipped-frames=" + restockSkips);
+            parts.Add("x26-write-stage-skipped=" + System.Threading.Interlocked.CompareExchange(ref magStageSkips, 0, 0));
 #endif
             return string.Join(", ", parts.ToArray());
         }
@@ -753,10 +765,24 @@ namespace SurvivorCommunity
                 // one makes its world-entry step treat the torch as her weapon, stand aside, and then
                 // re-arm the hand SC had just rebuilt - which is exactly what X5 exists to prevent.
                 if (ScXnpc.IsLightTool(ic)) return;
+                // round nc1 (the audit, item 7): 0-XNPCCore 3.4.06 final's world-entry step reads SdcsLastRanged instead when her
+                // weapon preference is ranged (WeaponPreferenceRules.LastHeldCVarFor, 2 - the weapon toggle, or SC's gun order now
+                // that it writes the preference, ScArms.NoteOrderKind), and its own stamper writes that cvar for a ranged-tagged
+                // weapon only (SdcsStampLastHeld). A stale one there swapped X13's gun out just as a stale SdcsLastHeld did, so a
+                // ranged weapon in her hand is stamped there too, by the same test (the "ranged" tag)
+                if (ic.HasAnyTags(RangedTag) && (int)e.Buffs.GetCustomVar(LastRangedCvar) != ic.Id)
+                {
+                    e.Buffs.SetCustomVar(LastRangedCvar, ic.Id);
+                    Count("x5-lastranged-synced");
+                }
                 if ((int)e.Buffs.GetCustomVar("SdcsLastHeld") == ic.Id) return;
                 e.Buffs.SetCustomVar("SdcsLastHeld", ic.Id);
                 Count("x5-lastheld-synced");
             }
+
+            /// <summary>Round nc1: 0-XNPCCore's last ranged weapon (WeaponPreferenceRules.LastRangedCVar) and its ranged test's tag.</summary>
+            private const string LastRangedCvar = "SdcsLastRanged";
+            private static readonly FastTags<TagGroup.Global> RangedTag = FastTags<TagGroup.Global>.Parse("ranged");
 #endif
         }
 
@@ -1427,7 +1453,8 @@ namespace SurvivorCommunity
             public static bool Prepare()
             {
 #if SC_V34
-                return BoundLoud(WriteTarget, "EntityAliveSDXV4.Write(PooledBinaryWriter, StreamModeWrite)", "the gun in an NPC's hand loses its rounds and its magazine whenever it is saved and loaded");
+                // round nc1 (X26): noted, so 0-XNPCCore's own copies of the held gun stand aside only while X13 saves it
+                return saveHeldBound = BoundLoud(WriteTarget, "EntityAliveSDXV4.Write(PooledBinaryWriter, StreamModeWrite)", "the gun in an NPC's hand loses its rounds and its magazine whenever it is saved and loaded");
 #else
                 return BoundLoud(WriteTarget, "EntityAliveSDXV4.Write(BinaryWriter, bool)", "the gun in an NPC's hand loses its rounds and its magazine whenever it is saved and loaded");
 #endif
@@ -1462,7 +1489,8 @@ namespace SurvivorCommunity
             public static bool Prepare()
             {
 #if SC_V34
-                return BoundLoud(ReadTarget, "EntityAliveSDXV4.Read(byte, PooledBinaryReader, StreamModeRead)", "the gun in an NPC's hand loses its rounds and its magazine whenever it is saved and loaded");
+                // round nc1 (X26): noted with the save half's (HeldGunSaved)
+                return loadHeldBound = BoundLoud(ReadTarget, "EntityAliveSDXV4.Read(byte, PooledBinaryReader, StreamModeRead)", "the gun in an NPC's hand loses its rounds and its magazine whenever it is saved and loaded");
 #else
                 return BoundLoud(ReadTarget, "EntityAliveSDXV4.Read(byte, BinaryReader)", "the gun in an NPC's hand loses its rounds and its magazine whenever it is saved and loaded");
 #endif
@@ -1810,6 +1838,113 @@ namespace SurvivorCommunity
                 return true;
             }
         }
+
+#if SC_V34
+        // ------------------------------------------------------------------ X26: X13 alone saves the held gun (round nc1) ----
+
+        /// <summary>Round nc1 (X26): X13's two halves were bound (their Prepares), so X13 saves and restores the held gun of SC's bodies.</summary>
+        private static bool saveHeldBound, loadHeldBound;
+
+        /// <summary>X13 saves the gun in the hand of SC's bodies, its rounds and its seated magazine, and puts it back at the load.</summary>
+        internal static bool HeldGunSaved { get { return saveHeldBound && loadHeldBound; } }
+
+        /// <summary>X26: 0-XNPCCore 3.4.06 final's save-time stage of the held gun (AvatarSdcsNpcController, internal, no arguments).</summary>
+        public static MethodBase MagStageForWriteTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsMagStageForWrite", NoArgs);
+        }
+
+        /// <summary>X26: 0-XNPCCore 3.4.06 final's unload hand-off of the held gun (AvatarSdcsNpcController, internal, no arguments).</summary>
+        public static MethodBase MagHandOffTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsMagHandOffForUnload", NoArgs);
+        }
+
+        /// <summary>
+        /// X26 (round nc1; the audit's finding A, 2026-11-21: "the held gun's rounds have two owners again"). 0-XNPCCore 3.4.06 final
+        /// added two writers of its magazine table (SdcsMagRounds_&lt;type&gt;) for the gun in the hand, and both run for every SC body:
+        ///  - a prefix + finalizer on EntityAliveSDXV4.Write (SdcsMagWritePatch): SdcsMagStageForWrite puts the held gun's Meta into
+        ///    the table just for the write - so it is in the SAVED cvars - and the finalizer puts the live table back;
+        ///  - a prefix on World.unloadEntity (SdcsEntityRemovedPatch): SdcsMagHandOffForUnload writes the same entry at the unload
+        ///    and never removes it; the chunk save that follows writes it with the body.
+        /// X13 already saves that gun with its rounds (ScAmmo.WriteHeldGun) and puts it back in AfterPostInit (RestoreHeldGun), before
+        /// 0-XNPCCore's first Update, so its world-entry load (SdcsTryWorldEntryLoadHeldMag) finds a loaded gun and skips - and the
+        /// entry stays. After every save and load, or chunk unload and reload, the same rounds were in the gun AND in the table:
+        /// the member panel's take-away gave the gun with N rounds and ReleaseXnpcTable N loose rounds more; after a dry swap the
+        /// table's "keep" branch gave N phantom rounds on the next draw; with Locked &amp; Loaded the next 0-XNPCCore draw made an
+        /// extra magazine that ScMags.Record kept for good (X18's bug again); and while the entry existed X25 skipped its reseat
+        /// (ScMags.HasMagTable), so the gun reloaded on every draw (the Cara bug).
+        /// So for SC's bodies on the host, while X13 is bound (HeldGunSaved), both methods are skipped: X13 is the one owner of the
+        /// held gun's rounds across a save and an unload. The stage returns its default (Staged false), so 0-XNPCCore's finalizer
+        /// restores nothing. Every other NPC keeps 0-XNPCCore's behavior. The stage can run on the chunk-save thread (an entity
+        /// write): the test is ScXnpc.IsBody's reference and type checks and ScCommunity.IsHost (both thread-safe, see
+        /// ScAmmo.WriteHeldGun), the counter is Interlocked, and a fault lets 0-XNPCCore's own code run.
+        /// RestoreHeldGun drops an entry a save made since the update left (ClearStaleMagTable).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_XnpcMagHeldCopies
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                return Bound(MagStageForWriteTarget, "AvatarSdcsNpcController.SdcsMagStageForWrite")
+                       | Bound(MagHandOffTarget, "AvatarSdcsNpcController.SdcsMagHandOffForUnload");
+            }
+
+            [HarmonyTargetMethods]
+            public static IEnumerable<MethodBase> TargetMethods()
+            {
+                var list = new List<MethodBase>();
+                foreach (MethodBase m in new[] { MagStageForWriteTarget(), MagHandOffTarget() })
+                    if (m != null) list.Add(m);
+                return list;
+            }
+
+            /// <summary>__originalMethod tells the two apart; __args never (the stage returns a struct: skipped, its default stands).</summary>
+            [HarmonyPrefix]
+            public static bool Prefix(AvatarSDCSController __instance, MethodBase __originalMethod)
+            {
+                try
+                {
+                    EntityAlive e = (object)__instance != null ? __instance.entity : null;
+                    if ((object)e == null || !HeldGunSaved || !ScCommunity.IsHost || !ScXnpc.IsBody(e)) return true;
+                    if (__originalMethod != null && __originalMethod.Name == "SdcsMagStageForWrite")
+                        System.Threading.Interlocked.Increment(ref magStageSkips);   // possibly off the main thread: no Count
+                    else if (ThreadManager.IsMainThread()) Count("x26-unload-handoff-skipped");
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-mag-held-copies", ex);
+                    return true;                                           // a fault: 0-XNPCCore's own copy, as before
+                }
+            }
+        }
+
+        /// <summary>
+        /// Round nc1 (X26, ScAmmo.RestoreHeldGun): a save made with 0-XNPCCore 3.4.06 final before X26 carries its staged copy of the
+        /// held gun's rounds in the magazine table. When the entry for the restored gun's type holds exactly the gun's own rounds
+        /// it is that copy, and it goes (the rounds are in the gun - or, on the loose fallback, in her bag). A different count is
+        /// left alone (rounds 0-XNPCCore banked itself). Main thread. True when one was dropped.
+        /// </summary>
+        internal static bool ClearStaleMagTable(EntityAlive entity, int weaponType, int rounds)
+        {
+            if (entity == null || entity.Buffs == null || rounds <= 0) return false;
+            try
+            {
+                string rc = NPCSdcsCharacters.Pure.GivenWeaponRules.TableRoundsCVar(weaponType);
+                if (!entity.Buffs.HasCustomVar(rc) || UnityEngine.Mathf.RoundToInt(entity.Buffs.GetCustomVar(rc)) != rounds) return false;
+                ClearMagTable(entity, weaponType);
+                Count("x26-stale-table-cleared");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("xnpc-magtable-stale", ex);
+                return false;
+            }
+        }
+#endif
 
         // ------------------------------------------------------------------ X25: a gun put away keeps its magazine (round lr1) ----
 

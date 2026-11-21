@@ -1140,10 +1140,21 @@ namespace SurvivorCommunity
         /// XNPC's packages through npcSdcsBase (decision D1), so a copy would mean a second package list per body and an
         /// XML fork of XNPC's actions to keep up with each release; the postfix touches the one gate. Bound by name (no
         /// reference to Voice Control's DLL), off without it (Prepare), listed in ModApi's ExpectedTargets.
+        /// Round nc1 (the audit's finding C: Tom, 7242, fought weakly at home - SC's own bug, not the update): the refusal became a
+        /// flat 1, a perfect score, so a zombie 26 m out past DefendBaseRadius scored MeleeApproach 5.0 - and since a survivor
+        /// class sets no SdcsKeepTarget, MeleeAttack on the biker in reach could at best tie at 5.0, and vanilla's
+        /// UAIPackage.DecideAction keeps the first strictly higher score, so MeleeApproach (listed first) won every tie: he walked
+        /// off from the fight in front of him. Now a refusal becomes RefusalPass (0.9), below Voice Control's own pass for the
+        /// enemy she is fighting; and for a resident at home it stays 0 for an enemy beyond DefendBaseRadius - the radius test
+        /// H1's HoldEngaged gate uses (UAIConsiderationScIntruder.BeyondDefendRadius). As a follower Voice Control refuses the far
+        /// zombie itself, which is why followers never showed it.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_MayEngage
         {
+            /// <summary>Round nc1: what Voice Control's refusal becomes for SC's people who fight at will (was 1, 3.2's answer).</summary>
+            private const float RefusalPass = 0.9f;
+
             [HarmonyPrepare]
             public static bool Prepare()
             {
@@ -1176,7 +1187,13 @@ namespace SurvivorCommunity
                     }
                     if (__result > 0f) return;                   // Voice Control let it fight: its stick score stands
                     if (!EngagesAtWill(self)) return;
-                    __result = 1f;
+                    // round nc1 (finding C): a resident at home leaves an enemy beyond the defence's radius to Voice Control's refusal
+                    if (UAI.UAIConsiderationScIntruder.BeyondDefendRadius(self, target as EntityAlive))
+                    {
+                        Count("mayengage-beyond-radius");
+                        return;
+                    }
+                    __result = RefusalPass;
                     Count("mayengage-pass");
                 }
                 catch (Exception e)

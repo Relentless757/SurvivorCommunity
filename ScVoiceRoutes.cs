@@ -466,7 +466,7 @@ namespace SurvivorCommunity
                     // it; a recall that did not run (a full party, nothing to recall) leaves the label to Voice Control
                     silence = o.ComeHere;
                     return null;
-                case "SetEngage": return "ack.setengage." + Param(a);
+                case "SetEngage": return a == "4" ? null : "ack.setengage." + Param(a);   // round nc1: 4, hunting - see below
                 case "SetCrouch": return "ack.setcrouch." + Param(a);
                 case "Wander": return "ack.wander";
                 case "SetPatrolPoint": return "ack.setpatrolpoint";
@@ -483,6 +483,13 @@ namespace SurvivorCommunity
                 case "MedicOff": return "ack.medicoff";
                 case "RoleOn": return "ack.roleon." + Param(a);
                 case "RoleOff": return "ack.roleoff." + Param(a);
+                // round nc1 (Voice Control 3.4.06 final's new wheel orders): the weapon toggle's label ("Melee -> Ranged", "Ranged ->
+                // Melee") is a change of weapon - SC's recorded weapon-swap replies ("Switching." ...); its usual answer is a sentence
+                // ("Going ranged."), which SC's word matching decides like any other. The quiet kill and the hunting stance have no
+                // recording of SC's yet: Voice Control says its own line ("On it.", "Going quiet.", "Hunting"), as for any order SC
+                // has not recorded
+                case "SetWeaponPref": return "ack.swapweapon";
+                case "StealthKill": return null;
                 case "Emote": return EmoteFamily(a, out silence);
             }
             return null;

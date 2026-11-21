@@ -448,6 +448,11 @@ namespace SurvivorCommunity
             Add(t, "AvatarSdcsNpcController::SdcsEquipByName", Patches_Xnpc.EquipByNameTarget());
             // round lr1: X25 the magazine a gun is put away with goes back in, seated, when the gun is drawn
             Add(t, "Inventory::SetStackAt", Patches_Xnpc.SetStackAtTarget());
+            // round nc1 (0-XNPCCore 3.4.06 final): X26 X13 alone saves the held gun's rounds - 0-XNPCCore's save-time stage and
+            // unload hand-off of it are skipped on SC's bodies; and X18's own target, patched since its round but never listed
+            Add(t, "AvatarSdcsNpcController::SdcsMagStageForWrite", Patches_Xnpc.MagStageForWriteTarget());
+            Add(t, "AvatarSdcsNpcController::SdcsMagHandOffForUnload", Patches_Xnpc.MagHandOffTarget());
+            Add(t, "AvatarSdcsNpcController::SdcsMagSaveHeld", Patches_Xnpc.MagSaveHeldTarget());
             // 3.4 Stage 2: X17 creator faces only on fresh bodies, SC's way (D4); ScMedic and 0-XNPCCore's party medic (D2);
             // no sleeper touch in an enclave's POI (D4); SCore's companion-window Dismiss is a member's Go Home (D5)
             Add(t, "SdcsCustomLook::ApplyCharacter", Patches_Xnpc.ApplyCharacterTarget());
@@ -664,6 +669,10 @@ namespace SurvivorCommunity
                 if (ScEquipRedirect.AdminRemoveType != null) Add(t, "DialogActionAdminRemove::PerformAction", ScEquipRedirect.AdminRemoveTarget());
                 // round U1: Voice Control's own ammo pick on a member becomes her ammo choice in SC's record (ScAmmoChoice.Noted)
                 Add(t, "VCCommandRouter::MutateSetAmmo", ScEquipRedirect.SetAmmoTarget());
+                // round nc1 (ScArms, 0-XNPCCore 3.4.06 final): the weapon toggle is SC's weapon order (D4); a quiet kill's draw is
+                // no order (a Voice Control before 3.4.06 final has neither command: MISSING PATCH, as for any other)
+                Add(t, "VCCommandRouter::MutateSetWeaponPref", ScArms.VcWeaponPrefTarget());
+                Add(t, "VCCommandRouter::MutateStealthKill", ScArms.VcStealthKillTarget());
                 // round 28 (X3): B1 - Voice Control 3.4.04's hold-E ring never picks up SC's people (its pick-up answers Refused, the
                 // ring's entry and "Jobs and gear"'s page drop it); the spoken inventory phrase is told apart from the trade
                 if (Patches_VoiceControl.HasHoldERing)

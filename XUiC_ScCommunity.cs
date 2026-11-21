@@ -1666,6 +1666,11 @@ namespace SurvivorCommunity
             string held = ScOrders.StateWord(m);
             if (held.Length > 0) s += " (" + held + ")";
             if (m.Injured) s += " + " + Localization.Get("scStInjured");
+#if SC_V34
+            // round nc1 (D3): after a revive, 0-XNPCCore's re-down window - going down again while it runs is a real death
+            string fragile = ScDowned.FragileText(m, brief);
+            if (fragile != null) s += " + " + fragile;
+#endif
             return s;
         }
 

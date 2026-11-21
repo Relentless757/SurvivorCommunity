@@ -1048,12 +1048,33 @@ namespace SurvivorCommunity
 #endif
                 gunsRestored++;
                 ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") holds its saved " + saved.ItemClass.GetItemName() + " again, " + saved.Meta + " round(s) in it");
+#if SC_V34
+                DropStagedCopy(e, saved);
+#endif
                 return;
             }
+#if SC_V34
+            DropStagedCopy(e, saved);            // the loose fallback: those rounds go to her bag (now, or after the runner's restore)
+#endif
             if (runnerRestore) { deferredLoose[e.entityId] = saved; return; }
             int n = ReturnLoose(e, saved, "loaded from the save", true);
             gunsLoose += n;
         }
+
+#if SC_V34
+        /// <summary>
+        /// Round nc1 (X26): a save made with 0-XNPCCore 3.4.06 final before SC's X26 also holds 0-XNPCCore's staged copy of this gun's
+        /// rounds in its magazine table (SdcsMagStageForWrite / SdcsMagHandOffForUnload). The rounds are X13's - in the gun again, or
+        /// loose in her bag - so an entry for the gun's type holding exactly its rounds is that copy and goes; any other count is
+        /// rounds 0-XNPCCore banked itself and stays (Patches_Xnpc.ClearStaleMagTable).
+        /// </summary>
+        private static void DropStagedCopy(EntityAlive e, ItemValue saved)
+        {
+            if (saved == null || saved.ItemClass == null || !Patches_Xnpc.ClearStaleMagTable(e, saved.type, saved.Meta)) return;
+            ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + "): 0-XNPCCore's saved copy of the " + saved.ItemClass.GetItemName() + "'s "
+                          + saved.Meta + " round(s) dropped - X13 already brought them back (round nc1)");
+        }
+#endif
 
         /// <summary>
         /// ScLoadout.AfterRunnerRestore (the re-check's R1): the saved gun's loose fallback RestoreHeldGun held back for a

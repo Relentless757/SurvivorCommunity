@@ -25,7 +25,8 @@ namespace SurvivorCommunity
     ///            swing check), and not overwhelmed (one attacker more in a matched fight). Her melee weapon; no back-off; the
     ///            approach. A gun holder stays KITE until her target is within PostureMeleeDist (4 m), then takes her melee
     ///            weapon once; so does a member whose best skill is Shooting (round fd2: she kept a loaded gun before), and she
-    ///            also for a lone enemy the count calls outmatched. A player's melee order is MELEE.
+    ///            also for a lone enemy the count calls outmatched. A player's melee order is MELEE (round nc1: 0-XNPCCore's
+    ///            weapon toggle is such an order too, ScArms.OrderedMelee / OrderedRanged).
     ///   KITE     any other fight with a gun that has rounds: outmatched, overwhelmed, hurt, a target she cannot swing at, a gun
     ///            order, hurt with nothing to heal with (ScRetreat's Kite mode: then the WIDE band - SCResident's ScKiteWide backs
     ///            her off from what comes within StandOffMin; round k5, was rt1's stand-off). Her gun, 0-XNPCCore's 3 m swap held
@@ -56,6 +57,13 @@ namespace SurvivorCommunity
         /// <summary>A refusal record is forgotten this long after its memory ran out (its doubling count with it).</summary>
         private const float RefusedForget = 600f;
         private const int OrderStay = 2;
+        /// <summary>
+        /// Round nc1 (the audit, item 11): ScTeam.Target answers null for a moment in a fight (SCore's 1 s attack-target lease, a
+        /// sight ray that misses for a tick) - a fight posture is held this long on its last target while that target lives.
+        /// </summary>
+        private const float TargetLapseSeconds = 1f;
+        /// <summary>Want's why for "no fight" (the only None the lapse hold may bridge).</summary>
+        private const string NoFightWhy = "no fight";
 
         private sealed class Refusal
         {
@@ -82,6 +90,9 @@ namespace SurvivorCommunity
             public float Since, At, LastTick, StanceSince;
             public int TargetId = -1;
             public float TargetDist = -1f;
+            /// <summary>Round nc1 (item 11): when Want last had a target (the lapse hold's clock); LapseHeld: counted once per lapse.</summary>
+            public float TargetSeenAt;
+            public bool LapseHeld;
             /// <summary>A switch the dwell holds (Pending), why, and since when.</summary>
             public Posture Pending;
             public bool PendingKiting, Waiting;
@@ -119,13 +130,15 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, State> states = new Dictionary<int, State>();
         private static readonly int[] entered = new int[6];
         private static int swaps, urgentSwaps, flips, held, refusals;
+        /// <summary>Round nc1 (item 11): lapses of ScTeam.Target the posture was held through.</summary>
+        private static int lapses;
         private static float nextPrune;
 
         public static void Reset()
         {
             states.Clear();
             Array.Clear(entered, 0, entered.Length);
-            swaps = urgentSwaps = flips = held = refusals = 0;
+            swaps = urgentSwaps = flips = held = refusals = lapses = 0;
             nextPrune = 0f;
         }
 
@@ -178,6 +191,20 @@ namespace SurvivorCommunity
                 bool kiting, soft, native, urgent, urgentGun;
                 EntityAlive t;
                 Posture want = Want(e, m, st, out why, out kiting, out soft, out native, out urgent, out urgentGun, out t);
+                // round nc1 (the audit, item 11: the posture flickered to none and back in a fight): a fight posture whose target
+                // vanished from ScTeam.Target for a moment is held TargetLapseSeconds on its last target while that one lives - the
+                // posture, its stance and its target stay as they are (and fresh); only then does "no fight" take over
+                if (t != null) { st.TargetSeenAt = now; st.LapseHeld = false; }
+                else if (want == Posture.None && why == NoFightWhy && IsFight(st.P) && st.TargetSeenAt > 0f && now - st.TargetSeenAt < TargetLapseSeconds)
+                {
+                    EntityAlive last = Entity(e, st.TargetId);
+                    if (last != null && !last.IsDead())
+                    {
+                        if (!st.LapseHeld) { st.LapseHeld = true; lapses++; Patches_Xnpc.Count("posture-lapse-held"); }
+                        st.At = now;
+                        return;
+                    }
+                }
                 bool stanceFlip = IsFight(st.P) && IsFight(want) && GunStance(st.P, st.Kiting) != GunStance(want, kiting);
                 if (want == st.P && !stanceFlip)
                 {
@@ -238,7 +265,7 @@ namespace SurvivorCommunity
             t = ScTeam.Target(e);
             bool investigating = false;
             if (inv != null && (t == null || t == inv)) { t = inv; investigating = true; }
-            if (t == null) { why = "no fight"; return Posture.None; }
+            if (t == null) { why = NoFightWhy; return Posture.None; }
             ItemClass gun = ScAmmo.PairGun(e);
             bool gunRounds = gun != null && ScAmmo.Rounds(e, gun) > 0;
             bool holdsGun = ScArms.HoldsRanged(e);
@@ -701,7 +728,8 @@ namespace SurvivorCommunity
             foreach (var kv in states) if (kv.Value.At > 0f && now - kv.Value.At <= FreshSeconds) n[(int)kv.Value.P]++;
             return "now " + n[1] + " MELEE, " + n[2] + " KITE, " + n[3] + " HOLD, " + n[4] + " SHELTER, " + n[5] + " INVESTIGATE, " + n[0] + " none; this session "
                    + swaps + " swap(s) by SC (" + urgentSwaps + " at once: a target that needs the gun), " + held + " held by the hand clock, " + flips
-                   + " MELEE/KITE switch(es), " + refusals + " refused swing(s) (0-XNPCCore's bout exits and swap refusals) - counters posture-* in the hook list";
+                   + " MELEE/KITE switch(es), " + refusals + " refused swing(s) (0-XNPCCore's bout exits and swap refusals), " + lapses
+                   + " target lapse(s) held (round nc1) - counters posture-* in the hook list";
         }
     }
 }

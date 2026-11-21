@@ -827,6 +827,35 @@ namespace UAI
             return !HuntsSomeone(t);
         }
 
+        /// <summary>
+        /// The radius test of the residents' rule (Why, and so H1's HoldWhy): null when t is within DefendBaseRadius - with zone
+        /// roaming of the resident herself (she lives all over the zone), otherwise of her post - else why not.
+        /// </summary>
+        private static string RadiusWhy(EntityAlive self, Member m, EntityAlive t, int radius)
+        {
+            // zone roaming: from where the resident is (it lives all over the zone); otherwise from its post
+            if (Roams(m)) return (t.position - self.position).sqrMagnitude > (float)radius * radius ? "beyond DefendBaseRadius of the resident" : null;
+            return (t.position - ScCommunity.PostCenter(m)).sqrMagnitude > (float)radius * radius ? "beyond DefendBaseRadius of the post" : null;
+        }
+
+        /// <summary>
+        /// Round nc1 (the audit's finding C, Tom 7242 fighting weakly at home): for SurvivorCommunity.Patches_VoiceControl's
+        /// MayEngage postfix - is t out of this resident's reach by the defence's own radius (H1's test: RadiusWhy; during a live
+        /// home attack the defended area, the zone + BaseAttackDefendMargin), so Voice Control's refusal of it stands? Only a
+        /// resident at home with a post (H1's HomeBody test), never a guard on watch (he shoots from his post at whatever comes)
+        /// nor a resident ScInvestigate sent to it (her own area); with DefendBaseRadius 0 nothing is out of reach. A read.
+        /// </summary>
+        public static bool BeyondDefendRadius(EntityAlive self, EntityAlive t)
+        {
+            int radius = ScConfig.DefendBaseRadius;
+            if (radius <= 0 || self == null || t == null) return false;
+            Member m = ScRegistry.GetMember(self.entityId);
+            if (m == null || m.Status != MemberStatus.Resident || m.Post == Vector3i.zero || ScWatch.OnWatch(m)) return false;
+            if (ScBaseAttack.WideDefence) return !ScBaseAttack.InDefenceArea(t.position);
+            if (ScInvestigate.Responds(self, t)) return false;
+            return RadiusWhy(self, m, t, radius) != null;
+        }
+
         /// <summary>Null for an intruder, else why not (constant strings: no allocation on the AI's path; sc xnpc shows it).</summary>
         public static string Why(EntityAlive self, EntityAlive t)
         {
@@ -921,12 +950,8 @@ namespace UAI
             }
             else if (!responder)
             {
-                // zone roaming: from where the resident is (it lives all over the zone); otherwise from its post
-                if (Roams(m))
-                {
-                    if ((t.position - self.position).sqrMagnitude > (float)radius * radius) return "beyond DefendBaseRadius of the resident";
-                }
-                else if ((t.position - ScCommunity.PostCenter(m)).sqrMagnitude > (float)radius * radius) return "beyond DefendBaseRadius of the post";
+                string far = RadiusWhy(self, m, t, radius);      // round nc1: shared with the MayEngage postfix (BeyondDefendRadius)
+                if (far != null) return far;
                 if (!ScZone.Contains(t.GetBlockPosition())) return "outside the home zone";
 #if SC_V34
                 // round n08 (the user's rule, 2026-11-14): outside a home attack a resident goes only after an enemy that is

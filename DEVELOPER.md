@@ -1758,6 +1758,66 @@ vanilla's.
   weapon offsets already handle), no dismemberment, other players in multiplayer would see them undressed
   (host/single player only, like the rest of this mod).
 
+## 0-XNPCCore 3.4.06 final and 0-SCore 3.4.25.925 (round nc1, 2026-11-21)
+
+The audit of the update and the user's decisions D1-D6 are in the round's report; what SC does about them:
+
+- **One owner for the held gun's rounds (X26, `Patches_Xnpc.Patch_XnpcMagHeldCopies`).** 0-XNPCCore now copies the held
+  gun's Meta into its magazine table (`SdcsMagRounds_<type>`) twice: `SdcsMagStageForWrite` for the length of every
+  `EntityAliveSDXV4.Write` (so it lands in the saved cvars) and `SdcsMagHandOffForUnload` at `World.unloadEntity`. X13
+  already saves and restores that gun, before 0-XNPCCore's first Update, so its world-entry load skipped and the entry
+  stayed: the same rounds twice (ReleaseXnpcTable's loose rounds, the "keep table" phantom draw, an L&L magazine
+  `ScMags.Record` kept, X25's reseat held off by `HasMagTable`). Both methods are skipped for SC's bodies on the host while
+  X13's two halves are bound (`HeldGunSaved`, set by their Prepares); the stage then returns its default (`Staged` false)
+  and 0-XNPCCore's finalizer restores nothing. The stage can run on the chunk-save thread: reference/type tests,
+  `IsHost`, an Interlocked counter (`x26-write-stage-skipped` in `sc xnpc`). `ScAmmo.RestoreHeldGun` drops an entry for
+  the restored gun's type that holds exactly its Meta (`Patches_Xnpc.ClearStaleMagTable`, `x26-stale-table-cleared`):
+  saves made since the update. X18's `SdcsMagSaveHeld` is listed in `ExpectedTargets` now as well.
+- **A down survives an unload (`ScDowned.Tick`).** 0-XNPCCore keeps a downed body down across a chunk reload in the same
+  session (`DownedRules.KeepDownOnBoot`, its re-knock). SC keeps the `Down` record and the Bond episode: at the unload the
+  medic is let go and `Body` set to null (out of the medic pick); when the body loads again still down, the record
+  rebinds to it (`rebound` in `sc downed`) - no new record, so no second "is down" tell and no second `ScBond.NoteDowned`.
+  A body that loads standing (a new session's boot clear) is handled as before.
+- **Dismembering kills (D1, no code).** 0-XNPCCore's `ShouldCatchKill` refuses a dismembering or disintegrating hit; SC's
+  U2 transpiler swaps only `HasPlayerLeader`, so this applies to every SC person who can go down.
+- **The re-down warning (D3, `ScDowned`).** 0-XNPCCore sets `SdcsDownedRedown` to its `RedownWindowSeconds` at a revive and
+  counts it down while she is up; `FragileSeconds` reads it. `Up` tells `scDownedRevived(By)Fragile` with the minutes left
+  (the plain keys when the window is 0), `FragileText` goes on the community window's status (row and detail,
+  `XUiC_ScCommunity.StatusText`), and `ConsoleState` on `ScOrders.Describe` (`sc members`, `sc xnpc <id>`: DOWN or
+  FRAGILE). SC has no look-at text for members, so nothing else changes.
+- **Cornered healing (D2, `ScHealBackOff`, `CorneredHealBelow` 0.35).** With no room to back off and her health above the
+  line, `StartWalk` marks the wait "fights on" (`FightOnWait`, no heal-now; `heal-cornered-fights-on`), `Wanted` stays
+  false for `CorneredRecheckSeconds` (4 s) or until her health reaches the line, F4's gain clock restarts, and
+  `ScMedic.HeldByReach`'s MedicMaxWait timeout waits (`CorneredFightsOn`). At or below the line: heal-now-cornered, as
+  before. A walk that finds room clears it. Not cornered (room, the enemy keeping up, shelter, watch, Stay): unchanged.
+- **The weapon toggle is SC's order (D4, `ScArms`).** Voice Control's `SetWeaponPref` writes `SdcsWeaponPref` (1 melee, 2
+  ranged). `Patch_VcWeaponPref` (prefix + finalizer on `VCCommandRouter.MutateSetWeaponPref`) makes it SC's order from its
+  argument (`NoteOrderKind`), and the swap inside it is no order of its own (`vcOrderScope`, `OnSwap`). `NoteOrderKind`
+  writes the preference for SC's own orders (`SetPref`), `ScTeam.ClearOrders` clears it, `SyncOrderPref` (AfterPostInit)
+  gives an older SC order its preference, and `OrderedMelee` / `OrderedRanged` read the preference when neither SC cvar is
+  set. With the ranged preference 0-XNPCCore vetoes its own 3 m swap (`WeaponPreferenceRules.CloseMeleeVeto`), so R2's
+  melee in `KiteHand` is SC's swap then (`TakeMelee` + `JoinBout`, `x5-cornered-pref-swap`).
+- **Quiet kills.** `ScArms.Hand` swaps nothing while `UAITaskStealthKillSdcs` is the running task (`StealthKillRuns`, the
+  type test in a NoInlining method; `x5-stealth-no-swap`). `Patch_VcStealthKill` (on `MutateStealthKill`) keeps its torch
+  swap from becoming a melee order. `SdcsStealthTargetId` / `SdcsStealthOrderAt` are in `ScOrders.VoiceMovementCvars`
+  (cleared at stationing). `ScOrders.Describe` names engage stance 3 "hunting" (Voice Control's SetEngage 4); the wheel's
+  hunting and quiet kill are Voice Control's to answer, the toggle's label is `ack.swapweapon` (`ScVoiceRoutes.FamilyFor`).
+- **SdcsLastRanged (X5's `SyncLastHeld`).** With the ranged preference 0-XNPCCore's world-entry step reads
+  `SdcsLastRanged`; a ranged-tagged weapon in her hand is stamped there too.
+- **Residents fight what is in reach (finding C, `Patches_VoiceControl.Patch_MayEngage`).** Voice Control's refusal becomes
+  `RefusalPass` (0.9, was 1) for `EngagesAtWill` bodies, so MeleeAttack on the enemy in reach beats MeleeApproach toward
+  a refused far one (vanilla's `UAIPackage.DecideAction` keeps the first strictly higher score, and MeleeApproach is
+  listed first). For a resident at home (not on watch, not ScInvestigate's responder) it stays 0 beyond
+  `DefendBaseRadius` - `UAIConsiderationScIntruder.BeyondDefendRadius`, the radius test H1's `HoldWhy` uses (`RadiusWhy`;
+  during a home attack, the defended area).
+- **The posture holds through a target lapse (item 11, `ScPosture.Update`).** A fight posture whose `ScTeam.Target` is
+  null for under `TargetLapseSeconds` (1 s) while its last target lives stays as it is (`posture-lapse-held`).
+- **EnemyNotNear halved (D6).** 0-SCore 3.4.25's `IsEnemyNearby` builds its search box at twice the distance (it used the
+  distance as the box's full size before), so every `EnemyNotNear` in `Config/utilityai.xml` is halved (30 to 15, 20 to
+  10) and `ScSocial.EnemyInSight` asks 15 (`EnemyNearbyDistance`); SC's own `LiveFoe` ranges are unchanged.
+- New `ExpectedTargets`: `SdcsMagStageForWrite`, `SdcsMagHandOffForUnload`, `SdcsMagSaveHeld`, and (with Voice Control)
+  `VCCommandRouter::MutateSetWeaponPref` and `MutateStealthKill`.
+
 ## The NPC's line and voiced dialogue (the voice test, 2026-10-16)
 
 - **The line.** Vanilla 3.2's dialog window shows only your responses, and SCore shows an NPC's line as a subtitle only

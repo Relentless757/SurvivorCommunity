@@ -103,6 +103,8 @@ namespace SurvivorCommunity
         private static bool apiOk = true;
         private static int seenDowns, revived, revivedByMedic, bledOut, unloaded, medicsSent, medicsLetGo, treatments, noMedic,
                            stationsDeferred, shiftsHeld, verbsRefused, fights, busyRestored, zeroHealthFixed;
+        /// <summary>Round nc1 (finding B): downs that followed their body across an unload (kept down by 0-XNPCCore).</summary>
+        private static int rebound;
 
         public static void Reset()
         {
@@ -113,7 +115,7 @@ namespace SurvivorCommunity
             order.Clear();
             near.Clear();
             seenDowns = revived = revivedByMedic = bledOut = unloaded = medicsSent = medicsLetGo = treatments = noMedic = 0;
-            stationsDeferred = shiftsHeld = verbsRefused = fights = busyRestored = zeroHealthFixed = 0;
+            stationsDeferred = shiftsHeld = verbsRefused = fights = busyRestored = zeroHealthFixed = rebound = 0;
         }
 
         // ------------------------------------------------------------------ reads (any caller, pure) ----
@@ -382,25 +384,43 @@ namespace SurvivorCommunity
                     downs.TryGetValue(m.Id, out d);
                     if (e == null || e.IsDead())
                     {
-                        if (d != null && e == null)
+                        if (d != null && e == null && d.Body != null)
                         {
-                            // NPCCore clears the downed state when the body loads again (its boot clear): she stands at the floor health
+                            // round nc1 (the audit's finding B): 0-XNPCCore 3.4.06 final keeps a downed body down across an unload in
+                            // the same session (KeepDownOnBoot: her saved session is the world's, its re-knock when she loads again) -
+                            // it used to stand her up at its floor health. So the record and her Bond episode stay; only the body is
+                            // let go of (her medic too) until she loads again, and the load rebinds it below (no second "is down"
+                            // line, no second Bond -2). A fresh game load clears her down - and this per-world record - anyway
                             unloaded++;
                             LetGo(d, "her patient unloaded", false);
-                            scratch.Add(m.Id);
-                            ScBond.EndEpisode(m.Id);   // U2+U4: she loads again standing, with no revive
-                            ScLog.Out(m.Name + "'s body unloaded while down - 0-XNPCCore stands her up at its floor health when she loads again");
+                            d.Body = null;
+                            ScLog.Out(m.Name + "'s body unloaded while down - 0-XNPCCore keeps her down when she loads again this session "
+                                      + "(her down and Bond episode are kept; round nc1)");
                         }
                         continue;
                     }
                     if (d != null && !ReferenceEquals(d.Body, e))
                     {
-                        unloaded++;
-                        LetGo(d, "her patient's body was loaded again", false);
-                        downs.Remove(m.Id);
-                        ScBond.EndEpisode(m.Id);   // U2+U4: stood up by the load, no revive
-                        ScLog.Out(m.Name + "'s body was loaded again while down - 0-XNPCCore stood her up at its floor health (no revive message)");
-                        d = null;
+                        if (IsDown(e))
+                        {
+                            // round nc1 (finding B): loaded again still down - the same down, on its new body
+                            LetGo(d, "her patient's body was loaded again", false);
+                            d.Body = e;
+                            d.Rising = false;
+                            rebound++;
+                            ScLog.Out(m.Name + "'s body was loaded again while down - 0-XNPCCore kept her down: the same down, "
+                                      + Secs(Api.BleedLeftSafe(e)) + " to revive her (round nc1)");
+                        }
+                        else
+                        {
+                            // stood up by the load (0-XNPCCore's boot clear: not the session she went down in)
+                            unloaded++;
+                            LetGo(d, "her patient's body was loaded again", false);
+                            downs.Remove(m.Id);
+                            ScBond.EndEpisode(m.Id);   // U2+U4: stood up by the load, no revive
+                            ScLog.Out(m.Name + "'s body was loaded again while down - 0-XNPCCore stood her up at its floor health (no revive message)");
+                            d = null;
+                        }
                     }
                     if (IsDown(e))
                     {
@@ -479,8 +499,17 @@ namespace SurvivorCommunity
             m.AwaySeconds = 0;
             revived++;
             if (by != null) revivedByMedic++;
-            ScLog.Out(m.Name + " is back up after " + Secs(Time.time - d.Since) + " down" + (by != null ? " - revived by " + by : " (you, a follower's medic, or 0-XNPCCore)"));
-            if (by != null) Tell("scDownedRevivedBy", m.Name, by);
+            // round nc1 (the user's decision D3: keep 0-XNPCCore's re-down window, but warn): a revive starts it - going down again
+            // while it runs is a real death (DownedRules.EnterVerdict) - so the message says so, with what is left of it
+            float fragile = FragileSeconds(d.Body);
+            ScLog.Out(m.Name + " is back up after " + Secs(Time.time - d.Since) + " down" + (by != null ? " - revived by " + by : " (you, a follower's medic, or 0-XNPCCore)")
+                      + (fragile > 0f ? "; a second down in the next " + Secs(fragile) + " is a real death (0-XNPCCore's re-down window)" : ""));
+            if (fragile > 0f)
+            {
+                if (by != null) Tell("scDownedRevivedByFragile", m.Name, by, Minutes(fragile));
+                else Tell("scDownedRevivedFragile", m.Name, Minutes(fragile));
+            }
+            else if (by != null) Tell("scDownedRevivedBy", m.Name, by);
             else Tell("scDownedRevived", m.Name);
             // the U2+U4 integration fix: Bond's "revive" (any reviver counts), unless 0-XNPCCore's Revived hook gave it - its
             // "ragdoll ended while downed" revive and a down with no Voice Control never call it. Then the down is over
@@ -735,6 +764,47 @@ namespace SurvivorCommunity
             return t;
         }
 
+        // ------------------------------------------------------------------ the re-down window (round nc1, D3) ----
+
+        /// <summary>0-XNPCCore's re-down clock (SdcsDowned.SdcsDownedRedownCVar): set to its RedownWindowSeconds at a revive, counted down at 1 Hz.</summary>
+        private const string RedownCvar = "SdcsDownedRedown";
+
+        /// <summary>
+        /// Round nc1 (D3): what is left of her re-down window - 0-XNPCCore sets the clock to its own RedownWindowSeconds setting (600
+        /// by default) when she is revived and counts it down while she is up; going down again before it runs out is a real death.
+        /// 0 for none, or while she is down. A read.
+        /// </summary>
+        public static float FragileSeconds(EntityAlive e)
+        {
+            if (e == null || e.Buffs == null || e.IsDead() || IsDown(e)) return 0f;
+            float s = e.GetCVar(RedownCvar);
+            return s > 0f ? s : 0f;
+        }
+
+        /// <summary>Whole minutes, rounded up (a window under a minute reads 1).</summary>
+        private static int Minutes(float seconds) { return Mathf.Max(1, Mathf.CeilToInt(seconds / 60f)); }
+
+        /// <summary>
+        /// Round nc1 (D3): the community window's status after her revive, while the re-down window runs (XUiC_ScCommunity.StatusText
+        /// appends it): "Fragile 9 min" on the row, a sentence in the detail panel. Null when it does not run or she is not loaded.
+        /// </summary>
+        public static string FragileText(Member m, bool brief)
+        {
+            if (m == null) return null;
+            float s = FragileSeconds(ScCommunity.FindNpc(m.Id));
+            if (s <= 0f) return null;
+            return string.Format(Localization.Get(brief ? "scStFragile" : "scStFragileLong"), Minutes(s));
+        }
+
+        /// <summary>Round nc1 (D3): her downed state for the consoles (ScOrders.Describe: sc members, sc xnpc), "" when neither.</summary>
+        public static string ConsoleState(EntityAlive e)
+        {
+            if (e == null || e.Buffs == null || e.IsDead()) return "";
+            if (IsDown(e)) return " DOWN (" + Secs(Api.BleedLeftSafe(e)) + " to revive)";
+            float s = FragileSeconds(e);
+            return s > 0f ? " FRAGILE " + Secs(s) + " (a second down is a real death)" : "";
+        }
+
         // ------------------------------------------------------------------ console ----
 
         /// <summary>sc downed [id|name] | sc down &lt;id|name&gt; | sc revive &lt;id|name&gt;</summary>
@@ -768,7 +838,7 @@ namespace SurvivorCommunity
             output("[SC] 0-XNPCCore: revive items " + Api.ReviveItemsText() + "; the 1 Hz tick counts the bleed only while a leader is present - SC's swap adds the "
                    + "community's own people while you are alive");
             output("[SC] counters: downs " + seenDowns + ", back up " + revived + " (by a resident medic " + revivedByMedic + "), bled out " + bledOut
-                   + ", unloaded while down " + unloaded + "; medics sent " + medicsSent + ", let go " + medicsLetGo + ", treatments " + treatments
+                   + ", unloaded while down " + unloaded + " (kept down on the reload " + rebound + ")" + "; medics sent " + medicsSent + ", let go " + medicsLetGo + ", treatments " + treatments
                    + ", fights on the way " + fights + ", nobody to send " + noMedic + "; held: stationings " + stationsDeferred + ", shift/talk ticks " + shiftsHeld
                    + ", verbs refused " + verbsRefused + ", busy flag put back " + busyRestored + ", 0 health raised " + zeroHealthFixed + "; swaps: home eligible " + Patches_Downed.EligibleHome + ", home bleed ticks " + Patches_Downed.BleedHome
                    + ", tells (down " + Patches_Downed.TellsDown + ", warnings to you " + Patches_Downed.TellsHome + ")");

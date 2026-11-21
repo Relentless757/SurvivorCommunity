@@ -23,6 +23,11 @@
 	  left is Guard / ScAtPost (walk to the post, stand facing the post's way), the leash (measured from the Watch post,
 	  never widened by a live attack) and the pack's attacks, which shoot or swing at whatever comes into range. These
 	  gates and the DLL ship together: the consideration class lives in the DLL.
+
+	  Round nc1 (0-SCore 3.4.25.925): SCore's EnemyNotNear (SCoreUtils.IsEnemyNearby) used to search a box only HALF its
+	  distance across each way (Bounds takes the full size), so "30" looked about 15 m out; since 3.4.25 the box reaches the
+	  full distance. Every EnemyNotNear of SC's below is halved (30 to 15, 20 to 10), so these gates fire at the same
+	  distances as before; with an older SCore they would fire at half of them.
 	-->
 	<append xpath="/utility_ai/ai_packages">
 		<ai_package name="SCResident">
@@ -37,7 +42,7 @@
 				<consideration class="ScIsResident, SurvivorCommunity" />
 				<consideration class="ScNotOnWatch, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Guard" />
-				<consideration class="EnemyNotNear, SCore" distance="30" />
+				<consideration class="EnemyNotNear, SCore" distance="15" />
 				<consideration class="ScIsDaytime, SurvivorCommunity" />
 				<consideration class="ScRoamReady, SurvivorCommunity" />
 			</action>
@@ -162,7 +167,7 @@
 				<consideration class="ScIsMember, SurvivorCommunity" />
 				<consideration class="ScNoDynamicFollow, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Follow" />
-				<consideration class="EnemyNotNear, SCore" distance="20" />
+				<consideration class="EnemyNotNear, SCore" distance="10" />
 				<consideration class="TargetDistance" flip_x="true" min="0" max="3" curve="threshold" />
 			</action>
 			<!-- At the post (M11 fix 2): within 0.8 m of it horizontally and 1.2 m of its floor the resident stands and faces
@@ -183,7 +188,7 @@
 				<consideration class="ScIsResident, SurvivorCommunity" />
 				<consideration class="ScNotOnWatch, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Guard" />
-				<consideration class="EnemyNotNear, SCore" distance="30" />
+				<consideration class="EnemyNotNear, SCore" distance="15" />
 				<consideration class="ScIsNight, SurvivorCommunity" />
 				<consideration class="ScNearPost, SurvivorCommunity" distance="4" />
 			</action>
@@ -324,7 +329,7 @@
 				<task class="WanderHomeSC, SurvivorCommunity" radius="12" cooldown="45" />
 				<consideration class="ScEncHome, SurvivorCommunity" role="member" />
 				<consideration class="HasOrder, SCore" order="Guard" />
-				<consideration class="EnemyNotNear, SCore" distance="30" />
+				<consideration class="EnemyNotNear, SCore" distance="15" />
 				<consideration class="ScIsDaytime, SurvivorCommunity" />
 				<consideration class="ScRoamReady, SurvivorCommunity" />
 			</action>
@@ -368,7 +373,7 @@
 				<task class="IdleSDX, SCore" />
 				<consideration class="ScEncHome, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Guard" />
-				<consideration class="EnemyNotNear, SCore" distance="30" />
+				<consideration class="EnemyNotNear, SCore" distance="15" />
 				<consideration class="ScIsNight, SurvivorCommunity" />
 				<consideration class="ScNearPost, SurvivorCommunity" distance="4" />
 			</action>
@@ -426,7 +431,8 @@
 	  - ScGather 3.7: walk to a place around a campfire and stand there facing it for 30 to 60 seconds, once an evening and
 	    once a round of drinks: above the post, the roam and the quiet night, below ScChat, RoutineWalk and the fights. An
 	    enclave's leader stays at their spot (role member).
-	  EnemyNotNear 30 as on the roam (the ticker asks SCore the same question before it starts either one). NoActiveChat
+	  EnemyNotNear 15 as on the roam (30 before round nc1: see the top; the ticker asks SCore the same question before it
+	  starts either one, ScSocial.EnemyInSight). NoActiveChat
 	  (Voice Control: a talk or a chat with you) where 0-XNPCCore is present, as on the post, the roam and the quiet night.
 	-->
 	<append xpath="/utility_ai/ai_packages/ai_package[@name='SCResident']">
@@ -434,13 +440,13 @@
 			<task class="ChatHoldSC, SurvivorCommunity" />
 			<consideration class="ScIsResident, SurvivorCommunity" />
 			<consideration class="ScSmallTalkHeld, SurvivorCommunity" />
-			<consideration class="EnemyNotNear, SCore" distance="30" />
+			<consideration class="EnemyNotNear, SCore" distance="15" />
 		</action>
 		<action name="ScGather" weight="3.7" entity_filter="IsSelf">
 			<task class="GatherSC, SurvivorCommunity" />
 			<consideration class="ScIsResident, SurvivorCommunity" />
 			<consideration class="ScGathering, SurvivorCommunity" />
-			<consideration class="EnemyNotNear, SCore" distance="30" />
+			<consideration class="EnemyNotNear, SCore" distance="15" />
 		</action>
 	</append>
 	<append xpath="/utility_ai/ai_packages/ai_package[@name='SCEnclave']">
@@ -448,13 +454,13 @@
 			<task class="ChatHoldSC, SurvivorCommunity" />
 			<consideration class="ScEncHome, SurvivorCommunity" />
 			<consideration class="ScSmallTalkHeld, SurvivorCommunity" />
-			<consideration class="EnemyNotNear, SCore" distance="30" />
+			<consideration class="EnemyNotNear, SCore" distance="15" />
 		</action>
 		<action name="ScEncGather" weight="3.7" entity_filter="IsSelf">
 			<task class="GatherSC, SurvivorCommunity" />
 			<consideration class="ScEncHome, SurvivorCommunity" role="member" />
 			<consideration class="ScGathering, SurvivorCommunity" />
-			<consideration class="EnemyNotNear, SCore" distance="30" />
+			<consideration class="EnemyNotNear, SCore" distance="15" />
 		</action>
 	</append>
 	<conditional>

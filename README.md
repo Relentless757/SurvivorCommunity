@@ -46,8 +46,8 @@ This is a test build. Expect bugs, and please play it on a new save made for tes
 ### Requirements
 
 - 7 Days to Die **3.4** (this build is for 3.4 only).
-- **0-SCore** 3.4.14 or newer.
-- **0-XNPCCore** 3.4.05 with its **Voice Control** 3.4.05 (the Voice Control DLL is included in the 0-XNPCCore folder).
+- **0-SCore** 3.4.25.925 or newer (an older one makes residents notice enemies only half as far away).
+- **0-XNPCCore** 3.4.06 (final) with its **Voice Control** (the Voice Control DLL is included in the 0-XNPCCore folder).
 - **Easy Anti-Cheat off** (SC is a Harmony mod).
 - **Single player** only for now.
 
@@ -457,11 +457,14 @@ The **Campfire** also hosts **Enact rationing**:
 ### Staying home, roaming and defending
 
 - Members at home are **residents**. By day they walk about the whole base, stopping 10 to 20 seconds at each spot. At
-  night, or with an enemy within 30 m, they go back to their post; at bedtime, if the base has beds, those off duty go to
-  bed instead (below).
+  night, or with an enemy they can see within about 15 m, they go back to their post; at bedtime, if the base has beds,
+  those off duty go to bed instead (below).
 - Residents **defend the base:** they go after any awake enemy inside the home zone within **22 m** of their post (or of
   themselves while roaming) that is after a member or you, even one they cannot see from there, fight it and walk back.
   Sleepers in a base built in a POI are left asleep, and Cowardly members stay put.
+- **They fight what is in reach.** A resident in a fight finishes the zombie in front of her instead of walking off
+  toward one farther out, and leaves an enemy beyond those 22 m (`DefendBaseRadius`) alone unless it comes at her (close
+  by, or after her). During a base attack the whole defended area counts. Guards on watch still shoot whatever comes.
 - **Intruders:** a zombie inside the base that is after nobody - lurking in a corner, wandering the yard - gets **two**
   residents sent to it: the nearest who are free (not on watch, on a work shift, asleep, hurt below 60%, Cowardly or in
   another fight; a resident who stays near her post only within 22 m of it). They walk to it, seen or not, and fight it;
@@ -565,8 +568,13 @@ A killing hit no longer kills a member outright: she goes **down** (0-XNPCCore 3
   window shows the seconds left too (section 17).
 - **Revive her** before it runs out: look at her and press **E** with a first aid bandage or a first aid kit in your
   pack, or use one on her. The item is used up. She gets up with little health, and for a minute nothing can hurt her.
-  Going down again within 10 minutes of that is a real death.
+- **Fragile after a revive.** Going down again within 10 minutes of a revive is a real death (0-XNPCCore's
+  `RedownWindowSeconds`, read from its settings). The "back on their feet" message says so, with the minutes, and the
+  community window shows "Fragile N min" on her row (and in her details) until it runs out; `sc members` and
+  `sc xnpc <id>` show the seconds left.
 - If nobody revives her, she **bleeds out** and dies for real. Only then does it count as a death (morale, Recent days).
+- A killing hit that **dismembers** her (a headshot that takes her head off) or blows her apart kills her outright: she
+  does not go down (0-XNPCCore's rule).
 - **Who goes down:** members at home, guards on watch, residents on a work shift or talking to you, and followers.
   Members away on a supply or mining run still die at once. Set `DownedAtHome` (section 20) to false and residents at
   home and guards on watch die at once again, as before.
@@ -582,7 +590,8 @@ A killing hit no longer kills a member outright: she goes **down** (0-XNPCCore 3
 - **While she is down** everything waits: a work shift or a talk with her stays on, and she can't be sent home, on a run,
   to an outpost or onto a watch, or leave the community. Ask again once she's up. She doesn't count as a fighter for the
   others and says nothing.
-- If her body unloads while she's down (you walked far away), she is standing again when you come back.
+- If her body unloads while she's down (you walked far away), she is still down when you come back, with the seconds she
+  had left - one fall, one message. After quitting and loading the game she is standing again.
 - `sc downed` in the console shows who is down, the seconds left, which medic is on the way and why each medic can or
   can't go. `sc down <name>` knocks a member down and `sc revive <name>` revives her, for testing.
 
@@ -1630,8 +1639,11 @@ catalog, and real armor pieces in their equipment slots.
     way, a zombie it cannot reach), her gun comes out at once and she kites that zombie for 45 seconds (90, then 180).
   - **Hold** (on watch, or a Stay order): she keeps her post and her gun. **Shelter**: badly hurt (section 4).
   - A Cowardly member hangs back with her gun and runs only from a fight going badly (with no gun she runs, as before).
-    **Ordering her gun** ("use your ..." by voice, or 0-XNPCCore 3.4.05's weapon menu) keeps her on it until you order her melee weapon;
-    ordering her melee weapon keeps her on that. Followers count too, away from home.
+    **Ordering her gun** ("use your ..." by voice, or 0-XNPCCore's "Melee -> Ranged" toggle on the order wheel) keeps her on
+    it until you order her melee weapon ("Ranged -> Melee", or by voice); ordering her melee weapon keeps her on that. The
+    toggle and the spoken order are the same order: each sets the other, and `sc team <name> auto` clears both. A gun order
+    still gives way when the gun is out of ammo, and cornered while reloading she still swings her melee weapon until she
+    has room. Followers count too, away from home.
   `TeamMelee` and the other `Team...` and `Posture...` settings (section 20) tune it; `sc team <name>` shows her count,
   her posture and why, and her weapon's clock; `sc xnpc` counts every member's weapon changes.
 - **Shooting skill aims the gun:** they hit nearly every shot within 5 m per Shooting star (5 m at 1 star, 35 m at 7),
@@ -1735,7 +1747,9 @@ You change their gear by dropping items on the slots (single player, or the host
   member backs away from it (10, 6 or 3 m, inside the base at home, near you when she follows you) until nothing after
   her is within 4 m, then uses the item. With no room to back off, in her shelter room, on watch or told to stay, she
   uses it at once; as soon as the zombie keeps up with her (2 s without gaining 1 m) she uses it too, and after 6 s held
-  without getting clear, anyway (`HealBackOff`, `MedicSafeDistance`, `MedicMaxWait`). With `HealBackOff` false she keeps her weapon and fights instead, and uses it
+  without getting clear, anyway (`HealBackOff`, `MedicSafeDistance`, `MedicMaxWait`). **Cornered** - no room to back off at
+  all - she keeps fighting while her health is above 35% and uses it at once only below that (a bandage stops her attacking
+  for a few seconds); every 4 s she looks for room again (`CorneredHealBelow`). With `HealBackOff` false she keeps her weapon and fights instead, and uses it
   only once the zombie is dead, gone or farther off - or after 6 s under a quarter of her health. Under half her health
   she uses a first aid kit before a first aid bandage.
 - **They recover slowly out of combat.** While nothing threatens her a member regains 0.2 health a second, up to 60% of
@@ -1866,7 +1880,8 @@ covers it all, the line reads "+N a day spare" or "Covered by what comes in".
   members, At base, Following, On a run, Injured, At outposts) and a **search** box narrow the list.
 - **The selected member:** their health, mood, skills, specialty, traits and status (at home, following, on a run, on
   watch, holding an outpost, on the road to or from an outpost with the hours left, missing, on the way, down). A downed member's row shows "Down - 42 s", the seconds left to
-  revive her; selected, also which medic is coming or that nobody can.
+  revive her; selected, also which medic is coming or that nobody can. After a revive the row adds "Fragile N min" until
+  a second down would no longer be a real death.
 - **Orders:**
   - **Follow me / Go home** for a member at home or following.
   - **Recall home** for a runner (needs their radio, or you with them), a member posted at an outpost (they walk home),
@@ -1975,7 +1990,7 @@ These are the ones you are most likely to change. The file has many more.
 | `HomeKeepLoaded` / `HomeKeepLoadedRange` | true / 250 | Keep the home zone loaded while you are within this many meters |
 | `AutoHomeFirstClaim` | false | true: your first land claim becomes the home by itself, as before (false: you start a community from a claim's radial) |
 | `CommunityFriendlyFire` | false | true lets your shots hurt your own members |
-| `DefendBaseRadius` | 22 | Residents attack enemies inside the base within this many meters of their post (0: only what they see) |
+| `DefendBaseRadius` | 22 | Residents attack enemies inside the base within this many meters of their post (0: only what they see); beyond it a resident leaves an enemy alone unless it comes at her |
 | `MembersOpenOwnerLockedDoors` | true | Members open your locked doors |
 | `MembersOpenHatches` | true | Members open hatches and drawbridges |
 | `SleepAtNight` | true | Residents at home, and friendly enclave people, sleep in beds at night through 0-XNPCCore's routine (section 4); false: SC's own night routine |
@@ -2128,6 +2143,7 @@ These are the ones you are most likely to change. The file has many more.
 | `MedsResupplyEmergencyCooldownHours` | 1 | An emergency restock needs this many in-game hours since her last restock (0: no limit) |
 | `MedicSafeDistance` / `MedicMaxWait` | 3 / 6 | No bandaging while an enemy after her is within this many meters (0: off); she backs off first and, if that does not get her clear in the second (seconds), bandages anyway |
 | `HealBackOff` | true | A member held from bandaging backs off, then bandages; false: she fights on and bandages after the wait only under 25% health |
+| `CorneredHealBelow` | 0.35 | With `HealBackOff`, a member with no room to back off keeps fighting above this share of her health and bandages at once only at or below it (1: at once whenever cornered; 0: never while cornered) |
 | `MedicPainkillers` / `PainkillerHeal` | true / 40 | Members use painkillers when nothing else is left, for this much health |
 | `MemberDrinks` / `MemberDrinksBelow` | 2 / 1 | Followers at home are topped up to this many drinks when they carry fewer than the second (0: never) |
 | `MemberDrinkItem` / `MemberDrinksCooldownHours` | drinkJarBoiledWater / 12 | The drink they are given, and the in-game hours between two top-ups of one follower |
