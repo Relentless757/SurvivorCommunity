@@ -1,4 +1,30 @@
-# Next pre-release (not released yet)
+# Survivor Community 0.1.0 pre-release 4
+
+Everything that changed since pre-release 3 of this 7 Days to Die 3.4 test build; section numbers refer to the included
+`README.txt`.
+
+## Highlights
+- **0-XNPCCore 3.4.06 and 0-SCore 3.4.25.925.** Needs both now. Members go down instead of dying, and a medic or you can
+  revive them; Bond, gifts, weapon perks and the new equipment window work for members; the combat wheel's Melee/Ranged
+  toggle is a weapon order.
+- **Food and the stockpile.** Every daily change to the stockpile is a whole number. The garden gives 1 food per 5 crops
+  (per 4 or 3 with a good gardener), and the Campfire hosts **Prepare a feast** and **Enact rationing**. The community
+  window shows each resource's daily net (+N / -N) beside its count, and the days left count what comes in.
+- **Members walk to their outposts** and home again, and you can post one from anywhere.
+- **The Facilities tab** replaces Activities: defense, beds, water, farm plots, workshop, campfire, radio, watch posts and
+  towers, each with what it does and its buttons.
+- **Base defense:** Lights out, watch fatigue and salvage after a held attack.
+- **Enclaves speak:** on the radio and in person.
+- **Twelve new traits and seven new life skills.**
+- **Social life:** small talk between members, chats and the evening campfire.
+- **Fighting:** residents finish the fight in front of them and keep shooting zombies that chase you out of the base;
+  a cornered member fights on rather than bandaging; marksmen switch to melee up close; armor protects survivors and
+  raiders fully (a setting).
+- **UI mods:** CATUI, Steelshot UI Hybrid, SteelUI and MothUI are supported.
+- **LandClaimUpgrade 1.2.1** (bundled; 1.0.0 in pre-release 3): trying to place a claim inside a POI that isn't cleared
+  starts a "Secure <POI>" quest, which marks the switches that wake its last trigger-only rooms, and zombies wandering
+  into a cleared POI no longer un-secure it.
+
 
 ## 0-XNPCCore 3.4.06 (final) and 0-SCore 3.4.25.925
 

@@ -1,21 +1,155 @@
-Next pre-release (not released yet)
-===================================
+Survivor Community 0.1.0 pre-release 4
+======================================
+
+Everything that changed since pre-release 3 of this 7 Days to Die 3.4 test build; section numbers refer to the included
+"README.txt".
+
+
+Highlights
+----------
+- 0-XNPCCore 3.4.06 and 0-SCore 3.4.25.925. Needs both now. Members go down instead of dying, and a medic or you can
+  revive them; Bond, gifts, weapon perks and the new equipment window work for members; the combat wheel's Melee/Ranged
+  toggle is a weapon order.
+- Food and the stockpile. Every daily change to the stockpile is a whole number. The garden gives 1 food per 5 crops
+  (per 4 or 3 with a good gardener), and the Campfire hosts Prepare a feast and Enact rationing. The community window
+  shows each resource's daily net (+N / -N) beside its count, and the days left count what comes in.
+- Members walk to their outposts and home again, and you can post one from anywhere.
+- The Facilities tab replaces Activities: defense, beds, water, farm plots, workshop, campfire, radio, watch posts and
+  towers, each with what it does and its buttons.
+- Base defense: Lights out, watch fatigue and salvage after a held attack.
+- Enclaves speak: on the radio and in person.
+- Twelve new traits and seven new life skills.
+- Social life: small talk between members, chats and the evening campfire.
+- Fighting: residents finish the fight in front of them and keep shooting zombies that chase you out of the base; a
+  cornered member fights on rather than bandaging; marksmen switch to melee up close; armor protects survivors and
+  raiders fully (a setting).
+- UI mods: CATUI, Steelshot UI Hybrid, SteelUI and MothUI are supported.
+- LandClaimUpgrade 1.2.1 (bundled; 1.0.0 in pre-release 3): trying to place a claim inside a POI that isn't cleared
+  starts a "Secure <POI>" quest, which marks the switches that wake its last trigger-only rooms, and zombies wandering
+  into a cleared POI no longer un-secure it.
+
+
+0-XNPCCore 3.4.06 (final) and 0-SCore 3.4.25.925
+------------------------------------------------
+
+- Now needs 0-SCore 3.4.25.925 or newer, with 0-XNPCCore 3.4.06 (final) and its Voice Control. 0-SCore 3.4.25 sees
+  enemies twice as far out as before for "is an enemy near?", so SC's own distances for it are halved: residents stop
+  roaming, chatting and gathering and go back to their posts for an enemy at the same distance as before. With an older
+  0-SCore they would carry on until an enemy was half as far away.
+- No more doubled rounds after a save. Since 0-XNPCCore 3.4.06 final, the rounds in a member's gun were kept twice every
+  time the game was saved or her area unloaded behind you: in the gun, and again in 0-XNPCCore's own record. Taking her
+  gun away then gave you the loaded gun plus the same rounds loose in her bag; she found extra rounds on a later draw;
+  with Locked & Loaded she gained a magazine; and she reloaded every time she drew her gun. SC alone keeps those rounds
+  again, and a save made since the update is cleaned up the first time it loads.
+- Down stays down. A downed member whose area unloads (you walked away) is still down when you come back, as 0-XNPCCore
+  now keeps her. You no longer get a second "is down" message for the same fall, and her Bond no longer drops twice for
+  it.
+- A dismembering killing hit kills outright. A killing hit that dismembers a member (a headshot that takes her head off)
+  or blows her apart now kills her instead of knocking her down: that is 0-XNPCCore's rule now.
+- The re-down warning. Going down again within 10 minutes of a revive is a real death (0-XNPCCore's window, its
+  "RedownWindowSeconds"). The "back on their feet" message now says so, with the minutes left, and the community window
+  shows "Fragile N min" on the member's row until it runs out. "sc members" and "sc xnpc <id>" show it too.
+- Cornered, she keeps fighting. A member with no room to back off to heal used to bandage at once, with the zombie on
+  her, every time - one member did it 12 times in one fight, and each bandage stops her attacking for a few seconds. Now
+  she keeps fighting while her health is above 35% and bandages at once only below it. With room to back off nothing
+  changes: she backs off, then heals. "CorneredHealBelow" in "Config/blocks.xml" sets the 35%.
+- The weapon toggle is an order. 0-XNPCCore's new "Melee -> Ranged" / "Ranged -> Melee" toggle on the order wheel now
+  works like telling her "use your gun" or "use your melee weapon": she keeps that weapon until you order the other one
+  (or "sc team <id> auto"). Before, the toggle and SC's own weapon choice fought over her hand. A gun order still gives
+  way when the gun has no ammo, a badly hurt member still keeps her distance, and cornered while reloading she still
+  swings her melee weapon until she has room (on a Stay or a run, when the zombie is right on her, until it steps back).
+  Ordering her weapon by talking sets the toggle too.
+- Residents fight what is in reach. A resident at home sometimes walked off from the zombie in front of him toward one
+  25 m away, outside the base. Residents now finish the fight at hand first. They keep shooting a zombie that is after
+  you or a member when it leaves the base (following you out, say), as far as their gun reaches. They don't chase one
+  farther than their leash (a few meters past the base edge), and a zombie wandering by is still left alone.
+- Quiet kills. Telling a member to take an enemy out quietly while she holds a torch no longer keeps her on her melee
+  weapon for good afterwards, and SC no longer swaps her weapon in the middle of the stalk. A member sent home no longer
+  carries on stalking an enemy from before. The console shows the new hunting stance as "hunting".
+- After a load SC's restored gun is no longer swapped out again when her weapon preference is ranged.
+- A member's fight posture no longer flickers to "no fight" and back for a moment when her target is lost for a tick.
+
+
+Survivors
+---------
+
+- No more life skills that do nothing. New survivors no longer roll Fitness or Firearms Instructor: both wait for the
+  gym and the range, which aren't in the game yet. Survivors who already have one keep it. ("SpecialtyWeights" in
+  "Config/blocks.xml" brings them back with a weight above 0.)
+- Marksmen use their melee weapon up close. A member whose best skill is Shooting used to keep her gun against
+  everything, even a single zombie at arm's length. She still shoots at range, but against a lone zombie, or in a fight
+  she isn't losing, she switches to her melee weapon once it is within 4 m ("PostureMeleeDist"), like everyone else, and
+  back to the gun once it is past 5 m. Hurt, swarmed or facing raiders she keeps the gun.
+
+
+Community window
+----------------
+
+- The day's net beside each resource. The stockpile across the top of the community window shows, next to each count,
+  what the next day's end will add or take: +N in green, -N in red. Six members and nothing growing shows -6 by the
+  food; an outpost sending 2 food makes it -4. It counts the outposts (deliveries, upkeep, haulage, workshops), allies'
+  bundles, the garden, wells and dew collectors, what your people eat and drink, and the Meds the injured need.
+- Days left count what comes in. The "N days remaining" under the food and the water now subtract the outposts'
+  deliveries, allies' bundles, the garden and the wells from what is used; covered entirely, it reads "+N a day spare".
+- Farm plots are a facility now: the living crops, the food a day, the crops a food takes (and your gardener), and how
+  many more crops make the next food.
+- The Facilities list scrolls with the mouse wheel, a row at a time.
+- A feast and rationing never run at once: no feast while the community is on rations, no rationing during a feast.
+- Quieter log: the one-line-per-patch list only appears with "DebugLogging" on, at world load (the start-up summary line
+  stays).
+
+
+Food
+----
+
+- The garden is easier. It makes 1 food a day per 5 crops instead of 10, and no longer needs a gardener at all. A good
+  gardener at home still helps: from level 4 it is 1 food per 4 crops, from level 7 1 per 3. Only your best gardener
+  counts, and there is no cap any more (it was 1 food per gardener star). "CropsPerFood" and the new
+  "GardenerCropsPerFood" in "Config/blocks.xml" set it.
+- Prepare a feast. With a cook at home and a campfire in the base, the Campfire on the Facilities tab has a new action:
+  for 3 food, every member and you get +10 morale and +10 max stamina for an hour of play, +1 morale and +2 max stamina
+  more for each level of your cook above the first. Once a game day.
+- Enact rationing. Also at the Campfire: at the end of the day the community eats half its food (rounded up), for -15
+  morale and -15 max stamina for an hour. Once a game day.
+- The Gardening and Cooking descriptions say so, the morale breakdown lists the feast and rationing, and the day's
+  report says how much food rationing spared.
+
+
+Armor
+-----
+
+- Armor now protects survivors and raiders fully. SC used to halve what worn armor gave them. Two new settings in
+  "Config/blocks.xml" set it instead, "SurvivorArmorResist" for SC's survivors and "RaiderArmorResist" for its raiders:
+  0 (the default and the most) is the protection the same armor gives you, -0.5 the old half, -1 none. A survivor or
+  raider takes a changed value the next time it spawns or the game loads. Other packs' survivors keep their own armor,
+  as before.
 
 
 UI mods
 -------
 
-- SC works with CATUI, Steelshot UI Hybrid and SteelUI. Each UI mod gets a few small fixes so SC's tabs, the Home Status
-  panel and SC's windows stay reachable and readable:
+- SC works with CATUI, Steelshot UI Hybrid, SteelUI and MothUI. Each UI mod gets a few small fixes so SC's tabs, the
+  Home Status panel and SC's windows stay reachable and readable:
   - CATUI: the Home Status panel moves below CATUI's compass clock and enemy alert bar.
-  - Steelshot UI Hybrid: the Community and Radio tabs move to the screen's top-left corner, under Steelshot's tab bar
-    (it pushed them off the screen). The member inventory and linked storage draw over Steelshot's backdrop instead of
-    under it. Steelshot's backdrop goes behind SC's two pages, the Home Status panel moves below its compass onto its
-    glass plate, and the Community button in the ESC menu takes Steelshot's look.
+  - Steelshot UI Hybrid: the Community and Radio tabs move to the screen's top-left corner, between Steelshot's tab bar
+    and its party list (it pushed them off the screen). The member inventory and linked storage draw over Steelshot's
+    backdrop instead of under it. Steelshot's backdrop goes behind SC's two pages, the Home Status panel moves below its
+    compass onto its glass plate, and the Community button in the ESC menu takes Steelshot's look.
   - SteelUI: SteelUI rebuilds the player menu's tab bar after SC has added its tabs, which removed them (and with them
     the only way into the radio from a handheld radio). A new small folder in the zip, "zzzz_SteelUI_SurvivorCommunity",
     loads after SteelUI and adds them back in SteelUI's style. The member inventory keeps its own slot size (SteelUI's
     slots overlapped), and the Home Status panel moves under SteelUI's location row.
+  - MothUI:
+    - The Community and Radio tabs sit at the end of MothUI's page bar at its spacing (they landed left of their slots),
+      and the pages are titled COMMUNITY and RADIO (they read SCCOMMUNITY and SCRADIO).
+    - Talking to a survivor: the talk card moves to the right of MothUI's dialog card (it covered the line and the
+      replies), and SC's separate line box stays hidden because MothUI's card shows the line. Enclave lines show their
+      names there instead of "{enc}" and "{leader}", and the replies page by 6 to fit the card.
+    - The Home Status panel is a MothUI HUD widget: top right by default, and Edit HUD can move, resize or hide it.
+    - The Community and Radio pages shrink to fit between MothUI's top bar and footer on screens too short for them.
+    - The packing station and linked storage strips are glass cards of their own under MothUI's loot card, so its key
+      hints stay visible.
+    - SC's own windows keep their vanilla look on MothUI's glass for now.
 - MinimalistHUD + PhysicalPDA has its own support for SC built in; SC leaves that to its author.
 - Use one UI overhaul at a time: none of these runs together with another (Ashfall UI included).
 

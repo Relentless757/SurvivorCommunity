@@ -47,8 +47,8 @@ Requirements
 ~~~~~~~~~~~~
 
 - 7 Days to Die 3.4 (this build is for 3.4 only).
-- 0-SCore 3.4.14 or newer.
-- 0-XNPCCore 3.4.05 with its Voice Control 3.4.05 (the Voice Control DLL is included in the 0-XNPCCore folder).
+- 0-SCore 3.4.25.925 or newer (an older one makes residents notice enemies only half as far away).
+- 0-XNPCCore 3.4.06 (final) with its Voice Control (the Voice Control DLL is included in the 0-XNPCCore folder).
 - Easy Anti-Cheat off (SC is a Harmony mod).
 - Single player only for now.
 
@@ -74,6 +74,9 @@ Works with (optional)
   - CATUI: the Home Status panel sits below CATUI's compass clock and alert bar.
   - Steelshot UI Hybrid: SC's Community and Radio tabs sit in the top-left corner under its tab bar, its glass backdrop
     sits behind SC's pages, and the Home Status panel sits below its compass.
+  - MothUI: SC's Community and Radio tabs join its page bar with their own titles, the talk card sits beside its dialog
+    card (which shows SC's filled lines), and the Home Status panel is one of its HUD widgets (Edit HUD moves, resizes
+    or hides it). The Community and Radio pages shrink to fit between its top bar and footer when needed.
   - SteelUI: SteelUI rebuilds the tab bar after SC loads, so the "zzzz_SteelUI_SurvivorCommunity" folder from the zip
     puts SC's Community and Radio tabs back into it. Keep that folder installed with SteelUI.
   - MinimalistHUD + PhysicalPDA brings its own support for SC, kept up to date by its author.
@@ -251,9 +254,11 @@ Each survivor has one specialty, starting at 1 star and growing to 7. Their role
 - Medicine - Title: Medic; At home, each day: Your best medic stretches medical bundles: one bundle heals 1 + (stars x
   0.5, rounded down) injuries; Crafting skills: Medical
 - Cooking - Title: Cook; At home, each day: Your best cook saves food: 1 a day per 2 stars, rounded up (1 at 1 and 2
-  stars, 4 at 7), never more than half of what the community eats; Supply runs: Better food runs; Crafting skills: Food
-- Gardening - Title: Gardener; At home, each day: Living crops in the base become food: 1 a day per 10 crops, at most 1
-  per star of all your gardeners together; Supply runs: Better water runs; Crafting skills: Seeds
+  stars, 4 at 7), never more than half of what the community eats. A cook at home can prepare a feast (section 4, The
+  feast); Supply runs: Better food runs; Crafting skills: Food
+- Gardening - Title: Gardener; At home, each day: The garden needs no gardener (1 food a day per 5 crops), but your best
+  gardener at home makes it 1 per 4 crops from level 4 and 1 per 3 from level 7. Only that one counts; Supply runs:
+  Better water runs; Crafting skills: Seeds
 - Mechanics - Title: Mechanic; Supply runs: Better materials and fuel runs; Crafting skills: Workstations, vehicles,
   traps, robotics
 - Chemistry - Title: Chemist; Supply runs: Better medicine runs; Crafting skills: Explosives, medical, electrician
@@ -273,9 +278,10 @@ Each survivor has one specialty, starting at 1 star and growing to 7. Their role
   +1 at 1 star, +4 at 7). Running the lounge is coming later
 
 - Thirteen life skills. New survivors roll one of them: the first six are the most common, Construction, Logistics,
-  Bartering, Recon and Entertainment a little rarer, Fitness and Firearms Instructor rare until the gym and range exist.
-  Survivors you already have keep theirs. Point at the specialty row on a member's card to read what it does; a part
-  that needs a feature not built yet says "(coming later)".
+  Bartering, Recon and Entertainment a little rarer. Fitness and Firearms Instructor don't roll at all until the gym and
+  range exist (they do nothing yet); a survivor who already has one keeps it. Survivors you already have keep theirs.
+  Point at the specialty row on a member's card to read what it does; a part that needs a feature not built yet says
+  "(coming later)".
 - The new life skills work when they are used, with the best of them at home: a barter, a scouting, an opened bundle, a
   round of drinks, a repair duty. Each of those earns her specialty XP (Construction from the repairs she makes).
 - The daily specialty bonuses only count members who are stationed at home (not following you, not on a run).
@@ -347,6 +353,8 @@ window and the Home Status dot are green from 50, amber below 50 and red below 2
 - Territory: +2 per producing outpost (up to +6); a lost outpost costs 5, fading a point a day
 - Defended the base: +4 per base attack held (up to +10), fading a point a day; losses from fights you missed
 - A round of drinks: +15 while it lasts (section 4, The round of drinks)
+- A feast: +10 while it lasts, +1 per level of the cook above the first (section 4, The feast)
+- Rationing: -15 while its penalty lasts (section 4, Rationing)
 - Allies, enclaves: See section 12
 - Infestations near home: See section 14
 
@@ -390,8 +398,9 @@ Daily needs
 At each day rollover (whether or not the base is loaded) the community uses supplies from the stockpile. Every amount is
 a whole number of bundle units: nothing is carried over to the next day, and nothing is owed.
 
-- Food: 1 bundle unit per member a day (Bottomless Stomach eats 2), less what your best cook at home saves. Your
-  gardeners' harvest goes into the stockpile first.
+- Food: 1 bundle unit per member a day (Bottomless Stomach eats 2), less what your best cook at home saves, and half of
+  that (rounded up) at the end of a day you enacted rationing (section 4, Rationing). The garden's harvest goes into the
+  stockpile first.
 - Water: 1 bundle unit per member a day, minus what your dew collectors and wells make.
 - Members posted at an outpost, on the road to or from one, or out on a run eat and drink as well. Members still on
   their way to the base (a group that joined you) eat and drink nothing until they arrive.
@@ -415,7 +424,8 @@ SC counts what you build inside the home zone every few seconds:
 - Beds: every bedroll, bed and bunk bed (and bed mods that work like them), plus bare-frame beds, mattresses and
   hospital beds. A bunk frame with no mattress and a rolled-up mattress do not count. One bed per member.
 - Facilities: campfire, workbench, forge, chemistry station and cement mixer.
-- Crops: living planted crops (for your gardeners).
+- Crops: living planted crops: the garden turns them into food every day (1 per 5 crops; 1 per 4 or 3 with a good
+  gardener at home, see the Gardening specialty).
 - A part of the claim that is not loaded keeps its last count, so walking away does not lose your beds.
 - The community window's Facilities tab lists them with what each one does (section 17).
 
@@ -443,15 +453,47 @@ On the community window's Facilities tab, the Campfire hosts Pour a round (Prepa
 - Once per game day. It is meant for the days after a death.
 - You don't need a campfire to pour one, but free residents gather around one while it lasts.
 
+The feast
+~~~~~~~~~
+
+The Campfire on the Facilities tab also hosts Prepare a feast:
+
+- Needs a cook at home (a member whose specialty is Cooking, not out on a run) and a campfire inside the base.
+- Costs 3 food from the stockpile.
+- Gives +10 morale and +10 max stamina to every member and to you for an hour of real play time (the clock stops while
+  the game is paused). Each level of your best cook above the first adds +1 morale and +2 max stamina: a level-7 cook's
+  feast is +16 morale and +22 max stamina.
+- Once per game day, and not while one is still going (a feast held late in the evening runs on past midnight). The cook
+  earns specialty XP from it.
+- Not while the community is on rations (rationing enacted today, or its penalty still running).
+- In multiplayer the max stamina reaches the members and the host's own character; other players get the morale only.
+
+Rationing
+~~~~~~~~~
+
+The Campfire also hosts Enact rationing:
+
+- At the end of that day the community eats half its food (rounded up: 7 becomes 4). Your cook's savings come off first,
+  then the rest is halved.
+- Hungry people grumble: -15 morale and -15 max stamina for every member and you for an hour of real play time.
+- Once per game day. It costs nothing and needs no cook or campfire, but it can't be enacted when it would save no food
+  (one member eating 1 food a day), or while a feast is going on.
+- The Food line of morale and the days of food left go by an ordinary day's food, so rationing doesn't make them look
+  better.
+
 Staying home, roaming and defending
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Members at home are residents. By day they walk about the whole base, stopping 10 to 20 seconds at each spot. At
-  night, or with an enemy within 30 m, they go back to their post; at bedtime, if the base has beds, those off duty go
-  to bed instead (below).
+  night, or with an enemy they can see within about 15 m, they go back to their post; at bedtime, if the base has beds,
+  those off duty go to bed instead (below).
 - Residents defend the base: they go after any awake enemy inside the home zone within 22 m of their post (or of
   themselves while roaming) that is after a member or you, even one they cannot see from there, fight it and walk back.
   Sleepers in a base built in a POI are left asleep, and Cowardly members stay put.
+- They fight what is in reach. A resident in a fight finishes the zombie in front of her instead of walking off toward
+  one farther out. She keeps shooting a zombie that is after you or a member even once it leaves the base (one chasing
+  you out, say), as far as her gun reaches, but doesn't run out after it past her leash. Guards on watch still shoot
+  whatever comes.
 - Intruders: a zombie inside the base that is after nobody - lurking in a corner, wandering the yard - gets two
   residents sent to it: the nearest who are free (not on watch, on a work shift, asleep, hurt below 60%, Cowardly or in
   another fight; a resident who stays near her post only within 22 m of it). They walk to it, seen or not, and fight it;
@@ -556,9 +598,14 @@ A killing hit no longer kills a member outright: she goes down (0-XNPCCore 3.4.0
 - She lies on the ground and nothing can hurt her. A red marker above her counts down 60 seconds; the community window
   shows the seconds left too (section 17).
 - Revive her before it runs out: look at her and press E with a first aid bandage or a first aid kit in your pack, or
-  use one on her. The item is used up. She gets up with little health, and for a minute nothing can hurt her. Going down
-  again within 10 minutes of that is a real death.
+  use one on her. The item is used up. She gets up with little health, and for a minute nothing can hurt her.
+- Fragile after a revive. Going down again within 10 minutes of a revive is a real death (0-XNPCCore's
+  "RedownWindowSeconds", read from its settings). The "back on their feet" message says so, with the minutes, and the
+  community window shows "Fragile N min" on her row (and in her details) until it runs out; "sc members" and
+  "sc xnpc <id>" show the seconds left.
 - If nobody revives her, she bleeds out and dies for real. Only then does it count as a death (morale, Recent days).
+- A killing hit that dismembers her (a headshot that takes her head off) or blows her apart kills her outright: she does
+  not go down (0-XNPCCore's rule).
 - Who goes down: members at home, guards on watch, residents on a work shift or talking to you, and followers. Members
   away on a supply or mining run still die at once. Set "DownedAtHome" (section 20) to false and residents at home and
   guards on watch die at once again, as before.
@@ -574,7 +621,8 @@ A killing hit no longer kills a member outright: she goes down (0-XNPCCore 3.4.0
 - While she is down everything waits: a work shift or a talk with her stays on, and she can't be sent home, on a run, to
   an outpost or onto a watch, or leave the community. Ask again once she's up. She doesn't count as a fighter for the
   others and says nothing.
-- If her body unloads while she's down (you walked far away), she is standing again when you come back.
+- If her body unloads while she's down (you walked far away), she is still down when you come back, with the seconds she
+  had left - one fall, one message. After quitting and loading the game she is standing again.
 - "sc downed" in the console shows who is down, the seconds left, which medic is on the way and why each medic can or
   can't go. "sc down <name>" knocks a member down and "sc revive <name>" revives her, for testing.
 
@@ -1662,7 +1710,8 @@ Weapons
 - One posture per member decides her weapon and her moves, and her weapon changes at most once every 5 seconds:
   - Melee: a matched fight, at least 60% health (melee again from 70%), a zombie she can swing at, not swarmed. She
     fights with her melee weapon and never backs away; holding her gun she shoots until the zombie is within 4 m, then
-    switches once. A member whose best skill is Shooting stays on her gun while it has ammo.
+    switches once. A member whose best skill is Shooting does the same, even against a lone zombie that is a match for
+    her, and with her melee weapon in hand she draws her gun again once the zombie is past 5 m.
   - Kite: any other fight with a gun that has ammo - more than her side can take, swarmed, hurt, raiders or anyone
     armed, a cop or a demolition zombie, a zombie past a resident's leash, your gun order. She shoots, backs off within
     2.5 m and never switches to melee up close (but see "cornered" above).
@@ -1670,10 +1719,13 @@ Weapons
     way, a zombie it cannot reach), her gun comes out at once and she kites that zombie for 45 seconds (90, then 180).
   - Hold (on watch, or a Stay order): she keeps her post and her gun. Shelter: badly hurt (section 4).
   - A Cowardly member hangs back with her gun and runs only from a fight going badly (with no gun she runs, as before).
-    Ordering her gun ("use your ..." by voice, or 0-XNPCCore 3.4.05's weapon menu) keeps her on it until you order her
-    melee weapon; ordering her melee weapon keeps her on that. Followers count too, away from home. "TeamMelee" and the
-    other "Team..." and "Posture..." settings (section 20) tune it; "sc team <name>" shows her count, her posture and
-    why, and her weapon's clock; "sc xnpc" counts every member's weapon changes.
+    Ordering her gun ("use your ..." by voice, or 0-XNPCCore's "Melee -> Ranged" toggle on the order wheel) keeps her on
+    it until you order her melee weapon ("Ranged -> Melee", or by voice); ordering her melee weapon keeps her on that.
+    The toggle and the spoken order are the same order: each sets the other, and "sc team <name> auto" clears both. A
+    gun order still gives way when the gun is out of ammo, and cornered while reloading she still swings her melee
+    weapon until she has room. Followers count too, away from home. "TeamMelee" and the other "Team..." and "Posture..."
+    settings (section 20) tune it; "sc team <name>" shows her count, her posture and why, and her weapon's clock;
+    "sc xnpc" counts every member's weapon changes.
 - Shooting skill aims the gun: they hit nearly every shot within 5 m per Shooting star (5 m at 1 star, 35 m at 7), fewer
   beyond, and aim at the chest.
 - They swing melee weapons as fast as the weapon allows, at the weapon's real reach.
@@ -1778,14 +1830,18 @@ Healing and armor
   member backs away from it (10, 6 or 3 m, inside the base at home, near you when she follows you) until nothing after
   her is within 4 m, then uses the item. With no room to back off, in her shelter room, on watch or told to stay, she
   uses it at once; as soon as the zombie keeps up with her (2 s without gaining 1 m) she uses it too, and after 6 s held
-  without getting clear, anyway ("HealBackOff", "MedicSafeDistance", "MedicMaxWait"). With "HealBackOff" false she keeps
-  her weapon and fights instead, and uses it only once the zombie is dead, gone or farther off - or after 6 s under a
-  quarter of her health. Under half her health she uses a first aid kit before a first aid bandage.
+  without getting clear, anyway ("HealBackOff", "MedicSafeDistance", "MedicMaxWait"). Cornered - no room to back off at
+  all - she keeps fighting while her health is above 35% and uses it at once only below that (a bandage stops her
+  attacking for a few seconds); every 4 s she looks for room again ("CorneredHealBelow"). With "HealBackOff" false she
+  keeps her weapon and fights instead, and uses it only once the zombie is dead, gone or farther off - or after 6 s
+  under a quarter of her health. Under half her health she uses a first aid kit before a first aid bandage.
 - They recover slowly out of combat. While nothing threatens her a member regains 0.2 health a second, up to 60% of her
   health; above that only medical items heal ("RegenOutOfCombat" and the "Regen..." settings). Only a threat to her
   holds it: a zombie within 30 m that is after her or can see her, or any zombie within 12 m - so it also helps in a
   lull, with zombies behind walls or chasing someone else farther off. Raiders, enclave people and strangers don't.
-- Their armor protects them at half the rating it would give you. It does not break.
+- Their armor protects them as well as it would protect you. It does not break. "SurvivorArmorResist" and
+  "RaiderArmorResist" in "Config/blocks.xml" lower that: -0.5 is half (how it was before 2026-11-21), -1 none. They
+  can't go above 0: more than your protection would make a well-armored NPC immune.
 
 Looks
 ~~~~~
@@ -1894,6 +1950,17 @@ radial. With the tab bar showing, the gamepad bumpers page to it like any other 
 
 The window has three tabs: Members, Outposts and Facilities.
 
+Across the top is the stockpile: each resource's count, and beside it what the next day's end will add or take, +N in
+green, -N in red, ±0 when it adds and takes as much. It counts everything that happens every day: the outposts'
+deliveries (an ordinary day's: bundles that piled up while the radio was down are a one-off and not counted), upkeep,
+haulage and workshops, your allies' bundles, the garden, the wells and dew collectors, what your people eat (with the
+cook and tonight's rationing) and drink, and the Meds the injured need. Runs, trades, crafting, the activities and ammo
+(spent only by shooting and as watch shifts start) are not counted.
+
+Under the food and the water, the days left count what comes in too: the stock lasts as many days as it covers what is
+used beyond the outposts, allies, garden or wells (an ordinary day, without tonight's rationing). When what comes in
+covers it all, the line reads "+N a day spare" or "Covered by what comes in".
+
 Members
 ~~~~~~~
 
@@ -1902,7 +1969,7 @@ Members
 - The selected member: their health, mood, skills, specialty, traits and status (at home, following, on a run, on watch,
   holding an outpost, on the road to or from an outpost with the hours left, missing, on the way, down). A downed
   member's row shows "Down - 42 s", the seconds left to revive her; selected, also which medic is coming or that nobody
-  can.
+  can. After a revive the row adds "Fragile N min" until a second down would no longer be a real death.
 - Orders:
   - Follow me / Go home for a member at home or following.
   - Recall home for a runner (needs their radio, or you with them), a member posted at an outpost (they walk home), or
@@ -1926,15 +1993,18 @@ Facilities
 ~~~~~~~~~~
 
 The base's facilities on the left, the one you pick on the right with what it does and its buttons. A facility's buttons
-are where its activities live.
+are where its activities live. The mouse wheel over the list scrolls it a row at a time; the arrows turn a page.
 
 - Defense: the defense rating against the next horde, the noise, the dead's attention and how fast it grows, and the
   last attack's result (with any salvage). Lights out / Lights on (section 9).
 - Beds: beds against members, the morale they give, and which beds count.
 - Water: what the wells and dew collectors make against what your people drink.
+- Farm plots: the living crops in the base, the food they give a day, how many crops a food takes (and the gardener who
+  lowers it), and how many more crops make the next food.
 - Workshop: workbenches, forges, chemistry stations and cement mixers. Call to work shows your residents: pick one, and
   they come to you for a work shift (pick someone already on one to end it).
-- Campfire: the round of drinks with its cost and status, and Pour a round.
+- Campfire: the state of the round of drinks, the feast and rationing, what each costs and gives (with your cook's level
+  for the feast), and Pour a round, Prepare a feast and Enact rationing.
 - Radio station: whether it has power, relays at outposts, and when the next air drop can be called.
 - Watch posts: each post and its guard, who is resting, and Assign guard for the first empty post.
 - Guard Tower: towers built and whether there is room for one more.
@@ -2019,7 +2089,7 @@ Community
   community from a claim's radial)
 - CommunityFriendlyFire = false: true lets your shots hurt your own members
 - DefendBaseRadius = 22: Residents attack enemies inside the base within this many meters of their post (0: only what
-  they see)
+  they see); beyond it a resident leaves an enemy alone unless it comes at her
 - MembersOpenOwnerLockedDoors = true: Members open your locked doors
 - MembersOpenHatches = true: Members open hatches and drawbridges
 - SleepAtNight = true: Residents at home, and friendly enclave people, sleep in beds at night through 0-XNPCCore's
@@ -2054,8 +2124,10 @@ Needs and morale
 
 - MemberFoodPerDay = 1: Food units each member eats a day (a whole number)
 - MemberWaterPerDay = 1: Water units each member drinks a day (a whole number)
-- CookStarsPerFood / CropsPerFood = 2 / 10: The cook saves 1 food a day per this many stars (rounded up); the garden
+- CookStarsPerFood / CropsPerFood = 2 / 5: The cook saves 1 food a day per this many stars (rounded up); the garden
   makes 1 food per this many crops
+- GardenerCropsPerFood = 4:4,7:3: "level:crops" pairs: from that level, the best gardener at home lowers the crops one
+  food takes to that many (empty: no gardener bonus)
 - PointsPerBundleFood (and ...Water, ...Meds, ...Ammo, ...Materials, ...Fuel, ...Luxury) = 400 (200, 300, 2000, 1000,
   600, 300): Trade value that makes one bundle unit
 - LuxuryItems = beer, Grandpa's drinks: Items that pack as luxuries
@@ -2075,6 +2147,11 @@ Needs and morale
 - BondKillPerDay = 3: At most this many kills on a member give her Bond in a day (0: kills give none)
 - BondLoyalAt = 8: The Progress page says "Trust: loyal" from this Bond ("wary" from minus this)
 - DrinksLuxury / DrinksFood / DrinksMorale / DrinksMinutes = 4 / 1 / 15 / 15: The round of drinks
+- FeastFood / FeastMorale / FeastMoralePerLevel / FeastStamina / FeastStaminaPerLevel / FeastMinutes = 3 / 10 / 1 / 10 /
+  2 / 60: The feast: its food cost, morale and max stamina at a level-1 cook, what each level above adds, and how long
+  it lasts
+- RationShare / RationMorale / RationStamina / RationMinutes = 0.5 / 15 / 15 / 60: Rationing: the share of the day's
+  food eaten (rounded up), and its morale and max stamina penalty and how long that lasts
 
 Traits and life skills
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -2203,6 +2280,8 @@ NPCs and voices
   she backs off first and, if that does not get her clear in the second (seconds), bandages anyway
 - HealBackOff = true: A member held from bandaging backs off, then bandages; false: she fights on and bandages after the
   wait only under 25% health
+- CorneredHealBelow = 0.35: With "HealBackOff", a member with no room to back off keeps fighting above this share of her
+  health and bandages at once only at or below it (1: at once whenever cornered; 0: never while cornered)
 - MedicPainkillers / PainkillerHeal = true / 40: Members use painkillers when nothing else is left, for this much health
 - MemberDrinks / MemberDrinksBelow = 2 / 1: Followers at home are topped up to this many drinks when they carry fewer
   than the second (0: never)
