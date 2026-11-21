@@ -632,6 +632,18 @@ namespace SurvivorCommunity
             return v.MeleeLed ? null : v.Why;
         }
 
+        /// <summary>
+        /// Round fd2 (the user's marksman rule: "a lone enemy, or a fight she isn't outmatched in"): her fresh verdict leaves
+        /// her not melee-led on the count alone ("outmatched" is WhyNotLed's last reason, so nothing about her, her orders,
+        /// her health or armed enemies came first) and there is a single enemy in it. A pure read.
+        /// </summary>
+        internal static bool OutmatchedByLoneEnemy(EntityAlive e)
+        {
+            Verdict v = Fresh(e);
+            return v != null && !v.MeleeLed && !v.Matched && !v.LowHp && !v.RaiderFight && v.Enemies == 1
+                   && v.Why != null && v.Why.StartsWith("outmatched", StringComparison.Ordinal);
+        }
+
         /// <summary>Round k4: the fresh verdict in a few words, for the posture's why ("a matched fight (F 3.2 / T 2)"). A pure read.</summary>
         internal static string MatchedText(EntityAlive e)
         {

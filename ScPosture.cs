@@ -24,7 +24,8 @@ namespace SurvivorCommunity
     ///            can swing at (not melee-unsafe, armed, past her leash, above her, marked unreachable or refused by 0-XNPCCore's
     ///            swing check), and not overwhelmed (one attacker more in a matched fight). Her melee weapon; no back-off; the
     ///            approach. A gun holder stays KITE until her target is within PostureMeleeDist (4 m), then takes her melee
-    ///            weapon once; a member whose best skill is Shooting keeps a loaded gun (KITE). A player's melee order is MELEE.
+    ///            weapon once; so does a member whose best skill is Shooting (round fd2: she kept a loaded gun before), and she
+    ///            also for a lone enemy the count calls outmatched. A player's melee order is MELEE.
     ///   KITE     any other fight with a gun that has rounds: outmatched, overwhelmed, hurt, a target she cannot swing at, a gun
     ///            order, hurt with nothing to heal with (ScRetreat's Kite mode: then the WIDE band - SCResident's ScKiteWide backs
     ///            her off from what comes within StandOffMin; round k5, was rt1's stand-off). Her gun, 0-XNPCCore's 3 m swap held
@@ -295,7 +296,11 @@ namespace SurvivorCommunity
             soft = false;
             if (!ScConfig.TeamMelee) return "team strength off (TeamMelee false: no MELEE posture)";
             string led = ScTeam.NotLedWhy(e);
-            if (led != null) return led;
+            // round fd2 (the user: "a lone enemy, or a fight she isn't outmatched in"): a marksman takes her melee weapon for
+            // a lone enemy in reach even when the count calls one walker too many for her (Fighting 1 is parity at full
+            // health); hurt, armed enemies, orders and the rest still keep her gun
+            bool loneMarksman = led != null && gunRounds && Marksman(m) && ScTeam.OutmatchedByLoneEnemy(e);
+            if (led != null && !loneMarksman) return led;
             string gunNeed = ScTeam.NeedsGun(e, t, !holdsGun, true, out kind);
             if (gunNeed != null) return gunNeed;
             if (over) return "overwhelmed (" + count + " after " + ScRetreat.HerObj(e) + ", " + need + " in a matched fight)";

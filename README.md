@@ -1621,8 +1621,8 @@ catalog, and real armor pieces in their equipment slots.
 - **One posture per member** decides her weapon and her moves, and her weapon changes **at most once every 5 seconds**:
   - **Melee**: a matched fight, at least 60% health (melee again from 70%), a zombie she can swing at, not swarmed. She
     fights with her melee weapon and never backs away; holding her gun she shoots until the zombie is within 4 m, then
-    switches once. A member whose best skill is Shooting shoots for longer, but she too switches to her melee weapon
-    once a zombie is within 4 m in a fight she isn't losing.
+    switches once. A member whose best skill is Shooting does the same, even against a lone zombie that is a match for
+    her, and with her melee weapon in hand she draws her gun again once the zombie is past 5 m.
   - **Kite**: any other fight with a gun that has ammo - more than her side can take, swarmed, hurt, raiders or anyone
     armed, a cop or a demolition zombie, a zombie past a resident's leash, your gun order. She shoots, backs off within
     2.5 m and never switches to melee up close (but see "cornered" above).

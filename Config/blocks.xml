@@ -971,7 +971,8 @@
 			     0-XNPCCore's back-offs and melee approach follow -
 			       MELEE: a matched fight, melee-led, a target she can swing at, not overwhelmed. Her melee weapon, no back-off,
 			         the approach. A gun holder keeps her gun until her target is within PostureMeleeDist meters, then takes her
-			         melee weapon once; a member whose best skill is Shooting stays on her gun while it has rounds (KITE).
+			         melee weapon once; a member whose best skill is Shooting too (round fd2), also against a lone enemy the count
+			         calls outmatched, and she draws her gun again past PostureMeleeDist + 1.
 			       KITE: any other fight with a gun that has rounds (outmatched, overwhelmed, hurt, a target she cannot swing at,
 			         a gun order, hurt with nothing to heal with - then the WIDE band: she backs off from what comes within
 			         StandOffMin, RetreatHome above). Her gun, no swap to melee up close (cornered and reloading, or cornered for

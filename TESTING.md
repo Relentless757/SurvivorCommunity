@@ -37,7 +37,7 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
-## Round fd2 (2026-11-21): the day's net per resource, farm plots, feast vs rationing, a quieter log
+## Round fd2 (2026-11-21): the day's net per resource, farm plots, feast vs rationing, marksmen up close, a quieter log
 
 Why: you asked for the daily +/- beside each resource, Farm plots in the facility list (scrolling), and a feast and
 rationing never at once; plus t88. Build `sc34_fd2`, **not deployed yet**. `sc status` prints the next rollover's figures
@@ -68,7 +68,8 @@ to compare against.
       runs).
 - [ ] **Marksman up close:** Mia (Shooting 7, Fighting 1) at home against a single walker: she shoots it at range,
       then switches to her mace once it is within 4 m (`sc team 6818`: MELEE), and back to the gun once it is past 5 m.
-      Outmatched, swarmed or hurt below 60% she keeps the gun, as before.
+      Also below 90% health, where `sc team` calls the lone walker "OUTMATCHED" (parity at Fighting 1). Against two or
+      more she isn't a match for, swarmed, or hurt below 60%, she keeps the gun, as before.
 - [ ] **Quieter log (t88):** with `DebugLogging` false, the log has `patch verification: all N targets patched` and
       no `patched <target>` lines; with it true the `patched` lines appear once at world load.
 
@@ -2034,8 +2035,8 @@ What it does now:
 - **k4, one posture per member,** worked out five times a second and the only thing her hand and 0-XNPCCore's moves follow:
   - **MELEE**: a matched fight, melee-led, a target she can swing at, not overwhelmed. Her melee weapon; no back-off; she
     walks to it. A member holding her gun keeps it (and shoots) until the target is within **4 m** (`PostureMeleeDist`),
-    then takes her melee weapon **once**. A member whose best skill is Shooting stays on her gun while it has rounds
-    (KITE), whichever weapon is in her hand (F6).
+    then takes her melee weapon **once**. A member whose best skill is Shooting stayed on her gun while it has rounds
+    (KITE), whichever weapon is in her hand (F6); since round fd2 she takes her melee weapon within 4 m too.
   - **KITE**: any other fight with a gun that has rounds - outmatched, overwhelmed, hurt, a cop, an armed enemy, a target
     she cannot swing at, your gun order, hurt with nothing to heal with (round k5: the wide band). Her gun; no swap to melee up close; she backs off within 2.5 m
     (inside the base at home) and shoots from 2.5 m out; she never walks to a fight with her gun (with her melee weapon
@@ -3150,7 +3151,7 @@ her F; for a steady reading take them out of her pack and bag in her inventory p
 - [ ] Rob (3 stars) with his crossbow in hand (`sc arms Rob ranged`), alone. Spawn one walker 10-12 m in front of him.
       `sc team Rob`: `F 1.3 / T 1` matched, MELEE-LED; posture "KITE ... keeps his gun until zombieBoe (M) is within 4 m".
       He shoots it as it comes, then takes his baton once within about 4 m. (If Shooting is his best skill he is a
-      marksman and keeps the crossbow while it has bolts - "a marksman: ...".)
+      marksman: "a marksman: ... until zombieBoe (M) is within 4 m", and since round fd2 the same swap at 4 m.)
 - [ ] The walker 2 m behind him with the crossbow in hand: 0-XNPCCore's own swap gives him the baton (MELEE agrees); when
       the walker dies he keeps the baton (`posture-bout-closed`; before tm1 the crossbow came back at 5 m).
 
