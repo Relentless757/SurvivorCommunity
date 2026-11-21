@@ -44,40 +44,61 @@ Why: you asked for SC to work with these UI mods. Analyses (one per mod, with th
 `Mods` while it is tested. Without any of them SC's merged UI is byte-identical to before (replayed).
 
 **CATUI** (folder `ZZZ_CATUI`):
-- [ ] **Home Status:** inside the home zone the panel sits below CATUI's compass clock and red enemy-alert bar, clear of
+- [x] **Home Status:** inside the home zone the panel sits below CATUI's compass clock and red enemy-alert bar, clear of
       its location panel and quest tracker.
-- [ ] **Tabs and windows:** the Community and Radio tabs, the ESC menu's Community, a survivor conversation (snapshot,
-      the line, the pager), the member inventory and linked storage all open and work.
-- [ ] **No dead slot lock:** Alt+click on a member inventory slot paints no yellow lock frame.
+- [x] **Tabs and windows:** the Community and Radio tabs, the ESC menu's Community, a survivor conversation (snapshot,
+      the line, the pager), the member inventory and linked storage all open and work. (The Radio tab wasn't shown:
+      no handheld radio was carried. It is the same vanilla branch as before.)
+- [x] **No dead slot lock:** Alt+click on a member inventory slot paints no yellow lock frame.
+
+Self-tested 2026-11-20 on ClaudeTest34 with CATUI 3.1.1 alone (Ashfall UI out): all three pass, no SC errors in the log.
 
 **Steelshot UI Hybrid** (folder `SteelshotUi`; test without RE Inventory first - its loot window conflicts with
 Steelshot):
-- [ ] **Tabs:** the Community tab sits in the top-left corner under Steelshot's glass bar (glass button, map-cabin icon,
+- [x] **Tabs:** the Community tab sits in the top-left corner under Steelshot's glass bar (glass button, map-cabin icon,
       name in the tooltip) and opens the Community page; with a handheld radio carried the Radio tab shows beside it and
-      opens the radio.
-- [ ] **Member inventory and linked storage** draw over Steelshot's dark backdrop (not dimmed behind it) and take
-      clicks.
-- [ ] **Home Status** sits below Steelshot's compass and its location / game stage row, on the glass plate with a red
+      opens the radio. **Finding:** the tabs cover the top of the first entry in Steelshot's party list (top-left) while
+      anyone is in it - a following member, or Zoe in ClaudeTest34. Cosmetic; a fix is proposed for the next round.
+- [x] **Member inventory and linked storage** draw over Steelshot's dark backdrop (not dimmed behind it) and take
+      clicks. Tested with RE Inventory installed: the member inventory is SC's own window (pass); linked storage
+      opens in RE Inventory's loot window, which Steelshot also rewrites (no "Linked storage" title, the filter row moves
+      into the header line) - Steelshot vs RE Inventory, not SC. SC's strip in it works. SC's own linked storage window
+      (without RE Inventory) wasn't reached; its depth line is the same as the member inventory's.
+- [x] **Home Status** sits below Steelshot's compass and its location / game stage row, on the glass plate with a red
       strip.
-- [ ] **ESC menu:** SC's Community button turns red on hover and reads in capitals like Steelshot's own.
-- [ ] **Pages:** the Community and Radio pages show Steelshot's backdrop behind them, and its header stays on top.
+- [x] **ESC menu:** SC's Community button turns red on hover and reads in capitals like Steelshot's own.
+- [x] **Pages:** the Community and Radio pages show Steelshot's backdrop behind them, and its header stays on top
+      (the screen edge darkens exactly as much as behind Steelshot's own inventory page).
 - [ ] **Other screens:** at 16:10 and with the UI scale at 0.8 the two tabs still sit in the corner, clear of a page's
       content; LB / RB paging reaches Community (and Radio, when shown); after `sc ui reset` the member inventory still
-      draws over the backdrop.
+      draws over the backdrop. (Not self-tested: needs a resolution / UI scale change and a gamepad.)
+
+Self-tested 2026-11-20 on ClaudeTest34 with Steelshot UI Hybrid (3.4) alone plus Quartz 10.0.0: the five checks above
+pass, the survivor dialog (snapshot, line, responses) works, no SC errors in the log. Survivor Origins' three header
+patches don't apply under Steelshot (its own compatibility, not SC's).
 
 **SteelUI** (folder `ZZZxSteel-UI`, plus SC's `zzzz_SteelUI_SurvivorCommunity`):
-- [ ] **Tabs:** SteelUI's bar ends with two icon tabs, Community and (with a handheld radio) Radio; both open their pages,
+- [x] **Tabs:** SteelUI's bar ends with two icon tabs, Community and (with a handheld radio) Radio; both open their pages,
       hover red like SteelUI's. The location text still fits on the right; in creative mode it reaches about as far as
-      SteelUI's own creative layout.
-- [ ] **Member inventory:** weapon, armor and tool slots and the pack and bag grids show separate slots at their own
-      size (nothing overlaps), with frames and the hover border; dragging and Take still work.
-- [ ] **Home Status** sits under SteelUI's location row, left of the center, on a black plate; it doesn't cover the
+      SteelUI's own creative layout. (In creative mode it reaches 53 units further, so it runs over the faint game
+      version label in the corner; SteelUI's own creative layout touches it too. Normal play is 150 units shorter.)
+- [x] **Member inventory:** weapon, armor and tool slots and the pack and bag grids show separate slots at their own
+      size (nothing overlaps), with frames and the hover border; dragging and Take still work. (Moving a stack out and
+      back works. There is no Take button: SteelUI's right-click-use hotkey removes Take and Equip everywhere, as
+      predicted; Gears > SteelUI > Hotkeys turns it off.)
+- [x] **Home Status** sits under SteelUI's location row, left of the center, on a black plate; it doesn't cover the
       compass clock, the game stage line or the quest tracker.
-- [ ] **Load order:** the startup log lists `ZZZxSteel-UI` before `zzzz_SteelUI_SurvivorCommunity`, with no "did not
+- [x] **Load order:** the startup log lists `ZZZxSteel-UI` before `zzzz_SteelUI_SurvivorCommunity`, with no "did not
       apply" lines for either; LB / RB paging reaches the two tabs. At 16:10 the Home Status panel stays clear of the
-      party list's distance labels.
+      party list's distance labels. (Load order and patches checked; paging and 16:10 not self-tested.)
 - [ ] **Without the companion folder** (move `zzzz_SteelUI_SurvivorCommunity` out): no SC tabs, but the ESC menu,
-      the land claim radial and member dialogs still open the Community window.
+      the land claim radial and member dialogs still open the Community window. (Not self-tested.)
+
+Self-tested 2026-11-20 on ClaudeTest34 with SteelUI 2.4.3 alone (Ashfall UI out): the checks above pass, the survivor
+dialog and the ESC menu's Community work, no SC errors. With RE Inventory installed the log has about 10,000 XUi errors
+(`cell_size` undefined in `gridLiveIcon`): RE Inventory appends its live-icon texture to `item_stack`, and SteelUI's
+replacement template has no `cell_size`. Every window with slots is affected (SC's linked storage window only because
+it has 360 of them) - RE Inventory vs SteelUI, not SC.
 
 ## Round tw2 (2026-11-20): tower repaint finds old towers; no anime hairstyle
 
