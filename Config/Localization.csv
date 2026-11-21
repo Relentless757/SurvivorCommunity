@@ -422,6 +422,9 @@ scWinFoodNone,UI,Menu,,,,"No food left"
 scWinFoodUnderDay,UI,Menu,,,,"Less than a day left"
 scWinFoodOneDay,UI,Menu,,,,"1 day remaining"
 scWinFoodDays,UI,Menu,,,,"{0} days remaining"
+scWinSpare,UI,Menu,,,,+{0} a day spare
+scWinCovered,UI,Menu,,,,Covered by what comes in
+scWinComingIn,UI,Menu,,,,+{0} a day coming in
 scWinRunSend,UI,Menu,,,,"Send on supply run"
 scWinRunCancel,UI,Menu,,,,"Cancel"
 scBandThriving,UI,Menu,,,,"Thriving"

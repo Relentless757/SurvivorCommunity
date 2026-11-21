@@ -209,7 +209,9 @@ NPCs but cannot manage a community (v2).
   `Haulage`, `ScGarrison.ProjectedWorkshops` (on a copy of the stock), `ScEncAllies.ProjectedBundles`, `HomeWater`,
   `Harvest`, `FoodEaten(day, ...)` (tonight's rationing counts here: it is tonight's number, not a projection),
   `WaterDrunk`, `ScStockpile.MedsForRollover`. The window fills it once per refresh and the strip's `{opX}` /
-  `{opXcolor}` show gain - use. Anything new that changes the stockpile at the rollover belongs in it too.
+  `{opXcolor}` show gain - use. Anything new that changes the stockpile at the rollover belongs in it too. The
+  days left under food and water (`XUiC_ScCommunity.DaysLeft`) use the same gain against an ordinary day's
+  `FoodEaten()` / `WaterDrunk()` (no rationing); the morale Food term (`ScMorale`, `FoodDays`) still reads the stock alone.
 - **Window and HUD:** the resources strip shows all seven (water with its days left or "+N a day from the wells");
   the Home Status panel shows water between food and meds; morale lists Water and the round of drinks.
 - **Console:** `sc give water|luxury <n>`, `sc run <member> water`, `sc barter water <res>`, `sc facility` (the wells and dew collectors in the loaded home zone,

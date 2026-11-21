@@ -1854,6 +1854,10 @@ outposts' deliveries, upkeep, haulage and workshops, your allies' bundles, the g
 what your people eat (with the cook and tonight's rationing) and drink, and the Meds the injured need. Runs, trades,
 crafting, the activities and ammo (spent only by shooting and as watch shifts start) are not counted.
 
+Under the food and the water, the days left count what comes in too: the stock lasts as many days as it covers what
+is used beyond the outposts, allies, garden or wells (an ordinary day, without tonight's rationing). When what comes in
+covers it all, the line reads "+N a day spare" or "Covered by what comes in".
+
 ### Members
 
 - **Left:** one row per member with their status, mood, skills and specialty. Injured rows are red. A **filter** (All

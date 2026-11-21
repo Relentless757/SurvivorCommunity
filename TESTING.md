@@ -54,6 +54,9 @@ to compare against.
       second one replays the same day.
 - [ ] **Rationing in the net:** enact rationing: what is eaten tonight halves (rounded up), so the food number rises by
       that much (-6 becomes -3 with nothing growing); the morale Food line does not move.
+- [ ] **Days left with income:** 6 members, 20 food, nothing coming in: "3 days remaining". Plant 10 crops (+2 a day):
+      20 / (6 - 2) = "5 days remaining". With income at least what is eaten: "+N a day spare" (or "Covered by what comes
+      in" when equal). Water the same with the wells. Rationing does not change the days.
 - [ ] **Farm plots:** the Facilities list has **Farm plots** after Water: living crops, "+N food a day", crops per food
       ("4 (name, level 4)" with a level-4 gardener at home, plain "5" without), and "N more crops" to the next food. No
       crops: "Nothing planted".

@@ -1315,8 +1315,8 @@ namespace SurvivorCommunity
                 case "resfuel": _value = Num(c.Get(Resource.Fuel)); return true;
                 case "reswater": _value = Num(c.Get(Resource.Water)); return true;
                 case "resluxury": _value = Num(c.Get(Resource.Luxury)); return true;
-                case "fooddays": _value = FoodDays(c); return true;
-                case "waterdays": _value = WaterDays(c); return true;
+                case "fooddays": _value = DaysLeft(c, Resource.Food, ScEconomy.FoodEaten()); return true;     // round fd2: with income
+                case "waterdays": _value = DaysLeft(c, Resource.Water, ScEconomy.WaterDrunk()); return true;
 
                 // ---- member list ----
                 case "membercount": _value = Num(ScRegistry.Members.Count); return true;
@@ -1509,26 +1509,24 @@ namespace SurvivorCommunity
         /// "+6 a day from the wells" when the facilities cover what is drunk; otherwise the days the stock lasts at what
         /// they do not cover; "" with nobody to give water to (round wl).
         /// </summary>
-        private static string WaterDays(Community c)
+        /// <summary>
+        /// "4 days remaining" under the food and the water. Round fd2 (the user): what comes in counts - the outposts'
+        /// deliveries, the allies' bundles, the garden (food), the wells and dew collectors (water): dayGain, from
+        /// ScEconomy.DailyFlow - against an ordinary day's use (FoodEaten / WaterDrunk, never tonight's rationing, a one-day
+        /// cut). Using no more than comes in: "+N a day spare" / "Covered by what comes in"; nobody to feed: "+N a day coming
+        /// in" or nothing. The morale Food term still goes by the stock alone (ScMorale).
+        /// </summary>
+        private string DaysLeft(Community c, Resource r, int use)
         {
-            if (!ScRegistry.Loaded || ScRegistry.Members.Count == 0) return c.HomeWater > 0 ? string.Format(Localization.Get("scWinWaterMade"), c.HomeWater) : "";
-            int shortfall = ScEconomy.WaterShortfall();
-            if (shortfall <= 0) return string.Format(Localization.Get("scWinWaterMade"), c.HomeWater);
-            if (c.Get(Resource.Water) <= 0) return Localization.Get("scWinWaterNone");
-            int days = ScEconomy.DaysOf(c.Get(Resource.Water), shortfall);
-            if (days <= 0) return Localization.Get("scWinFoodUnderDay");
-            if (days == 1) return Localization.Get("scWinFoodOneDay");
-            return string.Format(Localization.Get("scWinFoodDays"), days);
-        }
-
-        /// <summary>"4 days remaining" from what the community eats now; "" with nobody to feed.</summary>
-        private static string FoodDays(Community c)
-        {
-            if (!ScRegistry.Loaded || ScRegistry.Members.Count == 0) return "";
-            if (c.Get(Resource.Food) <= 0) return Localization.Get("scWinFoodNone");
-            int need = ScEconomy.FoodEaten();                  // round ie1: the rollover's figure, the cook included
-            if (need <= 0) return "";
-            int days = ScEconomy.DaysOf(c.Get(Resource.Food), need);
+            if (!ScRegistry.Loaded) return "";
+            int gain = Math.Max(0, dayGain[(int)r]);
+            use = Math.Max(0, use);
+            if (use == 0) return gain > 0 ? string.Format(Localization.Get("scWinComingIn"), gain) : "";
+            if (gain >= use)
+                return gain > use ? string.Format(Localization.Get("scWinSpare"), gain - use) : Localization.Get("scWinCovered");
+            int stock = c.Get(r);
+            if (stock <= 0) return Localization.Get(r == Resource.Water ? "scWinWaterNone" : "scWinFoodNone");
+            int days = ScEconomy.DaysOf(stock, use - gain);
             if (days <= 0) return Localization.Get("scWinFoodUnderDay");
             if (days == 1) return Localization.Get("scWinFoodOneDay");
             return string.Format(Localization.Get("scWinFoodDays"), days);

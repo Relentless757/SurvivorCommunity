@@ -6,6 +6,8 @@
   count, what the next day's end will add or take: +N in green, -N in red. Six members and nothing growing shows -6 by
   the food; an outpost sending 2 food makes it -4. It counts the outposts (deliveries, upkeep, haulage, workshops),
   allies' bundles, the garden, wells and dew collectors, what your people eat and drink, and the Meds the injured need.
+- **Days left count what comes in.** The "N days remaining" under the food and the water now subtract the outposts'
+  deliveries, allies' bundles, the garden and the wells from what is used; covered entirely, it reads "+N a day spare".
 - **Farm plots** are a facility now: the living crops, the food a day, the crops a food takes (and your gardener), and
   how many more crops make the next food.
 - The Facilities list scrolls with the mouse wheel, a row at a time.
