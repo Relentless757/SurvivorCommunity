@@ -53,8 +53,9 @@ and what rationing cuts); `sc feast` and `sc ration` print their state (`on` / `
       3 food, the message names the cook, morale rises by 10 (+1 per cook level above 1; the Community tab lists "A feast
       (59:xx left)"), and your max stamina bar grows by 10 (+2 per level), as does a member's (`sc xnpc <id>` shows
       `buffSCFeast`). While it runs the Feast row reads "Running - xx:xx left" and the button is off, also after midnight;
-      after the hour (or `sc feast off`) the buff comes off everyone, you are told the feast has worn off, and the row
-      reads "Held today - again tomorrow" (or "Ready" on the next day).
+      after the hour the buff comes off everyone, you are told the feast has worn off, and the row reads "Held today -
+      again tomorrow" (or "Ready" on the next day). `sc feast off` ends it at once without that message, and the row
+      reads "Ready" (it also allows another feast today).
 - [ ] **Feast refused:** no cook at home -> "Needs a cook at home"; no campfire in the base -> "Needs a campfire in the
       base"; under 3 food -> "Not enough food". The button stays disabled.
 - [ ] **Rationing:** **Enact rationing** says tonight's food (half, rounded up: 7 eaten -> 4); morale -15 and max
