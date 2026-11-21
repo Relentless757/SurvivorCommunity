@@ -39,7 +39,7 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 
 ## Round nc1 (2026-11-21): 0-XNPCCore 3.4.06 final + 0-SCore 3.4.25.925
 
-Why: the compatibility audit of the two updates and your decisions (D1-D6). Build `sc34_nc1`, **not deployed yet**. Needs
+Why: the compatibility audit of the two updates and your decisions (D1-D6). Deployed 2026-11-21 (port-3.4 c313fdb3, DLL 6f350f72). Needs
 0-SCore 3.4.25.925 and 0-XNPCCore 3.4.06 final in the install. `sc xnpc` (no id) prints the hook counters named below.
 
 **Review fixes and additions**
