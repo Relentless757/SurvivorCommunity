@@ -270,6 +270,13 @@
 			<property name="RangedPerStar" value="0.10" />
 			<property name="SpeedPerStar" value="0.04" />
 			<property name="HealthPerStar" value="0.08" />
+			<!-- worn armor (round ar1): how much the armor SC's survivors / raiders wear protects them, as a share taken off what
+			     the same armor gives a player. 0 = a player's protection (the default and the most), -0.5 = half (SC's fixed
+			     value before this setting), -1 = armor does nothing. From -1 to 0: above 0 a full set of good armor passes
+			     100% and makes them immune. A body takes a changed value at its next spawn or load; another pack's survivors
+			     keep their own armor. -->
+			<property name="SurvivorArmorResist" value="0.0" />
+			<property name="RaiderArmorResist" value="0.0" />
 			<!-- specialties at the day rollover (round ie1, whole bundles): the best cook at home saves 1 food a day per
 			     CookStarsPerFood stars, rounded up (1, 1, 2, 2, 3, 3, 4 at 2), never more than half the day's food; gardeners
 			     at home turn living crops in the zone into 1 food per CropsPerFood crops, at most 1 per star (their stars
@@ -1304,7 +1311,7 @@
 			<property name="VoiceSpokenRefusals" value="true" />
 			<property name="ScGreetingsOwnAll" value="true" />
 			<!-- 0-XNPCCore 3.2's own survivors that the community takes over: they get SurvivorCommunity's looks, names,
-			     half armor protection, item-only healing and aim pose instead of 0-XNPCCore's presets. The XML that
+			     armor protection (SurvivorArmorResist), item-only healing and aim pose instead of 0-XNPCCore's presets. The XML that
 			     strips their preset look (Config/entityclasses.xml, written by Tools/gen_arsenal.py) names the same six:
 			     change both together.
 			     XnpcBodyGetUp / XnpcBodyJumpAnim / XnpcBodyColliderLayers: player-body fixes 0-XNPCCore does not make

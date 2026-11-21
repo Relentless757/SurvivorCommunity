@@ -37,6 +37,24 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round ar1 (2026-11-21): armor protection setting
+
+Why: you asked for the halved armor protection to go, with a setting to change it. `SurvivorArmorResist` and
+`RaiderArmorResist` (`Config/blocks.xml`, default 0.0) replace SC's fixed -0.5. Build `sc34_ar1`, **not deployed yet**.
+`sc xnpc <id>` now prints an `armor:` line: the cvar `sc_armorresist` and the armor rating a hit uses.
+
+- [ ] **Default (0.0):** on a member in armor (`sc gear <id> Lumberjack`, then `sc xnpc <id>`): `sc_armorresist=0` and
+      a rating about twice what the same set gave before this build (the old half), under 100%. A raider
+      (`sc spawn hostile`, then `sc xnpc <its id>`) the same; a T3 raider in a full top set sits around 77-82%.
+- [ ] **A changed value:** with the game closed set `SurvivorArmorResist` to -0.5 in the installed `Config/blocks.xml`,
+      load: the member shows `sc_armorresist=-0.5` and half the protection; a raider still shows 0 (its own setting).
+      Set `RaiderArmorResist` to -0.5 too: raiders show half. Put both back to 0.0 afterwards: at the next load the cvar
+      is gone again (`sc_armorresist=0`).
+- [ ] **Out of range:** a value above 0 (say 0.5) logs `config SurvivorArmorResist=0.5 out of range [-1,0], keeping 0`
+      and changes nothing.
+- [ ] **Not SC's survivors:** 0-XNPCCore's own bandit or a custom survivor (`npcSdcsBanditMelee`, `npcSdcsCustomMale`):
+      `sc xnpc <id>` shows `sc_armorresist=0`, and their armor works as 0-XNPCCore's always has, whatever the settings.
+
 ## Round ui2 (2026-11-21): MothUI, and Steelshot's tabs
 
 Why: you asked for SC to work with MothUI (round 2 of the UI-mod work), and round ui1 found Steelshot's tabs covering

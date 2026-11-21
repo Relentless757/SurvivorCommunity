@@ -120,6 +120,15 @@ namespace SurvivorCommunity
         /// </summary>
         public const string RaiderXpCvar = "sc_raiderXp";
 
+        /// <summary>
+        /// Round ar1: the cvar the worn armor groups read ("PhysicalDamageResist perc_add @sc_armorresist" in
+        /// Config/entityclasses.xml, Tools/gen_arsenal.py ARMOR_CVAR): ScConfig.SurvivorArmorResist on a survivor's body,
+        /// RaiderArmorResist on a raider's. Written on every PostInit (SetArmorResist) and removed when the value is 0: an
+        /// unset cvar reads 0 (a player's protection). Vanilla adds it back at 0 the first time the effect is evaluated
+        /// (PassiveEffect.ModifyValue), which costs nothing: a zero cvar is never saved (EntityBuffs.Write).
+        /// </summary>
+        public const string ArmorResistCvar = "sc_armorresist";
+
         /// <summary>Consumed by the next managed body that runs PostInit (set right before EntityFactory.CreateEntity).</summary>
         public static Loadout Pending;
 
@@ -999,6 +1008,9 @@ namespace SurvivorCommunity
             try
             {
                 if (e == null || !ScXnpc.IsBody(e) || !ScCommunity.IsHost || e.Buffs == null) return;
+                // round ar1 (review): the worn armor share first, in its own try, so nothing below can skip it
+                try { SetArmorResist(e, ScXnpc.IsRaider(e)); }
+                catch (Exception ex) { ScLog.Once("loadout-armor", ex); }
                 // a runner coming back from its snapshot: ScRunners puts the snapshot's bag back right after this, so what
                 // would go into the bag here waits for AfterRunnerRestore (the re-check's R1)
                 bool runnerRestore = ScRunners.Restoring;
@@ -1143,6 +1155,18 @@ namespace SurvivorCommunity
             if (ranged.Family == "bow") return level <= 0 ? 0.33f : 0.67f;
             if (ranged.Family == "firearm") return level <= 0 ? 0.5f : level == 1 ? 1f : 1.33f;
             return 0f;
+        }
+
+        /// <summary>Round ar1: the body's worn armor share (ArmorResistCvar) from the config; removed when 0.</summary>
+        public static void SetArmorResist(EntityAlive e, bool raider)
+        {
+            if (e == null || e.Buffs == null) return;
+            float v = raider ? ScConfig.RaiderArmorResist : ScConfig.SurvivorArmorResist;
+            if (v != 0f)
+            {
+                if (e.Buffs.GetCustomVar(ArmorResistCvar) != v) e.Buffs.SetCustomVar(ArmorResistCvar, v);
+            }
+            else if (e.Buffs.HasCustomVar(ArmorResistCvar)) e.Buffs.RemoveCustomVar(ArmorResistCvar);
         }
 
         /// <summary>

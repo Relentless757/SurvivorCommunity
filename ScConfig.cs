@@ -241,6 +241,17 @@ namespace SurvivorCommunity
         public static float SpeedPerStar = 0.04f;
         public static float HealthPerStar = 0.08f;
         /// <summary>
+        /// Round ar1: how much worn armor protects SC's survivors (SurvivorArmorResist) and raiders (RaiderArmorResist), as a
+        /// share added to what the same armor gives a player: 0 = a player's protection (the default and the most), -0.5 =
+        /// half (SC's fixed value before ar1), -1 = none. Never above 0 (review): vanilla's Equipment.CalcDamage does not
+        /// clamp the rating, and a full top set passes 100% at about +0.2, where a hit heals the NPC (its damage goes
+        /// negative). The worn armor groups in Config/entityclasses.xml read it from the
+        /// cvar ScLoadout.ArmorResistCvar, which ScLoadout.SetArmorResist writes on every PostInit, so a changed value
+        /// applies at a body's next spawn or load.
+        /// </summary>
+        public static float SurvivorArmorResist = 0f;
+        public static float RaiderArmorResist = 0f;
+        /// <summary>
         /// Cooking (round ie1): the best cook at home saves 1 food a day per CookStarsPerFood stars, rounded up (1, 1, 2, 2, 3, 3,
         /// 4 at 2), never more than half the day's food (ScEconomy.FoodEaten). 0 = the cook saves nothing. Was CookFoodPerStar 0.08.
         /// </summary>
@@ -1924,6 +1935,8 @@ namespace SurvivorCommunity
                 ParseFloat(p, "RangedPerStar", ref RangedPerStar, 0f, 2f);
                 ParseFloat(p, "SpeedPerStar", ref SpeedPerStar, 0f, 1f);
                 ParseFloat(p, "HealthPerStar", ref HealthPerStar, 0f, 2f);
+                ParseFloat(p, "SurvivorArmorResist", ref SurvivorArmorResist, -1f, 0f);   // round ar1; above 0 can make them immune
+                ParseFloat(p, "RaiderArmorResist", ref RaiderArmorResist, -1f, 0f);
                 ParseInt(p, "CookStarsPerFood", ref CookStarsPerFood, 0, 7);        // round ie1
                 ParseInt(p, "CropsPerFood", ref CropsPerFood, 0, 1000);
                 ParseFloat(p, "MedicPerStar", ref MedicPerStar, 0f, 5f);

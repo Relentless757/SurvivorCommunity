@@ -1710,7 +1710,9 @@ You change their gear by dropping items on the slots (single player, or the host
   her health; above that only medical items heal (`RegenOutOfCombat` and the `Regen...` settings). Only a threat to her
   holds it: a zombie within 30 m that is after her or can see her, or any zombie within 12 m - so it also helps in a lull,
   with zombies behind walls or chasing someone else farther off. Raiders, enclave people and strangers don't.
-- Their armor protects them at half the rating it would give you. It does not break.
+- Their armor protects them as well as it would protect you. It does not break. `SurvivorArmorResist` and
+  `RaiderArmorResist` in `Config/blocks.xml` lower that: -0.5 is half (how it was before 2026-11-21), -1 none. They
+  can't go above 0: more than your protection would make a well-armored NPC immune.
 
 ### Looks
 

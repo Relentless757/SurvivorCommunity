@@ -604,7 +604,7 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ X4: wear ----
 
         /// <summary>
-        /// X4. No no-wear buff on our bodies (decision D2: SC's half protection on worn vanilla armor that wears down).
+        /// X4. No no-wear buff on our bodies (decision D2: SC's protection on worn vanilla armor that wears down).
         /// XNPC's wear tick runs at 1 Hz from its level tick and adds SdcsNoWear to every body while its NoWear setting is
         /// on; for ours the buff is taken off instead and the tick skipped. The method is ~15 lines with branches, too big
         /// for Mono to inline, and the counter proves the hook runs.

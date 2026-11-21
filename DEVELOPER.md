@@ -1444,11 +1444,18 @@ vanilla's.
 
 - Player-body NPCs (`Config/entityclasses.xml`) wear the **player character model**: a random face, race,
   hair, eye colour and (for men) facial hair from the game's own character catalogue, plus **real vanilla
-  armor** in their equipment slots - the same meshes you wear. It protects them at half the rating it would
-  give you, and the framework's flat difficulty resistance tags (`DRLow/Mid/High`) are left off because the
-  armor replaces them: stacked, a raider in three medium pieces measured 84.5% and barely noticed a bat. An
-  unarmored one now sits at 5%, a full top set under 50% (`WORN_ARMOR_SCALE` in `Tools/gen_arsenal.py`). The
-  armor does not break, and wear is not kept across loads.
+  armor** in their equipment slots - the same meshes you wear. How much it protects them is a share added to
+  what it gives you: `SurvivorArmorResist` / `RaiderArmorResist` (blocks.xml, from -1 to 0, default 0 = your
+  protection; round ar1). Not above 0: `Equipment.CalcDamage` does not clamp the rating, a full top set passes 100% at
+  about +0.2, and past it a hit's damage goes negative and heals the NPC. The DLL writes it on each body as the cvar `sc_armorresist` at every PostInit
+  (`ScLoadout.SetArmorResist`, removed at 0), and each class's armor group is a `PhysicalDamageResist perc_add
+  @sc_armorresist` (`ARMOR_CVAR` in `Tools/gen_arsenal.py`); 0-XNPCCore's other children of the six survivor classes
+  cancel what they inherit with a `perc_subtract` of the same cvar, and `Tools/verify_arsenal.py` checks that the cvar
+  nets to exactly +1 on SC's classes and 0 on every other. `sc xnpc <id>` prints the cvar and the armor
+  rating a hit uses (`Equipment.GetTotalPhysicalArmorRating`). Until ar1 the share was fixed at -0.5: an unarmored NPC at 5%, a full top set under 50%. The
+  framework's flat difficulty resistance tags (`DRLow/Mid/High`) are left off because the armor replaces them: stacked,
+  a raider in three medium pieces measured 84.5% and barely noticed a bat. The armor does not break, and wear is not
+  kept across loads.
 - **Survivors are 0-XNPCCore's own.** Since the XNPCCore migration the community's survivors are 0-XNPCCore 3.2's
   player-body survivors, `npcSdcsSurvivor{Male,Female}T{1,2,3}` (`XnpcSurvivorClasses`), dressed, named, healed and
   armed by this mod; SurvivorCommunity no longer defines survivor classes of its own. **A save from before the
@@ -1490,7 +1497,7 @@ vanilla's.
   same six classes become thin children of 0-XNPCCore's `npcSdcsBanditMelee` (men) and `npcSdcsBanditRanged` (women),
   so 0-XNPCCore's bandit fighting AI, faction, spawn ammo, loot bag and damage-to-players setting (`sdcsbandit`) are
   theirs and follow 0-XNPCCore's updates. This mod keeps their look (its faces, raider clothes and Vanity Vault paints
-  and tattoos), names, Shooting stars, healing, title, map markers, chase speeds, half armor protection, kill XP by
+  and tattoos), names, Shooting stars, healing, title, map markers, chase speeds, armor protection, kill XP by
   weapon, and all of its spawning, dens, bands, raids and taunts. Each carries **one** weapon, rolled by 0-XNPCCore
   from its class's list - this mod's odds by tier: a gun or bow 30/40/50% (of those a firearm 12/12/85%), else a melee
   weapon - with 60 rounds for a gun, plus its tier's kit melee for close range (a club, a baseball bat, a machete). A

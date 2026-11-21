@@ -1,5 +1,13 @@
 # Next pre-release (not released yet)
 
+## Armor
+
+- **Armor now protects survivors and raiders fully.** SC used to halve what worn armor gave them. Two new settings in
+  `Config/blocks.xml` set it instead, `SurvivorArmorResist` for SC's survivors and `RaiderArmorResist` for its raiders:
+  0 (the default and the most) is the protection the same armor gives you, -0.5 the old half, -1 none. A
+  survivor or raider takes a changed value the next time it spawns or the game loads. Other packs' survivors keep their
+  own armor, as before.
+
 ## UI mods
 
 - **SC works with CATUI, Steelshot UI Hybrid, SteelUI and MothUI.** Each UI mod gets a few small fixes so SC's tabs, the Home

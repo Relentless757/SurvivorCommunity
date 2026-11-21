@@ -125,10 +125,14 @@ NAMES = {
     ("r", True):  "Rook,Scab,Vex,Dusty,Knox,Gutter,Rafe,Brick,Colt,Dregs,Hatch,Jax,Lash,Mace,Pike,Rust,Shiv,Slate,Stitch,Tank,Wolfe,Zane",
     ("r", False): "Ash,Blaze,Crow,Echo,Fang,Grit,Havoc,Jinx,Kestrel,Lynx,Mercy,Nyx,Raven,Riot,Sable,Scar,Siren,Spike,Thorn,Venom,Vixen,Wraith",
 }
-# Worn armor protects these NPCs, but at this fraction of what it gives a player. The template's own 10 counts too;
-# the percentage multiplies the whole rating (EffectManager sums every base first, then applies perc_add). 0.5 puts
-# an unarmored NPC at 5%, three medium pieces around 30%, a full top set under 50% - never near-immune.
-WORN_ARMOR_SCALE = 0.5
+# Worn armor protects these NPCs as much as Config/blocks.xml says (round ar1): SurvivorArmorResist for SC's survivors,
+# RaiderArmorResist for its raiders, which the DLL puts on each body as this cvar at every PostInit (ScLoadout
+# .SetArmorResist; unset when 0). Each class's armor group is a perc_add of the cvar on PhysicalDamageResist, so the
+# whole rating, the template's own 10 included, is scaled by 1 + the value (EffectManager sums every base first, then
+# applies the percentages): unset or 0 = a player's protection (the default since ar1), -0.5 = half (SC's fixed value
+# before ar1: an unarmored NPC at 5%, a full top set under 50%), -1 = none. A class that inherits the survivors' group
+# without being SC's cancels it with a perc_subtract of the same cvar (xnpc_child_ops), so no class counts it twice.
+ARMOR_CVAR = "sc_armorresist"
 
 # 0-XNPCCore 3.2's own player-body survivors that SurvivorCommunity takes over (XNPCCore migration M3, decisions D2
 # and D7). Keep in step with ScXnpc.DefaultClasses in the DLL and XnpcSurvivorClasses in Config/blocks.xml.
@@ -154,8 +158,9 @@ XNPC_SURVIVOR_OPS = """
 \t     builds the body from a rolled or remembered SC look (Patches_Xnpc, createModel). -->
 \t<remove xpath="/entity_classes/entity_class[%(sel)s]/effect_group[@name='SDCS Look']"/>
 
-\t<!-- Worn vanilla armor protects them at SurvivorCommunity's fraction, the same group the scRaider templates
-\t     above carry (merged with the inherited effect groups; a perc_add suppresses nothing). -->
+\t<!-- Worn vanilla armor protects them as much as SurvivorArmorResist in Config/blocks.xml says: the DLL puts it on
+\t     each body as the cvar %(armor_cvar)s (unset = 0 = a player's protection). The same group the scRaider templates
+\t     above carry with RaiderArmorResist (merged with the inherited effect groups; a perc_add suppresses nothing). -->
 \t<append xpath="/entity_classes/entity_class[%(sel)s]">
 \t\t<effect_group name="SurvivorCommunity worn armor scale">
 \t\t\t<passive_effect name="PhysicalDamageResist" operation="perc_add" value="%(armor)s"/>
@@ -186,7 +191,7 @@ def xnpc_survivor_ops():
     female = [n for n in XNPC_SURVIVORS if "Female" in n]
     if not male or not female: raise SystemExit("XNPC_SURVIVORS needs both sexes")
     return XNPC_SURVIVOR_OPS % {"sel": sel(XNPC_SURVIVORS), "male": sel(male), "female": sel(female),
-                                "armor": "%g" % (WORN_ARMOR_SCALE - 1.0),
+                                "armor": "@" + ARMOR_CVAR, "armor_cvar": ARMOR_CVAR,
                                 "male_names": NAMES[("s", True)], "female_names": NAMES[("s", False)]}
 
 # Round X1 (0-XNPCCore 3.4.02): entity classes inherit properties AND effect groups from the patched document down the
@@ -197,7 +202,8 @@ def xnpc_survivor_ops():
 # no bandages and SC's names. These ops give each child of one of the six back what the ops above took from its parent, as
 # 0-XNPCCore defines it (read from its entityclasses.xml now, so a regenerate follows a 0-XNPCCore update): the SDCS Look
 # group, BagItems, HarvestItems and Names, each only where the child declares none of its own, and a group cancelling the
-# worn armor scale (perc_add values add up: EffectManager sums them before it multiplies). Selected by @extends at load, so
+# worn armor group (a perc_subtract of the same cvar against its perc_add: EffectManager sums them before it multiplies,
+# so they come to nothing whatever the cvar holds; SC's bandit raiders, children of 0-XNPCCore's bandits, add their own). Selected by @extends at load, so
 # any child a mod loading before SurvivorCommunity adds is covered too; one added by a mod loading after it is not. Each op
 # sits in an xpath() conditional on its own target, so one with nothing to do (no child of a T2 or T3 class today) is
 # skipped quietly instead of logging "did not apply" on every start.
@@ -211,8 +217,9 @@ XNPC_CHILD_HEAD = """
 \t     from the six survivor classes cascades onto every class that extends one of them. 0-XNPCCore's own children of the
 \t     six are not SurvivorCommunity's and keep 0-XNPCCore's ways, so each child of one of the six gets back its parent's
 \t     look applier (SDCS Look), BagItems, HarvestItems and Names exactly as 0-XNPCCore defines them, each only where the
-\t     child declares none of its own, and a group that cancels the worn armor scale (perc_add %(undo)s against %(armor)s:
-\t     they add up to nothing). Each op only when its target exists (an xpath() conditional). The children when this
+\t     child declares none of its own, and a group that cancels the worn armor group (a perc_subtract of %(armor)s
+\t     against its perc_add: they add up to nothing, whatever the cvar holds). Each op only when its target exists
+\t     (an xpath() conditional). The children when this
 \t     was generated:
 %(children)s -->
 """
@@ -246,12 +253,11 @@ def xnpc_child_ops():
             el = ET.Element("property", name=prop, value=v[0].get("value"))
             groups.setdefault((prop, "property[@name='%s']" % prop, ser(el, 3)), []).append(p)
     undo = ET.Element("effect_group", name=ARMOR_UNDO_GROUP)
-    ET.SubElement(undo, "passive_effect", name="PhysicalDamageResist", operation="perc_add", value="%g" % (1.0 - WORN_ARMOR_SCALE))
+    ET.SubElement(undo, "passive_effect", name="PhysicalDamageResist", operation="perc_subtract", value="@" + ARMOR_CVAR)
     groups[("armor", "effect_group[@name='%s']" % ARMOR_UNDO_GROUP, ser(undo, 3))] = list(XNPC_SURVIVORS)
     children = [e.get("name") for e in xnpc_classes.iter("entity_class") if e.get("extends") in XNPC_SURVIVORS]
     listed = textwrap.wrap((", ".join(children) or "none") + ".", 110)
-    out = [XNPC_CHILD_HEAD % {"children": "\n".join("\t     " + ln for ln in listed), "undo": "%g" % (1.0 - WORN_ARMOR_SCALE),
-                              "armor": "%g" % (WORN_ARMOR_SCALE - 1.0)}]
+    out = [XNPC_CHILD_HEAD % {"children": "\n".join("\t     " + ln for ln in listed), "armor": "@" + ARMOR_CVAR}]
     order = ["look"] + XNPC_CHILD_TAKEN + ["armor"]
     for (kind, guard, xml), parents in sorted(groups.items(), key=lambda kv: (order.index(kv[0][0]), XNPC_SURVIVORS.index(kv[1][0]))):
         xp = "/entity_classes/entity_class[%s and not(%s)]" % (ext(parents), guard)
@@ -444,7 +450,7 @@ out.append("""\t<!-- GENERATED by Tools/gen_arsenal.py - edit RAIDERS and RAIDER
 \t<append xpath="/entity_classes">
 """ % RAIDER_XP_CVAR)
 for male in (True, False):
-    out.append(RAIDER_TEMPLATE_XML % {"name": RAIDER_TEMPLATE[male], "base": RAIDER_BASE[male], "armor": "%g" % (WORN_ARMOR_SCALE - 1.0),
+    out.append(RAIDER_TEMPLATE_XML % {"name": RAIDER_TEMPLATE[male], "base": RAIDER_BASE[male], "armor": "@" + ARMOR_CVAR,
                                       "nav": RAIDER_NAV_OBJECT, "xp": RAIDER_XP_CVAR})
     for n in RAIDERS:
         if ("Female" not in n) != male: continue
@@ -1185,7 +1191,7 @@ BANDIT_HEAD = """
 \t     gear-only half (the weapon roll, the ammo, the weapon in the bag, the hand) and keeps SC's look, name and Shooting
 \t     stars (%(marker)s marks these classes). The empty look pool is the fail-safe: should that re-route not
 \t     bind, 0-XNPCCore's applier stops there, before the name, archetype and armour. SC's: the raider title, map
-\t     markers, no bag stock, no inventory window, SC's chase speeds, worn armor at half protection, no landmine
+\t     markers, no bag stock, no inventory window, SC's chase speeds, worn armor at RaiderArmorResist, no landmine
 \t     immunity, kill XP raised by weapon (the cvar %(xp)s).
 \t     Per tier: SC's raider names, the armor tier, the loot bag (T1 plain, T2 blue, T3 red), the kit melee
 \t       %(kits)s,
@@ -1246,7 +1252,7 @@ def bandit_block():
     for male in (True, False):
         out.append(BANDIT_TEMPLATE_XML % {"name": BANDIT_TEMPLATE[male], "base": BANDIT_PARENT[male], "marker": BANDIT_MARKER,
                                           "nav": RAIDER_NAV_OBJECT, "armor_group": BANDIT_ARMOR_GROUP,
-                                          "armor": "%g" % (WORN_ARMOR_SCALE - 1.0), "xp": RAIDER_XP_CVAR})
+                                          "armor": "@" + ARMOR_CVAR, "xp": RAIDER_XP_CVAR})
         for tier in (1, 2, 3):
             n = raider(male, tier)
             bag = BANDIT_LOOT_BAG[tier]

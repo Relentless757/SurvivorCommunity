@@ -9,8 +9,8 @@ namespace SurvivorCommunity
     ///
     /// 0-XNPCCore 3.2 ships player-body survivors of its own, npcSdcsSurvivor{Male,Female}T{1,2,3}: an SCore
     /// EntityAliveSDXV4 wearing an EModelSdcsNpc (NPCSdcsCharacters.dll, a subclass of the vanilla EModelSDCS) and driven by
-    /// an AvatarSdcsNpcController. The community takes those six classes over - SC's own looks, names, half armor
-    /// protection, item-only healing with the bandage animation and the visible aim pose instead of XNPC's presets (the
+    /// an AvatarSdcsNpcController. The community takes those six classes over - SC's own looks, names, armor
+    /// protection (SurvivorArmorResist, round ar1; half before it), item-only healing with the bandage animation and the visible aim pose instead of XNPC's presets (the
     /// user's decisions D2, D7 and D12) - so every hook that should act on such a body asks IsBody here, and nowhere
     /// else is the list of classes spelled out. XNPC's other player-body classes (npcSdcsTest, npcSdcsFemaleAK47 and the
     /// like: menu-only classes the community never spawns) stay XNPC's own, and the body hooks keep counting them as

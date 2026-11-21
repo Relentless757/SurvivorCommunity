@@ -153,6 +153,7 @@ archetypes = set(e.get("name") for e in load(G + r"\Data\Config\archetypes.xml")
 nav_classes = set(e.get("name") for e in load(G + r"\Data\Config\nav_objects.xml").getroot().iter("nav_object_class"))
 raider_nav = _gen_const("RAIDER_NAV_OBJECT")
 raider_xp = _gen_const("RAIDER_XP_CVAR")
+armor_cvar = _gen_const("ARMOR_CVAR")      # round ar1: worn armor protection, set on each body by ScLoadout.SetArmorResist
 if not raider_nav: errors.append("gen_arsenal.py has no RAIDER_NAV_OBJECT")
 if not raider_xp: errors.append("gen_arsenal.py has no RAIDER_XP_CVAR")
 _loadout_cs = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ScLoadout.cs")
@@ -162,6 +163,11 @@ if os.path.exists(_loadout_cs):
     elif m_.group(1) != raider_xp: errors.append("ScLoadout.RaiderXpCvar %r is not gen_arsenal.py's RAIDER_XP_CVAR %r" % (m_.group(1), raider_xp))
     else: print("  kill XP cvar %s matches ScLoadout.RaiderXpCvar" % raider_xp)
 else: print("  note: no ScLoadout.cs next to Tools - RAIDER_XP_CVAR not compared with the DLL's constant")
+if os.path.isfile(_loadout_cs):
+    m_ = re.search(r'public const string ArmorResistCvar = "([^"]*)";', io.open(_loadout_cs, encoding="utf-8").read())
+    if not m_: errors.append("ScLoadout.cs has no ArmorResistCvar constant")
+    elif m_.group(1) != armor_cvar: errors.append("ScLoadout.ArmorResistCvar %r is not gen_arsenal.py's ARMOR_CVAR %r" % (m_.group(1), armor_cvar))
+    else: print("  armor cvar %s matches ScLoadout.ArmorResistCvar" % armor_cvar)
 def effective_groups(n):
     """Every effect group along the chain (MinEffectController walks the parents' elements): (owner, group element)."""
     return [(c, g_) for c in chain(n) for g_ in names[c].xpath("effect_group")]
@@ -187,8 +193,12 @@ def check_bandit_leaf(n):
     if (resolved(n, "IsMale") == "true") != male: errors.append(n + ": IsMale does not match the name")
     look = [c for c, g_ in effective_groups(n) if g_.get("name") == "SDCS Look"]
     if len(look) != 1: errors.append("%s: %d 'SDCS Look' groups along the chain (%s), want exactly 1 (from the bandit)" % (n, len(look), look))
-    pdr = sum(float(pe.get("value")) for c, g_ in effective_groups(n) for pe in g_.xpath("passive_effect[@name='PhysicalDamageResist' and @operation='perc_add' and not(@tags)]"))
-    if abs(pdr - (-0.5)) > 1e-6: errors.append("%s: PhysicalDamageResist perc_add adds up to %g, want -0.5 (SC's half protection)" % (n, pdr))
+    # round ar1: the armor cvar nets to +1 (inherited survivor group, the bandit's cancel, its own raider group), no fixed number
+    pdr = [(pe.get("operation"), pe.get("value")) for c, g_ in effective_groups(n)
+           for pe in g_.xpath("passive_effect[@name='PhysicalDamageResist' and (@operation='perc_add' or @operation='perc_subtract') and not(@tags)]")]
+    net = sum(1 if op == "perc_add" else -1 for op, v in pdr if v == "@" + str(armor_cvar))
+    if net != 1 or any(v != "@" + str(armor_cvar) for op, v in pdr):
+        errors.append("%s: PhysicalDamageResist percentages along the chain %s: the armor cvar nets to %+d, want +1 and no fixed number" % (n, pdr, net))
     lm = [pe.get("value") for g_ in chain_groups(n, "SurvivorCommunity raider") for pe in g_.xpath("passive_effect[@name='LandMineImmunity']")]
     if lm != ["0"]: errors.append("%s: LandMineImmunity in the raider group is %s, want one base_set 0" % (n, lm))
     xpe = [(pe.get("operation"), pe.get("value")) for c, g_ in effective_groups(n) for pe in g_.xpath("passive_effect[@name='ExperienceGain']")]
@@ -270,6 +280,35 @@ for n in xnpc_survivors:
     if "EntityAliveSDXV4" not in (resolved(n, "Class") or ""): errors.append("%s: Class %s, want EntityAliveSDXV4" % (n, resolved(n, "Class")))
     if not re.search(r"T[123]$", n): errors.append(n + ": no T1-T3 tier in the name - the DLL's weapon tier cap reads it")
 print("  XNPC survivors checked: %d" % len(xnpc_survivors))
+# Round ar1: worn armor protection is the cvar ARMOR_CVAR (Config/blocks.xml SurvivorArmorResist / RaiderArmorResist, put
+# on each body by the DLL). Along every class's extends chain, the PhysicalDamageResist perc_add / perc_subtract of the cvar
+# in SC's effect groups must net to exactly +1 on SC's classes (the six survivors, the raider templates and leaves) and to 0
+# on every other class (0-XNPCCore's own children of the six cancel what they inherit), and no SC group may still carry a
+# fixed PhysicalDamageResist number.
+if not armor_cvar: errors.append("gen_arsenal.py ARMOR_CVAR is missing")
+sc_armor_classes = set(xnpc_survivors) | set(leaves) | set(want_templates)
+def _armor_chain(n):
+    seen = []
+    while n and n in names and n not in seen:
+        seen.append(n); n = names[n].get("extends")
+    return seen
+armor_checked = 0
+for n in sorted(k for k in names if k):
+    net, touched = 0, False
+    for c in _armor_chain(n):
+        for g_ in names[c].xpath("effect_group[starts-with(@name, 'SurvivorCommunity')]"):
+            for pe in g_.xpath("passive_effect[@name='PhysicalDamageResist']"):
+                touched = True
+                v, op = pe.get("value"), pe.get("operation")
+                if v != "@" + str(armor_cvar):
+                    errors.append("%s (via %s): SC group '%s' has PhysicalDamageResist %s %s, want the cvar @%s" % (n, c, g_.get("name"), op, v, armor_cvar))
+                elif op == "perc_add": net += 1
+                elif op == "perc_subtract": net -= 1
+                else: errors.append("%s (via %s): SC group '%s' uses %s on the armor cvar" % (n, c, g_.get("name"), op))
+    want = 1 if n in sc_armor_classes else 0
+    if touched or want: armor_checked += 1
+    if net != want: errors.append("%s: the armor cvar nets to %+d along its chain, want %+d (%s)" % (n, net, want, "SC's class" if want else "not SC's"))
+print("  worn armor cvar checked on %d classes (SC's: %d)" % (armor_checked, len(sc_armor_classes)))
 # duplicate definitions (a rerun of the generator must replace its block, never append a second)
 for label, root, tag in (("item", it.getroot(), "item"), ("entity class", ec.getroot(), "entity_class")):
     c = Counter(e.get("name") for e in root.iter(tag))

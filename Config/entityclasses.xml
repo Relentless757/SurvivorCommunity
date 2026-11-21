@@ -45,7 +45,7 @@
 				<property name="GameModeSurvivalMP" value="meleeWpnClubT0WoodenClub"/>
 			</property>
 			<effect_group name="SurvivorCommunity worn armor scale">
-				<passive_effect name="PhysicalDamageResist" operation="perc_add" value="-0.5"/>
+				<passive_effect name="PhysicalDamageResist" operation="perc_add" value="@sc_armorresist"/>
 			</effect_group>
 			<effect_group name="SurvivorCommunity raider">
 				<passive_effect name="LandMineImmunity" operation="base_set" value="0"/>
@@ -95,7 +95,7 @@
 				<property name="GameModeSurvivalMP" value="meleeWpnClubT0WoodenClub"/>
 			</property>
 			<effect_group name="SurvivorCommunity worn armor scale">
-				<passive_effect name="PhysicalDamageResist" operation="perc_add" value="-0.5"/>
+				<passive_effect name="PhysicalDamageResist" operation="perc_add" value="@sc_armorresist"/>
 			</effect_group>
 			<effect_group name="SurvivorCommunity raider">
 				<passive_effect name="LandMineImmunity" operation="base_set" value="0"/>
@@ -139,11 +139,12 @@
 	     builds the body from a rolled or remembered SC look (Patches_Xnpc, createModel). -->
 	<remove xpath="/entity_classes/entity_class[@name='npcSdcsSurvivorMaleT1' or @name='npcSdcsSurvivorMaleT2' or @name='npcSdcsSurvivorMaleT3' or @name='npcSdcsSurvivorFemaleT1' or @name='npcSdcsSurvivorFemaleT2' or @name='npcSdcsSurvivorFemaleT3']/effect_group[@name='SDCS Look']"/>
 
-	<!-- Worn vanilla armor protects them at SurvivorCommunity's fraction, the same group the scRaider templates
-	     above carry (merged with the inherited effect groups; a perc_add suppresses nothing). -->
+	<!-- Worn vanilla armor protects them as much as SurvivorArmorResist in Config/blocks.xml says: the DLL puts it on
+	     each body as the cvar sc_armorresist (unset = 0 = a player's protection). The same group the scRaider templates
+	     above carry with RaiderArmorResist (merged with the inherited effect groups; a perc_add suppresses nothing). -->
 	<append xpath="/entity_classes/entity_class[@name='npcSdcsSurvivorMaleT1' or @name='npcSdcsSurvivorMaleT2' or @name='npcSdcsSurvivorMaleT3' or @name='npcSdcsSurvivorFemaleT1' or @name='npcSdcsSurvivorFemaleT2' or @name='npcSdcsSurvivorFemaleT3']">
 		<effect_group name="SurvivorCommunity worn armor scale">
-			<passive_effect name="PhysicalDamageResist" operation="perc_add" value="-0.5"/>
+			<passive_effect name="PhysicalDamageResist" operation="perc_add" value="@sc_armorresist"/>
 		</effect_group>
 	</append>
 
@@ -170,8 +171,9 @@
 	     from the six survivor classes cascades onto every class that extends one of them. 0-XNPCCore's own children of the
 	     six are not SurvivorCommunity's and keep 0-XNPCCore's ways, so each child of one of the six gets back its parent's
 	     look applier (SDCS Look), BagItems, HarvestItems and Names exactly as 0-XNPCCore defines them, each only where the
-	     child declares none of its own, and a group that cancels the worn armor scale (perc_add 0.5 against -0.5:
-	     they add up to nothing). Each op only when its target exists (an xpath() conditional). The children when this
+	     child declares none of its own, and a group that cancels the worn armor group (a perc_subtract of @sc_armorresist
+	     against its perc_add: they add up to nothing, whatever the cvar holds). Each op only when its target exists
+	     (an xpath() conditional). The children when this
 	     was generated:
 	     npcSdcsSurvivorFemaleTimid, npcSdcsCustomMale, npcSdcsCustomFemale, npcSdcsBanditMelee, npcSdcsBanditRanged,
 	     npcSdcsBanditMaleT2, npcSdcsBanditFemaleT2, npcSdcsBanditMaleT3, npcSdcsBanditFemaleT3, npcSdcsPickpocket. -->
@@ -225,7 +227,7 @@
 	<conditional><if cond="xpath('/entity_classes/entity_class[(@extends=&quot;npcSdcsSurvivorMaleT1&quot; or @extends=&quot;npcSdcsSurvivorMaleT2&quot; or @extends=&quot;npcSdcsSurvivorMaleT3&quot; or @extends=&quot;npcSdcsSurvivorFemaleT1&quot; or @extends=&quot;npcSdcsSurvivorFemaleT2&quot; or @extends=&quot;npcSdcsSurvivorFemaleT3&quot;) and not(effect_group[@name=&quot;SurvivorCommunity worn armor scale undone&quot;])]') != null">
 		<append xpath="/entity_classes/entity_class[(@extends='npcSdcsSurvivorMaleT1' or @extends='npcSdcsSurvivorMaleT2' or @extends='npcSdcsSurvivorMaleT3' or @extends='npcSdcsSurvivorFemaleT1' or @extends='npcSdcsSurvivorFemaleT2' or @extends='npcSdcsSurvivorFemaleT3') and not(effect_group[@name='SurvivorCommunity worn armor scale undone'])]">
 			<effect_group name="SurvivorCommunity worn armor scale undone">
-				<passive_effect name="PhysicalDamageResist" operation="perc_add" value="0.5"/>
+				<passive_effect name="PhysicalDamageResist" operation="perc_subtract" value="@sc_armorresist"/>
 			</effect_group>
 		</append>
 	</if></conditional>
@@ -241,7 +243,7 @@
 	     gear-only half (the weapon roll, the ammo, the weapon in the bag, the hand) and keeps SC's look, name and Shooting
 	     stars (ScBanditRaider marks these classes). The empty look pool is the fail-safe: should that re-route not
 	     bind, 0-XNPCCore's applier stops there, before the name, archetype and armour. SC's: the raider title, map
-	     markers, no bag stock, no inventory window, SC's chase speeds, worn armor at half protection, no landmine
+	     markers, no bag stock, no inventory window, SC's chase speeds, worn armor at RaiderArmorResist, no landmine
 	     immunity, kill XP raised by weapon (the cvar sc_raiderXp).
 	     Per tier: SC's raider names, the armor tier, the loot bag (T1 plain, T2 blue, T3 red), the kit melee
 	       meleeWpnClubT0WoodenClub, meleeWpnClubT1BaseballBat, meleeWpnBladeT3Machete,
@@ -266,7 +268,7 @@
 					<property name="MoveSpeedAggro" value="2.9, 3.1"/>
 					<property name="MoveSpeedPanic" value="2.9"/>
 					<effect_group name="SurvivorCommunity raider worn armor scale">
-						<passive_effect name="PhysicalDamageResist" operation="perc_add" value="-0.5"/>
+						<passive_effect name="PhysicalDamageResist" operation="perc_add" value="@sc_armorresist"/>
 					</effect_group>
 					<effect_group name="SurvivorCommunity raider">
 						<passive_effect name="LandMineImmunity" operation="base_set" value="0"/>
@@ -323,7 +325,7 @@
 					<property name="MoveSpeedAggro" value="2.9, 3.1"/>
 					<property name="MoveSpeedPanic" value="2.9"/>
 					<effect_group name="SurvivorCommunity raider worn armor scale">
-						<passive_effect name="PhysicalDamageResist" operation="perc_add" value="-0.5"/>
+						<passive_effect name="PhysicalDamageResist" operation="perc_add" value="@sc_armorresist"/>
 					</effect_group>
 					<effect_group name="SurvivorCommunity raider">
 						<passive_effect name="LandMineImmunity" operation="base_set" value="0"/>

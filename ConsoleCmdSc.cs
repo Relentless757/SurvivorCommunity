@@ -2607,6 +2607,11 @@ namespace SurvivorCommunity
               .Append(" class ").Append(cls).Append(" managed=").Append(ScXnpc.IsManagedClass(e.entityClass)).Append(" xnpcBody=").Append(ScXnpc.IsBody(e))
               .Append(" side=").Append(ScXnpc.IsRaiderClass(e.entityClass) ? "raider" : ScXnpc.IsSurvivorClass(e.entityClass) ? "survivor" : "-")
               .Append(" model=").Append(e.emodel != null ? e.emodel.GetType().Name : "null");
+            // round ar1: the worn armor share (SurvivorArmorResist / RaiderArmorResist) and the rating a hit uses
+            // (Equipment.GetTotalPhysicalArmorRating: the core damage resist tag and armor durability included)
+            if (e.Buffs != null && e.equipment != null)
+                sb.Append("\n  armor: ").Append(ScLoadout.ArmorResistCvar).Append('=').Append(e.Buffs.GetCustomVar(ScLoadout.ArmorResistCvar).ToString("0.##"))
+                  .Append(" rating ").Append(e.equipment.GetTotalPhysicalArmorRating(null, null).ToString("0.#")).Append('%');
             sb.Append("\n  hostility: ").Append(Hostility(e));
             sb.Append("\n  uai: ").Append(UaiProbe(e));
             // the M11 fix 2 (STUCK_DIAG 5c): the move helper, the path and the path finder; and a member's post
