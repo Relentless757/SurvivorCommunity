@@ -40,7 +40,7 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 ## Round nc3 (2026-11-21): members keep engaging a zombie that leaves the base
 
 Why: Leo shot the zombies chasing you, but stopped the moment they followed you out of the base: nc1's radius rule (no
-engaging beyond `DefendBaseRadius`) gated every shot. Build `sc34_nc3`, **not deployed yet**. (nc2 was dropped.)
+engaging beyond `DefendBaseRadius`) gated every shot. Deployed 2026-11-21 (port-3.4 4424a1a6, DLL 87553c77). (nc2 was dropped.)
 
 - [ ] **Chased out of the base:** with a resident shooting zombies that chase you, step out of the base with them following:
       he keeps shooting them as long as he sees them and they're in his gun's reach. `sc xnpc` counters: no
