@@ -27,7 +27,8 @@
   works like telling her "use your gun" or "use your melee weapon": she keeps that weapon until you order the other one
   (or `sc team <id> auto`). Before, the toggle and SC's own weapon choice fought over her hand. A gun order still gives way
   when the gun has no ammo, a badly hurt member still keeps her distance, and cornered while reloading she still swings
-  her melee weapon until she has room. Ordering her weapon by talking sets the toggle too.
+  her melee weapon until she has room (on a Stay or a run, when the zombie is right on her, until it steps back).
+  Ordering her weapon by talking sets the toggle too.
 - **Residents fight what is in reach.** A resident at home sometimes walked off from the zombie in front of him toward
   one 25 m away, outside the base. Residents now finish the fight at hand, and leave enemies farther out than the base
   defense reaches (`DefendBaseRadius`, 22 m) alone unless those come at them. Guards on watch still shoot whatever comes.

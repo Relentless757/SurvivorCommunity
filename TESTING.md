@@ -44,10 +44,10 @@ Why: the compatibility audit of the two updates and your decisions (D1-D6). Buil
 
 **Review fixes and additions**
 
-- [ ] **Life skills:** `sc spec sim` (or `sc spec` on a member) shows Fitness and Firearms Instructor at 0% for new
+- [ ] **Life skills:** `sc spec` (no id) shows Fitness and Firearms Instructor at 0% for new
       recruits; recruit a few survivors (or `sc spawn`): none rolls either. A member who already had one keeps it.
-- [ ] **Ranged toggle, Stay or a run:** toggle a follower to Ranged, tell her to Stay; let a zombie reach her while she
-      reloads with her back to a wall: she swings her melee weapon (counter `x5-cornered-pref-swap-native`), and her gun
+- [ ] **Ranged toggle, Stay or a run:** toggle a follower to Ranged, tell her to Stay; let a zombie get within 1.5 m of her
+      while she reloads: she swings her melee weapon (counter `x5-cornered-pref-swap-native`), and her gun
       comes back once the bout ends. The same for a runner on her walk.
 - [ ] **Old preference vs SC order:** a member with an SC melee order whose old Ranged toggle predates this round: after a
       load her toggle reads Melee (`sc xnpc <id>`: SdcsWeaponPref 1).

@@ -860,6 +860,8 @@ namespace SurvivorCommunity
         /// </summary>
         public const string WeaponPrefCvar = "SdcsWeaponPref";
         private const int PrefMelee = 1, PrefRanged = 2;
+        /// <summary>Round nc1 (re-check): under a Stay, the distance at which a reloading member with a ranged preference counts as cornered.</summary>
+        private const float StayCorneredDist = 1.5f;
 
         /// <summary>Round nc1: 0-XNPCCore's weapon preference (WeaponPrefCvar): 1 melee, 2 ranged, else 0 (none). A read.</summary>
         internal static int PrefKind(EntityAlive e)
@@ -1098,7 +1100,7 @@ namespace SurvivorCommunity
             bool reloading = Reloading(e);
             bool cornered = CorneredOnTarget(e);
             KiteClocks(st, e, held, hg, close, reloading, cornered, now);
-            if (pv.NativeClose && close && PrefCorneredSwap(c, e, st, ct, now)) return false;   // round nc1 (review): a runner too
+            if (pv.NativeClose && close && PrefCorneredSwap(c, e, st, ct, now, false)) return false;   // round nc1 (review): a runner too
             if (pv.NativeClose || !close) return true;
             if (ScAmmo.RangedAction(hg) == null || ScAmmo.Rounds(e, hg) <= 0) return true;        // no rounds: its failover and swap
             // R2 (the Fable review's F7, the re-review): reloading with no back-off from her target - 0-XNPCCore's swap to melee
@@ -1174,7 +1176,7 @@ namespace SurvivorCommunity
                 return false;
             }
             // round nc1 (review): HOLD leaves the 3 m swap to 0-XNPCCore, which a ranged preference vetoes - R2's safety swap here
-            if (!ScWatch.Guarding(e.entityId) && PrefCorneredSwap(c, e, st, ct, now)) return false;
+            if (!ScWatch.Guarding(e.entityId) && PrefCorneredSwap(c, e, st, ct, now, true)) return false;
             // a guard on watch (base defence D3) keeps the gun up close: on a tower the melee swap only leads to a walk off the
             // edge, and the gun still hits what climbs up
             if (!ScWatch.Guarding(e.entityId) || !TargetWithin(e, XnpcCloseEnterDist)) return true;
@@ -1206,11 +1208,16 @@ namespace SurvivorCommunity
         /// zombie on her. R2's rule here too: within 0-XNPCCore's enter distance, reloading, with no room to back off, at a target
         /// she can swing at (R2Skip) - her pair's melee weapon through 0-XNPCCore's own equip and into its bout (TakeMelee,
         /// JoinBout), its exit bringing the gun back. True when it swapped.
+        /// The re-check: under a Stay (HOLD) no back-off ever runs (every back-off action is gated NotHasOrder Stay), so she counts
+        /// as cornered - but only for a target within StayCorneredDist (1.5 m), inside 0-XNPCCore's Stay exit (its melee reach +
+        /// 0.5 m, a weapon's reach being at least SCore's 1.5 m), so the bout never exits at once and loops back to the gun. The
+        /// hand clock (TeamSwapHoldSeconds after any change of her hand) also lets a reload that started after a bout finish.
         /// </summary>
-        private static bool PrefCorneredSwap(AvatarSdcsNpcController c, EntityAlive e, Watch st, EntityAlive ct, float now)
+        private static bool PrefCorneredSwap(AvatarSdcsNpcController c, EntityAlive e, Watch st, EntityAlive ct, float now, bool stay)
         {
-            if (PrefKind(e) != PrefRanged || ct == null || !TargetWithin(e, XnpcCloseEnterDist) || !Reloading(e) || !CorneredOnTarget(e)) return false;
-            if (now < st.MeleeBackoffUntil || R2Skip(c, e, ct) != null) return false;
+            if (PrefKind(e) != PrefRanged || ct == null || !Reloading(e)) return false;
+            if (stay ? !TargetWithin(e, Mathf.Min(XnpcCloseEnterDist, StayCorneredDist)) : (!TargetWithin(e, XnpcCloseEnterDist) || !CorneredOnTarget(e))) return false;
+            if (now < st.MeleeBackoffUntil || !ScPosture.HandClockAllows(e, now) || R2Skip(c, e, ct) != null) return false;
             Loadout l = ScLoadout.Current(e);
             if (l == null || string.IsNullOrEmpty(l.Melee) || !TakeMelee(c, e, l, st, now)) return false;
             ScPosture.NoteSwap(e, l.Melee, false, true);
