@@ -1805,11 +1805,12 @@ The audit of the update and the user's decisions D1-D6 are in the round's report
 - **SdcsLastRanged (X5's `SyncLastHeld`).** With the ranged preference 0-XNPCCore's world-entry step reads
   `SdcsLastRanged`; a ranged-tagged weapon in her hand is stamped there too.
 - **Residents fight what is in reach (finding C, `Patches_VoiceControl.Patch_MayEngage`).** Voice Control's refusal becomes
-  `RefusalPass` (0.9, was 1) for `EngagesAtWill` bodies, so MeleeAttack on the enemy in reach beats MeleeApproach toward
+  `RefusalPass` (0.85 since the nc1 review, was 1) for `EngagesAtWill` bodies, so MeleeAttack on the enemy in reach beats MeleeApproach toward
   a refused far one (vanilla's `UAIPackage.DecideAction` keeps the first strictly higher score, and MeleeApproach is
-  listed first). For a resident at home (not on watch, not ScInvestigate's responder) it stays 0 beyond
-  `DefendBaseRadius` - `UAIConsiderationScIntruder.BeyondDefendRadius`, the radius test H1's `HoldWhy` uses (`RadiusWhy`;
-  during a home attack, the defended area).
+  listed first). Round nc3 (the user) removed nc1's second half - 0 beyond `DefendBaseRadius` for a resident at home
+  (`UAIConsiderationScIntruder.BeyondDefendRadius`): it gated every shot of the ranged package, so a resident stopped
+  shooting the zombies chasing the player the moment they followed the player out of the base. `BeyondDefendRadius`
+  stays for H1; the walk is bounded by the leash (ScReturn, `PastLeash`).
 - **The posture holds through a target lapse (item 11, `ScPosture.Update`).** A fight posture whose `ScTeam.Target` is
   null for under `TargetLapseSeconds` (1 s) while its last target lives stays as it is (`posture-lapse-held`).
 - **EnemyNotNear halved (D6).** 0-SCore 3.4.25's `IsEnemyNearby` builds its search box at twice the distance (it used the

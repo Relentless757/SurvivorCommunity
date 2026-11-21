@@ -30,8 +30,9 @@
   her melee weapon until she has room (on a Stay or a run, when the zombie is right on her, until it steps back).
   Ordering her weapon by talking sets the toggle too.
 - **Residents fight what is in reach.** A resident at home sometimes walked off from the zombie in front of him toward
-  one 25 m away, outside the base. Residents now finish the fight at hand, and leave enemies farther out than the base
-  defense reaches (`DefendBaseRadius`, 22 m) alone unless those come at them. Guards on watch still shoot whatever comes.
+  one 25 m away, outside the base. Residents now finish the fight at hand first. They keep shooting a zombie that is
+  after you or a member when it leaves the base (following you out, say), as far as their gun reaches; they still don't
+  run out of the base after one, and a zombie wandering by is still left alone.
 - **Quiet kills.** Telling a member to take an enemy out quietly while she holds a torch no longer keeps her on her melee
   weapon for good afterwards, and SC no longer swaps her weapon in the middle of the stalk. A member sent home no longer
   carries on stalking an enemy from before. The console shows the new hunting stance as "hunting".

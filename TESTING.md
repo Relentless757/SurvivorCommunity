@@ -37,6 +37,21 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round nc3 (2026-11-21): members keep engaging a zombie that leaves the base
+
+Why: Leo shot the zombies chasing you, but stopped the moment they followed you out of the base: nc1's radius rule (no
+engaging beyond `DefendBaseRadius`) gated every shot. Build `sc34_nc3`, **not deployed yet**. (nc2 was dropped.)
+
+- [ ] **Chased out of the base:** with a resident shooting zombies that chase you, step out of the base with them following:
+      he keeps shooting them as long as he sees them and they're in his gun's reach. `sc xnpc` counters: no
+      `mayengage-beyond-radius` any more.
+- [ ] **He stays home:** he doesn't run out of the base after them past his leash (zone + 6 m with roaming); a melee resident
+      follows at most to the leash, then walks back.
+- [ ] **Tom's case still holds:** a resident in a melee fight with a zombie in reach, another zombie far off: he finishes the
+      near one first.
+- [ ] **Wanderers still left alone:** a zombie wandering through (after nobody) is still left to the residents sent to
+      investigate.
+
 ## Round nc1 (2026-11-21): 0-XNPCCore 3.4.06 final + 0-SCore 3.4.25.925
 
 Why: the compatibility audit of the two updates and your decisions (D1-D6). Deployed 2026-11-21 (port-3.4 c313fdb3, DLL 6f350f72). Needs
@@ -89,7 +104,7 @@ Why: the compatibility audit of the two updates and your decisions (D1-D6). Depl
 
 - [ ] Tom (7242) or any resident at home in a melee fight with a zombie in reach while another one stands outside the
       base 25+ m away: he keeps swinging at the near one instead of walking off toward the far one. `sc xnpc`:
-      `mayengage-beyond-radius` goes up, `mayengage-pass` still counts the rest.
+      `mayengage-pass` counts (round nc3 removed `mayengage-beyond-radius`).
 - [ ] A guard on watch still shoots zombies coming at the base from beyond 22 m. During a base attack residents fight
       anything in the defended area.
 

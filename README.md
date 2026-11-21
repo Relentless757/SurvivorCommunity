@@ -464,8 +464,9 @@ The **Campfire** also hosts **Enact rationing**:
   themselves while roaming) that is after a member or you, even one they cannot see from there, fight it and walk back.
   Sleepers in a base built in a POI are left asleep, and Cowardly members stay put.
 - **They fight what is in reach.** A resident in a fight finishes the zombie in front of her instead of walking off
-  toward one farther out, and leaves an enemy beyond those 22 m (`DefendBaseRadius`) alone unless it comes at her (close
-  by, or after her). During a base attack the whole defended area counts. Guards on watch still shoot whatever comes.
+  toward one farther out. She keeps shooting a zombie that is after you or a member even once it leaves the base (one
+  chasing you out, say), as far as her gun reaches, but doesn't run out after it past her leash. Guards on watch still
+  shoot whatever comes.
 - **Intruders:** a zombie inside the base that is after nobody - lurking in a corner, wandering the yard - gets **two**
   residents sent to it: the nearest who are free (not on watch, on a work shift, asleep, hurt below 60%, Cowardly or in
   another fight; a resident who stays near her post only within 22 m of it). They walk to it, seen or not, and fight it;

@@ -1187,12 +1187,13 @@ namespace SurvivorCommunity
                     }
                     if (__result > 0f) return;                   // Voice Control let it fight: its stick score stands
                     if (!EngagesAtWill(self)) return;
-                    // round nc1 (finding C): a resident at home leaves an enemy beyond the defence's radius to Voice Control's refusal
-                    if (UAI.UAIConsiderationScIntruder.BeyondDefendRadius(self, target as EntityAlive))
-                    {
-                        Count("mayengage-beyond-radius");
-                        return;
-                    }
+                    // round nc3 (the user, 2026-11-21: "members continue engaging a zombie even if that zombie leaves the base,
+                    // especially if they're attacking me" - Leo stopped shooting the zombies chasing the player the moment they
+                    // followed the player out): nc1's 0 beyond DefendBaseRadius is gone - it gated every shot of 0-XNPCCore's
+                    // ranged package, not only the walk. Tom's far-target walk stays fixed by RefusalPass alone (below Voice
+                    // Control's own pass for the enemy in reach, so MeleeAttack there outscores MeleeApproach toward a refused far
+                    // one); the walk itself is bounded by the leash (ScReturn, PastLeash / ScTeam.NeedsGun), and a wanderer is
+                    // still left alone (LeavesAlone, above)
                     __result = RefusalPass;
                     Count("mayengage-pass");
                 }
