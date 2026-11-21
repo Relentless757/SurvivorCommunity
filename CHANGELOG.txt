@@ -129,8 +129,9 @@ Fixes
   drops as soon as a block is built (the world keeps the paint of six faces per block), so it never found one. It now
   recognizes the old paint mix on the faces themselves. Faces you painted yourself still keep your paint.
 - Survivors no longer get Vanity Vault's anime hairstyle (Sonja_Med_02, the men's and the women's). One who already has
-  it gets another style the next time the game loads them. Any hairstyle on "SurvivorExcludeHairs" (Config/blocks.xml)
-  is now swapped on survivors you already met too, not only kept from new ones.
+  it gets another style the next time the game loads them (not one wearing a face made in 0-XNPCCore's character
+  creator: that stays as it was made). Any hairstyle on "SurvivorExcludeHairs" (Config/blocks.xml) is now swapped on
+  survivors you already met too, not only kept from new ones.
 
 
 Enclaves speak on the radio

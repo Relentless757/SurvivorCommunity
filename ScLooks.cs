@@ -422,9 +422,12 @@ namespace SurvivorCommunity
         private static void FixHair(Look look)
         {
             if (look == null || string.IsNullOrEmpty(look.Hair)) return;
-            bool all = ScConfig.Listed(ScConfig.SurvivorExcludeHairs, look.Hair);
+            // the tw2 review's L4: a creator face is the player's own design (FixVariant and FixHairColor leave it be too) -
+            // only P2's men's list still applies to it, as before
+            bool all = !look.CreatorFace && ScConfig.Listed(ScConfig.SurvivorExcludeHairs, look.Hair);
             bool men = look.Male && ScConfig.Listed(ScConfig.SurvivorExcludeHairsMale, look.Hair);
             if (!all && !men) return;
+            EnsureCatalogue();      // the tw2 review's L1: the full hair list, not the fallback, when this is the session's first look
             List<string> ok = null;
             try
             {
@@ -432,18 +435,15 @@ namespace SurvivorCommunity
                 if (look.Male) ok = Allowed(ok, ScConfig.SurvivorExcludeHairsMale);
             }
             catch (Exception e) { ScLog.Once("looks-hair-list", e); }
-            string[] pool;
-            if (ok != null && ok.Count > 0) pool = ok.ToArray();
-            else if (look.Male) pool = MaleFallbackHairs();
-            else
-            {
-                List<string> f = Allowed(new List<string>(FallbackHairs), ScConfig.SurvivorExcludeHairs);
-                pool = f != null && f.Count > 0 ? f.ToArray() : FallbackHairs;
-            }
+            List<string> pool = ok != null && ok.Count > 0 ? ok : Allowed(new List<string>(FallbackHairs), ScConfig.SurvivorExcludeHairs);
+            if (look.Male && (ok == null || ok.Count == 0)) pool = Allowed(pool, ScConfig.SurvivorExcludeHairsMale);
+            // the review's nit: with everything excluded (a lone *) there is nothing to swap to - the look stays as it is rather
+            // than trading one excluded style for another every session
+            if (pool == null || pool.Count == 0) return;
             string seed = (look.Race ?? "") + "|" + look.Variant + "|" + (look.HairColor ?? "") + "|" + (look.Eyes ?? "") + "|" + (look.Beard ?? "");
             int h = seed.GetStableHashCode();
             string was = look.Hair;
-            look.Hair = pool[(h & 0x7fffffff) % pool.Length];
+            look.Hair = pool[(h & 0x7fffffff) % pool.Count];
             ScLog.Out("look: hair " + was + " is no longer given to " + (all ? "survivors" : "men") + " - " + look.Hair + " instead");
         }
 

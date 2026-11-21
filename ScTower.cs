@@ -526,18 +526,24 @@ namespace SurvivorCommunity
             return n;
         }
 
+        /// <summary>The undefined paint id (196) the old stamp left on the West face - no painting.xml entry, so nobody paints it.</summary>
+        private const int StampedWestPaint = (int)((OcbStampedWorldPaint >> 24) & 0xFF);
+
         /// <summary>
-        /// The top byte of a texture value: vanilla keeps seven 8-bit faces (Top, Bottom, North, West, South, East and
-        /// Middle, BlockFace 0-6) and never writes byte 7. OcbCustomTextures' 10-bit faces reach into it (0x01 in the
-        /// stamped paint), so it marks a value vanilla can't have written.
+        /// A world block still carrying the old stamped paint: StampedFacesNeeded faces as stamped, or (the tw2 review's L2: a
+        /// player who painted three faces) three of them with the undefined paint still on the West face.
         /// </summary>
-        public static int TopByte(long v)
+        public static bool IsStampedBlock(long v)
         {
-            return (int)((v >> 56) & 0xFF);
+            int n = StampedFaces(v);
+            return n >= StampedFacesNeeded || (n >= 3 && (int)((v >> 24) & 0xFF) == StampedWestPaint);
         }
 
         /// <summary>
-        /// Prefab cells whose paint vanilla can't read: byte 7 set, or a face naming a paint id painting.xml doesn't define.
+        /// Prefab cells whose paint vanilla can't read: anything above the six 8-bit faces the game keeps (Top, Bottom, North,
+        /// West, South, East - bytes 0-5; OcbCustomTextures' 10-bit faces spill into bytes 6 and 7), or a face naming a paint
+        /// id painting.xml doesn't define. Round tw2 (the review's L3): bytes 6-7 as a whole, not byte 7 alone - an East paint
+        /// below 64 set only byte 6, which the old test missed and then read as a Middle paint.
         /// </summary>
         public static int UnreadablePaintCells(Prefab p)
         {
@@ -549,8 +555,8 @@ namespace SurvivorCommunity
                     {
                         long v = p.GetTexture(x, y, z)[0];
                         if (v == 0) continue;
-                        bool ok = TopByte(v) == 0;
-                        for (int f = 0; ok && f < 7 && list != null; f++)
+                        bool ok = (v >> 48) == 0;
+                        for (int f = 0; ok && f < 6 && list != null; f++)
                         {
                             int id = (int)((v >> (f * 8)) & 0xFF);
                             if (id != 0 && (id >= list.Length || list[id] == null)) ok = false;
@@ -569,7 +575,7 @@ namespace SurvivorCommunity
         /// its paint: vanilla's brush changes only that face's byte, so a face whose byte differs from the stamped one is
         /// theirs. Written through vanilla's paint path (SetBlockTextureServer, as the brush does), which saves the chunk,
         /// rebuilds its mesh and tells connected players: first all six faces old wood, then the player's own faces back.
-        /// A repainted block keeps 2 stamped faces (old wood top and east), so a second run leaves it alone. Air and
+        /// A repainted block keeps 2 stamped faces (old wood top and east) and no 196, so a second run leaves it alone. Air and
         /// unloaded chunks are skipped; the chunk is looked up once per block column.
         /// Host / single player, main thread.
         /// </summary>
@@ -590,7 +596,7 @@ namespace SurvivorCommunity
                     for (int y = y0; y <= y1; y++)
                     {
                         long v = c.GetTextureFullArray(lx, y, lz, false)[0];
-                        if (StampedFaces(v) < StampedFacesNeeded) continue;     // round tw2 (was: byte 7, never kept)
+                        if (!IsStampedBlock(v)) continue;     // round tw2 (was: byte 7, which the world never keeps)
                         if (c.GetBlock(lx, y, lz).isair) continue;
                         Vector3i pos = new Vector3i(x, y, z);
                         gm.SetBlockTextureServer(pos, BlockFace.None, TowerPaint, byEntity);

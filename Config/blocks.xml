@@ -589,8 +589,8 @@
 			     SurvivorExcludeHairs, which is swapped for another since round tw2): comma lists of
 			     character-creator names, case-insensitive, a trailing * matches a prefix (Sonja_* = every Vanity Vault
 			     eye, a lone * = all of them). Skins are Vanity Vault's tone names (it replaces vanilla's White/Black/Asian/Native). Empty = none.
-			     SurvivorDyedHairColors: the colours counted as dyed, rolled only with SurvivorDyedHairChanceFemale / Male;
-			     everyone else gets one of the natural colours. -->
+			     SurvivorDyedHairColors: the colors counted as dyed, rolled only with SurvivorDyedHairChanceFemale / Male;
+			     everyone else gets one of the natural colors. -->
 			<property name="SurvivorExcludeSkins" value="Obsidian,Ash,Mutant Green,Demon Red,Orchid,Brimstone,Cobalt,Amethyst,Ember" />
 			<property name="SurvivorExcludeEyes" value="Sonja_RedEyes_01,Sonja_Underworld,Sonja_YellowEyes_01,Sonja_Bullseye,Sonja_Smiley,Sonja_Blackeyes,Sonja_Eyes_AllScaryBlack,Sonja_Eyes_Emission_Red,Sonja_Eyes_TEST" />
 			<!-- SurvivorExcludeHairs: Sonja_Med_02_* is Vanity Vault's anime cut (the user, 2026-11-20). -->

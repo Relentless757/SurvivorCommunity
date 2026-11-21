@@ -1861,7 +1861,8 @@ plus the milestone-3 numbers `MeleePerStar`, `RangedPerStar`,
 `StartSkillCap`, and for the player-body survivors `SurvivorGearSets`, `SurvivorGearPieceChance`, `SurvivorGearAlwaysChest`, `SurvivorGearMixChance`,
 `SurvivorGearQualityMin/Max` (sc gear), `GearSetTiers`, `GearSetLastTier`, `GearTierWeights`, `GearQualityByTier`, `SurvivorOutfitShare`, `RaiderOutfitShare`, the `Outfits` table,
 `SurvivorBaldChance`, `SurvivorFacialHairChance`, the looks never rolled `SurvivorExcludeSkins` / `SurvivorExcludeEyes` /
-`SurvivorExcludeHairs` (Vanity Vault's tinted skins and eyes by default), and the rare dyed hair `SurvivorDyedHairColors`,
+`SurvivorExcludeHairs` (Vanity Vault's tinted skins and eyes, and its anime cut `Sonja_Med_02_*`, by default; since round tw2 a
+stored look with an excluded hair is given another, a creator face excepted), and the rare dyed hair `SurvivorDyedHairColors`,
 `SurvivorDyedHairChanceFemale` / `Male`, Vanity Vault paints `Survivor`/`RaiderBodyPaintChance`, `...FacePaintChance`,
 `...TattooChance`, the lists `Survivor`/`RaiderBodyPaints`, `...FacePaints`, `...Tattoos`, `...TattooInks` and `TattooMode`. Weapons and ammo: `SurvivorFirearmChance`, `SurvivorMeleeOnlyChance` / `RaiderMeleeOnlyChance`, `XnpcClassByGamestage`, `XnpcSpawnAmmo` /
 `XnpcSpawnArrows`, `SurvivorFirearmChanceT3` / `RaiderFirearmChanceT3`,
