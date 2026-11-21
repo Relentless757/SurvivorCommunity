@@ -40,7 +40,8 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 ## Round ar1 (2026-11-21): armor protection setting
 
 Why: you asked for the halved armor protection to go, with a setting to change it. `SurvivorArmorResist` and
-`RaiderArmorResist` (`Config/blocks.xml`, default 0.0) replace SC's fixed -0.5. Build `sc34_ar1`, **not deployed yet**.
+`RaiderArmorResist` (`Config/blocks.xml`, default 0.0) replace SC's fixed -0.5. Deployed 2026-11-21 (port-3.4
+cfffcfd1, DLL 63ddd702).
 `sc xnpc <id>` now prints an `armor:` line: the cvar `sc_armorresist` and the armor rating a hit uses.
 
 - [ ] **Default (0.0):** on a member in armor (`sc gear <id> Lumberjack`, then `sc xnpc <id>`): `sc_armorresist=0` and
