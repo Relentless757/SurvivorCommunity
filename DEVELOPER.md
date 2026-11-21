@@ -1929,15 +1929,18 @@ the replay harness `tools\replay_ui.py` (`SC_PATH=<tree> python -I replay_ui.py 
 
 - **Load order** is the folder names through `Array.Sort` (culture compare: `__` first, case and `-` ignored).
   `SteelshotUi` loads before SC, so SC's patches see its layout; `ZZZ_CATUI` and `ZZZxSteel-UI` load after SC.
-- **mod_loaded names:** `CATUI`, `SteelshotUi`, `SteelUI` (`iiMothMan_MothUI` and `PhysicalPDA` for the others). An
-  Ashfall UI branch always comes first in a conditional (the first true `<if>` wins), so an unsupported pair behaves as
-  with Ashfall UI.
+- **mod_loaded names:** `CATUI`, `SteelshotUi`, `SteelUI` (`iiMothMan_MothUI` and `PhysicalPDA` for the others). In a
+  look conditional the Ashfall UI branch comes first (the first true `<if>` wins), so with Ashfall UI and one of these the
+  looks are Ashfall UI's - but the separate position and depth blocks still apply (CATUI's Home Status move and slot lock,
+  Steelshot's depth 40), and SteelUI with Ashfall UI loses SC's tabs (SteelUI deletes them and the companion folder skips
+  that pair). None of these pairs is supported.
 - **Steelshot UI** re-lays `windowPagingHeader` every frame, so its tabs anchor to `#cam`; its backpack backdrop needs
   depth 40 on `windowScMemberInv` / `windowScLinkedStorage`.
 - **SteelUI** removes `windowPagingHeader` and builds its own after SC, so SC's header branch for it is empty and the tabs
   come from `Compat/zzzz_SteelUI_SurvivorCommunity` (an XML-only mod folder that sorts after `ZZZxSteel-UI`).
   `Port33\tools\deploy_sc34.py` installs every `Compat/<name>` with a ModInfo.xml as its own `Mods\<name>`; a release
-  zip carries it as a third top-level folder next to `SurvivorCommunity` and `LandClaimUpgrade`. SteelUI's fixed 75x75
+  zip carries it as a third top-level folder next to `SurvivorCommunity` and `LandClaimUpgrade` - build the zip from the
+  repo, not from the installed folder, which also holds an inert copy under `SurvivorCommunity\Compat`. SteelUI's fixed 75x75
   `item_stack` is why the member inventory's SteelUI branch uses SC's own `sc_item_stack`
   (`Config/XUi_InGame/templates.xml`, vanilla 3.4's slot with its frame sprites passed as parameters so SteelUI's
   template restyle, keyed on the sprite names, leaves them). `Tools/vanilla_look.conditional(..., extra=[(cond, lines)])`

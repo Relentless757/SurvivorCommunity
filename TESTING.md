@@ -61,6 +61,9 @@ Steelshot):
       strip.
 - [ ] **ESC menu:** SC's Community button turns red on hover and reads in capitals like Steelshot's own.
 - [ ] **Pages:** the Community and Radio pages show Steelshot's backdrop behind them, and its header stays on top.
+- [ ] **Other screens:** at 16:10 and with the UI scale at 0.8 the two tabs still sit in the corner, clear of a page's
+      content; LB / RB paging reaches Community (and Radio, when shown); after `sc ui reset` the member inventory still
+      draws over the backdrop.
 
 **SteelUI** (folder `ZZZxSteel-UI`, plus SC's `zzzz_SteelUI_SurvivorCommunity`):
 - [ ] **Tabs:** SteelUI's bar ends with two icon tabs, Community and (with a handheld radio) Radio; both open their pages,
@@ -70,6 +73,9 @@ Steelshot):
       size (nothing overlaps), with frames and the hover border; dragging and Take still work.
 - [ ] **Home Status** sits under SteelUI's location row, left of the center, on a black plate; it doesn't cover the
       compass clock, the game stage line or the quest tracker.
+- [ ] **Load order:** the startup log lists `ZZZxSteel-UI` before `zzzz_SteelUI_SurvivorCommunity`, with no "did not
+      apply" lines for either; LB / RB paging reaches the two tabs. At 16:10 the Home Status panel stays clear of the
+      party list's distance labels.
 - [ ] **Without the companion folder** (move `zzzz_SteelUI_SurvivorCommunity` out): no SC tabs, but the ESC menu,
       the land claim radial and member dialogs still open the Community window.
 
