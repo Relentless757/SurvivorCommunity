@@ -66,6 +66,9 @@ to compare against.
 - [ ] **Feast vs rationing:** during a feast the Rationing row reads "Not during a feast" and its button is off;
       enacting rationing first makes the Feast row read "Not while on rations" (also the next day while the penalty still
       runs).
+- [ ] **Marksman up close:** Mia (Shooting 7, Fighting 1) at home against a single walker: she shoots it at range,
+      then switches to her mace once it is within 4 m (`sc team 6818`: MELEE), and back to the gun once it is past 5 m.
+      Outmatched, swarmed or hurt below 60% she keeps the gun, as before.
 - [ ] **Quieter log (t88):** with `DebugLogging` false, the log has `patch verification: all N targets patched` and
       no `patched <target>` lines; with it true the `patched` lines appear once at world load.
 
@@ -2133,9 +2136,9 @@ posture and why, and her hand with its clock.
       then she backs away from the cop. The other
       member, on the walker, stays MELEE.
 - [ ] **A marksman:** a member whose best skill is Shooting (more Shooting stars than Fighting: `sc members`), a matched
-      fight: "KITE ... a marksman: Shooting is her best skill and her gun has rounds" - she keeps shooting even when it
-      reaches her (2.5 m: she backs off). F6: the same with her melee weapon in hand (`sc arms <name> melee` first) - KITE,
-      and she draws her gun once (no MELEE in between).
+      fight: "KITE ... a marksman: Shooting is her best skill - her gun until <zombie> is within 4 m". Since round fd2 she
+      takes her melee weapon once it is within 4 m (MELEE) and her gun again past 5 m. F6: at range the same with her
+      melee weapon in hand (`sc arms <name> melee` first) - KITE, and she draws her gun once.
 - [ ] **A swing 0-XNPCCore refuses:** Gina melee-led with her sledgehammer indoors by a wall, or by the chainlink fence,
       a crawler or walker up close where her swing hits the wall or a post. (verbose) "Gina (id N) cannot swing at
       zombieSteveCrawler (M): a wall in her swing (0-XNPCCore's bout ended: wall) - KITE against it for 45 s (time 1 for

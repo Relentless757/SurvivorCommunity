@@ -1013,7 +1013,7 @@
 			<!-- Round k4, the posture (above): PostureDwellSeconds - a switch between MELEE and KITE waits this long in the
 			     stance (and TeamSwapHoldSeconds since her hand last changed); not for a target that needs the gun, nor a gun
 			     holder's one swap when her target comes within PostureMeleeDist meters (a matched fight: until then she keeps
-			     her gun and shoots). Round k4 retired TeamMeleeFirstSeconds and TeamNoSwingConfirmSeconds (and SurvivorGunFirst):
+			     her gun and shoots; a marksman - Shooting her best skill - too, since round fd2). Round k4 retired TeamMeleeFirstSeconds and TeamNoSwingConfirmSeconds (and SurvivorGunFirst):
 			     a config that still sets one gets a warning at load and the key is ignored. -->
 			<property name="PostureDwellSeconds" value="5" />
 			<property name="PostureMeleeDist" value="4" />

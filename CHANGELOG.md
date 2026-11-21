@@ -12,6 +12,9 @@
   how many more crops make the next food.
 - The Facilities list scrolls with the mouse wheel, a row at a time.
 - A feast and rationing never run at once: no feast while the community is on rations, no rationing during a feast.
+- **Marksmen use their melee weapon up close.** A member whose best skill is Shooting used to keep her gun against
+  everything, even a single zombie at arm's length. She still shoots at range, but in a fight she isn't losing she
+  switches to her melee weapon once the zombie is within 4 m (`PostureMeleeDist`), like everyone else.
 - Quieter log: the one-line-per-patch list only appears with `DebugLogging` on, at world load (the start-up summary
   line stays).
 

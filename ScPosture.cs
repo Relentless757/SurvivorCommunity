@@ -299,8 +299,21 @@ namespace SurvivorCommunity
             string gunNeed = ScTeam.NeedsGun(e, t, !holdsGun, true, out kind);
             if (gunNeed != null) return gunNeed;
             if (over) return "overwhelmed (" + count + " after " + ScRetreat.HerObj(e) + ", " + need + " in a matched fight)";
-            // the Fable review of k3+k4 (F6): from her pair's gun, not her hand - the same verdict with either weapon in it
-            if (gunRounds && Marksman(m)) return "a marksman: Shooting is " + ScRetreat.Her(e) + " best skill and " + ScRetreat.Her(e) + " gun has rounds";
+            // the Fable review of k3+k4 (F6): from her pair's gun, not her hand - the same verdict with either weapon in it.
+            // Round fd2 (the user: "never uses a melee weapon against even a single zombie nearby"): only at range - a target
+            // within PostureMeleeDist (1 m more once she is on her melee weapon) gets everyone's one swap to melee; the fights
+            // the checks above give the gun (hurt, outmatched, swarmed, a target that needs it) keep it
+            if (gunRounds && Marksman(m))
+            {
+                float mlim = ScConfig.PostureMeleeDist + (GunStance(st.P, st.Kiting) ? 0f : 1f);
+                float md = (t.position - e.position).magnitude;
+                if (md > mlim)
+                {
+                    soft = true;
+                    return "a marksman: Shooting is " + ScRetreat.Her(e) + " best skill - " + ScRetreat.Her(e) + " gun until " + Who(t) + " is within "
+                           + F1(mlim) + " m (" + F1(md) + " m now)";
+                }
+            }
             if (holdsGun)
             {
                 float lim = ScConfig.PostureMeleeDist + (GunStance(st.P, st.Kiting) ? 0f : 1f);
