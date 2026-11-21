@@ -16,10 +16,13 @@ namespace SurvivorCommunity
     /// </summary>
     public static partial class ScConfig
     {
-        /// <summary>The default roll weights of a new recruit's life skill (Specialty name: weight). A trait's spec= still wins.</summary>
+        /// <summary>
+        /// The default roll weights of a new recruit's life skill (Specialty name: weight). A trait's spec= still wins. Round nc1
+        /// (the user): Fitness and Firearms Instructor weigh 0 - they do nothing until the gym and the range exist.
+        /// </summary>
         public const string DefaultSpecialtyWeights =
             "Medicine:3,Cooking:3,Mechanics:3,Gardening:3,Chemistry:3,Craftsmanship:3,"
-            + "Construction:2,Logistics:2,Bartering:2,Recon:2,Entertainment:2,Fitness:1,FirearmsInstructor:1";
+            + "Construction:2,Logistics:2,Bartering:2,Recon:2,Entertainment:2,Fitness:0,FirearmsInstructor:0";
 
         /// <summary>A new recruit's life skill is rolled by these weights, index = (int)Specialty (0 = None, never rolled).</summary>
         public static readonly float[] SpecialtyWeights = new float[Enum.GetValues(typeof(Specialty)).Length];

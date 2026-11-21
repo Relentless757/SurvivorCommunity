@@ -1144,7 +1144,7 @@ namespace SurvivorCommunity
         /// flat 1, a perfect score, so a zombie 26 m out past DefendBaseRadius scored MeleeApproach 5.0 - and since a survivor
         /// class sets no SdcsKeepTarget, MeleeAttack on the biker in reach could at best tie at 5.0, and vanilla's
         /// UAIPackage.DecideAction keeps the first strictly higher score, so MeleeApproach (listed first) won every tie: he walked
-        /// off from the fight in front of him. Now a refusal becomes RefusalPass (0.9), below Voice Control's own pass for the
+        /// off from the fight in front of him. Now a refusal becomes RefusalPass (0.85), below Voice Control's own pass for the
         /// enemy she is fighting; and for a resident at home it stays 0 for an enemy beyond DefendBaseRadius - the radius test
         /// H1's HoldEngaged gate uses (UAIConsiderationScIntruder.BeyondDefendRadius). As a follower Voice Control refuses the far
         /// zombie itself, which is why followers never showed it.
@@ -1153,7 +1153,7 @@ namespace SurvivorCommunity
         public static class Patch_MayEngage
         {
             /// <summary>Round nc1: what Voice Control's refusal becomes for SC's people who fight at will (was 1, 3.2's answer).</summary>
-            private const float RefusalPass = 0.9f;
+            private const float RefusalPass = 0.85f;     // the review: below Voice Control's 0.9 for a non-current enemy, not tied
 
             [HarmonyPrepare]
             public static bool Prepare()

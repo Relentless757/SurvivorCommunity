@@ -1564,8 +1564,10 @@
 			     specialty XP per point of 0-XNPCCore repair XP. EntertainmentDrinksPerStar: a round of drinks lifts
 			     morale this much more per star of the entertainer at home (rounded up). LifeSkillUseXp: specialty XP
 			     for a barter, a scouting or a round of drinks her skill improved. Fitness and Firearms Instructor wait
-			     for the gym and the range; Construction's wall and Entertainment's lounge for those features. -->
-			<property name="SpecialtyWeights" value="Medicine:3,Cooking:3,Mechanics:3,Gardening:3,Chemistry:3,Craftsmanship:3,Construction:2,Logistics:2,Bartering:2,Recon:2,Entertainment:2,Fitness:1,FirearmsInstructor:1" />
+			     for the gym and the range, so they weigh 0 until those exist (the user, 2026-11-21: a skill that does nothing
+			     yet should not roll; survivors who already have one keep it); Construction's wall and Entertainment's lounge
+			     wait for those features. -->
+			<property name="SpecialtyWeights" value="Medicine:3,Cooking:3,Mechanics:3,Gardening:3,Chemistry:3,Craftsmanship:3,Construction:2,Logistics:2,Bartering:2,Recon:2,Entertainment:2,Fitness:0,FirearmsInstructor:0" />
 			<property name="LogisticsShareTop" value="0.85" />
 			<property name="LogisticsXpPerBundle" value="1" />
 			<property name="BarteringCutByStars" value="1,1,1,1,2,2,2" />

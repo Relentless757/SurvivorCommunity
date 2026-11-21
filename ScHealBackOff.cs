@@ -322,6 +322,7 @@ namespace SurvivorCommunity
                     bool first = st.FightOnWait < 0f || Mathf.Abs(st.FightOnWait - st.WaitSince) > SameWait;
                     st.FightOnWait = st.WaitSince;
                     st.FightOnUntil = now + CorneredRecheckSeconds;
+                    st.OutcomeAt = now;                              // the review: Prune keeps a live fights-on state (120 s from the last look)
                     st.GainAt = 0f;                                  // standing and fighting is no back-off: F4's clock starts again at the next look
                     if (first)
                     {

@@ -258,7 +258,8 @@ Each survivor has one **specialty**, starting at 1 star and growing to 7. Their 
 | **Entertainment** | Entertainer | A round of drinks lifts morale 1 more per 2 stars (rounded up: +1 at 1 star, +4 at 7). Running the lounge is *coming later* | | |
 
 - **Thirteen life skills.** New survivors roll one of them: the first six are the most common, Construction, Logistics,
-  Bartering, Recon and Entertainment a little rarer, Fitness and Firearms Instructor rare until the gym and range exist.
+  Bartering, Recon and Entertainment a little rarer. Fitness and Firearms Instructor don't roll at all until the gym and
+  range exist (they do nothing yet); a survivor who already has one keeps it.
   Survivors you already have keep theirs. Point at the specialty row on a member's card to read what it does; a part that
   needs a feature not built yet says "(coming later)".
 - The new life skills work when they are used, with the best of them at home: a barter, a scouting, an opened bundle, a

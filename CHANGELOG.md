@@ -39,6 +39,9 @@
 
 ## Survivors
 
+- **No more life skills that do nothing.** New survivors no longer roll Fitness or Firearms Instructor: both wait for
+  the gym and the range, which aren't in the game yet. Survivors who already have one keep it. (`SpecialtyWeights` in
+  `Config/blocks.xml` brings them back with a weight above 0.)
 - **Marksmen use their melee weapon up close.** A member whose best skill is Shooting used to keep her gun against
   everything, even a single zombie at arm's length. She still shoots at range, but against a lone zombie, or in a fight
   she isn't losing, she switches to her melee weapon once it is within 4 m (`PostureMeleeDist`), like everyone else,

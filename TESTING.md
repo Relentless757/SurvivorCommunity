@@ -42,6 +42,21 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 Why: the compatibility audit of the two updates and your decisions (D1-D6). Build `sc34_nc1`, **not deployed yet**. Needs
 0-SCore 3.4.25.925 and 0-XNPCCore 3.4.06 final in the install. `sc xnpc` (no id) prints the hook counters named below.
 
+**Review fixes and additions**
+
+- [ ] **Life skills:** `sc spec sim` (or `sc spec` on a member) shows Fitness and Firearms Instructor at 0% for new
+      recruits; recruit a few survivors (or `sc spawn`): none rolls either. A member who already had one keeps it.
+- [ ] **Ranged toggle, Stay or a run:** toggle a follower to Ranged, tell her to Stay; let a zombie reach her while she
+      reloads with her back to a wall: she swings her melee weapon (counter `x5-cornered-pref-swap-native`), and her gun
+      comes back once the bout ends. The same for a runner on her walk.
+- [ ] **Old preference vs SC order:** a member with an SC melee order whose old Ranged toggle predates this round: after a
+      load her toggle reads Melee (`sc xnpc <id>`: SdcsWeaponPref 1).
+- [ ] **A handed weapon of the other kind under an order:** with a gun order, give her a better machete through 0-XNPCCore's
+      inventory window: note whether it joins her pair (with an order NPCCore no longer auto-equips the other kind).
+- [ ] **Live base attack:** during a horde attack on the base, residents leave alone enemies outside the zone + 10 m that are
+      not after them (they no longer shoot at them from inside).
+- [ ] **Revive message:** "... in the next N min, they die" (never "1 minutes").
+
 **Start-up**
 
 - [ ] The log has `patch verification: all N targets patched` and no `MISSING PATCH` line, in particular none for

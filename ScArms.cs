@@ -922,7 +922,7 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round nc1: 0-XNPCCore's weapon preference set (0 clears it), the way Voice Control's toggle writes it (synced and sent to
-        /// the clients). An unchanged value writes nothing (SetCustomVar's own test).
+        /// the clients; with forceSendToClients the packet goes even for an unchanged value - harmless).
         /// </summary>
         internal static void SetPref(EntityAlive npc, int kind)
         {
@@ -932,15 +932,16 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Round nc1 (D4, ScLoadout.AfterPostInit): a body loaded with a weapon order of SC's from before this round and no weapon
-        /// preference gets the matching one, so 0-XNPCCore's rules agree with that order too (the sync both ways). A preference
-        /// already there is left alone (OrderedMelee / OrderedRanged read SC's own cvars first).
+        /// Round nc1 (D4, ScLoadout.AfterPostInit): a body loaded with a weapon order of SC's gets the matching weapon preference,
+        /// so 0-XNPCCore's rules agree with that order too (the sync both ways). The review's finding 5: SC's order also replaces
+        /// a different preference left from before this round (a melee order with an old ranged toggle would leave 0-XNPCCore's
+        /// veto keeping her gun up close); with no SC order a preference is left alone.
         /// </summary>
         internal static void SyncOrderPref(EntityAlive e)
         {
-            if (e == null || e.Buffs == null || PrefKind(e) != 0) return;
-            if (e.Buffs.GetCustomVar(OrderedRangedCvar) >= 0.5f) SetPref(e, PrefRanged);
-            else if (e.Buffs.GetCustomVar(OrderedMeleeCvar) >= 0.5f) SetPref(e, PrefMelee);
+            if (e == null || e.Buffs == null) return;
+            int want = e.Buffs.GetCustomVar(OrderedRangedCvar) >= 0.5f ? PrefRanged : e.Buffs.GetCustomVar(OrderedMeleeCvar) >= 0.5f ? PrefMelee : 0;
+            if (want != 0 && PrefKind(e) != want) SetPref(e, want);
         }
 
         /// <summary>
@@ -1097,6 +1098,7 @@ namespace SurvivorCommunity
             bool reloading = Reloading(e);
             bool cornered = CorneredOnTarget(e);
             KiteClocks(st, e, held, hg, close, reloading, cornered, now);
+            if (pv.NativeClose && close && PrefCorneredSwap(c, e, st, ct, now)) return false;   // round nc1 (review): a runner too
             if (pv.NativeClose || !close) return true;
             if (ScAmmo.RangedAction(hg) == null || ScAmmo.Rounds(e, hg) <= 0) return true;        // no rounds: its failover and swap
             // R2 (the Fable review's F7, the re-review): reloading with no back-off from her target - 0-XNPCCore's swap to melee
@@ -1171,6 +1173,8 @@ namespace SurvivorCommunity
                 ScPosture.NoteSwap(e, l.Ranged, true, false);
                 return false;
             }
+            // round nc1 (review): HOLD leaves the 3 m swap to 0-XNPCCore, which a ranged preference vetoes - R2's safety swap here
+            if (!ScWatch.Guarding(e.entityId) && PrefCorneredSwap(c, e, st, ct, now)) return false;
             // a guard on watch (base defence D3) keeps the gun up close: on a tower the melee swap only leads to a walk off the
             // edge, and the gun still hits what climbs up
             if (!ScWatch.Guarding(e.entityId) || !TargetWithin(e, XnpcCloseEnterDist)) return true;
@@ -1192,6 +1196,26 @@ namespace SurvivorCommunity
             closeMeleeField.SetValue(c, false);
             closeSinceField.SetValue(c, 0f);
             Patches_Xnpc.Count("posture-bout-closed");
+            return true;
+        }
+
+        /// <summary>
+        /// Round nc1 (the review's finding 1; D4: SC's safety rules still apply under the weapon toggle): where SC leaves her
+        /// close-range swap to 0-XNPCCore - HOLD (a Stay), a runner's NativeClose - a ranged preference (the toggle, or a gun order
+        /// of SC's, which writes it) vetoes that swap (WeaponPreferenceRules.CloseMeleeVeto), so she would stand reloading with a
+        /// zombie on her. R2's rule here too: within 0-XNPCCore's enter distance, reloading, with no room to back off, at a target
+        /// she can swing at (R2Skip) - her pair's melee weapon through 0-XNPCCore's own equip and into its bout (TakeMelee,
+        /// JoinBout), its exit bringing the gun back. True when it swapped.
+        /// </summary>
+        private static bool PrefCorneredSwap(AvatarSdcsNpcController c, EntityAlive e, Watch st, EntityAlive ct, float now)
+        {
+            if (PrefKind(e) != PrefRanged || ct == null || !TargetWithin(e, XnpcCloseEnterDist) || !Reloading(e) || !CorneredOnTarget(e)) return false;
+            if (now < st.MeleeBackoffUntil || R2Skip(c, e, ct) != null) return false;
+            Loadout l = ScLoadout.Current(e);
+            if (l == null || string.IsNullOrEmpty(l.Melee) || !TakeMelee(c, e, l, st, now)) return false;
+            ScPosture.NoteSwap(e, l.Melee, false, true);
+            JoinBout(c, e, l, now);
+            Patches_Xnpc.Count("x5-cornered-pref-swap-native");
             return true;
         }
 
