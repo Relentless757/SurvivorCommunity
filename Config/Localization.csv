@@ -3,6 +3,8 @@ blockcommand_TEFeatureSCCommunity:community,UI,Radial blockcommand,,,,Community
 blockcommand_TEFeatureSCCommunity:sethome,UI,Radial blockcommand,,,,Set as community home
 blockcommand_TEFeatureSCCommunity:starthome,UI,Radial blockcommand,,,,Start a community here
 xuiScCommunity,UI,Menu,,,,Community
+mothuiPageScCommunity,UI,Menu,,,,Community
+mothuiPageScRadio,UI,Menu,,,,Radio
 scJoinPoi,Dialog,Response,,,,I could use someone like you in my community.
 scJoinSupplies,Dialog,Response,,,,I could use someone like you in my community.
 scFavourPoi_text,Dialog,Statement,,,,"Maybe. There's a place near here crawling with them - clear it out and I'll know you can keep people safe. Say the word and I'll mark it on your map."

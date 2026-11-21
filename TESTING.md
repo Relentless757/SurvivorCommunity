@@ -37,6 +37,57 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round ui2 (2026-11-21): MothUI, and Steelshot's tabs
+
+Why: you asked for SC to work with MothUI (round 2 of the UI-mod work), and round ui1 found Steelshot's tabs covering
+the first party-list entry. The analysis and its XML replays are in `Port33\research\uicompat\mothui.md` (section 7
+is this list). Build `sc34_ui2`, **not deployed yet**. Test MothUI (folder `iiMothMan_MothUI`, 0.14.16) without Ashfall
+UI: the two can't run together.
+
+**MothUI:**
+- [ ] **Load:** the client log has no `did not apply` line for SurvivorCommunity, MothUI's "UI changes from other mods
+      that did not apply" line doesn't name SC, and there is `[MothUI] HUD widget from another mod: Home Status
+      (SurvivorCommunity.homestatus: windowScHomeStatus)`.
+- [ ] **Tabs:** the Community icon sits right of Players at MothUI's spacing, its tooltip reads "Community", and it
+      opens the page, titled COMMUNITY top left. With a handheld radio a Radio icon appears right of it (title RADIO)
+      and goes when you drop the radio; the bar re-centers. LB / RB reach both, and with a gamepad the bumper icons sit
+      at the bar's ends without flickering.
+- [ ] **ESC menu:** the Community button has MothUI's card look and opens the Community page.
+- [ ] **Pages:** the Community and Radio pages fit between MothUI's top bar and key footer, centered, at 16:9 and after
+      a UI scale change (21:9 if you can), and stay that way (no jump after the first frame). Every button still clicks;
+      Storage, linked storage, close, back. At a radio block without a handheld radio (no bar) the radio page shows at
+      full size, centered.
+- [ ] **Home Status:** in the home zone it shows top right, left of the minimap, clear of the compass, clock and
+      temperature, in MothUI's glass look. ESC > Edit HUD lists "Home Status": move, resize and hide it; the layout
+      survives a reload. Opening Tab hides it.
+- [ ] **Talking:** the talk card sits right of MothUI's dialog card (bottom left), which stays fully readable; the talk
+      card drags, and right-click resets it. There is no second line box at the right.
+- [ ] **Filled lines:** an enclave respondent's line in MothUI's card shows names, not `{enc}` / `{leader}`; survivor
+      voice lines play; with `DialogLine` false (SC's `Config/blocks.xml`; `VoiceLines` on, the default) the line in the
+      card is still filled.
+- [ ] **Pager:** a statement with more than 6 replies (0-XNPCCore's weapon menu has 11) pages by 6 inside the card,
+      "Nevermind." last on each page and "1/2" top right of the card; the wheel, arrows and right stick page.
+- [ ] **Packing station:** SC's strip is a glass card of its own under the loot card, MothUI's key hints stay visible,
+      Pack, Take and Deposit work, and the strip stays on screen.
+- [ ] **Linked storage** (without RE Inventory): SC's window beside MothUI's backpack; scroll, take and the strip's
+      Refresh work.
+- [ ] **Member inventory** ("Show me your inventory"): left of MothUI's backpack, no overlap; drag, gear slots and
+      take-all work; MothUI's hover card shows no Use / Read / Open on a bag cell.
+- [ ] **Unchanged things:** an SC favor quest's own title in MothUI's quest chip, journal and description; the watch
+      post, radio and facility radials on MothUI's ring; SC toasts (a raid warning) in MothUI's message feed.
+
+SC's own windows (Community, Radio, talk card, member inventory, linked storage) keep their vanilla look on MothUI's
+glass: the cosmetic pass (analysis section 6.7) isn't part of this round.
+
+**Steelshot UI Hybrid:**
+- [ ] **Tabs:** the Community and Radio tabs are smaller (30 units) and sit between Steelshot's glass bar and its party
+      list, so the first party entry (a following member, or Zoe in ClaudeTest34) is no longer covered. Both still open
+      their pages.
+
+**Without MothUI:**
+- [ ] With Ashfall UI, and with no UI mod: tabs, Home Status, talk card, dialog line and pager look and work as before.
+      (The XML replays are byte-identical to the last build's; this is the in-game check.)
+
 ## Round ui1 (2026-11-20): CATUI, Steelshot UI Hybrid and SteelUI
 
 Why: you asked for SC to work with these UI mods. Analyses (one per mod, with the XML replays) are in

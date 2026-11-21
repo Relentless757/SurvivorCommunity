@@ -18,6 +18,8 @@ namespace SurvivorCommunity
     /// closing the talk stops SC's clip, but not a line said as it closes (ScVoice.SayAfterTalk).
     /// V1: each frame it tells ScVoice whom the talk is open on (TalkOn), and its close ends that (OnTalkClosed): while the
     /// talk is open on one of the community's survivors, Voice Control keeps quiet on them (ScVoice.HoldsVoice).
+    /// Round ui2: under MothUI the box is hidden (its card shows the line); the filled text of the statement shown is kept
+    /// for ScMothUI.Patch_MothStatement (TryFilled), whatever DialogLine is set to, and MothUI's row is woken after a fill.
     /// </summary>
     [Preserve]
     public class XUiC_ScDialogLine : XUiController
@@ -27,6 +29,19 @@ namespace SurvivorCommunity
         private string raw = "";
         private string line = "";
         private bool visible;
+
+        /// <summary>Round ui2: the statement last filled and its filled text, for MothUI's statement row (ScMothUI).</summary>
+        private static BaseStatement filledFor;
+        private static string filledText = "";
+
+        /// <summary>The filled text of this statement, when it is the one SC filled last and there is something to show.</summary>
+        public static bool TryFilled(BaseStatement st, out string text)
+        {
+            text = null;
+            if (st == null || !ReferenceEquals(st, filledFor) || string.IsNullOrEmpty(filledText)) return false;
+            text = filledText;
+            return true;
+        }
 
         public override void OnOpen()
         {
@@ -48,6 +63,8 @@ namespace SurvivorCommunity
             raw = "";
             line = "";
             visible = false;
+            filledFor = null;
+            filledText = "";
         }
 
         public override void Update(float _dt)
@@ -71,15 +88,27 @@ namespace SurvivorCommunity
                 raw = text;
                 string voiceKey = null;
                 line = text.IndexOf('{') >= 0 ? ScEncDialog.Fill(text, npc, ScCommunity.LocalPlayer, out voiceKey) : text;
+                // round ui2: before the DialogLine clear, so MothUI's statement row gets the filled line either way
+                filledFor = st;
+                filledText = line;
                 if (!ScConfig.DialogLine) line = "";
                 visible = line.Length > 0;
                 RefreshBindings();
+                if (ScMothUI.Active) WakeMothStatement();
                 if (newStatement && st != null && npc != null) ScVoice.OnLine(npc, dialog, st, voiceKey);
             }
             catch (Exception e)
             {
                 ScLog.Once("dialogline", e);
             }
+        }
+
+        /// <summary>Round ui2: MothUI's statement row re-binds only when dirty (it saw the statement change before we filled it).</summary>
+        private void WakeMothStatement()
+        {
+            XUiController group = windowGroup != null ? windowGroup.Controller : null;
+            XUiController row = group != null ? group.GetChildById("mui_statement") : null;
+            if (row != null) row.IsDirty = true;
         }
 
         public override bool GetBindingValueInternal(ref string _value, string _bindingName)

@@ -62,6 +62,7 @@
   <ItemGroup>
     <Compile Include="ModApi.cs" />
     <Compile Include="ScLog.cs" />
+    <Compile Include="ScMothUI.cs" />
     <Compile Include="ScConfig.cs" />
     <Compile Include="ScModels.cs" />
     <Compile Include="ScRegistry.cs" />

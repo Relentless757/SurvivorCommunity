@@ -593,6 +593,9 @@ namespace SurvivorCommunity
             Add(t, "Block::GetBlockActivationCommands", AccessTools.DeclaredMethod(typeof(Block), "GetBlockActivationCommands", new[] { typeof(WorldBase), typeof(BlockValue), typeof(Vector3i), typeof(EntityAlive) }));
             Add(t, "Block::OnBlockActivated(string)", AccessTools.DeclaredMethod(typeof(Block), "OnBlockActivated", new[] { typeof(string), typeof(WorldBase), typeof(Vector3i), typeof(BlockValue), typeof(EntityPlayerLocal) }));
             Add(t, "Block::GetActivationText", AccessTools.DeclaredMethod(typeof(Block), "GetActivationText", new[] { typeof(WorldBase), typeof(BlockValue), typeof(Vector3i), typeof(EntityAlive) }));
+            // ScMothUI.cs (round ui2) - MothUI's dialog statement shows SC's filled line (only when MothUI is loaded)
+            MethodBase mothStatement = ScMothUI.StatementTarget();
+            if (mothStatement != null) Add(t, "MothUI.XUiC_DialogStatement::GetBindingValueInternal", mothStatement);
             // The land claim model's shader swap (Patches_LandClaimModel). Listed so it joins the
             // MISSING PATCH net and does not report itself as an unlisted patch every startup.
             Add(t, "BlockShapeModelEntity::PoolLoadCallback", AccessTools.DeclaredMethod(typeof(BlockShapeModelEntity), "PoolLoadCallback", new Type[0]));

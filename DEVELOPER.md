@@ -1921,7 +1921,7 @@ entry in `PORT_34.md` has the hook and the rules).
 
 A full game restart is needed after editing `Config/Localization.csv`.
 
-## UI mods (round ui1)
+## UI mods (rounds ui1, ui2)
 
 SC's XUi carries a branch per supported UI mod; the analyses behind them (XML replays of every SC patch with and without
 each mod, and what each mod's DLL does to the HUD, tab bar and window groups) are in `Port33\research\uicompat\`, with
@@ -1946,6 +1946,38 @@ the replay harness `tools\replay_ui.py` (`SC_PATH=<tree> python -I replay_ui.py 
   template restyle, keyed on the sprite names, leaves them). `Tools/vanilla_look.conditional(..., extra=[(cond, lines)])`
   emits such extra branches.
 - **CATUI** and the Home Status position branches only touch SC's own windows, so they need nothing after the UI mod.
+- **Steelshot's tabs** (round ui2) are 30 tall, in the gap between its glass bar (the fill ends 54 down) and vanilla's
+  party list (`windowGroupBars`, from 88 down; Steelshot leaves it there).
+- **MothUI** (round ui2; `mothui.md`, replay `research\uicompat\tools\mothui\replay_sc_mothui.py <moth|vanilla|ash>
+  <outdir>` with `SC_ROOT=<tree>`) loads before SC, so SC patches its replacement windows; its C# (PageBar, MenuLayout,
+  HudLayout, ModCompat) runs after. Branch order in each look conditional: Ashfall UI, MothUI, vanilla; a block with no
+  Ashfall UI branch guards MothUI's with `and not mod_loaded('zzzzz_AshfallUI')`.
+  - **Tabs:** PageBar re-centers every visible tab button by the x it first saw (window space; its bar is 6000 wide from
+    -3000), so SC's rects sit at 0,0 and the buttons at 3270 / 3330, after Creative's 3210. Page titles are
+    Localization's `mothuiPage<button id>` (`mothuiPageScCommunity`, `mothuiPageScRadio`).
+  - **Home Status** carries `mothui_widget` / `mothui_id` (MothUI's ModWidgets; inert without it). The sprite names
+    `mui_glass`, `mui_rim` and `mui_accent` are what MothUI's Theme tints, so the renames come after every setter that
+    still uses the old names.
+  - **Dialog:** MothUI writes the NPC's line into its own card row (`MothUI.XUiC_DialogStatement`, binding
+    `mui_statement`, re-bound only when dirty). `ScMothUI.Patch_MothStatement` (found by reflection; `Prepare` is false
+    and `ExpectedTargets` skips it without MothUI) swaps in SC's filled line from `XUiC_ScDialogLine.TryFilled`, kept
+    whatever `DialogLine` is set to; `XUiC_ScDialogLine` marks that row dirty after each fill. With `DialogLine` and
+    `VoiceLines` both off SC reads no line, so MothUI shows its own text, tokens and all. The XML hides SC's own line box
+    and pages replies by 6.
+  - **Pages:** `ScMothUI.FitPage(page, width, height, frame)` scales `XUiC_ScCommunity` / `XUiC_ScRadio` to fit MothUI's
+    frame (216 tall, 80 wide, its MenuLayout's numbers; never below half size) and centers it, or puts it back at its XML
+    place and size while the frame (the `windowpaging` group) is closed. Every `XUiV_Window.updateData` runs
+    `setRootNode`, which sets `localScale` back to one, so the pages call it after `base.Update` each frame (and from
+    OnOpen for the first frame); it writes only what differs. It does nothing unless `ScMothUI.Layout` (MothUI loaded,
+    AshfallUI not). A new full-screen page needs the same two calls with its size. `XUiView.GetXUiRect` ignores the
+    window's scale (combobox click-to-value, the color picker), so a combobox, slider or color picker on these pages
+    would need handling first.
+  - **Strips:** `Tools/generate_strips_ui.py`'s `moth` look puts each strip 534 down (8 under MothUI's 526-tall loot
+    card) at MothUI's own width binding, `{% v2i_x(gridDimensions) * 70 + 38 }`; the name resolves up the controller
+    chain to `XUiC_LootWindow`. `mui_box` takes width and height, not anchors. Known limit: MothUI's MenuLayout scales
+    the loot screen without counting the strip, so on an ultrawide screen at a small UI scale (an XUi height above about
+    1218 at 21:9) the packing strip's bottom can run past the screen edge.
+  - **Not done:** the cosmetic pass (`mothui.md` 6.7) - SC's own windows keep the vanilla look on MothUI's glass.
 - **PhysicalPDA** ships its own SC adapter (reflection on SC's types); the user leaves it to its author. Renaming public
   SC members it reads (`ScMorale`, `XUiC_ScCommunity`, `XUiC_ScDialogLine`, ...) breaks it - see the analysis.
 

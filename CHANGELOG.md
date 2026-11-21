@@ -2,17 +2,28 @@
 
 ## UI mods
 
-- **SC works with CATUI, Steelshot UI Hybrid and SteelUI.** Each UI mod gets a few small fixes so SC's tabs, the Home
+- **SC works with CATUI, Steelshot UI Hybrid, SteelUI and MothUI.** Each UI mod gets a few small fixes so SC's tabs, the Home
   Status panel and SC's windows stay reachable and readable:
   - **CATUI:** the Home Status panel moves below CATUI's compass clock and enemy alert bar.
-  - **Steelshot UI Hybrid:** the Community and Radio tabs move to the screen's top-left corner, under Steelshot's tab bar
-    (it pushed them off the screen). The member inventory and linked storage draw over Steelshot's backdrop instead of
+  - **Steelshot UI Hybrid:** the Community and Radio tabs move to the screen's top-left corner, between Steelshot's tab
+    bar and its party list (it pushed them off the screen). The member inventory and linked storage draw over Steelshot's backdrop instead of
     under it. Steelshot's backdrop goes behind SC's two pages, the Home Status panel moves below its compass onto its
     glass plate, and the Community button in the ESC menu takes Steelshot's look.
   - **SteelUI:** SteelUI rebuilds the player menu's tab bar after SC has added its tabs, which removed them (and with
     them the only way into the radio from a handheld radio). A new small folder in the zip,
     `zzzz_SteelUI_SurvivorCommunity`, loads after SteelUI and adds them back in SteelUI's style. The member inventory
     keeps its own slot size (SteelUI's slots overlapped), and the Home Status panel moves under SteelUI's location row.
+  - **MothUI:**
+    - The Community and Radio tabs sit at the end of MothUI's page bar at its spacing (they landed left of their
+      slots), and the pages are titled COMMUNITY and RADIO (they read SCCOMMUNITY and SCRADIO).
+    - Talking to a survivor: the talk card moves to the right of MothUI's dialog card (it covered the line and the
+      replies), and SC's separate line box stays hidden because MothUI's card shows the line. Enclave lines show
+      their names there instead of `{enc}` and `{leader}`, and the replies page by 6 to fit the card.
+    - The Home Status panel is a MothUI HUD widget: top right by default, and Edit HUD can move, resize or hide it.
+    - The Community and Radio pages shrink to fit between MothUI's top bar and footer on screens too short for them.
+    - The packing station and linked storage strips are glass cards of their own under MothUI's loot card, so its key
+      hints stay visible.
+    - SC's own windows keep their vanilla look on MothUI's glass for now.
 - **MinimalistHUD + PhysicalPDA** has its own support for SC built in; SC leaves that to its author.
 - Use one UI overhaul at a time: none of these runs together with another (Ashfall UI included).
 

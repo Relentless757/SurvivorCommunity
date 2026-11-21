@@ -31,6 +31,9 @@ namespace SurvivorCommunity
     [Preserve]
     public partial class XUiC_ScCommunity : XUiController
     {
+        /// <summary>The window's size in windows.xml (windowScCommunity), for ScMothUI.FitPage.</summary>
+        private const int PageWidth = 1500, PageHeight = 924;
+
         /// <summary>Rows per page when the XML has none yet (the page size is the number of row controllers).</summary>
         public const int RowsPerPage = 8;
         private const float RefreshSeconds = 2f;
@@ -189,6 +192,7 @@ namespace SurvivorCommunity
             base.OnOpen();
             try
             {
+                ScMothUI.FitPage(this, PageWidth, PageHeight, true);   // round ui2: MothUI's frame (no-op without it); held in Update
                 page = 0;
                 message = "";
                 confirmLeaveUntil = 0f;
@@ -273,6 +277,7 @@ namespace SurvivorCommunity
                 ScLog.Once("community-window-update", e);
             }
             base.Update(_dt);
+            ScMothUI.FitPage(this, PageWidth, PageHeight, ScMothUI.FrameOpen(xui));   // round ui2: after the view's updateData
         }
 
         private bool IsOpen()

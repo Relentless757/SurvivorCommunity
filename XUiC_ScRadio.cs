@@ -34,6 +34,9 @@ namespace SurvivorCommunity
     [Preserve]
     public class XUiC_ScRadio : XUiController
     {
+        /// <summary>The window's size in windows.xml (windowScRadio), for ScMothUI.FitPage.</summary>
+        private const int PageWidth = 1384, PageHeight = 940;
+
         private const float RefreshSeconds = 1f;
         private float nextRefresh;
         private string message = "";
@@ -395,6 +398,9 @@ namespace SurvivorCommunity
                     if (!up) message = Localization.Get("scRadioRemoteOffline");
                 }
                 BuildRunners();
+                // round ui2: MothUI's frame (no-op without it), held in Update; the bar comes with this page while the Radio
+                // tab shows (a handheld radio carried, XUiC_ScPageGroup), here before the group opens it
+                ScMothUI.FitPage(this, PageWidth, PageHeight, ScHandheld.Carries(Player));
 #endif
                 BuildEnclaves();
                 RefreshBindings();
@@ -408,6 +414,7 @@ namespace SurvivorCommunity
         public override void Update(float _dt)
         {
             base.Update(_dt);
+            ScMothUI.FitPage(this, PageWidth, PageHeight, ScMothUI.FrameOpen(xui));   // round ui2: after the view's updateData
             try
             {
                 if (xui == null || xui.playerUI == null || xui.playerUI.windowManager == null || !xui.playerUI.windowManager.IsWindowOpen(ScRadio.WindowGroup)) return;

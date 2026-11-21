@@ -71,6 +71,9 @@ This is a test build. Expect bugs, and please play it on a new save made for tes
   - **CATUI:** the Home Status panel sits below CATUI's compass clock and alert bar.
   - **Steelshot UI Hybrid:** SC's Community and Radio tabs sit in the top-left corner under its tab bar, its glass
     backdrop sits behind SC's pages, and the Home Status panel sits below its compass.
+  - **MothUI:** SC's Community and Radio tabs join its page bar with their own titles, the talk card sits beside its
+    dialog card (which shows SC's filled lines), and the Home Status panel is one of its HUD widgets (Edit HUD moves,
+    resizes or hides it). The Community and Radio pages shrink to fit between its top bar and footer when needed.
   - **SteelUI:** SteelUI rebuilds the tab bar after SC loads, so the `zzzz_SteelUI_SurvivorCommunity` folder from the zip
     puts SC's Community and Radio tabs back into it. Keep that folder installed with SteelUI.
   - **MinimalistHUD + PhysicalPDA** brings its own support for SC, kept up to date by its author.

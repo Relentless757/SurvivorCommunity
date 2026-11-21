@@ -5,7 +5,7 @@
 	     Tools/generate_strips_ui.py - edit that, not this. Each controller shows its strip only while the open box
 	     is its own (a packing station / the linked storage), so every other crate is untouched. Both fit any grid
 	     width (anchored to the grid, the category buttons by fractions of it), in AshfallUI's look when it is
-	     loaded and vanilla's otherwise (round 32b). -->
+	     loaded and vanilla's otherwise (round 32b); with MothUI each is a glass card under its loot card (round ui2). -->
 	<conditional>
 		<if cond="mod_loaded('zzzzz_AshfallUI')">
 			<append xpath="/windows/window[@name='windowLooting']">
@@ -53,6 +53,57 @@
 					<label depth="4" font_size="14" pivot="left" justify="left" text="{sclheader}" color="226,220,208,255" anchor_left="#parent,0,16" anchor_right="#parent,1,-124" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-50"/>
 					<button depth="2" name="btnLinkedRefresh" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[default_click]" anchor_left="#parent,1,-116" anchor_right="#parent,1,-16" anchor_top="#parent,1,-18" anchor_bottom="#parent,1,-46"/>
 					<label depth="4" font_size="14" justify="center" pivot="center" text_key="scStorageRefresh" color="226,220,208,255" upper_case="true" anchor_left="#parent,1,-114" anchor_right="#parent,1,-18" anchor_top="#parent,1,-18" anchor_bottom="#parent,1,-46"/>
+				</rect>
+			</append>
+		</if>
+		<if cond="mod_loaded('iiMothMan_MothUI')">
+			<append xpath="/windows/window[@name='windowLooting']">
+				<rect name="scPackingStrip" depth="14" controller="SurvivorCommunity.ScPackingStrip, SurvivorCommunity" visible="{scvisible}" pos="0,-534" width="{% v2i_x(gridDimensions) * 70 + 38 }" height="166">
+					<mui_box depth="0" name="mui_glass" width="{% v2i_x(gridDimensions) * 70 + 38 }" height="166" radius="12" fill="theme:9,11,13,158"/>
+					<mui_box depth="1" name="mui_rim" width="{% v2i_x(gridDimensions) * 70 + 38 }" height="166" radius="12" fill="none" stroke="1" stroke_color="rim:255,255,255,24" top_light="true"/>
+					<label depth="4" pos="16,-29" width="46" height="30" font_size="18" pivot="left" justify="left" text_key="scStripPack" color="163,169,175,255"/>
+					<button depth="2" name="btnPackFood" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scPackFood" anchor_left="#parent,0,66" anchor_right="#parent,0.142857,51" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-44"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStripFood" color="241,243,245,255" anchor_left="#parent,0,68" anchor_right="#parent,0.142857,49" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-44"/>
+					<button depth="2" name="btnPackWater" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scPackWater" anchor_left="#parent,0.142857,55" anchor_right="#parent,0.285714,40" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-44"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStripWater" color="241,243,245,255" anchor_left="#parent,0.142857,57" anchor_right="#parent,0.285714,38" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-44"/>
+					<button depth="2" name="btnPackMeds" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scPackMeds" anchor_left="#parent,0.285714,44" anchor_right="#parent,0.428571,29" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-44"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStripMeds" color="241,243,245,255" anchor_left="#parent,0.285714,46" anchor_right="#parent,0.428571,27" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-44"/>
+					<button depth="2" name="btnPackAmmo" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scPackAmmo" anchor_left="#parent,0.428571,33" anchor_right="#parent,0.571429,17" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-44"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStripAmmo" color="241,243,245,255" anchor_left="#parent,0.428571,35" anchor_right="#parent,0.571429,15" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-44"/>
+					<button depth="2" name="btnPackMaterials" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scPackMaterials" anchor_left="#parent,0.571429,21" anchor_right="#parent,0.714286,6" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-44"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStripMats" color="241,243,245,255" anchor_left="#parent,0.571429,23" anchor_right="#parent,0.714286,4" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-44"/>
+					<button depth="2" name="btnPackFuel" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scPackFuel" anchor_left="#parent,0.714286,10" anchor_right="#parent,0.857143,-5" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-44"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStripFuel" color="241,243,245,255" anchor_left="#parent,0.714286,12" anchor_right="#parent,0.857143,-7" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-44"/>
+					<button depth="2" name="btnPackLuxury" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scPackLuxury" anchor_left="#parent,0.857143,-1" anchor_right="#parent,1,-16" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-44"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStripLux" color="241,243,245,255" anchor_left="#parent,0.857143,1" anchor_right="#parent,1,-18" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-44"/>
+					<label depth="4" pos="16,-63" width="46" height="30" font_size="18" pivot="left" justify="left" text_key="scStripTake" color="163,169,175,255"/>
+					<button depth="2" name="btnTakeFood" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scTakeFood" anchor_left="#parent,0,66" anchor_right="#parent,0.142857,51" anchor_top="#parent,1,-48" anchor_bottom="#parent,1,-78"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStripFood" color="241,243,245,255" anchor_left="#parent,0,68" anchor_right="#parent,0.142857,49" anchor_top="#parent,1,-48" anchor_bottom="#parent,1,-78"/>
+					<button depth="2" name="btnTakeWater" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scTakeWater" anchor_left="#parent,0.142857,55" anchor_right="#parent,0.285714,40" anchor_top="#parent,1,-48" anchor_bottom="#parent,1,-78"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStripWater" color="241,243,245,255" anchor_left="#parent,0.142857,57" anchor_right="#parent,0.285714,38" anchor_top="#parent,1,-48" anchor_bottom="#parent,1,-78"/>
+					<button depth="2" name="btnTakeMeds" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scTakeMeds" anchor_left="#parent,0.285714,44" anchor_right="#parent,0.428571,29" anchor_top="#parent,1,-48" anchor_bottom="#parent,1,-78"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStripMeds" color="241,243,245,255" anchor_left="#parent,0.285714,46" anchor_right="#parent,0.428571,27" anchor_top="#parent,1,-48" anchor_bottom="#parent,1,-78"/>
+					<button depth="2" name="btnTakeAmmo" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scTakeAmmo" anchor_left="#parent,0.428571,33" anchor_right="#parent,0.571429,17" anchor_top="#parent,1,-48" anchor_bottom="#parent,1,-78"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStripAmmo" color="241,243,245,255" anchor_left="#parent,0.428571,35" anchor_right="#parent,0.571429,15" anchor_top="#parent,1,-48" anchor_bottom="#parent,1,-78"/>
+					<button depth="2" name="btnTakeMaterials" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scTakeMaterials" anchor_left="#parent,0.571429,21" anchor_right="#parent,0.714286,6" anchor_top="#parent,1,-48" anchor_bottom="#parent,1,-78"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStripMats" color="241,243,245,255" anchor_left="#parent,0.571429,23" anchor_right="#parent,0.714286,4" anchor_top="#parent,1,-48" anchor_bottom="#parent,1,-78"/>
+					<button depth="2" name="btnTakeFuel" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scTakeFuel" anchor_left="#parent,0.714286,10" anchor_right="#parent,0.857143,-5" anchor_top="#parent,1,-48" anchor_bottom="#parent,1,-78"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStripFuel" color="241,243,245,255" anchor_left="#parent,0.714286,12" anchor_right="#parent,0.857143,-7" anchor_top="#parent,1,-48" anchor_bottom="#parent,1,-78"/>
+					<button depth="2" name="btnTakeLuxury" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scTakeLuxury" anchor_left="#parent,0.857143,-1" anchor_right="#parent,1,-16" anchor_top="#parent,1,-48" anchor_bottom="#parent,1,-78"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStripLux" color="241,243,245,255" anchor_left="#parent,0.857143,1" anchor_right="#parent,1,-18" anchor_top="#parent,1,-48" anchor_bottom="#parent,1,-78"/>
+					<button depth="2" name="btnDeposit" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" tooltip_key="scDepositTip" anchor_left="#parent,0,16" anchor_right="#parent,0,148" anchor_top="#parent,1,-84" anchor_bottom="#parent,1,-116"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scDeposit" color="241,243,245,255" anchor_left="#parent,0,18" anchor_right="#parent,0,146" anchor_top="#parent,1,-84" anchor_bottom="#parent,1,-116"/>
+					<label depth="4" font_size="14" pivot="left" justify="left" text="{scstock}" color="241,243,245,255" anchor_left="#parent,0,156" anchor_right="#parent,1,-16" anchor_top="#parent,1,-84" anchor_bottom="#parent,1,-116"/>
+					<label depth="4" font_size="14" pivot="left" justify="left" text="{scmessage}" color="232,196,140,255" anchor_left="#parent,0,16" anchor_right="#parent,1,-16" anchor_top="#parent,1,-120" anchor_bottom="#parent,1,-152"/>
+				</rect>
+			</append>
+			<append xpath="/windows/window[@name='windowLooting']">
+				<rect name="scLinkedStrip" depth="14" controller="SurvivorCommunity.ScLinkedStrip, SurvivorCommunity" visible="{sclvisible}" pos="0,-534" width="{% v2i_x(gridDimensions) * 70 + 38 }" height="64">
+					<mui_box depth="0" name="mui_glass" width="{% v2i_x(gridDimensions) * 70 + 38 }" height="64" radius="12" fill="theme:9,11,13,158"/>
+					<mui_box depth="1" name="mui_rim" width="{% v2i_x(gridDimensions) * 70 + 38 }" height="64" radius="12" fill="none" stroke="1" stroke_color="rim:255,255,255,24" top_light="true"/>
+					<label depth="4" font_size="14" pivot="left" justify="left" text="{sclheader}" color="241,243,245,255" anchor_left="#parent,0,16" anchor_right="#parent,1,-124" anchor_top="#parent,1,-14" anchor_bottom="#parent,1,-50"/>
+					<button depth="2" name="btnLinkedRefresh" sprite="mui_card" hoversprite="mui_card" defaultcolor="255,255,255,10" hovercolor="255,255,255,40" type="sliced" hoverscale="1.0" sound="[default_click]" anchor_left="#parent,1,-116" anchor_right="#parent,1,-16" anchor_top="#parent,1,-18" anchor_bottom="#parent,1,-46"/>
+					<label depth="4" font_size="16" justify="center" pivot="center" text_key="scStorageRefresh" color="241,243,245,255" anchor_left="#parent,1,-114" anchor_right="#parent,1,-18" anchor_top="#parent,1,-18" anchor_bottom="#parent,1,-46"/>
 				</rect>
 			</append>
 		</if>
@@ -214,20 +265,38 @@
 				</rect>
 			</append>
 		</if>
+		<!-- Round ui2 (research/uicompat/mothui.md 6.1): MothUI's PageBar (a postfix on XUiC_WindowSelector.Update) re-centers
+		     every visible tab button by the x it first saw, in window space, and its bar is 6000 wide from x -3000. So the
+		     rects sit at 0,0 and the buttons at MothUI's own spacing after its last tab (Players 3150, Creative 3210):
+		     Community, then Radio while a handheld radio is carried; the bar re-centers when Radio hides. MothUI's button
+		     look (its windows.xml windowPagingHeader). No lb_shown / lb_hidden and no LB_Icon move: PageBar places the
+		     bumper icons itself. The page titles are Localization's mothuiPageScCommunity / mothuiPageScRadio. -->
+		<if cond="mod_loaded('iiMothMan_MothUI')">
+			<append xpath="/windows/window[@name='windowPagingHeader']">
+				<rect name="scCommunityTab" depth="3" pos="0,0" visible="{# !is_prefab_editor}">
+					<iconbutton pos="3270,-48" depth="3" width="32" height="32" selectable="true" collider_scale="1.6" hoverscale="1.15" name="ScCommunity" sprite="ui_game_symbol_map_cabin" tooltip_key="xuiScCommunity" snap="false" gamepad_selectable="false" color_default="174,179,184,255" color_hovered="241,243,245,255" color_selected="255,49,49,255" visible="{# !is_prefab_editor}"/>
+				</rect>
+				<rect name="scRadioTab" controller="SurvivorCommunity.ScRadioTab, SurvivorCommunity" depth="3" pos="0,0" visible="{scradiotab}">
+					<iconbutton pos="3330,-48" depth="3" width="32" height="32" selectable="true" collider_scale="1.6" hoverscale="1.15" name="ScRadio" sprite="ui_game_symbol_talk" tooltip_key="xuiScRadio" snap="false" gamepad_selectable="false" color_default="174,179,184,255" color_hovered="241,243,245,255" color_selected="255,49,49,255" visible="{scradiotab}"/>
+				</rect>
+			</append>
+		</if>
 		<!-- Round ui1 (research/uicompat/steelshot.md 6.1): Steelshot UI re-lays windowPagingHeader every frame (screen width
 		     + 320 wide, its x=0 160 units off the left edge), which puts tabs at negative x off the screen. These anchor to
 		     the screen's top-left corner (#cam, as vanilla's XUi_Menu does) under its glass bar, in its iconbutton look:
 		     Community first, Radio beside it while a handheld radio is carried. No lb_shown / lb_hidden and no LB_Icon move:
-		     Steelshot places that icon itself. -->
+		     Steelshot places that icon itself.
+		     Round ui2: 30 tall, in the gap between Steelshot's glass bar (its fill ends 54 down) and vanilla's party list
+		     (windowGroupBars, from 88 down; Steelshot leaves it there) - ui1's 44-tall tabs covered the first party entry. -->
 		<if cond="mod_loaded('SteelshotUi')">
 			<append xpath="/windows/window[@name='windowPagingHeader']">
-				<rect name="scCommunityTab" depth="0" visible="{# !is_prefab_editor}" anchor_left="#cam,0,16" anchor_right="#cam,0,68" anchor_top="#cam,1,-62" anchor_bottom="#cam,1,-106">
-					<iconbutton depth="3" name="ScCommunity" pos="26,-22" width="52" height="44" sprite="panel_glass" type="sliced" steelshot_glow="true" selectable="true" snap="false" hoverscale="1" color_default="255,255,255,255" color_hovered="255,255,255,255" color_selected="255,255,255,255" tooltip_key="xuiScCommunity" gamepad_selectable="false" visible="{# !is_prefab_editor}"/>
-					<sprite depth="18" name="scCommunityTabIcon" pos="26,-22" width="25" height="25" pivot="center" sprite="ui_game_symbol_map_cabin" color="[white]" foregroundlayer="true"/>
+				<rect name="scCommunityTab" depth="0" visible="{# !is_prefab_editor}" anchor_left="#cam,0,16" anchor_right="#cam,0,46" anchor_top="#cam,1,-56" anchor_bottom="#cam,1,-86">
+					<iconbutton depth="3" name="ScCommunity" pos="15,-15" width="30" height="30" sprite="panel_glass" type="sliced" steelshot_glow="true" selectable="true" snap="false" hoverscale="1" color_default="255,255,255,255" color_hovered="255,255,255,255" color_selected="255,255,255,255" tooltip_key="xuiScCommunity" gamepad_selectable="false" visible="{# !is_prefab_editor}"/>
+					<sprite depth="18" name="scCommunityTabIcon" pos="15,-15" width="18" height="18" pivot="center" sprite="ui_game_symbol_map_cabin" color="[white]" foregroundlayer="true"/>
 				</rect>
-				<rect name="scRadioTab" controller="SurvivorCommunity.ScRadioTab, SurvivorCommunity" depth="0" visible="{scradiotab}" anchor_left="#cam,0,72" anchor_right="#cam,0,124" anchor_top="#cam,1,-62" anchor_bottom="#cam,1,-106">
-					<iconbutton depth="3" name="ScRadio" pos="26,-22" width="52" height="44" sprite="panel_glass" type="sliced" steelshot_glow="true" selectable="true" snap="false" hoverscale="1" color_default="255,255,255,255" color_hovered="255,255,255,255" color_selected="255,255,255,255" tooltip_key="xuiScRadio" gamepad_selectable="false" visible="{scradiotab}"/>
-					<sprite depth="18" name="scRadioTabIcon" pos="26,-22" width="25" height="25" pivot="center" sprite="ui_game_symbol_talk" color="[white]" foregroundlayer="true"/>
+				<rect name="scRadioTab" controller="SurvivorCommunity.ScRadioTab, SurvivorCommunity" depth="0" visible="{scradiotab}" anchor_left="#cam,0,50" anchor_right="#cam,0,80" anchor_top="#cam,1,-56" anchor_bottom="#cam,1,-86">
+					<iconbutton depth="3" name="ScRadio" pos="15,-15" width="30" height="30" sprite="panel_glass" type="sliced" steelshot_glow="true" selectable="true" snap="false" hoverscale="1" color_default="255,255,255,255" color_hovered="255,255,255,255" color_selected="255,255,255,255" tooltip_key="xuiScRadio" gamepad_selectable="false" visible="{scradiotab}"/>
+					<sprite depth="18" name="scRadioTabIcon" pos="15,-15" width="18" height="18" pivot="center" sprite="ui_game_symbol_talk" color="[white]" foregroundlayer="true"/>
 				</rect>
 			</append>
 		</if>
@@ -2107,6 +2176,33 @@
 			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='strip']" name="color">142,1,1,149</setattribute>
 			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='stripIcon']" name="pos">24,-54</setattribute>
 		</if>
+		<!-- Round ui2 (research/uicompat/mothui.md 6.3): a MothUI HUD widget (its ModWidgets API, README "mod widgets"): the
+		     window's mothui_widget / mothui_id attributes land in the controller's CustomAttributes and do nothing without
+		     MothUI; with it the panel is listed in Edit HUD as "Home Status" (the Localization key) and can be moved,
+		     resized and hidden there, saved in MothUI's layouts. Its default place: top right, left of MothUI's minimap
+		     (-224..-24) and top-aligned with its top row, clear of the compass, clock and temperature at 16:9. MothUI's
+		     glass look; mui_glass / mui_rim / mui_accent follow the player's Look settings (Theme tints those names). The
+		     renames come after the setters that still use the old names. -->
+		<if cond="mod_loaded('iiMothMan_MothUI') and not mod_loaded('zzzzz_AshfallUI')">
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']" name="anchor">TopRight</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']" name="pos">-630,-20</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']" name="mothui_widget">scHomeStatusTitle</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']" name="mothui_id">SurvivorCommunity.homestatus</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='plate']" name="sprite">mui_panel</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='plate']" name="color">9,11,13,158</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='plate']" name="depth">-1</setattribute>
+			<insertAfter xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='plate']">
+				<sprite depth="0" name="mui_rim" sprite="mui_panel_edge" type="sliced" color="255,255,255,24"/>
+			</insertAfter>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='strip']" name="sprite">mui_card</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='strip']" name="type">sliced</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='strip']" name="color">255,255,255,12</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/label[@name='title']" name="upper_case">true</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/label[@name='title']" name="font_size">20</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/label[@name='title']" name="color">241,243,245,255</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='plate']" name="name">mui_glass</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='stripIcon']" name="name">mui_accent</setattribute>
+		</if>
 		<if cond="not mod_loaded('zzzzz_AshfallUI')">
 			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='plate']" name="sprite">ui_game_header_fill</setattribute>
 			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='plate']" name="color">150,150,150,150</setattribute>
@@ -2366,6 +2462,23 @@
 		</else>
 	</conditional>
 	<!-- GENERATED:END scsnapshot -->
+	<!-- Round ui2 (research/uicompat/mothui.md 6.4), hand-written (after the generated snapshot it moves). MothUI moves the
+	     dialog card to the bottom left (windowResponses BottomLeft 80,637, 840x470) and shows the NPC's statement inside
+	     it (rect mui_statement):
+	     - the talk card goes right of it (it covered the statement and the replies' left half), still Bottom-anchored so a
+	       place the player dragged it to stays in the same space;
+	     - SC's line box is not shown: MothUI's card already shows the line, and ScMothUI fills its {tokens} with SC's text.
+	       The box's controller still runs (voices, the fill);
+	     - the pager pages what the card holds: 6 rows of 44 from -168 in 470 (MothUI keeps vanilla's 10 rows, which ran
+	       below the card), "1/2" top right of the card. -->
+	<conditional>
+		<if cond="mod_loaded('iiMothMan_MothUI') and not mod_loaded('zzzzz_AshfallUI')">
+			<setattribute xpath="/windows/window[@name='windowScSnapshot']" name="pos">404,637</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScDialogLine']/rect[@name='panel']" name="visible">false</setattribute>
+			<setattribute xpath="/windows/window[@name='windowResponses']/grid[@name='items']" name="rows">6</setattribute>
+			<setattribute xpath="/windows/window[@name='windowResponses']/rect[@name='scPager']" name="pos">666,-8</setattribute>
+		</if>
+	</conditional>
 	<!-- GENERATED:BEGIN scmemberinv (Tools/generate_member_inventory_ui.py) -->
 	<!-- The member inventory panel (round n10), GENERATED by Tools/generate_member_inventory_ui.py - edit that, not this.
 	     Its window group is "scmemberinv" (xui.xml, XUiC_ScMemberInvGroup); XUiC_ScMemberInv places the window and

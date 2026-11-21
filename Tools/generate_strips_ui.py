@@ -21,11 +21,15 @@ grid (8 columns of 55, 443 wide) onto INSPECT, and the stock line ran off. Now:
   as 603 (vanilla) or any other. At 443 a button is about 51 wide, so the labels are the short words of the stock line
   (Food, Water, Meds, Ammo, Mats, Fuel, Lux); each button's tooltip says what it does in full.
 - The stock line has a row of its own beside Deposit and wraps to a second line; the message two lines under it.
-- Two looks in one <conditional>:
+- Three looks in one <conditional>:
     AshfallUI loaded: a plate of AshfallUI's own (scui_window, which it ships premium art under) as wide as the loot
         window's plate (AshfallUI's ashfallPlate stands 8 outside the window, the window 10 right of the grid's right
         edge and 6 left of its left edge: so -14 / +18) and below it (its plate ends 8 to 17 under the grid's last row:
         the strip starts 21 under it), scui_btn buttons, AshfallUI's text colors.
+    MothUI loaded (round ui2, research/uicompat/mothui.md 6.6): MothUI's loot window is a fixed 526-unit card with its
+        key hints near the bottom (mui_loothints, -478..-510), which the strip under the grid covered. So the strip is a
+        glass card of its own 8 under that card, as wide as it (MothUI's width binding), with MothUI's own plate and rim
+        (mui_box, theme / rim fills that follow the player's Look settings) and its card buttons (mui_card).
     otherwise: vanilla's content box (windowLooting's own: menu_empty [darkGrey] with a menu_empty3px [black] rim),
         3 under the grid's box and exactly its width, vanilla's button (simplebutton's clickable: menu_empty
         [mediumGrey], ui_game_select_row under the pointer, a menu_empty2px [black] rim), white outlined labels.
@@ -61,6 +65,9 @@ MSG_H = 32                       # the message: two 14-point lines
 REF_W, REF_H = 100, 28           # the linked strip's Refresh
 HEAD_H = 36                      # its header: two 14-point lines
 
+MOTH_W = "{% v2i_x(gridDimensions) * 70 + 38 }"   # MothUI's windowLooting width (its windows.xml)
+MOTH_TOP = 534                                    # 8 under MothUI's 526-tall loot card
+
 LOOKS = {
     "ash": dict(left=-14, right=18, top=21, pad_x=16, pad_y=14,
                 text="226,220,208,255", dim="190,182,166,255", gold="206,178,120,255",
@@ -70,6 +77,10 @@ LOOKS = {
                 text="255,255,255,255", dim="180,180,180,255", gold="222,206,163,255",
                 btn=("menu_empty", "ui_game_select_row", "96,96,96,255", "255,255,255,255"), rim=("menu_empty2px", "0,0,0,255"),
                 font=16, upper=False, effect=True, row_font=18),
+    "moth": dict(left=0, right=0, top=MOTH_TOP, pad_x=16, pad_y=14,
+                 text="241,243,245,255", dim="163,169,175,255", gold="232,196,140,255",
+                 btn=("mui_card", "mui_card", "255,255,255,10", "255,255,255,40"), rim=None,
+                 font=16, upper=False, effect=False, row_font=18, fixed=True),
 }
 
 
@@ -87,8 +98,13 @@ def anchors(l_rel, l_abs, r_rel, r_abs, top, bottom):
             % (l_rel, l_abs, r_rel, r_abs, -top, -bottom))
 
 
-def plate(look):
+def plate(look, h):
     fill = 'anchor_left="#parent,0,0" anchor_right="#parent,1,0" anchor_top="#parent,1,0" anchor_bottom="#parent,0,0"'
+    if look is LOOKS["moth"]:
+        # mui_box takes sizes, not anchors (MothUI's own windowLooting sizes it by the same binding)
+        return ['<mui_box depth="0" name="mui_glass" width="%s" height="%d" radius="12" fill="theme:9,11,13,158"/>' % (MOTH_W, h),
+                '<mui_box depth="1" name="mui_rim" width="%s" height="%d" radius="12" fill="none" stroke="1" '
+                'stroke_color="rim:255,255,255,24" top_light="true"/>' % (MOTH_W, h)]
     if look is LOOKS["ash"]:
         return ['<sprite depth="0" name="bg" sprite="scui_window" type="sliced" color="[white]" %s/>' % fill]
     return ['<sprite depth="0" name="bg" sprite="menu_empty" type="sliced" color="64,64,64,255" globalopacitymod="0" %s/>' % fill,
@@ -128,6 +144,14 @@ def category_row(look, verb, y):
     return o
 
 
+def place(look, top, h):
+    """The strip's own rect placement: anchored under the grid ("queue"), or (MothUI) a fixed place under the card."""
+    if look.get("fixed"):
+        return 'pos="0,%d" width="%s" height="%d"' % (-top, MOTH_W, h)
+    return ('anchor_left="queue,0,%d" anchor_right="queue,1,%d" anchor_top="queue,0,%d" anchor_bottom="queue,0,%d"'
+            % (look["left"], look["right"], -top, -(top + h)))
+
+
 def packing(look):
     pad, pt = look["pad_x"], look["pad_y"]
     y1 = pt
@@ -136,10 +160,9 @@ def packing(look):
     y4 = y3 + DEP_H + GAP
     h = y4 + MSG_H + pt
     top = look["top"]
-    o = ['<rect name="scPackingStrip" depth="14" controller="%s" visible="{scvisible}" anchor_left="queue,0,%d" '
-         'anchor_right="queue,1,%d" anchor_top="queue,0,%d" anchor_bottom="queue,0,%d">'
-         % (PACK_CONTROLLER, look["left"], look["right"], -top, -(top + h))]
-    body = plate(look) + category_row(look, "Pack", y1) + category_row(look, "Take", y2)
+    o = ['<rect name="scPackingStrip" depth="14" controller="%s" visible="{scvisible}" %s>'
+         % (PACK_CONTROLLER, place(look, top, h))]
+    body = plate(look, h) + category_row(look, "Pack", y1) + category_row(look, "Take", y2)
     body += button(look, "btnDeposit", anchors("0", pad, "0", pad + DEP_W, y3, y3 + DEP_H), "scDeposit", tip="scDepositTip")
     body += ['<label depth="4" font_size="14" pivot="left" justify="left" text="{scstock}" color="%s" %s/>'
              % (look["text"], anchors("0", pad + DEP_W + 8, "1", -pad, y3, y3 + DEP_H)),
@@ -152,10 +175,9 @@ def linked(look):
     pad, pt = look["pad_x"], look["pad_y"]
     h = pt + HEAD_H + pt
     top = look["top"]
-    o = ['<rect name="scLinkedStrip" depth="14" controller="%s" visible="{sclvisible}" anchor_left="queue,0,%d" '
-         'anchor_right="queue,1,%d" anchor_top="queue,0,%d" anchor_bottom="queue,0,%d">'
-         % (LINK_CONTROLLER, look["left"], look["right"], -top, -(top + h))]
-    body = plate(look)
+    o = ['<rect name="scLinkedStrip" depth="14" controller="%s" visible="{sclvisible}" %s>'
+         % (LINK_CONTROLLER, place(look, top, h))]
+    body = plate(look, h)
     body += ['<label depth="4" font_size="14" pivot="left" justify="left" text="{sclheader}" color="%s" %s/>'
              % (look["text"], anchors("0", pad, "1", -(pad + REF_W + 8), pt, pt + HEAD_H))]
     ry = pt + (HEAD_H - REF_H) // 2
@@ -174,15 +196,18 @@ def appends(look):
 
 def build():
     ash, ph_a, lh_a = appends(LOOKS["ash"])
+    moth, ph_m, lh_m = appends(LOOKS["moth"])
     van, ph_v, lh_v = appends(LOOKS["van"])
     o = ["\t<!-- The packing strip and the linked storage strip under vanilla's loot grid, GENERATED by",
          "\t     Tools/generate_strips_ui.py - edit that, not this. Each controller shows its strip only while the open box",
          "\t     is its own (a packing station / the linked storage), so every other crate is untouched. Both fit any grid",
          "\t     width (anchored to the grid, the category buttons by fractions of it), in AshfallUI's look when it is",
-         "\t     loaded and vanilla's otherwise (round 32b). -->",
+         "\t     loaded and vanilla's otherwise (round 32b); with MothUI each is a glass card under its loot card (round ui2). -->",
          "\t<conditional>",
          "\t\t<if cond=\"mod_loaded('zzzzz_AshfallUI')\">"]
     o += ["\t\t\t" + x for x in ash]
+    o += ["\t\t</if>", "\t\t<if cond=\"mod_loaded('iiMothMan_MothUI')\">"]
+    o += ["\t\t\t" + x for x in moth]
     o += ["\t\t</if>", "\t\t<else>"]
     o += ["\t\t\t" + x for x in van]
     o += ["\t\t</else>", "\t</conditional>"]
