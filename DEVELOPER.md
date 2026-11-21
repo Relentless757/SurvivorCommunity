@@ -461,8 +461,9 @@ working with the outpost and the home both unloaded. The in-game checklist is `T
 `sc outpost [list | yield | add | remove | post | recall | upgrade | mode | security | attack | demand | pay | refuse | repair ...]`,
 `sc radio`, `sc scout <res>`, `sc barter <give> <get>`.
 
-**SurvivorOrigins:** the fact `sc_outposts` and the events `sc_ev_outpost` (established) and `sc_ev_outpost_retaken` are
-published for a future Leadership release; won outpost fights count as `sc_ev_rescue`.
+**SurvivorOrigins:** the fact `sc_outposts` and the event `sc_ev_outpost` (established) are published for a future
+Leadership release; `sc_ev_outpost_retaken` is paid (100 Leadership XP a retake, SurvivorOrigins c8c9266 and later);
+won outpost fights count as `sc_ev_rescue`.
 
 ## Enclaves at a glance
 
@@ -1840,8 +1841,9 @@ vanilla's.
 The two mods talk only through CVars on the local player; without SurvivorOrigins nothing changes.
 - **Published** every second: `sc_followers` (members following you), `sc_inzone` (1 inside the claim),
   `sc_morale_high` (the high-morale threshold), plus `sc_morale` and the `buffSCMorale` HUD buff as before.
-- **Counted** (+1, SurvivorOrigins pays XP and resets them): `sc_ev_favour` when a recruit favour is done,
-  `sc_ev_rescue` when a runner in distress is rescued.
+- **Counted** (+1, SurvivorOrigins pays XP and resets them): `sc_ev_favour` when a recruit favor is done,
+  `sc_ev_rescue` when a runner in distress is rescued, `sc_ev_outpost_retaken` when a contested outpost is cleared
+  again (only on a building with sleeper volumes; paid by SurvivorOrigins c8c9266 and later).
 - **Applied**: `$soLeadXpMult` multiplies every member's skill and specialty XP; `$soLeadMorale` is a
   "Leadership +N" morale part; `$soLeadShield` shrinks every negative morale part by N, never past 0.
 

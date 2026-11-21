@@ -41,27 +41,34 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 
 Why: you asked for SC to work with MothUI (round 2 of the UI-mod work), and round ui1 found Steelshot's tabs covering
 the first party-list entry. The analysis and its XML replays are in `Port33\research\uicompat\mothui.md` (section 7
-is this list). Build `sc34_ui2`, **not deployed yet**. Test MothUI (folder `iiMothMan_MothUI`, 0.14.16) without Ashfall
-UI: the two can't run together.
+is this list). Deployed 2026-11-21 (port-3.4 f248c2b9, DLL bb46156c). Test MothUI (folder `iiMothMan_MothUI`, 0.14.16)
+without Ashfall UI: the two can't run together.
 
 **MothUI:**
-- [ ] **Load:** the client log has no `did not apply` line for SurvivorCommunity, MothUI's "UI changes from other mods
+- [x] **Load:** the client log has no `did not apply` line for SurvivorCommunity, MothUI's "UI changes from other mods
       that did not apply" line doesn't name SC, and there is `[MothUI] HUD widget from another mod: Home Status
-      (SurvivorCommunity.homestatus: windowScHomeStatus)`.
-- [ ] **Tabs:** the Community icon sits right of Players at MothUI's spacing, its tooltip reads "Community", and it
+      (SurvivorCommunity.homestatus: windowScHomeStatus)`. (No SC patch missed; MothUI's menu toast counts one miss,
+      Ark's spawn-screen patch. The HUD-widget line is not in the log, but Edit HUD lists Home Status.)
+- [x] **Tabs:** the Community icon sits right of Players at MothUI's spacing, its tooltip reads "Community", and it
       opens the page, titled COMMUNITY top left. With a handheld radio a Radio icon appears right of it (title RADIO)
       and goes when you drop the radio; the bar re-centers. LB / RB reach both, and with a gamepad the bumper icons sit
-      at the bar's ends without flickering.
-- [ ] **ESC menu:** the Community button has MothUI's card look and opens the Community page.
-- [ ] **Pages:** the Community and Radio pages fit between MothUI's top bar and key footer, centered, at 16:9 and after
+      at the bar's ends without flickering. (Right of Creative, which this save shows, at the same spacing; tooltip, title
+      and the Radio icon with a handheld, bar re-centered. Dropping the radio, LB / RB and a gamepad not self-tested.)
+- [x] **ESC menu:** the Community button has MothUI's card look and opens the Community page. (Look checked, under NPC
+      Settings; the button itself not clicked.)
+- [x] **Pages:** the Community and Radio pages fit between MothUI's top bar and key footer, centered, at 16:9 and after
       a UI scale change (21:9 if you can), and stay that way (no jump after the first frame). Every button still clicks;
       Storage, linked storage, close, back. At a radio block without a handheld radio (no bar) the radio page shows at
-      full size, centered.
-- [ ] **Home Status:** in the home zone it shows top right, left of the minimap, clear of the compass, clock and
+      full size, centered. (At 16:9 both fit centered, about 0.9 scale; the Outposts tab and Open Storage click right;
+      Radio to Community through the bar and a second open land in the same place. UI scale, 21:9 and a radio block
+      without a handheld not self-tested.)
+- [x] **Home Status:** in the home zone it shows top right, left of the minimap, clear of the compass, clock and
       temperature, in MothUI's glass look. ESC > Edit HUD lists "Home Status": move, resize and hide it; the layout
-      survives a reload. Opening Tab hides it.
-- [ ] **Talking:** the talk card sits right of MothUI's dialog card (bottom left), which stays fully readable; the talk
-      card drags, and right-click resets it. There is no second line box at the right.
+      survives a reload. Opening Tab hides it. (Place, look and the Edit HUD entry checked, and it hides with Tab. Move,
+      resize and hide not tried: MothUI autosaves its layout.)
+- [x] **Talking:** the talk card sits right of MothUI's dialog card (bottom left), which stays fully readable; the talk
+      card drags, and right-click resets it. There is no second line box at the right. (You checked the talk card;
+      dragging not reported.)
 - [ ] **Filled lines:** an enclave respondent's line in MothUI's card shows names, not `{enc}` / `{leader}`; survivor
       voice lines play; with `DialogLine` false (SC's `Config/blocks.xml`; `VoiceLines` on, the default) the line in the
       card is still filled.
@@ -70,11 +77,14 @@ UI: the two can't run together.
 - [ ] **Packing station:** SC's strip is a glass card of its own under the loot card, MothUI's key hints stay visible,
       Pack, Take and Deposit work, and the strip stays on screen.
 - [ ] **Linked storage** (without RE Inventory): SC's window beside MothUI's backpack; scroll, take and the strip's
-      Refresh work.
-- [ ] **Member inventory** ("Show me your inventory"): left of MothUI's backpack, no overlap; drag, gear slots and
-      take-all work; MothUI's hover card shows no Use / Read / Open on a bag cell.
+      Refresh work. (With RE Inventory, self-tested: the linked strip is a glass card of its own under MothUI's loot
+      card, as wide, the R / Shift / RMB hints stay visible and Refresh clicks. SC's own window not reached.)
+- [x] **Member inventory** ("Show me your inventory"): left of MothUI's backpack, no overlap; drag, gear slots and
+      take-all work; MothUI's hover card shows no Use / Read / Open on a bag cell. (You checked the window shows; the
+      rest not reported.)
 - [ ] **Unchanged things:** an SC favor quest's own title in MothUI's quest chip, journal and description; the watch
-      post, radio and facility radials on MothUI's ring; SC toasts (a raid warning) in MothUI's message feed.
+      post, radio and facility radials on MothUI's ring; SC toasts (a raid warning) in MothUI's message feed. (The watch
+      post's radial is on MothUI's ring with its line icons; the rest not checked.)
 
 SC's own windows (Community, Radio, talk card, member inventory, linked storage) keep their vanilla look on MothUI's
 glass: the cosmetic pass (analysis section 6.7) isn't part of this round.
@@ -86,7 +96,12 @@ glass: the cosmetic pass (analysis section 6.7) isn't part of this round.
 
 **Without MothUI:**
 - [ ] With Ashfall UI, and with no UI mod: tabs, Home Status, talk card, dialog line and pager look and work as before.
-      (The XML replays are byte-identical to the last build's; this is the in-game check.)
+      (The XML replays are byte-identical to the last build's; this is the in-game check.) (With Ashfall UI Minimalist,
+      self-tested: the Community tab and Home Status as before. Talking and no UI mod not checked.)
+
+Self-tested 2026-11-21 on ClaudeTest34 with MothUI 0.14.16 (both Ashfall UI editions out, RE Inventory in); you checked
+the talk card and the member inventory. No exceptions in the log. Not SC's: under MothUI, Survivor Origins' Background
+picker ignores clicks on Confirm (SO's MothUI skin), and Packwisely's and RE Inventory's character-window patches miss.
 
 ## Round ui1 (2026-11-20): CATUI, Steelshot UI Hybrid and SteelUI
 
