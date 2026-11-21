@@ -586,7 +586,8 @@
 			<property name="SurvivorBaldChance" value="0.15" />
 			<property name="SurvivorFacialHairChance" value="0.4" />
 			<!-- Looks never rolled for survivors or raiders (new ones; a survivor already met keeps theirs, except a hair on
-			     SurvivorExcludeHairs, which is swapped for another since round tw2): comma lists of
+			     SurvivorExcludeHairs, which is swapped for another since round tw2 - not on a face made in 0-XNPCCore's
+			     character creator): comma lists of
 			     character-creator names, case-insensitive, a trailing * matches a prefix (Sonja_* = every Vanity Vault
 			     eye, a lone * = all of them). Skins are Vanity Vault's tone names (it replaces vanilla's White/Black/Asian/Native). Empty = none.
 			     SurvivorDyedHairColors: the colors counted as dyed, rolled only with SurvivorDyedHairChanceFemale / Male;

@@ -51,6 +51,8 @@ Vanity Vault's anime cut (`Sonja_Med_02_M`), which is now never given and swappe
       the paint brush, then `sc tower repaint`: those faces keep your paint, the rest of the block turns old wood.
 - [ ] **Alex's hair:** load the save and go near Alex: the log has "look: hair Sonja_Med_02_M is no longer given to
       survivors - (another) instead", and he wears that style. Save, quit and load: he keeps it.
+- [ ] **A creator face keeps it:** a member wearing a face you made in 0-XNPCCore's character creator with
+      `Sonja_Med_02_*` keeps that hairstyle (no "is no longer given" line for them).
 - [ ] **Nobody new gets it:** `sc spawn` a dozen survivors (men and women) or `sc look <name>` a few times: no spiky
       anime cut. The startup `config:` line reads "looks=excluded 9 skins/9 eyes/1 hairs".
 
