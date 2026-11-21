@@ -1,6 +1,6 @@
 # Survivor Community
 
-**Version 0.1.0-pre.3, for 7 Days to Die 3.4. Single player.** Download it from the
+**Version 0.1.0-pre.4, for 7 Days to Die 3.4. Single player.** Download it from the
 [Releases page](https://github.com/Relentless757/SurvivorCommunity/releases). Console commands for testing are in
 [CONSOLE_COMMANDS.md](CONSOLE_COMMANDS.md).
 
