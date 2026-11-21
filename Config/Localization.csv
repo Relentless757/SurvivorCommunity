@@ -97,9 +97,9 @@ scSpecFitness,UI,Skill,,,,Fitness
 scSpecFirearmsInstructor,UI,Skill,,,,Firearms Instructor
 scSpecEntertainment,UI,Skill,,,,Entertainment
 scSpecMedicineDesc,UI,Skill,,,,"Heals more of the injured with each Meds bundle, revives downed residents at home and crafts medicine."
-scSpecCookingDesc,UI,Skill,,,,"The community eats less, supply runs bring back more food, and crafts food."
+scSpecCookingDesc,UI,Skill,,,,"The community eats less, a cook at home can prepare a feast, supply runs bring back more food, and crafts food."
 scSpecMechanicsDesc,UI,Skill,,,,"Supply runs bring back more materials and fuel; crafts workstations, vehicles, traps and robotics."
-scSpecGardeningDesc,UI,Skill,,,,"Turns the base's crops into food, supply runs bring back more water, and crafts seeds."
+scSpecGardeningDesc,UI,Skill,,,,"Makes the base's crops give more food (from level 4, and more from level 7), supply runs bring back more water, and crafts seeds."
 scSpecChemistryDesc,UI,Skill,,,,"Supply runs bring back more medicine; crafts explosives, medicine and electrics."
 scSpecCraftsmanshipDesc,UI,Skill,,,,"Bundles cost less to pack at the packing station; crafts weapons, armor and tools."
 scSpecConstructionDesc,UI,Skill,,,,"Repairs stronger blocks on a Base repair duty: cobblestone from 1 star, concrete from 3, steel from 5. Builds the wall faster."
@@ -203,6 +203,10 @@ buffSCSkillsName,Buff,Buff,,,,Survivor skills
 buffSCSkillsDesc,Buff,Buff,,,,"Fighting and Shooting raise this survivor's melee and ranged damage; Cardio raises speed and health."
 buffSCHungryName,Buff,Buff,,,,Hungry
 buffSCHungryDesc,Buff,Buff,,,,"The community is out of food. Slower and weaker until the stockpile has food bundles again."
+buffSCFeastName,Buff,Buff,,,,Feast
+buffSCFeastDesc,Buff,Buff,,,,The community's feast: more max stamina while it lasts.
+buffSCRationingName,Buff,Buff,,,,On rations
+buffSCRationingDesc,Buff,Buff,,,,The community is rationing food: less max stamina while it lasts.
 buffSCInjuredName,Buff,Buff,,,,Injured
 buffSCInjuredDesc,Buff,Buff,,,,"Hurt. Slower and weaker until a medical bundle is spent on them at the day rollover."
 scTraitEatsLikeABirdDesc,Buff,Buff,,,,Eats 1 food a day like everyone; going hungry does not lower their mood.
@@ -237,6 +241,7 @@ scTraitClumsyDesc,Buff,Buff,,,,"Wears out axes, picks and shovels half again as 
 scTraitSteadyHandsDesc,Buff,Buff,,,,Shoots straighter: a fifth less aim error.
 scComingLater,UI,Menu,,,,(coming later)
 scDailyHarvest,UI,Tooltip,,,,"- the garden gave {0} food"
+scDailyRationed,UI,Tooltip,,,,"- rationing spared {0} food"
 scObjectiveReturn,UI,Quest,,,,"Return to {0}"
 scObjectiveReturnWho,UI,Quest,,,,the survivor
 scWinTitle,UI,Menu,,,,"Community - morale {0} ({1})"
@@ -1076,6 +1081,10 @@ scMoraleWater,UI,Menu,,,,Water
 scMoraleWaterMade,UI,Menu,,,,(the wells and dew collectors give {0} a day)
 scMoraleActivity,UI,Menu,,,,A round of drinks
 scMoraleActivityLeft,UI,Menu,,,,A round of drinks ({0} left)
+scMoraleFeast,UI,Menu,,,,A feast
+scMoraleFeastLeft,UI,Menu,,,,A feast ({0} left)
+scMoraleRationing,UI,Menu,,,,Rationing
+scMoraleRationingLeft,UI,Menu,,,,Rationing ({0} left)
 scUiActCost,UI,Menu,,,,Cost
 scUiActEffect,UI,Menu,,,,Effect
 scUiActDrinksCost,UI,Menu,,,,{0} luxuries + {1} food
@@ -1085,6 +1094,16 @@ scUiActRunning,UI,Menu,,,,Running - {0} left
 scUiActDoneToday,UI,Menu,,,,Poured today - again tomorrow
 scUiActReady,UI,Menu,,,,Ready
 scUiActNotReady,UI,Menu,,,,Not enough luxuries or food
+scUiActNotReadyPlain,UI,Menu,,,,Not ready
+scUiActFeastDo,UI,Menu,,,,Prepare a feast
+scUiActRationDo,UI,Menu,,,,Enact rationing
+scUiActFeastDoneToday,UI,Menu,,,,Held today - again tomorrow
+scUiActFeastNeedsCook,UI,Menu,,,,Needs a cook at home
+scUiActFeastNeedsStation,UI,Menu,,,,Needs a campfire in the base
+scUiActFeastNeedsFood,UI,Menu,,,,Not enough food
+scUiActRationRunning,UI,Menu,,,,In force - penalty {0} left
+scUiActRationDoneToday,UI,Menu,,,,Enacted today - again tomorrow
+scUiActRationNothing,UI,Menu,,,,Nothing to save tonight
 scActDrinks,UI,Menu,,,,Prepare a round of drinks
 scActDrinksDesc,UI,Menu,,,,"Break out the good stuff and pour everyone a drink. After a loss it lifts the community's spirits for a while. It costs luxuries and a little food, and there is one round a day. The time only runs while you play."
 scActNoMembers,UI,Tooltip,,,,There is nobody at home to share a drink with.
@@ -1094,6 +1113,23 @@ scActDrinksShort,UI,Tooltip,,,,A round needs {0} luxuries and {1} food (the stoc
 scActDrinksPoured,UI,Tooltip,,,,You pour a round of drinks. Spirits lift: +{0} morale for {1} minutes.
 scActDrinksHost,UI,Tooltip,,,,{0} keeps the party going (+{1}).
 scActDrinksOver,UI,Tooltip,,,,The round of drinks has worn off.
+scActFeast,UI,Menu,,,,Prepare a feast
+scActFeastDesc,UI,Menu,,,,"Your cook puts on a proper meal for everyone. It lifts the community's spirits and gives the members and you more stamina for an hour, more with a better cook. It needs a cook at home and a campfire in the base, costs some food, and there is one feast a day."
+scActRation,UI,Menu,,,,Enact rationing
+scActRationDesc,UI,Menu,,,,"Everyone goes on half rations: the day's food bill is halved (rounded up) when the day ends. Hungry people grumble and tire sooner, so morale and stamina drop for an hour. Once a day."
+scActNoMembersFeast,UI,Tooltip,,,,There is nobody at home to cook for.
+scActNoMembersRation,UI,Tooltip,,,,There is nobody at home to put on rations.
+scActFeastRunning,UI,Tooltip,,,,The feast is still going - there is one a day.
+scActFeastToday,UI,Tooltip,,,,There has already been a feast today - try again tomorrow.
+scActFeastNoCook,UI,Tooltip,,,,A feast needs a cook at home (a member whose specialty is Cooking).
+scActFeastNoStation,UI,Tooltip,,,,A feast needs a campfire inside the base.
+scActFeastShort,UI,Tooltip,,,,A feast needs {0} food (the stockpile has {1}).
+scActFeastServed,UI,Tooltip,,,,{0} serves a feast. Spirits lift: +{1} morale and +{2} max stamina for everyone for {3} minutes.
+scActFeastOver,UI,Tooltip,,,,The feast has worn off.
+scActRationToday,UI,Tooltip,,,,Rationing has already been enacted today - try again tomorrow.
+scActRationNothing,UI,Tooltip,,,,Tonight's food is too little for rationing to save any.
+scActRationEnacted,UI,Tooltip,,,,Rationing enacted: tonight the community eats {0} food instead of {1}. Morale -{2} and max stamina -{3} for {4} minutes.
+scActRationOver,UI,Tooltip,,,,The worst of the rationing has passed: its morale and stamina penalty is over.
 scUiFacilities,UI,Menu,,,,Facilities
 scUiFacDetails,UI,Menu,,,,Details
 scUiFacSelectHint,UI,Menu,,,,Pick a facility on the left to see it and what you can do with it.
@@ -1201,6 +1237,11 @@ scUiFacCampfiresCount,UI,Menu,,,,Campfires
 scUiFacDrinks,UI,Menu,,,,Round of drinks
 scUiFacCampfireAbout,UI,Menu,,,,"In the evening and during a round of drinks, free residents gather around a campfire inside the base and talk."
 scUiFacCampfireAboutOff,UI,Menu,,,,Gathering at the campfire is switched off (CampfireGathering in the settings).
+scUiFacFeast,UI,Menu,,,,Feast
+scUiFacRation,UI,Menu,,,,Rationing
+scUiFacAboutDrinks,UI,Menu,,,,"Round of drinks: {0} luxuries and {1} food for +{2} morale for {3} minutes. Once a day, for the days after a loss."
+scUiFacAboutFeast,UI,Menu,,,,"Feast: with a cook at home and a campfire in the base, {0} food for +{1} morale and +{2} max stamina for everyone for {3} minutes (a better cook gives more). Once a day."
+scUiFacAboutRation,UI,Menu,,,,"Rationing: tonight the community eats {0}% of its food (rounded up), for -{1} morale and -{2} max stamina for {3} minutes. Once a day."
 scUiFacRadio,UI,Menu,,,,Radio station
 scUiFacRadioNone,UI,Menu,,,,None
 scUiFacRadioOn,UI,Menu,,,,Powered

@@ -436,6 +436,16 @@ namespace SurvivorCommunity
         public float DrinksLeft;
         public int DrinksDay = -1;
         /// <summary>
+        /// Round fd1 (ScActivities): the feast - real seconds it still lasts, the world day it was held (once a day), and the
+        /// morale and max stamina it gives (fixed when it starts, from the cook's level); rationing - real seconds its penalty
+        /// still lasts and the world day it was enacted (that day's rollover eats RationShare of the food; once a day).
+        /// </summary>
+        public float FeastLeft;
+        public int FeastDay = -1;
+        public int FeastMorale, FeastStamina;
+        public float RationLeft;
+        public int RationDay = -1;
+        /// <summary>
         /// Ammo (decision D3: no daily upkeep, only resupplies spend it). AmmoOpenPoints: packing points left in the ammo
         /// bundle ScAmmo last opened to hand out rounds, so a bundle is used up round by round instead of being lost to
         /// one resupply. AmmoOpened / AmmoShort: bundles opened, and whether a resupply found the stockpile empty, since

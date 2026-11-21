@@ -244,8 +244,8 @@ Each survivor has one **specialty**, starting at 1 star and growing to 7. Their 
 | Specialty | Title | At home, each day | Supply runs | Crafting skills |
 |---|---|---|---|---|
 | **Medicine** | Medic | Your best medic stretches medical bundles: one bundle heals 1 + (stars x 0.5, rounded down) injuries | | Medical |
-| **Cooking** | Cook | Your best cook saves food: 1 a day per 2 stars, rounded up (1 at 1 and 2 stars, 4 at 7), never more than half of what the community eats | Better food runs | Food |
-| **Gardening** | Gardener | Living crops in the base become food: 1 a day per 10 crops, at most 1 per star of all your gardeners together | Better water runs | Seeds |
+| **Cooking** | Cook | Your best cook saves food: 1 a day per 2 stars, rounded up (1 at 1 and 2 stars, 4 at 7), never more than half of what the community eats. A cook at home can **prepare a feast** (section 4, The feast) | Better food runs | Food |
+| **Gardening** | Gardener | The garden needs no gardener (1 food a day per 5 crops), but your best gardener at home makes it 1 per 4 crops from level 4 and 1 per 3 from level 7. Only that one counts | Better water runs | Seeds |
 | **Mechanics** | Mechanic | | Better materials and fuel runs | Workstations, vehicles, traps, robotics |
 | **Chemistry** | Chemist | | Better medicine runs | Explosives, medical, electrician |
 | **Craftsmanship** | Craftsman | Craftsmen pack more efficiently: the packing station needs 4% fewer points per bundle per star of all your craftsmen (never below 60%) | | Armor, backpacks, every weapon kind, tools |
@@ -331,6 +331,8 @@ bars: below `LowMoraleThreshold`, 25 by default), the same steps as the words be
 | Territory | +2 per producing outpost (up to +6); a lost outpost costs 5, fading a point a day |
 | Defended the base | +4 per base attack held (up to +10), fading a point a day; losses from fights you missed |
 | A round of drinks | +15 while it lasts (section 4, The round of drinks) |
+| A feast | +10 while it lasts, +1 per level of the cook above the first (section 4, The feast) |
+| Rationing | **-15** while its penalty lasts (section 4, Rationing) |
 | Allies, enclaves | See section 12 |
 | Infestations near home | See section 14 |
 
@@ -372,8 +374,9 @@ Each member has a **Bond** with you, from -15 to +15, that adds to their mood. I
 At each day rollover (whether or not the base is loaded) the community uses supplies from the stockpile. Every amount is
 a whole number of bundle units: nothing is carried over to the next day, and nothing is owed.
 
-- **Food:** 1 bundle unit per member a day (Bottomless Stomach eats 2), less what your best cook at home saves. Your
-  gardeners' harvest goes into the stockpile first.
+- **Food:** 1 bundle unit per member a day (Bottomless Stomach eats 2), less what your best cook at home saves, and
+  half of that (rounded up) at the end of a day you enacted rationing (section 4, Rationing). The garden's harvest goes
+  into the stockpile first.
 - **Water:** 1 bundle unit per member a day, minus what your dew collectors and wells make.
 - Members posted at an outpost, on the road to or from one, or out on a run eat and drink as well. Members still on their
   way to the base (a group that joined you) eat and drink nothing until they arrive.
@@ -397,7 +400,8 @@ SC counts what you build inside the home zone every few seconds:
 - **Beds:** every bedroll, bed and bunk bed (and bed mods that work like them), plus bare-frame beds, mattresses and
   hospital beds. A bunk frame with no mattress and a rolled-up mattress do not count. One bed per member.
 - **Facilities:** campfire, workbench, forge, chemistry station and cement mixer.
-- **Crops:** living planted crops (for your gardeners).
+- **Crops:** living planted crops: the garden turns them into food every day (1 per 5 crops; 1 per 4 or 3 with a
+  good gardener at home, see the Gardening specialty).
 - A part of the claim that is not loaded keeps its last count, so walking away does not lose your beds.
 - The community window's **Facilities** tab lists them with what each one does (section 17).
 
@@ -422,6 +426,32 @@ On the community window's **Facilities** tab, the **Campfire** hosts **Pour a ro
 - Gives **+15 morale for 15 minutes** of real play time (the clock stops while the game is paused).
 - Once per game day. It is meant for the days after a death.
 - You don't need a campfire to pour one, but free residents gather around one while it lasts.
+
+### The feast
+
+The **Campfire** on the **Facilities** tab also hosts **Prepare a feast**:
+
+- Needs a **cook at home** (a member whose specialty is Cooking, not out on a run) and a **campfire inside the base**.
+- Costs **3 food** from the stockpile.
+- Gives **+10 morale** and **+10 max stamina** to every member and to you for **an hour** of real play time (the clock
+  stops while the game is paused). Each level of your best cook above the first adds **+1 morale and +2 max stamina**:
+  a level-7 cook's feast is +16 morale and +22 max stamina.
+- Once per game day, and not while one is still going (a feast held late in the evening runs on past midnight).
+  The cook earns specialty XP from it.
+- In multiplayer the max stamina reaches the members and the host's own character; other players get the morale only.
+
+### Rationing
+
+The **Campfire** also hosts **Enact rationing**:
+
+- At the end of that day the community eats **half its food** (rounded up: 7 becomes 4). Your cook's savings come off
+  first, then the rest is halved.
+- Hungry people grumble: **-15 morale** and **-15 max stamina** for every member and you for **an hour** of real play
+  time.
+- Once per game day. It costs nothing and needs no cook or campfire, but it can't be enacted when it would save no
+  food (one member eating 1 food a day).
+- The Food line of morale and the days of food left go by an ordinary day's food, so rationing doesn't make them
+  look better.
 
 ### Staying home, roaming and defending
 
@@ -1854,7 +1884,8 @@ are where its activities live.
 - **Water:** what the wells and dew collectors make against what your people drink.
 - **Workshop:** workbenches, forges, chemistry stations and cement mixers. **Call to work** shows your residents: pick
   one, and they come to you for a work shift (pick someone already on one to end it).
-- **Campfire:** the round of drinks with its cost and status, and **Pour a round**.
+- **Campfire:** the state of the round of drinks, the feast and rationing, what each costs and gives (with your
+  cook's level for the feast), and **Pour a round**, **Prepare a feast** and **Enact rationing**.
 - **Radio station:** whether it has power, relays at outposts, and when the next air drop can be called.
 - **Watch posts:** each post and its guard, who is resting, and **Assign guard** for the first empty post.
 - **Guard Tower:** towers built and whether there is room for one more.
@@ -1955,7 +1986,8 @@ These are the ones you are most likely to change. The file has many more.
 |---|---|---|
 | `MemberFoodPerDay` | 1 | Food units each member eats a day (a whole number) |
 | `MemberWaterPerDay` | 1 | Water units each member drinks a day (a whole number) |
-| `CookStarsPerFood` / `CropsPerFood` | 2 / 10 | The cook saves 1 food a day per this many stars (rounded up); the garden makes 1 food per this many crops |
+| `CookStarsPerFood` / `CropsPerFood` | 2 / 5 | The cook saves 1 food a day per this many stars (rounded up); the garden makes 1 food per this many crops |
+| `GardenerCropsPerFood` | 4:4,7:3 | `level:crops` pairs: from that level, the best gardener at home lowers the crops one food takes to that many (empty: no gardener bonus) |
 | `PointsPerBundleFood` (and `...Water`, `...Meds`, `...Ammo`, `...Materials`, `...Fuel`, `...Luxury`) | 400 (200, 300, 2000, 1000, 600, 300) | Trade value that makes one bundle unit |
 | `LuxuryItems` | beer, Grandpa's drinks | Items that pack as luxuries |
 | `BundleOpen` | true | Bundles can be opened into goods (false: they cannot, as before) |
@@ -1972,6 +2004,8 @@ These are the ones you are most likely to change. The file has many more.
 | `BondKillPerDay` | 3 | At most this many kills on a member give her Bond in a day (0: kills give none) |
 | `BondLoyalAt` | 8 | The Progress page says "Trust: loyal" from this Bond ("wary" from minus this) |
 | `DrinksLuxury` / `DrinksFood` / `DrinksMorale` / `DrinksMinutes` | 4 / 1 / 15 / 15 | The round of drinks |
+| `FeastFood` / `FeastMorale` / `FeastMoralePerLevel` / `FeastStamina` / `FeastStaminaPerLevel` / `FeastMinutes` | 3 / 10 / 1 / 10 / 2 / 60 | The feast: its food cost, morale and max stamina at a level-1 cook, what each level above adds, and how long it lasts |
+| `RationShare` / `RationMorale` / `RationStamina` / `RationMinutes` | 0.5 / 15 / 15 / 60 | Rationing: the share of the day's food eaten (rounded up), and its morale and max stamina penalty and how long that lasts |
 
 ### Traits and life skills
 

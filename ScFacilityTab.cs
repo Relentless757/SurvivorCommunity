@@ -197,6 +197,9 @@ namespace SurvivorCommunity
             return all;
         }
 
+        /// <summary>Round fd1: the campfires (CampfireBlocks) in the base, from the scan's sites - a feast needs one.</summary>
+        public static int CampfireCount() { return CountSites(IsCampfireName); }
+
         private static int CountSites(Func<string, bool> match)
         {
             int n = 0;
@@ -505,19 +508,37 @@ namespace SurvivorCommunity
                 StatusColor = DrinksStatusColor(),
                 Sub = L("scUiFacCampfireSub"),
             };
+            // round fd1 (review): the window has four fact rows (FacilityFactSlots) - the count and each activity's state;
+            // what each costs and gives is in the About text below, with this base's numbers
             e.Fact("scUiFacCampfiresCount", partStations ? Fmt("scUiFacCountPart", fires) : N(fires), partStations ? Warn : fires > 0 ? Body : Off);
             e.Fact("scUiFacDrinks", DrinksStatus(), DrinksStatusColor());
-            bool afford = c.Get(Resource.Luxury) >= ScConfig.DrinksLuxury && c.Get(Resource.Food) >= ScConfig.DrinksFood;
-            e.Fact("scUiActCost", Fmt("scUiActDrinksCost", ScConfig.DrinksLuxury, ScConfig.DrinksFood), afford ? Body : Bad);
-            e.Fact("scUiActEffect", Fmt("scUiActDrinksEffect", ScConfig.DrinksMorale + ScLifeSkills.DrinksBonus(), ScActivities.FormatMinutes(ScConfig.DrinksMinutes)));   // ms/m1all: with Entertainment
+            e.Fact("scUiFacFeast", FeastStatus(), FeastStatusColor());
+            e.Fact("scUiFacRation", RationStatus(), RationStatusColor());
+            Member cook;
+            int cookLevel = Math.Max(1, ScSkills.BestSpecialist(Specialty.Cooking, out cook));   // the best cook's, or a level-1 cook's
             var about = new StringBuilder();
-            // the activities this facility hosts (ScActivities.All's fifth column): their descriptions and actions
+            // the activities this facility hosts (ScActivities.All's fifth column): one line each and their actions
             foreach (string[] a in ScActivities.All)
             {
                 if (a.Length < 5 || a[4] != Campfire) continue;
-                about.Append(L(a[2])).Append('\n');
+                if (a[0] == ScActivities.Drinks)
+                    about.Append(Fmt("scUiFacAboutDrinks", ScConfig.DrinksLuxury, ScConfig.DrinksFood, ScConfig.DrinksMorale + ScLifeSkills.DrinksBonus(),
+                                     ScActivities.FormatMinutes(ScConfig.DrinksMinutes)));          // ms/m1all: with Entertainment
+                else if (a[0] == ScActivities.Feast)
+                    about.Append(Fmt("scUiFacAboutFeast", ScConfig.FeastFood, ScActivities.FeastMoraleFor(cookLevel), ScActivities.FeastStaminaFor(cookLevel),
+                                     ScActivities.FormatMinutes(ScConfig.FeastMinutes)));
+                else if (a[0] == ScActivities.Ration)
+                    about.Append(Fmt("scUiFacAboutRation", Mathf.RoundToInt(ScConfig.RationShare * 100f), ScConfig.RationMorale, ScConfig.RationStamina,
+                                     ScActivities.FormatMinutes(ScConfig.RationMinutes)));
+                else
+                    about.Append(L(a[2]));
+                about.Append('\n');
                 if (a[0] == ScActivities.Drinks)
                     e.Actions.Add(new FacilityAction { Label = L("scUiActDrinksDo"), Ready = ScActivities.WhyNotDrinks() == null, Run = PourDrinks });
+                else if (a[0] == ScActivities.Feast)          // round fd1
+                    e.Actions.Add(new FacilityAction { Label = L("scUiActFeastDo"), Ready = ScActivities.WhyNotFeast() == null, Run = HoldFeast });
+                else if (a[0] == ScActivities.Ration)
+                    e.Actions.Add(new FacilityAction { Label = L("scUiActRationDo"), Ready = ScActivities.WhyNotRation() == null, Run = Ration });
             }
             about.Append(L(ScConfig.CampfireGathering ? "scUiFacCampfireAbout" : "scUiFacCampfireAboutOff"));
             e.About = about.ToString();
@@ -529,6 +550,61 @@ namespace SurvivorCommunity
             bool ok = ScActivities.PourDrinks(player, out message);
             if (ok && player != null) ScCommunity.Tell(player, message, "");
             return ok;
+        }
+
+        private static bool HoldFeast(EntityPlayerLocal player, out string message)
+        {
+            bool ok = ScActivities.PrepareFeast(player, out message);
+            if (ok && player != null) ScCommunity.Tell(player, message, "");
+            return ok;
+        }
+
+        private static bool Ration(EntityPlayerLocal player, out string message)
+        {
+            bool ok = ScActivities.EnactRationing(player, out message);
+            if (ok && player != null) ScCommunity.Tell(player, message, "");
+            return ok;
+        }
+
+        /// <summary>Round fd1: the feast's line - running, held today, ready, or the first thing it lacks.</summary>
+        private static string FeastStatus()
+        {
+            if (ScActivities.FeastActive) return Fmt("scUiActRunning", ScActivities.FeastTimeLeft());
+            if (ScRegistry.Community.FeastDay == ScCommunity.Today) return L("scUiActFeastDoneToday");
+            if (ScActivities.WhyNotFeast() == null) return L("scUiActReady");
+            // name what is missing only when the rest is in place (host, a home, members): else it would blame the cook
+            if (ScCommunity.IsHost && ScRegistry.Community.HasHome && ScRegistry.Members.Count > 0)
+            {
+                Member cook;
+                if (ScSkills.BestSpecialist(Specialty.Cooking, out cook) <= 0) return L("scUiActFeastNeedsCook");
+                if (CampfireCount() <= 0) return L("scUiActFeastNeedsStation");
+                if (ScRegistry.Community.Get(Resource.Food) < ScConfig.FeastFood) return L("scUiActFeastNeedsFood");
+            }
+            return L("scUiActNotReadyPlain");
+        }
+
+        private static string FeastStatusColor()
+        {
+            if (ScActivities.FeastActive) return Good;
+            if (ScRegistry.Community.FeastDay == ScCommunity.Today) return Dim;
+            return ScActivities.WhyNotFeast() == null ? Good : Bad;
+        }
+
+        /// <summary>Round fd1: rationing's line - its penalty running, enacted today, or ready.</summary>
+        private static string RationStatus()
+        {
+            if (ScRegistry.Community.RationDay == ScCommunity.Today)
+                return ScActivities.RationActive ? Fmt("scUiActRationRunning", ScActivities.RationTimeLeft()) : L("scUiActRationDoneToday");
+            if (ScActivities.WhyNotRation() == null) return L("scUiActReady");
+            if (ScCommunity.IsHost && ScRegistry.Community.HasHome && ScRegistry.Members.Count > 0 && ScActivities.RationSavesNothing())
+                return L("scUiActRationNothing");
+            return L("scUiActNotReadyPlain");
+        }
+
+        private static string RationStatusColor()
+        {
+            if (ScRegistry.Community.RationDay == ScCommunity.Today) return ScActivities.RationActive ? Warn : Dim;
+            return ScActivities.WhyNotRation() == null ? Good : Bad;
         }
 
         /// <summary>"Running - 12:34 left" / "Poured today - again tomorrow" / "Ready" / "Not enough luxuries or food".</summary>

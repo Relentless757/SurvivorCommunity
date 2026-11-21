@@ -189,11 +189,24 @@ NPCs but cannot manage a community (v2).
 - **Activities** - a third tab in the community window. **Prepare a round of drinks**: `DrinksLuxury` (4)
   luxuries + `DrinksFood` (1) food for +`DrinksMorale` (15) morale over `DrinksMinutes` (15) **real** minutes
   (counted only while the game runs unpaused, saved with the registry), once per game day. Meant for the days
-  after a death.
+  after a death. Round fd1 adds two more on the Campfire (`ScActivities.Feast` / `Ration`, the same `All` table and
+  the same real-time countdowns): **Prepare a feast** (`WhyNotFeast`: a cook at home by `ScSkills.BestSpecialist`, a
+  campfire by `ScFacilityTab.CampfireCount`, `FeastFood` food; morale `FeastMorale` + `FeastMoralePerLevel` and max
+  stamina `FeastStamina` + `FeastStaminaPerLevel` per cook level above the first, fixed at the moment it starts in
+  `Community.FeastMorale/FeastStamina`) and **Enact rationing** (`Community.RationDay`: the rollover that closes that
+  day eats `RationShare` of the food, rounded up, in `ScEconomy.FoodEaten(rolloverDay, ...)` - only the rollover and
+  the lines about tonight pass a day: the projections (FoodDays and the Food morale term, days left, outposts, the
+  stockpile need) use the ordinary-day overloads, else rationing would win back its own penalty; -`RationMorale` /
+  -`RationStamina` for `RationMinutes`). Both once a game day. Their morale is `ScMorale.Parts.Feast/Rationing`
+  (rationing shielded by Leadership); the max stamina is `buffSCFeast` / `buffSCRationing` (`StaminaMax base_add` of the
+  cvars `sc_feaststam` / `sc_rationstam`), kept on the local player and every loaded member every 2 s by
+  `ScActivities.KeepBuffs` and taken off when it ends (and by `ScSkills.ClearCvars` from a member who leaves). Remote
+  players in multiplayer get no buff: SC's buffs only ever go on bodies the host owns.
 - **Window and HUD:** the resources strip shows all seven (water with its days left or "+N a day from the wells");
   the Home Status panel shows water between food and meds; morale lists Water and the round of drinks.
 - **Console:** `sc give water|luxury <n>`, `sc run <member> water`, `sc barter water <res>`, `sc facility` (the wells and dew collectors in the loaded home zone,
-  their levels and water), `sc facility level <x y z> <n>`, `sc drinks [on|off]`.
+  their levels and water), `sc facility level <x y z> <n>`, `sc drinks [on|off]`, `sc feast [on|off]`,
+  `sc ration [on|off]` (round fd1; `on` starts one free and `off` ends it and allows another today).
 
 ## Milestone 3 - skills and traits that do something
 
@@ -204,9 +217,10 @@ NPCs but cannot manage a community (v2).
   weapon held), time spent following you (Cardio, one point per `FollowXpSeconds`), every day lived
   (Wits, `DailyWitsXp`).
 - **Specialties** work at the day rollover, for stationed members only. The best **cook** saves 1 food a
-  day per `CookStarsPerFood` (2) stars, rounded up, never more than half the day's food. **Gardeners** turn
-  living crops inside the base into 1 food bundle per `CropsPerFood` (10) crops, at most 1 per star of all
-  the gardeners at home. A **medic** stretches medical bundles (one bundle heals
+  day per `CookStarsPerFood` (2) stars, rounded up, never more than half the day's food. The **garden** turns
+  living crops inside the base into 1 food bundle per `CropsPerFood` (5) crops with no gardener needed (round fd1;
+  before it 10, at most 1 per gardener star); the best gardener at home lowers that to `GardenerCropsPerFood`'s figure
+  for its level (`4:4,7:3`), only that one counting (`ScEconomy.CropsPerFood`). A **medic** stretches medical bundles (one bundle heals
   1 + floor(stars x `MedicPerStar`) injuries). **Craftsmen** lower the packing threshold at the station
   (`PackBonusPerStar`, floor 60%). Mechanics and Chemistry pay off on supply runs (milestone 5). Doing the
   job earns specialty XP.

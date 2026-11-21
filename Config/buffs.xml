@@ -34,6 +34,22 @@
 			</effect_group>
 		</buff>
 
+		<!-- round fd1: a feast (Facilities tab, Campfire) - max stamina for the members and the player while it lasts. The
+		     mod writes the amount into sc_feaststam and takes the buff off when the feast ends (ScActivities.KeepBuffs). -->
+		<buff name="buffSCFeast" name_key="buffSCFeastName" description_key="buffSCFeastDesc" icon="ui_game_symbol_fork" icon_color="142,208,108">
+			<stack_type value="ignore"/>
+			<effect_group>
+				<passive_effect name="StaminaMax" operation="base_add" value="@sc_feaststam"/>
+			</effect_group>
+		</buff>
+		<!-- round fd1: rationing - less max stamina while its penalty lasts (sc_rationstam is negative) -->
+		<buff name="buffSCRationing" name_key="buffSCRationingName" description_key="buffSCRationingDesc" icon="ui_game_symbol_hunger" icon_color="226,108,86">
+			<stack_type value="ignore"/>
+			<effect_group>
+				<passive_effect name="StaminaMax" operation="base_add" value="@sc_rationstam"/>
+			</effect_group>
+		</buff>
+
 		<!-- Status buffs: mirrored from the registry every second (community out of food / member injured). -->
 		<buff name="buffSCHungry" name_key="buffSCHungryName" description_key="buffSCHungryDesc" icon="ui_game_symbol_hunger" icon_color="255,160,60" remove_on_death="true">
 			<stack_type value="ignore"/>

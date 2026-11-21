@@ -1173,6 +1173,8 @@ namespace SurvivorCommunity
             AddPart(p.Food, Localization.Get("scMoraleFood"), "ui_game_symbol_fork");
             AddPart(p.Water, Localization.Get("scMoraleWater"), "ui_game_symbol_thirst");
             AddPart(p.Activity, string.Format(Localization.Get("scMoraleActivityLeft"), ScActivities.TimeLeft()), "ui_game_symbol_beer");
+            AddPart(p.Feast, string.Format(Localization.Get("scMoraleFeastLeft"), ScActivities.FeastTimeLeft()), "ui_game_symbol_fork");          // round fd1
+            AddPart(p.Rationing, string.Format(Localization.Get("scMoraleRationingLeft"), ScActivities.RationTimeLeft()), "ui_game_symbol_hunger");
             AddPart(p.Meds, Localization.Get("scMoraleMeds"), "ui_game_symbol_medical");
             AddPart(p.Beds, string.Format(Localization.Get("scMoraleBedsCount"), ScEncAllies.TotalBeds(), members), "ui_game_symbol_map_bed");
             AddPart(p.Facilities, Localization.Get("scMoraleFacilities"), "ui_game_symbol_workbench");

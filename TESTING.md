@@ -37,6 +37,38 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round fd1 (2026-11-21): the garden, the feast and rationing
+
+Why: you found 10 crops a food too much, and asked for a feast and rationing on the food stations. Build `sc34_fd1`,
+**not deployed yet**. `sc status` prints the next rollover's food line (with the crops a food takes and who lowers it,
+and what rationing cuts); `sc feast` and `sc ration` print their state (`on` / `off` start or end one for free).
+
+- [ ] **Garden without a gardener:** with no gardener at home and some living crops in the base, `sc status` says
+      `garden +N (C crops, 1 food per 5)`, N = C / 5 rounded down, and `sc day` puts that food in the stockpile.
+- [ ] **A gardener lowers it:** set a member to Gardening level 4 (`sc spec <id> set Gardening 4`): `1 food per 4 with
+      <name>`; level 7: `1 food per 3`. A second, weaker gardener changes nothing. Send the gardener out on a run: back
+      to 1 per 5.
+- [ ] **The feast:** with a cook at home, a campfire in the base and 3+ food, the Facilities tab's Campfire shows
+      Feast "Ready", and its About text gives the cost and what it gives at your cook's level; **Prepare a feast** takes
+      3 food, the message names the cook, morale rises by 10 (+1 per cook level above 1; the Community tab lists "A feast
+      (59:xx left)"), and your max stamina bar grows by 10 (+2 per level), as does a member's (`sc xnpc <id>` shows
+      `buffSCFeast`). While it runs the Feast row reads "Running - xx:xx left" and the button is off, also after midnight;
+      after the hour (or `sc feast off`) the buff comes off everyone, you are told the feast has worn off, and the row
+      reads "Held today - again tomorrow" (or "Ready" on the next day).
+- [ ] **Feast refused:** no cook at home -> "Needs a cook at home"; no campfire in the base -> "Needs a campfire in the
+      base"; under 3 food -> "Not enough food". The button stays disabled.
+- [ ] **Rationing:** **Enact rationing** says tonight's food (half, rounded up: 7 eaten -> 4); morale -15 and max
+      stamina -15 for an hour (the Community tab lists "Rationing (59:xx left)"), and the Food line of morale and the
+      days of food left do **not** go up. `sc status` shows `rationed -N`. At the next real rollover the stockpile loses
+      only the rationed amount and the day's report says "rationing spared N food"; the rollover after that eats
+      normally again. (`sc day` replays the rollover of the current world day, so a second `sc day` the same day is
+      rationed again.)
+- [ ] **Nothing to save:** with one member who eats 1 food, the Rationing row reads "Nothing to save tonight" and the
+      button is off.
+- [ ] **Save and load:** quit with a feast and rationing running, load: both continue with the time they had left
+      (within a minute), the buffs come back on you and the members, and neither can be started again that day.
+- [ ] **A member who leaves** while a feast runs loses `buffSCFeast`.
+
 ## Round ar1 (2026-11-21): armor protection setting
 
 Why: you asked for the halved armor protection to go, with a setting to change it. `SurvivorArmorResist` and

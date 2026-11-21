@@ -164,6 +164,25 @@ namespace SurvivorCommunity
         public static int DrinksMorale = 15;
         /// <summary>Real minutes the round of drinks lifts morale (only while the game runs unpaused).</summary>
         public static float DrinksMinutes = 15f;
+        /// <summary>
+        /// Round fd1 (the user 2026-11-21): "Prepare a feast" - with a cook at home and a campfire (CampfireBlocks) in the base,
+        /// FeastFood food buys +FeastMorale morale and +FeastStamina max stamina for the members and the player for FeastMinutes
+        /// real minutes, once a game day; each cook level above the first adds FeastMoralePerLevel and FeastStaminaPerLevel.
+        /// </summary>
+        public static int FeastFood = 3;
+        public static int FeastMorale = 10;
+        public static int FeastMoralePerLevel = 1;
+        public static int FeastStamina = 10;
+        public static int FeastStaminaPerLevel = 2;
+        public static float FeastMinutes = 60f;
+        /// <summary>
+        /// Round fd1: "Enact rationing" - that day's rollover eats RationShare of the food (rounded up); -RationMorale morale and
+        /// -RationStamina max stamina for RationMinutes real minutes. Once a game day.
+        /// </summary>
+        public static float RationShare = 0.5f;
+        public static int RationMorale = 15;
+        public static int RationStamina = 15;
+        public static float RationMinutes = 60f;
         /// <summary>Per-item point overrides: item name -> points each.</summary>
         public static readonly Dictionary<string, int> ValueOverrides = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         /// <summary>Bed name PREFIXES, on top of every sleeping-bag class block when BedsBySleepingBag is on.</summary>
@@ -257,10 +276,15 @@ namespace SurvivorCommunity
         /// </summary>
         public static int CookStarsPerFood = 2;
         /// <summary>
-        /// Gardening (round ie1): 1 food a day per CropsPerFood living crops, at most 1 per star of the gardeners at home
-        /// (ScEconomy.Harvest). 0 = the garden makes nothing. Was CropFoodPerStar 0.01 (crops x 0.01 x stars, the fraction carried).
+        /// Gardening (round fd1, the user 2026-11-21): 1 food a day per CropsPerFood living crops in the zone, no gardener
+        /// needed; the best gardener at home lowers it from a level on (GardenerCropsPerFood "4:4,7:3": level 4-6 1 per 4,
+        /// level 7 1 per 3), and only that one gardener counts (ScEconomy.Harvest). 0 = the garden makes nothing. Before fd1:
+        /// 1 per 10, only with a gardener at home, at most 1 per gardener star (round ie1).
         /// </summary>
-        public static int CropsPerFood = 10;
+        public static int CropsPerFood = 5;
+        /// <summary>GardenerCropsPerFood as two parallel lists, levels ascending: from GardenerCropLevels[i] on, GardenerCrops[i].</summary>
+        public static int[] GardenerCropLevels = { 4, 7 };
+        public static int[] GardenerCrops = { 4, 3 };
         /// <summary>Medicine: injuries healed per medical bundle = 1 + floor(medic stars x MedicPerStar).</summary>
         public static float MedicPerStar = 0.5f;
         /// <summary>Craftsmanship: packing threshold multiplier 1 - PackBonusPerStar x craftsman stars (floor 0.6).</summary>
@@ -1406,7 +1430,7 @@ namespace SurvivorCommunity
             MaxMembers = 12;
             MaxFollowers = 2;
             MemberFoodPerDay = 1;                  // round ie1: whole numbers (ScEconomy)
-            CookStarsPerFood = 2; CropsPerFood = 10;
+            CookStarsPerFood = 2; CropsPerFood = 5; GardenerCropLevels = new[] { 4, 7 }; GardenerCrops = new[] { 4, 3 };   // round fd1
             AmmoPerRangedDay = 0.25f;
             PointsPerBundle[0] = 400; PointsPerBundle[1] = 300; PointsPerBundle[2] = 2000; PointsPerBundle[3] = 1000; PointsPerBundle[4] = 600;
             PointsPerBundle[5] = 200; PointsPerBundle[6] = 300;
@@ -1420,6 +1444,8 @@ namespace SurvivorCommunity
             FacilityUpgradeCost = new[] { 4, 8, 12, 16 };
             WellsPlaceLevelOne = true;
             DrinksLuxury = 4; DrinksFood = 1; DrinksMorale = 15; DrinksMinutes = 15f;
+            FeastFood = 3; FeastMorale = 10; FeastMoralePerLevel = 1; FeastStamina = 10; FeastStaminaPerLevel = 2; FeastMinutes = 60f;   // round fd1
+            RationShare = 0.5f; RationMorale = 15; RationStamina = 15; RationMinutes = 60f;
             OutpostCisternFloor = -10;
             ValueOverrides.Clear();
             BedBlocks.Clear();
@@ -1905,6 +1931,16 @@ namespace SurvivorCommunity
                 ParseInt(p, "DrinksFood", ref DrinksFood, 0, 1000);
                 ParseInt(p, "DrinksMorale", ref DrinksMorale, 0, 100);
                 ParseFloat(p, "DrinksMinutes", ref DrinksMinutes, 0.1f, 1440f);
+                ParseInt(p, "FeastFood", ref FeastFood, 0, 1000);                 // round fd1
+                ParseInt(p, "FeastMorale", ref FeastMorale, 0, 100);
+                ParseInt(p, "FeastMoralePerLevel", ref FeastMoralePerLevel, 0, 100);
+                ParseInt(p, "FeastStamina", ref FeastStamina, 0, 500);
+                ParseInt(p, "FeastStaminaPerLevel", ref FeastStaminaPerLevel, 0, 500);
+                ParseFloat(p, "FeastMinutes", ref FeastMinutes, 0.1f, 1440f);
+                ParseFloat(p, "RationShare", ref RationShare, 0f, 1f);
+                ParseInt(p, "RationMorale", ref RationMorale, 0, 100);
+                ParseInt(p, "RationStamina", ref RationStamina, 0, 500);
+                ParseFloat(p, "RationMinutes", ref RationMinutes, 0.1f, 1440f);
                 ParseInt(p, "OutpostCisternFloor", ref OutpostCisternFloor, -100, 0);
                 ParseInt(p, "PostRadius", ref PostRadius, 2, 40);
                 ParseFloat(p, "FleeBelowHealth", ref FleeBelowHealth, 0f, 0.9f);
@@ -1939,6 +1975,7 @@ namespace SurvivorCommunity
                 ParseFloat(p, "RaiderArmorResist", ref RaiderArmorResist, -1f, 0f);
                 ParseInt(p, "CookStarsPerFood", ref CookStarsPerFood, 0, 7);        // round ie1
                 ParseInt(p, "CropsPerFood", ref CropsPerFood, 0, 1000);
+                ParseGardenerCrops(p);                                             // round fd1
                 ParseFloat(p, "MedicPerStar", ref MedicPerStar, 0f, 5f);
                 ParseFloat(p, "PackBonusPerStar", ref PackBonusPerStar, 0f, 0.4f);
                 ParseInt(p, "ScanRadius", ref ScanRadius, 0, 1000);
@@ -3304,6 +3341,35 @@ namespace SurvivorCommunity
             p.ParseInt(key, ref tmp);
             if (tmp < min || tmp > max) { ScLog.Warn("config " + key + "=" + tmp + " out of range [" + min + "," + max + "], keeping " + v); return; }
             v = tmp;
+        }
+
+        /// <summary>
+        /// Round fd1: GardenerCropsPerFood, "level:crops" pairs ("4:4,7:3"), sorted by level; empty = no gardener bonus. A bad
+        /// pair keeps the defaults with one warning.
+        /// </summary>
+        private static void ParseGardenerCrops(DynamicProperties p)
+        {
+            string raw;
+            if (!p.Values.TryGetValue("GardenerCropsPerFood", out raw)) return;
+            var pairs = new List<KeyValuePair<int, int>>();
+            foreach (string part in (raw ?? "").Split(','))
+            {
+                string t = part.Trim();
+                if (t.Length == 0) continue;
+                string[] lc = t.Split(':');
+                int lv, cr;
+                if (lc.Length != 2 || !int.TryParse(lc[0].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out lv)
+                    || !int.TryParse(lc[1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out cr) || lv < 1 || lv > 100 || cr < 1 || cr > 1000)
+                {
+                    ScLog.Warn("config GardenerCropsPerFood=" + raw + ": '" + t + "' is not level:crops (e.g. 4:4) - keeping the defaults");
+                    return;
+                }
+                pairs.Add(new KeyValuePair<int, int>(lv, cr));
+            }
+            pairs.Sort((a, b) => a.Key.CompareTo(b.Key));
+            GardenerCropLevels = new int[pairs.Count];
+            GardenerCrops = new int[pairs.Count];
+            for (int i = 0; i < pairs.Count; i++) { GardenerCropLevels[i] = pairs[i].Key; GardenerCrops[i] = pairs[i].Value; }
         }
 
         private static void ParseFloat(DynamicProperties p, string key, ref float v, float min, float max)

@@ -36,6 +36,8 @@ namespace SurvivorCommunity
             public int Water;
             /// <summary>Activities (round wl): the round of drinks while it lasts.</summary>
             public int Activity;
+            /// <summary>Round fd1: the feast while it lasts (+), rationing's penalty while it lasts (-).</summary>
+            public int Feast, Rationing;
             /// <summary>
             /// E6 (ScEncAllies): Allies, +EnclaveAllyMorale per Allied enclave up to EnclaveAllyMoraleCap; Comfort in Numbers,
             /// +EnclaveBenefitMorale for each such ally (past that cap); Enclave lost, the fading -EnclaveLostMorale for each
@@ -96,6 +98,8 @@ namespace SurvivorCommunity
             p.WaterDays = ScEconomy.DaysOf(c.Get(Resource.Water), ScEconomy.WaterShortfall());
             if (c.Thirsty) p.Water = ScOutpostPerks.PerkActive(Resource.Water) ? Math.Max(-20, ScConfig.OutpostCisternFloor) : -20;
             p.Activity = ScActivities.MoraleBonus();
+            p.Feast = ScActivities.FeastMoraleNow();               // round fd1
+            p.Rationing = ScActivities.RationMoraleNow();
             // E6: the allies, an ally's Comfort in Numbers, and the groups lost lately
             p.Allies = ScEncAllies.AlliesMorale();
             p.Comfort = ScEncAllies.ComfortMorale();
@@ -118,10 +122,11 @@ namespace SurvivorCommunity
                 p.Water = ScLeadership.Shielded(p.Water, shield);
                 p.EnclaveLost = ScLeadership.Shielded(p.EnclaveLost, shield);
                 p.Nests = ScLeadership.Shielded(p.Nests, shield);
+                p.Rationing = ScLeadership.Shielded(p.Rationing, shield);
             }
 
             int total = 50 + p.Food + p.Meds + p.Beds + p.Facilities + p.Supplies + p.Traits + p.Deaths + p.Leadership + p.Territory + p.Defence
-                        + p.Water + p.Activity + p.Allies + p.Comfort + p.EnclaveLost + p.Nests;
+                        + p.Water + p.Activity + p.Feast + p.Rationing + p.Allies + p.Comfort + p.EnclaveLost + p.Nests;
             p.Total = Mathf.Clamp(total, 0, 100);
             p.FedTotal = p.Total;
             if (c.Hungry)
@@ -188,6 +193,8 @@ namespace SurvivorCommunity
                 sb.Append('\n').Append(Term("scMoraleWater", p.Water)).Append(DaysLeft(p.WaterDays))
                   .Append(' ').Append(string.Format(Localization.Get("scMoraleWaterMade"), ScRegistry.Community.HomeWater));
             if (p.Activity != 0) sb.Append('\n').Append(Term("scMoraleActivity", p.Activity)).Append(" (").Append(ScActivities.TimeLeft()).Append(')');
+            if (p.Feast != 0) sb.Append('\n').Append(Term("scMoraleFeast", p.Feast)).Append(" (").Append(ScActivities.FeastTimeLeft()).Append(')');      // round fd1
+            if (p.Rationing != 0) sb.Append('\n').Append(Term("scMoraleRationing", p.Rationing)).Append(" (").Append(ScActivities.RationTimeLeft()).Append(')');
             sb.Append('\n').Append(Term("scMoraleMeds", p.Meds));
             sb.Append('\n').Append(Term("scMoraleBeds", p.Beds)).Append(' ').Append(string.Format(Localization.Get("scMoraleBedsDetail"), ScEncAllies.TotalBeds(), ScRegistry.Members.Count));
             int allyBeds = ScEncAllies.ExtraBeds();

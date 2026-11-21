@@ -47,6 +47,8 @@ namespace SurvivorCommunity
                     case "give": Give(_params); break;
                     case "facility": case "facilities": FacilityCmd(_params); break;
                     case "drinks": DrinksCmd(_params); break;
+                    case "feast": FeastCmd(_params); break;            // round fd1
+                    case "ration": case "rationing": RationCmd(_params); break;
                     case "xp": Xp(_params); break;
                     case "injure": Injure(_params); break;
                     case "scan": Scan(); break;
@@ -615,6 +617,39 @@ namespace SurvivorCommunity
                    + ", last poured day " + c.DrinksDay + " (today " + ScCommunity.Today + "); cost " + ScConfig.DrinksLuxury + " luxury + " + ScConfig.DrinksFood
                    + " food (stock " + c.Get(Resource.Luxury) + " / " + c.Get(Resource.Food) + "); " + (why == null ? "can pour now" : "cannot: " + why)
                    + "; morale " + c.Morale);
+        }
+
+        /// <summary>Round fd1: sc feast [on|off] - the feast's state; on = start one free (the cook's level), off = end it.</summary>
+        private static void FeastCmd(List<string> p)
+        {
+            if (!ScRegistry.Loaded) { Output("[SC] no registry"); return; }
+            string sub = p.Count > 1 ? p[1].ToLowerInvariant() : "";
+            if (sub == "on" || sub == "off") ScActivities.ConsoleFeast(sub == "on");
+            Community c = ScRegistry.Community;
+            Member cook;
+            int level = ScSkills.BestSpecialist(Specialty.Cooking, out cook);
+            string why = ScActivities.WhyNotFeast();
+            Output("[SC] feast: " + (ScActivities.FeastActive ? "running, " + ScActivities.FeastTimeLeft() + " left (+" + c.FeastMorale + " morale, +" + c.FeastStamina + " max stamina)" : "not running")
+                   + ", last held day " + c.FeastDay + " (today " + ScCommunity.Today + "); cook " + (cook != null ? cook.Name + " level " + level : "none at home")
+                   + ", campfires " + ScFacilityTab.CampfireCount() + ", cost " + ScConfig.FeastFood + " food (stock " + c.Get(Resource.Food) + "); "
+                   + (why == null ? "can hold one now" : "cannot: " + why) + "; morale " + c.Morale);
+        }
+
+        /// <summary>Round fd1: sc ration [on|off] - rationing's state; on = enact it for today (free), off = lift it.</summary>
+        private static void RationCmd(List<string> p)
+        {
+            if (!ScRegistry.Loaded) { Output("[SC] no registry"); return; }
+            string sub = p.Count > 1 ? p[1].ToLowerInvariant() : "";
+            if (sub == "on" || sub == "off") ScActivities.ConsoleRation(sub == "on");
+            Community c = ScRegistry.Community;
+            int raw, saved, cut;
+            Member cook;
+            int eaten = ScEconomy.FoodEaten(ScCommunity.Today + 1, out raw, out saved, out cook, out cut);
+            string why = ScActivities.WhyNotRation();
+            Output("[SC] rationing: enacted day " + c.RationDay + " (today " + ScCommunity.Today + ")"
+                   + (ScActivities.RationActive ? ", penalty " + ScActivities.RationTimeLeft() + " left (-" + ScConfig.RationMorale + " morale, -" + ScConfig.RationStamina + " max stamina)" : ", no penalty running")
+                   + "; the next rollover eats " + eaten + " food" + (cut > 0 ? " (rationed from " + (eaten + cut) + ")" : "") + "; "
+                   + (why == null ? "can enact now" : "cannot: " + why) + "; morale " + c.Morale);
         }
 
         /// <summary>

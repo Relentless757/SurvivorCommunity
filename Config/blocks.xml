@@ -226,6 +226,22 @@
 			<property name="DrinksFood" value="1" />
 			<property name="DrinksMorale" value="15" />
 			<property name="DrinksMinutes" value="15" />
+			<!-- round fd1, two more on the Campfire. "Prepare a feast": with a cook at home and a campfire (CampfireBlocks) in the
+			     base, FeastFood food gives the members and you +FeastMorale morale and +FeastStamina max stamina for FeastMinutes
+			     real minutes, once a game day; each level of the cook above the first adds FeastMoralePerLevel morale and
+			     FeastStaminaPerLevel stamina (a level-7 cook: +16 / +22). "Enact rationing": the rollover that ends the day eats
+			     RationShare of the food (0.5 = half, rounded up: 7 becomes 4), for -RationMorale morale and -RationStamina max
+			     stamina for RationMinutes real minutes; once a game day. The minutes only run while the game runs unpaused. -->
+			<property name="FeastFood" value="3" />
+			<property name="FeastMorale" value="10" />
+			<property name="FeastMoralePerLevel" value="1" />
+			<property name="FeastStamina" value="10" />
+			<property name="FeastStaminaPerLevel" value="2" />
+			<property name="FeastMinutes" value="60" />
+			<property name="RationShare" value="0.5" />
+			<property name="RationMorale" value="15" />
+			<property name="RationStamina" value="15" />
+			<property name="RationMinutes" value="60" />
 
 			<!-- morale consequences -->
 			<property name="LowMoraleDays" value="2" />
@@ -278,12 +294,15 @@
 			<property name="SurvivorArmorResist" value="0.0" />
 			<property name="RaiderArmorResist" value="0.0" />
 			<!-- specialties at the day rollover (round ie1, whole bundles): the best cook at home saves 1 food a day per
-			     CookStarsPerFood stars, rounded up (1, 1, 2, 2, 3, 3, 4 at 2), never more than half the day's food; gardeners
-			     at home turn living crops in the zone into 1 food per CropsPerFood crops, at most 1 per star (their stars
-			     summed); one medical bundle heals 1 + floor(medic stars x MedicPerStar) injuries; craftsmen lower the packing
-			     threshold by PackBonusPerStar per star (floor 60%). Mechanics / Chemistry apply to supply runs (M5). -->
+			     CookStarsPerFood stars, rounded up (1, 1, 2, 2, 3, 3, 4 at 2), never more than half the day's food; the garden
+			     (round fd1) turns the living crops in the zone into 1 food per CropsPerFood crops, no gardener needed, and the
+			     best gardener at home lowers that from a level on (GardenerCropsPerFood, level:crops - 4:4,7:3 is 1 per 4 from
+			     level 4 and 1 per 3 from level 7; only that one gardener counts); one medical bundle heals 1 + floor(medic stars
+			     x MedicPerStar) injuries; craftsmen lower the packing threshold by PackBonusPerStar per star (floor 60%).
+			     Mechanics / Chemistry apply to supply runs (M5). -->
 			<property name="CookStarsPerFood" value="2" />
-			<property name="CropsPerFood" value="10" />
+			<property name="CropsPerFood" value="5" />
+			<property name="GardenerCropsPerFood" value="4:4,7:3" />
 			<property name="MedicPerStar" value="0.5" />
 			<property name="PackBonusPerStar" value="0.04" />
 			<!-- base scan: 0 = the whole claim zone, above 0 = only this many blocks around the home block;

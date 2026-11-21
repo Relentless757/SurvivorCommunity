@@ -291,10 +291,11 @@ namespace SurvivorCommunity
                 return;
             }
 
-            // Gardening: living crops in the zone (last scan) feed the stockpile through the gardeners - round ie1: 1 food per
-            // CropsPerFood crops, at most 1 per gardener star (ScEconomy.Harvest), the remainder dropped, never carried
+            // Gardening (round fd1): living crops in the zone (last scan) feed the stockpile - 1 food per CropsPerFood crops,
+            // lowered by the best gardener at home (ScEconomy.Harvest), the remainder dropped, never carried; no gardener needed.
+            // Every gardener at home still learns from tending them.
             int harvested = ScEconomy.Harvest();
-            if (ScSkills.SpecialistStars(Specialty.Gardening) > 0 && c.Crops > 0)
+            if (c.Crops > 0)
             {
                 if (harvested > 0) c.Add(Resource.Food, harvested);
                 foreach (var g in ScRegistry.Members.Values)
@@ -304,9 +305,10 @@ namespace SurvivorCommunity
             // food (round ie1): ScEconomy.FoodEaten - MemberFoodPerDay a member who has arrived (a trait's eats= instead), less
             // the best cook's ceil(stars / CookStarsPerFood), never more than half. Whole units: a short day is a hungry day,
             // nothing is owed or carried to the next
-            int foodRaw, cookSaved;
+            int foodRaw, cookSaved, rationCut;
             Member cook;
-            int foodWhole = ScEconomy.FoodEaten(out foodRaw, out cookSaved, out cook);
+            // round fd1: the rollover into `day` closes day - 1; rationing enacted that day eats RationShare of it
+            int foodWhole = ScEconomy.FoodEaten(day, out foodRaw, out cookSaved, out cook, out rationCut);
             int foodUsed = Math.Min(foodWhole, c.Get(Resource.Food));
             c.Add(Resource.Food, -foodUsed);
             bool hungry = foodUsed < foodWhole;
@@ -364,6 +366,7 @@ namespace SurvivorCommunity
             summary.Append(string.Format(Localization.Get("scDailyUse"), foodUsed, medsUsed, ammoUsed, waterUsed));
             if (restocked > 0) summary.Append(' ').Append(string.Format(Localization.Get("scDailyMedsRestock"), restocked));
             if (harvested > 0) summary.Append(' ').Append(string.Format(Localization.Get("scDailyHarvest"), harvested));
+            if (rationCut > 0) summary.Append(' ').Append(string.Format(Localization.Get("scDailyRationed"), rationCut));   // round fd1
             if (drawn > 0) summary.Append(' ').Append(string.Format(Localization.Get("scDailyWells"), drawn));
             if (hungry) summary.Append(' ').Append(Localization.Get("scDailyHungry"));
             if (thirsty) summary.Append(' ').Append(Localization.Get("scDailyThirsty"));

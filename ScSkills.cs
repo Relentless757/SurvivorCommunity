@@ -279,6 +279,7 @@ namespace SurvivorCommunity
             if (npc.Buffs.HasBuff(HungryBuff)) npc.Buffs.RemoveBuff(HungryBuff);
             if (npc.Buffs.HasBuff(ThirstyBuff)) npc.Buffs.RemoveBuff(ThirstyBuff);
             if (npc.Buffs.HasBuff(InjuredBuff)) npc.Buffs.RemoveBuff(InjuredBuff);
+            ScActivities.ClearBuffs(npc);                // round fd1: the feast's and rationing's max stamina
         }
 
         /// <summary>Does the NPC hold a ranged weapon? (XNPCCore hand items carry the melee / ranged tags.)</summary>

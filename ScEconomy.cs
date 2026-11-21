@@ -44,15 +44,45 @@ namespace SurvivorCommunity
         /// The food the next rollover takes from the stockpile: what every eater eats (FoodFor), less the best cook's saving.
         /// The cook at home saves ceil(stars / CookStarsPerFood) a day (1, 1, 2, 2, 3, 3, 4 for 1-7 stars at 2), never more
         /// than half of the day's food (rounded down). raw = before the cook; saved = the cook's part; cook = who (null: none).
+        /// Round fd1 (review): an ordinary day, never rationed - the projections (days of food and the Food morale term, the
+        /// window's days left, the outposts' shortest supply, the stockpile need) must not count a one-day ration, or
+        /// enacting rationing would double the days of food and win back most of its own morale penalty.
         /// </summary>
         public static int FoodEaten(out int raw, out int saved, out Member cook)
+        {
+            int cut;
+            return FoodEaten(0, out raw, out saved, out cook, out cut);
+        }
+
+        /// <summary>
+        /// The food the rollover into rolloverDay takes (0: an ordinary day, the overload above). Round fd1: when rationing
+        /// was enacted on the day that rollover closes (Rationed), it takes RationShare of it, rounded up; cut = what that
+        /// spared. Only the rollover itself and the lines about tonight (sc status, sc ration, Enact rationing) pass a day.
+        /// </summary>
+        public static int FoodEaten(int rolloverDay, out int raw, out int saved, out Member cook, out int cut)
         {
             raw = 0;
             foreach (Member m in ScRegistry.Members.Values) raw += FoodFor(m);
             int stars = ScSkills.BestSpecialist(Specialty.Cooking, out cook);
             saved = 0;
             if (stars > 0 && ScConfig.CookStarsPerFood > 0) saved = Math.Min((stars + ScConfig.CookStarsPerFood - 1) / ScConfig.CookStarsPerFood, raw / 2);
-            return raw - saved;
+            int eaten = raw - saved;
+            cut = 0;
+            if (eaten > 0 && Rationed(rolloverDay))
+            {
+                // rounded up (7 -> 4); the share goes through decimal so 0.3f is 0.3, not 0.30000001 (100 -> 30, not 31)
+                int kept = Math.Max(0, Math.Min(eaten, (int)Math.Ceiling(eaten * (double)(decimal)ScConfig.RationShare - 1e-9)));
+                cut = eaten - kept;
+                eaten = kept;
+            }
+            return eaten;
+        }
+
+        /// <summary>Round fd1: rationing was enacted on the day the rollover into rolloverDay closes (Community.RationDay).</summary>
+        public static bool Rationed(int rolloverDay)
+        {
+            Community c = ScRegistry.Loaded ? ScRegistry.Community : null;
+            return rolloverDay > 0 && c != null && c.RationDay >= 0 && c.RationDay == rolloverDay - 1;
         }
 
         public static int FoodEaten()
@@ -63,15 +93,34 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The garden: 1 food per CropsPerFood living crops in the zone (the last scan), the remainder dropped, at most 1 per star
-        /// of the gardeners at home (their stars summed). 0 without a gardener at home or crops.
+        /// The garden (round fd1): 1 food per CropsPerFood(out gardener) living crops in the zone (the last scan), the remainder dropped. No
+        /// gardener needed; 0 without crops.
         /// </summary>
         public static int Harvest()
         {
-            int stars = ScSkills.SpecialistStars(Specialty.Gardening);
             Community c = ScRegistry.Community;
-            if (stars <= 0 || c.Crops <= 0 || ScConfig.CropsPerFood <= 0) return 0;
-            return Math.Min(c.Crops / ScConfig.CropsPerFood, stars);
+            Member g;
+            int per = CropsPerFood(out g);
+            if (per <= 0 || c.Crops <= 0) return 0;
+            return c.Crops / per;
+        }
+
+        /// <summary>
+        /// Round fd1: the crops one food takes today - CropsPerFood, lowered by the best gardener at home (BestSpecialist) to
+        /// GardenerCropsPerFood's figure for its level; only that gardener counts. gardener = that one when it lowers it.
+        /// 0 = the garden makes nothing.
+        /// </summary>
+        public static int CropsPerFood(out Member gardener)
+        {
+            gardener = null;
+            int per = ScConfig.CropsPerFood;
+            if (per <= 0) return 0;
+            Member g;
+            int level = ScSkills.BestSpecialist(Specialty.Gardening, out g);
+            int[] lv = ScConfig.GardenerCropLevels, cr = ScConfig.GardenerCrops;
+            for (int i = 0; g != null && lv != null && cr != null && i < lv.Length && i < cr.Length; i++)
+                if (level >= lv[i] && cr[i] > 0 && cr[i] < per) { per = cr[i]; gardener = g; }
+            return per;
         }
 
         /// <summary>Water every eater drinks a day (MemberWaterPerDay each).</summary>
@@ -347,12 +396,17 @@ namespace SurvivorCommunity
         {
             int raw, saved;
             Member cook;
-            int food = FoodEaten(out raw, out saved, out cook);
+            int cut;
             int day = ScCommunity.Today + 1;
+            int food = FoodEaten(day, out raw, out saved, out cook, out cut);
+            Member gardener;
+            int per = CropsPerFood(out gardener);
             int delivered = ScOutposts.ProjectedDelivery(day);
             int arriving = ScRegistry.Members.Count - Eaters();
-            return "next rollover: food " + food + " (" + raw + " eaten" + (saved > 0 ? ", cook " + (cook != null ? cook.Name : "?") + " -" + saved : "") + ")"
-                   + ", garden +" + Harvest() + " (" + ScRegistry.Community.Crops + " crops)"
+            return "next rollover: food " + food + " (" + raw + " eaten" + (saved > 0 ? ", cook " + (cook != null ? cook.Name : "?") + " -" + saved : "")
+                   + (cut > 0 ? ", rationed -" + cut : "") + ")"
+                   + ", garden +" + Harvest() + " (" + ScRegistry.Community.Crops + " crops, "
+                   + (per > 0 ? "1 food per " + per + (gardener != null ? " with " + gardener.Name : "") : "garden off (CropsPerFood 0)") + ")"
                    + ", water " + WaterDrunk() + " (wells +" + Math.Max(0, ScRegistry.Community.HomeWater) + ")"
                    + (arriving > 0 ? ", " + arriving + " on the way eat nothing yet" : "")
                    + "; outposts: upkeep " + Upkeep(day) + " mats, haulage " + Haulage(delivered) + " fuel for " + delivered + " delivered";

@@ -1,5 +1,19 @@
 # Next pre-release (not released yet)
 
+## Food
+
+- **The garden is easier.** It makes 1 food a day per **5** crops instead of 10, and no longer needs a gardener at all.
+  A good gardener at home still helps: from level 4 it is 1 food per 4 crops, from level 7 1 per 3. Only your best
+  gardener counts, and there is no cap any more (it was 1 food per gardener star). `CropsPerFood` and the new
+  `GardenerCropsPerFood` in `Config/blocks.xml` set it.
+- **Prepare a feast.** With a cook at home and a campfire in the base, the Campfire on the Facilities tab has a new
+  action: for 3 food, every member and you get +10 morale and +10 max stamina for an hour of play, +1 morale and +2
+  max stamina more for each level of your cook above the first. Once a game day.
+- **Enact rationing.** Also at the Campfire: at the end of the day the community eats half its food (rounded up), for
+  -15 morale and -15 max stamina for an hour. Once a game day.
+- The Gardening and Cooking descriptions say so, the morale breakdown lists the feast and rationing, and the day's
+  report says how much food rationing spared.
+
 ## Armor
 
 - **Armor now protects survivors and raiders fully.** SC used to halve what worn armor gave them. Two new settings in

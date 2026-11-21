@@ -992,6 +992,13 @@ namespace SurvivorCommunity
                     break;
                 case "drinks": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.DrinksLeft = Math.Max(0f, f); break; }
                 case "drinksday": c.DrinksDay = I(val); break;
+                // round fd1: the feast and rationing
+                case "feast": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.FeastLeft = Math.Max(0f, f); break; }
+                case "feastday": c.FeastDay = I(val); break;
+                case "feastmorale": c.FeastMorale = I(val); break;
+                case "feaststamina": c.FeastStamina = I(val); break;
+                case "ration": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.RationLeft = Math.Max(0f, f); break; }
+                case "rationday": c.RationDay = I(val); break;
                 // round m1f: the Facilities tab's sites, Lights out, the last attack, the Guard Towers (keys an older build ignores)
                 case "scansites": case "lightsout": case "lastattack": case "towers": ScFacilityTab.ParseKey(c, key, val); break;
                 // enclaves (E1): the id counter, the seeding stamp ver:day:mode:seed:count, the day of the next radio reveal
@@ -1440,6 +1447,12 @@ namespace SurvivorCommunity
                 }
                 if (c.DrinksLeft > 0f) sb.AppendLine("drinks=" + c.DrinksLeft.ToString("0.#", CultureInfo.InvariantCulture));
                 if (c.DrinksDay >= 0) sb.AppendLine("drinksday=" + c.DrinksDay);
+                if (c.FeastLeft > 0f) sb.AppendLine("feast=" + c.FeastLeft.ToString("0.#", CultureInfo.InvariantCulture));   // round fd1
+                if (c.FeastDay >= 0) sb.AppendLine("feastday=" + c.FeastDay);
+                if (c.FeastMorale != 0) sb.AppendLine("feastmorale=" + c.FeastMorale);
+                if (c.FeastStamina != 0) sb.AppendLine("feaststamina=" + c.FeastStamina);
+                if (c.RationLeft > 0f) sb.AppendLine("ration=" + c.RationLeft.ToString("0.#", CultureInfo.InvariantCulture));
+                if (c.RationDay >= 0) sb.AppendLine("rationday=" + c.RationDay);
                 ScFacilityTab.WriteKeys(c, sb);       // round m1f: scansites=, lightsout=, lastattack=, towers=
                 sb.AppendLine("enclaveid=" + c.NextEnclaveId);
                 if (c.EnclaveSeeded)
