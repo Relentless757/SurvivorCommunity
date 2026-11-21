@@ -74,6 +74,8 @@ namespace SurvivorCommunity
         private string opMessage = "";
         private float confirmDisbandUntil;
         private readonly int[] netYield = new int[ScNames.ResourceCount];      // round ie1: whole units (ScEconomy.NetworkYields)
+        // round fd2: the next rollover's daily flow per resource (ScEconomy.DailyFlow), for the strip's +N / -N
+        private readonly int[] dayGain = new int[ScNames.ResourceCount], dayUse = new int[ScNames.ResourceCount];
         private bool radioOnline;
         /// <summary>Assign mode: the Members tab is picking someone to post at this outpost (-1 = off).</summary>
         private int assignOutpostId = -1;
@@ -317,6 +319,8 @@ namespace SurvivorCommunity
             ScMorale.Recompute();
             BuildMoraleParts();
             BuildOutposts();
+            try { ScEconomy.DailyFlow(ScCommunity.Today + 1, dayGain, dayUse); }   // round fd2: the strip's daily net
+            catch (Exception e) { ScLog.Once("community-daily-flow", e); }
             BuildFacilities();                      // round m1f: the Facilities tab (its count shows on the tab button)
             all.Clear();
             all.AddRange(ScRegistry.Members.Values);
@@ -857,10 +861,24 @@ namespace SurvivorCommunity
             return string.Format(Localization.Get("scUiOpDistFmt"), Mathf.RoundToInt(Mathf.Sqrt(dx * dx + dz * dz)), Localization.Get(keys[sector]));
         }
 
+        /// <summary>
+        /// Round fd2 (the user): the strip's daily net beside each count - what the next rollover adds less what it takes
+        /// (ScEconomy.DailyFlow): "+N" green, "-N" red, "±0" dim when it adds and takes as much, "" when nothing moves.
+        /// It replaces the outposts' "+N/day" there (ie1).
+        /// </summary>
         private string NetResource(Resource r)
         {
-            int v = netYield[(int)r];
-            return v > 0 ? string.Format(Localization.Get("scUiOpPerDayShort"), v.ToString(CultureInfo.InvariantCulture)) : "";
+            if (!ScRegistry.Loaded) return "";
+            int g = dayGain[(int)r], u = dayUse[(int)r], v = g - u;
+            if (v > 0) return "+" + v.ToString(CultureInfo.InvariantCulture);
+            if (v < 0) return v.ToString(CultureInfo.InvariantCulture);
+            return g > 0 ? "\u00B10" : "";
+        }
+
+        private string NetResourceColor(Resource r)
+        {
+            int v = dayGain[(int)r] - dayUse[(int)r];
+            return v > 0 ? ScFacilityTab.Good : v < 0 ? ScFacilityTab.Bad : ScFacilityTab.Dim;
         }
 
         private bool OutpostBinding(string name, ref string value)
@@ -882,6 +900,13 @@ namespace SurvivorCommunity
                 case "opfuel": value = NetResource(Resource.Fuel); return true;
                 case "opwater": value = NetResource(Resource.Water); return true;
                 case "opluxury": value = NetResource(Resource.Luxury); return true;
+                case "opfoodcolor": value = NetResourceColor(Resource.Food); return true;      // round fd2
+                case "opmedscolor": value = NetResourceColor(Resource.Meds); return true;
+                case "opmatscolor": value = NetResourceColor(Resource.Materials); return true;
+                case "opammocolor": value = NetResourceColor(Resource.Ammo); return true;
+                case "opfuelcolor": value = NetResourceColor(Resource.Fuel); return true;
+                case "opwatercolor": value = NetResourceColor(Resource.Water); return true;
+                case "opluxurycolor": value = NetResourceColor(Resource.Luxury); return true;
                 case "opsummary":
                     value = loaded ? string.Format(Localization.Get("scUiOpSummary"), ScOutposts.HeldCount(), ScOutposts.Slots(),
                                                    Localization.Get(radioOnline ? "scUiNetRadioOn" : "scUiNetRadioOff")) : "";

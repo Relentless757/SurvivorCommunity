@@ -70,6 +70,15 @@ namespace SurvivorCommunity
         }
 
         public static string FeastTimeLeft() { return FeastActive ? Clock(ScRegistry.Community.FeastLeft) : ""; }
+
+        /// <summary>
+        /// Round fd2 (the user: a feast and rationing never at once): the community is on rations - enacted for today (tonight's
+        /// food is cut) or its penalty still running from an earlier day. No feast while it is; no rationing during a feast.
+        /// </summary>
+        public static bool RationInForce
+        {
+            get { return ScRegistry.Loaded && (ScRegistry.Community.RationDay == ScCommunity.Today || ScRegistry.Community.RationLeft > 0f); }
+        }
         public static string RationTimeLeft() { return RationActive ? Clock(ScRegistry.Community.RationLeft) : ""; }
 
         /// <summary>Why a feast cannot be held now, as a finished line; null = it can.</summary>
@@ -81,6 +90,7 @@ namespace SurvivorCommunity
             Community c = ScRegistry.Community;
             if (FeastActive) return Localization.Get("scActFeastRunning");          // review: also yesterday's, past the rollover
             if (c.FeastDay == ScCommunity.Today) return Localization.Get("scActFeastToday");
+            if (RationInForce) return Localization.Get("scActFeastRationing");     // round fd2: not while the community is on rations
             Member cook;
             if (ScSkills.BestSpecialist(Specialty.Cooking, out cook) <= 0 || cook == null) return Localization.Get("scActFeastNoCook");
             if (ScFacilityTab.CampfireCount() <= 0) return Localization.Get("scActFeastNoStation");
@@ -131,6 +141,7 @@ namespace SurvivorCommunity
             if (!ScRegistry.Loaded || !ScRegistry.Community.HasHome) return Localization.Get("scNeedHome");
             if (ScRegistry.Members.Count == 0) return Localization.Get("scActNoMembersRation");
             if (ScRegistry.Community.RationDay == ScCommunity.Today) return Localization.Get("scActRationToday");
+            if (FeastActive) return Localization.Get("scActRationFeast");           // round fd2: not during a feast
             if (RationSavesNothing()) return Localization.Get("scActRationNothing");
             return null;
         }

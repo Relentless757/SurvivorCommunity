@@ -344,39 +344,39 @@
 					<sprite depth="3" sprite="ui_game_symbol_fork" pos="62,-132" width="36" height="36" pivot="center" color="[white]"/>
 					<label depth="4" pos="90,-98" width="135" height="20" font_size="15" text_key="scRunFood" color="190,182,166,255" upper_case="true"/>
 					<label depth="4" pos="90,-118" width="80" height="34" font_size="30" text="{resfood}" color="226,219,203,255"/>
-					<label depth="4" pos="144,-128" width="79" height="20" font_size="15" text="{opfood}" color="142,208,108,255" justify="right"/>
+					<label depth="4" pos="144,-127" width="79" height="22" font_size="17" text="{opfood}" color="{opfoodcolor}" justify="right"/>
 					<label depth="4" pos="90,-154" width="135" height="18" font_size="13" text="{fooddays}" color="190,182,166,255"/>
 					<sprite depth="2" pos="231,-102" width="2" height="60" color="196,168,112,70"/>
 					<sprite depth="3" sprite="ui_game_symbol_water" pos="269,-132" width="36" height="36" pivot="center" color="[white]"/>
 					<label depth="4" pos="297,-98" width="135" height="20" font_size="15" text_key="scRunWater" color="190,182,166,255" upper_case="true"/>
 					<label depth="4" pos="297,-118" width="80" height="34" font_size="30" text="{reswater}" color="226,219,203,255"/>
-					<label depth="4" pos="351,-128" width="79" height="20" font_size="15" text="{opwater}" color="142,208,108,255" justify="right"/>
+					<label depth="4" pos="351,-127" width="79" height="22" font_size="17" text="{opwater}" color="{opwatercolor}" justify="right"/>
 					<label depth="4" pos="297,-154" width="135" height="18" font_size="13" text="{waterdays}" color="190,182,166,255"/>
 					<sprite depth="2" pos="438,-102" width="2" height="60" color="196,168,112,70"/>
 					<sprite depth="3" sprite="ui_game_symbol_medical" pos="476,-132" width="36" height="36" pivot="center" color="[white]"/>
 					<label depth="4" pos="504,-98" width="135" height="20" font_size="15" text_key="scRunMeds" color="190,182,166,255" upper_case="true"/>
 					<label depth="4" pos="504,-118" width="80" height="34" font_size="30" text="{resmeds}" color="226,219,203,255"/>
-					<label depth="4" pos="558,-128" width="79" height="20" font_size="15" text="{opmeds}" color="142,208,108,255" justify="right"/>
+					<label depth="4" pos="558,-127" width="79" height="22" font_size="17" text="{opmeds}" color="{opmedscolor}" justify="right"/>
 					<sprite depth="2" pos="645,-102" width="2" height="60" color="196,168,112,70"/>
 					<sprite depth="3" sprite="ui_game_symbol_brick" pos="683,-132" width="36" height="36" pivot="center" color="[white]"/>
 					<label depth="4" pos="711,-98" width="135" height="20" font_size="15" text_key="scRunMaterials" color="190,182,166,255" upper_case="true"/>
 					<label depth="4" pos="711,-118" width="80" height="34" font_size="30" text="{resmats}" color="226,219,203,255"/>
-					<label depth="4" pos="765,-128" width="79" height="20" font_size="15" text="{opmats}" color="142,208,108,255" justify="right"/>
+					<label depth="4" pos="765,-127" width="79" height="22" font_size="17" text="{opmats}" color="{opmatscolor}" justify="right"/>
 					<sprite depth="2" pos="852,-102" width="2" height="60" color="196,168,112,70"/>
 					<sprite depth="3" sprite="ui_game_symbol_shape_ammo" pos="890,-132" width="36" height="36" pivot="center" color="[white]"/>
 					<label depth="4" pos="918,-98" width="135" height="20" font_size="15" text_key="scRunAmmo" color="190,182,166,255" upper_case="true"/>
 					<label depth="4" pos="918,-118" width="80" height="34" font_size="30" text="{resammo}" color="226,219,203,255"/>
-					<label depth="4" pos="972,-128" width="79" height="20" font_size="15" text="{opammo}" color="142,208,108,255" justify="right"/>
+					<label depth="4" pos="972,-127" width="79" height="22" font_size="17" text="{opammo}" color="{opammocolor}" justify="right"/>
 					<sprite depth="2" pos="1059,-102" width="2" height="60" color="196,168,112,70"/>
 					<sprite depth="3" sprite="ui_game_symbol_gas" pos="1097,-132" width="36" height="36" pivot="center" color="[white]"/>
 					<label depth="4" pos="1125,-98" width="135" height="20" font_size="15" text_key="scRunFuel" color="190,182,166,255" upper_case="true"/>
 					<label depth="4" pos="1125,-118" width="80" height="34" font_size="30" text="{resfuel}" color="226,219,203,255"/>
-					<label depth="4" pos="1179,-128" width="79" height="20" font_size="15" text="{opfuel}" color="142,208,108,255" justify="right"/>
+					<label depth="4" pos="1179,-127" width="79" height="22" font_size="17" text="{opfuel}" color="{opfuelcolor}" justify="right"/>
 					<sprite depth="2" pos="1266,-102" width="2" height="60" color="196,168,112,70"/>
 					<sprite depth="3" sprite="ui_game_symbol_beer" pos="1304,-132" width="36" height="36" pivot="center" color="[white]"/>
 					<label depth="4" pos="1332,-98" width="135" height="20" font_size="15" text_key="scRunLuxury" color="190,182,166,255" upper_case="true"/>
 					<label depth="4" pos="1332,-118" width="80" height="34" font_size="30" text="{resluxury}" color="226,219,203,255"/>
-					<label depth="4" pos="1386,-128" width="79" height="20" font_size="15" text="{opluxury}" color="142,208,108,255" justify="right"/>
+					<label depth="4" pos="1386,-127" width="79" height="22" font_size="17" text="{opluxury}" color="{opluxurycolor}" justify="right"/>
 					<rect depth="1" name="membersPanel" pos="24,-188" width="440" height="696">
 						<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="0,0" width="440" height="696"/>
 						<button depth="2" name="btnTabMembers" pos="20,-12" width="128" height="44" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -537,7 +537,7 @@
 						<rect depth="0" name="facilityList" pos="0,0" width="440" height="696" visible="{tabfacilities}">
 							<label depth="4" pos="20,-70" width="400" height="24" font_size="17" text="{facsummary}" color="190,182,166,255"/>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac1visible}">
-								<button depth="2" name="btnFac1" pos="20,-112" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac1" pos="20,-112" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac1selected}">
 									<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-112" width="400" height="60"/>
 								</rect>
@@ -547,7 +547,7 @@
 								<label depth="4" pos="86,-147" width="300" height="20" font_size="15" text="{fac1status}" color="{fac1statuscolor}"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac2visible}">
-								<button depth="2" name="btnFac2" pos="20,-178" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac2" pos="20,-178" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac2selected}">
 									<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-178" width="400" height="60"/>
 								</rect>
@@ -557,7 +557,7 @@
 								<label depth="4" pos="86,-213" width="300" height="20" font_size="15" text="{fac2status}" color="{fac2statuscolor}"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac3visible}">
-								<button depth="2" name="btnFac3" pos="20,-244" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac3" pos="20,-244" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac3selected}">
 									<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-244" width="400" height="60"/>
 								</rect>
@@ -567,7 +567,7 @@
 								<label depth="4" pos="86,-279" width="300" height="20" font_size="15" text="{fac3status}" color="{fac3statuscolor}"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac4visible}">
-								<button depth="2" name="btnFac4" pos="20,-310" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac4" pos="20,-310" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac4selected}">
 									<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-310" width="400" height="60"/>
 								</rect>
@@ -577,7 +577,7 @@
 								<label depth="4" pos="86,-345" width="300" height="20" font_size="15" text="{fac4status}" color="{fac4statuscolor}"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac5visible}">
-								<button depth="2" name="btnFac5" pos="20,-376" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac5" pos="20,-376" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac5selected}">
 									<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-376" width="400" height="60"/>
 								</rect>
@@ -587,7 +587,7 @@
 								<label depth="4" pos="86,-411" width="300" height="20" font_size="15" text="{fac5status}" color="{fac5statuscolor}"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac6visible}">
-								<button depth="2" name="btnFac6" pos="20,-442" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac6" pos="20,-442" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac6selected}">
 									<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-442" width="400" height="60"/>
 								</rect>
@@ -597,7 +597,7 @@
 								<label depth="4" pos="86,-477" width="300" height="20" font_size="15" text="{fac6status}" color="{fac6statuscolor}"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac7visible}">
-								<button depth="2" name="btnFac7" pos="20,-508" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac7" pos="20,-508" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac7selected}">
 									<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-508" width="400" height="60"/>
 								</rect>
@@ -607,7 +607,7 @@
 								<label depth="4" pos="86,-543" width="300" height="20" font_size="15" text="{fac7status}" color="{fac7statuscolor}"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac8visible}">
-								<button depth="2" name="btnFac8" pos="20,-574" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac8" pos="20,-574" width="400" height="60" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac8selected}">
 									<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-574" width="400" height="60"/>
 								</rect>
@@ -976,39 +976,39 @@
 					<sprite depth="3" sprite="ui_game_symbol_fork" pos="62,-132" width="36" height="36" pivot="center" color="[white]"/>
 					<label depth="4" pos="90,-98" width="135" height="20" font_size="15" text_key="scRunFood" color="180,180,180,255" upper_case="true"/>
 					<label depth="4" pos="90,-118" width="80" height="34" font_size="30" text="{resfood}" color="255,255,255,255"/>
-					<label depth="4" pos="144,-128" width="79" height="20" font_size="15" text="{opfood}" color="142,208,108,255" justify="right"/>
+					<label depth="4" pos="144,-127" width="79" height="22" font_size="17" text="{opfood}" color="{opfoodcolor}" justify="right"/>
 					<label depth="4" pos="90,-154" width="135" height="18" font_size="13" text="{fooddays}" color="180,180,180,255"/>
 					<sprite depth="2" pos="231,-102" width="2" height="60" color="128,128,128,128"/>
 					<sprite depth="3" sprite="ui_game_symbol_water" pos="269,-132" width="36" height="36" pivot="center" color="[white]"/>
 					<label depth="4" pos="297,-98" width="135" height="20" font_size="15" text_key="scRunWater" color="180,180,180,255" upper_case="true"/>
 					<label depth="4" pos="297,-118" width="80" height="34" font_size="30" text="{reswater}" color="255,255,255,255"/>
-					<label depth="4" pos="351,-128" width="79" height="20" font_size="15" text="{opwater}" color="142,208,108,255" justify="right"/>
+					<label depth="4" pos="351,-127" width="79" height="22" font_size="17" text="{opwater}" color="{opwatercolor}" justify="right"/>
 					<label depth="4" pos="297,-154" width="135" height="18" font_size="13" text="{waterdays}" color="180,180,180,255"/>
 					<sprite depth="2" pos="438,-102" width="2" height="60" color="128,128,128,128"/>
 					<sprite depth="3" sprite="ui_game_symbol_medical" pos="476,-132" width="36" height="36" pivot="center" color="[white]"/>
 					<label depth="4" pos="504,-98" width="135" height="20" font_size="15" text_key="scRunMeds" color="180,180,180,255" upper_case="true"/>
 					<label depth="4" pos="504,-118" width="80" height="34" font_size="30" text="{resmeds}" color="255,255,255,255"/>
-					<label depth="4" pos="558,-128" width="79" height="20" font_size="15" text="{opmeds}" color="142,208,108,255" justify="right"/>
+					<label depth="4" pos="558,-127" width="79" height="22" font_size="17" text="{opmeds}" color="{opmedscolor}" justify="right"/>
 					<sprite depth="2" pos="645,-102" width="2" height="60" color="128,128,128,128"/>
 					<sprite depth="3" sprite="ui_game_symbol_brick" pos="683,-132" width="36" height="36" pivot="center" color="[white]"/>
 					<label depth="4" pos="711,-98" width="135" height="20" font_size="15" text_key="scRunMaterials" color="180,180,180,255" upper_case="true"/>
 					<label depth="4" pos="711,-118" width="80" height="34" font_size="30" text="{resmats}" color="255,255,255,255"/>
-					<label depth="4" pos="765,-128" width="79" height="20" font_size="15" text="{opmats}" color="142,208,108,255" justify="right"/>
+					<label depth="4" pos="765,-127" width="79" height="22" font_size="17" text="{opmats}" color="{opmatscolor}" justify="right"/>
 					<sprite depth="2" pos="852,-102" width="2" height="60" color="128,128,128,128"/>
 					<sprite depth="3" sprite="ui_game_symbol_shape_ammo" pos="890,-132" width="36" height="36" pivot="center" color="[white]"/>
 					<label depth="4" pos="918,-98" width="135" height="20" font_size="15" text_key="scRunAmmo" color="180,180,180,255" upper_case="true"/>
 					<label depth="4" pos="918,-118" width="80" height="34" font_size="30" text="{resammo}" color="255,255,255,255"/>
-					<label depth="4" pos="972,-128" width="79" height="20" font_size="15" text="{opammo}" color="142,208,108,255" justify="right"/>
+					<label depth="4" pos="972,-127" width="79" height="22" font_size="17" text="{opammo}" color="{opammocolor}" justify="right"/>
 					<sprite depth="2" pos="1059,-102" width="2" height="60" color="128,128,128,128"/>
 					<sprite depth="3" sprite="ui_game_symbol_gas" pos="1097,-132" width="36" height="36" pivot="center" color="[white]"/>
 					<label depth="4" pos="1125,-98" width="135" height="20" font_size="15" text_key="scRunFuel" color="180,180,180,255" upper_case="true"/>
 					<label depth="4" pos="1125,-118" width="80" height="34" font_size="30" text="{resfuel}" color="255,255,255,255"/>
-					<label depth="4" pos="1179,-128" width="79" height="20" font_size="15" text="{opfuel}" color="142,208,108,255" justify="right"/>
+					<label depth="4" pos="1179,-127" width="79" height="22" font_size="17" text="{opfuel}" color="{opfuelcolor}" justify="right"/>
 					<sprite depth="2" pos="1266,-102" width="2" height="60" color="128,128,128,128"/>
 					<sprite depth="3" sprite="ui_game_symbol_beer" pos="1304,-132" width="36" height="36" pivot="center" color="[white]"/>
 					<label depth="4" pos="1332,-98" width="135" height="20" font_size="15" text_key="scRunLuxury" color="180,180,180,255" upper_case="true"/>
 					<label depth="4" pos="1332,-118" width="80" height="34" font_size="30" text="{resluxury}" color="255,255,255,255"/>
-					<label depth="4" pos="1386,-128" width="79" height="20" font_size="15" text="{opluxury}" color="142,208,108,255" justify="right"/>
+					<label depth="4" pos="1386,-127" width="79" height="22" font_size="17" text="{opluxury}" color="{opluxurycolor}" justify="right"/>
 					<rect depth="1" name="membersPanel" pos="24,-188" width="440" height="696">
 						<sprite depth="0" sprite="menu_empty" type="sliced" color="64,64,64,255" pos="0,0" width="440" height="696" globalopacitymod="0"/>
 						<sprite depth="1" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="0,0" width="440" height="696" globalopacitymod="0"/>
@@ -1190,7 +1190,7 @@
 						<rect depth="0" name="facilityList" pos="0,0" width="440" height="696" visible="{tabfacilities}">
 							<label depth="4" pos="20,-70" width="400" height="24" font_size="17" text="{facsummary}" color="180,180,180,255"/>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac1visible}">
-								<button depth="2" name="btnFac1" pos="20,-112" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac1" pos="20,-112" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<sprite depth="3" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="20,-112" width="400" height="60"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac1selected}">
 									<sprite depth="3" sprite="ui_game_select_row" type="sliced" color="255,255,255,255" pos="20,-112" width="400" height="60"/>
@@ -1201,7 +1201,7 @@
 								<label depth="4" pos="86,-147" width="300" height="20" font_size="15" text="{fac1status}" color="{fac1statuscolor}"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac2visible}">
-								<button depth="2" name="btnFac2" pos="20,-178" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac2" pos="20,-178" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<sprite depth="3" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="20,-178" width="400" height="60"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac2selected}">
 									<sprite depth="3" sprite="ui_game_select_row" type="sliced" color="255,255,255,255" pos="20,-178" width="400" height="60"/>
@@ -1212,7 +1212,7 @@
 								<label depth="4" pos="86,-213" width="300" height="20" font_size="15" text="{fac2status}" color="{fac2statuscolor}"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac3visible}">
-								<button depth="2" name="btnFac3" pos="20,-244" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac3" pos="20,-244" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<sprite depth="3" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="20,-244" width="400" height="60"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac3selected}">
 									<sprite depth="3" sprite="ui_game_select_row" type="sliced" color="255,255,255,255" pos="20,-244" width="400" height="60"/>
@@ -1223,7 +1223,7 @@
 								<label depth="4" pos="86,-279" width="300" height="20" font_size="15" text="{fac3status}" color="{fac3statuscolor}"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac4visible}">
-								<button depth="2" name="btnFac4" pos="20,-310" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac4" pos="20,-310" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<sprite depth="3" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="20,-310" width="400" height="60"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac4selected}">
 									<sprite depth="3" sprite="ui_game_select_row" type="sliced" color="255,255,255,255" pos="20,-310" width="400" height="60"/>
@@ -1234,7 +1234,7 @@
 								<label depth="4" pos="86,-345" width="300" height="20" font_size="15" text="{fac4status}" color="{fac4statuscolor}"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac5visible}">
-								<button depth="2" name="btnFac5" pos="20,-376" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac5" pos="20,-376" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<sprite depth="3" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="20,-376" width="400" height="60"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac5selected}">
 									<sprite depth="3" sprite="ui_game_select_row" type="sliced" color="255,255,255,255" pos="20,-376" width="400" height="60"/>
@@ -1245,7 +1245,7 @@
 								<label depth="4" pos="86,-411" width="300" height="20" font_size="15" text="{fac5status}" color="{fac5statuscolor}"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac6visible}">
-								<button depth="2" name="btnFac6" pos="20,-442" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac6" pos="20,-442" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<sprite depth="3" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="20,-442" width="400" height="60"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac6selected}">
 									<sprite depth="3" sprite="ui_game_select_row" type="sliced" color="255,255,255,255" pos="20,-442" width="400" height="60"/>
@@ -1256,7 +1256,7 @@
 								<label depth="4" pos="86,-477" width="300" height="20" font_size="15" text="{fac6status}" color="{fac6statuscolor}"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac7visible}">
-								<button depth="2" name="btnFac7" pos="20,-508" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac7" pos="20,-508" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<sprite depth="3" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="20,-508" width="400" height="60"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac7selected}">
 									<sprite depth="3" sprite="ui_game_select_row" type="sliced" color="255,255,255,255" pos="20,-508" width="400" height="60"/>
@@ -1267,7 +1267,7 @@
 								<label depth="4" pos="86,-543" width="300" height="20" font_size="15" text="{fac7status}" color="{fac7statuscolor}"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{fac8visible}">
-								<button depth="2" name="btnFac8" pos="20,-574" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<button depth="2" name="btnFac8" pos="20,-574" width="400" height="60" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]" on_scroll="true"/>
 								<sprite depth="3" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="20,-574" width="400" height="60"/>
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{fac8selected}">
 									<sprite depth="3" sprite="ui_game_select_row" type="sliced" color="255,255,255,255" pos="20,-574" width="400" height="60"/>

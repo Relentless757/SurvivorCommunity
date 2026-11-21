@@ -15,7 +15,8 @@ namespace SurvivorCommunity
         private const int FacilitySlots = 8, FacilityFactSlots = 4, FacilityActionSlots = 3;
         private readonly List<FacilityEntry> facList = new List<FacilityEntry>();
         private string facSelected = "";
-        private int facPage;
+        /// <summary>Round fd2: the first row shown (the list scrolls a row per wheel notch; Prev / Next turn a page).</summary>
+        private int facTop;
         private string facMessage = "";
         /// <summary>A facility action picking a resident on the Members tab (null: none).</summary>
         private FacilityAction facPick;
@@ -25,7 +26,13 @@ namespace SurvivorCommunity
         {
             HookOptional("btnTabFacilities", () => SetTab(Tab.Facilities));
             HookOptional("btnTabActivities", () => SetTab(Tab.Facilities));     // the tab it replaced, in an older windows.xml
-            for (int i = 0; i < FacilitySlots; i++) { int slot = i; HookOptional("btnFac" + (i + 1), () => SelectFacility(slot)); }
+            for (int i = 0; i < FacilitySlots; i++)
+            {
+                int slot = i;
+                HookOptional("btnFac" + (i + 1), () => SelectFacility(slot));
+                XUiController row = GetChildById("btnFac" + (i + 1));          // round fd2: the wheel over a row (on_scroll in the XML)
+                if (row != null) row.OnScroll += (_s, _delta) => ScrollFacilities(_delta);
+            }
             HookOptional("btnFacPrev", () => TurnFacilities(-1));
             HookOptional("btnFacNext", () => TurnFacilities(1));
             for (int k = 0; k < FacilityActionSlots; k++) { int slot = k; HookOptional("btnFacDo" + (k + 1), () => OnFacilityDo(slot)); }
@@ -36,7 +43,7 @@ namespace SurvivorCommunity
         {
             facMessage = "";
             facPick = null;
-            facPage = 0;
+            facTop = 0;
         }
 
         /// <summary>A facility pick still open is dropped (a tab click, the window closing). True when there was one.</summary>
@@ -56,11 +63,14 @@ namespace SurvivorCommunity
             facList.Clear();
             try { facList.AddRange(ScFacilityTab.Build()); }
             catch (Exception e) { ScLog.Once("community-facilities", e); }
-            facPage = Math.Max(0, Math.Min(facPage, FacPageCount() - 1));
+            facTop = Math.Max(0, Math.Min(facTop, FacMaxTop()));
             if (FacilitySelected == null && facList.Count > 0) facSelected = facList[0].Key;
         }
 
         private int FacPageCount() { return Math.Max(1, (facList.Count + FacilitySlots - 1) / FacilitySlots); }
+
+        /// <summary>The last first row: the list's end fills the last row slot.</summary>
+        private int FacMaxTop() { return Math.Max(0, facList.Count - FacilitySlots); }
 
         private FacilityEntry FacilitySelected
         {
@@ -73,7 +83,7 @@ namespace SurvivorCommunity
 
         private FacilityEntry FacilityAt(int slot)
         {
-            int i = facPage * FacilitySlots + slot;
+            int i = facTop + slot;
             return slot >= 0 && slot < FacilitySlots && i < facList.Count ? facList[i] : null;
         }
 
@@ -88,7 +98,17 @@ namespace SurvivorCommunity
 
         private void TurnFacilities(int delta)
         {
-            facPage = Math.Max(0, Math.Min(FacPageCount() - 1, facPage + delta));
+            facTop = Math.Max(0, Math.Min(FacMaxTop(), facTop + delta * FacilitySlots));
+            RefreshBindingsSelfAndChildren();
+        }
+
+        /// <summary>Round fd2: the wheel - rolled away from you (a positive delta) goes up the list, a row per notch.</summary>
+        private void ScrollFacilities(float delta)
+        {
+            if (delta == 0f) return;
+            int to = Math.Max(0, Math.Min(FacMaxTop(), facTop + (delta > 0f ? -1 : 1)));
+            if (to == facTop) return;
+            facTop = to;
             RefreshBindingsSelfAndChildren();
         }
 
@@ -179,7 +199,7 @@ namespace SurvivorCommunity
                 }
                 case "facshowingtext":
                     value = facList.Count == 0 ? "" : string.Format(Localization.Get("scWinShowing"),
-                            Math.Max(0, Math.Min(FacilitySlots, facList.Count - facPage * FacilitySlots)), facList.Count);
+                            Math.Max(0, Math.Min(FacilitySlots, facList.Count - facTop)), facList.Count);
                     return true;
                 case "facpagevisible": value = (FacPageCount() > 1).ToString(); return true;
                 case "facselvisible": value = (sel != null).ToString(); return true;

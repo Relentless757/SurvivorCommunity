@@ -37,6 +37,34 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round fd2 (2026-11-21): the day's net per resource, farm plots, feast vs rationing, a quieter log
+
+Why: you asked for the daily +/- beside each resource, Farm plots in the facility list (scrolling), and a feast and
+rationing never at once; plus t88. Build `sc34_fd2`, **not deployed yet**. `sc status` prints the next rollover's figures
+to compare against.
+
+- [ ] **Daily net:** with 6 members, no cook, no crops and no outposts the food shows **-6** in red beside the count;
+      water shows the drink less the wells (`sc status`: `water N (wells +M)`). Plant crops (or give a cook): the food
+      number moves by the garden / the cook's saving. An outpost sending food: it moves by that much, as long as its
+      deliveries come home (a powered radio at home or a relay; without one the bundles wait at the outpost and the
+      number doesn't move). A resource that gains more than it loses shows **+N** in green; luxuries (nothing moves) show
+      nothing. With no members at all, Farm plots reads "Nobody home to harvest" and the garden adds nothing.
+- [ ] **Net matches the rollover:** note the strip, run `sc day` once: each stock changed by about the strip's number (a
+      run landing, a trade or shooting in between changes it too). Compare only the first `sc day` of a world day: a
+      second one replays the same day.
+- [ ] **Rationing in the net:** enact rationing: what is eaten tonight halves (rounded up), so the food number rises by
+      that much (-6 becomes -3 with nothing growing); the morale Food line does not move.
+- [ ] **Farm plots:** the Facilities list has **Farm plots** after Water: living crops, "+N food a day", crops per food
+      ("4 (name, level 4)" with a level-4 gardener at home, plain "5" without), and "N more crops" to the next food. No
+      crops: "Nothing planted".
+- [ ] **Wheel:** with more facilities than rows, the wheel over the list scrolls a row per notch (up rolls up), the
+      arrows still turn a page, and a picked facility stays picked.
+- [ ] **Feast vs rationing:** during a feast the Rationing row reads "Not during a feast" and its button is off;
+      enacting rationing first makes the Feast row read "Not while on rations" (also the next day while the penalty still
+      runs).
+- [ ] **Quieter log (t88):** with `DebugLogging` false, the log has `patch verification: all N targets patched` and
+      no `patched <target>` lines; with it true the `patched` lines appear once at world load.
+
 ## Round fd1 (2026-11-21): the garden, the feast and rationing
 
 Why: you found 10 crops a food too much, and asked for a feast and rationing on the food stations. Deployed

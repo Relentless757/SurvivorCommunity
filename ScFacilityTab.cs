@@ -69,7 +69,7 @@ namespace SurvivorCommunity
     public static class ScFacilityTab
     {
         public const string Defense = "defense", Beds = "beds", Water = "water", Workshop = "workshop", Campfire = "campfire",
-                            Radio = "radio", Watch = "watch", Tower = "tower", Sites = "sites";
+                            Radio = "radio", Watch = "watch", Tower = "tower", Sites = "sites", Farm = "farm";
         public const string Body = "226,220,208,255", Dim = "190,182,166,255", Off = "140,134,124,255", Good = "142,208,108,255",
                             Warn = "220,170,70,255", Bad = "226,108,86,255";
 
@@ -79,6 +79,7 @@ namespace SurvivorCommunity
             new KeyValuePair<string, FacilityProvider>(Defense, AddDefense),
             new KeyValuePair<string, FacilityProvider>(Beds, AddBeds),
             new KeyValuePair<string, FacilityProvider>(Water, AddWater),
+            new KeyValuePair<string, FacilityProvider>(Farm, AddFarm),            // round fd2
             new KeyValuePair<string, FacilityProvider>(Workshop, AddWorkshop),
             new KeyValuePair<string, FacilityProvider>(Campfire, AddCampfire),
             new KeyValuePair<string, FacilityProvider>(Radio, AddRadio),
@@ -491,6 +492,54 @@ namespace SurvivorCommunity
             return ok;
         }
 
+        // ------------------------------------------------------------------ the farm plots (round fd2) ----
+
+        /// <summary>
+        /// Round fd2 (the user): the farm plots - the living crops in the base (the scan's planted* blocks, one per plot; the
+        /// last count where chunks are not loaded) and the food they give a day (ScEconomy.Harvest), with the gardener who
+        /// lowers the crops a food takes (ScEconomy.CropsPerFood). No action.
+        /// </summary>
+        private static void AddFarm(List<FacilityEntry> into)
+        {
+            Community c = ScRegistry.Community;
+            Member gardener;
+            int per = ScEconomy.CropsPerFood(out gardener);
+            int crops = Math.Max(0, c.Crops);
+            int food = ScEconomy.Harvest();
+            var e = new FacilityEntry
+            {
+                Key = Farm,
+                Name = L("scUiFacFarm"),
+                Icon = "ui_game_symbol_crops",
+                Status = per <= 0 ? L("scUiFacFarmOff") : crops == 0 ? L("scUiFacFarmNone")
+                         : ScRegistry.Members.Count == 0 ? L("scUiFacFarmNobody") : Fmt("scUiFacFarmRow", food),
+                StatusColor = per <= 0 || crops == 0 || ScRegistry.Members.Count == 0 ? Off : food > 0 ? Good : Warn,
+                Sub = per <= 0 ? L("scUiFacFarmOffSub") : Fmt("scUiFacFarmSub", crops, per),
+            };
+            e.Fact("scUiFacFarmCrops", N(crops), crops > 0 ? Body : Off);
+            e.Fact("scUiFacFarmFood", per > 0 ? "+" + N(food) : "-", food > 0 ? Good : Off);
+            if (per > 0 && gardener != null)
+            {
+                Member g;
+                int level = ScSkills.BestSpecialist(Specialty.Gardening, out g);
+                e.Fact("scUiFacFarmPer", Fmt("scUiFacFarmPerWith", per, gardener.Name, level), Good);
+            }
+            else e.Fact("scUiFacFarmPer", per > 0 ? N(per) : "-");
+            if (per > 0) e.Fact("scUiFacFarmNext", Fmt("scUiFacFarmNextVal", per - crops % per));
+            e.About = Fmt("scUiFacFarmAbout", ScConfig.CropsPerFood, GardenerSteps());
+            into.Add(e);
+        }
+
+        /// <summary>"1 per 4 from level 4, 1 per 3 from level 7" from GardenerCropsPerFood.</summary>
+        private static string GardenerSteps()
+        {
+            int[] lv = ScConfig.GardenerCropLevels, cr = ScConfig.GardenerCrops;
+            var parts = new List<string>();
+            for (int i = 0; lv != null && cr != null && i < lv.Length && i < cr.Length; i++)
+                if (cr[i] > 0 && cr[i] < ScConfig.CropsPerFood) parts.Add(Fmt("scUiFacFarmGardenerStep", cr[i], lv[i]));
+            return parts.Count > 0 ? string.Join(", ", parts.ToArray()) : L("scUiFacFarmNoGardener");
+        }
+
         // ------------------------------------------------------------------ the campfire, host of the round of drinks ----
 
         private static void AddCampfire(List<FacilityEntry> into)
@@ -572,6 +621,7 @@ namespace SurvivorCommunity
             if (ScActivities.FeastActive) return Fmt("scUiActRunning", ScActivities.FeastTimeLeft());
             if (ScRegistry.Community.FeastDay == ScCommunity.Today) return L("scUiActFeastDoneToday");
             if (ScActivities.WhyNotFeast() == null) return L("scUiActReady");
+            if (ScActivities.RationInForce) return L("scUiActFeastRationing");      // round fd2
             // name what is missing only when the rest is in place (host, a home, members): else it would blame the cook
             if (ScCommunity.IsHost && ScRegistry.Community.HasHome && ScRegistry.Members.Count > 0)
             {
@@ -587,7 +637,8 @@ namespace SurvivorCommunity
         {
             if (ScActivities.FeastActive) return Good;
             if (ScRegistry.Community.FeastDay == ScCommunity.Today) return Dim;
-            return ScActivities.WhyNotFeast() == null ? Good : Bad;
+            if (ScActivities.WhyNotFeast() == null) return Good;
+            return ScActivities.RationInForce ? Dim : Bad;
         }
 
         /// <summary>Round fd1: rationing's line - its penalty running, enacted today, or ready.</summary>
@@ -596,6 +647,7 @@ namespace SurvivorCommunity
             if (ScRegistry.Community.RationDay == ScCommunity.Today)
                 return ScActivities.RationActive ? Fmt("scUiActRationRunning", ScActivities.RationTimeLeft()) : L("scUiActRationDoneToday");
             if (ScActivities.WhyNotRation() == null) return L("scUiActReady");
+            if (ScActivities.FeastActive) return L("scUiActRationFeast");            // round fd2
             if (ScCommunity.IsHost && ScRegistry.Community.HasHome && ScRegistry.Members.Count > 0 && ScActivities.RationSavesNothing())
                 return L("scUiActRationNothing");
             return L("scUiActNotReadyPlain");
@@ -604,7 +656,8 @@ namespace SurvivorCommunity
         private static string RationStatusColor()
         {
             if (ScRegistry.Community.RationDay == ScCommunity.Today) return ScActivities.RationActive ? Warn : Dim;
-            return ScActivities.WhyNotRation() == null ? Good : Bad;
+            if (ScActivities.WhyNotRation() == null) return Good;
+            return ScActivities.FeastActive ? Dim : Bad;
         }
 
         /// <summary>"Running - 12:34 left" / "Poured today - again tomorrow" / "Ready" / "Not enough luxuries or food".</summary>

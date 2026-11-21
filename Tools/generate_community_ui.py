@@ -206,7 +206,8 @@ def resources():
         o.append(icon(sprite, x0 + 38, -(RES_Y + RES_H // 2), 36))
         o.append(label(x0 + 66, -(RES_Y + 10), gw - 72, 20, 15, DIM, key=key, extra='upper_case="true"'))
         o.append(label(x0 + 66, -(RES_Y + 30), 80, 34, 30, TITLE, text="{%s}" % binding))
-        o.append(label(x0 + 120, -(RES_Y + 40), gw - 128, 20, 15, GOOD, text="{op%s}" % binding[3:], extra='justify="right"'))
+        # round fd2: the day's net (+N green / -N red / a dim +-0), colored by its own binding
+        o.append(label(x0 + 120, -(RES_Y + 39), gw - 128, 22, 17, "{op%scolor}" % binding[3:], text="{op%s}" % binding[3:], extra='justify="right"'))
         if extra:
             o.append(label(x0 + 66, -(RES_Y + 66), gw - 72, 18, 13, DIM, text="{%s}" % extra))
     return o
@@ -317,7 +318,7 @@ def facility_list():
     for i in range(1, FAC_ROWS + 1):
         y = ROWS_TOP + (i - 1) * (FAC_ROW_H + FAC_ROW_GAP)
         o += ['<rect depth="1" pos="0,0" width="%d" height="%d" visible="{fac%dvisible}">' % (MEM_W, PAN_H, i),
-              "\t" + button("btnFac%d" % i, 20, -y, w, FAC_ROW_H, sprite="scui_row", hover="scui_row_hover"),
+              "\t" + button("btnFac%d" % i, 20, -y, w, FAC_ROW_H, sprite="scui_row", hover="scui_row_hover", extra='on_scroll="true"'),   # fd2: the wheel
               '\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{fac%dselected}">' % (MEM_W, PAN_H, i),
               "\t\t" + plate("scui_row_selected", 20, -y, w, FAC_ROW_H, depth=3),
               "\t</rect>",

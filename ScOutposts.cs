@@ -796,10 +796,16 @@ namespace SurvivorCommunity
         /// </summary>
         public static int ProjectedDelivery(int day)
         {
+            return ProjectedDelivery(day, new int[ScNames.ResourceCount]);
+        }
+
+        /// <summary>Round fd2: the same, each resource's bundles into `delivered` (zeroed first); returns the total.</summary>
+        public static int ProjectedDelivery(int day, int[] delivered)
+        {
+            Array.Clear(delivered, 0, delivered.Length);
             Community c = ScRegistry.Community;
             List<Outpost> list = ScRegistry.Outposts;
             if (list.Count == 0) return 0;
-            var delivered = new int[ScNames.ResourceCount];
             Deliver(list, ScEconomy.NetworkYields(day), c.RadioOnlineDay >= day - 1 || RadioOnlineAnywhere(), false, delivered);
             int total = 0;
             for (int r = 0; r < ScNames.ResourceCount; r++) total += delivered[r];

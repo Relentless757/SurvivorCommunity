@@ -1104,6 +1104,8 @@ scUiActFeastNeedsFood,UI,Menu,,,,Not enough food
 scUiActRationRunning,UI,Menu,,,,In force - penalty {0} left
 scUiActRationDoneToday,UI,Menu,,,,Enacted today - again tomorrow
 scUiActRationNothing,UI,Menu,,,,Nothing to save tonight
+scUiActFeastRationing,UI,Menu,,,,Not while on rations
+scUiActRationFeast,UI,Menu,,,,Not during a feast
 scActDrinks,UI,Menu,,,,Prepare a round of drinks
 scActDrinksDesc,UI,Menu,,,,"Break out the good stuff and pour everyone a drink. After a loss it lifts the community's spirits for a while. It costs luxuries and a little food, and there is one round a day. The time only runs while you play."
 scActNoMembers,UI,Tooltip,,,,There is nobody at home to share a drink with.
@@ -1128,6 +1130,8 @@ scActFeastServed,UI,Tooltip,,,,{0} serves a feast. Spirits lift: +{1} morale and
 scActFeastOver,UI,Tooltip,,,,The feast has worn off.
 scActRationToday,UI,Tooltip,,,,Rationing has already been enacted today - try again tomorrow.
 scActRationNothing,UI,Tooltip,,,,Tonight's food is too little for rationing to save any.
+scActFeastRationing,UI,Tooltip,,,,No feast while the community is on rations.
+scActRationFeast,UI,Tooltip,,,,Not while a feast is going on.
 scActRationEnacted,UI,Tooltip,,,,Rationing enacted: tonight the community eats {0} food instead of {1}. Morale -{2} and max stamina -{3} for {4} minutes.
 scActRationOver,UI,Tooltip,,,,The worst of the rationing has passed: its morale and stamina penalty is over.
 scUiFacilities,UI,Menu,,,,Facilities
@@ -1214,6 +1218,22 @@ scUiFacSiteRow,UI,Menu,,,,Level {0} - {1} water a day
 scUiFacLevel,UI,Menu,,,,Level
 scUiFacLevelOf,UI,Menu,,,,{0} of {1}
 scUiFacWaterADay,UI,Menu,,,,Water a day
+scUiFacFarm,UI,Menu,,,,Farm plots
+scUiFacFarmRow,UI,Menu,,,,+{0} food a day
+scUiFacFarmNone,UI,Menu,,,,Nothing planted
+scUiFacFarmNobody,UI,Menu,,,,Nobody home to harvest
+scUiFacFarmOff,UI,Menu,,,,The garden is off
+scUiFacFarmOffSub,UI,Menu,,,,CropsPerFood is 0 in the settings
+scUiFacFarmSub,UI,Menu,,,,"{0} crops, 1 food per {1}"
+scUiFacFarmCrops,UI,Menu,,,,Living crops
+scUiFacFarmFood,UI,Menu,,,,Food a day
+scUiFacFarmPer,UI,Menu,,,,Crops per food
+scUiFacFarmPerWith,UI,Menu,,,,"{0} ({1}, level {2})"
+scUiFacFarmNext,UI,Menu,,,,Next food
+scUiFacFarmNextVal,UI,Menu,,,,{0} more crops
+scUiFacFarmGardenerStep,UI,Menu,,,,1 per {0} from level {1}
+scUiFacFarmNoGardener,UI,Menu,,,,no gardener bonus is set
+scUiFacFarmAbout,UI,Menu,,,,"Every living crop planted inside the base counts, one per farm plot. The garden gives 1 food a day per {0} crops, with no gardener needed, and your best gardener at home lowers that: {1}. Only that one gardener counts. The food goes into the stockpile at the end of the day, before the community eats."
 scUiFacNextLevel,UI,Menu,,,,Next level
 scUiFacTopLevel,UI,Menu,,,,Top level reached
 scUiFacNextCost,UI,Menu,,,,{0} materials (stockpile: {1})

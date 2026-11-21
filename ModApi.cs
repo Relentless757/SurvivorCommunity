@@ -731,6 +731,22 @@ namespace SurvivorCommunity
             return t;
         }
 
+        /// <summary>
+        /// Round fd2 (t88): the targets VerifyPatches found patched. Their one-line-each list is DebugLogging's (ScConfig.Verbose),
+        /// which is only known once the config is read at world load - LogPatchedTargets writes it then; the summary line and
+        /// every MISSING line are written at start-up whatever the setting.
+        /// </summary>
+        private static readonly List<string> patchedLabels = new List<string>();
+        private static bool patchedListed;
+
+        /// <summary>ScConfig, once DebugLogging is read: with it on, the "patched X" line of each target (once per game launch).</summary>
+        public static void LogPatchedTargets()
+        {
+            if (patchedListed || !ScConfig.Verbose) return;
+            patchedListed = true;
+            for (int i = 0; i < patchedLabels.Count; i++) ScLog.Out("patched " + patchedLabels[i]);
+        }
+
         private static void VerifyPatches(HarmonyLib.Harmony h)
         {
             HashSet<MethodBase> patched;
@@ -744,7 +760,7 @@ namespace SurvivorCommunity
                 Target t = expected[i];
                 if (t.Method == null) { missing++; ScLog.Err("MISSING PATCH " + t.Label + " - method not found (signature changed?)"); }
                 else if (!patched.Contains(t.Method)) { missing++; ScLog.Err("MISSING PATCH " + t.Label + " - no patch applied"); }
-                else { ok++; ScLog.Out("patched " + t.Label); }
+                else { ok++; patchedLabels.Add(t.Label); }      // t88: listed by LogPatchedTargets with DebugLogging
             }
             foreach (MethodBase m in patched)
             {
@@ -753,7 +769,7 @@ namespace SurvivorCommunity
                 if (!known) ScLog.Warn("patched an unlisted method: " + (m.DeclaringType != null ? m.DeclaringType.Name : "?") + "::" + m.Name);
             }
             if (missing > 0) ScLog.Err("patch verification: " + ok + " ok, " + missing + " MISSING of " + expected.Count);
-            else ScLog.Out("patch verification: all " + expected.Count + " targets patched");
+            else ScLog.Out("patch verification: all " + expected.Count + " targets patched (DebugLogging lists them at world load)");
         }
 
         private static void LogFeatureHashes()

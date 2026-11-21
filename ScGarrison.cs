@@ -1151,6 +1151,38 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ workshops ----
 
         /// <summary>
+        /// Round fd2: Workshops on a copy of the stock (what the rollover will have when they run), changing nothing: what they
+        /// would make goes into gain, what they would use into use, and stock follows along as it does there.
+        /// </summary>
+        public static void ProjectedWorkshops(int[] stock, int[] gain, int[] use)
+        {
+            if (!ScConfig.OutpostWorkshop || stock == null) return;
+            int keep = Math.Max(0, ScConfig.OutpostWorkshopKeep);
+            int mats = (int)Resource.Materials, fuel = (int)Resource.Fuel, ammo = (int)Resource.Ammo, meds = (int)Resource.Meds;
+            foreach (Outpost o in ScRegistry.Outposts)
+            {
+                if (o.State != OutpostState.Active) continue;
+                bool crafter = false, chemist = false;
+                foreach (Member m in Staff(o))
+                {
+                    if (m.Specialty == Specialty.Craftsmanship) crafter = true;
+                    if (m.Specialty == Specialty.Chemistry) chemist = true;
+                }
+                if (crafter && stock[mats] >= keep + 2)
+                {
+                    stock[mats] -= 2; use[mats] += 2;
+                    stock[ammo] += 1; gain[ammo] += 1;
+                }
+                else if (chemist && stock[mats] >= keep + 1 && stock[fuel] >= Math.Max(1, keep / 2) + 1)
+                {
+                    stock[mats] -= 1; use[mats] += 1;
+                    stock[fuel] -= 1; use[fuel] += 1;
+                    stock[meds] += 1; gain[meds] += 1;
+                }
+            }
+        }
+
+        /// <summary>
         /// ScOutposts.Daily: an outpost with a crafter posted turns 2 materials into 1 ammo, one with a chemist
         /// 1 fuel + 1 materials into 1 meds - only out of surplus (the stockpile keeps OutpostWorkshopKeep).
         /// </summary>

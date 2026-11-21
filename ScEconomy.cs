@@ -99,6 +99,7 @@ namespace SurvivorCommunity
         public static int Harvest()
         {
             Community c = ScRegistry.Community;
+            if (ScRegistry.Members.Count == 0) return 0;     // fd2 review: DailyConsume returns before the garden with nobody home
             Member g;
             int per = CropsPerFood(out g);
             if (per <= 0 || c.Crops <= 0) return 0;
@@ -387,6 +388,44 @@ namespace SurvivorCommunity
         public static int Haulage(int delivered)
         {
             return ScConfig.OutpostHaulPerFuel > 0 ? Math.Max(0, delivered) / ScConfig.OutpostHaulPerFuel : 0;
+        }
+
+        // ------------------------------------------------------------------ the daily flow (round fd2) ----
+
+        /// <summary>
+        /// Round fd2: what the rollover into `day` adds to (gain) and takes from (use) each resource, from the functions the
+        /// rollover itself runs, in its order, before any shortage: the outposts' deliveries, upkeep (materials), haulage (fuel)
+        /// and workshops; the allies' bundles; the garden and the wells and dew collectors; what the members eat (the cook and
+        /// tonight's rationing included) and drink; the Meds the injured need. Not daily, so not counted: runs, trades, crafting,
+        /// the activities, ammo (spent only by shooting, D3, and by watch shifts as they start). The window's resource strip
+        /// shows gain - use. A pure read.
+        /// </summary>
+        public static void DailyFlow(int day, int[] gain, int[] use)
+        {
+            Array.Clear(gain, 0, gain.Length);
+            Array.Clear(use, 0, use.Length);
+            if (!ScRegistry.Loaded) return;
+            Community c = ScRegistry.Community;
+            int n = ScNames.ResourceCount;
+            // ScOutposts.Daily: deliveries, then upkeep and haulage, then the workshops out of what is left
+            var delivered = new int[n];
+            int total = ScOutposts.ProjectedDelivery(day, delivered);
+            for (int r = 0; r < n; r++) gain[r] += delivered[r];
+            use[(int)Resource.Materials] += Upkeep(day);
+            use[(int)Resource.Fuel] += Haulage(total);
+            var stock = new int[n];
+            for (int r = 0; r < n; r++) stock[r] = Math.Max(0, c.Get((Resource)r) + gain[r] - use[r]);
+            ScGarrison.ProjectedWorkshops(stock, gain, use);
+            // ScEncAllies.Daily: each ally's bundles
+            ScEncAllies.ProjectedBundles(gain);
+            // ScStockpile.DailyConsume
+            gain[(int)Resource.Water] += Math.Max(0, c.HomeWater);
+            gain[(int)Resource.Food] += Harvest();
+            int raw, saved, cut;
+            Member cook;
+            use[(int)Resource.Food] += FoodEaten(day, out raw, out saved, out cook, out cut);
+            use[(int)Resource.Water] += WaterDrunk();
+            use[(int)Resource.Meds] += ScStockpile.MedsForRollover();
         }
 
         // ------------------------------------------------------------------ the console ----

@@ -438,6 +438,7 @@ The **Campfire** on the **Facilities** tab also hosts **Prepare a feast**:
   a level-7 cook's feast is +16 morale and +22 max stamina.
 - Once per game day, and not while one is still going (a feast held late in the evening runs on past midnight).
   The cook earns specialty XP from it.
+- Not while the community is on rations (rationing enacted today, or its penalty still running).
 - In multiplayer the max stamina reaches the members and the host's own character; other players get the morale only.
 
 ### Rationing
@@ -449,7 +450,7 @@ The **Campfire** also hosts **Enact rationing**:
 - Hungry people grumble: **-15 morale** and **-15 max stamina** for every member and you for **an hour** of real play
   time.
 - Once per game day. It costs nothing and needs no cook or campfire, but it can't be enacted when it would save no
-  food (one member eating 1 food a day).
+  food (one member eating 1 food a day), or while a feast is going on.
 - The Food line of morale and the days of food left go by an ordinary day's food, so rationing doesn't make them
   look better.
 
@@ -1847,6 +1848,12 @@ outpost's **Outpost** radial. With the tab bar showing, the gamepad bumpers page
 
 The window has three tabs: Members, Outposts and Facilities.
 
+Across the top is the stockpile: each resource's count, and beside it what the next day's end will add or take,
+**+N** in green, **-N** in red, **±0** when it adds and takes as much. It counts everything that happens every day: the
+outposts' deliveries, upkeep, haulage and workshops, your allies' bundles, the garden, the wells and dew collectors,
+what your people eat (with the cook and tonight's rationing) and drink, and the Meds the injured need. Runs, trades,
+crafting, the activities and ammo (spent only by shooting and as watch shifts start) are not counted.
+
 ### Members
 
 - **Left:** one row per member with their status, mood, skills and specialty. Injured rows are red. A **filter** (All
@@ -1876,12 +1883,14 @@ recall them.
 ### Facilities
 
 The base's facilities on the left, the one you pick on the right with what it does and its buttons. A facility's buttons
-are where its activities live.
+are where its activities live. The mouse wheel over the list scrolls it a row at a time; the arrows turn a page.
 
 - **Defense:** the defense rating against the next horde, the noise, the dead's attention and how fast it grows, and the
   last attack's result (with any salvage). **Lights out / Lights on** (section 9).
 - **Beds:** beds against members, the morale they give, and which beds count.
 - **Water:** what the wells and dew collectors make against what your people drink.
+- **Farm plots:** the living crops in the base, the food they give a day, how many crops a food takes (and the gardener
+  who lowers it), and how many more crops make the next food.
 - **Workshop:** workbenches, forges, chemistry stations and cement mixers. **Call to work** shows your residents: pick
   one, and they come to you for a work shift (pick someone already on one to end it).
 - **Campfire:** the state of the round of drinks, the feast and rationing, what each costs and gives (with your

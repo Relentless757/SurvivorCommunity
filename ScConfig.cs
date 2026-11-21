@@ -2889,6 +2889,7 @@ namespace SurvivorCommunity
                         if (od != null) Outfits.Add(od);
                     }
                 }
+                SurvivorCommunityModApi.LogPatchedTargets();       // round fd2 (t88): DebugLogging is known now
                 parsed = true;
                 ScLog.Out("config: MaxMembers=" + MaxMembers + " MaxFollowers=" + MaxFollowers + " MemberFoodPerDay=" + MemberFoodPerDay + " cook/crops=" + CookStarsPerFood + "/" + CropsPerFood
                           + " AmmoPerRangedDay=" + AmmoPerRangedDay + " PointsPerBundle=[" + string.Join(",", Array.ConvertAll(PointsPerBundle, x => x.ToString())) + "]"

@@ -1,5 +1,18 @@
 # Next pre-release (not released yet)
 
+## Community window
+
+- **The day's net beside each resource.** The stockpile across the top of the community window shows, next to each
+  count, what the next day's end will add or take: +N in green, -N in red. Six members and nothing growing shows -6 by
+  the food; an outpost sending 2 food makes it -4. It counts the outposts (deliveries, upkeep, haulage, workshops),
+  allies' bundles, the garden, wells and dew collectors, what your people eat and drink, and the Meds the injured need.
+- **Farm plots** are a facility now: the living crops, the food a day, the crops a food takes (and your gardener), and
+  how many more crops make the next food.
+- The Facilities list scrolls with the mouse wheel, a row at a time.
+- A feast and rationing never run at once: no feast while the community is on rations, no rationing during a feast.
+- Quieter log: the one-line-per-patch list only appears with `DebugLogging` on, at world load (the start-up summary
+  line stays).
+
 ## Food
 
 - **The garden is easier.** It makes 1 food a day per **5** crops instead of 10, and no longer needs a gardener at all.

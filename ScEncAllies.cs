@@ -327,6 +327,20 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ the day (ScDaily.Run) ----
 
+        /// <summary>Round fd2: the bundles the allies will send at the next rollover (Daily's step 1), added into `into`.</summary>
+        public static void ProjectedBundles(int[] into)
+        {
+            if (into == null || !ScEnclaves.Ready || !ScConfig.Enclaves || !ScRegistry.Loaded) return;
+            int units = Math.Max(0, ScConfig.EnclaveBenefitBundles);
+            if (units <= 0) return;
+            foreach (Enclave e in ScEnclaves.All)
+            {
+                int res = ResourceOf(e.Benefit);
+                if (res < 0 || res >= into.Length || !IsAlly(e)) continue;
+                into[res] += units;
+            }
+        }
+
         /// <summary>
         /// ScDaily.Run, after the infestations (each rollover, "sc day" too): 1. each ally with a resource benefit adds
         /// EnclaveBenefitBundles units to the stockpile - before the day's needs, in the day's summary line; 2. on the request
