@@ -844,6 +844,7 @@ namespace UAI
         /// home attack the defended area, the zone + BaseAttackDefendMargin), so Voice Control's refusal of it stands? Only a
         /// resident at home with a post (H1's HomeBody test), never a guard on watch (he shoots from his post at whatever comes)
         /// nor a resident ScInvestigate sent to it (her own area); with DefendBaseRadius 0 nothing is out of reach. A read.
+        /// Round nc3: no longer called (the MayEngage postfix dropped it); kept for the console and a later use.
         /// </summary>
         public static bool BeyondDefendRadius(EntityAlive self, EntityAlive t)
         {
@@ -950,7 +951,7 @@ namespace UAI
             }
             else if (!responder)
             {
-                string far = RadiusWhy(self, m, t, radius);      // round nc1: shared with the MayEngage postfix (BeyondDefendRadius)
+                string far = RadiusWhy(self, m, t, radius);      // round nc1 split it out (BeyondDefendRadius, unused since nc3)
                 if (far != null) return far;
                 if (!ScZone.Contains(t.GetBlockPosition())) return "outside the home zone";
 #if SC_V34

@@ -1809,8 +1809,9 @@ The audit of the update and the user's decisions D1-D6 are in the round's report
   a refused far one (vanilla's `UAIPackage.DecideAction` keeps the first strictly higher score, and MeleeApproach is
   listed first). Round nc3 (the user) removed nc1's second half - 0 beyond `DefendBaseRadius` for a resident at home
   (`UAIConsiderationScIntruder.BeyondDefendRadius`): it gated every shot of the ranged package, so a resident stopped
-  shooting the zombies chasing the player the moment they followed the player out of the base. `BeyondDefendRadius`
-  stays for H1; the walk is bounded by the leash (ScReturn, `PastLeash`).
+  shooting the zombies chasing the player the moment they followed the player out of the base. `BeyondDefendRadius` is
+  unused now (H1 calls `RadiusWhy` itself); the walk is bounded by the leash (ScReturn, `PastLeash`): a melee-only
+  resident can still go out to it (zone + `ResidentRoamZoneMargin`) and walk back, as with zone roaming before.
 - **The posture holds through a target lapse (item 11, `ScPosture.Update`).** A fight posture whose `ScTeam.Target` is
   null for under `TargetLapseSeconds` (1 s) while its last target lives stays as it is (`posture-lapse-held`).
 - **EnemyNotNear halved (D6).** 0-SCore 3.4.25's `IsEnemyNearby` builds its search box at twice the distance (it used the

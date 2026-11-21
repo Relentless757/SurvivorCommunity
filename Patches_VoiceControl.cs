@@ -1145,9 +1145,9 @@ namespace SurvivorCommunity
         /// class sets no SdcsKeepTarget, MeleeAttack on the biker in reach could at best tie at 5.0, and vanilla's
         /// UAIPackage.DecideAction keeps the first strictly higher score, so MeleeApproach (listed first) won every tie: he walked
         /// off from the fight in front of him. Now a refusal becomes RefusalPass (0.85), below Voice Control's own pass for the
-        /// enemy she is fighting; and for a resident at home it stays 0 for an enemy beyond DefendBaseRadius - the radius test
-        /// H1's HoldEngaged gate uses (UAIConsiderationScIntruder.BeyondDefendRadius). As a follower Voice Control refuses the far
-        /// zombie itself, which is why followers never showed it.
+        /// enemy she is fighting (round nc3 removed nc1's second rule, 0 beyond DefendBaseRadius for a resident at home: it
+        /// gated every shot, so residents stopped shooting zombies that followed the player out of the base). As a follower
+        /// Voice Control refuses the far zombie itself, which is why followers never showed it.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_MayEngage

@@ -45,8 +45,8 @@ engaging beyond `DefendBaseRadius`) gated every shot. Build `sc34_nc3`, **not de
 - [ ] **Chased out of the base:** with a resident shooting zombies that chase you, step out of the base with them following:
       he keeps shooting them as long as he sees them and they're in his gun's reach. `sc xnpc` counters: no
       `mayengage-beyond-radius` any more.
-- [ ] **He stays home:** he doesn't run out of the base after them past his leash (zone + 6 m with roaming); a melee resident
-      follows at most to the leash, then walks back.
+- [ ] **He stays home:** he doesn't run out of the base after them past his leash (with zone roaming: the zone +
+      `ResidentRoamZoneMargin`, 8 m); a melee resident follows at most to the leash, then walks back.
 - [ ] **Tom's case still holds:** a resident in a melee fight with a zombie in reach, another zombie far off: he finishes the
       near one first.
 - [ ] **Wanderers still left alone:** a zombie wandering through (after nobody) is still left to the residents sent to
