@@ -39,8 +39,8 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 
 ## Round fd1 (2026-11-21): the garden, the feast and rationing
 
-Why: you found 10 crops a food too much, and asked for a feast and rationing on the food stations. Build `sc34_fd1`,
-**not deployed yet**. `sc status` prints the next rollover's food line (with the crops a food takes and who lowers it,
+Why: you found 10 crops a food too much, and asked for a feast and rationing on the food stations. Deployed
+2026-11-21 (port-3.4 1a836e4e, DLL c01ce96c). `sc status` prints the next rollover's food line (with the crops a food takes and who lowers it,
 and what rationing cuts); `sc feast` and `sc ration` print their state (`on` / `off` start or end one for free).
 
 - [ ] **Garden without a gardener:** with no gardener at home and some living crops in the base, `sc status` says
