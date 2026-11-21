@@ -337,7 +337,7 @@ def build():
          '\t     answers its bindings, the card is the talk snapshot\'s (XUiC_ScMemberCard). windowScMemberInvSpace is an empty',
          '\t     window of the same size in the Left stack panel: it keeps the looting window\'s place, so the backpack\'s columns',
          '\t     lay out as for looting, and gives the panel its default place. Three looks: AshfallUI\'s scui_* plates when it is',
-         '\t     loaded, vanilla\'s otherwise (Tools/vanilla_look.py). -->',
+         '\t     loaded, vanilla\'s on SC\'s own sc_item_stack with SteelUI (round ui1), vanilla\'s otherwise (Tools/vanilla_look.py). -->',
          '\t<append xpath="/windows">',
          '\t\t<window name="windowScMemberInvSpace" width="%d" height="%d" panel="Left" cursor_area="false"/>' % (W, H),
          '\t</append>']
