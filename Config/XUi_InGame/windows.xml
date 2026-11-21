@@ -129,6 +129,20 @@
 	<insertAfter xpath="/windows/window[@name='ingameMenu']/grid[@name='buttons']/simplebutton[@name='btnNPCView']">
 		<simplebutton name="btnScCommunity" depth="3" width="250" height="46" caption_key="xuiScCommunity" font_size="34" visible="{# !is_prefab_editor}"/>
 	</insertAfter>
+	<!-- Round ui1 (research/uicompat/steelshot.md 6.4): Steelshot UI styles its menu buttons before SC inserts this one, so
+	     it gets Steelshot's look here - the same eight values Steelshot gives its own (its windows.xml:3850-3857). -->
+	<conditional>
+		<if cond="mod_loaded('SteelshotUi') and not mod_loaded('zzzzz_AshfallUI')">
+			<setattribute xpath="/windows/window[@name='ingameMenu']/grid[@name='buttons']/simplebutton[@name='btnScCommunity']" name="defaultsprite">panel_glass</setattribute>
+			<setattribute xpath="/windows/window[@name='ingameMenu']/grid[@name='buttons']/simplebutton[@name='btnScCommunity']" name="hoversprite">panel_glass</setattribute>
+			<setattribute xpath="/windows/window[@name='ingameMenu']/grid[@name='buttons']/simplebutton[@name='btnScCommunity']" name="selectedsprite">panel_glass</setattribute>
+			<setattribute xpath="/windows/window[@name='ingameMenu']/grid[@name='buttons']/simplebutton[@name='btnScCommunity']" name="defaultcolor">255,255,255,255</setattribute>
+			<setattribute xpath="/windows/window[@name='ingameMenu']/grid[@name='buttons']/simplebutton[@name='btnScCommunity']" name="hovercolor">142,1,1,149</setattribute>
+			<setattribute xpath="/windows/window[@name='ingameMenu']/grid[@name='buttons']/simplebutton[@name='btnScCommunity']" name="selectedcolor">255,0,0,255</setattribute>
+			<setattribute xpath="/windows/window[@name='ingameMenu']/grid[@name='buttons']/simplebutton[@name='btnScCommunity']" name="bordercolor">0,0,0,0</setattribute>
+			<setattribute xpath="/windows/window[@name='ingameMenu']/grid[@name='buttons']/simplebutton[@name='btnScCommunity']" name="upper_case">true</setattribute>
+		</if>
+	</conditional>
 
 	<!-- The Community tab (W1, round 19): the community window is a page of the player menu, its tab standing apart on a
 	     plate of its own LEFT of the tab bar - not one of the bar's tabs, as Creative hangs off AshfallUI's bar on the right.
@@ -199,6 +213,28 @@
 					</rect>
 				</rect>
 			</append>
+		</if>
+		<!-- Round ui1 (research/uicompat/steelshot.md 6.1): Steelshot UI re-lays windowPagingHeader every frame (screen width
+		     + 320 wide, its x=0 160 units off the left edge), which puts tabs at negative x off the screen. These anchor to
+		     the screen's top-left corner (#cam, as vanilla's XUi_Menu does) under its glass bar, in its iconbutton look:
+		     Community first, Radio beside it while a handheld radio is carried. No lb_shown / lb_hidden and no LB_Icon move:
+		     Steelshot places that icon itself. -->
+		<if cond="mod_loaded('SteelshotUi')">
+			<append xpath="/windows/window[@name='windowPagingHeader']">
+				<rect name="scCommunityTab" depth="0" visible="{# !is_prefab_editor}" anchor_left="#cam,0,16" anchor_right="#cam,0,68" anchor_top="#cam,1,-62" anchor_bottom="#cam,1,-106">
+					<iconbutton depth="3" name="ScCommunity" pos="26,-22" width="52" height="44" sprite="panel_glass" type="sliced" steelshot_glow="true" selectable="true" snap="false" hoverscale="1" color_default="255,255,255,255" color_hovered="255,255,255,255" color_selected="255,255,255,255" tooltip_key="xuiScCommunity" gamepad_selectable="false" visible="{# !is_prefab_editor}"/>
+					<sprite depth="18" name="scCommunityTabIcon" pos="26,-22" width="25" height="25" pivot="center" sprite="ui_game_symbol_map_cabin" color="[white]" foregroundlayer="true"/>
+				</rect>
+				<rect name="scRadioTab" controller="SurvivorCommunity.ScRadioTab, SurvivorCommunity" depth="0" visible="{scradiotab}" anchor_left="#cam,0,72" anchor_right="#cam,0,124" anchor_top="#cam,1,-62" anchor_bottom="#cam,1,-106">
+					<iconbutton depth="3" name="ScRadio" pos="26,-22" width="52" height="44" sprite="panel_glass" type="sliced" steelshot_glow="true" selectable="true" snap="false" hoverscale="1" color_default="255,255,255,255" color_hovered="255,255,255,255" color_selected="255,255,255,255" tooltip_key="xuiScRadio" gamepad_selectable="false" visible="{scradiotab}"/>
+					<sprite depth="18" name="scRadioTabIcon" pos="26,-22" width="25" height="25" pivot="center" sprite="ui_game_symbol_talk" color="[white]" foregroundlayer="true"/>
+				</rect>
+			</append>
+		</if>
+		<!-- Round ui1 (research/uicompat/steelui.md 6.1): SteelUI loads after SC and replaces windowPagingHeader, so tabs
+		     appended here would be deleted; the companion folder zzzz_SteelUI_SurvivorCommunity (Compat/) adds them to
+		     SteelUI's bar instead. An empty branch applies as a success. -->
+		<if cond="mod_loaded('SteelUI')">
 		</if>
 		<else>
 			<append xpath="/windows/window[@name='windowPagingHeader']">
@@ -2056,6 +2092,20 @@
 	     fill of the same sprite in 50 gray at 220; the strip a darker inset of it rather than SC's teal. The rim goes
 	     under the fill (depth -1), the strip and its icon stay over it. -->
 	<conditional>
+		<!-- Round ui1 (research/uicompat/steelshot.md 6.3): below Steelshot UI's 700-wide compass and its location / game
+		     stage row (to y -90), on its glass plate with a thin red inset strip like its accents. First, so the vanilla
+		     look's fill (scPlateFill) is not laid over the glass. -->
+		<if cond="mod_loaded('SteelshotUi') and not mod_loaded('zzzzz_AshfallUI')">
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']" name="pos">214,-100</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='plate']" name="sprite">panel_glass</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='plate']" name="type">sliced</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='plate']" name="color">255,255,255,255</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='strip']" name="pos">6,-6</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='strip']" name="width">36</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='strip']" name="height">96</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='strip']" name="color">142,1,1,149</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='stripIcon']" name="pos">24,-54</setattribute>
+		</if>
 		<if cond="not mod_loaded('zzzzz_AshfallUI')">
 			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='plate']" name="sprite">ui_game_header_fill</setattribute>
 			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='plate']" name="color">150,150,150,150</setattribute>
@@ -2070,6 +2120,29 @@
 			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='strip']" name="width">36</setattribute>
 			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='strip']" name="height">96</setattribute>
 			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='stripIcon']" name="pos">24,-54</setattribute>
+		</if>
+	</conditional>
+	<!-- Round ui1 (research/uicompat/steelui.md 6.4): SteelUI's top HUD (compass clock, game stage line, quest tracker
+	     plate) covers x 214..608, so the panel goes under its location row, left of center, on a black plate like its
+	     quest tracker's (scPlateFill is the vanilla look's fill above - hence the same guard). A starting point to check on
+	     screen: at 16:10 it can touch the party list's distance labels. -->
+	<conditional>
+		<if cond="mod_loaded('SteelUI') and not mod_loaded('zzzzz_AshfallUI') and not mod_loaded('SteelshotUi')">
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']" name="pos">-640,-80</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='plate']" name="color">0,0,0,0</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='scPlateFill']" name="color">0,0,0,204</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='scPlateFill']" name="pos">0,0</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='scPlateFill']" name="width">394</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='scPlateFill']" name="height">108</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']/rect[@name='panel']/sprite[@name='strip']" name="color">20,20,20,230</setattribute>
+		</if>
+	</conditional>
+	<!-- Round ui1 (research/uicompat/catui.md 6.1): CATUI's compass adds a clock box (x 212..354) and an enemy-alert bar
+	     (y -44..-68) right of center, over this panel's top-left; below them instead (y -76..-184), 10 clear of its
+	     location panel and quest tracker at 16:9. Only SC's own window, so CATUI loading after SC does not matter. -->
+	<conditional>
+		<if cond="mod_loaded('CATUI')">
+			<setattribute xpath="/windows/window[@name='windowScHomeStatus']" name="pos">214,-76</setattribute>
 		</if>
 	</conditional>
 
@@ -2473,6 +2546,184 @@
 				</window>
 			</append>
 		</if>
+		<if cond="mod_loaded('SteelUI')">
+			<append xpath="/windows">
+				<window name="windowScMemberInv" anchor="TopLeft" pos="40,-100" width="556" height="740" controller="SurvivorCommunity.ScMemberInv, SurvivorCommunity" cursor_area="true">
+					<sprite depth="-1" sprite="menu_empty" type="sliced" color="16,16,16,255" pos="0,0" width="556" height="740" globalopacitymod="0"/>
+					<sprite depth="1" sprite="menu_empty2px" type="sliced" fillcenter="false" color="64,64,64,255" pos="0,0" width="556" height="740" globalopacitymod="0"/>
+					<sprite depth="1" sprite="ui_game_panel_header" type="sliced" color="128,128,128,255" pos="8,-8" width="540" height="36" globalopacitymod="0" name="dragBar" on_press="true" on_drag="true" gamepad_selectable="false" snap="false" tooltip_key="scInvDragTip"/>
+					<label depth="4" pos="18,-13" width="250" height="26" font_size="22" text="{invname}" color="255,255,255,255" upper_case="true" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+					<label depth="4" pos="268,-17" width="236" height="20" font_size="15" text="{invsub}" color="222,206,163,255" justify="right" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+					<button depth="2" name="btnClose" pos="512,-12" width="30" height="28" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]" tooltip_key="scInvCloseTip"/>
+					<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="512,-12" width="30" height="28"/>
+					<sprite depth="4" sprite="ui_game_symbol_x" pos="527,-26" width="16" height="16" pivot="center" color="[white]"/>
+					<rect name="card" depth="0" pos="8,-52" width="232" height="340" controller="SurvivorCommunity.ScMemberCard, SurvivorCommunity">
+						<sprite depth="0" sprite="menu_empty" type="sliced" color="64,64,64,255" pos="0,0" width="232" height="340" globalopacitymod="0"/>
+						<sprite depth="1" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="0,0" width="232" height="340" globalopacitymod="0"/>
+						<rect depth="0" visible="{snapvisible}" width="232" height="340">
+							<sprite depth="3" sprite="menu_empty" type="sliced" color="0,0,0,255" pos="8,-8" width="72" height="72"/>
+							<sprite depth="4" sprite="ui_game_symbol_player" pos="44,-44" width="40" height="40" pivot="center" color="[white]" visible="{snapnoportrait}"/>
+							<texture depth="5" name="snapPortrait" pos="12,-12" width="64" height="64" visible="{snaphasportrait}"/>
+							<label depth="4" pos="88,-8" width="136" height="20" font_size="16" text="{snaprole}" color="222,206,163,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+							<sprite depth="3" sprite="ui_game_symbol_add" pos="96,-40" width="16" height="16" pivot="center" color="[white]"/>
+							<label depth="4" pos="108,-31" width="116" height="20" font_size="16" text="{snaphealth} / {snaphealthmax}" color="255,255,255,255"/>
+							<sprite depth="3" sprite="ui_game_symbol_run" pos="96,-60" width="16" height="16" pivot="center" color="[white]"/>
+							<label depth="4" pos="108,-51" width="116" height="20" font_size="16" text="{snapstamina} / {snapstaminamax}" color="255,255,255,255"/>
+							<sprite depth="3" sprite="{snapmoodicon}" pos="96,-80" width="20" height="20" pivot="center" color="[white]"/>
+							<label depth="4" pos="110,-71" width="114" height="20" font_size="16" text="{snapmoodword}" color="{snapmoodcolor}" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+							<label depth="4" pos="8,-92" width="216" height="18" font_size="15" text_key="scUiTraits" color="255,255,255,255" upper_case="true"/>
+							<sprite depth="1" sprite="menu_empty" type="sliced" color="128,128,128,255" pos="8,-110" width="216" height="2"/>
+							<rect depth="1" visible="{snaptrait1visible}">
+								<sprite depth="3" sprite="ui_game_filled_circle" pos="14,-123" width="6" height="6" pivot="center" color="180,180,180,255"/>
+								<label depth="4" pos="24,-114" width="200" height="18" font_size="14" text="{snaptrait1}" color="255,255,255,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+							</rect>
+							<rect depth="1" visible="{snaptrait2visible}">
+								<sprite depth="3" sprite="ui_game_filled_circle" pos="14,-141" width="6" height="6" pivot="center" color="180,180,180,255"/>
+								<label depth="4" pos="24,-132" width="200" height="18" font_size="14" text="{snaptrait2}" color="255,255,255,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+							</rect>
+							<rect depth="1" visible="{snaptrait3visible}">
+								<sprite depth="3" sprite="ui_game_filled_circle" pos="14,-159" width="6" height="6" pivot="center" color="180,180,180,255"/>
+								<label depth="4" pos="24,-150" width="200" height="18" font_size="14" text="{snaptrait3}" color="255,255,255,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+							</rect>
+							<label depth="4" pos="8,-172" width="216" height="18" font_size="15" text_key="scUiSkills" color="255,255,255,255" upper_case="true"/>
+							<sprite depth="1" sprite="menu_empty" type="sliced" color="128,128,128,255" pos="8,-190" width="216" height="2"/>
+							<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="4,-196" width="224" height="26"/>
+							<sprite depth="3" sprite="ui_game_symbol_cardio" pos="16,-209" width="16" height="16" pivot="center" color="[white]"/>
+							<label depth="4" pos="28,-200" width="74" height="18" font_size="14" text_key="scSkillCardio" color="255,255,255,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="111,-209" width="14" height="14" pivot="center" color="{snapsk0star1}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="128,-209" width="14" height="14" pivot="center" color="{snapsk0star2}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="145,-209" width="14" height="14" pivot="center" color="{snapsk0star3}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="162,-209" width="14" height="14" pivot="center" color="{snapsk0star4}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="179,-209" width="14" height="14" pivot="center" color="{snapsk0star5}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="196,-209" width="14" height="14" pivot="center" color="{snapsk0star6}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="213,-209" width="14" height="14" pivot="center" color="{snapsk0star7}"/>
+							<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="4,-224" width="224" height="26"/>
+							<sprite depth="3" sprite="ui_game_symbol_intellect" pos="16,-237" width="16" height="16" pivot="center" color="[white]"/>
+							<label depth="4" pos="28,-228" width="74" height="18" font_size="14" text_key="scSkillWits" color="255,255,255,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="111,-237" width="14" height="14" pivot="center" color="{snapsk1star1}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="128,-237" width="14" height="14" pivot="center" color="{snapsk1star2}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="145,-237" width="14" height="14" pivot="center" color="{snapsk1star3}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="162,-237" width="14" height="14" pivot="center" color="{snapsk1star4}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="179,-237" width="14" height="14" pivot="center" color="{snapsk1star5}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="196,-237" width="14" height="14" pivot="center" color="{snapsk1star6}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="213,-237" width="14" height="14" pivot="center" color="{snapsk1star7}"/>
+							<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="4,-252" width="224" height="26"/>
+							<sprite depth="3" sprite="ui_game_symbol_melee" pos="16,-265" width="16" height="16" pivot="center" color="[white]"/>
+							<label depth="4" pos="28,-256" width="74" height="18" font_size="14" text_key="scSkillFighting" color="255,255,255,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="111,-265" width="14" height="14" pivot="center" color="{snapsk2star1}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="128,-265" width="14" height="14" pivot="center" color="{snapsk2star2}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="145,-265" width="14" height="14" pivot="center" color="{snapsk2star3}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="162,-265" width="14" height="14" pivot="center" color="{snapsk2star4}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="179,-265" width="14" height="14" pivot="center" color="{snapsk2star5}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="196,-265" width="14" height="14" pivot="center" color="{snapsk2star6}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="213,-265" width="14" height="14" pivot="center" color="{snapsk2star7}"/>
+							<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="4,-280" width="224" height="26"/>
+							<sprite depth="3" sprite="ui_game_symbol_rifle" pos="16,-293" width="16" height="16" pivot="center" color="[white]"/>
+							<label depth="4" pos="28,-284" width="74" height="18" font_size="14" text_key="scSkillShooting" color="255,255,255,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="111,-293" width="14" height="14" pivot="center" color="{snapsk3star1}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="128,-293" width="14" height="14" pivot="center" color="{snapsk3star2}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="145,-293" width="14" height="14" pivot="center" color="{snapsk3star3}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="162,-293" width="14" height="14" pivot="center" color="{snapsk3star4}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="179,-293" width="14" height="14" pivot="center" color="{snapsk3star5}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="196,-293" width="14" height="14" pivot="center" color="{snapsk3star6}"/>
+							<sprite depth="3" sprite="ui_game_symbol_star" pos="213,-293" width="14" height="14" pivot="center" color="{snapsk3star7}"/>
+							<rect depth="1" visible="{snapspecvisible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="4,-308" width="224" height="26"/>
+								<sprite depth="3" sprite="{snapspecicon}" pos="16,-321" width="16" height="16" pivot="center" color="[white]"/>
+								<label depth="4" pos="28,-312" width="74" height="18" font_size="14" text="{snapspecname}" color="255,255,255,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+								<sprite depth="3" sprite="ui_game_symbol_star" pos="111,-321" width="14" height="14" pivot="center" color="{snapsk4star1}"/>
+								<sprite depth="3" sprite="ui_game_symbol_star" pos="128,-321" width="14" height="14" pivot="center" color="{snapsk4star2}"/>
+								<sprite depth="3" sprite="ui_game_symbol_star" pos="145,-321" width="14" height="14" pivot="center" color="{snapsk4star3}"/>
+								<sprite depth="3" sprite="ui_game_symbol_star" pos="162,-321" width="14" height="14" pivot="center" color="{snapsk4star4}"/>
+								<sprite depth="3" sprite="ui_game_symbol_star" pos="179,-321" width="14" height="14" pivot="center" color="{snapsk4star5}"/>
+								<sprite depth="3" sprite="ui_game_symbol_star" pos="196,-321" width="14" height="14" pivot="center" color="{snapsk4star6}"/>
+								<sprite depth="3" sprite="ui_game_symbol_star" pos="213,-321" width="14" height="14" pivot="center" color="{snapsk4star7}"/>
+							</rect>
+						</rect>
+					</rect>
+					<rect name="equipment" depth="0" pos="248,-52" width="300" height="340">
+						<sprite depth="0" sprite="menu_empty" type="sliced" color="64,64,64,255" pos="0,0" width="300" height="340" globalopacitymod="0"/>
+						<sprite depth="1" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="0,0" width="300" height="340" globalopacitymod="0"/>
+						<label depth="4" pos="10,-6" width="280" height="18" font_size="15" text_key="scInvWeapons" color="255,255,255,255" upper_case="true"/>
+						<sprite depth="1" sprite="menu_empty" type="sliced" color="128,128,128,255" pos="10,-24" width="280" height="2"/>
+						<grid name="weaponSlots" depth="2" pos="10,-28" rows="2" cols="1" cell_width="50" cell_height="54" repeat_content="true">
+							<sc_item_stack name="0" controller="SurvivorCommunity.ScGearSlot, SurvivorCommunity" cell_size="50"/>
+						</grid>
+						<label depth="4" pos="68,-28" width="68" height="16" font_size="14" text_key="scInvRanged" color="222,206,163,255" upper_case="true"/>
+						<label depth="4" pos="68,-44" width="222" height="20" font_size="16" text="{invrname}" color="255,255,255,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+						<label depth="4" pos="68,-62" width="222" height="16" font_size="14" text="{invrinfo}" color="180,180,180,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+						<label depth="4" pos="68,-82" width="222" height="16" font_size="14" text_key="scInvMelee" color="222,206,163,255" upper_case="true"/>
+						<label depth="4" pos="68,-98" width="222" height="20" font_size="16" text="{invmname}" color="255,255,255,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+						<label depth="4" pos="68,-116" width="222" height="16" font_size="14" text="{invminfo}" color="180,180,180,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+						<rect name="ammoLine" depth="2" pos="140,-28" width="150" height="16" visible="{invammovisible}">
+							<button depth="2" name="btnAmmo" pos="0,0" width="150" height="16" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]" tooltip_key="scInvAmmoTip"/>
+							<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="0,0" width="150" height="16"/>
+							<label depth="4" pos="4,0" width="142" height="16" font_size="13" text="{invammo}" color="255,255,255,255" justify="center" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+						</rect>
+						<label depth="4" pos="10,-138" width="280" height="18" font_size="15" text_key="scInvArmor" color="255,255,255,255" upper_case="true"/>
+						<sprite depth="1" sprite="menu_empty" type="sliced" color="128,128,128,255" pos="10,-156" width="280" height="2"/>
+						<grid name="armorSlots" depth="2" pos="15,-160" rows="1" cols="4" cell_width="72" cell_height="50" repeat_content="true">
+							<sc_item_stack name="0" controller="SurvivorCommunity.ScGearSlot, SurvivorCommunity" cell_size="50"/>
+						</grid>
+						<label depth="4" pos="4,-212" width="72" height="16" font_size="14" text_key="scInvHead" color="180,180,180,255" justify="center"/>
+						<label depth="4" pos="76,-212" width="72" height="16" font_size="14" text_key="scInvChest" color="180,180,180,255" justify="center"/>
+						<label depth="4" pos="148,-212" width="72" height="16" font_size="14" text_key="scInvHands" color="180,180,180,255" justify="center"/>
+						<label depth="4" pos="220,-212" width="72" height="16" font_size="14" text_key="scInvFeet" color="180,180,180,255" justify="center"/>
+						<label depth="4" pos="10,-232" width="280" height="18" font_size="15" text_key="scInvJobTools" color="255,255,255,255" upper_case="true"/>
+						<sprite depth="1" sprite="menu_empty" type="sliced" color="128,128,128,255" pos="10,-250" width="280" height="2"/>
+						<grid name="toolSlots" depth="2" pos="12,-254" rows="1" cols="5" cell_width="58" cell_height="46" repeat_content="true">
+							<sc_item_stack name="0" controller="SurvivorCommunity.ScGearSlot, SurvivorCommunity" cell_size="46"/>
+						</grid>
+						<label depth="4" pos="6,-302" width="58" height="16" font_size="14" text_key="scInvJobChop" color="180,180,180,255" justify="center"/>
+						<label depth="4" pos="6,-318" width="58" height="16" font_size="14" text="{invtoolnote0}" color="222,206,163,255" justify="center"/>
+						<label depth="4" pos="64,-302" width="58" height="16" font_size="14" text_key="scInvJobMine" color="180,180,180,255" justify="center"/>
+						<label depth="4" pos="64,-318" width="58" height="16" font_size="14" text="{invtoolnote1}" color="222,206,163,255" justify="center"/>
+						<label depth="4" pos="122,-302" width="58" height="16" font_size="14" text_key="scInvJobDig" color="180,180,180,255" justify="center"/>
+						<label depth="4" pos="122,-318" width="58" height="16" font_size="14" text="{invtoolnote2}" color="222,206,163,255" justify="center"/>
+						<label depth="4" pos="180,-302" width="58" height="16" font_size="14" text_key="scInvJobButcher" color="180,180,180,255" justify="center"/>
+						<label depth="4" pos="180,-318" width="58" height="16" font_size="14" text="{invtoolnote3}" color="222,206,163,255" justify="center"/>
+						<label depth="4" pos="238,-302" width="58" height="16" font_size="14" text_key="scInvJobRepair" color="180,180,180,255" justify="center"/>
+						<label depth="4" pos="238,-318" width="58" height="16" font_size="14" text="{invtoolnote4}" color="222,206,163,255" justify="center"/>
+					</rect>
+					<rect name="storage" depth="0" pos="8,-400" width="540" height="332">
+						<sprite depth="0" sprite="menu_empty" type="sliced" color="64,64,64,255" pos="0,0" width="540" height="332" globalopacitymod="0"/>
+						<sprite depth="1" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="0,0" width="540" height="332" globalopacitymod="0"/>
+						<label depth="4" pos="10,-6" width="120" height="18" font_size="15" text_key="scInvPack" color="255,255,255,255" upper_case="true"/>
+						<label depth="4" pos="130,-6" width="290" height="18" font_size="15" text="{invpackcount}" color="180,180,180,255" justify="right"/>
+						<button depth="2" name="btnPackTakeAll" pos="430,-4" width="100" height="22" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]" tooltip_key="scInvTakeAllTip"/>
+						<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="430,-4" width="100" height="22"/>
+						<label depth="4" pos="430,-7" width="100" height="18" font_size="14" text_key="scInvTakeAll" color="255,255,255,255" justify="center" upper_case="true"/>
+						<rect name="pack" depth="0" pos="10,-28" width="520" height="158" controller="LootContainer" on_scroll="true" on_press="true" on_hover="true" snap="false" gamepad_selectable="false">
+							<defaultscrollbar pos="504,0" barheight="158" thumbheight="150" thumb_color_hover="[hoverColor]" thumb_color_active="[white]" thumb_color_inactive="[darkGrey]" border_color_active="[black]" border_color_inactive="[black]" background_color_active="[mediumGrey]" background_color_inactive="[mediumGrey]"/>
+							<scrollview width="503" height="158" depth="8" showcondition="always" maxboundsdepth="3">
+								<grid pos="3,0" depth="12" name="queue" rows="10" cols="10" cell_width="50" cell_height="50" repeat_content="true">
+									<sc_item_stack name="0" cell_size="50"/>
+								</grid>
+							</scrollview>
+						</rect>
+						<rect name="bagArea" depth="0" pos="0,-196" width="540" height="132" visible="{invbagvisible}">
+							<label depth="4" pos="10,-2" width="120" height="18" font_size="15" text_key="scInvBag" color="255,255,255,255" upper_case="true"/>
+							<label depth="4" pos="130,-2" width="290" height="18" font_size="15" text="{invbagcount}" color="180,180,180,255" justify="right"/>
+							<button depth="2" name="btnBagTakeAll" pos="430,0" width="100" height="22" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]" tooltip_key="scInvTakeAllTip"/>
+							<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="430,0" width="100" height="22"/>
+							<label depth="4" pos="430,-3" width="100" height="18" font_size="14" text_key="scInvTakeAll" color="255,255,255,255" justify="center" upper_case="true"/>
+							<rect name="bag" depth="0" pos="10,-24" width="520" height="108" controller="SurvivorCommunity.ScBagGrid, SurvivorCommunity" on_scroll="true" on_press="true" on_hover="true" snap="false" gamepad_selectable="false">
+								<defaultscrollbar pos="504,0" barheight="108" thumbheight="100" thumb_color_hover="[hoverColor]" thumb_color_active="[white]" thumb_color_inactive="[darkGrey]" border_color_active="[black]" border_color_inactive="[black]" background_color_active="[mediumGrey]" background_color_inactive="[mediumGrey]"/>
+								<scrollview width="503" height="108" depth="8" showcondition="always" maxboundsdepth="3">
+									<grid pos="3,0" depth="12" name="queue" rows="6" cols="10" cell_width="50" cell_height="50" repeat_content="true">
+										<sc_item_stack name="0" cell_size="50"/>
+									</grid>
+								</scrollview>
+							</rect>
+						</rect>
+						<rect name="bagNote" depth="0" pos="0,-196" width="540" height="132" visible="{invbagnote}">
+							<label depth="4" pos="10,-2" width="120" height="18" font_size="15" text_key="scInvBag" color="255,255,255,255" upper_case="true"/>
+							<label depth="4" pos="10,-28" width="520" height="40" font_size="15" text_key="scInvBagHost" color="180,180,180,255"/>
+						</rect>
+					</rect>
+				</window>
+			</append>
+		</if>
 		<else>
 			<append xpath="/windows">
 				<window name="windowScMemberInv" anchor="TopLeft" pos="40,-100" width="556" height="740" controller="SurvivorCommunity.ScMemberInv, SurvivorCommunity" cursor_area="true">
@@ -2755,4 +3006,21 @@
 		</else>
 	</conditional>
 	<!-- GENERATED:END sclinkedstorage -->
+	<!-- Round ui1, hand-written (after the generated windows it edits). Steelshot UI appends a full-screen glass backdrop
+	     (depth 0) to the "backpack" group, which opens beside the member inventory and the linked storage window; groups
+	     after "backpack" in xui.xml (ours) lose the depth tie, so Steelshot itself puts such windows at 40
+	     (research/uicompat/steelshot.md 6.2). -->
+	<conditional>
+		<if cond="mod_loaded('SteelshotUi')">
+			<setattribute xpath="/windows/window[@name='windowScMemberInv']" name="depth">40</setattribute>
+			<setattribute xpath="/windows/window[@name='windowScLinkedStorage']" name="depth">40</setattribute>
+		</if>
+	</conditional>
+	<!-- CATUI's Alt+click slot lock only works in vanilla's loot window; on the member inventory it would paint a lock frame
+	     that does nothing (research/uicompat/catui.md 6.2). allow_clicklock is a parameter of CATUI's item_stack only. -->
+	<conditional>
+		<if cond="mod_loaded('CATUI')">
+			<setattribute xpath="/windows/window[@name='windowScMemberInv']//item_stack" name="allow_clicklock">false</setattribute>
+		</if>
+	</conditional>
 </configs>

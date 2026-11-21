@@ -37,6 +37,42 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round ui1 (2026-11-20): CATUI, Steelshot UI Hybrid and SteelUI
+
+Why: you asked for SC to work with these UI mods. Analyses (one per mod, with the XML replays) are in
+`Port33\research\uicompat\`. Each needs Quartz and Gears where the mod says so, and Ashfall UI (both editions) out of
+`Mods` while it is tested. Without any of them SC's merged UI is byte-identical to before (replayed).
+
+**CATUI** (folder `ZZZ_CATUI`):
+- [ ] **Home Status:** inside the home zone the panel sits below CATUI's compass clock and red enemy-alert bar, clear of
+      its location panel and quest tracker.
+- [ ] **Tabs and windows:** the Community and Radio tabs, the ESC menu's Community, a survivor conversation (snapshot,
+      the line, the pager), the member inventory and linked storage all open and work.
+- [ ] **No dead slot lock:** Alt+click on a member inventory slot paints no yellow lock frame.
+
+**Steelshot UI Hybrid** (folder `SteelshotUi`; test without RE Inventory first - its loot window conflicts with
+Steelshot):
+- [ ] **Tabs:** the Community tab sits in the top-left corner under Steelshot's glass bar (glass button, map-cabin icon,
+      name in the tooltip) and opens the Community page; with a handheld radio carried the Radio tab shows beside it and
+      opens the radio.
+- [ ] **Member inventory and linked storage** draw over Steelshot's dark backdrop (not dimmed behind it) and take
+      clicks.
+- [ ] **Home Status** sits below Steelshot's compass and its location / game stage row, on the glass plate with a red
+      strip.
+- [ ] **ESC menu:** SC's Community button turns red on hover and reads in capitals like Steelshot's own.
+- [ ] **Pages:** the Community and Radio pages show Steelshot's backdrop behind them, and its header stays on top.
+
+**SteelUI** (folder `ZZZxSteel-UI`, plus SC's `zzzz_SteelUI_SurvivorCommunity`):
+- [ ] **Tabs:** SteelUI's bar ends with two icon tabs, Community and (with a handheld radio) Radio; both open their pages,
+      hover red like SteelUI's. The location text still fits on the right; in creative mode it reaches about as far as
+      SteelUI's own creative layout.
+- [ ] **Member inventory:** weapon, armor and tool slots and the pack and bag grids show separate slots at their own
+      size (nothing overlaps), with frames and the hover border; dragging and Take still work.
+- [ ] **Home Status** sits under SteelUI's location row, left of the center, on a black plate; it doesn't cover the
+      compass clock, the game stage line or the quest tracker.
+- [ ] **Without the companion folder** (move `zzzz_SteelUI_SurvivorCommunity` out): no SC tabs, but the ESC menu,
+      the land claim radial and member dialogs still open the Community window.
+
 ## Round tw2 (2026-11-20): tower repaint finds old towers; no anime hairstyle
 
 Why: your two reports. `sc tower repaint` looked for a mark in the old paint that the game drops when a block is built

@@ -56,8 +56,9 @@ Installing
 ~~~~~~~~~~
 
 1. Install 0-SCore and 0-XNPCCore first.
-2. Extract the zip into your 7 Days to Die "Mods" folder, so you end up with "Mods\SurvivorCommunity\ModInfo.xml" and
-   "Mods\LandClaimUpgrade\ModInfo.xml".
+2. Extract the zip into your 7 Days to Die "Mods" folder, so you end up with "Mods\SurvivorCommunity\ModInfo.xml",
+   "Mods\LandClaimUpgrade\ModInfo.xml" and "Mods\zzzz_SteelUI_SurvivorCommunity\ModInfo.xml" (that last one only matters
+   with SteelUI, and does nothing without it).
 3. Start a new game.
 
 Works with (optional)
@@ -68,6 +69,14 @@ Works with (optional)
   voices and hair colors (sections 15 and 16).
 - WalkerSim2: wild raiders still spawn while WalkerSim2 handles the zombies.
 - IZY Classic (with its Combat Sandbox): its guns show up in NPC weapon rolls.
+- UI mods (one at a time; none of them runs alongside another UI overhaul):
+  - Ashfall UI: SC's windows, tabs and Home Status panel take its look.
+  - CATUI: the Home Status panel sits below CATUI's compass clock and alert bar.
+  - Steelshot UI Hybrid: SC's Community and Radio tabs sit in the top-left corner under its tab bar, its glass backdrop
+    sits behind SC's pages, and the Home Status panel sits below its compass.
+  - SteelUI: SteelUI rebuilds the tab bar after SC loads, so the "zzzz_SteelUI_SurvivorCommunity" folder from the zip
+    puts SC's Community and Radio tabs back into it. Keep that folder installed with SteelUI.
+  - MinimalistHUD + PhysicalPDA brings its own support for SC, kept up to date by its author.
 
 Two rules for your save
 ~~~~~~~~~~~~~~~~~~~~~~~

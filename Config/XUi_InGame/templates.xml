@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configs>
+	<!-- Round ui1 (research/uicompat/steelui.md 6.3). sc_item_stack: vanilla 3.4's item_stack (its templates.xml:117-159)
+	     under SC's own name, for the member inventory's SteelUI branch (Tools/generate_member_inventory_ui.py). SteelUI replaces
+	     item_stack with a fixed 75x75 slot that overlaps in 50 and 46 cells; this one keeps cell_size, container_slots and
+	     matches_search. Its frames are parameters so SteelUI's template-wide restyle (keyed on the sprite name) leaves them. -->
+	<conditional>
+		<if cond="mod_loaded('SteelUI')">
+			<append xpath="/templates">
+			<sc_item_stack controller="ItemStack" on_scroll="false" allow_dropping="true" prefix_id="false" show_favorites="false" cell_size="[itemStack:width]" frame="menu_empty3px" fill="menu_empty2px">
+				<rect controller="${controller}" style="itemStack, hover" width="${cell_size}" height="${cell_size}" on_scroll="${on_scroll}" allow_dropping="${allow_dropping}" prefix_id="${prefix_id}" show_favorites="${show_favorites}" tooltip="{tooltip}" enabled="{# !defined('userlockmode') or !userlockmode}" visible="{# ( !defined('container_slots') or (int(${repeat_i}) &lt; int(container_slots)) ) and matches_search }" >
+					<sprite depth="2" name="backgroundMain" sprite="${frame}" pos="-3,3" color="[black]" type="sliced" fillcenter="false"
+						width="${3+cell_size}" height="${3+cell_size}" />
+					<sprite depth="3" name="background" sprite="${frame}" color="{selectionbordercolor}" type="sliced" fillcenter="false"
+						width="${-2+cell_size}" height="${-2+cell_size}" />
+					<sprite depth="2" name="highlightOverlay" color="{backgroundcolor}" type="sliced"
+						width="${-3+cell_size}" height="${-3+cell_size}" />
+		
+					<texture depth="3" name="backgroundTexture" material="Materials/Transparent Colored"
+						size="${-2+cell_size},${-2+cell_size}" />
+					<sprite depth="8" name="favoriteIcon" width="24" height="24" sprite="server_favorite" pos="2,-2" foregroundlayer="true" visible="{isfavorite}"/>
+					<rect name="itemIconHoverEnlargeEncapsulation"> <!-- Required so scrollareas can ignore the hover enlarged sprite when updating bounds! -->
+						<sprite depth="7" name="itemIcon" width="${-11+cell_size}" height="${-11+cell_size}" atlas="ItemIconAtlas" sprite="{itemicon}" pivot="center" foregroundlayer="true" color="{iconcolor}" globalopacitymod="0"
+							pos="${Floor(cell_size/2)},${-Floor(cell_size/2)}" />
+					</rect>
+					<sprite depth="8" name="lockTypeIcon" width="24" height="24" sprite="{locktypeicon}" pos="2,-2" foregroundlayer="true"/>
+					<sprite depth="8" name="itemtypeicon" width="24" height="24" sprite="ui_game_symbol_{itemtypeicon}" pos="2,-2" foregroundlayer="true" visible="{hasitemtypeicon}" color="{itemtypeicontint}" />
+		
+					<sprite depth="2" name="durabilityBackground" sprite="${frame}" color="185,0,0,255" type="sliced" globalopacitymod="0" visible="{haspermadurability}"
+						width="${-5+cell_size}" height="10" pos="1,${-Floor(4*cell_size/5)}" />
+					<sprite depth="4" name="durability" sprite="${fill}" color="[darkGrey]" fill="{removeddurabilityfill}" type="filled" fillspritepad="true" globalopacitymod="0" visible="{hasdurability}"
+						width="${-5+cell_size}" height="10" pos="1,${-Floor(4*cell_size/5)}" />
+					<filledsprite depth="5" name="durability" sprite="menu_empty2px" color="{durabilitycolor}" fill="{durabilityfill}" type="filled" globalopacitymod="0" visible="{hasdurability}"
+						width="${-5+cell_size}" height="10" pos="1,${-Floor(4*cell_size/5)}" />
+		
+					<label depth="8" name="stackValue" height="28" text="{itemcount}" font_size="26" effect="outline" justify="{#hasdurability ? 'Center' : 'Right'}"
+						pos="-2,${-Floor(3*cell_size/5)}" width="${-5+cell_size}" />
+					<label depth="8" name="timer" height="24" font_size="24" justify="center" pivot="center" color="[beige]" effect="outline"
+						pos="${Floor(cell_size/2)},${-Floor(cell_size/2)}" width="${-5+cell_size}" effect_distance="1,1" effect_color="0,0,0,255" />
+					<sprite depth="9" name="cancel" sprite="ui_game_symbol_x" color="255,0,0,255" type="sliced" visible="{# ishovered and islocked}" foregroundlayer="true"
+						width="${-5+cell_size}" height="${-5+cell_size}" />
+					<sprite depth="13" name="assembleIcon" sprite="{stacklockicon}" color="{stacklockcolor}" visible="{isassemblelocked}" pos="14,-14" foregroundlayer="true"
+						size="${-35+cell_size},${-35+cell_size}" />
+		
+					<sprite depth="14" name="quickswapIcon" size="30,30" sprite="server_refresh" pos="40,-2" foregroundlayer="true" visible="{isQuickSwap}" />
+		
+					<button name="rectSlotLock" depth="15" style="press, hover" width="${-2+cell_size}" height="${-2+cell_size}" visible="{# defined('userlockmode') and userlockmode}" sprite="" hoverscale="1" use_selection_box="true">
+						<sprite depth="16" name="slotLockIcon" width="24" height="24" sprite="{# !defined('userlockmode') ? '' : (userlockedslot ? 'ui_game_symbol_lock' : 'ui_game_symbol_unlock') }" pos="50, -14" style="icon32px" pivot="center" color="{# !defined('userlockmode') ? '255,255,255,1' : (userlockedslot ? '222,206,163' : '255,255,255') }" />
+					</button>
+					<sprite depth="15" name="iconSlotLock" width="20" height="20" sprite="ui_game_symbol_lock" pos="50, -14" style="icon32px" pivot="center" visible="{# defined('userlockmode') and !userlockmode and userlockedslot }" color="[lightGrey]" />
+				</rect>
+			</sc_item_stack>
+			</append>
+		</if>
+	</conditional>
+</configs>

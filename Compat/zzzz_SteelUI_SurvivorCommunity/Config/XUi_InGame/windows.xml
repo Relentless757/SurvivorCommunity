@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configs>
+	<!-- SteelUI (ZZZxSteel-UI, loads after SurvivorCommunity) removes windowPagingHeader and appends its own, which drops
+	     the Community and Radio tabs SC appended to the old one. This folder sorts after ZZZxSteel-UI and before
+	     zzzzz_AshfallUI, so it puts them back into SteelUI's bar. Skipped when AshfallUI is loaded too: AshfallUI lays the
+	     header out again after this, and that pair is not supported.
+	     SteelUI's bar (window pos -226 / -301 in creative): text tabs 147 wide with 3 wide separators, Crafting at x=-300
+	     ... Players at 600, Creative at 750 (creative only), the date label at -675 and the location label at 775 / 925.
+	     SC adds two icon tabs, 50 wide plus a separator, after the last tab: Community (always) then Radio (only while a
+	     handheld radio is carried, so hiding it leaves no hole). The location label moves right by their 106 units and
+	     the bar shifts left by half of that, so it stays roughly centered and both labels stay on a 16:9 screen. -->
+	<conditional>
+		<if cond="mod_loaded('SteelUI') and mod_loaded('SurvivorCommunity') and not mod_loaded('zzzzz_AshfallUI')">
+			<append xpath="/windows/window[@name='windowPagingHeader']">
+				<rect name="scCommunityTab" depth="2" pos="{#is_creative ? '900,0' : '750,0'}" width="53" height="50" visible="{# !is_prefab_editor}">
+					<iconbutton name="ScCommunity" pos="0,0" pivot="topleft" depth="2" width="50" height="50" selectable="true" sprite="ui_game_header_fill" type="sliced"
+					            hoverscale="1" collider_scale="1" snap="false" gamepad_selectable="false"
+					            color_default="0,0,0,1" color_hovered="175,30,25,255" color_selected="175,30,25,255" color_disabled="0,0,0,255"
+					            sound_on_hover="[default_hover]" sound_on_click="@:Sounds/UI/ui_menu_back.wav" tooltip_key="xuiScCommunity" visible="{# !is_prefab_editor}"/>
+					<sprite name="scCommunityIcon" depth="3" pos="25,-25" width="26" height="26" pivot="center" sprite="ui_game_symbol_map_cabin" color="[white]"/>
+					<sprite name="scCommunitySep" depth="-1" pos="50,0" width="3" height="50" type="sliced" color="[white_quarter_alpha]" globalopacitymod="1"/>
+				</rect>
+				<rect name="scRadioTab" controller="SurvivorCommunity.ScRadioTab, SurvivorCommunity" depth="2" pos="{#is_creative ? '953,0' : '803,0'}" width="53" height="50" visible="{scradiotab}">
+					<iconbutton name="ScRadio" pos="0,0" pivot="topleft" depth="2" width="50" height="50" selectable="true" sprite="ui_game_header_fill" type="sliced"
+					            hoverscale="1" collider_scale="1" snap="false" gamepad_selectable="false"
+					            color_default="0,0,0,1" color_hovered="175,30,25,255" color_selected="175,30,25,255" color_disabled="0,0,0,255"
+					            sound_on_hover="[default_hover]" sound_on_click="@:Sounds/UI/ui_menu_back.wav" tooltip_key="xuiScRadio" visible="{scradiotab}"/>
+					<sprite name="scRadioIcon" depth="3" pos="25,-25" width="26" height="26" pivot="center" sprite="ui_game_symbol_talk" color="[white]"/>
+					<sprite name="scRadioSep" depth="-1" pos="50,0" width="3" height="50" type="sliced" color="[white_quarter_alpha]" globalopacitymod="1"/>
+				</rect>
+			</append>
+			<setattribute xpath="/windows/window[@name='windowPagingHeader']/label[@name='location_display2']" name="pos">{#is_creative ? '1031,-14' : '881,-14'}</setattribute>
+			<setattribute xpath="/windows/window[@name='windowPagingHeader']/label[@name='location_display2']" name="size">320,40</setattribute>
+			<setattribute xpath="/windows/window[@name='windowPagingHeader']" name="pos">{#is_creative ? '-354,1' : '-279,1'}</setattribute>
+		</if>
+	</conditional>
+</configs>

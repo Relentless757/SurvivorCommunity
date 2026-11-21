@@ -1921,6 +1921,31 @@ entry in `PORT_34.md` has the hook and the rules).
 
 A full game restart is needed after editing `Config/Localization.csv`.
 
+## UI mods (round ui1)
+
+SC's XUi carries a branch per supported UI mod; the analyses behind them (XML replays of every SC patch with and without
+each mod, and what each mod's DLL does to the HUD, tab bar and window groups) are in `Port33\research\uicompat\`, with
+the replay harness `tools\replay_ui.py` (`SC_PATH=<tree> python -I replay_ui.py base,steelshot <outdir>`).
+
+- **Load order** is the folder names through `Array.Sort` (culture compare: `__` first, case and `-` ignored).
+  `SteelshotUi` loads before SC, so SC's patches see its layout; `ZZZ_CATUI` and `ZZZxSteel-UI` load after SC.
+- **mod_loaded names:** `CATUI`, `SteelshotUi`, `SteelUI` (`iiMothMan_MothUI` and `PhysicalPDA` for the others). An
+  Ashfall UI branch always comes first in a conditional (the first true `<if>` wins), so an unsupported pair behaves as
+  with Ashfall UI.
+- **Steelshot UI** re-lays `windowPagingHeader` every frame, so its tabs anchor to `#cam`; its backpack backdrop needs
+  depth 40 on `windowScMemberInv` / `windowScLinkedStorage`.
+- **SteelUI** removes `windowPagingHeader` and builds its own after SC, so SC's header branch for it is empty and the tabs
+  come from `Compat/zzzz_SteelUI_SurvivorCommunity` (an XML-only mod folder that sorts after `ZZZxSteel-UI`).
+  `Port33\tools\deploy_sc34.py` installs every `Compat/<name>` with a ModInfo.xml as its own `Mods\<name>`; a release
+  zip carries it as a third top-level folder next to `SurvivorCommunity` and `LandClaimUpgrade`. SteelUI's fixed 75x75
+  `item_stack` is why the member inventory's SteelUI branch uses SC's own `sc_item_stack`
+  (`Config/XUi_InGame/templates.xml`, vanilla 3.4's slot with its frame sprites passed as parameters so SteelUI's
+  template restyle, keyed on the sprite names, leaves them). `Tools/vanilla_look.conditional(..., extra=[(cond, lines)])`
+  emits such extra branches.
+- **CATUI** and the Home Status position branches only touch SC's own windows, so they need nothing after the UI mod.
+- **PhysicalPDA** ships its own SC adapter (reflection on SC's types); the user leaves it to its author. Renaming public
+  SC members it reads (`ScMorale`, `XUiC_ScCommunity`, `XUiC_ScDialogLine`, ...) breaks it - see the analysis.
+
 ## How it hangs together (for modders)
 
 - NPCs are 0-XNPCCore's `EntityAliveSDXV4` survivors (SCore's legacy `EntityAliveSDX` still works for pack NPCs). A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars

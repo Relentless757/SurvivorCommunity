@@ -53,4 +53,16 @@
 			<window name="windowNonPagingHeader"/>
 		</window_group>
 	</append>
+	<!-- Round ui1 (research/uicompat/steelshot.md 6.5): Steelshot UI puts its glass backdrop behind each standalone page
+	     (map, skills, quests ...); the same behind SC's two pages. Their windows (depth 20) and its header (100) stay above it. -->
+	<conditional>
+		<if cond="mod_loaded('SteelshotUi') and not mod_loaded('zzzzz_AshfallUI')">
+			<append xpath="/xui/window_group[@name='sccommunity']">
+				<window name="steelshotUiPanelBackdrop"/>
+			</append>
+			<append xpath="/xui/window_group[@name='scradio']">
+				<window name="steelshotUiPanelBackdrop"/>
+			</append>
+		</if>
+	</conditional>
 </configs>

@@ -341,7 +341,10 @@ def build():
          '\t<append xpath="/windows">',
          '\t\t<window name="windowScMemberInvSpace" width="%d" height="%d" panel="Left" cursor_area="false"/>' % (W, H),
          '\t</append>']
-    o += vanilla_look.conditional(ash, van)
+    # round ui1 (research/uicompat/steelui.md 6.3): SteelUI replaces item_stack with a fixed 75x75 slot that ignores
+    # cell_size, so its branch is the vanilla look on SC's own sc_item_stack (Config/XUi_InGame/templates.xml)
+    steel = [l.replace("<item_stack ", "<sc_item_stack ") for l in van]
+    o += vanilla_look.conditional(ash, van, extra=[("mod_loaded('SteelUI')", steel)])
     return "\n".join(o) + "\n"
 
 

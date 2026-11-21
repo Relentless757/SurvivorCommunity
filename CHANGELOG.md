@@ -1,5 +1,21 @@
 # Next pre-release (not released yet)
 
+## UI mods
+
+- **SC works with CATUI, Steelshot UI Hybrid and SteelUI.** Each UI mod gets a few small fixes so SC's tabs, the Home
+  Status panel and SC's windows stay reachable and readable:
+  - **CATUI:** the Home Status panel moves below CATUI's compass clock and enemy alert bar.
+  - **Steelshot UI Hybrid:** the Community and Radio tabs move to the screen's top-left corner, under Steelshot's tab bar
+    (it pushed them off the screen). The member inventory and linked storage draw over Steelshot's backdrop instead of
+    under it. Steelshot's backdrop goes behind SC's two pages, the Home Status panel moves below its compass onto its
+    glass plate, and the Community button in the ESC menu takes Steelshot's look.
+  - **SteelUI:** SteelUI rebuilds the player menu's tab bar after SC has added its tabs, which removed them (and with
+    them the only way into the radio from a handheld radio). A new small folder in the zip,
+    `zzzz_SteelUI_SurvivorCommunity`, loads after SteelUI and adds them back in SteelUI's style. The member inventory
+    keeps its own slot size (SteelUI's slots overlapped), and the Home Status panel moves under SteelUI's location row.
+- **MinimalistHUD + PhysicalPDA** has its own support for SC built in; SC leaves that to its author.
+- Use one UI overhaul at a time: none of these runs together with another (Ashfall UI included).
+
 ## Members walk to their outposts
 - **You can post a member to an outpost from anywhere.** They no longer have to be near you: they set off from home on
   foot, the way a runner leaves on a supply run, and take up the post when they reach the outpost's claim. Near you they

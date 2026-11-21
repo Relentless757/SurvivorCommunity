@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xml>
+	<Name value="zzzz_SteelUI_SurvivorCommunity" />
+	<DisplayName value="SteelUI - Survivor Community patch" />
+	<Version value="0.1.0" />
+	<Description value="Compatibility patch: Survivor Community's Community and Radio tabs in SteelUI's tab bar. SteelUI replaces the player menu's tab bar after Survivor Community has added its tabs, so they have to be added again after it. Requires SteelUI and SurvivorCommunity; does nothing without either. Must load after ZZZxSteel-UI - the zzzz_ prefix does that." />
+	<Author value="Elisk" />
+	<Website value="" />
+</xml>

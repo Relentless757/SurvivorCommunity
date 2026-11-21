@@ -211,14 +211,20 @@ def header_bar(indent, w, h, depth=1):
                      'width="%d" height="%d" globalopacitymod="0"/>' % (depth, LIGHT, w - 6, h)]
 
 
-def conditional(ashfall_lines, vanilla_lines, indent="\t"):
-    """Both looks of one window: AshfallUI's when it is loaded, vanilla's otherwise."""
-    return ([indent + "<conditional>",
-             indent + "\t<if cond=\"mod_loaded('zzzzz_AshfallUI')\">"]
-            + ["\t\t" + l if l else l for l in ashfall_lines]
-            + [indent + "\t</if>", indent + "\t<else>"]
-            + ["\t\t" + l if l else l for l in vanilla_lines]
-            + [indent + "\t</else>", indent + "</conditional>"])
+def conditional(ashfall_lines, vanilla_lines, indent="\t", extra=()):
+    """Both looks of one window: AshfallUI's when it is loaded, vanilla's otherwise. extra (round ui1): (cond, lines)
+    branches between the two, for another UI mod's variant of the vanilla look (the first true <if> wins)."""
+    o = [indent + "<conditional>",
+         indent + "\t<if cond=\"mod_loaded('zzzzz_AshfallUI')\">"]
+    o += ["\t\t" + l if l else l for l in ashfall_lines]
+    o += [indent + "\t</if>"]
+    for cond, lines in extra:
+        o += [indent + "\t<if cond=\"%s\">" % cond]
+        o += ["\t\t" + l if l else l for l in lines]
+        o += [indent + "\t</if>"]
+    o += [indent + "\t<else>"]
+    o += ["\t\t" + l if l else l for l in vanilla_lines]
+    return o + [indent + "\t</else>", indent + "</conditional>"]
 
 
 def sprites(lines):
