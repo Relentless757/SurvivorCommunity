@@ -51,7 +51,8 @@ to compare against.
       nothing. With no members at all, Farm plots reads "Nobody home to harvest" and the garden adds nothing.
 - [ ] **Net matches the rollover:** note the strip, run `sc day` once: each stock changed by about the strip's number (a
       run landing, a trade or shooting in between changes it too). Compare only the first `sc day` of a world day: a
-      second one replays the same day.
+      second one replays the same day. A backlog of outpost bundles arriving at once (the radio back on after days off)
+      comes on top: the strip shows the ordinary day.
 - [ ] **Rationing in the net:** enact rationing: what is eaten tonight halves (rounded up), so the food number rises by
       that much (-6 becomes -3 with nothing growing); the morale Food line does not move.
 - [ ] **Days left with income:** 6 members, 20 food, nothing coming in: "3 days remaining". Plant 10 crops (+2 a day):
@@ -8328,8 +8329,8 @@ Steps:
 - [ ] **Water outposts:** a water tower (tier 0) with a land claim: Establish outpost works, type "water supply",
   about 0.9 water a day (map marker: the water drop). The Water Works classifies as water too (`sc poi` there). The
   Outposts tab's perks show "Cistern - thirst hurts morale less", and while thirsty the Water part is -10 instead of -20.
-- [ ] **Community window:** seven resource cells, nothing overlapping; water shows its days left or "+N a day from the
-  wells". Tabs MEMBERS / OUTPOSTS / ACTIVITIES fit with their counts.
+- [ ] **Community window:** seven resource cells, nothing overlapping; water shows its days left or (since round fd2)
+  "+N a day spare". Tabs MEMBERS / OUTPOSTS / ACTIVITIES fit with their counts.
 - [ ] **Activities, short:** under 4 luxuries: the row says "Not enough luxuries or food", the cost is red, the button
   grey; pressing it says what is missing.
 - [ ] **A round of drinks:** `sc give luxury 4`, press "Pour a round": the message and tooltip, -4 luxuries -1 food,

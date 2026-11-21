@@ -1506,10 +1506,6 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// "+6 a day from the wells" when the facilities cover what is drunk; otherwise the days the stock lasts at what
-        /// they do not cover; "" with nobody to give water to (round wl).
-        /// </summary>
-        /// <summary>
         /// "4 days remaining" under the food and the water. Round fd2 (the user): what comes in counts - the outposts'
         /// deliveries, the allies' bundles, the garden (food), the wells and dew collectors (water): dayGain, from
         /// ScEconomy.DailyFlow - against an ordinary day's use (FoodEaten / WaterDrunk, never tonight's rationing, a one-day

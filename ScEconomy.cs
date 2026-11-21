@@ -393,8 +393,9 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ the daily flow (round fd2) ----
 
         /// <summary>
-        /// Round fd2: what the rollover into `day` adds to (gain) and takes from (use) each resource, from the functions the
-        /// rollover itself runs, in its order, before any shortage: the outposts' deliveries, upkeep (materials), haulage (fuel)
+        /// Round fd2: what an ordinary rollover into `day` adds to (gain) and takes from (use) each resource, from the functions
+        /// the rollover itself runs, in its order, before any shortage: the outposts' deliveries (what they make and can bring
+        /// home that day - a backlog waiting since the radio last reported is a one-off, not daily, and is left out), upkeep (materials), haulage (fuel)
         /// and workshops; the allies' bundles; the garden and the wells and dew collectors; what the members eat (the cook and
         /// tonight's rationing included) and drink; the Meds the injured need. Not daily, so not counted: runs, trades, crafting,
         /// the activities, ammo (spent only by shooting, D3, and by watch shifts as they start). The window's resource strip
@@ -409,7 +410,7 @@ namespace SurvivorCommunity
             int n = ScNames.ResourceCount;
             // ScOutposts.Daily: deliveries, then upkeep and haulage, then the workshops out of what is left
             var delivered = new int[n];
-            int total = ScOutposts.ProjectedDelivery(day, delivered);
+            int total = ScOutposts.ProjectedDelivery(day, delivered, false);    // the steady day: no backlog (review)
             for (int r = 0; r < n; r++) gain[r] += delivered[r];
             use[(int)Resource.Materials] += Upkeep(day);
             use[(int)Resource.Fuel] += Haulage(total);

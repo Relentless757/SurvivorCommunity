@@ -754,7 +754,8 @@ namespace SurvivorCommunity
         /// when the home radio reported in that day or its own relay is online, within the haul cap (stash and haul); otherwise
         /// its whole units wait, at most OutpostPendingDays of that day's yield. Returns the bundles left waiting.
         /// </summary>
-        private static int Deliver(List<Outpost> list, Dictionary<int, int[]> yields, bool homeReported, bool apply, int[] delivered)
+        private static int Deliver(List<Outpost> list, Dictionary<int, int[]> yields, bool homeReported, bool apply, int[] delivered,
+                                   bool withPending = true)
         {
             int waiting = 0;
             foreach (Outpost o in list)
@@ -771,7 +772,7 @@ namespace SurvivorCommunity
                     if (apply) { o.LastYield[r] = v; o.Produced += v; }
                     if (reported)
                     {
-                        int amount = v + o.Pending[r];
+                        int amount = v + (withPending ? o.Pending[r] : 0);   // round fd2: the steady day leaves the backlog out
                         int take = Math.Min(amount, haulRoom);          // stash and haul (off: no limit)
                         if (haulRoom != int.MaxValue) haulRoom -= take;
                         delivered[r] += take;
@@ -799,14 +800,18 @@ namespace SurvivorCommunity
             return ProjectedDelivery(day, new int[ScNames.ResourceCount]);
         }
 
-        /// <summary>Round fd2: the same, each resource's bundles into `delivered` (zeroed first); returns the total.</summary>
-        public static int ProjectedDelivery(int day, int[] delivered)
+        /// <summary>
+        /// Round fd2: the same, each resource's bundles into `delivered` (zeroed first); returns the total. withPending false:
+        /// an ordinary day's - what the outposts make and can bring home, without the backlog waiting at them since the radio
+        /// last reported (a one-off lump, not daily income).
+        /// </summary>
+        public static int ProjectedDelivery(int day, int[] delivered, bool withPending = true)
         {
             Array.Clear(delivered, 0, delivered.Length);
             Community c = ScRegistry.Community;
             List<Outpost> list = ScRegistry.Outposts;
             if (list.Count == 0) return 0;
-            Deliver(list, ScEconomy.NetworkYields(day), c.RadioOnlineDay >= day - 1 || RadioOnlineAnywhere(), false, delivered);
+            Deliver(list, ScEconomy.NetworkYields(day), c.RadioOnlineDay >= day - 1 || RadioOnlineAnywhere(), false, delivered, withPending);
             int total = 0;
             for (int r = 0; r < ScNames.ResourceCount; r++) total += delivered[r];
             return total;

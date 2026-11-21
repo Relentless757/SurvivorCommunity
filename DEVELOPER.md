@@ -205,14 +205,16 @@ NPCs but cannot manage a community (v2).
   other - `ScActivities.RationInForce` (enacted today or its penalty running) refuses a feast, `FeastActive` refuses
   rationing.
 - **The window's daily net (round fd2):** `ScEconomy.DailyFlow(day, gain, use)` is the next rollover's flow per
-  resource from the rollover's own functions, in its order: `ScOutposts.ProjectedDelivery(day, delivered)`, `Upkeep`,
+  resource from the rollover's own functions, in its order: `ScOutposts.ProjectedDelivery(day, delivered, false)` (the
+  steady day: an outpost's backlog `Pending`, waiting since the radio last reported, is a one-off and left out), `Upkeep`,
   `Haulage`, `ScGarrison.ProjectedWorkshops` (on a copy of the stock), `ScEncAllies.ProjectedBundles`, `HomeWater`,
   `Harvest`, `FoodEaten(day, ...)` (tonight's rationing counts here: it is tonight's number, not a projection),
   `WaterDrunk`, `ScStockpile.MedsForRollover`. The window fills it once per refresh and the strip's `{opX}` /
   `{opXcolor}` show gain - use. Anything new that changes the stockpile at the rollover belongs in it too. The
   days left under food and water (`XUiC_ScCommunity.DaysLeft`) use the same gain against an ordinary day's
   `FoodEaten()` / `WaterDrunk()` (no rationing); the morale Food term (`ScMorale`, `FoodDays`) still reads the stock alone.
-- **Window and HUD:** the resources strip shows all seven (water with its days left or "+N a day from the wells");
+- **Window and HUD:** the resources strip shows all seven (water with its days left; since round fd2 food and water
+  count income and read "+N a day spare" when it covers them);
   the Home Status panel shows water between food and meds; morale lists Water and the round of drinks.
 - **Console:** `sc give water|luxury <n>`, `sc run <member> water`, `sc barter water <res>`, `sc facility` (the wells and dew collectors in the loaded home zone,
   their levels and water), `sc facility level <x y z> <n>`, `sc drinks [on|off]`, `sc feast [on|off]`,

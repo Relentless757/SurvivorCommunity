@@ -1850,7 +1850,8 @@ The window has three tabs: Members, Outposts and Facilities.
 
 Across the top is the stockpile: each resource's count, and beside it what the next day's end will add or take,
 **+N** in green, **-N** in red, **±0** when it adds and takes as much. It counts everything that happens every day: the
-outposts' deliveries, upkeep, haulage and workshops, your allies' bundles, the garden, the wells and dew collectors,
+outposts' deliveries (an ordinary day's: bundles that piled up while the radio was down are a one-off and not
+counted), upkeep, haulage and workshops, your allies' bundles, the garden, the wells and dew collectors,
 what your people eat (with the cook and tonight's rationing) and drink, and the Meds the injured need. Runs, trades,
 crafting, the activities and ammo (spent only by shooting and as watch shifts start) are not counted.
 
