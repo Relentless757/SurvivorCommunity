@@ -40,7 +40,7 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 ## Round fd2 (2026-11-21): the day's net per resource, farm plots, feast vs rationing, marksmen up close, a quieter log
 
 Why: you asked for the daily +/- beside each resource, Farm plots in the facility list (scrolling), and a feast and
-rationing never at once; plus t88. Build `sc34_fd2`, **not deployed yet**. `sc status` prints the next rollover's figures
+rationing never at once; plus t88. Deployed 2026-11-21 (port-3.4 0543ef33, DLL 07270964). `sc status` prints the next rollover's figures
 to compare against.
 
 - [ ] **Daily net:** with 6 members, no cook, no crops and no outposts the food shows **-6** in red beside the count;
