@@ -152,7 +152,7 @@ namespace SurvivorCommunity
     /// Round 31: natural hair colors follow the skin - a mid or a dark skin (round 32c: per sex, ScConfig.SurvivorMidSkinsMale
     /// ... SurvivorDarkSkinsFemale) rolls only its group's natural colors (NaturalPick), gray and white at their share of all
     /// natural colors on every skin, and a stored look with a natural color its skin no longer allows is given an allowed one
-    /// of the same age as it is validated (FixHairColor, as P2's FixMaleHair); dyed colors and creator faces are left be.
+    /// of the same age as it is validated (FixHairColor, as P2's FixHair); dyed colors and creator faces are left be.
     /// Round 32c (F32): with Vanity Vault the face variant's race (FaceRace: 1-4 White, 5-8 Native, 9-12 Black, 13-16 Asian)
     /// narrows the hair group too (the darker of face and tone: AllowedHairColors), a new survivor gets its face first and a
     /// tone that suits it (Roll, TonesForFace), and sc look &lt;x&gt; tone re-tones one survivor on request (SuitedTone). A
@@ -416,19 +416,35 @@ namespace SurvivorCommunity
         /// <summary>
         /// P2: a man's stored hair that is now excluded (SurvivorExcludeHairsMale) is swapped for an allowed one, picked from
         /// the look's own other parts so the same person gets the same new hair on every load (and keeps it once saved).
+        /// Round tw2: the same for anyone's stored hair on SurvivorExcludeHairs (it used to keep only new survivors from
+        /// rolling one, so Alex, met before, kept Vanity Vault's anime cut); a woman's new hair comes from the women's list.
         /// </summary>
-        private static void FixMaleHair(Look look)
+        private static void FixHair(Look look)
         {
-            if (look == null || !look.Male || string.IsNullOrEmpty(look.Hair) || !ScConfig.Listed(ScConfig.SurvivorExcludeHairsMale, look.Hair)) return;
+            if (look == null || string.IsNullOrEmpty(look.Hair)) return;
+            bool all = ScConfig.Listed(ScConfig.SurvivorExcludeHairs, look.Hair);
+            bool men = look.Male && ScConfig.Listed(ScConfig.SurvivorExcludeHairsMale, look.Hair);
+            if (!all && !men) return;
             List<string> ok = null;
-            try { ok = Allowed(Allowed(SDCSDataUtils.GetHairNames(true, SDCSDataUtils.HairTypes.Hair), ScConfig.SurvivorExcludeHairs), ScConfig.SurvivorExcludeHairsMale); }
-            catch (Exception e) { ScLog.Once("looks-malehair-list", e); }
-            string[] pool = ok != null && ok.Count > 0 ? ok.ToArray() : MaleFallbackHairs();
+            try
+            {
+                ok = Allowed(SDCSDataUtils.GetHairNames(look.Male, SDCSDataUtils.HairTypes.Hair), ScConfig.SurvivorExcludeHairs);
+                if (look.Male) ok = Allowed(ok, ScConfig.SurvivorExcludeHairsMale);
+            }
+            catch (Exception e) { ScLog.Once("looks-hair-list", e); }
+            string[] pool;
+            if (ok != null && ok.Count > 0) pool = ok.ToArray();
+            else if (look.Male) pool = MaleFallbackHairs();
+            else
+            {
+                List<string> f = Allowed(new List<string>(FallbackHairs), ScConfig.SurvivorExcludeHairs);
+                pool = f != null && f.Count > 0 ? f.ToArray() : FallbackHairs;
+            }
             string seed = (look.Race ?? "") + "|" + look.Variant + "|" + (look.HairColor ?? "") + "|" + (look.Eyes ?? "") + "|" + (look.Beard ?? "");
             int h = seed.GetStableHashCode();
             string was = look.Hair;
             look.Hair = pool[(h & 0x7fffffff) % pool.Length];
-            ScLog.Verbose("look: a man's hair " + was + " is no longer given to men - " + look.Hair + " instead");
+            ScLog.Out("look: hair " + was + " is no longer given to " + (all ? "survivors" : "men") + " - " + look.Hair + " instead");
         }
 
         /// <summary>A new list of the names not on the exclude list (null in, null out - Pick then uses its fallback).</summary>
@@ -756,7 +772,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Corrects a stored look to today's rules, in place, once per look per session: P2's men's hair (FixMaleHair) and
+        /// Corrects a stored look to today's rules, in place, once per look per session: P2's excluded hair (FixHair) and
         /// round 31's natural hair color for the skin (FixHairColor; round 32c: for the face too). e / name only name the NPC
         /// in the hair color fix's log line (name: whose look it is; null = the body's own name; without e, name is used as
         /// it is). Never changes a look's race (tone): round 32 review L2 - the missing-assets fallback used to rewrite the look
@@ -770,7 +786,7 @@ namespace SurvivorCommunity
             if (look == null || look.Validated) return;
             try
             {
-                FixMaleHair(look);      // P2
+                FixHair(look);          // P2; round tw2: SurvivorExcludeHairs too, either sex
                 // round 33a (round 32 review L3), before the hair color (it reads the face): its own try, so a fault there
                 // never keeps the hair rules from running
                 try { FixVariant(look, e, name); }
@@ -1209,7 +1225,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Round 31 (mirrors P2's FixMaleHair, from Validate): a stored look whose natural hair color its skin no longer allows
+        /// Round 31 (mirrors P2's FixHair, from Validate): a stored look whose natural hair color its skin no longer allows
         /// (a mid or a dark skin: AllowedHairColors) is given an allowed one (FixedHairColor), in place - the body is built from
         /// it (ForEntity, X1) and a member's or prospect's record saves it. One log line per swap. Round 32c: a Vanity Vault
         /// face narrows the group too (AllowedHairColors); an enclave's or a band's person's record is validated in

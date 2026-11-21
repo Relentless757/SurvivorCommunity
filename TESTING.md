@@ -37,6 +37,23 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round tw2 (2026-11-20): tower repaint finds old towers; no anime hairstyle
+
+Why: your two reports. `sc tower repaint` looked for a mark in the old paint that the game drops when a block is built
+(the world keeps six faces of paint per block; only the prefab had the mark), so it never found a tower. And Alex wore
+Vanity Vault's anime cut (`Sonja_Med_02_M`), which is now never given and swapped on load.
+
+- [ ] **Repaint your old tower:** stand next to the Guard Tower you built before 2026-11-18, F1, `sc tower repaint`:
+      "N block(s) repainted to old wood" (about 70, more with longer legs). The white trim and black bands are gone:
+      old wood on every side, as in 3.2. Run it again: "no tower blocks with the old paint". Looking at it adds no more
+      "Missing paint ID XML entry: 196" lines to the log.
+- [ ] **Your own paint stays:** on another old tower (or before the step above), paint one or two faces of a block with
+      the paint brush, then `sc tower repaint`: those faces keep your paint, the rest of the block turns old wood.
+- [ ] **Alex's hair:** load the save and go near Alex: the log has "look: hair Sonja_Med_02_M is no longer given to
+      survivors - (another) instead", and he wears that style. Save, quit and load: he keeps it.
+- [ ] **Nobody new gets it:** `sc spawn` a dozen survivors (men and women) or `sc look <name>` a few times: no spiky
+      anime cut. The startup `config:` line reads "looks=excluded 9 skins/9 eyes/1 hairs".
+
 ## Round fx3 (2026-11-20): clearing an overrun outpost over the limit is a retake
 
 Why: you decided clearing an overrun outpost should always give the "clear again" message and the Leadership credit. In

@@ -988,7 +988,13 @@ namespace SurvivorCommunity
         /// </summary>
         public static readonly List<string> SurvivorExcludeSkins = new List<string>();
         public static readonly List<string> SurvivorExcludeEyes = new List<string>();
-        public static readonly List<string> SurvivorExcludeHairs = new List<string>();
+        /// <summary>
+        /// Round tw2 (the user, 2026-11-20: "a hairstyle that shouldn't appear on NPCs (it's an anime haircut)" - Alex wore
+        /// Vanity Vault's Sonja_Med_02_M): never rolled, and a stored look with one is given another (ScLooks.FixHair). Both
+        /// sexes' versions of the cut. Declared before the list (static fields initialize in text order).
+        /// </summary>
+        public static readonly string[] DefaultExcludeHairs = { "Sonja_Med_02_*" };
+        public static readonly List<string> SurvivorExcludeHairs = new List<string>(DefaultExcludeHairs);
         /// <summary>
         /// P2 (user, 2026-11-09: male NPCs with female hairstyles): the game offers all 20 hairstyles to both sexes; these are
         /// never rolled for a man, and a stored man's look with one is given another (ScLooks.Validate). "Only the clearly
@@ -1455,7 +1461,7 @@ namespace SurvivorCommunity
             SurvivorFacialHairChance = 0.4f;
             SurvivorExcludeSkins.Clear();
             SurvivorExcludeEyes.Clear();
-            SurvivorExcludeHairs.Clear();
+            SurvivorExcludeHairs.Clear(); SurvivorExcludeHairs.AddRange(DefaultExcludeHairs);   // round tw2
             SurvivorExcludeHairsMale.Clear(); SurvivorExcludeHairsMale.AddRange(DefaultExcludeHairsMale);   // P2
             SurvivorDyedHairColors.Clear();
             SurvivorDyedHairChanceFemale = 0.06f;

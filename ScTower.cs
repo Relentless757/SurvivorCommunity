@@ -507,6 +507,26 @@ namespace SurvivorCommunity
         public const int TowerPaint = 67;
 
         /// <summary>
+        /// Round tw2 (2026-11-20, the user's report: sc tower repaint found nothing on a tower built before tw1): what a
+        /// stamped block carries IN THE WORLD. The chunk's paint channel keeps six bytes a block (Chunk: new
+        /// ChunkBlockChannel(0L, 6) - Top, Bottom, North, West, South, East), so bytes 6 and 7 of OcbStampedPaint, the 0x01
+        /// marker tw1's repaint looked for included, were dropped the moment the tower was built; only the prefab keeps them.
+        /// </summary>
+        public const long OcbStampedWorldPaint = OcbStampedPaint & 0xFFFFFFFFFFFFL;
+
+        /// <summary>Faces (of six) that must still carry the stamped paint for repaint to take a block: up to two the player painted.</summary>
+        public const int StampedFacesNeeded = 4;
+
+        /// <summary>How many of a world block's six faces carry the paint towers were stamped with before round tw1.</summary>
+        public static int StampedFaces(long v)
+        {
+            int n = 0;
+            for (int f = 0; f < 6; f++)
+                if (((v >> (f * 8)) & 0xFF) == ((OcbStampedWorldPaint >> (f * 8)) & 0xFF)) n++;
+            return n;
+        }
+
+        /// <summary>
         /// The top byte of a texture value: vanilla keeps seven 8-bit faces (Top, Bottom, North, West, South, East and
         /// Middle, BlockFace 0-6) and never writes byte 7. OcbCustomTextures' 10-bit faces reach into it (0x01 in the
         /// stamped paint), so it marks a value vanilla can't have written.
@@ -542,12 +562,15 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// sc tower repaint: every block within radius (a cube around center) that still carries the paint towers were
-        /// stamped with before round tw1 gets "old wood" on its six faces again. The test is byte 7 (0x01 in the stamped
-        /// value; vanilla never writes it, see TopByte). A face the player painted since keeps its paint: vanilla's brush
-        /// changes only that face's byte, so a face whose byte differs from the stamped one is theirs (Middle included).
-        /// Written through vanilla's paint path (SetBlockTextureServer, as the brush does), which saves the chunk, rebuilds
-        /// its mesh and tells connected players: first all six faces old wood (that clears bytes 6 and 7), then the player's
-        /// own faces back. Air and unloaded chunks are skipped; the chunk is looked up once per block column.
+        /// stamped with before round tw1 gets "old wood" on its six faces again. Round tw2: the test is the six faces the
+        /// world keeps (StampedFaces, at least StampedFacesNeeded of them as stamped) - tw1 tested byte 7, which a world
+        /// block never has (OcbStampedWorldPaint), so it never matched. The mix (old wood, black wood, white adobe trim,
+        /// the undefined paint 196, log cabin, old wood) does not come up by chance. A face the player painted since keeps
+        /// its paint: vanilla's brush changes only that face's byte, so a face whose byte differs from the stamped one is
+        /// theirs. Written through vanilla's paint path (SetBlockTextureServer, as the brush does), which saves the chunk,
+        /// rebuilds its mesh and tells connected players: first all six faces old wood, then the player's own faces back.
+        /// A repainted block keeps 2 stamped faces (old wood top and east), so a second run leaves it alone. Air and
+        /// unloaded chunks are skipped; the chunk is looked up once per block column.
         /// Host / single player, main thread.
         /// </summary>
         public static int Repaint(World w, Vector3i center, int radius, int byEntity, out int loadedColumns, out int columns)
@@ -555,7 +578,6 @@ namespace SurvivorCommunity
             int fixedCells = 0;
             loadedColumns = columns = 0;
             int y0 = Math.Max(0, center.y - radius), y1 = Math.Min(255, center.y + radius);
-            int top = TopByte(OcbStampedPaint);
             GameManager gm = GameManager.Instance;
             for (int x = center.x - radius; x <= center.x + radius; x++)
                 for (int z = center.z - radius; z <= center.z + radius; z++)
@@ -568,14 +590,14 @@ namespace SurvivorCommunity
                     for (int y = y0; y <= y1; y++)
                     {
                         long v = c.GetTextureFullArray(lx, y, lz, false)[0];
-                        if (TopByte(v) != top) continue;
+                        if (StampedFaces(v) < StampedFacesNeeded) continue;     // round tw2 (was: byte 7, never kept)
                         if (c.GetBlock(lx, y, lz).isair) continue;
                         Vector3i pos = new Vector3i(x, y, z);
                         gm.SetBlockTextureServer(pos, BlockFace.None, TowerPaint, byEntity);
-                        for (int f = 0; f < 7; f++)
+                        for (int f = 0; f < 6; f++)
                         {
                             int cur = (int)((v >> (f * 8)) & 0xFF);
-                            int was = (int)((OcbStampedPaint >> (f * 8)) & 0xFF);
+                            int was = (int)((OcbStampedWorldPaint >> (f * 8)) & 0xFF);
                             if (cur != was) gm.SetBlockTextureServer(pos, (BlockFace)f, cur, byEntity);
                         }
                         fixedCells++;
