@@ -41,7 +41,8 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 
 Why: the first multiplayer round. SC's once-a-second ticker and the day rollover now run on any server, a dedicated one
 included, and "is the player home / near / there" counts any player instead of the host alone. Windows, buttons,
-dialogs, markers, quests and voices for clients come in later rounds. Build `sc34_mp0`, **not deployed yet**.
+dialogs, markers, quests and voices for clients come in later rounds. Build `sc34_mp0`, **deployed to 3.4 on 2026-11-21**
+(port-3.4 5844f855, DLL 2409db8d), untested in game.
 
 **Single player: nothing may change** (the most important part)
 - [ ] The day rolls over: the day's summary shows once; food and water are used as before.
