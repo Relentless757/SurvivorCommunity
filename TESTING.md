@@ -37,6 +37,38 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP0 (2026-11-21): multiplayer groundwork - SC runs on a dedicated server, any player counts
+
+Why: the first multiplayer round. SC's once-a-second ticker and the day rollover now run on any server, a dedicated one
+included, and "is the player home / near / there" counts any player instead of the host alone. Windows, buttons,
+dialogs, markers, quests and voices for clients come in later rounds. Build `sc34_mp0`, **not deployed yet**.
+
+**Single player: nothing may change** (the most important part)
+- [ ] The day rolls over: the day's summary shows once; food and water are used as before.
+- [ ] A follower follows you again after a save and reload.
+- [ ] Morale on the HUD, and a feast or rationing buff, behave as before.
+- [ ] A home attack while you're home is the live fight. Leave during it: it's handed to the defenders, as before.
+- [ ] A member leaving (the Leave button, or low morale) and a member dying each show one message.
+- [ ] Outposts: an attack you go to; the stash goes into the claim box when you visit.
+- [ ] Log: no SC errors. Once: `community owner <you> recorded by platform id`.
+
+**Joining a server without SC** (the test server before SC goes on it)
+- [ ] You stay connected. Your log says `the server has no SurvivorCommunity network layer`.
+
+**Dedicated server** (a copy of a save with a community; you join with your 3.4 client)
+- [ ] Join: your log says `server runs the same SurvivorCommunity protocol (1)`.
+- [ ] With you at home the day rolls over at midnight: you get the day's summary, stock is used, the morale buff is on you.
+- [ ] A home attack while you're home is the live fight, not the away fight.
+- [ ] Your followers follow you again after the server restarts.
+- [ ] A downed member bleeds out without help, and a resident medic runs to a downed member.
+- [ ] Enclave people appear at their building when you come near; bands on the road; radio survivors.
+- [ ] Airdrops come on the game's own schedule (the radio can't ask for one on a dedicated server yet).
+- [ ] Expected missing (later rounds): the community window's data and buttons, the land claim's SC entries, SC dialog
+      rows, markers, quests and SC's voices.
+
+**Listen host + a second player** (optional, the laptop)
+- [ ] The second player at home during an attack gets the live fight; both get the day's summary.
+
 ## Round nc3 (2026-11-21): members keep engaging a zombie that leaves the base
 
 Why: Leo shot the zombies chasing you, but stopped the moment they followed you out of the base: nc1's radius rule (no

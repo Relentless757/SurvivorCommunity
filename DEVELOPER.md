@@ -2078,6 +2078,45 @@ the replay harness `tools\replay_ui.py` (`SC_PATH=<tree> python -I replay_ui.py 
 - **PhysicalPDA** ships its own SC adapter (reflection on SC's types); the user leaves it to its author. Renaming public
   SC members it reads (`ScMorale`, `XUiC_ScCommunity`, `XUiC_ScDialogLine`, ...) breaks it - see the analysis.
 
+## Multiplayer (round MP0 onward)
+
+The multiplayer port runs in two stages:
+1. **Stage 1:** a listen host or a dedicated server, one shared community.
+2. **Stage 2:** several communities, chosen by a server setting (shared, per player, per party).
+
+Round MP0 is the groundwork:
+- **The server is the authority.** The registry lives on the server (single player, listen host or dedicated) and is never
+  loaded on a client. `ScRegistry.Loaded` is true only on the server, and a lot of code relies on that, so a future
+  client-side copy must use its own container and flag.
+- **`ScPlayers`** is the one place SC asks who is playing and where:
+  - presence: `AnyHome`, `Home`, `Nearest`, `AnyWithin`;
+  - identity: `IdOf`, the platform id `ClientInfo.InternalId` (the host's own is
+    `PlatformManager.InternalLocalUserIdentifier`), the key the game itself uses for player files;
+  - the community: `Community`, `TellCommunity`.
+  - In single player `World.Players.list` holds the one local player, so every "any player" question answers as the old
+    "the player" did.
+- **The ticker** passes `ScPlayers.Anchor()` down: the host's own player whenever there is one, else the community's owner,
+  else a community player at home, else any player. With nobody online it does nothing: an empty dedicated server's
+  world time stands still. Tells use the right recipient: the player involved, or the whole community.
+- **Records:** members record `leader=` (their leader's platform id) and the community `ownerid=`. A follower whose leader
+  link is lost after a relog is restored to their own leader once they are online, never to whoever hosts (single
+  player: always the one player).
+- **`ScNet`:**
+  - `NetPackageScHello` carries SC's protocol number: the game checks package names only, not layouts. Its layout is
+    frozen.
+  - A client never queues a package the server has no id for (`ServerKnows<T>`): that would disconnect it.
+  - `ToPlayer` reaches one player from the server: the local handler for the host's own player, which no package
+    reaches; the package for a remote one.
+- **Still the host's own until later rounds:**
+  - the community window's data and buttons, the land claim's SC entries, SC dialog rows, `sc` console commands (MP1, MP2);
+  - linked storage and item hand-overs (MP3);
+  - markers, quests, SC's voices and radio lines (MP4);
+  - the radio window, enclave dialogs, physical runners, runner distress calls (MP5).
+- **Dedicated-server specifics:**
+  - airdrops follow vanilla's schedule (`RadioOnlyAirdrops` applies only with a local player);
+  - supply runs sent by a client are hidden runs;
+  - runners make no distress calls there.
+
 ## How it hangs together (for modders)
 
 - NPCs are 0-XNPCCore's `EntityAliveSDXV4` survivors (SCore's legacy `EntityAliveSDX` still works for pack NPCs). A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars
