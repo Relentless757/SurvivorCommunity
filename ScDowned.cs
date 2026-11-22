@@ -166,8 +166,8 @@ namespace SurvivorCommunity
                 if (d.LeaveTold) return true;
                 d.LeaveTold = true;
             }
-            EntityPlayerLocal p = ScCommunity.LocalPlayer;
-            if (p != null) ScCommunity.Tell(p, string.Format(Localization.Get("scDownedNoLeave"), m.Name), "ui_denied");
+            // round MP0: to her leader, else the community's players (TellAbout), no longer the host alone
+            TellAbout(ScCommunity.FindNpc(m.Id), string.Format(Localization.Get("scDownedNoLeave"), m.Name), "ui_denied");
             ScLog.Out(m.Name + " is down - not leaving now (" + (reasonKey ?? "-") + "); asked again once she is up");
             return true;
         }
@@ -204,8 +204,12 @@ namespace SurvivorCommunity
             Member m = MemberOfBody(npc);
             if (m == null || m.Status == MemberStatus.OnRun || m.Status == MemberStatus.Garrison || m.Status == MemberStatus.Arriving
                 || m.Status == MemberStatus.Transit) return false;                       // round op1: on the road, as a runner
-            EntityPlayerLocal p = ScCommunity.LocalPlayer;
-            return p != null && !p.IsDead();
+            // round MP0 (D 4.6): while ANY community player is alive, not only the host's own player - a dedicated server has none,
+            // and her bleed-out would pause for good (single player: while you are alive, as before)
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+                if (all[i] != null && !all[i].IsDead() && ScPlayers.InCommunity(all[i])) return true;
+            return false;
         }
 
         /// <summary>A medic on her way to (or treating) a downed member: ScInvestigate and ScSleep leave her be.</summary>
@@ -331,8 +335,6 @@ namespace SurvivorCommunity
         {
             d.TellPending = false;
             if (!ScConfig.DownedTell) return;
-            EntityPlayerLocal p = ScCommunity.LocalPlayer;
-            if (p == null) return;
             int s = Mathf.Max(1, Mathf.CeilToInt(d.Bleed));
             string text;
             if (d.MedicId >= 0)
@@ -343,28 +345,39 @@ namespace SurvivorCommunity
             else if (d.Home && ScConfig.ResidentMedicsRevive && d.NoMedicReason != null)
                 text = string.Format(Localization.Get("scDownedIsDownNoMedic"), d.Name, s, d.NoMedicReason);
             else text = string.Format(Localization.Get("scDownedIsDown"), d.Name, s);
-            ScCommunity.Tell(p, text, "ui_denied");
+            TellAbout(d.Body, text, "ui_denied");      // round MP0: to her leader (the MP0 plan's cheap fix), else the community
         }
 
         /// <summary>0-XNPCCore's own warning text ("will bleed out in 30 s") to the player, for one with no leader to tell (at home).</summary>
         internal static void TellPlayerNpcCore(EntityAlive npc, string key, int seconds)
         {
-            EntityPlayerLocal p = ScCommunity.LocalPlayer;
-            if (p == null || npc == null) return;
-            ScCommunity.Tell(p, string.Format(Localization.Get(key), Localization.Get(npc.EntityName), seconds), "");
+            if (npc == null) return;
+            // round MP0: the community's players (she has no player leader here), no longer the host alone
+            TellAbout(npc, string.Format(Localization.Get(key), Localization.Get(npc.EntityName), seconds), "");
         }
 
-        private static void Tell(string key, params object[] args)
+        /// <summary>Round MP0: body - who it is about (TellAbout picks who hears it).</summary>
+        private static void Tell(EntityAlive body, string key, params object[] args)
         {
             if (!ScConfig.DownedTell) return;
-            EntityPlayerLocal p = ScCommunity.LocalPlayer;
-            if (p != null) ScCommunity.Tell(p, string.Format(Localization.Get(key), args), "");
+            TellAbout(body, string.Format(Localization.Get(key), args), "");
+        }
+
+        /// <summary>
+        /// Round MP0 (D 4.6): who hears about her - her leader or owner when that is a player (a follower; the one whose shift or
+        /// talk holds her), else every community player online (a resident at home is everyone's news). Single player: you.
+        /// </summary>
+        private static void TellAbout(EntityAlive body, string text, string sound)
+        {
+            EntityPlayer leader = body != null ? EntityUtilities.GetLeaderOrOwner(body.entityId) as EntityPlayer : null;
+            if (leader != null) ScCommunity.Tell(leader, text, sound);
+            else ScPlayers.TellCommunity(text, sound);
         }
 
         // ------------------------------------------------------------------ the ticker ----
 
         /// <summary>Once a second from ScTicker, right after Relink (so ScSleep and ScInvestigate see this second's medics).</summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)     // round MP0: any player (the anchor); not used here
         {
             if (w == null || !ScCommunity.IsHost || !ScRegistry.Loaded) return;
             try
@@ -506,11 +519,11 @@ namespace SurvivorCommunity
                       + (fragile > 0f ? "; a second down in the next " + Secs(fragile) + " is a real death (0-XNPCCore's re-down window)" : ""));
             if (fragile > 0f)
             {
-                if (by != null) Tell("scDownedRevivedByFragile", m.Name, by, Minutes(fragile));
-                else Tell("scDownedRevivedFragile", m.Name, Minutes(fragile));
+                if (by != null) Tell(d.Body, "scDownedRevivedByFragile", m.Name, by, Minutes(fragile));
+                else Tell(d.Body, "scDownedRevivedFragile", m.Name, Minutes(fragile));
             }
-            else if (by != null) Tell("scDownedRevivedBy", m.Name, by);
-            else Tell("scDownedRevived", m.Name);
+            else if (by != null) Tell(d.Body, "scDownedRevivedBy", m.Name, by);
+            else Tell(d.Body, "scDownedRevived", m.Name);
             // the U2+U4 integration fix: Bond's "revive" (any reviver counts), unless 0-XNPCCore's Revived hook gave it - its
             // "ragdoll ended while downed" revive and a down with no Voice Control never call it. Then the down is over
             ScBond.NoteRevived(m.Id, by != null ? "revived by " + by : "revived", false);
@@ -641,7 +654,7 @@ namespace SurvivorCommunity
                 // the Fable review (F2): folded into the "is down" line while that is pending; never a tooltip of its own when there
                 // is no medic at home at all (the roster says "nobody can come")
                 d.NoMedicReason = firstName == null ? null : reason;
-                if (!d.TellPending && firstName != null) Tell("scDownedNoMedic", d.Name, reason);
+                if (!d.TellPending && firstName != null) Tell(d.Body, "scDownedNoMedic", d.Name, reason);
                 return;
             }
             medicOf[bestBody.entityId] = d.Id;
@@ -658,7 +671,7 @@ namespace SurvivorCommunity
             ScLog.Out(best.Name + " (Medicine " + best.SpecLevel + ") goes to revive " + d.Name + ", " + d.Best.ToString("0", CultureInfo.InvariantCulture) + " m off"
                       + (ScSleep.IsAsleep(bestBody) ? " (woken: the night lease closes)" : Busy(bestBody) ? " (busy for now)" : ""));
             // the Fable review (F2, F3): folded into the "is down" line while that is pending; otherwise once per down and medic
-            if (!d.TellPending && d.ToldMedics.Add(bestBody.entityId)) Tell("scDownedMedicGoes", d.Name, best.Name);
+            if (!d.TellPending && d.ToldMedics.Add(bestBody.entityId)) Tell(d.Body, "scDownedMedicGoes", d.Name, best.Name);
             d.ToldNoMedic = false;
             d.NoMedicReason = null;
         }

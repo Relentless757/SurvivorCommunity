@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
 
@@ -20,6 +21,8 @@ namespace SurvivorCommunity
     /// The max stamina is a buff (buffSCFeast / buffSCRationing, StaminaMax from a cvar) the ticker keeps on the player and on
     /// every loaded member while it lasts, and takes off when it ends (a member loaded later gets it then; ScSkills.ClearCvars
     /// takes it off one who leaves). Only the local player: in multiplayer the other players are not given it.
+    /// Round MP0: every community player online now (a server-side buff or cvar on a remote player reaches that client), so a
+    /// dedicated server has a beneficiary and none is left holding it when it ends; single player: you, as before.
     /// </summary>
     public static class ScActivities
     {
@@ -192,14 +195,22 @@ namespace SurvivorCommunity
         /// The feast's and rationing's max stamina on the player and every loaded member while each lasts, and off when it
         /// does not (a member loaded later gets it then; a buff left on one from before is taken off).
         /// </summary>
-        public static void KeepBuffs(EntityPlayerLocal player)
+        public static void KeepBuffs(EntityPlayer player)
         {
             if (!ScRegistry.Loaded) return;
             Community c = ScRegistry.Community;
             float feast = c.FeastLeft > 0f ? c.FeastStamina : 0f;
             float ration = c.RationLeft > 0f ? -ScConfig.RationStamina : 0f;
-            Keep(player, FeastBuff, FeastCvar, feast);
-            Keep(player, RationBuff, RationCvar, ration);
+            // round MP0: on every community player online, no longer only the one passed in (the host's own on a host, else the
+            // anchor): an anchor that changes on a dedicated server would keep the buff for good. EntityBuffs sends a server-side
+            // AddBuff / RemoveBuff and SetCustomVar on a remote player to the clients
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i] == null || !ScPlayers.InCommunity(all[i])) continue;
+                Keep(all[i], FeastBuff, FeastCvar, feast);
+                Keep(all[i], RationBuff, RationCvar, ration);
+            }
             foreach (Member m in ScRegistry.Members.Values)
             {
                 EntityAlive npc = ScNpc.Find(m.Id);              // never forces a body that is still being built
@@ -345,7 +356,7 @@ namespace SurvivorCommunity
         /// rationing - paused with the game; saved once a minute so a quit costs at most a minute of one, and at its end (with
         /// the player told). Every two seconds the feast's and rationing's buffs are kept on the player and the loaded members.
         /// </summary>
-        public static void Tick(EntityPlayerLocal player)
+        public static void Tick(EntityPlayer player)     // round MP0: any player (the anchor)
         {
             float now = Time.unscaledTime;
             float dt = lastTick < 0f ? 0f : now - lastTick;
@@ -369,7 +380,7 @@ namespace SurvivorCommunity
                 {
                     c.DrinksLeft = 0f;
                     ended = true;
-                    if (player != null) ScCommunity.Tell(player, Localization.Get("scActDrinksOver"), "");
+                    ScPlayers.TellCommunity(Localization.Get("scActDrinksOver"), "");     // round MP0: the community's news
                     ScLog.Out("activity: the round of drinks has worn off (morale " + c.Morale + ")");
                 }
             }
@@ -380,7 +391,7 @@ namespace SurvivorCommunity
                 {
                     c.FeastLeft = 0f;
                     ended = true;
-                    if (player != null) ScCommunity.Tell(player, Localization.Get("scActFeastOver"), "");
+                    ScPlayers.TellCommunity(Localization.Get("scActFeastOver"), "");      // round MP0: the community's news
                     ScLog.Out("activity: the feast has worn off (morale " + c.Morale + ")");
                 }
             }
@@ -391,7 +402,7 @@ namespace SurvivorCommunity
                 {
                     c.RationLeft = 0f;
                     ended = true;
-                    if (player != null) ScCommunity.Tell(player, Localization.Get("scActRationOver"), "");
+                    ScPlayers.TellCommunity(Localization.Get("scActRationOver"), "");     // round MP0: the community's news
                     ScLog.Out("activity: rationing's penalty has worn off (morale " + c.Morale + ")");
                 }
             }

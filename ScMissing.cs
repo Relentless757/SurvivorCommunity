@@ -38,7 +38,7 @@ namespace SurvivorCommunity
         public static int Count { get { return missing.Count; } }
 
         /// <summary>ScTicker, every second (works every 2).</summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)     // round MP0: any player (the anchor)
         {
             try
             {
@@ -46,7 +46,7 @@ namespace SurvivorCommunity
                 float now = Time.unscaledTime;
                 if (now < nextTick) return;
                 nextTick = now + 2f;
-                bool atHome = ScZone.HasHome && ScZone.Contains(player.GetBlockPosition());
+                bool atHome = ScPlayers.AnyHome();       // round MP0 (A 14): any community player at home, no longer the host alone
                 foreach (var m in ScRegistry.Members.Values)
                 {
                     // followers, runners and posted members are hidden or away by design (E12: and one still on the way, Arriving)
@@ -58,7 +58,7 @@ namespace SurvivorCommunity
                     if (now - since < GraceSeconds || !missing.Add(m.Id)) continue;
                     ScLog.Warn(m.Name + " (id " + m.Id + ") is a resident but no such entity exists with their post loaded for "
                                + GraceSeconds + " s - marked missing (Community window: Call back)");
-                    if (told.Add(m.Id)) ScCommunity.Tell(player, string.Format(Localization.Get("scMissingTip"), m.Name), "ui_denied");
+                    if (told.Add(m.Id)) ScPlayers.TellCommunity(string.Format(Localization.Get("scMissingTip"), m.Name), "ui_denied");   // round MP0: the community's news
                 }
             }
             catch (Exception e)

@@ -473,7 +473,7 @@ namespace SurvivorCommunity
         /// ScTicker's Resident branch, first thing: true when she is on a shift (ticked here; the branch's re-station, post check,
         /// self-heal and watchdog are skipped), false otherwise - a stale sc_shift (a shift a reload ended) is taken off then.
         /// </summary>
-        public static bool Resident(Member m, EntityAlive npc, EntityPlayerLocal player)
+        public static bool Resident(Member m, EntityAlive npc, EntityPlayer player)     // round MP0: any player (the anchor); not used here
         {
             Shift s;
             if (m == null || npc == null || !shifts.TryGetValue(m.Id, out s))
@@ -668,10 +668,12 @@ namespace SurvivorCommunity
         /// body unloaded is dropped - 0-XNPCCore forgets an unloaded body's order, and the resident rule stations her when she loads.
         /// Round 29a: ScJobs' own second (replanting, the work kit's once-per-body check) runs from here first.
         /// </summary>
-        public static void Sweep(EntityPlayerLocal player)
+        public static void Sweep(EntityPlayer player)     // round MP0: the anchor (ScPlayers.Anchor), no longer the local player
         {
             ScCraft.FlushXp(false);   // review #6: craft XP is saved here at most every FlushSeconds, not on every point
-            ScJobs.Tick(player);
+            // round MP0: ScJobs.Tick still takes EntityPlayerLocal but never reads it - null on a dedicated server is safe, and the
+            // replanting and work kit checks must run there too
+            ScJobs.Tick(player as EntityPlayerLocal);
             if (shifts.Count == 0) return;
             scratch.Clear();
             scratch.AddRange(shifts.Keys);
@@ -689,6 +691,8 @@ namespace SurvivorCommunity
                     npc.Buffs.RemoveCustomVar(ShiftCvar);
                     if (m != null && m.Status != MemberStatus.Following && m.Status != MemberStatus.PendingStation)
                     {
+                        // round MP0: the anchor's party - a shift starts only from the host's own talk or tab until MP2, so its
+                        // owner is the host's player (the anchor there); a dedicated server has no shifts yet
                         ScCommunity.Detach(npc, player);
                         DropMarker(npc);
                     }

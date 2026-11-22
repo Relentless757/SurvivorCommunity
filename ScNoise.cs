@@ -115,7 +115,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>ScTicker, every second: drain what was heard into the zone's noise, then advance by the game time passed.</summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)     // round MP0: any player (the anchor); not used here
         {
             try
             {

@@ -320,11 +320,15 @@ namespace SurvivorCommunity
         /// building; the supplies quest's always. The map object is the one EnsureMapObject registered by position;
         /// moving it is a TrackedPosition write.
         /// </summary>
-        public static void TickMarkers(EntityPlayerLocal player)
+        public static void TickMarkers(EntityPlayer player)
         {
             try
             {
-                QuestJournal j = Journal(player);
+                // round MP0: the journal and its markers are the local player's (the host's own; a dedicated server skips it).
+                // MP4: quests to the right player
+                EntityPlayerLocal lp = player as EntityPlayerLocal;
+                if (lp == null) return;
+                QuestJournal j = Journal(lp);
                 if (j == null || j.quests == null) return;
                 for (int i = 0; i < j.quests.Count; i++)
                 {
@@ -1046,17 +1050,20 @@ namespace SurvivorCommunity
         /// that survivor: on a POI that is already clear vanilla moves the quest on the frame after "Mark it" (the
         /// re-arm is suppressed, every volume reads cleared), and the dialog completes it there.
         /// </summary>
-        public static void SyncCompleted(EntityPlayerLocal player)
+        public static void SyncCompleted(EntityPlayer player)
         {
             try
             {
-                if (player == null || ScRegistry.Prospects.Count == 0) return;
-                int talking = TalkingTo(player);
+                // round MP0: the journal (and the open dialog) are the local player's - the host's own; a dedicated server skips it.
+                // MP4: quests to the right player
+                EntityPlayerLocal lp = player as EntityPlayerLocal;
+                if (lp == null || ScRegistry.Prospects.Count == 0) return;
+                int talking = TalkingTo(lp);
                 doneScratch.Clear();
                 foreach (var p in ScRegistry.Prospects.Values)
                 {
                     if (p.Favour != FavourKind.Poi || p.Done || p.Id == talking) continue;
-                    if (FavourQuestDone(player, p.Id)) doneScratch.Add(p);
+                    if (FavourQuestDone(lp, p.Id)) doneScratch.Add(p);
                 }
                 for (int i = 0; i < doneScratch.Count; i++)
                 {
@@ -1066,7 +1073,7 @@ namespace SurvivorCommunity
                     // the quest stays open: its phase 2 ("return to <name>") completes when the player talks to them
                     EntityAlive npc = ScCommunity.FindNpc(p.Id);
                     if (npc != null) npc.Buffs.SetCustomVar("sc_favourDone", 1f);
-                    ScCommunity.Tell(player, string.Format(Localization.Get("scFavourPoiDone"), p.PoiName, p.Name), "");
+                    ScCommunity.Tell(lp, string.Format(Localization.Get("scFavourPoiDone"), p.PoiName, p.Name), "");
                     ScLog.Out("favour done: " + p.PoiName + " is clear - return to " + p.Name + " and they will join");
                 }
                 if (doneScratch.Count > 0) ScRegistry.SaveAtomic();

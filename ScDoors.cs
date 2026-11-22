@@ -202,10 +202,27 @@ namespace SurvivorCommunity
         /// <summary>1 Hz (ScTicker): shuts each door a member opened once they are past it and the doorway is clear.</summary>
         private const float PlayerHold = 2.5f;      // the player this close to a door (XZ) keeps it open: never shut it in your face
 
-        public static void Tick(World w, EntityPlayerLocal player)
+        /// <summary>
+        /// Round MP0 (D 4.7): a living player - any of them, not only the host's own - within PlayerHold (XZ) of the door and 3 m
+        /// of its height: never shut it in anyone's face. Single player: you, as before.
+        /// </summary>
+        private static bool PlayerHolds(Vector3 dc)
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p != null && !p.IsDead() && ScRunners.XZ(p.position, dc) < PlayerHold && Mathf.Abs(p.position.y - dc.y) < 3f) return true;
+            }
+            return false;
+        }
+
+        public static void Tick(World w, EntityPlayer player)
         {
             try
             {
+                // round MP0: the lock rights stay the anchor's (the host's own on a host, as before; on a dedicated server the
+                // owner while online) - the community's players' rights come with Stage 2's permission rules
                 if (player != null && GameManager.Instance != null && GameManager.Instance.persistentPlayers != null)
                 {
                     PersistentPlayerData ppd = GameManager.Instance.persistentPlayers.GetPlayerDataFromEntityID(player.entityId);
@@ -233,7 +250,7 @@ namespace SurvivorCommunity
                     // night); anyone actually in the doorway, or the player close by, always does
                     bool fresh = now - kv.Value.Since < MaxHold;
                     Vector3 dc = new Vector3(at.x + 0.5f, at.y, at.z + 0.5f);
-                    if (player != null && !player.IsDead() && ScRunners.XZ(player.position, dc) < PlayerHold && Mathf.Abs(player.position.y - dc.y) < 3f) continue;
+                    if (PlayerHolds(dc)) continue;       // round MP0: any player near, no longer the host alone
                     if (Occupied(w, at, fresh ? Margin : 0f, door.isDrawBridge) || MemberHeadingFor(w, at, kv.Value.By)) continue;
                     door.SetOpen(false, true);
                     done.Add(kv.Key);
@@ -300,7 +317,6 @@ namespace SurvivorCommunity
             if (!ReferenceEquals(path, pathRef)) { pathRef = path; lastIndex = Math.Max(0, cur - 1); }
             int n = 0;
             World w = npc.world;
-            EntityPlayerLocal player = ScCommunity.LocalPlayer;
             for (int i = Math.Max(0, lastIndex); i < cur; i++)
             {
                 PathPoint pt = path.getPathPointFromIndex(i);
@@ -313,7 +329,7 @@ namespace SurvivorCommunity
                 lastDoor = dc;
                 hasDoor = true;
                 if (!door.IsOpen() || opened.ContainsKey(at) || Defence(w, at, door)) continue;
-                if (player != null && !player.IsDead() && ScRunners.XZ(player.position, dc) < PlayerHold && Mathf.Abs(player.position.y - dc.y) < 3f) continue;
+                if (PlayerHolds(dc)) continue;           // round MP0: any player near, no longer the host alone
                 opened[at] = new Opened { By = npc.entityId, Since = Time.time };
                 n++;
                 Patches_Xnpc.Count("retreat-door-tracked");
