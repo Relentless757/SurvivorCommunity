@@ -535,8 +535,9 @@ namespace SurvivorCommunity
                 c.Ledger.Insert(0, line);
                 while (c.Ledger.Count > 7) c.Ledger.RemoveAt(c.Ledger.Count - 1);
                 ScLog.Out("daily tick " + line);
-                if (ScRegistry.Members.Count > 0 && player != null)
-                    ScCommunity.Tell(player, string.Format(Localization.Get("scDaily"), ScRegistry.Members.Count, summary), c.Hungry || c.Thirsty ? "ui_denied" : "");
+                // round MP0: the day's summary is the whole community's news (in single player: the one player)
+                if (ScRegistry.Members.Count > 0)
+                    ScPlayers.TellCommunity(string.Format(Localization.Get("scDaily"), ScRegistry.Members.Count, summary), c.Hungry || c.Thirsty ? "ui_denied" : "");
                 ScRegistry.SaveAtomic();
             }
             catch (Exception e)

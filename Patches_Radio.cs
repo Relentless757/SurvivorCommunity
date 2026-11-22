@@ -22,6 +22,9 @@ namespace SurvivorCommunity
                     if (ScRadio.DropRequested) return true;
                     ScConfig.EnsureParsed();
                     if (!ScConfig.RadioOnlyAirdrops) return true;
+                    // round MP0: a dedicated server (no local player) keeps vanilla's drops until its players can open the
+                    // radio (MP5) - refused here, nobody could ever ask for one there
+                    if (ScCommunity.LocalPlayer == null) return true;
                     __result = false;
                     return false;
                 }

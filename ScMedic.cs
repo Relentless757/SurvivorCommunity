@@ -300,6 +300,9 @@ namespace SurvivorCommunity
         public static void Tick(EntityAlive e)
         {
             if (!IsBody(e)) return;
+            // round MP0: a client's copy of a body is the server's to heal (OnUpdateLive runs on every machine); acting here
+            // would use items the client's copy only seems to hold
+            if (e.isEntityRemote) return;
             Use u;
             if (uses.TryGetValue(e.entityId, out u)) { Advance(e, u); return; }
             float now = Time.time;
