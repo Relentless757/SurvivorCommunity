@@ -470,13 +470,32 @@ namespace SurvivorCommunity
         /// with no id recorded (a save from before MP0) the host's own player, as before; else nobody yet (a dedicated server
         /// waits for their leader to come back).
         /// </summary>
+        /// <summary>Round MP0 (the review's re-check): whether this platform id is a player of this save (has player data here).</summary>
+        private static bool KnownPlayer(string id)
+        {
+            try
+            {
+                PersistentPlayerList pp = GameManager.Instance != null ? GameManager.Instance.persistentPlayers : null;
+                PlatformUserIdentifierAbs uid;
+                if (pp == null || !PlatformUserIdentifierAbs.TryFromCombinedString(id, out uid) || uid == null) return false;
+                return pp.GetPlayerData(uid) != null;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("relink-known", e);
+                return false;
+            }
+        }
+
         private static EntityPlayer LeaderToRestore(Member m)
         {
             // the review (S1): single player has one player - always theirs, whatever id was recorded (another account, an id
             // fallback). Not IsSinglePlayer: a listen host with no clients answers that too
             ConnectionManager cm = SingletonMonoBehaviour<ConnectionManager>.Instance;
             if (cm != null && cm.CurrentMode == ProtocolManager.NetworkType.OfflineServer) return ScCommunity.LocalPlayer;
-            if (!string.IsNullOrEmpty(m.LeaderId)) return ScPlayers.ById(m.LeaderId);
+            if (!string.IsNullOrEmpty(m.LeaderId) && KnownPlayer(m.LeaderId)) return ScPlayers.ById(m.LeaderId);
+            // no id, or one that is no player of this save (a solo game started as a server, a save played by another account):
+            // the host's own player, as before MP0 (null on a dedicated server)
             return ScCommunity.LocalPlayer;
         }
     }
