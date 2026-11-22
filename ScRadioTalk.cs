@@ -183,7 +183,7 @@ namespace SurvivorCommunity
         public static bool Said(Member m, RadioTalk ev) { return m != null && (m.RunTalk & (int)ev) != 0; }
 
         /// <summary>The site search is over (ScRunners.LeaveSite, not a rescue, a recall or a failed distress): a good haul or a poor one.</summary>
-        public static void OnLeftSite(Member m, EntityPlayerLocal player)
+        public static void OnLeftSite(Member m, EntityPlayer player)    // round MP0: any player (runner ticks); Say decides who hears
         {
             if (m == null) return;
             // round 33c: a mining run's yardstick is the haul a tier 1 tool brings at 1 star (ScMining.GoodHaul)
@@ -205,7 +205,7 @@ namespace SurvivorCommunity
         /// the console - any runner, said or not, heard or not). Spent either way. The result says what happened (the console).
         /// The caller saves (the registry keeps RunTalk).
         /// </summary>
-        public static string Say(Member m, RadioTalk ev, EntityPlayerLocal player, bool force)
+        public static string Say(Member m, RadioTalk ev, EntityPlayer player, bool force)     // round MP0: any player; heard by the host's own only
         {
             try
             {
@@ -216,13 +216,16 @@ namespace SurvivorCommunity
                 {
                     if (!ScConfig.RunnerRadioTalk) { ScHandheld.Count("talk off"); return "RunnerRadioTalk is off"; }
                     if (!m.RunRadio) { ScHandheld.Count("talk unsaid: runner has no radio"); return m.Name + " carries no radio"; }
-                    if (player == null || player.IsDead() || (ev != RadioTalk.RecallAck && !ScHandheld.Carries(player)))
+                    // round MP0: the queue plays on this machine for its own player - a remote player (a dedicated server's anchor)
+                    // does not hear it, and the moment is spent as unheard. MP4: voices to clients
+                    EntityPlayerLocal lp = player as EntityPlayerLocal;
+                    if (lp == null || lp.IsDead() || (ev != RadioTalk.RecallAck && !ScHandheld.Carries(lp)))
                     {
                         ScHandheld.Count("talk unheard: you carry no radio");
                         ScLog.Verbose(m.Name + "'s radio moment " + ev + " went unheard (you carry no handheld radio)");
                         return "unheard: you carry no handheld radio";
                     }
-                    if (InPerson(m, player)) { ScHandheld.Count("talk unsaid: in person"); return m.Name + " is right here"; }
+                    if (InPerson(m, lp)) { ScHandheld.Count("talk unsaid: in person"); return m.Name + " is right here"; }
                 }
                 string[] keys;
                 Dictionary<RadioTalk, string[]> own = !ScMining.IsDig(m) ? null : m.RunJob == RunJob.Clay ? ClayKeys : MineKeys;   // round 33c
@@ -354,7 +357,7 @@ namespace SurvivorCommunity
         /// ScTicker, once a second (host): the moments that are places on the route - leaving home behind (Out), leaving the
         /// site behind (Home) - then the next line of the queue.
         /// </summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)          // round MP0: the ticker's anchor - any server
         {
             try
             {
@@ -373,7 +376,8 @@ namespace SurvivorCommunity
                     }
                 }
                 if (changed) ScRegistry.SaveAtomic();
-                PlayNext(player);
+                EntityPlayerLocal lp = player as EntityPlayerLocal;
+                if (lp != null) PlayNext(lp);         // round MP0: played on the host's own speakers only. MP4: voices to clients
             }
             catch (Exception e)
             {
@@ -402,6 +406,9 @@ namespace SurvivorCommunity
 
         private static void PlayNext(EntityPlayerLocal player)
         {
+            // round MP0: the radio's source and the barks are this machine's own - nothing plays with no player of its own (a
+            // dedicated server: a horde warning or a forced line queued there waits unplayed). MP4: voices to clients
+            if (player == null && ScCommunity.LocalPlayer == null) return;
             float now = Time.unscaledTime;
             if (queue.Count == 0 || now < busyUntil || now < holdUntil) return;   // m1v fix 3: a parting line in person holds it too
             Line line = Next();                                        // round m1v: the highest priority first

@@ -307,7 +307,7 @@ namespace SurvivorCommunity
         private static bool From(out Vector3 at)
         {
             if (ScZone.HasHome) { Vector3i h = ScZone.Home; at = new Vector3(h.x, h.y, h.z); return true; }
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            EntityPlayer pl = ScPlayers.Anchor();       // round MP0: the anchor (the host's own player whenever there is one). MP5: per player
             at = pl != null ? pl.position : Vector3.zero;
             return pl != null;
         }
@@ -421,7 +421,7 @@ namespace SurvivorCommunity
         /// known now, a tell with where it is from home and a ledger line. The caller adds the marker, logs and saves. False
         /// (nothing changed) when it is known already or not near home. where: "420 m north" (to the footprint).
         /// </summary>
-        private static bool SpotNearHome(Infestation inf, int day, EntityPlayerLocal player, out string where)
+        private static bool SpotNearHome(Infestation inf, int day, EntityPlayer player, out string where)    // round MP0: any player
         {
             where = null;
             if (inf == null || inf.Known || !ScConfig.InfestHomeKnown || !ScZone.HasHome || ScConfig.InfestHomeRange <= 0) return false;
@@ -431,7 +431,7 @@ namespace SurvivorCommunity
             inf.Known = true;
             inf.KnownDay = day;
             where = ScEnclaves.Where(new Vector3(h.x, h.y, h.z), inf.Centre, m);
-            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scInfestNearHome"), inf.PoiName, where), "ui_denied");
+            ScPlayers.TellCommunity(string.Format(Localization.Get("scInfestNearHome"), inf.PoiName, where), "ui_denied");   // round MP0: news for the whole community
             ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerNearHome"), inf.PoiName));
             return true;
         }
@@ -441,7 +441,7 @@ namespace SurvivorCommunity
         /// every infestation already near home is spotted (SpotNearHome) - those of a save, one that began before there was a
         /// home, or before the home moved. Returns how many.
         /// </summary>
-        private static int SpotAllNearHome(EntityPlayerLocal player)
+        private static int SpotAllNearHome(EntityPlayer player)         // round MP0: any player (markers: the host's own only)
         {
             if (!ScConfig.InfestHomeKnown || !ScZone.HasHome) return 0;
             if (homeChecked && homeCheckedAt == ScZone.Home) return 0;
@@ -660,7 +660,7 @@ namespace SurvivorCommunity
         /// and a spread from a known one are known; otherwise (I3) your people spot one within InfestHomeRange of home
         /// (InfestHomeKnown), else a powered radio reports it within InfestRadioRange of home. Saves; one log line. Main thread.
         /// </summary>
-        private static Infestation Infest(PoiEntry pe, World w, int day, Infestation from, string how, EntityPlayerLocal player, out string rooms)
+        private static Infestation Infest(PoiEntry pe, World w, int day, Infestation from, string how, EntityPlayer player, out string rooms)    // round MP0: any player
         {
             Community c = ScRegistry.Community;
             var inf = new Infestation
@@ -694,7 +694,7 @@ namespace SurvivorCommunity
                 inf.Known = true;
                 inf.KnownDay = day;
                 heard = ", known (an enclave lost to a siege)";
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scInfestSiegeTell"), inf.PoiName), "ui_denied");
+                ScPlayers.TellCommunity(string.Format(Localization.Get("scInfestSiegeTell"), inf.PoiName), "ui_denied");     // round MP0: news for the whole community
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerSiege"), inf.PoiName));
             }
             else if (from != null && from.Known)
@@ -702,7 +702,7 @@ namespace SurvivorCommunity
                 inf.Known = true;
                 inf.KnownDay = day;
                 heard = ", known (spread from a known one)";
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scInfestSpread"), from.PoiName, inf.PoiName), "");
+                ScPlayers.TellCommunity(string.Format(Localization.Get("scInfestSpread"), from.PoiName, inf.PoiName), "");     // round MP0: news for the whole community
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerSpread"), from.PoiName, inf.PoiName));
             }
             else if (SpotNearHome(inf, day, player, out spotted))
@@ -721,12 +721,12 @@ namespace SurvivorCommunity
                         inf.KnownDay = day;
                         string where = ScEnclaves.Where(at, cen);
                         heard = ", heard on the radio (" + where + " from " + (ScZone.HasHome ? "home" : "you") + ")";
-                        if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scInfestRadio"), inf.PoiName, where), "");
+                        ScPlayers.TellCommunity(string.Format(Localization.Get("scInfestRadio"), inf.PoiName, where), "");    // round MP0: the community's radio news
                         ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerRadio"), inf.PoiName));
                     }
                 }
             }
-            if (inf.Known && player != null) AddMarker(inf, player);
+            if (inf.Known && player != null) AddMarker(inf, player);       // round MP0: the host's own only (AddMarker). MP4: per-player markers
             ScLog.Out("infestation #" + inf.Id + " at " + inf.PoiName + " (" + inf.Prefab + ", T" + inf.Tier + ") " + inf.Poi + " [" + how
                       + (from != null ? " from #" + from.Id : "") + "]: " + rooms + "; special " + SpecialWord(inf) + (inf.Known ? heard : ", not known yet"));
             ScRegistry.SaveAtomic();
@@ -734,7 +734,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The nearest POI (by centre) within InfestSpreadRange of the source that the filter allows, infested from it. Null: none fits.</summary>
-        private static Infestation Spread(Infestation src, World w, Rules r, int day, EntityPlayerLocal player, out string why)
+        private static Infestation Spread(Infestation src, World w, Rules r, int day, EntityPlayer player, out string why)   // round MP0: any player
         {
             why = null;
             Vector3 c = src.Centre;
@@ -816,7 +816,7 @@ namespace SurvivorCommunity
         /// Ends the infestation when its POI is cleared (Cleared) and every room it re-armed has rolled again. An unfought
         /// room is made due again instead of counting. Main thread.
         /// </summary>
-        private static bool Evaluate(Infestation inf, PrefabInstance pi, World w, EntityPlayerLocal player)
+        private static bool Evaluate(Infestation inf, PrefabInstance pi, World w, EntityPlayer player)    // round MP0: any player
         {
             if (inf == null || pi == null || w == null) return false;
             int unfought = DueAgain(inf, pi, w);
@@ -851,7 +851,7 @@ namespace SurvivorCommunity
         /// console (record and marker only; the rooms are left as they are). Saves. E5: an enclave's request to clear it hears
         /// of it here, wherever the player is (ScEncInfest.OnEnded).
         /// </summary>
-        private static void End(Infestation inf, string how, EntityPlayerLocal player)
+        private static void End(Infestation inf, string how, EntityPlayer player)      // round MP0: any player
         {
             RemoveMarker(inf);
             All.Remove(inf);
@@ -859,9 +859,18 @@ namespace SurvivorCommunity
             Restore(PoiOf(inf));
             if (how == "cleared")
             {
-                bool near = player != null && inf.DistanceXZ(player.position.x, player.position.z) <= ScConfig.InfestDiscoverRange;
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerCleared"), inf.PoiName));
-                if (player != null && (near || inf.Known)) ScCommunity.Tell(player, string.Format(Localization.Get("scInfestCleared"), inf.PoiName), "");
+                // round MP0: a known one is the whole community's news; else every community player near it hears (the host alone
+                // in single player, as before)
+                string text = string.Format(Localization.Get("scInfestCleared"), inf.PoiName);
+                if (inf.Known) ScPlayers.TellCommunity(text, "");
+                else
+                {
+                    List<EntityPlayer> all = ScPlayers.All;
+                    for (int i = 0; i < all.Count; i++)
+                        if (all[i] != null && ScPlayers.InCommunity(all[i]) && inf.DistanceXZ(all[i].position.x, all[i].position.z) <= ScConfig.InfestDiscoverRange)
+                            ScCommunity.Tell(all[i], text, "");
+                }
             }
             ScLog.Out("infestation #" + inf.Id + " at " + inf.PoiName + " ended (" + how + ") after " + Math.Max(0, ScCommunity.Today - inf.StartDay) + " day(s)"
                       + (inf.Special == SpecialState.Met ? "; its special was " + inf.SpecialClass : ""));
@@ -887,7 +896,7 @@ namespace SurvivorCommunity
         /// allows, at random (the nearest without a random). Who learns of it is I1's rule (a powered radio near home); the
         /// leader telling the player makes it known (ScEncInfest.MakeKnown). Null (and why) when none can start.
         /// </summary>
-        public static Infestation StartNear(Enclave e, EntityPlayerLocal player, GameRandom rnd, out string why)
+        public static Infestation StartNear(Enclave e, EntityPlayer player, GameRandom rnd, out string why)   // round MP0: any player
         {
             List<PoiEntry> cands;
             why = NearCandidates(e, out cands);
@@ -928,7 +937,7 @@ namespace SurvivorCommunity
         /// at once (how "siege"), past the cap and the roll's rules as the console's start is (Refuse forced: a claim the
         /// player put on it since still refuses), known with its marker, a tell and a ledger line. Null (and why) when not.
         /// </summary>
-        public static Infestation InfestFallen(Enclave e, EntityPlayerLocal player, out string why)
+        public static Infestation InfestFallen(Enclave e, EntityPlayer player, out string why)     // round MP0: any player
         {
             why = null;
             World w = ScCommunity.World;
@@ -1246,7 +1255,7 @@ namespace SurvivorCommunity
         /// rolls InfestSpreadChance to spread; 3. InfestDailyChance for a new one. Nothing starts or spreads at the cap.
         /// ScDaily saves.
         /// </summary>
-        public static void Daily(int day, EntityPlayerLocal player)
+        public static void Daily(int day, EntityPlayer player)         // round MP0: the ticker's anchor - any server
         {
             try
             {
@@ -1309,7 +1318,7 @@ namespace SurvivorCommunity
         /// ScTicker, every second: a change the spawn hooks made is saved; markers back after a load; (I3) the ones near home
         /// spotted, once a session and when the home moves; an unknown infestation within InfestDiscoverRange of its POI is found.
         /// </summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)          // round MP0: the ticker's anchor - any server
         {
             try
             {
@@ -1322,10 +1331,10 @@ namespace SurvivorCommunity
                 if (!markersRestored)
                 {
                     markersRestored = true;
-                    RefreshMarkers(player);
+                    RefreshMarkers(player);           // round MP0: the host's own only (AddMarker). MP4: per-player markers
                 }
                 SpotAllNearHome(player);      // I3: once a session and when the home moves (cheap otherwise)
-                Vector3 at = player.position;
+                Vector3 at = player.position;         // round MP0: found from the anchor's position (the host's own on a host). MP5: per player
                 foreach (Infestation inf in All)
                 {
                     if (inf.Known || inf.DistanceXZ(at.x, at.z) > ScConfig.InfestDiscoverRange) continue;
@@ -1361,6 +1370,8 @@ namespace SurvivorCommunity
             try
             {
                 if (!inf.Known || !ScConfig.Infestations) return;
+                // round MP0: markers are this machine's own, for its own player - none on a dedicated server. MP4: per-player markers
+                if (!(owner is EntityPlayerLocal)) return;
                 NavObjectManager nav = NavObjectManager.Instance;
                 if (nav == null || owner == null || NavObjectClass.GetNavObjectClass(NavClass) == null) return;
                 RemoveMarker(inf);

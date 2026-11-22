@@ -347,7 +347,7 @@ namespace SurvivorCommunity
         /// clock (ScEncRequests.Now: a day further each "sc day"), the refills due move in; 3. each ally whose next word is due
         /// tells of the enclave nearest to them that the player does not know. ScDaily saves.
         /// </summary>
-        public static void Daily(int day, EntityPlayerLocal player, StringBuilder summary)
+        public static void Daily(int day, EntityPlayer player, StringBuilder summary)      // round MP0: the ticker's anchor - any server
         {
             try
             {
@@ -388,7 +388,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Where "900 m north-east" is measured from: home, or the player without one.</summary>
-        private static bool From(EntityPlayerLocal player, out Vector3 at)
+        private static bool From(EntityPlayer player, out Vector3 at)  // round MP0: no home - the anchor. MP5: per player
         {
             if (ScZone.HasHome)
             {
@@ -407,7 +407,7 @@ namespace SurvivorCommunity
         /// discovery (known, its marker - SetKnown saves), a tell and a ledger line, and its next word EnclaveAllyRevealDays
         /// later. With none left to tell of it stays due: the next day's pass asks again. True when it told.
         /// </summary>
-        private static bool RevealFor(Enclave ally, int now, EntityPlayerLocal player)
+        private static bool RevealFor(Enclave ally, int now, EntityPlayer player)   // round MP0: any player (the marker: the host's own only)
         {
             Vector3 a = ally.Centre;
             Enclave best = null;
@@ -424,7 +424,7 @@ namespace SurvivorCommunity
             ScEnclaves.SetKnown(best, true, player);
             Vector3 from;
             string where = From(player, out from) ? ScEnclaves.Where(from, best.Centre) : "";
-            if (player != null) ScCommunity.Tell(player, string.Format(Loc("scEncAllyReveal"), ally.Name, best.Name, best.PoiName, where), best.IsHostile ? "ui_denied" : "");
+            ScPlayers.TellCommunity(string.Format(Loc("scEncAllyReveal"), ally.Name, best.Name, best.PoiName, where), best.IsHostile ? "ui_denied" : "");   // round MP0: the whole community's news
             ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerReveal"), ally.Name, best.Name, best.PoiName));
             ScLog.Out("enclave " + best.Id + " '" + best.Name + "' told of by the ally " + ally.Id + " '" + ally.Name + "', " + Mathf.RoundToInt(Mathf.Sqrt(bestD))
                       + " m from them" + (best.IsHostile ? " (hostile)" : "") + "; their next word from day " + ally.AllyRevealDay);
@@ -455,7 +455,7 @@ namespace SurvivorCommunity
                 {
                     if (shown)
                     {
-                        if (pl != null) ScCommunity.Tell(pl, string.Format(Loc("scEncAllyGained"), e.Name, Name(e.Benefit), Describe(e.Benefit)), "");
+                        ScPlayers.TellCommunity(string.Format(Loc("scEncAllyGained"), e.Name, Name(e.Benefit), Describe(e.Benefit)), "");    // round MP0: the whole community's news
                         ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerGained"), e.Name, Name(e.Benefit)));
                     }
                     int day = ScEncRequests.Now;
@@ -467,7 +467,7 @@ namespace SurvivorCommunity
                 {
                     if (shown)
                     {
-                        if (pl != null) ScCommunity.Tell(pl, string.Format(Loc("scEncAllyLost"), e.Name, Name(e.Benefit)), "ui_denied");
+                        ScPlayers.TellCommunity(string.Format(Loc("scEncAllyLost"), e.Name, Name(e.Benefit)), "ui_denied");     // round MP0: the whole community's news
                         ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerLost"), e.Name, Name(e.Benefit)));
                     }
                     ScLog.Out("enclave " + e.Id + " '" + e.Name + "' is no ally now (" + after + ")" + (has ? " - " + e.Benefit + " off" : ""));
@@ -500,10 +500,9 @@ namespace SurvivorCommunity
                 {
                     c.EnclaveLoss = Math.Min(MaxLoss, c.EnclaveLoss + loss);
                     bool benefit = band == "allied" && e.Benefit.Length > 0;
-                    EntityPlayerLocal pl = ScCommunity.LocalPlayer;
-                    if (pl != null)
-                        ScCommunity.Tell(pl, benefit ? string.Format(Loc("scEncAllyFallen"), e.Name, loss, Name(e.Benefit))
-                                                     : string.Format(Loc("scEncFriendFallen"), e.Name, loss), "ui_denied");
+                    // round MP0: the whole community's news (the host alone in single player)
+                    ScPlayers.TellCommunity(benefit ? string.Format(Loc("scEncAllyFallen"), e.Name, loss, Name(e.Benefit))
+                                                    : string.Format(Loc("scEncFriendFallen"), e.Name, loss), "ui_denied");
                     if (benefit) ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerLost"), e.Name, Name(e.Benefit)));
                 }
                 int day = ScEncRequests.Now + Math.Max(0, ScConfig.EnclaveRefillDays);
@@ -526,7 +525,7 @@ namespace SurvivorCommunity
         /// MoveIn: moved in or not owed any more, it leaves the list; with no POI that fits it is due again the next day.
         /// Returns how many moved in. The caller saves.
         /// </summary>
-        private static int Refills(int now, EntityPlayerLocal player, bool force, List<string> into)
+        private static int Refills(int now, EntityPlayer player, bool force, List<string> into)     // round MP0: any player
         {
             Community c = ScRegistry.Community;
             if (c.EncRefills.Count == 0) return 0;
@@ -547,7 +546,7 @@ namespace SurvivorCommunity
         /// ("near the building", the group still unknown); -1 not owed any more (the target count is reached); 0 no POI fits
         /// now (tried again the next day).
         /// </summary>
-        private static int MoveIn(EncRefill r, int now, EntityPlayerLocal player, List<string> into)
+        private static int MoveIn(EncRefill r, int now, EntityPlayer player, List<string> into)    // round MP0: any player
         {
             Community c = ScRegistry.Community;
             World w = ScCommunity.World;
@@ -572,7 +571,7 @@ namespace SurvivorCommunity
             {
                 Vector3 from;
                 string where = From(player, out from) ? ScEnclaves.Where(from, en.Centre) : "";
-                if (player != null) ScCommunity.Tell(player, string.Format(Loc("scEncRefillRadio"), en.PoiName, where), "");
+                ScPlayers.TellCommunity(string.Format(Loc("scEncRefillRadio"), en.PoiName, where), "");     // round MP0: the community's radio news
                 ScOutposts.NoteLedger(string.Format(Loc("scEncRefillLedger"), en.PoiName));
             }
             return 1;

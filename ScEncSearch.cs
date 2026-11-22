@@ -381,7 +381,7 @@ namespace SurvivorCommunity
         /// (SweepStrays), leftover remains every few seconds; then each open search - the fate rolled on the player's
         /// first settled arrival, the body of one waiting built when a player is near, the remains kept in place.
         /// </summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)          // round MP0: the ticker's anchor - any server (rolls and bodies use every player)
         {
             try
             {
@@ -791,8 +791,7 @@ namespace SurvivorCommunity
             string name = p != null ? p.Name : PersonName(r), enc = e != null ? e.Name : "";
             r.Stage = StageSearched;
             if (p != null && p.State != EncPerson.StateDead) MarkDead(p);
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
-            if (pl != null) ScCommunity.Tell(pl, string.Format(Loc("scEncRemainsFound"), name, enc), "");
+            ScPlayers.TellCommunity(string.Format(Loc("scEncRemainsFound"), name, enc), "");     // round MP0: the whole community's news
             ScOutposts.NoteLedger(string.Format(Loc("scEncSearchLedgerFound"), name, enc, r.TargetName));
             ScEncRequests.Reshape(r);
             ScLog.Out("enclave request #" + r.Id + ": " + name + " was found dead - with no remains block they count as searched; tell " + enc);

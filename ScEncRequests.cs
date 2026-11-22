@@ -433,7 +433,7 @@ namespace SurvivorCommunity
         /// past their due day expire (losses by band); a request whose enclave is gone, hostile or off the map this load is
         /// withdrawn. New offers come only on the newest day of a catch-up. ScDaily saves.
         /// </summary>
-        public static void Daily(int day, EntityPlayerLocal player)
+        public static void Daily(int day, EntityPlayer player)         // round MP0: the ticker's anchor - any server
         {
             try
             {
@@ -524,7 +524,7 @@ namespace SurvivorCommunity
         /// EnclaveRequestMaxPerDay calls for help (P2: offers and siege calls together). The kind is one this enclave can be given
         /// (E5: someone who could go missing and a building to search; an infestation near it). P2: one log line per roll.
         /// </summary>
-        private static void Roll(int day, EntityPlayerLocal player)
+        private static void Roll(int day, EntityPlayer player)         // round MP0: any player
         {
             int max = Math.Max(0, ScConfig.EnclaveRequestMaxOpen);
             var cands = new List<Enclave>();
@@ -666,7 +666,7 @@ namespace SurvivorCommunity
         /// person - the log and a save. E5: an infestation request names its target now (one near them, or one started for it:
         /// ScEncInfest.PickTarget) - null when there is none; a missing survivor's person and building are picked at acceptance.
         /// </summary>
-        public static EnclaveRequest Offer(Enclave e, string kind, int day, GameRandom rnd, int res, int units, EntityPlayerLocal player, string why)
+        public static EnclaveRequest Offer(Enclave e, string kind, int day, GameRandom rnd, int res, int units, EntityPlayer player, string why)   // round MP0: any player
         {
             Infestation target = null;
             if (kind == EnclaveRequest.KindInfestation)
@@ -701,7 +701,7 @@ namespace SurvivorCommunity
             bool heard = ScRadio.Online();
             if (heard)
             {
-                if (player != null) ScCommunity.Tell(player, string.Format(Loc("scEncReqHeard"), e.Name), "");
+                ScPlayers.TellCommunity(string.Format(Loc("scEncReqHeard"), e.Name), "");      // round MP0: the community's radio news
                 if (player != null) ScEncRadio.Say(e, EncCall.Offer, player, kind);   // round m1v: the leader's voice (text only until round V-b records it)
                 ScOutposts.NoteLedger(string.Format(Loc("scEncReqLedgerAsk"), e.Name));
             }
@@ -809,12 +809,10 @@ namespace SurvivorCommunity
                 moved = e.Standing - old;
                 bandChanged = ScEnclaves.StandingKey(e) != before;
                 ScOutposts.NoteLedger(LedgerLine(e, r, outcome, moved, bandChanged, what));
-                if (pl != null)
-                {
-                    if (outcome == Lapsed) ScCommunity.Tell(pl, string.Format(Loc("scEncReqLapsedTell"), e.Name), "");
-                    else if (outcome == Expired) ScCommunity.Tell(pl, string.Format(Loc("scEncReqExpiredTell"), e.Name), "ui_denied");
-                    if (bandChanged && !e.IsHostile) ScCommunity.Tell(pl, string.Format(Loc("scEncReqBandTell"), e.Name, ScEnclaves.StandingWord(e)), "");
-                }
+                // round MP0: news for the whole community (the host alone in single player)
+                if (outcome == Lapsed) ScPlayers.TellCommunity(string.Format(Loc("scEncReqLapsedTell"), e.Name), "");
+                else if (outcome == Expired) ScPlayers.TellCommunity(string.Format(Loc("scEncReqExpiredTell"), e.Name), "ui_denied");
+                if (bandChanged && !e.IsHostile) ScPlayers.TellCommunity(string.Format(Loc("scEncReqBandTell"), e.Name, ScEnclaves.StandingWord(e)), "");
             }
             if (outcome == Done) ScLeadership.Count(ev ?? ScLeadership.FavourEvent);
             KindClosed(r, outcome);
@@ -974,13 +972,15 @@ namespace SurvivorCommunity
         /// parts - a missing survivor's search (the fate, the body, the remains: ScEncSearch) and the siege (the call, the clock,
         /// the fight: ScEncSiege).
         /// </summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)          // round MP0: the ticker's anchor - any server
         {
             try
             {
-                // done, or tried a few seconds running while the player's record was not there to add a quest to
-                if (!synced && ScEnclaves.Ready && player != null && player.QuestJournal != null && ScRegistry.Loaded)
-                    synced = SyncJournal(player) || ++syncTries >= MaxSyncTries;
+                // done, or tried a few seconds running while the player's record was not there to add a quest to.
+                // Round MP0: the host's own journal only. MP4: quests to the right player
+                EntityPlayerLocal lp = player as EntityPlayerLocal;
+                if (!synced && ScEnclaves.Ready && lp != null && lp.QuestJournal != null && ScRegistry.Loaded)
+                    synced = SyncJournal(lp) || ++syncTries >= MaxSyncTries;
             }
             catch (Exception e)
             {

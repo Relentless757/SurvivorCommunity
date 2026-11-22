@@ -409,13 +409,16 @@ namespace SurvivorCommunity
 
         /// <summary>ScTicker, every second, right after ScEnclaves.Tick: orphans, despawns, the watchdog, holds, then at most
         /// EnclaveSpawnPerTick new bodies across all enclaves (a group being made first, leader first).</summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)          // round MP0: the ticker's anchor - any server (bodies come round any player)
         {
             try
             {
                 if (!ScEnclaves.Ready || w == null || player == null || !ScRegistry.Loaded) return;
                 Hook(w);
-                ScEnclaveDeals.SyncOnce(player);        // E3: favour quests and a crashed session's hire squared with the records
+                EntityPlayerLocal lp = player as EntityPlayerLocal;
+                // E3: favour quests and a crashed session's hire squared with the records. Round MP0: the host's own journal and
+                // cvars. MP4: quests to the right player
+                if (lp != null) ScEnclaveDeals.SyncOnce(lp);
                 SweepOrphans(w);
                 if (!ScConfig.Enclaves)
                 {
@@ -1546,9 +1549,11 @@ namespace SurvivorCommunity
             p.Role = EncPerson.MemberRole;             // one leader among the living
             ScEncMoves.NoteLoss(e);                    // E11: the day of their last death (request clock)
             if (raid) ScEncRaids.OnDied(e, p);         // E10: before a fall below can end the raid
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
             if (!raid) ScOutposts.NoteLedger(string.Format(Localization.Get(wasEnlisted ? "scEncLedgerEnlistedDied" : "scEncLedgerDied"), p.Name, e.Name));
-            if (wasEnlisted || wasMissing || Near(e, pl)) ScCommunity.Tell(pl, string.Format(Localization.Get("scEncDied"), p.Name, e.Name), "");
+            // round MP0: one who was out with the community is everyone's news; else every community player near the enclave
+            string diedText = string.Format(Localization.Get("scEncDied"), p.Name, e.Name);
+            if (wasEnlisted || wasMissing) ScPlayers.TellCommunity(diedText, "");
+            else TellNear(e, diedText);
             if (wasEnlisted && ScConfig.EnclaveEnlistDeathPenalty > 0) ScEnclaves.AddStanding(e, -ScConfig.EnclaveEnlistDeathPenalty, p.Name + " died while enlisted with the player");
             ScEnclaveDeals.DropFavour(p, "they died");
             EntityPlayer by = KillerPlayer(killer);
@@ -1618,8 +1623,7 @@ namespace SurvivorCommunity
                 }
             }
             ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerLeader"), next.Name, e.Name));
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
-            if (Near(e, pl)) ScCommunity.Tell(pl, string.Format(Localization.Get("scEncNewLeader"), next.Name, e.Name), "");
+            TellNear(e, string.Format(Localization.Get("scEncNewLeader"), next.Name, e.Name));     // round MP0: every community player near them
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + next.Name + " (p" + next.Id + ") leads them now");
         }
 
@@ -1637,6 +1641,14 @@ namespace SurvivorCommunity
         private static bool Near(Enclave e, EntityPlayer pl)
         {
             return pl != null && e.DistanceXZ(pl.position.x, pl.position.z) <= ScConfig.EnclaveSpawnRange + ScConfig.EnclaveDespawnMargin;
+        }
+
+        /// <summary>Round MP0: a tell to every community player Near the enclave (the host alone in single player, as before).</summary>
+        private static void TellNear(Enclave e, string text)
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+                if (ScPlayers.InCommunity(all[i]) && Near(e, all[i])) ScCommunity.Tell(all[i], text, "");
         }
 
         /// <summary>

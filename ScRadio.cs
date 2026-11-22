@@ -200,7 +200,7 @@ namespace SurvivorCommunity
         /// rolled - they no longer spawn while this mod is installed (the user's call, 2026-09-30). Null when none of
         /// those classes is loaded.
         /// </summary>
-        public static string NewContactClass(EntityPlayerLocal player, GameRandom rnd)
+        public static string NewContactClass(EntityPlayer player, GameRandom rnd)      // round MP0: any player's gamestage (the ticker's anchor)
         {
             if (rnd == null && ScCommunity.World != null) rnd = ScCommunity.World.GetGameRandom();
             bool male = rnd == null || rnd.RandomFloat < 0.5f;
@@ -308,7 +308,7 @@ namespace SurvivorCommunity
         /// A contact whose spawn is a given spot (an outpost's walk-in): the class is rolled like a radio call, the
         /// marker and the registry record are the same, and SpawnContact brings them in when that chunk loads.
         /// </summary>
-        public static Contact AddContactAt(Vector3i poiKey, string poiName, Vector3i spawn, EntityPlayerLocal player, GameRandom rnd)
+        public static Contact AddContactAt(Vector3i poiKey, string poiName, Vector3i spawn, EntityPlayer player, GameRandom rnd)   // round MP0: any player (outpost ticks)
         {
             try
             {
@@ -379,6 +379,8 @@ namespace SurvivorCommunity
         {
             try
             {
+                // round MP0: markers are this machine's own, for its own player - none on a dedicated server. MP4: per-player markers
+                if (!(owner is EntityPlayerLocal)) return;
                 NavObjectManager nav = NavObjectManager.Instance;
                 if (nav == null || owner == null || NavObjectClass.GetNavObjectClass(NavClass) == null) return;
                 Vector3 at = new Vector3(ct.Spawn.x + 0.5f, ct.Spawn.y, ct.Spawn.z + 0.5f);
@@ -410,7 +412,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ ticker ----
 
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)          // round MP0: the ticker's anchor - any server, a dedicated one too
         {
             try
             {
@@ -421,7 +423,7 @@ namespace SurvivorCommunity
                 if (!markersRestored)
                 {
                     markersRestored = true;
-                    foreach (var ct in ScRegistry.Contacts) AddMarker(ct, player);
+                    foreach (var ct in ScRegistry.Contacts) AddMarker(ct, player);     // round MP0: the host's own only (AddMarker). MP4: per-player markers
                 }
                 DespawnLater(w);
                 TickContacts(w, player);
@@ -435,7 +437,7 @@ namespace SurvivorCommunity
 
         private static readonly List<Contact> scratch = new List<Contact>();
 
-        private static void TickContacts(World w, EntityPlayerLocal player)
+        private static void TickContacts(World w, EntityPlayer player)  // round MP0: any player
         {
             if (ScRegistry.Contacts.Count == 0) return;
             scratch.Clear();
@@ -450,7 +452,7 @@ namespace SurvivorCommunity
                 Contact ct = scratch[i];
                 if (today >= ct.ExpireDay)
                 {
-                    ScCommunity.Tell(player, string.Format(Localization.Get("scRadioFaded"), ct.Label, ct.PoiName), "");
+                    ScPlayers.TellCommunity(string.Format(Localization.Get("scRadioFaded"), ct.Label, ct.PoiName), "");    // round MP0: the community's radio news
                     ScLog.Out("radio contact at " + ct.PoiName + " faded");
                 }
                 RemoveMarker(ct);
@@ -461,7 +463,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The chunk is here: the simulated survivor becomes a real NPC standing at the POI, waiting for a favour.</summary>
-        private static bool SpawnContact(World w, EntityPlayerLocal player, Contact ct)
+        private static bool SpawnContact(World w, EntityPlayer player, Contact ct)     // round MP0: any player (the gamestage)
         {
             try
             {
@@ -489,7 +491,8 @@ namespace SurvivorCommunity
                 npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
                 npc.Buffs.SetCustomVar("Persist", 1f);
                 Prospect p = ScFavours.Ensure(npc, player);       // favour, guard order, sc_favour cvar, position record
-                ScCommunity.Tell(player, string.Format(Localization.Get("scRadioFound"), ScCommunity.DisplayName(npc), ct.PoiName), "");
+                // round MP0: told to the player whose coming loaded the spot (the nearest), the anchor when none is alive
+                ScCommunity.Tell(ScPlayers.Nearest(pos) ?? player, string.Format(Localization.Get("scRadioFound"), ScCommunity.DisplayName(npc), ct.PoiName), "");
                 ScLog.Out("radio contact spawned: " + ScCommunity.DisplayName(npc) + " (" + ct.Class + ", id " + npc.entityId + ") at " + ct.PoiName + (p != null ? ", favour " + p.Favour : ""));
                 return true;
             }
@@ -522,12 +525,13 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ distress ----
 
         /// <summary>Called from ScRuns.Send: does this run turn into a radio distress call?</summary>
-        public static bool RollDistress(Member m, EntityPlayerLocal player, GameRandom rnd)
+        public static bool RollDistress(Member m, EntityPlayer player, GameRandom rnd)     // round MP0: any player (runner ticks)
         {
 #if SC_V34
             // R2 (decision 5): only a runner carrying a radio, and only with someone to hear it - the player's handheld or a
-            // powered station at home (ScHandheld.DistressAllowed; DistressNeedsRadio=false: the rule above's old one)
-            if (m == null || !ScHandheld.DistressAllowed(m, player)) return false;
+            // powered station at home (ScHandheld.DistressAllowed; DistressNeedsRadio=false: the rule above's old one).
+            // Round MP0: the handheld is the host's own (a remote bag is not readable here) - else the station alone
+            if (m == null || !ScHandheld.DistressAllowed(m, player as EntityPlayerLocal)) return false;
 #else
             if (m == null || !Online()) return false;
 #endif
@@ -537,11 +541,12 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The distress call itself (also the console's "sc distress").</summary>
-        public static bool ForceDistress(Member m, EntityPlayerLocal player, GameRandom rnd)
+        public static bool ForceDistress(Member m, EntityPlayer player, GameRandom rnd)    // round MP0: any player
         {
             try
             {
                 if (m == null || m.Status != MemberStatus.OnRun) return false;
+                EntityPlayerLocal lp = player as EntityPlayerLocal;        // round MP0: the rescue quest goes to the host's own journal. MP4: quests to the right player
                 if (ScRunners.IsPhysical(m))
                 {
                     // a physical runner calls from the site they are searching - only once they are there
@@ -556,12 +561,12 @@ namespace SurvivorCommunity
                     m.RunPoiName = m.RunDestName;
                     m.RunSpawn = m.RunSite;
                     string perr = null;
-                    if (dpi != null) ScQuests.StartRescue(player, m, dpi, out perr);
+                    if (dpi != null) { if (lp != null) ScQuests.StartRescue(lp, m, dpi, out perr); }
 #if SC_V34
                     // round 33c (M33): a mining runner calls from a natural spot - the rescue quest marks the ground around it
-                    else if (ScMining.IsDig(m)) ScQuests.StartRescueAt(player, m, new Vector3i(m.RunSite.x - 8, m.RunSite.y, m.RunSite.z - 8), new Vector3i(16, 1, 16), out perr);
+                    else if (ScMining.IsDig(m)) { if (lp != null) ScQuests.StartRescueAt(lp, m, new Vector3i(m.RunSite.x - 8, m.RunSite.y, m.RunSite.z - 8), new Vector3i(16, 1, 16), out perr); }
 #endif
-                    ScCommunity.Tell(player, string.Format(Localization.Get("scRadioDistress"), m.Name, m.RunPoiName, Dist(ScRunners.C(m.RunSite))), "ui_denied");
+                    ScPlayers.TellCommunity(string.Format(Localization.Get("scRadioDistress"), m.Name, m.RunPoiName, Dist(ScRunners.C(m.RunSite))), "ui_denied");   // round MP0: the community's radio news
                     ScLog.Out(m.Name + " radios for help from " + m.RunPoiName + " " + m.RunSite + " (on a physical run)" + (perr != null ? " (quest: " + perr + ")" : ""));
 #if SC_V34
                     ScRadioTalk.Say(m, RadioTalk.Trouble, player, false);                     // R2: their own words on the radio
@@ -587,9 +592,9 @@ namespace SurvivorCommunity
                 m.RunPoi = pi.boundingBoxPosition;
                 m.RunPoiName = ScSecurity.DisplayName(pi);
                 m.RunSpawn = new Vector3i((int)centre.x, (int)w.GetHeightAt(centre.x, centre.z) + 1, (int)centre.z);
-                string err;
-                ScQuests.StartRescue(player, m, pi, out err);
-                ScCommunity.Tell(player, string.Format(Localization.Get("scRadioDistress"), m.Name, m.RunPoiName, Dist(centre)), "ui_denied");
+                string err = null;
+                if (lp != null) ScQuests.StartRescue(lp, m, pi, out err);
+                ScPlayers.TellCommunity(string.Format(Localization.Get("scRadioDistress"), m.Name, m.RunPoiName, Dist(centre)), "ui_denied");   // round MP0: the community's radio news
                 ScLog.Out(m.Name + " radios for help from " + m.RunPoiName + " " + m.RunPoi + (err != null ? " (quest: " + err + ")" : ""));
 #if SC_V34
                 ScRadioTalk.Say(m, RadioTalk.Trouble, player, false);                         // R2: their own words on the radio
@@ -603,7 +608,7 @@ namespace SurvivorCommunity
             }
         }
 
-        private static void TickDistress(World w, EntityPlayerLocal player)
+        private static void TickDistress(World w, EntityPlayer player)  // round MP0: any player
         {
             foreach (var m in ScRegistry.Members.Values)
             {
@@ -612,6 +617,7 @@ namespace SurvivorCommunity
                 if (!m.EventSpawned)
                 {
                     if (physical && (m.Offline || ScCommunity.FindNpc(m.Id) == null)) continue;   // they come back into the world first
+                    // round MP0: the trigger and the judging below are the anchor's position (the host's own player on a host). MP5: per player
                     Vector3 centre = new Vector3(m.RunSpawn.x + 0.5f, m.RunSpawn.y, m.RunSpawn.z + 0.5f);
                     float d = Vector3.Distance(new Vector3(player.position.x, 0f, player.position.z), new Vector3(centre.x, 0f, centre.z));
                     if (d <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(m.RunSpawn)) SpawnEvent(w, player, m);
@@ -634,7 +640,7 @@ namespace SurvivorCommunity
             }
         }
 
-        public static int ZombieCount(Member m, EntityPlayerLocal player)
+        public static int ZombieCount(Member m, EntityPlayer player)   // round MP0: any player's gamestage. MP5: gamestage of the players involved
         {
             int gs = 0;
             try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }
@@ -648,7 +654,7 @@ namespace SurvivorCommunity
         /// The player has arrived: a stand-in of the survivor (their own hidden entity stays parked at home) and
         /// the zombies spawn around the POI centre; the zombies are told to attack the stand-in.
         /// </summary>
-        private static void SpawnEvent(World w, EntityPlayerLocal player, Member m)
+        private static void SpawnEvent(World w, EntityPlayer player, Member m)        // round MP0: the player who arrived (the anchor)
         {
             try
             {
@@ -702,21 +708,22 @@ namespace SurvivorCommunity
         /// The rescue is over and counts (TickDistress: every spawned zombie down with the player there). Round r2: also a pinned
         /// runner too hurt to go on who breaks for home while the player fights beside her (ScRunners.TurnHomeHurt).
         /// </summary>
-        internal static void Rescued(World w, EntityPlayerLocal player, Member m)
+        internal static void Rescued(World w, EntityPlayer player, Member m)           // round MP0: the player there (the anchor)
         {
             m.RunSafe = true;
             m.EventSpawned = false;                  // the event is over (a live event keeps a physical runner in the world)
             ScLeadership.Count(ScLeadership.RescueEvent);
             m.EventZombies.Clear();
             RemoveStandIn(w, m);
-            ScQuests.CloseRescue(player, m, true);
+            EntityPlayerLocal lp = player as EntityPlayerLocal;
+            if (lp != null) ScQuests.CloseRescue(lp, m, true);    // round MP0: the host's own journal. MP4: quests to the right player
             ScCommunity.Tell(player, string.Format(Localization.Get("scRescued"), m.Name), "");
             ScLog.Out(m.Name + " rescued at " + m.RunPoiName + " - the run comes home safe");
             ScSkills.AddXp(m, Skill.Wits, ScConfig.RunWitsXp);
             if (ScRunners.IsPhysical(m) && m.RunLeg == RunLeg.AtSite)
             {
                 EntityAlive r = ScCommunity.FindNpc(m.Id);
-                ScRunners.LeaveSite(player, m, r != null ? r.position : ScRunners.C(m.RunSite), w.worldTime, true, 1f);
+                ScRunners.LeaveSite(lp, m, r != null ? r.position : ScRunners.C(m.RunSite), w.worldTime, true, 1f);   // round MP0: null-safe (the gate at the default view distance)
                 ScRunners.S(m.Id).HasWaypoint = false;
             }
             ScRegistry.SaveAtomic();
@@ -809,10 +816,11 @@ namespace SurvivorCommunity
         }
 
         /// <summary>ScRuns.Resolve: the distress run's outcome is decided by whether the player came.</summary>
-        public static void EndDistress(World w, EntityPlayerLocal player, Member m)
+        public static void EndDistress(World w, EntityPlayer player, Member m)         // round MP0: any player (runs, deaths)
         {
             RemoveStandIn(w, m);
-            ScQuests.CloseRescue(player, m, m.RunSafe);
+            EntityPlayerLocal lp = player as EntityPlayerLocal;
+            if (lp != null) ScQuests.CloseRescue(lp, m, m.RunSafe);   // round MP0: the host's own journal. MP4: quests to the right player
             m.RunDistress = false;
             m.EventSpawned = false;
             m.EventZombies.Clear();
