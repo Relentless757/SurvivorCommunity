@@ -215,7 +215,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>ScTicker every second (works every 10): fade expired chatter, restore markers after a load.</summary>
-        public static void Tick(EntityPlayerLocal player)
+        public static void Tick(EntityPlayer player)
         {
             try
             {
@@ -253,6 +253,9 @@ namespace SurvivorCommunity
         {
             try
             {
+                // round MP0: the marker is the host's own player's (a local map object) - none on a dedicated server.
+                // MP4: per-player markers
+                if (!(owner is EntityPlayerLocal)) return;
                 NavObjectManager nav = NavObjectManager.Instance;
                 string cls = NavPrefix + ScNames.Key(s.Res);
                 if (nav == null || owner == null || NavObjectClass.GetNavObjectClass(cls) == null) return;

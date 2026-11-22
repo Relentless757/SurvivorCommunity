@@ -108,8 +108,9 @@ namespace SurvivorCommunity
         /// Stash and haul: the bundles past the day's haul go into the claim's own box while the player is there
         /// (ScGarrison.Tick). What does not fit stays stashed for the next visit.
         /// </summary>
-        public static int Unstash(Outpost o, World w, EntityPlayerLocal player)
+        public static int Unstash(Outpost o, World w, EntityPlayer player)
         {
+            // round MP0: 'player' is the community player visiting the outpost (ScGarrison.Tick: any of them), who is told
             if (o == null || w == null || o.StashTotal == 0) return 0;
             TileEntity te = w.GetTileEntity(o.Flag);
             TEFeatureStorage st = te != null ? te.GetSelfOrFeature<TEFeatureStorage>() : null;

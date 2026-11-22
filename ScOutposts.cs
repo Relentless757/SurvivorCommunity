@@ -153,7 +153,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>ScTicker, every second: establish queued flags once their claim is active.</summary>
-        public static void TickFlags(EntityPlayerLocal player)
+        public static void TickFlags(EntityPlayer player)
         {
             if (flagQueue.Count == 0 || player == null) return;
             var pp = GameManager.Instance != null ? GameManager.Instance.persistentPlayers : null;
@@ -166,11 +166,22 @@ namespace SurvivorCommunity
                 if (!active && tries < 5) { flagTries[claim] = tries + 1; continue; }   // the claim map fills a tick later
                 flagQueue.RemoveAt(i);
                 flagTries.Remove(claim);
-                if (!active) { ScCommunity.Tell(player, Localization.Get("scFlagNotActive"), "ui_denied"); continue; }
+                // round MP0: told to the player who placed it (the claim's owner, while online), else the anchor - in single player
+                // and on a listen host the host's own player, as before
+                EntityPlayer placer = ClaimOwner(pp, claim) ?? player;
+                if (!active) { ScCommunity.Tell(placer, Localization.Get("scFlagNotActive"), "ui_denied"); continue; }
                 string msg;
-                Outpost o = Establish(claim, player, false, out msg);
-                ScCommunity.Tell(player, o != null ? msg : string.Format(Localization.Get("scFlagPlain"), msg), o != null ? "" : "ui_denied");
+                Outpost o = Establish(claim, placer, false, out msg);
+                ScCommunity.Tell(placer, o != null ? msg : string.Format(Localization.Get("scFlagPlain"), msg), o != null ? "" : "ui_denied");
             }
+        }
+
+        /// <summary>Round MP0: the online player who owns this land claim, or null (unknown, or not online).</summary>
+        private static EntityPlayer ClaimOwner(PersistentPlayerList pp, Vector3i claim)
+        {
+            PersistentPlayerData owner;
+            if (pp == null || pp.m_lpBlockMap == null || !pp.m_lpBlockMap.TryGetValue(claim, out owner) || owner == null) return null;
+            return ScPlayers.ByEntity(owner.EntityId);
         }
 
         /// <summary>Two-step disband: the claim armed and when (Time.unscaledTime).</summary>
@@ -439,7 +450,7 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ establish ----
 
         /// <summary>Why "Establish outpost" is refused, as a finished tooltip; null = it may go ahead.</summary>
-        public static string CanEstablish(Vector3i claim, EntityPlayerLocal player, out PrefabInstance poi, out PoiClass cls)
+        public static string CanEstablish(Vector3i claim, EntityPlayer player, out PrefabInstance poi, out PoiClass cls)
         {
             poi = null;
             cls = null;
@@ -496,7 +507,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The claim radial's "Establish outpost". force = the console's debug add (no gates, no fee).</summary>
-        public static Outpost Establish(Vector3i claim, EntityPlayerLocal player, bool force, out string message)
+        public static Outpost Establish(Vector3i claim, EntityPlayer player, bool force, out string message)
         {
             message = null;
             try
@@ -578,7 +589,7 @@ namespace SurvivorCommunity
             else o.Row = ScavengeRow;
         }
 
-        public static bool Disband(Outpost o, EntityPlayerLocal player)
+        public static bool Disband(Outpost o, EntityPlayer player)
         {
             if (o == null) return false;
             ScGarrison.OnOutpostGone(o, player);
@@ -620,7 +631,7 @@ namespace SurvivorCommunity
             if (IsOutpostClaim(claim)) nextTick = 0f;
         }
 
-        private static void MarkLost(Outpost o, EntityPlayerLocal player, string key)
+        private static void MarkLost(Outpost o, EntityPlayer player, string key)
         {
             if (o.State == OutpostState.Lost) return;
             o.State = OutpostState.Lost;
@@ -632,7 +643,7 @@ namespace SurvivorCommunity
             RemoveMarker(o);
             Rebuild();
             Note(string.Format(Localization.Get("scOpLedgerLost"), o.Name));
-            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get(key), o.Name), "ui_denied");
+            if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get(key), o.Name), "ui_denied");   // round MP0: community news
             ScLog.Warn("outpost " + o.Id + " at " + o.Name + " lost (" + key + ")");
         }
 
@@ -640,7 +651,7 @@ namespace SurvivorCommunity
         /// Every held outpost's claim must still be an active claim (m_lpBlockMap: vanilla removes deactivated and
         /// destroyed claims from it, including ones handled while their chunk was unloaded).
         /// </summary>
-        public static bool CheckClaims(EntityPlayerLocal player)
+        public static bool CheckClaims(EntityPlayer player)
         {
             var pp = GameManager.Instance != null ? GameManager.Instance.persistentPlayers : null;
             if (pp == null || pp.m_lpBlockMap == null) return false;
@@ -660,7 +671,7 @@ namespace SurvivorCommunity
         /// ScDaily.Run, right after the supply runs: every held outpost produces, the network pays upkeep and
         /// haulage, and - if the home radio reported in - the bundles land in the stockpile.
         /// </summary>
-        public static void Daily(int day, EntityPlayerLocal player, StringBuilder summary)
+        public static void Daily(int day, EntityPlayer player, StringBuilder summary)
         {
             List<Outpost> list = ScRegistry.Outposts;
             Community c = ScRegistry.Community;
@@ -711,9 +722,10 @@ namespace SurvivorCommunity
                 c.OutpostOnFoot = paidFuel < dueFuel;
                 if (player != null)
                 {
-                    if (c.OutpostRunDown && !wasRunDown) ScCommunity.Tell(player, Localization.Get("scOpRunDown"), "ui_denied");
-                    else if (!c.OutpostRunDown && wasRunDown) ScCommunity.Tell(player, Localization.Get("scOpRecovered"), "");
-                    if (c.OutpostOnFoot && !wasOnFoot) ScCommunity.Tell(player, Localization.Get("scOpOnFoot"), "ui_denied");
+                    // round MP0: community news (every community player; single player: the player)
+                    if (c.OutpostRunDown && !wasRunDown) ScPlayers.TellCommunity(Localization.Get("scOpRunDown"), "ui_denied");
+                    else if (!c.OutpostRunDown && wasRunDown) ScPlayers.TellCommunity(Localization.Get("scOpRecovered"), "");
+                    if (c.OutpostOnFoot && !wasOnFoot) ScPlayers.TellCommunity(Localization.Get("scOpOnFoot"), "ui_denied");
                 }
 
                 // the ledger / rollover tooltip
@@ -930,7 +942,7 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ ticker, markers ----
 
         /// <summary>ScTicker, every second (works every 10): radio report-in stamp, claim check, markers, radio list upkeep.</summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)
         {
             try
             {
@@ -974,7 +986,7 @@ namespace SurvivorCommunity
         /// until it is retaken, then idles on the next pass (RetakeCheck and the rollover run one straight after a retake).
         /// Returns true when an outpost's state changed.
         /// </summary>
-        internal static bool ApplySlots(World w, EntityPlayerLocal player)
+        internal static bool ApplySlots(World w, EntityPlayer player)
         {
             List<Outpost> list = ScRegistry.Outposts;
             list.Sort((a, b) => a.Id.CompareTo(b.Id));
@@ -1004,14 +1016,14 @@ namespace SurvivorCommunity
                     ScLog.Out("outpost " + o.Id + " at " + o.Name + " works again: " + HeldCount() + " held, " + slots + " slot(s)");
                 }
             }
-            if (nowIdle > 0 && player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpIdle"), nowIdle, slots), "ui_denied");
+            if (nowIdle > 0 && player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scOpIdle"), nowIdle, slots), "ui_denied");   // round MP0: community news
             if (back != null)
             {
                 foreach (Outpost o in back)
                 {
                     ContestCheck(o, w, player);    // sleepers came back while it idled: contested at once, with its own message
                     // the review's L2: coming back is told too, as going idle is
-                    if (o.State == OutpostState.Active && player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpWorking"), o.Name, slots), "");
+                    if (o.State == OutpostState.Active && player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scOpWorking"), o.Name, slots), "");   // round MP0: community news
                 }
             }
             return changed;
@@ -1021,7 +1033,7 @@ namespace SurvivorCommunity
         /// The rollover's contested check for one outpost (round fx2: shared with ApplySlots): an active one whose building's
         /// persisted sleeper volumes say it filled up again turns contested; a contested one that reads clear is retaken.
         /// </summary>
-        private static void ContestCheck(Outpost o, World w, EntityPlayerLocal player)
+        private static void ContestCheck(Outpost o, World w, EntityPlayer player)
         {
             if (o == null || w == null || (o.State != OutpostState.Active && o.State != OutpostState.Contested)) return;
             PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
@@ -1031,7 +1043,7 @@ namespace SurvivorCommunity
             if (!cleared && o.State == OutpostState.Active)
             {
                 o.State = OutpostState.Contested;
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpContested"), o.Name, why), "ui_denied");
+                if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scOpContested"), o.Name, why), "ui_denied");   // round MP0: community news
                 ScLog.Out("outpost " + o.Id + " at " + o.Name + " is contested: " + why);
             }
             else if (cleared && o.State == OutpostState.Contested) Retake(o, pi, player);
@@ -1044,7 +1056,7 @@ namespace SurvivorCommunity
         /// outpost is checked the rollover's way (ScSecurity.IsCleared on the sleeper volumes) and is retaken the moment it
         /// reads clear.
         /// </summary>
-        private static void RetakeCheck(World w, EntityPlayerLocal player)
+        private static void RetakeCheck(World w, EntityPlayer player)
         {
             bool changed = false;
             foreach (Outpost o in ScRegistry.Outposts)
@@ -1085,11 +1097,11 @@ namespace SurvivorCommunity
         }
 
         /// <summary>A contested outpost reads clear again: it is ours again (oc1: told, not only logged).</summary>
-        private static void Retake(Outpost o, PrefabInstance pi, EntityPlayerLocal player)
+        private static void Retake(Outpost o, PrefabInstance pi, EntityPlayer player)
         {
             o.State = OutpostState.Active;
             if (pi.sleeperVolumes != null && pi.sleeperVolumes.Count > 0) ScLeadership.Count(ScLeadership.OutpostRetakenEvent);
-            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpRetaken"), o.Name), "");
+            if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scOpRetaken"), o.Name), "");   // round MP0: community news
             NoteLedger(string.Format(Localization.Get("scOpRetaken"), o.Name));
             ScLog.Out("outpost " + o.Id + " at " + o.Name + " is ours again");
         }
@@ -1139,6 +1151,9 @@ namespace SurvivorCommunity
         {
             try
             {
+                // round MP0: the marker is the host's own player's (a local map object) - none on a dedicated server.
+                // MP4: per-player markers
+                if (!(owner is EntityPlayerLocal)) return;
                 if (!o.Holding) return;
                 NavObjectManager nav = NavObjectManager.Instance;
                 string cls = NavClassFor(o);

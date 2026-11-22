@@ -182,7 +182,7 @@ namespace SurvivorCommunity
         /// the rating less 'penalty' ('forced' 0-2 from the console instead), and everything it costs applied. 'horde' is
         /// how many the defenders faced. The caller ends the attack and saves. Returns the result.
         /// </summary>
-        public static int Settle(World w, EntityPlayerLocal player, int horde, int penalty, bool siege, int forced, string why)
+        public static int Settle(World w, EntityPlayer player, int horde, int penalty, bool siege, int forced, string why)
         {
             Community c = ScRegistry.Community;
             GameRandom rnd = w != null ? w.GetGameRandom() : null;
@@ -254,16 +254,28 @@ namespace SurvivorCommunity
             ScOutposts.NoteLedger(Text(news));
             ScSalvage.Settled(siege, result, horde);   // round m1f (BD1): a held fight's salvage (a ledger line); the last attack's record
             bool radio = Radio();
-            if (player != null && (radio || ScBaseAttack.PlayerHome(player)))
+            // round MP0: every community player hears it - at home in person, away over a powered radio; the news is kept for the
+            // return only when nobody heard it (in single player the player, as before)
+            bool told = false, toldHome = false;
+            if (player != null)
             {
-                bool atHome = ScBaseAttack.PlayerHome(player);
-                ScCommunity.Tell(player, string.Format(Localization.Get(atHome ? "scDefNow" : "scDefRadio"), Text(news)), result == Held ? "" : "ui_denied");
+                EntityPlayer[] to = ScPlayers.Community().ToArray();     // copied: Tell may re-enter code that reuses the list
+                for (int i = 0; i < to.Length; i++)
+                {
+                    bool atHome = ScBaseAttack.PlayerHome(to[i]);
+                    if (!radio && !atHome) continue;
+                    told = true;
+                    if (atHome) toldHome = true;
+                    ScCommunity.Tell(to[i], string.Format(Localization.Get(atHome ? "scDefNow" : "scDefRadio"), Text(news)), result == Held ? "" : "ui_denied");
 #if SC_V34
-                // vo4: the radio's result spoken too (the guard on watch, else someone at home), while you carry a handheld
-                if (!atHome) ScHordeVoice.SayAway(ScHordeVoice.ResultMoment(result), null, null, player, false);
+                    // vo4: the radio's result spoken too (the guard on watch, else someone at home), while you carry a handheld.
+                    // MP4: voices to clients (the host's own player only until then)
+                    EntityPlayerLocal lp = to[i] as EntityPlayerLocal;
+                    if (!atHome && lp != null) ScHordeVoice.SayAway(ScHordeVoice.ResultMoment(result), null, null, lp, false);
 #endif
+                }
             }
-            else
+            if (!told)
             {
                 while (c.AwayNews.Count >= 4) c.AwayNews.RemoveAt(0);
                 c.AwayNews.Add(news);
@@ -271,19 +283,26 @@ namespace SurvivorCommunity
             ScLog.Out((siege ? "base SIEGE" : "base attack without the player") + " " + ResultName(result) + " (" + why + "): " + horde + " zombie(s), rating "
                       + rating + (penalty > 0 ? " - " + penalty : "") + ", roll " + (forced >= 0 ? "forced" : roll.ToString()) + "; ammo " + took + "/" + want
                       + " bundle(s); hurt " + hurt + " (" + treated + " treated, " + untreated + " untreated); deaths " + dead.Count
-                      + (dead.Count > 0 ? " (" + names + ")" : "") + "; risk: " + risk + "; " + (radio ? "told over the radio" : player != null && ScBaseAttack.PlayerHome(player) ? "told at home" : "news kept for the return"));
+                      + (dead.Count > 0 ? " (" + names + ")" : "") + "; risk: " + risk + "; " + (radio ? "told over the radio" : toldHome ? "told at home" : "news kept for the return"));
             return result;
         }
 
         /// <summary>A resident dies in a fight without the player: SC's death (penalty, deaths list), the body removed now or when it loads.</summary>
-        private static void Kill(Member m, EntityPlayerLocal player)
+        private static void Kill(Member m, EntityPlayer player)
         {
             try
             {
                 if (ScWatch.OnWatch(m)) ScWatch.Relieve(m, null, "died in a fight at home");
                 EntityAlive npc = ScCommunity.FindNpc(m.Id);
                 ScCommunity.RecordDeath(m, null, null);          // no tooltip of its own: the news names them
-                if (player != null) player.Buffs.RemoveCustomVar("hired_" + m.Id);
+                // round MP0: the hired mark off whichever player holds it (a client's work shift links her to them), not only the
+                // host's own player - in single player the player, as before
+                if (player != null)
+                {
+                    List<EntityPlayer> all = ScPlayers.All;
+                    for (int i = 0; i < all.Count; i++)
+                        if (all[i] != null && all[i].Buffs != null) all[i].Buffs.RemoveCustomVar("hired_" + m.Id);
+                }
                 if (npc != null) ScRuns.RemoveEntity(npc);
                 else ScRegistry.Doomed.Add(m.Id);                // the body is removed when its chunk next loads
             }
@@ -336,14 +355,17 @@ namespace SurvivorCommunity
         }
 
         /// <summary>ScBaseAttack's tick: the news kept while the player was away with no radio, one tooltip at a time once they are home.</summary>
-        public static void TickNews(EntityPlayerLocal player, float now)
+        public static void TickNews(EntityPlayer player, float now)
         {
             Community c = ScRegistry.Community;
-            if (c.AwayNews.Count == 0 || player == null || now < nextNews || !ScBaseAttack.PlayerHome(player)) return;
+            // round MP0: told once any community player is home, to every one of them home (in single player the player, as before)
+            if (c.AwayNews.Count == 0 || player == null || now < nextNews || !ScBaseAttack.AnyHome()) return;
             nextNews = now + NewsSeconds;
             string news = c.AwayNews[0];
             c.AwayNews.RemoveAt(0);
-            ScCommunity.Tell(player, string.Format(Localization.Get("scDefAway"), Text(news)), "ui_denied");
+            EntityPlayer[] to = ScPlayers.Community().ToArray();     // copied: Tell may re-enter code that reuses the list
+            for (int i = 0; i < to.Length; i++)
+                if (ScBaseAttack.PlayerHome(to[i])) ScCommunity.Tell(to[i], string.Format(Localization.Get("scDefAway"), Text(news)), "ui_denied");
             ScLog.Out("told on the return: " + Text(news));
             ScRegistry.SaveAtomic();
         }

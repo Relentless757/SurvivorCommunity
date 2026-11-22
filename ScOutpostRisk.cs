@@ -37,6 +37,8 @@ namespace SurvivorCommunity
             public bool Spawned;
             public readonly List<int> Ids = new List<int>();
             public bool BloodMoonHere;
+            /// <summary>Round MP0: the entity id of the community player who last stood there in the blood moon (told at its end).</summary>
+            public int BloodMoonBy;
             /// <summary>E10: an enclave's raid found nobody who could come yet with the player there (ScEncRaids.SpawnParty's -1; the E11 review's L1).</summary>
             public bool Waited;
         }
@@ -126,6 +128,33 @@ namespace SurvivorCommunity
             return false;
         }
 
+        /// <summary>Round MP0: AnyLiveNear round any community player - an outpost fight where one of them is (single player: the player).</summary>
+        public static bool AnyLiveNearPlayers()
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+                if (ScPlayers.InCommunity(all[i]) && AnyLiveNear(all[i].position)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Round MP0: the community player nearest the outpost's footprint and that distance (MaxValue with nobody) - who is "at
+        /// the outpost" is any of them, not only the host's own player. In single player the player, exactly as before.
+        /// </summary>
+        private static EntityPlayer Closest(Outpost o, out float dist)
+        {
+            EntityPlayer best = null;
+            dist = float.MaxValue;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (!ScPlayers.InCommunity(all[i])) continue;
+                float d = ScOutposts.DistanceToBox(o, all[i].position);
+                if (best == null || d < dist) { best = all[i]; dist = d; }
+            }
+            return best;
+        }
+
         /// <summary>Game hours (rounded up) left until an open attack's deadline.</summary>
         internal static int HoursLeft(Outpost o)
         {
@@ -164,15 +193,18 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ the day ----
 
         /// <summary>ScOutposts.Daily, after the deliveries: fades, rolls attacks, demands, neglect and good news.</summary>
-        public static void Daily(int day, EntityPlayerLocal player, StringBuilder summary)
+        public static void Daily(int day, EntityPlayer player, StringBuilder summary)
         {
             try
             {
                 World w = ScCommunity.World;
                 GameRandom rnd = w != null ? w.GetGameRandom() : null;
                 bool radio = ScOutposts.RadioOnlineAnywhere();   // (triumph fades in ScOutposts.Daily, with or without outposts)
+                // round MP0: ScEncRaids still takes the local player (another slice's file): null on a dedicated server, where it
+                // skips its tells and reveals
+                EntityPlayerLocal lp = player as EntityPlayerLocal;
                 int gs = 0;
-                try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }
+                try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }     // round MP0: the anchor's. MP5: gamestage of the players involved
                 var list = new List<Outpost>(ScRegistry.Outposts);
                 foreach (Outpost o in list)
                 {
@@ -183,7 +215,7 @@ namespace SurvivorCommunity
                     if (HasDemand(o) && day > o.DemandUntil)
                     {
                         o.DemandUntil = -1;
-                        if (ScConfig.OutpostAttacks && ScEncRaids.MayCome(o, player)) StartAttack(o, true, player, radio);
+                        if (ScConfig.OutpostAttacks && ScEncRaids.MayCome(o, lp)) StartAttack(o, true, player, radio);
                         else ScEncRaids.Unstamp(o);
                     }
                     if (o.State != OutpostState.Active) continue;
@@ -202,7 +234,7 @@ namespace SurvivorCommunity
                             Enclave raider = ScEncRaids.On ? ScEncRaids.RaiderFor(o) : null;
                             if (raider != null && Roll(rnd) < ScEncRaids.ChanceFor(raider))
                             {
-                                ScEncRaids.Demand(o, raider, day, player, summary, "the day's roll");
+                                ScEncRaids.Demand(o, raider, day, lp, summary, "the day's roll");
                                 continue;
                             }
                         }
@@ -212,7 +244,7 @@ namespace SurvivorCommunity
                             o.DemandAmmo = ScConfig.OutpostDemandAmmo;
                             o.DemandFood = ScConfig.OutpostDemandFood;
                             ScEncRaids.Unstamp(o);
-                            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskDemand"), o.DemandAmmo, o.DemandFood, o.Name), "ui_denied");
+                            if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scRiskDemand"), o.DemandAmmo, o.DemandFood, o.Name), "ui_denied");   // round MP0: community news
                             if (summary.Length > 0) summary.Append(' ');
                             summary.Append(string.Format(Localization.Get("scRiskDemandLine"), o.Name));
                             ScLog.Out("raiders demand " + o.DemandAmmo + " ammo + " + o.DemandFood + " food for outpost " + o.Id + " (" + o.Name + ")");
@@ -239,7 +271,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>An attack call: the deadline, the marker, and (radio on) the call itself (E10: an enclave's raid names them).</summary>
-        public static void StartAttack(Outpost o, bool raiders, EntityPlayerLocal player, bool radio)
+        public static void StartAttack(Outpost o, bool raiders, EntityPlayer player, bool radio)
         {
             World w = ScCommunity.World;
             if (w == null || o == null) return;
@@ -253,9 +285,9 @@ namespace SurvivorCommunity
             l.Ids.Clear();
             if (radio) AddMarker(o, player);
             Enclave by = raiders ? ScEncRaids.EnclaveOf(o) : null;
-            if (player != null && radio)
-                ScCommunity.Tell(player, by != null ? string.Format(Localization.Get("scEncRaidCall"), o.Name, ScConfig.OutpostAttackHours, by.Name)
-                                                    : string.Format(Localization.Get(raiders ? "scRiskRaidCall" : "scRiskAttackCall"), o.Name, ScConfig.OutpostAttackHours), "ui_denied");
+            if (player != null && radio)        // round MP0: the radio's call to every community player
+                ScPlayers.TellCommunity(by != null ? string.Format(Localization.Get("scEncRaidCall"), o.Name, ScConfig.OutpostAttackHours, by.Name)
+                                                   : string.Format(Localization.Get(raiders ? "scRiskRaidCall" : "scRiskAttackCall"), o.Name, ScConfig.OutpostAttackHours), "ui_denied");
             ScLog.Out((raiders ? "raiders attack" : "attack on") + " outpost " + o.Id + " (" + o.Name + ")" + (by != null ? " - enclave " + by.Id + " '" + by.Name + "'" : "")
                       + ", security " + Security(o) + (radio ? "" : " - the radio is silent, nobody heard"));
             ScRegistry.SaveAtomic();
@@ -275,7 +307,7 @@ namespace SurvivorCommunity
             RemoveMarker(o);
         }
 
-        private static void GoodNews(Outpost o, EntityPlayerLocal player, bool radio, GameRandom rnd, StringBuilder summary)
+        private static void GoodNews(Outpost o, EntityPlayer player, bool radio, GameRandom rnd, StringBuilder summary)
         {
             int n = rnd != null ? rnd.RandomRange(2, 5) : 3;
             for (int i = 0; i < n; i++)
@@ -284,14 +316,14 @@ namespace SurvivorCommunity
                 Resource r = (!o.Scavenge && Roll(rnd) < 0.6f) ? o.Primary : (Resource)(rnd != null ? rnd.RandomRange(0, ScNames.ClassicCount) : 0);   // the five classic ones: no luxury caches
                 o.Stash[(int)r]++;
             }
-            if (player != null && radio) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskGoodNews"), o.Name, n), "");
+            if (player != null && radio) ScPlayers.TellCommunity(string.Format(Localization.Get("scRiskGoodNews"), o.Name, n), "");   // round MP0: community news
             if (summary.Length > 0) summary.Append(' ');
             summary.Append(string.Format(Localization.Get("scRiskGoodNewsLine"), o.Name, n));
             ScLog.Out("good news: a cache of " + n + " bundle(s) at outpost " + o.Id + " (" + o.Name + ")");
         }
 
         /// <summary>Neglect: one cleared sleeper area of the POI is re-armed.</summary>
-        private static void Reinfest(Outpost o, EntityPlayerLocal player, StringBuilder summary)
+        private static void Reinfest(Outpost o, EntityPlayer player, StringBuilder summary)
         {
             World w = ScCommunity.World;
             PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
@@ -305,7 +337,7 @@ namespace SurvivorCommunity
             o.NeglectDay = ScCommunity.Today;         // the next one waits another OutpostNeglectDays
             o.State = OutpostState.Contested;
             ScOutposts.Rebuild();
-            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskNeglect"), o.Name), "ui_denied");
+            if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scRiskNeglect"), o.Name), "ui_denied");   // round MP0: community news
             if (summary.Length > 0) summary.Append(' ');
             summary.Append(string.Format(Localization.Get("scRiskNeglectLine"), o.Name));
             ScLog.Out("neglect: a sleeper area of outpost " + o.Id + " (" + o.Name + ") re-armed");
@@ -314,7 +346,7 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ the ticker ----
 
         /// <summary>ScTicker, every second: attack fights and deadlines, blood-moon presence and the siege at its end.</summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)
         {
             try
             {
@@ -327,17 +359,24 @@ namespace SurvivorCommunity
                     markersRestored = true;
                     foreach (Outpost o in ScRegistry.Outposts) if (UnderAttack(o) && o.AttackHeard) AddMarker(o, player);
                 }
-                ScEncRaids.Tick(w, player);        // E10: enclave demands and raids squared with their groups (off, gone, nobody left)
+                // round MP0: ScEncRaids still takes the local player (another slice's file): null on a dedicated server, where its
+                // call-offs still run and only their tells are skipped
+                ScEncRaids.Tick(w, player as EntityPlayerLocal);        // E10: enclave demands and raids squared with their groups (off, gone, nobody left)
                 bool bm = false;
                 try { bm = w.aiDirector != null && w.aiDirector.BloodMoonComponent != null && w.aiDirector.BloodMoonComponent.BloodMoonActive; }
                 catch (Exception) { }
-                Vector3 pp = player.position;
                 var list = new List<Outpost>(ScRegistry.Outposts);
                 foreach (Outpost o in list)
                 {
                     if (!o.Holding) continue;
-                    float d = ScOutposts.DistanceToBox(o, pp);
-                    if (bm && d <= ScConfig.OutpostStandInRange) L(o).BloodMoonHere = true;
+                    // round MP0: who is at the outpost is the community player nearest it - any of them, not only the host's own
+                    float d;
+                    EntityPlayer at = Closest(o, out d);
+                    if (bm && d <= ScConfig.OutpostStandInRange)
+                    {
+                        L(o).BloodMoonHere = true;
+                        L(o).BloodMoonBy = at.entityId;
+                    }
                     if (!UnderAttack(o)) continue;
                     Live l = L(o);
                     if (!l.Spawned)
@@ -346,13 +385,13 @@ namespace SurvivorCommunity
                         {
                             // E10 (the E11 review's L1): an enclave's raid that never came out while you stood here - those who
                             // could come in view at their den - is one you attended, and held
-                            if (l.Waited && d <= ScConfig.RescueTriggerRange) Settle(o, player, true, "they never came out while you were there", true);
+                            if (l.Waited && d <= ScConfig.RescueTriggerRange) Settle(o, at, true, "they never came out while you were there", true);
                             else Settle(o, player, false, "unanswered");
                             continue;
                         }
                         // one live attack at a time: an outpost next to a home (E5: or an enclave's siege) being fought waits
                         // for that fight
-                        if (d <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(o.Flag) && !ScBaseAttack.Live && !ScEncSiege.Live) SpawnAttack(w, player, o);
+                        if (d <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(o.Flag) && !ScBaseAttack.Live && !ScEncSiege.Live) SpawnAttack(w, player, at, o);
                         continue;
                     }
                     if (w.worldTime >= o.AttackUntil) { Settle(o, player, true, "fought, not finished"); continue; }
@@ -365,9 +404,10 @@ namespace SurvivorCommunity
                         if (a != null && !a.IsDead()) { anyAlive = true; break; }
                     }
                     if (anyAlive) continue;
-                    // E10: an enclave's raiders whose bodies went alive (an unload) come back round the outpost before it is won
-                    if (o.AttackRaiders && o.RaidEnclave > 0 && ScEncRaids.Regroup(w, player, o, l.Ids) > 0) continue;
-                    Won(o, player);
+                    // E10: an enclave's raiders whose bodies went alive (an unload) come back round the outpost before it is won.
+                    // Round MP0: ScEncRaids takes the local player (another slice's file) - the one at the outpost when it is the host's
+                    if (o.AttackRaiders && o.RaidEnclave > 0 && ScEncRaids.Regroup(w, at as EntityPlayerLocal, o, l.Ids) > 0) continue;
+                    Won(o, at);
                 }
                 if (wasBloodMoon && !bm && ScConfig.OutpostAttacks) Siege(player);
                 wasBloodMoon = bm;
@@ -378,16 +418,16 @@ namespace SurvivorCommunity
             }
         }
 
-        private static int AttackerCount(Outpost o, EntityPlayerLocal player)
+        private static int AttackerCount(Outpost o, EntityPlayer player)
         {
             int gs = 0;
-            try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }
+            try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }     // round MP0: the anchor's. MP5: gamestage of the players involved
             float n = (ScConfig.OutpostAttackBase + gs * ScConfig.OutpostAttackPerGamestage) * (1f + 0.1f * o.Tier) * ScOutpostPerks.ModeRisk(o);
             return Mathf.Clamp(Mathf.RoundToInt(n), 2, Math.Max(2, ScConfig.OutpostAttackMax));
         }
 
         /// <summary>E10: the attack's size (ScEncRaids: the party an unattended raid would have sent).</summary>
-        internal static int AttackerCountFor(Outpost o, EntityPlayerLocal player) { return AttackerCount(o, player); }
+        internal static int AttackerCountFor(Outpost o, EntityPlayer player) { return AttackerCount(o, player); }
 
         /// <summary>How far out round the POI's centre the attackers come in (at least 12 m; half the POI's wider side + 6).</summary>
         internal static float Reach(Outpost o) { return Mathf.Max(12f, Mathf.Max(o.Size.x, o.Size.z) * 0.5f + 6f); }
@@ -418,10 +458,10 @@ namespace SurvivorCommunity
         /// The raider band for the player's gamestage, 0..2 (T1 below 50, T2 below 100, T3 from 100): the thresholds the
         /// wild raider spawn groups scRaiderGroupGS01/GS50/GS100 stand for.
         /// </summary>
-        private static int RaiderBand(EntityPlayerLocal player)
+        private static int RaiderBand(EntityPlayer player)
         {
             int gs = 0;
-            try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }
+            try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }     // round MP0: the anchor's. MP5: gamestage of the players involved
             return gs >= 100 ? 2 : gs >= 50 ? 1 : 0;
         }
 
@@ -434,8 +474,10 @@ namespace SurvivorCommunity
         /// ammo are rolled by the body itself (ScLoadout, ScLooks) like any wild raider's. Zombie attacks keep their group,
         /// which has no "none" entry.
         /// </summary>
-        private static void SpawnAttack(World w, EntityPlayerLocal player, Outpost o)
+        private static void SpawnAttack(World w, EntityPlayer player, EntityPlayer here, Outpost o)
         {
+            // round MP0: 'here' is the community player at the outpost (told, and the attackers' target with no stand-in);
+            // 'player' the anchor, whose gamestage sizes it
             Live l = L(o);
             l.Spawned = true;
             l.Ids.Clear();
@@ -454,17 +496,20 @@ namespace SurvivorCommunity
                     // The enclaves still being validated (the first seconds of a session), or those who could come in view at
                     // their den or still being built there (SpawnParty's -1): the next second (Waited: the deadline holds it)
                     if (!ScEnclaves.Ready) { l.Spawned = false; return; }
-                    int came = ScEncRaids.SpawnParty(w, player, o, count, target, l.Ids);
+                    // round MP0: ScEncRaids takes the local player (another slice's file) - the one here when it is the host's
+                    // own, else null (no fallback target, no tells there)
+                    EntityPlayerLocal lp = here as EntityPlayerLocal;
+                    int came = ScEncRaids.SpawnParty(w, lp, o, count, target, l.Ids);
                     if (came < 0) { l.Spawned = false; l.Ids.Clear(); l.Waited = true; return; }
                     if (came == 0)
                     {
                         l.Spawned = false;
                         l.Ids.Clear();
-                        ScEncRaids.NobodyCame(o, by, player);
+                        ScEncRaids.NobodyCame(o, by, lp);
                         ScRegistry.SaveAtomic();
                         return;
                     }
-                    ScCommunity.Tell(player, string.Format(Localization.Get("scEncRaidHere"), o.Name, came, by.Name), "ui_denied");
+                    ScCommunity.Tell(here, string.Format(Localization.Get("scEncRaidHere"), o.Name, came, by.Name), "ui_denied");
                     ScLog.Out("attack at outpost " + o.Id + " (" + o.Name + "): " + came + " of enclave " + by.Id + " '" + by.Name + "'");
                     return;
                 }
@@ -484,7 +529,7 @@ namespace SurvivorCommunity
                     if (o.AttackRaiders) ScStreamerNames.New(a, "outpost raid");   // round 30: the log's word for a list name it may take
                     w.SpawnEntityInWorld(a);
                     a.SetSpawnerSource(EnumSpawnerSource.Dynamic);             // never written with the chunk
-                    a.SetAttackTarget(target != null ? target : player, 1200);
+                    a.SetAttackTarget(target != null ? target : here, 1200);
                     l.Ids.Add(a.entityId);
                 }
                 if (l.Ids.Count == 0)
@@ -494,7 +539,7 @@ namespace SurvivorCommunity
                     Settle(o, player, true, "no attackers");
                     return;
                 }
-                ScCommunity.Tell(player, string.Format(Localization.Get(o.AttackRaiders ? "scRiskRaidHere" : "scRiskAttackHere"), o.Name, l.Ids.Count), "ui_denied");
+                ScCommunity.Tell(here, string.Format(Localization.Get(o.AttackRaiders ? "scRiskRaidHere" : "scRiskAttackHere"), o.Name, l.Ids.Count), "ui_denied");
                 ScLog.Out("attack at outpost " + o.Id + " (" + o.Name + "): " + l.Ids.Count + " " + (o.AttackRaiders ? "raider(s)" : "zombie(s)") + " from " + group);
             }
             catch (Exception e)
@@ -503,8 +548,9 @@ namespace SurvivorCommunity
             }
         }
 
-        private static void Won(Outpost o, EntityPlayerLocal player)
+        private static void Won(Outpost o, EntityPlayer player)
         {
+            // round MP0: 'player' is the community player at the outpost who held it
             o.AttackUntil = 0;
             L(o).Ids.Clear();
             L(o).Spawned = false;
@@ -515,7 +561,8 @@ namespace SurvivorCommunity
             if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskHeld"), o.Name), "");
             ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerHeld"), o.Name));
             ScLog.Out("outpost " + o.Id + " (" + o.Name + ") held against the attack");
-            if (o.AttackRaiders) ScEncRaids.End(o, player, true, "won");       // E10: an enclave's raid - their losses, the rest home
+            // round MP0: ScEncRaids takes the local player (another slice's file): null on a dedicated server skips its tells
+            if (o.AttackRaiders) ScEncRaids.End(o, player as EntityPlayerLocal, true, "won");       // E10: an enclave's raid - their losses, the rest home
             ScRegistry.SaveAtomic();
         }
 
@@ -523,8 +570,10 @@ namespace SurvivorCommunity
         /// The deadline passed: settled on security (a fight the player joined never ends worse than damaged). Waited (E10, the
         /// E11 review's L1): an enclave's raid that never came out while the player stood there is held, no roll (Guarded).
         /// </summary>
-        private static void Settle(Outpost o, EntityPlayerLocal player, bool attended, string why, bool waited = false)
+        private static void Settle(Outpost o, EntityPlayer player, bool attended, string why, bool waited = false)
         {
+            // round MP0: 'player' is the one at the outpost for a waited hold (Guarded tells them), else the anchor (Outcome's
+            // news goes to every community player)
             o.AttackUntil = 0;
             L(o).Spawned = false;
             L(o).Waited = false;
@@ -533,8 +582,9 @@ namespace SurvivorCommunity
             string result = waited ? Guarded(o, player, why) : Outcome(o, player, attended ? ScConfig.OutpostAttendedBonus : 0, attended, why);
             if (o.AttackRaiders && o.RaidEnclave > 0)
             {
-                // E10: an enclave's raid - held unattended, it costs them people; their party home, their rest
-                ScEncRaids.End(o, player, attended, result, waited);
+                // E10: an enclave's raid - held unattended, it costs them people; their party home, their rest.
+                // Round MP0: ScEncRaids takes the local player (another slice's file): null on a dedicated server skips its tells
+                ScEncRaids.End(o, player as EntityPlayerLocal, attended, result, waited);
                 ScRegistry.SaveAtomic();
             }
         }
@@ -543,7 +593,7 @@ namespace SurvivorCommunity
         /// E10, the E11 review's L1: held with the player there and nobody come to fight (an enclave's raid whose people stayed
         /// in view at their den, Live.Waited) - Outcome's held result without its roll, told as a hold the player was at.
         /// </summary>
-        private static string Guarded(Outpost o, EntityPlayerLocal player, string why)
+        private static string Guarded(Outpost o, EntityPlayer player, string why)
         {
             o.SecBonus = Math.Min(ScConfig.OutpostSecBonusMax, o.SecBonus + ScConfig.OutpostSecWinBonus * 0.5f);
             if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskHeld"), o.Name), "");
@@ -554,18 +604,22 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The end of a blood moon: every outpost the player did not stand at rolls, a little harder.</summary>
-        private static void Siege(EntityPlayerLocal player)
+        private static void Siege(EntityPlayer player)
         {
             var list = new List<Outpost>(ScRegistry.Outposts);
             foreach (Outpost o in list)
             {
                 Live l = L(o);
                 bool here = l.BloodMoonHere;
+                int by = l.BloodMoonBy;
                 l.BloodMoonHere = false;                     // every blood moon starts from nobody there
+                l.BloodMoonBy = 0;
                 if (o.State != OutpostState.Active) continue;
                 if (here)
                 {
-                    if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskSiegeHeldByYou"), o.Name), "");
+                    // round MP0: told to the community player who stood there (any of them), else the anchor
+                    EntityPlayer stood = ScPlayers.ByEntity(by);
+                    if (player != null) ScCommunity.Tell(stood != null ? stood : player, string.Format(Localization.Get("scRiskSiegeHeldByYou"), o.Name), "");
                     continue;
                 }
                 Outcome(o, player, -ScConfig.OutpostSiegePenalty, false, "blood moon");
@@ -573,7 +627,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Settled on security: held, damaged or overrun (the result, HeldResult / DamagedResult / OverrunResult; E10 reads it).</summary>
-        private static string Outcome(Outpost o, EntityPlayerLocal player, int bonus, bool attended, string why)
+        private static string Outcome(Outpost o, EntityPlayer player, int bonus, bool attended, string why)
         {
             World w = ScCommunity.World;
             GameRandom rnd = w != null ? w.GetGameRandom() : null;
@@ -584,7 +638,7 @@ namespace SurvivorCommunity
             {
                 result = HeldResult;
                 o.SecBonus = Math.Min(ScConfig.OutpostSecBonusMax, o.SecBonus + ScConfig.OutpostSecWinBonus * 0.5f);
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskHeldAlone"), o.Name), "");
+                if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scRiskHeldAlone"), o.Name), "");   // round MP0: community news
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerHeld"), o.Name));
                 ScLog.Out("outpost " + o.Id + " (" + o.Name + ") held on its own (" + why + ", roll " + roll + " < security " + sec + ")");
             }
@@ -592,7 +646,7 @@ namespace SurvivorCommunity
             {
                 result = DamagedResult;
                 o.DamagedUntil = ScCommunity.Today + Math.Max(1, ScConfig.OutpostDamagedDays);   // that many rollovers yield nothing
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskDamaged"), o.Name, ScConfig.OutpostDamagedDays, ScOutpostPerks.Salvaged(ScConfig.OutpostRepairMats)), "ui_denied");   // round ie1: the salvage yard's price, as Repair charges
+                if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scRiskDamaged"), o.Name, ScConfig.OutpostDamagedDays, ScOutpostPerks.Salvaged(ScConfig.OutpostRepairMats)), "ui_denied");   // round ie1: the salvage yard's price, as Repair charges; round MP0: community news
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerDamaged"), o.Name));
                 ScLog.Out("outpost " + o.Id + " (" + o.Name + ") damaged (" + why + ", roll " + roll + ", security " + sec + ")");
             }
@@ -623,7 +677,7 @@ namespace SurvivorCommunity
         /// review's NIT: only where a real one could happen - a building with a room an overrun can bring back (HasSleepers; since
         /// round oc1 one of trigger rooms only takes "damaged"). why: what kept it from happening.
         /// </summary>
-        internal static bool ForceOverrun(Outpost o, EntityPlayerLocal player, out string why)
+        internal static bool ForceOverrun(Outpost o, EntityPlayer player, out string why)
         {
             why = null;
             if (o == null || !o.Holding) { why = "that outpost is not held"; return false; }
@@ -639,7 +693,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Overrun: the POI's sleepers are back (clear it again to retake it); the garrison falls back hurt.</summary>
-        private static void Overrun(Outpost o, EntityPlayerLocal player)
+        private static void Overrun(Outpost o, EntityPlayer player)
         {
             World w = ScCommunity.World;
             PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
@@ -657,7 +711,7 @@ namespace SurvivorCommunity
             for (int i = 0; i < ScNames.ResourceCount; i++) { o.Pending[i] = 0; o.Stash[i] = 0; }
             ScRegistry.Community.OutpostLoss += ScConfig.OutpostLostPenalty * 0.5f;
             ScOutposts.Rebuild();
-            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskOverrun"), o.Name), "ui_denied");
+            if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scRiskOverrun"), o.Name), "ui_denied");   // round MP0: community news
             ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerOverrun"), o.Name));
         }
 
@@ -734,6 +788,9 @@ namespace SurvivorCommunity
         {
             try
             {
+                // round MP0: the marker is the host's own player's (a local map object) - none on a dedicated server.
+                // MP4: per-player markers
+                if (!(owner is EntityPlayerLocal)) return;
                 NavObjectManager nav = NavObjectManager.Instance;
                 if (nav == null || owner == null || NavObjectClass.GetNavObjectClass(AttackNav) == null) return;
                 RemoveMarker(o);

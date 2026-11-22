@@ -317,7 +317,7 @@ namespace SurvivorCommunity
                 if (!ScCommunity.IsHost || !ScRegistry.Loaded) return;
                 string label = Label(pos);
                 Member g = GuardOf(pos);
-                if (g != null) End(g, null, "scWatchPostGone", false, "the post " + why, ScCommunity.LocalPlayer);
+                if (g != null) End(g, null, "scWatchPostGone", false, "the post " + why, ScPlayers.Anchor());   // round MP0: the anchor (the host's own player whenever there is one)
                 if (Posts.Remove(pos) || g != null)
                 {
                     ScLog.Out(label + " at " + pos + " forgotten (" + why + ")");
@@ -542,7 +542,7 @@ namespace SurvivorCommunity
         /// checks it and picks a new one when it is gone); after a full shift ("full") they rest. tellKey: the tooltip, shown
         /// only while the player is at the base. The caller saves.
         /// </summary>
-        private static void End(Member m, EntityAlive npc, string tellKey, bool full, string why, EntityPlayerLocal player)
+        private static void End(Member m, EntityAlive npc, string tellKey, bool full, string why, EntityPlayer player)
         {
             Vector3i post = m.WatchPost;
             string label = Label(post);
@@ -580,9 +580,18 @@ namespace SurvivorCommunity
             }
             ScLog.Out(m.Name + "'s watch at " + label + " " + post + " ended (" + why + ")" + (full ? "; resting " + ScConfig.WatchRestHours + " h" : "")
                       + "; " + left + " prepaid point(s) unspent; back to the post " + m.Post + "; " + sight);
-            if (tellKey != null && player != null && ScBaseAttack.PlayerHome(player))
-                ScCommunity.Tell(player, string.Format(Localization.Get(tellKey), m.Name, ScConfig.WatchRestHours, "", label), "");
+            // round MP0: told to every community player at the base (any of them, not only the host's own player)
+            if (tellKey != null && player != null && ScBaseAttack.AnyHome())
+                TellHome(string.Format(Localization.Get(tellKey), m.Name, ScConfig.WatchRestHours, "", label), "");
             saveDue = true;
+        }
+
+        /// <summary>Round MP0: a tell to every community player at the base (ScBaseAttack.PlayerHome) - in single player the player.</summary>
+        private static void TellHome(string text, string sound)
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+                if (ScPlayers.InCommunity(all[i]) && ScBaseAttack.PlayerHome(all[i])) ScCommunity.Tell(all[i], text, sound);
         }
 
         /// <summary>The post's "Assign guard": the community window opens to pick one, or the reason shows.</summary>
@@ -655,7 +664,7 @@ namespace SurvivorCommunity
         /// the facing are kept, the sight raised, and a guard away from the post for WatchPlaceSeconds is placed on it
         /// while the player is not looking.
         /// </summary>
-        public static void TickGuard(Member m, EntityAlive npc, EntityPlayerLocal player)
+        public static void TickGuard(Member m, EntityAlive npc, EntityPlayer player)
         {
             try
             {
@@ -701,7 +710,8 @@ namespace SurvivorCommunity
                 }
                 if (g.AwaySince < 0f) { g.AwaySince = now; return; }
                 if (now - g.AwaySince < ScConfig.WatchPlaceSeconds || !loaded) return;
-                if (InView(player, npc.getHeadPosition()) || InView(player, post + new Vector3(0f, 1f, 0f)))
+                // round MP0: placed only while no player sees it (every player, not only the host's own)
+                if (InViewOfAny(npc.getHeadPosition()) || InViewOfAny(post + new Vector3(0f, 1f, 0f)))
                 {
                     if (now >= g.NextWaitLog)
                     {
@@ -740,10 +750,12 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The player can see this spot: near the camera, or within about 60 degrees of where it points and in range.</summary>
-        private static bool InView(EntityPlayerLocal player, Vector3 p)
+        private static bool InView(EntityPlayer player, Vector3 p)
         {
             if (player == null) return false;
-            Transform cam = player.cameraTransform;
+            // round MP0: the camera is the local player's; a remote player's head and look direction stand in (the fallback below)
+            EntityPlayerLocal lp = player as EntityPlayerLocal;
+            Transform cam = lp != null ? lp.cameraTransform : null;
             Vector3 from = cam != null ? cam.position : player.getHeadPosition();
             Vector3 fwd = cam != null ? cam.forward : player.GetLookVector();
             Vector3 d = p - from;
@@ -753,13 +765,22 @@ namespace SurvivorCommunity
             return Vector3.Dot(fwd, d / dist) > ViewDot;
         }
 
+        /// <summary>Round MP0: any player can see this spot (InView) - in single player the player, exactly as before.</summary>
+        private static bool InViewOfAny(Vector3 p)
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+                if (InView(all[i], p)) return true;
+            return false;
+        }
+
         // ------------------------------------------------------------------ the ticker ----
 
         /// <summary>
         /// ScTicker, every second (after ScBaseAttack): shifts that ran out, guards no longer at home, posts gone; the
         /// zone scan; the call-outs and the marker.
         /// </summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)
         {
             try
             {
@@ -823,10 +844,13 @@ namespace SurvivorCommunity
         /// marker stays on the gathering side, then on the live attackers' centre, while the player is within
         /// BaseAttackLeaveRange of the zone; it goes when the attack ends.
         /// </summary>
-        private static void TickCallouts(World w, EntityPlayerLocal player, Community c)
+        private static void TickCallouts(World w, EntityPlayer player, Community c)
         {
             if (!ScBaseAttack.Open) { RemoveMarker(); return; }
-            if (ScConfig.WatchPosts && ScBaseAttack.PlayerHome(player))
+            // round MP0: the call-outs while any community player is at the base, told to every one there; the voice and the
+            // marker are the host's own player's (MP4: voices to clients, per-player markers)
+            EntityPlayerLocal lp = player as EntityPlayerLocal;
+            if (ScConfig.WatchPosts && ScBaseAttack.AnyHome())
             {
                 if (c.AttackWarned == 0 && c.AttackState == ScBaseAttack.StateCalled)
                 {
@@ -835,10 +859,10 @@ namespace SurvivorCommunity
                         if (!OnWatch(m) || GuardBody(m) == null) continue;
                         c.AttackWarned = 1;
                         saveDue = true;
-                        ScCommunity.Tell(player, string.Format(Localization.Get("scWatchGathering"), m.Name, ScBaseAttack.Side(c.AttackBearing)), "ui_denied");
+                        TellHome(string.Format(Localization.Get("scWatchGathering"), m.Name, ScBaseAttack.Side(c.AttackBearing)), "ui_denied");
                         ScLog.Out(m.Name + " on watch calls out the horde gathering to the " + ScBaseAttack.Side(c.AttackBearing));
 #if SC_V34
-                        ScHordeVoice.SayAtHome(HordeMoment.Gather, m, GuardBody(m), ScBaseAttack.Side(c.AttackBearing), player, false);   // vo4: and says it
+                        if (lp != null) ScHordeVoice.SayAtHome(HordeMoment.Gather, m, GuardBody(m), ScBaseAttack.Side(c.AttackBearing), lp, false);   // vo4: and says it
 #endif
                         break;
                     }
@@ -854,21 +878,21 @@ namespace SurvivorCommunity
                         c.AttackWarned = 2;
                         saveDue = true;
                         string side = SideOf(z.position);
-                        ScCommunity.Tell(player, string.Format(Localization.Get("scWatchSpotted"), m.Name, side), "ui_denied");
+                        TellHome(string.Format(Localization.Get("scWatchSpotted"), m.Name, side), "ui_denied");
                         ScLog.Out(m.Name + " on watch spotted the horde to the " + side + " (" + z.EntityName + " #" + z.entityId + ", "
                                   + (int)Vector3.Distance(npc.position, z.position) + " m out)");
 #if SC_V34
-                        ScHordeVoice.SayAtHome(HordeMoment.Spotted, m, npc, side, player, false);   // vo4: and says it ("center" has no line)
+                        if (lp != null) ScHordeVoice.SayAtHome(HordeMoment.Spotted, m, npc, side, lp, false);   // vo4: and says it ("center" has no line)
 #endif
                         break;
                     }
                 }
             }
-            if (c.AttackWarned > 0 && ScBaseAttack.OutsideZone(player.position) <= ScConfig.BaseAttackLeaveRange)
+            if (c.AttackWarned > 0 && lp != null && ScBaseAttack.OutsideZone(lp.position) <= ScConfig.BaseAttackLeaveRange)
             {
                 Vector3 at;
                 if (!(c.AttackWarned >= 2 && ScBaseAttack.Live && ScBaseAttack.Centroid(w, out at))) at = ScBaseAttack.ApproachPoint();
-                ShowMarker(at + new Vector3(0f, 2f, 0f), player);
+                ShowMarker(at + new Vector3(0f, 2f, 0f), lp);
             }
             else RemoveMarker();
         }
@@ -878,20 +902,23 @@ namespace SurvivorCommunity
         /// (the first, as the call-outs pick) says it is over - one tooltip, scWatchClear, and their voice (ScHordeVoice, the
         /// rules of the call-outs). Nothing with WatchPosts off, the player away from the base, or no guard on watch.
         /// </summary>
-        public static void CalloutClear(EntityPlayerLocal player)
+        public static void CalloutClear(EntityPlayer player)
         {
             try
             {
-                if (!ScConfig.WatchPosts || player == null || !ScBaseAttack.PlayerHome(player)) return;
+                // round MP0: any community player at the base, told to every one there; the voice is the host's own player's
+                // (MP4: voices to clients)
+                if (!ScConfig.WatchPosts || player == null || !ScBaseAttack.AnyHome()) return;
                 foreach (Member m in ScRegistry.Members.Values)
                 {
                     if (!OnWatch(m)) continue;
                     EntityAlive npc = GuardBody(m);
                     if (npc == null) continue;
-                    ScCommunity.Tell(player, string.Format(Localization.Get("scWatchClear"), m.Name), "");
+                    TellHome(string.Format(Localization.Get("scWatchClear"), m.Name), "");
                     ScLog.Out(m.Name + " on watch calls the all clear");
 #if SC_V34
-                    ScHordeVoice.SayAtHome(HordeMoment.Clear, m, npc, null, player, false);
+                    EntityPlayerLocal lp = player as EntityPlayerLocal;
+                    if (lp != null) ScHordeVoice.SayAtHome(HordeMoment.Clear, m, npc, null, lp, false);
 #endif
                     return;
                 }
