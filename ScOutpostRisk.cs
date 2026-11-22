@@ -200,9 +200,6 @@ namespace SurvivorCommunity
                 World w = ScCommunity.World;
                 GameRandom rnd = w != null ? w.GetGameRandom() : null;
                 bool radio = ScOutposts.RadioOnlineAnywhere();   // (triumph fades in ScOutposts.Daily, with or without outposts)
-                // round MP0: ScEncRaids still takes the local player (another slice's file): null on a dedicated server, where it
-                // skips its tells and reveals
-                EntityPlayerLocal lp = player as EntityPlayerLocal;
                 int gs = 0;
                 try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }     // round MP0: the anchor's. MP5: gamestage of the players involved
                 var list = new List<Outpost>(ScRegistry.Outposts);
@@ -215,7 +212,7 @@ namespace SurvivorCommunity
                     if (HasDemand(o) && day > o.DemandUntil)
                     {
                         o.DemandUntil = -1;
-                        if (ScConfig.OutpostAttacks && ScEncRaids.MayCome(o, lp)) StartAttack(o, true, player, radio);
+                        if (ScConfig.OutpostAttacks && ScEncRaids.MayCome(o, player)) StartAttack(o, true, player, radio);
                         else ScEncRaids.Unstamp(o);
                     }
                     if (o.State != OutpostState.Active) continue;
@@ -234,7 +231,7 @@ namespace SurvivorCommunity
                             Enclave raider = ScEncRaids.On ? ScEncRaids.RaiderFor(o) : null;
                             if (raider != null && Roll(rnd) < ScEncRaids.ChanceFor(raider))
                             {
-                                ScEncRaids.Demand(o, raider, day, lp, summary, "the day's roll");
+                                ScEncRaids.Demand(o, raider, day, player, summary, "the day's roll");
                                 continue;
                             }
                         }
@@ -359,8 +356,6 @@ namespace SurvivorCommunity
                     markersRestored = true;
                     foreach (Outpost o in ScRegistry.Outposts) if (UnderAttack(o) && o.AttackHeard) AddMarker(o, player);
                 }
-                // round MP0: ScEncRaids still takes the local player (another slice's file): null on a dedicated server, where its
-                // call-offs still run and only their tells are skipped
                 ScEncRaids.Tick(w, player);        // E10: enclave demands and raids squared with their groups (off, gone, nobody left)
                 bool bm = false;
                 try { bm = w.aiDirector != null && w.aiDirector.BloodMoonComponent != null && w.aiDirector.BloodMoonComponent.BloodMoonActive; }
@@ -405,7 +400,7 @@ namespace SurvivorCommunity
                     }
                     if (anyAlive) continue;
                     // E10: an enclave's raiders whose bodies went alive (an unload) come back round the outpost before it is won.
-                    // Round MP0: ScEncRaids takes the local player (another slice's file) - the one at the outpost when it is the host's
+                    // Round MP0: the player at the outpost (any community player)
                     if (o.AttackRaiders && o.RaidEnclave > 0 && ScEncRaids.Regroup(w, at, o, l.Ids) > 0) continue;
                     Won(o, at);
                 }
@@ -496,9 +491,8 @@ namespace SurvivorCommunity
                     // The enclaves still being validated (the first seconds of a session), or those who could come in view at
                     // their den or still being built there (SpawnParty's -1): the next second (Waited: the deadline holds it)
                     if (!ScEnclaves.Ready) { l.Spawned = false; return; }
-                    // round MP0: ScEncRaids takes the local player (another slice's file) - the one here when it is the host's
-                    // own, else null (no fallback target, no tells there)
-                    EntityPlayerLocal lp = here as EntityPlayerLocal;
+                    // round MP0: the player here (any community player) - their fallback target and their tells
+                    EntityPlayer lp = here;
                     int came = ScEncRaids.SpawnParty(w, lp, o, count, target, l.Ids);
                     if (came < 0) { l.Spawned = false; l.Ids.Clear(); l.Waited = true; return; }
                     if (came == 0)
@@ -561,7 +555,6 @@ namespace SurvivorCommunity
             if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskHeld"), o.Name), "");
             ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerHeld"), o.Name));
             ScLog.Out("outpost " + o.Id + " (" + o.Name + ") held against the attack");
-            // round MP0: ScEncRaids takes the local player (another slice's file): null on a dedicated server skips its tells
             if (o.AttackRaiders) ScEncRaids.End(o, player, true, "won");       // E10: an enclave's raid - their losses, the rest home
             ScRegistry.SaveAtomic();
         }
@@ -583,7 +576,6 @@ namespace SurvivorCommunity
             if (o.AttackRaiders && o.RaidEnclave > 0)
             {
                 // E10: an enclave's raid - held unattended, it costs them people; their party home, their rest.
-                // Round MP0: ScEncRaids takes the local player (another slice's file): null on a dedicated server skips its tells
                 ScEncRaids.End(o, player, attended, result, waited);
                 ScRegistry.SaveAtomic();
             }

@@ -231,7 +231,9 @@ namespace SurvivorCommunity
             else
             {
                 if (e.Buffs.HasBuff(buff)) e.Buffs.RemoveBuff(buff);
-                if (e.Buffs.HasCustomVar(cvar)) e.Buffs.RemoveCustomVar(cvar);
+                // round MP0 (the review, N2): a remote player's copy is set to 0 - a removal never reaches their client
+                if (e is EntityPlayer && !(e is EntityPlayerLocal)) { if (e.Buffs.GetCustomVar(cvar) != 0f) e.Buffs.SetCustomVar(cvar, 0f); }
+                else if (e.Buffs.HasCustomVar(cvar)) e.Buffs.RemoveCustomVar(cvar);
             }
         }
 

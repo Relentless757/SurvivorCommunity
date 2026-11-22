@@ -22,6 +22,8 @@ namespace SurvivorCommunity
         public const int SharedCommunity = 0;
 
         private static readonly List<EntityPlayer> scratch = new List<EntityPlayer>();
+        private static readonly List<EntityPlayer> homeScratch = new List<EntityPlayer>();     // the review (N1): Home's own
+        private static readonly List<EntityPlayer> none = new List<EntityPlayer>();
 
         /// <summary>The players in the world (spawned, alive or dead), never null. The list is live: do not keep it.</summary>
         public static List<EntityPlayer> All
@@ -29,7 +31,9 @@ namespace SurvivorCommunity
             get
             {
                 World w = ScCommunity.World;
-                return w != null && w.Players != null ? w.Players.list : scratch;
+                if (w != null && w.Players != null) return w.Players.list;
+                none.Clear();
+                return none;
             }
         }
 
@@ -118,7 +122,7 @@ namespace SurvivorCommunity
             EntityPlayerLocal local = ScCommunity.LocalPlayer;
             if (local != null) return local;
             EntityPlayer owner = OwnerOnline();
-            if (owner != null) return owner;
+            if (owner != null && !owner.IsDead()) return owner;      // the review (S3): a dead owner anchors nothing
             List<EntityPlayer> mine = Community();
             for (int i = 0; i < mine.Count; i++)
                 if (!mine[i].IsDead() && ScZone.Contains(mine[i].GetBlockPosition())) return mine[i];
@@ -152,15 +156,15 @@ namespace SurvivorCommunity
         /// <summary>The community's living players inside the home zone. The list is reused: do not keep it.</summary>
         public static List<EntityPlayer> Home()
         {
-            scratch.Clear();
-            if (!ScZone.HasHome) return scratch;
+            homeScratch.Clear();
+            if (!ScZone.HasHome) return homeScratch;
             List<EntityPlayer> all = All;
             for (int i = 0; i < all.Count; i++)
             {
                 EntityPlayer p = all[i];
-                if (p != null && !p.IsDead() && InCommunity(p) && ScZone.Contains(p.GetBlockPosition())) scratch.Add(p);
+                if (p != null && !p.IsDead() && InCommunity(p) && ScZone.Contains(p.GetBlockPosition())) homeScratch.Add(p);
             }
-            return scratch;
+            return homeScratch;
         }
 
         /// <summary>The nearest living player (any community) within maxDist meters of pos, or null. maxDist &lt;= 0: no limit.</summary>

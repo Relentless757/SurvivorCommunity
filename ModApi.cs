@@ -172,6 +172,8 @@ namespace SurvivorCommunity
                 });
                 ModEvents.WorldShuttingDown.RegisterHandler((ref ModEvents.SWorldShuttingDownData _d) =>
                 {
+                    // round MP0: first, on its own (the review's N9) - the next session says hello again whatever throws below
+                    try { ScNet.Reset(); } catch (Exception e) { ScLog.Once("net-reset", e); }
                     ScRunners.OnWorldShuttingDown();   // first: runners in the world go back to their snapshot before the world is saved
                     ScEnclavePeople.OnWorldShuttingDown();   // enclave bodies recorded and taken out before the save (E2)
                     ScBands.OnWorldShuttingDown();           // band bodies the same, their walk re-planned from where they were (E13a)
@@ -185,7 +187,6 @@ namespace SurvivorCommunity
                     // round 30 review M2: streamer names on bodies the save will not keep go back to the list, before the last save
                     ScStreamerNames.OnWorldShuttingDown();
                     ScPortraits.Reset(); ScHomeLink.Reset(); ScHomeHold.Reset(); ScWeaponWarm.Reset(); ScRegistry.FlushAndReset();
-                    ScNet.Reset();                           // round MP0: the next session says hello again
                 });
                 ModEvents.GameShutdown.RegisterHandler((ref ModEvents.SGameShutdownData _d) => { ScPortraits.Reset(); ScRegistry.FlushAndReset(); });
                 ModEvents.EntityKilled.RegisterHandler((ref ModEvents.SEntityKilledData _d) =>

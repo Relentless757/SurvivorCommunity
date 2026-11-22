@@ -185,6 +185,13 @@ namespace SurvivorCommunity
             // round MP0: sc_owner names the community's owner (Stage 1: the owner while online, else the anchor - in single
             // player and on a listen host both are the host's own player, as before)
             EntityPlayer owner = ScPlayers.OwnerOnline() ?? player;
+            Community oc = ScRegistry.Community;
+            if (string.IsNullOrEmpty(oc.OwnerId) && !string.IsNullOrEmpty(oc.Owner) && ScPlayers.OwnerOnline() != null)
+            {
+                // the review (S4): a save from before MP0 knows its owner by display name only - their platform id from now on
+                string oid = ScPlayers.IdOf(ScPlayers.OwnerOnline());
+                if (oid.Length > 0) { oc.OwnerId = oid; leaderChanged = true; ScLog.Out("community owner " + oc.Owner + " recorded by platform id"); }
+            }
             // entities whose record was purged or left while unloaded: strip the mod's leftovers once they load
             if (ScRegistry.Cleanup.Count > 0)
             {
@@ -363,7 +370,8 @@ namespace SurvivorCommunity
                         // in multiplayer that handed a client's follower to the host at the first lost link
                         EntityPlayer leader = EntityUtilities.GetLeaderOrOwner(m.Id) as EntityPlayer;
                         if (leader != null) NoteLeader(m, leader);
-                        if (EntityUtilities.GetLeaderOrOwner(m.Id) == null)
+                        // the review (S2): a live link to a non-player (an entity id reused after a crash) is lost too, as before MP0
+                        if (leader == null)
                         {
                             // the leader id went stale (relog?): re-link, but a held voice order stays held
                             leader = LeaderToRestore(m);
@@ -464,6 +472,10 @@ namespace SurvivorCommunity
         /// </summary>
         private static EntityPlayer LeaderToRestore(Member m)
         {
+            // the review (S1): single player has one player - always theirs, whatever id was recorded (another account, an id
+            // fallback). Not IsSinglePlayer: a listen host with no clients answers that too
+            ConnectionManager cm = SingletonMonoBehaviour<ConnectionManager>.Instance;
+            if (cm != null && cm.CurrentMode == ProtocolManager.NetworkType.OfflineServer) return ScCommunity.LocalPlayer;
             if (!string.IsNullOrEmpty(m.LeaderId)) return ScPlayers.ById(m.LeaderId);
             return ScCommunity.LocalPlayer;
         }

@@ -1269,7 +1269,8 @@ namespace SurvivorCommunity
                 // round op1: the body looked up before the snapshot goes - a posting traveler's snapshot is what says they have none
                 EntityAlive npc = FindNpc(m.Id);
                 m.Snap = null;
-                EntityPlayerLocal player = LocalPlayer;
+                // round MP0 (the review, S3): the hire mark comes off the member's own leader (else the host's own player, as before)
+                EntityPlayer player = ScPlayers.ById(m.LeaderId) ?? LocalPlayer;
                 if (npc != null)
                 {
                     ScProfile.Store(m, npc);          // the snapshot shows who they are now (and a re-join brings it)
@@ -1280,8 +1281,9 @@ namespace SurvivorCommunity
                 {
                     player.Buffs.RemoveCustomVar("hired_" + m.Id);
                     EntityUtilities.CheckForDanglingHires(player.entityId);
-                    Tell(player, string.Format(Localization.Get(reasonKey ?? "scLeft"), m.Name), "ui_denied");
                 }
+                // round MP0 (the review, S3): a departure is the whole community's news (single player: the one player, as before)
+                ScPlayers.TellCommunity(string.Format(Localization.Get(reasonKey ?? "scLeft"), m.Name), "ui_denied");
 #if SC_V34
                 ScHanded.OnRecordGone(m, npc, "left the community");   // round n12 review: her handed items into her pack (or logged lost)
 #endif
@@ -1399,7 +1401,8 @@ namespace SurvivorCommunity
             ScMorale.Recompute();
             if (player != null)
             {
-                player.Buffs.RemoveCustomVar("hired_" + m.Id);
+                // round MP0 (the review, N3): the hire mark comes off the member's own leader when known
+                (ScPlayers.ById(m.LeaderId) ?? player).Buffs.RemoveCustomVar("hired_" + m.Id);
                 // round MP0: a member's death is the whole community's news (a caller passing no player keeps its own news)
                 ScPlayers.TellCommunity(string.Format(Localization.Get(tooltipKey ?? "scDied"), m.Name), "ui_denied");
             }

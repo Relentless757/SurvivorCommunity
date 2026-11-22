@@ -515,13 +515,15 @@ namespace SurvivorCommunity
                 if (husks.Count > 0) TickHusks(w);
                 if (player == null || !ScRegistry.Loaded) return;
                 Member m = NextDue(w);
-                // round MP0: they turn up while the anchor is home (the host's own player on a host). MP5: per player
-                if (m == null || !ScZone.HasHome || !ScZone.HomeLoaded || !ScZone.Contains(player.GetBlockPosition())) { searchFor = -1; return; }
+                // round MP0 (the review, S4): they turn up while any community player is home - dead or alive, as the old check of
+                // the player's position (on a dedicated server the owner may be away while a client is home)
+                EntityPlayer home = ScPlayers.FirstHome(true);
+                if (m == null || !ScZone.HasHome || !ScZone.HomeLoaded || home == null) { searchFor = -1; return; }
                 float t = Time.unscaledTime;
                 if (searchFor != m.Id) { searchFor = m.Id; searchSince = t; }
                 Vector3 spot;
                 if (!ArriveSpot(w, m, t - searchSince >= AnySideSeconds, out spot)) return;
-                Arrive(w, player, m, spot);
+                Arrive(w, home, m, spot);
             }
             catch (Exception e)
             {

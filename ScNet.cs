@@ -80,6 +80,18 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// Client: whether the server knows this package type (its id table, complete by the time the player spawns). A package
+        /// the server has no id for must never be queued: the network writer thread throws on its id and the client is
+        /// disconnected (the MP0 review's B1) - a vanilla server, or one with SurvivorCommunity from before MP0. Every SC package
+        /// sent from a client goes through this test.
+        /// </summary>
+        public static bool ServerKnows<T>() where T : NetPackage
+        {
+            Type[] map = NetPackageManager.PackageMappings;
+            return map != null && Array.IndexOf(map, typeof(T)) >= 0;
+        }
+
         /// <summary>The client's hello, once per session when the local player first spawns on a server (not single player or the host).</summary>
         public static void OnLocalPlayerSpawned()
         {
@@ -87,6 +99,12 @@ namespace SurvivorCommunity
             {
                 if (helloSent || !IsClient) return;
                 helloSent = true;
+                if (!ServerKnows<NetPackageScHello>())
+                {
+                    ServerProtocol = 0;
+                    ScLog.Warn("the server has no SurvivorCommunity network layer (no SurvivorCommunity, or a version from before multiplayer) - SurvivorCommunity stays inactive here");
+                    return;
+                }
                 Cm.SendToServer(NetPackageManager.GetPackage<NetPackageScHello>().Setup(Protocol, Build, false));
             }
             catch (Exception e)
@@ -140,6 +158,8 @@ namespace SurvivorCommunity
     /// <summary>
     /// Round MP0: SC's hello. Client to server once per session when the local player spawns (protocol, build); the server's
     /// answer back (reply = true). The game itself checks only package names, so this is how a version mismatch is caught.
+    /// FROZEN LAYOUT (the review's N7): this package is what detects a layout change, so its own read/write never changes -
+    /// anything new goes in other packages (an older peer would throw reading a longer hello and disconnect).
     /// </summary>
     public class NetPackageScHello : NetPackage
     {

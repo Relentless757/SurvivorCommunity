@@ -115,6 +115,9 @@ namespace SurvivorCommunity
             TileEntity te = w.GetTileEntity(o.Flag);
             TEFeatureStorage st = te != null ? te.GetSelfOrFeature<TEFeatureStorage>() : null;
             if (st == null) return 0;
+            // round MP0 (the review of part 2, S6): not while a player has the box open - a client's open box sends its own copy
+            // back over the server's write (the bundles would be lost); the stash waits for the next visit tick
+            if (LockManager.Instance != null && LockManager.Instance.IsLockedServer(st, 0)) return 0;
             int moved = 0;
             for (int r = 0; r < ScNames.ResourceCount; r++)
             {
