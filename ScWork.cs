@@ -673,7 +673,7 @@ namespace SurvivorCommunity
             ScCraft.FlushXp(false);   // review #6: craft XP is saved here at most every FlushSeconds, not on every point
             // round MP0: ScJobs.Tick still takes EntityPlayerLocal but never reads it - null on a dedicated server is safe, and the
             // replanting and work kit checks must run there too
-            ScJobs.Tick(player as EntityPlayerLocal);
+            ScJobs.Tick(player);
             if (shifts.Count == 0) return;
             scratch.Clear();
             scratch.AddRange(shifts.Keys);

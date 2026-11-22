@@ -127,21 +127,24 @@ namespace SurvivorCommunity
             return mine.Count > 0 ? mine[0] : null;
         }
 
-        /// <summary>Whether any living community player stands inside the home zone (the old "the player is home").</summary>
-        public static bool AnyHome()
+        /// <summary>
+        /// Whether a community player stands inside the home zone (the old "the player is home"): living ones only, unless
+        /// includeDead (a check that used to read the player's position whether alive or not).
+        /// </summary>
+        public static bool AnyHome(bool includeDead = false)
         {
-            return FirstHome() != null;
+            return FirstHome(includeDead) != null;
         }
 
-        /// <summary>The first living community player inside the home zone, or null.</summary>
-        public static EntityPlayer FirstHome()
+        /// <summary>The first community player inside the home zone (living ones only unless includeDead), or null.</summary>
+        public static EntityPlayer FirstHome(bool includeDead = false)
         {
             if (!ScZone.HasHome) return null;
             List<EntityPlayer> all = All;
             for (int i = 0; i < all.Count; i++)
             {
                 EntityPlayer p = all[i];
-                if (p != null && !p.IsDead() && InCommunity(p) && ScZone.Contains(p.GetBlockPosition())) return p;
+                if (p != null && (includeDead || !p.IsDead()) && InCommunity(p) && ScZone.Contains(p.GetBlockPosition())) return p;
             }
             return null;
         }

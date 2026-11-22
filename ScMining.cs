@@ -733,7 +733,8 @@ namespace SurvivorCommunity
             World w = ScCommunity.World;
             GameRandom rnd = w != null ? w.GetGameRandom() : null;
             string how = tool + " (T" + tier + ", " + where + ")";
-            if (ScConfig.PhysicalRuns && player != null && player.ChunkObserver != null)
+            // round MP0: physical only for the host's own player until MP5 (as ScRuns.Send) - a client's mining run goes hidden
+            if (ScConfig.PhysicalRuns && player is EntityPlayerLocal && player.ChunkObserver != null)
             {
                 Spot s = PickSpot(job, rnd);
                 if (s != null)

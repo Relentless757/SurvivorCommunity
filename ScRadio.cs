@@ -532,6 +532,9 @@ namespace SurvivorCommunity
             // powered station at home (ScHandheld.DistressAllowed; DistressNeedsRadio=false: the rule above's old one).
             // Round MP0: the handheld is the host's own (a remote bag is not readable here) - else the station alone
             if (m == null || !ScHandheld.DistressAllowed(m, player as EntityPlayerLocal)) return false;
+            // round MP0: a dedicated server has no local player to take the rescue quest or see the marker, and none reaches a
+            // client before MP4: a runner pinned at a site nobody can find would only wait out the hours - no distress there yet
+            if (ScCommunity.LocalPlayer == null) return false;
 #else
             if (m == null || !Online()) return false;
 #endif
@@ -793,7 +796,7 @@ namespace SurvivorCommunity
             {
                 int id = (int)standIn.Buffs.GetCustomVar(StandInCvar);
                 Member m = ScRegistry.GetMember(id);
-                EntityPlayerLocal player = ScCommunity.LocalPlayer;
+                EntityPlayer player = ScPlayers.Anchor();      // round MP0: any server (the rescue quest below stays the host's - MP4)
                 if (m == null) return;
                 if (m.StandInId != standIn.entityId)
                 {
@@ -803,7 +806,7 @@ namespace SurvivorCommunity
                 // fell holding an outpost - or (round op1 review, M1) in the seconds a recalled member's stand-in waits for their body
                 if (m.Status == MemberStatus.Garrison || m.Status == MemberStatus.Transit) { ScGarrison.OnStandInDied(m, player); return; }
                 m.StandInId = -1;
-                ScQuests.CloseRescue(player, m, false);
+                ScQuests.CloseRescue(player as EntityPlayerLocal, m, false);
                 World w = ScCommunity.World;
                 EntityAlive real = ScCommunity.FindNpc(m.Id);
                 if (real != null) ScRuns.RemoveEntity(real); else ScRegistry.Doomed.Add(m.Id);

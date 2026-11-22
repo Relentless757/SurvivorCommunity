@@ -1005,7 +1005,7 @@ namespace SurvivorCommunity
         private static void DieOffline(EntityPlayer player, Member m, string key)
         {
             int id = m.Id;
-            ScCommunity.RecordDeath(m, player as EntityPlayerLocal, key);     // round MP0: ScCommunity takes the local player (another slice's file) - its tell is skipped on a dedicated server
+            ScCommunity.RecordDeath(m, player, key);     // round MP0: any player - the news goes to the community
             ScRegistry.Doomed.Add(id);
             ScLooks.Forget(id);
             World w = ScCommunity.World;

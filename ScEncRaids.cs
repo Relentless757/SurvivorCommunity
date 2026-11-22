@@ -847,7 +847,7 @@ namespace SurvivorCommunity
             int home, unmade;
             int spare = Spare(e, out home, out unmade);
             // round MP0: ScOutpostRisk's size takes the host's own player (its gamestage; 0 on a dedicated server). MP5: gamestage of the players involved
-            int party = Math.Min(Math.Min(ScOutpostRisk.AttackerCountFor(o, player as EntityPlayerLocal), Math.Max(1, ScConfig.EnclaveRaidPartyMax)), spare);
+            int party = Math.Min(Math.Min(ScOutpostRisk.AttackerCountFor(o, player), Math.Max(1, ScConfig.EnclaveRaidPartyMax)), spare);
             int n = Math.Min(Math.Max(0, ScConfig.EnclaveRaidLossHeld), party);
             if (n <= 0) return 0;
             World w = ScCommunity.World;

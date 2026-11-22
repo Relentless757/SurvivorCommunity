@@ -1484,7 +1484,7 @@ namespace SurvivorCommunity
         /// ScWork.Sweep, once a second (ScTicker): the plots to replant, the work kit's once-per-body check, and (review M2) a
         /// kit tool put away when a fight comes (KitFightTick, on its own: a fault in the others does not skip it).
         /// </summary>
-        public static void Tick(EntityPlayerLocal player)
+        public static void Tick(EntityPlayer player)     // round MP0: any server (it never reads the player)
         {
             if (!ScCommunity.IsHost) return;
             try

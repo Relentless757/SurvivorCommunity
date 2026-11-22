@@ -1159,7 +1159,7 @@ namespace SurvivorCommunity
         /// ScRadio.OnStandInDied for a posted member: the survivor fell defending the outpost. Round op1: a member whose body is
         /// the snapshot has none in the world (FindNpc says so): an old copy that loads later goes (Doomed).
         /// </summary>
-        public static void OnStandInDied(Member m, EntityPlayerLocal player)
+        public static void OnStandInDied(Member m, EntityPlayer player)     // round MP0: any player (the news goes to the community)
         {
             Outpost o = ScOutposts.ById(m.OutpostId);
             m.StandInId = -1;
@@ -1274,7 +1274,7 @@ namespace SurvivorCommunity
                     if (roll >= ScConfig.OutpostWalkInChance) continue;
                     // round MP0: ScRadio takes the local player (another slice's file) - null on a dedicated server: a tier-0 class
                     // and no marker there until it takes any player
-                    Contact ct2 = ScRadio.AddContactAt(o.Poi, o.Name, new Vector3i(o.Flag.x + 3, o.Flag.y, o.Flag.z + 3), player as EntityPlayerLocal, rnd);
+                    Contact ct2 = ScRadio.AddContactAt(o.Poi, o.Name, new Vector3i(o.Flag.x + 3, o.Flag.y, o.Flag.z + 3), player, rnd);
                     if (ct2 == null) continue;
                     if (summary.Length > 0) summary.Append(' ');
                     summary.Append(string.Format(Localization.Get("scOpWalkIn"), ct2.Label, o.Name));

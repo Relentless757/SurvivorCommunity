@@ -56,7 +56,9 @@ namespace SurvivorCommunity
             ScWork.EndFor(m, "sent on a supply run");   // C1: off the work shift first
             ScMining.ClearJob(m);                       // round 33c (M33): a supply run, not a mining one
 #endif
-            if (ScConfig.PhysicalRuns && player != null && player.ChunkObserver != null)
+            // round MP0: physical runs only for the host's own player until MP5 rebuilds the runner's capture and re-creation around
+            // the nearest player (B: today they follow the host's chunk range and view) - a client's run goes hidden
+            if (ScConfig.PhysicalRuns && player is EntityPlayerLocal && player.ChunkObserver != null)
             {
                 World pw = ScCommunity.World;
                 PrefabInstance dest = PickDestination(kind, pw != null ? pw.GetGameRandom() : null);
@@ -439,7 +441,7 @@ namespace SurvivorCommunity
         private static void Die(Member m, EntityPlayer player)
         {
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
-            ScCommunity.RecordDeath(m, player as EntityPlayerLocal, "scRunDied");     // round MP0: ScCommunity takes the local player (another slice's file) - its tell is skipped on a dedicated server
+            ScCommunity.RecordDeath(m, player, "scRunDied");     // round MP0: any player - the news goes to the community
             if (npc != null)
             {
                 RemoveEntity(npc);

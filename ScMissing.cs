@@ -46,7 +46,7 @@ namespace SurvivorCommunity
                 float now = Time.unscaledTime;
                 if (now < nextTick) return;
                 nextTick = now + 2f;
-                bool atHome = ScPlayers.AnyHome();       // round MP0 (A 14): any community player at home, no longer the host alone
+                bool atHome = ScPlayers.AnyHome(true);       // round MP0 (A 14): any community player at home, no longer the host alone
                 foreach (var m in ScRegistry.Members.Values)
                 {
                     // followers, runners and posted members are hidden or away by design (E12: and one still on the way, Arriving)

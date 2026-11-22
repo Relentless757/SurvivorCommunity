@@ -361,7 +361,7 @@ namespace SurvivorCommunity
                 }
                 // round MP0: ScEncRaids still takes the local player (another slice's file): null on a dedicated server, where its
                 // call-offs still run and only their tells are skipped
-                ScEncRaids.Tick(w, player as EntityPlayerLocal);        // E10: enclave demands and raids squared with their groups (off, gone, nobody left)
+                ScEncRaids.Tick(w, player);        // E10: enclave demands and raids squared with their groups (off, gone, nobody left)
                 bool bm = false;
                 try { bm = w.aiDirector != null && w.aiDirector.BloodMoonComponent != null && w.aiDirector.BloodMoonComponent.BloodMoonActive; }
                 catch (Exception) { }
@@ -406,7 +406,7 @@ namespace SurvivorCommunity
                     if (anyAlive) continue;
                     // E10: an enclave's raiders whose bodies went alive (an unload) come back round the outpost before it is won.
                     // Round MP0: ScEncRaids takes the local player (another slice's file) - the one at the outpost when it is the host's
-                    if (o.AttackRaiders && o.RaidEnclave > 0 && ScEncRaids.Regroup(w, at as EntityPlayerLocal, o, l.Ids) > 0) continue;
+                    if (o.AttackRaiders && o.RaidEnclave > 0 && ScEncRaids.Regroup(w, at, o, l.Ids) > 0) continue;
                     Won(o, at);
                 }
                 if (wasBloodMoon && !bm && ScConfig.OutpostAttacks) Siege(player);
@@ -562,7 +562,7 @@ namespace SurvivorCommunity
             ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerHeld"), o.Name));
             ScLog.Out("outpost " + o.Id + " (" + o.Name + ") held against the attack");
             // round MP0: ScEncRaids takes the local player (another slice's file): null on a dedicated server skips its tells
-            if (o.AttackRaiders) ScEncRaids.End(o, player as EntityPlayerLocal, true, "won");       // E10: an enclave's raid - their losses, the rest home
+            if (o.AttackRaiders) ScEncRaids.End(o, player, true, "won");       // E10: an enclave's raid - their losses, the rest home
             ScRegistry.SaveAtomic();
         }
 
@@ -584,7 +584,7 @@ namespace SurvivorCommunity
             {
                 // E10: an enclave's raid - held unattended, it costs them people; their party home, their rest.
                 // Round MP0: ScEncRaids takes the local player (another slice's file): null on a dedicated server skips its tells
-                ScEncRaids.End(o, player as EntityPlayerLocal, attended, result, waited);
+                ScEncRaids.End(o, player, attended, result, waited);
                 ScRegistry.SaveAtomic();
             }
         }

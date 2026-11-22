@@ -1362,10 +1362,11 @@ namespace SurvivorCommunity
                 }
                 Member m = ScRegistry.GetMember(npc.entityId);
                 if (m == null) return;
+                // round MP0: the anchor, not the local player - a dedicated server has none, and the news still goes out
 #if SC_V34
-                RecordDeath(m, LocalPlayer, ScDowned.DeathKey(m));   // round U2 (D6): "bled out" for one who was down
+                RecordDeath(m, ScPlayers.Anchor(), ScDowned.DeathKey(m));   // round U2 (D6): "bled out" for one who was down
 #else
-                RecordDeath(m, LocalPlayer, "scDied");
+                RecordDeath(m, ScPlayers.Anchor(), "scDied");
 #endif
             }
             catch (Exception e)
@@ -1375,7 +1376,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Registry side of a death (SetDead or a supply run): roster, deaths list, morale penalty, tooltip.</summary>
-        public static void RecordDeath(Member m, EntityPlayerLocal player, string tooltipKey)
+        public static void RecordDeath(Member m, EntityPlayer player, string tooltipKey)     // round MP0: any player
         {
             if (m == null) return;
             if (m.Status == MemberStatus.Garrison) ScGarrison.RemoveStandIn(m);
@@ -1399,7 +1400,8 @@ namespace SurvivorCommunity
             if (player != null)
             {
                 player.Buffs.RemoveCustomVar("hired_" + m.Id);
-                Tell(player, string.Format(Localization.Get(tooltipKey ?? "scDied"), m.Name), "ui_denied");
+                // round MP0: a member's death is the whole community's news (a caller passing no player keeps its own news)
+                ScPlayers.TellCommunity(string.Format(Localization.Get(tooltipKey ?? "scDied"), m.Name), "ui_denied");
             }
             ScLog.Out(m.Name + " died - community morale now " + c.Morale);
             ScRegistry.SaveAtomic();
