@@ -870,6 +870,7 @@ namespace SurvivorCommunity
             {
                 case "home": { Vector3i v; if (TryVec(val, out v)) { c.Home = v; c.HasHome = true; } break; }
                 case "owner": c.Owner = val; break;
+                case "ownerid": c.OwnerId = val; break;                          // round MP0
                 case "morale": c.Morale = Clamp(I(val), 0, 100); break;
                 case "lastday": c.LastDay = I(val); break;
                 case "lowmorale": c.LowMoraleDays = I(val); break;
@@ -1098,6 +1099,7 @@ namespace SurvivorCommunity
                 case "id": m.Id = I(val); break;
                 case "class": m.Class = val; break;
                 case "name": m.Name = val; break;
+                case "leader": m.LeaderId = val; break;                          // round MP0
                 case "born": { ulong b; if (ulong.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out b)) m.Born = b; break; }
                 case "status": m.Status = (MemberStatus)Enum.Parse(typeof(MemberStatus), val, true); break;
                 case "post": { Vector3i v; if (TryVec(val, out v)) m.Post = v; break; }
@@ -1331,6 +1333,7 @@ namespace SurvivorCommunity
                 sb.AppendLine("[community]");
                 if (c.HasHome) sb.AppendLine("home=" + Vec(c.Home));
                 sb.AppendLine("owner=" + Clean(c.Owner));
+                if (!string.IsNullOrEmpty(c.OwnerId)) sb.AppendLine("ownerid=" + Clean(c.OwnerId));   // round MP0
                 sb.AppendLine("morale=" + c.Morale);
                 sb.AppendLine("lastday=" + c.LastDay);
                 sb.AppendLine("lowmorale=" + c.LowMoraleDays);
@@ -1811,6 +1814,7 @@ namespace SurvivorCommunity
             sb.AppendLine("id=" + m.Id);
             sb.AppendLine("class=" + Clean(m.Class));
             sb.AppendLine("name=" + Clean(m.Name));
+            if (!string.IsNullOrEmpty(m.LeaderId)) sb.AppendLine("leader=" + Clean(m.LeaderId));   // round MP0
             sb.AppendLine("born=" + m.Born.ToString(CultureInfo.InvariantCulture));
             // E12: one on the way is written a resident (an older build knows no Arriving: a resident with no body is missing
             // there, and "Call back" brings them) with arrive= below, which makes them Arriving again here.

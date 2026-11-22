@@ -1,0 +1,193 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+
+namespace SurvivorCommunity
+{
+    /// <summary>
+    /// Round MP0 (multiplayer, Stage 1): SC's network layer - the protocol number, the hello at join, and the one way to
+    /// reach a player from the server.
+    /// - The game matches mod packages by class name only (an unknown name disconnects; a changed layout under the same name
+    ///   desyncs silently), so SC carries its own protocol number: bump Protocol whenever any NetPackageSc* read/write changes.
+    /// - "Send to all" and SendToServer never reach the listen host's own player: ToPlayer runs the local handler for an
+    ///   EntityPlayerLocal and sends to a remote one.
+    /// - Packages capture their data in Setup; read/write run on network threads (write once per recipient), ProcessPackage
+    ///   on the main thread.
+    /// </summary>
+    public static class ScNet
+    {
+        /// <summary>Bump on any change to a NetPackageSc* layout or meaning.</summary>
+        public const int Protocol = 1;
+
+        /// <summary>This build's id (the assembly's module version id, short) - logged beside a protocol mismatch.</summary>
+        public static readonly string Build = MakeBuild();
+
+        /// <summary>Client only: the server's protocol from its hello (-1 = not heard yet; a server without SC never answers).</summary>
+        public static int ServerProtocol = -1;
+        public static string ServerBuild = "";
+        /// <summary>Client only: the server runs SC with the same protocol.</summary>
+        public static bool ServerMatches { get { return ServerProtocol == Protocol; } }
+
+        /// <summary>Server only: each remote client's protocol by entity id, from its hello.</summary>
+        private static readonly Dictionary<int, int> clientProtocol = new Dictionary<int, int>();
+        private static bool helloSent;
+
+        public static ConnectionManager Cm { get { return SingletonMonoBehaviour<ConnectionManager>.Instance; } }
+
+        /// <summary>A client of a server (not single player, not the host).</summary>
+        public static bool IsClient { get { ConnectionManager cm = Cm; return cm != null && cm.IsClient && !cm.IsServer; } }
+
+        public static void Reset()
+        {
+            ServerProtocol = -1;
+            ServerBuild = "";
+            helloSent = false;
+            clientProtocol.Clear();
+        }
+
+        private static string MakeBuild()
+        {
+            try { return typeof(ScNet).Assembly.ManifestModule.ModuleVersionId.ToString("N").Substring(0, 8); }
+            catch (Exception) { return "?"; }
+        }
+
+        /// <summary>
+        /// Server side: delivers to one player - the local handler for the host's own player (no package can reach it), the
+        /// package for a remote one. False when the player is neither (no client info: not logged in, or gone).
+        /// </summary>
+        public static bool ToPlayer(EntityPlayer player, Func<NetPackage> package, Action local)
+        {
+            try
+            {
+                if (player == null) return false;
+                if (player is EntityPlayerLocal)
+                {
+                    if (local != null) local();
+                    return true;
+                }
+                ConnectionManager cm = Cm;
+                ClientInfo ci = cm != null && cm.Clients != null ? cm.Clients.ForEntityId(player.entityId) : null;
+                if (ci == null || package == null) return false;
+                NetPackage p = package();
+                if (p == null) return false;
+                ci.SendPackage(p);
+                return true;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("net-toplayer", e);
+                return false;
+            }
+        }
+
+        /// <summary>The client's hello, once per session when the local player first spawns on a server (not single player or the host).</summary>
+        public static void OnLocalPlayerSpawned()
+        {
+            try
+            {
+                if (helloSent || !IsClient) return;
+                helloSent = true;
+                Cm.SendToServer(NetPackageManager.GetPackage<NetPackageScHello>().Setup(Protocol, Build, false));
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("net-hello-send", e);
+            }
+        }
+
+        /// <summary>Server: a remote client's hello. Logs and tells on a mismatch, and answers with the server's own.</summary>
+        internal static void OnClientHello(ClientInfo sender, int protocol, string build)
+        {
+            if (sender == null) return;
+            clientProtocol[sender.entityId] = protocol;
+            if (protocol != Protocol)
+            {
+                ScLog.Warn("player " + sender.playerName + " runs SurvivorCommunity protocol " + protocol + " (build " + build
+                           + "), this server runs protocol " + Protocol + " (build " + Build + "): install the same SurvivorCommunity version on both");
+                EntityPlayer p = ScPlayers.ByEntity(sender.entityId);
+                if (p != null) ScCommunity.Tell(p, Localization.Get("scNetMismatch"), "ui_denied");
+            }
+            else ScLog.Verbose("player " + sender.playerName + " runs SurvivorCommunity protocol " + protocol + " (build " + build + ")");
+            sender.SendPackage(NetPackageManager.GetPackage<NetPackageScHello>().Setup(Protocol, Build, true));
+        }
+
+        /// <summary>Client: the server's answer.</summary>
+        internal static void OnServerHello(int protocol, string build)
+        {
+            ServerProtocol = protocol;
+            ServerBuild = build ?? "";
+            if (protocol != Protocol)
+                ScLog.Warn("the server runs SurvivorCommunity protocol " + protocol + " (build " + ServerBuild + "), this game runs protocol "
+                           + Protocol + " (build " + Build + "): install the same SurvivorCommunity version on both");
+            else ScLog.Out("server runs the same SurvivorCommunity protocol (" + Protocol + ")");
+        }
+
+        /// <summary>Server: whether this remote client said hello with SC's protocol (the host's own player always matches).</summary>
+        public static bool ClientMatches(EntityPlayer p)
+        {
+            if (p == null) return false;
+            if (p is EntityPlayerLocal) return true;
+            int v;
+            return clientProtocol.TryGetValue(p.entityId, out v) && v == Protocol;
+        }
+
+        public static void ForgetClient(int entityId)
+        {
+            clientProtocol.Remove(entityId);
+        }
+    }
+
+    /// <summary>
+    /// Round MP0: SC's hello. Client to server once per session when the local player spawns (protocol, build); the server's
+    /// answer back (reply = true). The game itself checks only package names, so this is how a version mismatch is caught.
+    /// </summary>
+    public class NetPackageScHello : NetPackage
+    {
+        private int protocol;
+        private string build = "";
+        private bool reply;
+
+        public NetPackageScHello Setup(int _protocol, string _build, bool _reply)
+        {
+            protocol = _protocol;
+            build = _build ?? "";
+            reply = _reply;
+            return this;
+        }
+
+        public override void read(PooledBinaryReader _reader)
+        {
+            BinaryReader r = _reader;
+            protocol = r.ReadInt32();
+            build = r.ReadString();
+            reply = r.ReadBoolean();
+        }
+
+        public override void write(PooledBinaryWriter _writer)
+        {
+            base.write(_writer);
+            BinaryWriter w = _writer;
+            w.Write(protocol);
+            w.Write(build ?? "");
+            w.Write(reply);
+        }
+
+        public override void ProcessPackage(World _world, GameManager _callbacks)
+        {
+            try
+            {
+                ConnectionManager cm = ScNet.Cm;
+                if (cm == null) return;
+                if (cm.IsServer)
+                {
+                    if (!reply) ScNet.OnClientHello(Sender, protocol, build);
+                }
+                else if (reply) ScNet.OnServerHello(protocol, build);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("net-hello", e);
+            }
+        }
+    }
+}

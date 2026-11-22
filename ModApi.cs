@@ -185,6 +185,7 @@ namespace SurvivorCommunity
                     // round 30 review M2: streamer names on bodies the save will not keep go back to the list, before the last save
                     ScStreamerNames.OnWorldShuttingDown();
                     ScPortraits.Reset(); ScHomeLink.Reset(); ScHomeHold.Reset(); ScWeaponWarm.Reset(); ScRegistry.FlushAndReset();
+                    ScNet.Reset();                           // round MP0: the next session says hello again
                 });
                 ModEvents.GameShutdown.RegisterHandler((ref ModEvents.SGameShutdownData _d) => { ScPortraits.Reset(); ScRegistry.FlushAndReset(); });
                 ModEvents.EntityKilled.RegisterHandler((ref ModEvents.SEntityKilledData _d) =>
@@ -198,8 +199,19 @@ namespace SurvivorCommunity
                 // a player who leaves with an NPC's inventory window open never sends its close (ScAmmo's remote-window guard)
                 ModEvents.PlayerDisconnected.RegisterHandler((ref ModEvents.SPlayerDisconnectedData _d) =>
                 {
-                    try { if (_d.ClientInfo != null) ScAmmo.ForgetPlayer(_d.ClientInfo.entityId); }
+                    try
+                    {
+                        if (_d.ClientInfo != null) ScAmmo.ForgetPlayer(_d.ClientInfo.entityId);
+                        if (_d.ClientInfo != null) ScNet.ForgetClient(_d.ClientInfo.entityId);   // round MP0
+                    }
                     catch (Exception e) { ScLog.Once("player-disconnected", e); }
+                });
+                // round MP0: a client says hello to the server once its own player has spawned (SC's protocol check). Fires on
+                // every machine for every player spawn; IsLocalPlayer marks this machine's own
+                ModEvents.PlayerSpawnedInWorld.RegisterHandler((ref ModEvents.SPlayerSpawnedInWorldData _d) =>
+                {
+                    try { if (_d.IsLocalPlayer) ScNet.OnLocalPlayerSpawned(); }
+                    catch (Exception e) { ScLog.Once("player-spawned", e); }
                 });
 
                 // The only event SCore raises. Hiring a member through the vanilla popup should be impossible

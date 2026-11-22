@@ -5,8 +5,11 @@ using UnityEngine;
 namespace SurvivorCommunity
 {
     /// <summary>
-    /// The host's once-a-second heartbeat (ModEvents.GameUpdate): day rollover, member relink, pending
+    /// The server's once-a-second heartbeat (ModEvents.GameUpdate): day rollover, member relink, pending
     /// stationing and secure-quest sync. There is no day-change event in the game, so the day is polled.
+    /// Round MP0: it runs on any server - single player, a listen host, or a dedicated server with no local player. The
+    /// player it passes down is ScPlayers.Anchor() (the host's own player whenever there is one, exactly as before); each
+    /// tick that asks "is a player there" asks ScPlayers for any community player instead.
     /// </summary>
     public static class ScTicker
     {
@@ -49,7 +52,9 @@ namespace SurvivorCommunity
                 Patches_Npc.Patch_SetDead.ReleaseAll(false);
                 World w = ScCommunity.World;
                 if (w == null || !ScRegistry.Loaded) return;
-                EntityPlayerLocal player = ScCommunity.LocalPlayer;
+                // round MP0: no longer the local player - a dedicated server has none. With nobody online there is nothing
+                // to tick (a dedicated server's world time stands still with no players)
+                EntityPlayer player = ScPlayers.Anchor();
                 if (player == null) return;
                 ScConfig.EnsureParsed();
 
@@ -174,9 +179,12 @@ namespace SurvivorCommunity
         /// follower's order is read as a member state (ScOrders), not repaired: voice and order-wheel orders are
         /// the player's.
         /// </summary>
-        public static void Relink(World w, EntityPlayerLocal player)
+        public static void Relink(World w, EntityPlayer player)
         {
             scratch.Clear();
+            // round MP0: sc_owner names the community's owner (Stage 1: the owner while online, else the anchor - in single
+            // player and on a listen host both are the host's own player, as before)
+            EntityPlayer owner = ScPlayers.OwnerOnline() ?? player;
             // entities whose record was purged or left while unloaded: strip the mod's leftovers once they load
             if (ScRegistry.Cleanup.Count > 0)
             {
@@ -260,8 +268,8 @@ namespace SurvivorCommunity
 
                 if (npc.GetSpawnerSource() != EnumSpawnerSource.StaticSpawner) npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
                 if (!npc.Buffs.HasCustomVar("Persist") || npc.Buffs.GetCustomVar("Persist") < 1f) npc.Buffs.SetCustomVar("Persist", 1f);
-                if (!npc.Buffs.HasCustomVar("sc_member") || npc.Buffs.GetCustomVar("sc_owner") != player.entityId)
-                    ScCommunity.StampCvars(m, npc, player);
+                if (!npc.Buffs.HasCustomVar("sc_member") || npc.Buffs.GetCustomVar("sc_owner") != owner.entityId)
+                    ScCommunity.StampCvars(m, npc, owner);
                 Patches_VoiceControl.StripContract(npc);   // members are never billed (0-XNPCCore 3.2's Voice Control)
                 ScCommunity.ApplyAiPackage(npc);
                 ScCommunity.StampFollowing(m, npc);   // keeps the dialog's order options in step with the status
@@ -350,20 +358,30 @@ namespace SurvivorCommunity
 #else
                         bool ownGuard = m.FollowIssued > 0f && now - m.FollowIssued < FollowConfirmSeconds && order == EntityUtilities.Orders.Guard;
 #endif
+                        // round MP0: the leader is the member's own - the live link while it holds (its platform id kept in
+                        // m.LeaderId), else the player with that id once they are online again. Never whoever happens to host:
+                        // in multiplayer that handed a client's follower to the host at the first lost link
+                        EntityPlayer leader = EntityUtilities.GetLeaderOrOwner(m.Id) as EntityPlayer;
+                        if (leader != null) NoteLeader(m, leader);
                         if (EntityUtilities.GetLeaderOrOwner(m.Id) == null)
                         {
                             // the leader id went stale (relog?): re-link, but a held voice order stays held
-                            bool follow = !held || order == EntityUtilities.Orders.Follow || ownGuard;
-                            ScLog.Verbose(m.Name + ": leader link lost (relog?) - re-hiring to " + player.entityId + (follow ? "" : ", keeping the order " + order));
-                            ScNpc.SetLeaderAndOwner(m.Id, player.entityId, follow);
-                            if (follow) m.FollowIssued = Mathf.Max(0.001f, now);
+                            leader = LeaderToRestore(m);
+                            if (leader != null)
+                            {
+                                bool follow = !held || order == EntityUtilities.Orders.Follow || ownGuard;
+                                ScLog.Verbose(m.Name + ": leader link lost (relog?) - re-hiring to " + leader.entityId + (follow ? "" : ", keeping the order " + order));
+                                ScNpc.SetLeaderAndOwner(m.Id, leader.entityId, follow);
+                                if (follow) m.FollowIssued = Mathf.Max(0.001f, now);
+                            }
+                            else ScLog.Once("relink-wait-" + m.Id, m.Name + ": leader link lost and their leader is not online - they wait for them");
                         }
-                        else if (!held || ownGuard)
+                        else if ((!held || ownGuard) && leader != null)
                         {
                             ScLog.Out(m.Name + ": following but the order is " + (hasOrder ? order.ToString() : "unset") + " - re-applying Follow");
                             npc.Buffs.RemoveBuff("buffOrderGuard");
                             npc.Buffs.SetCustomVar("CurrentOrder", (float)EntityUtilities.Orders.Follow);
-                            ScNpc.SetLeaderAndOwner(m.Id, player.entityId);
+                            ScNpc.SetLeaderAndOwner(m.Id, leader.entityId);
                             m.FollowIssued = Mathf.Max(0.001f, now);
                             order = EntityUtilities.Orders.Follow;
                         }
@@ -378,7 +396,8 @@ namespace SurvivorCommunity
                         // Home with the player: only a member who is actually with them (or already inside the zone) is
                         // stationed - one told to stay 2 km out would otherwise be teleported to their post the moment the
                         // player walks in. They stay "heading home, holding" until called or fetched.
-                        if (m.Status == MemberStatus.PendingStation && ScZone.Contains(player.GetBlockPosition()) && ScZone.HomeLoaded
+                        // round MP0: their own leader's homecoming (the player they follow), not the host's
+                        if (m.Status == MemberStatus.PendingStation && leader != null && ScZone.Contains(leader.GetBlockPosition()) && ScZone.HomeLoaded
                             && (ScOrders.WithLeader(order) || ScZone.Contains(npc.GetBlockPosition()))
 #if SC_V34
                             && !ScDowned.DefersStation(m, npc)    // round U2 (risk 2): a downed follower is stationed once she is up
@@ -386,7 +405,7 @@ namespace SurvivorCommunity
                             )
                         {
                             ScCommunity.Station(m, npc);
-                            ScCommunity.Tell(player, string.Format(Localization.Get("scStationed"), m.Name), "");
+                            ScCommunity.Tell(leader, string.Format(Localization.Get("scStationed"), m.Name), "");
                             ScRegistry.SaveAtomic();
                         }
                         break;
@@ -422,8 +441,31 @@ namespace SurvivorCommunity
                     ScLooks.Forget(id);
                 }
             }
-            if (scratch.Count > 0) ScRegistry.SaveAtomic();
+            if (scratch.Count > 0 || leaderChanged) ScRegistry.SaveAtomic();
             scratch.Clear();
+            leaderChanged = false;
+        }
+
+        private static bool leaderChanged;
+
+        /// <summary>Round MP0: the follower's leader's platform id, kept while the link holds (saved with this relink's write).</summary>
+        private static void NoteLeader(Member m, EntityPlayer leader)
+        {
+            string id = ScPlayers.IdOf(leader);
+            if (id.Length == 0 || string.Equals(id, m.LeaderId, StringComparison.Ordinal)) return;
+            m.LeaderId = id;
+            leaderChanged = true;
+        }
+
+        /// <summary>
+        /// Round MP0: who a follower whose leader link went stale belongs to: the player with their recorded leader id if online;
+        /// with no id recorded (a save from before MP0) the host's own player, as before; else nobody yet (a dedicated server
+        /// waits for their leader to come back).
+        /// </summary>
+        private static EntityPlayer LeaderToRestore(Member m)
+        {
+            if (!string.IsNullOrEmpty(m.LeaderId)) return ScPlayers.ById(m.LeaderId);
+            return ScCommunity.LocalPlayer;
         }
     }
 
@@ -433,7 +475,7 @@ namespace SurvivorCommunity
     /// </summary>
     public static class ScDaily
     {
-        public static void Run(int day, EntityPlayerLocal player)
+        public static void Run(int day, EntityPlayer player)
         {
             try
             {

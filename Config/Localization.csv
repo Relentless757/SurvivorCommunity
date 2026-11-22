@@ -2122,3 +2122,4 @@ scRaiderFemaleT1,entityclasses,Entity,,,,Raider
 scRaiderFemaleT2,entityclasses,Entity,,,,Raider
 scRaiderFemaleT3,entityclasses,Entity,,,,Raider
 scBondTerm,UI,Menu,,,,Bond {0}
+scNetMismatch,UI,Tooltip,,,,"Survivor Community: your version differs from the server's. Install the same version as the server, or some features will not work."

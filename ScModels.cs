@@ -177,6 +177,12 @@ namespace SurvivorCommunity
         /// the resident's station - is SC's own and repaired; after it, any held order is the player's (ScTicker).
         /// </summary>
         public float FollowIssued;
+        /// <summary>
+        /// Round MP0: the platform id of the player this member follows (ScPlayers.IdOf), kept fresh by ScTicker.Relink from the
+        /// live leader link while it holds, so a link lost across a relog is restored to THAT player - never to whoever happens
+        /// to host. "" = unknown (a save from before MP0: the host's own player re-links them, as before).
+        /// </summary>
+        public string LeaderId = "";
         /// <summary>Radio distress on this run: pinned at a POI, rescued by the player or not (see ScRadio).</summary>
         public bool RunDistress;
         public Vector3i RunPoi;
@@ -403,7 +409,13 @@ namespace SurvivorCommunity
     {
         public bool HasHome;
         public Vector3i Home;
+        /// <summary>The owner's display name, for the console and the log (whoever last set the home).</summary>
         public string Owner = "";
+        /// <summary>
+        /// Round MP0: the owner's platform id (ScPlayers.IdOf) - who the community belongs to in multiplayer. "" in a save from
+        /// before MP0 until the home is set again (ScPlayers.OwnerOnline then matches the display name).
+        /// </summary>
+        public string OwnerId = "";
         public int Morale = 50;
         public int LastDay = -1;
         public readonly int[] Stock = new int[ScNames.ResourceCount];

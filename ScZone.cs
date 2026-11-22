@@ -164,6 +164,7 @@ namespace SurvivorCommunity
                 c.Home = lp;
                 c.HasHome = true;
                 c.Owner = owner.PlayerDisplayName ?? "";
+                c.OwnerId = ScPlayers.IdOf(owner);              // round MP0
                 ScLog.Out("community home set to the land claim at " + lp + " (AutoHomeFirstClaim)");
                 return true;
             }
@@ -235,7 +236,12 @@ namespace SurvivorCommunity
             Community c = ScRegistry.Community;
             c.Home = claim;
             c.HasHome = true;
-            if (owner != null) c.Owner = owner.PlayerDisplayName ?? c.Owner;
+            if (owner != null)
+            {
+                c.Owner = owner.PlayerDisplayName ?? c.Owner;
+                string id = ScPlayers.IdOf(owner);              // round MP0: who the community belongs to
+                if (id.Length > 0) c.OwnerId = id;
+            }
         }
 
         public static bool HasHome { get { return ScRegistry.Community.HasHome; } }
