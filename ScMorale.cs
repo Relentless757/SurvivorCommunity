@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 
@@ -168,8 +169,8 @@ namespace SurvivorCommunity
                     c.LowMoraleDays = 0;
                     if (t != null)
                     {
-                        EntityPlayerLocal player = ScCommunity.LocalPlayer;
-                        if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scThreatCalmed"), t.Name), "");
+                        // round MP0: the community's news, to every community player online, no longer the host alone
+                        ScPlayers.TellCommunity(string.Format(Localization.Get("scThreatCalmed"), t.Name), "");
                         ScLog.Out(t.Name + " withdrew the threat to leave (morale " + c.Morale + ")");
                     }
                     ScRegistry.SaveAtomic();
@@ -226,7 +227,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Day rollover: the death penalty fades, then the threat / departure logic runs.</summary>
-        public static void Daily(int day, EntityPlayerLocal player, StringBuilder summary)
+        public static void Daily(int day, EntityPlayer player, StringBuilder summary)     // round MP0: any player (the anchor)
         {
             Community c = ScRegistry.Community;
             c.DeathPenalty = Math.Max(0f, c.DeathPenalty - ScConfig.DeathDecayPerDay);
@@ -247,7 +248,7 @@ namespace SurvivorCommunity
                 {
                     c.ThreatMemberId = -1;
                     summary.Append(' ').Append(string.Format(Localization.Get("scDailyStays"), t.Name));
-                    if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scThreatCalmed"), t.Name), "");
+                    ScPlayers.TellCommunity(string.Format(Localization.Get("scThreatCalmed"), t.Name), "");     // round MP0: the community's news
                 }
                 else
                 {
@@ -273,7 +274,7 @@ namespace SurvivorCommunity
                 {
                     c.ThreatMemberId = worst.Id;
                     summary.Append(' ').Append(string.Format(Localization.Get("scDailyThreat"), worst.Name));
-                    if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scThreatens"), worst.Name), "ui_denied");
+                    ScPlayers.TellCommunity(string.Format(Localization.Get("scThreatens"), worst.Name), "ui_denied");     // round MP0: the community's news
                     ScLog.Out(worst.Name + " threatens to leave (morale " + morale + " for " + c.LowMoraleDays + " days)");
                 }
             }
@@ -283,8 +284,12 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Ticker: keeps morale fresh and the player's HUD icon in step (every few seconds).</summary>
-        public static void SyncHud(EntityPlayerLocal player)
+        /// <summary>
+        /// Ticker: keeps morale fresh and the player's HUD icon in step (every few seconds). Round MP0: the cvar and the buff go
+        /// on every community player online (a server-side SetCustomVar on a remote player's entity is sent to the clients, and
+        /// so are AddBuff / RemoveBuff: EntityBuffs); player is the anchor (ScPlayers.Anchor), and only says someone is online.
+        /// </summary>
+        public static void SyncHud(EntityPlayer player)
         {
             try
             {
@@ -295,16 +300,23 @@ namespace SurvivorCommunity
                 int morale = Recompute();
                 BuffClass hud = BuffManager.GetBuff(HudBuff);
                 bool want = ScRegistry.Members.Count > 0 && hud != null;
-                if (want)
+                // R32b (U32): the icon takes the morale's band color; the HUD reads BuffClass.IconColor every frame.
+                // Round MP0: this machine's BuffClass - only where a local player sees it (MP1: each client tints its own from sc_morale)
+                if (want && player is EntityPlayerLocal) hud.IconColor = MoodColor32(morale);
+                List<EntityPlayer> all = ScPlayers.All;
+                for (int i = 0; i < all.Count; i++)
                 {
-                    // R32b (U32): the icon takes the morale's band color; the HUD reads BuffClass.IconColor every frame
-                    hud.IconColor = MoodColor32(morale);
-                    if (player.Buffs.GetCustomVar(HudCvar) != morale) player.Buffs.SetCustomVar(HudCvar, morale);
-                    if (!player.Buffs.HasBuff(HudBuff)) player.Buffs.AddBuff(HudBuff);
-                }
-                else if (player.Buffs.HasBuff(HudBuff))
-                {
-                    player.Buffs.RemoveBuff(HudBuff);
+                    EntityPlayer p = all[i];
+                    if (p == null || p.Buffs == null || !ScPlayers.InCommunity(p)) continue;
+                    if (want)
+                    {
+                        if (p.Buffs.GetCustomVar(HudCvar) != morale) p.Buffs.SetCustomVar(HudCvar, morale);
+                        if (!p.Buffs.HasBuff(HudBuff)) p.Buffs.AddBuff(HudBuff);
+                    }
+                    else if (p.Buffs.HasBuff(HudBuff))
+                    {
+                        p.Buffs.RemoveBuff(HudBuff);
+                    }
                 }
             }
             catch (Exception e)

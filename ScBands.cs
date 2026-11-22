@@ -747,7 +747,7 @@ namespace SurvivorCommunity
         /// then - Bands on, fewer than BandMax on the road - the day's roll (BandDailyChance) for a new one past home (the player
         /// without one). force: the console's "roll" (the chance and the once-a-day ignored). Returns the console's line.
         /// </summary>
-        public static string Daily(int day, EntityPlayerLocal player, bool force = false)
+        public static string Daily(int day, EntityPlayer player, bool force = false)   // round MP0: the ticker's anchor - any server
         {
             try
             {
@@ -775,7 +775,7 @@ namespace SurvivorCommunity
                     if (!HomePoint(out anchor))
                     {
                         if (player == null) return "no home and no player to pass";
-                        anchor = player.position;
+                        anchor = player.position;         // round MP0: no home - past the anchor. MP5: per player
                     }
                     string kind = r.RandomFloat < ScConfig.BandRaiderShare ? Band.Raiders : Band.Drifters;
                     int size = r.RandomRange(Math.Max(1, ScConfig.BandSizeMin), Math.Max(ScConfig.BandSizeMin, ScConfig.BandSizeMax) + 1);
@@ -811,7 +811,7 @@ namespace SurvivorCommunity
         /// ScTicker, every second, after ScEnclavePeople's: orphans swept; with Bands off every body goes (the records stay);
         /// else each band's second (TickBand), at most SpawnPerTick new bodies across all of them, the markers.
         /// </summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)          // round MP0: the ticker's anchor - any server (bodies come round any player)
         {
             try
             {
@@ -849,7 +849,7 @@ namespace SurvivorCommunity
                 if (t >= nextMarkers)
                 {
                     nextMarkers = t + MarkerSeconds;
-                    UpdateMarkers(player);
+                    UpdateMarkers(player);            // round MP0: the host's own only (AddMarker). MP4: per-player markers
                 }
                 if (changed) ScRegistry.SaveAtomic();
             }
@@ -860,7 +860,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>One band's second. True when a record changed and the registry wants saving.</summary>
-        private static bool TickBand(World w, EntityPlayerLocal player, Band b, float t, ulong now, ref int budget)
+        private static bool TickBand(World w, EntityPlayer player, Band b, float t, ulong now, ref int budget)     // round MP0: any player
         {
             bool changed = false;
             var live = new List<KeyValuePair<BandPerson, EntityAlive>>();
@@ -915,7 +915,7 @@ namespace SurvivorCommunity
         /// The second of a band with bodies out: the despawn rule, being met, the rest of their bodies, trouble, the aim of
         /// raiders (and drifters against the player), the walk. A hit turns drifters at once (OnHitBy).
         /// </summary>
-        private static bool TickOnline(World w, EntityPlayerLocal player, Band b, List<KeyValuePair<BandPerson, EntityAlive>> live, float t, ulong now, ref int budget)
+        private static bool TickOnline(World w, EntityPlayer player, Band b, List<KeyValuePair<BandPerson, EntityAlive>> live, float t, ulong now, ref int budget)   // round MP0: any player
         {
             bool changed = false;
             // the leader first (the walk's point is theirs, the others fall in behind)
@@ -947,6 +947,7 @@ namespace SurvivorCommunity
             if (!b.Known)
             {
                 bool met = seen;
+                // round MP0: met within KnowRange of the anchor (the host's own on a host). MP5: per player
                 if (!met) foreach (var kv in live) if (ScRunners.XZ(kv.Value.position, player.position) <= KnowRange) { met = true; break; }
                 if (met) { MarkKnown(b, player); changed = true; }
             }
@@ -959,6 +960,7 @@ namespace SurvivorCommunity
                 budget--;
                 changed = true;
             }
+            // round MP0: trouble starts near the anchor, and raiders engage the anchor (Engage). MP5: per player
             if (whole && b.Trouble == 1 && !b.IsRaiders && ScRunners.XZ(lead.position, player.position) <= ScConfig.BandSpawnRange + 30f && !FightNear(w, player))
             {
                 StartTrouble(w, player, b, live);
@@ -985,6 +987,7 @@ namespace SurvivorCommunity
         /// <summary>The local player's talk is open on one of this band's bodies (the dialog's respondent; cleared as it closes).</summary>
         private static bool InTalk(Band b)
         {
+            // round MP0: the host's own dialog only (none on a dedicated server: they walk on). MP5: a talk from any player halts them
             LocalPlayerUI ui = LocalPlayerUI.GetUIForPrimaryPlayer();
             EntityAlive npc = ui != null && ui.xui != null && ui.xui.Dialog != null ? ui.xui.Dialog.Respondent as EntityAlive : null;
             BandPerson p = PersonOf(npc);
@@ -1019,7 +1022,7 @@ namespace SurvivorCommunity
         /// A live fight near the player (the one-live-attack spirit): the home's horde with the player near it, an outpost fight
         /// near them (ScOutpostRisk.AnyLiveNear), an enclave's siege, a blood moon. No band body comes while one is on.
         /// </summary>
-        private static bool FightNear(World w, EntityPlayerLocal player)
+        private static bool FightNear(World w, EntityPlayer player)    // round MP0: any player (the anchor)
         {
             if (player == null) return false;
             return (ScBaseAttack.Live && ScBaseAttack.Near(player)) || ScOutpostRisk.AnyLiveNear(player.position) || ScEncSiege.Live || ScSiege.BloodMoonActive(w);
@@ -1593,7 +1596,7 @@ namespace SurvivorCommunity
         /// whole band takes the player as its target, given again every AssertSeconds to any of them with no live target, until
         /// the player is beyond BandDespawnRange of them all.
         /// </summary>
-        private static void Engage(Band b, EntityPlayerLocal player, List<KeyValuePair<BandPerson, EntityAlive>> live, float t)
+        private static void Engage(Band b, EntityPlayer player, List<KeyValuePair<BandPerson, EntityAlive>> live, float t)     // round MP0: the anchor is their target. MP5: per player
         {
             if (player == null || player.IsDead()) { b.Engaged = false; return; }
             if (!b.Engaged)
@@ -1625,11 +1628,11 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ meeting them ----
 
         /// <summary>Seen for the first time: known, the marker, a tell, a ledger line, the log.</summary>
-        private static void MarkKnown(Band b, EntityPlayerLocal player)
+        private static void MarkKnown(Band b, EntityPlayer player)     // round MP0: the player who met them (the anchor)
         {
             b.Known = true;
             b.KnownDay = ScCommunity.Today;
-            AddMarker(b, player);
+            AddMarker(b, player);                     // round MP0: the host's own only (AddMarker). MP4: per-player markers
             ScCommunity.Tell(player, string.Format(Loc(b.IsRaiders ? "scBandSeenRaiders" : "scBandSeenDrifters"), DestText(b)), b.IsRaiders ? "ui_denied" : "");
             ScOutposts.NoteLedger(string.Format(Loc(b.IsRaiders ? "scBandLedgerRaiders" : "scBandLedgerDrifters"), DestText(b)));
             ScLog.Out("band " + b.Id + " (" + b.Kind + ", " + DisplayName(b) + ") met on the road at " + World.worldToBlockPos(Where(b)) + ", heading for " + DestText(b));
@@ -1680,7 +1683,7 @@ namespace SurvivorCommunity
         /// from them, on the side away from the player, each on one of them. Once. They carry the base attack's flags
         /// (SpawnHordeZombie), which every end of the trouble takes back (TickTrouble's dead, ReleaseTrouble's rest).
         /// </summary>
-        private static void StartTrouble(World w, EntityPlayerLocal player, Band b, List<KeyValuePair<BandPerson, EntityAlive>> live)
+        private static void StartTrouble(World w, EntityPlayer player, Band b, List<KeyValuePair<BandPerson, EntityAlive>> live)   // round MP0: away from the anchor, its gamestage. MP5: per player
         {
             b.Trouble = 2;
             b.TroubleIds.Clear();
@@ -1718,7 +1721,7 @@ namespace SurvivorCommunity
         /// it; one gone from the world is let go; one with no live target is put on one of them again. When none is left: over.
         /// True when it ended.
         /// </summary>
-        private static bool TickTrouble(World w, EntityPlayerLocal player, Band b, List<KeyValuePair<BandPerson, EntityAlive>> live, float t)
+        private static bool TickTrouble(World w, EntityPlayer player, Band b, List<KeyValuePair<BandPerson, EntityAlive>> live, float t)   // round MP0: any player
         {
             bool assert = t >= b.TroubleAssert;
             if (assert) b.TroubleAssert = t + AssertSeconds;
@@ -1747,7 +1750,7 @@ namespace SurvivorCommunity
         /// facts, as a tell when near; a ledger line. Without it, or cut short (why: they went off the map, the band is gone),
         /// only the log; a cut-short fight's zombies still standing are let go first (ReleaseTrouble; despawn: the unseen go).
         /// </summary>
-        private static void EndTrouble(Band b, EntityPlayerLocal player, string why, bool despawn = true)
+        private static void EndTrouble(Band b, EntityPlayer player, string why, bool despawn = true)   // round MP0: any player (the thanks go to the one near)
         {
             b.Trouble = 3;
             int gone, left;
@@ -1766,9 +1769,9 @@ namespace SurvivorCommunity
             }
             b.Trust = 1;
             BandPerson lead = LeaderOf(b) ?? living[0];
-            if (player != null && ScRunners.XZ(Where(b), player.position) <= ScConfig.BandDespawnRange)
+            // round MP0: told to every community player near them (the host alone in single player, as before)
+            if (TellNear(Where(b), ScConfig.BandDespawnRange, string.Format(Loc("scEncCallSays"), lead.Name, Loc("scBandThanksSaid")) + " " + Loc("scBandTrustNow"), ""))
             {
-                ScCommunity.Tell(player, string.Format(Loc("scEncCallSays"), lead.Name, Loc("scBandThanksSaid")) + " " + Loc("scBandTrustNow"), "");
                 ScEncRadio.Say(lead, b, EncCall.BandThanks, player);   // round m1v: their thanks aloud (found inside: never throws)
             }
             ScOutposts.NoteLedger(string.Format(Loc("scBandLedgerHelped"), DisplayName(b)));
@@ -1803,6 +1806,24 @@ namespace SurvivorCommunity
                 }
             }
             b.TroubleIds.Clear();
+        }
+
+        /// <summary>
+        /// Round MP0: a tell to every community player within range (horizontal) of a point - the host alone in single player, as
+        /// the old "the player near them" was. True when anyone was told.
+        /// </summary>
+        private static bool TellNear(Vector3 at, float range, string text, string sound)
+        {
+            bool any = false;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p == null || !ScPlayers.InCommunity(p) || ScRunners.XZ(at, p.position) > range) continue;
+                ScCommunity.Tell(p, text, sound);
+                any = true;
+            }
+            return any;
         }
 
         /// <summary>The player behind a kill: the player, or the player a companion follows (its Leader / Owner cvar).</summary>
@@ -1848,7 +1869,6 @@ namespace SurvivorCommunity
             p.Health = 0f;
             p.Role = BandPerson.MemberRole;
             EntityPlayer by = KillerPlayer(killer);
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
             ScLog.Out("band " + b.Id + " (" + b.Kind + ", " + DisplayName(b) + "): " + (wasLeader ? "the leader " : "") + p.Name + " (bp" + p.Id + ") died"
                       + (killer != null ? " - killed by " + ScCommunity.DisplayName(killer) + (by != null && !ReferenceEquals(by, killer) ? " (" + by.EntityName + "'s)" : "")
                          : how != null ? " (" + how + ")" : ""));
@@ -1872,7 +1892,7 @@ namespace SurvivorCommunity
             }
             if (!b.IsRaiders)
             {
-                if (pl != null && ScRunners.XZ(Where(b), pl.position) <= ScConfig.BandDespawnRange) ScCommunity.Tell(pl, string.Format(Loc("scBandDied"), p.Name), "");
+                TellNear(Where(b), ScConfig.BandDespawnRange, string.Format(Loc("scBandDied"), p.Name), "");      // round MP0: every community player near
                 if (by != null && b.Trust >= 0) TurnOn(b, by, "a kill");
             }
             ScRegistry.SaveAtomic();
@@ -1886,9 +1906,7 @@ namespace SurvivorCommunity
         /// </summary>
         private static void Destroyed(Band b, EntityPlayer by)
         {
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
-            bool near = pl != null && ScRunners.XZ(Where(b), pl.position) <= ScConfig.BandDespawnRange;
-            if (near) ScCommunity.Tell(pl, string.Format(Loc("scBandGone"), KindWord(b), DestText(b)), "");
+            bool near = TellNear(Where(b), ScConfig.BandDespawnRange, string.Format(Loc("scBandGone"), KindWord(b), DestText(b)), "");   // round MP0: every community player near
             if (b.Known || near) ScOutposts.NoteLedger(string.Format(Loc("scBandLedgerGone"), KindWord(b), DestText(b)));
             End(b, "destroyed" + (by != null ? " (the last killed by " + by.EntityName + ")" : ""), false);
         }
@@ -1926,6 +1944,8 @@ namespace SurvivorCommunity
             try
             {
                 if (!b.Known || b.Arrived || owner == null) return;
+                // round MP0: markers are this machine's own, for its own player - none on a dedicated server. MP4: per-player markers
+                if (!(owner is EntityPlayerLocal)) return;
                 NavObjectManager nav = NavObjectManager.Instance;
                 string cls = NavClassFor(b);
                 if (nav == null || NavObjectClass.GetNavObjectClass(cls) == null) return;

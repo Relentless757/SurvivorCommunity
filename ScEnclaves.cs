@@ -1309,7 +1309,7 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ discovery, the radio, markers ----
 
         /// <summary>ScTicker, every second: markers back after a load, and an unknown enclave within EnclaveDiscoverRange of its POI is found.</summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)          // round MP0: the ticker's anchor - any server
         {
             try
             {
@@ -1317,9 +1317,9 @@ namespace SurvivorCommunity
                 if (!markersRestored)
                 {
                     markersRestored = true;
-                    RefreshMarkers(player);
+                    RefreshMarkers(player);           // round MP0: the host's own only (AddMarker). MP4: per-player markers
                 }
-                Vector3 at = player.position;
+                Vector3 at = player.position;         // round MP0: found from the anchor's position (the host's own on a host). MP5: per player
                 foreach (Enclave e in All)
                 {
                     if (e.Known || e.Lost || e.DistanceXZ(at.x, at.z) > ScConfig.EnclaveDiscoverRange) continue;
@@ -1343,7 +1343,7 @@ namespace SurvivorCommunity
         /// EnclaveRadioRange of home (of the player without one), and the next reveal is EnclaveRadioRevealDays later. None in
         /// range: the radio tries again the next day. A catch-up of missed days reveals one (radioFrame). ScDaily saves.
         /// </summary>
-        public static void Daily(int day, EntityPlayerLocal player)
+        public static void Daily(int day, EntityPlayer player)         // round MP0: the ticker's anchor - any server
         {
             try
             {
@@ -1352,7 +1352,7 @@ namespace SurvivorCommunity
                 if (day < c.EnclaveRadioDay || Time.frameCount == radioFrame || !ScRadio.Online()) return;
                 Vector3 from;
                 if (ScZone.HasHome) { Vector3i h = ScZone.Home; from = new Vector3(h.x, h.y, h.z); }
-                else if (player != null) from = player.position;
+                else if (player != null) from = player.position;          // round MP0: no home - the anchor. MP5: per player
                 else return;
                 Enclave best = null;
                 float bestD = float.MaxValue;
@@ -1368,9 +1368,9 @@ namespace SurvivorCommunity
                 c.EnclaveRadioDay = day + Math.Max(1, ScConfig.EnclaveRadioRevealDays);
                 best.Known = true;
                 best.KnownDay = day;
-                if (player != null) AddMarker(best, player);
+                if (player != null) AddMarker(best, player);              // round MP0: the host's own only (AddMarker). MP4: per-player markers
                 string where = Where(from, best.Centre);
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scEnclaveRadio"), best.Name, best.PoiName, where), "");
+                ScPlayers.TellCommunity(string.Format(Localization.Get("scEnclaveRadio"), best.Name, best.PoiName, where), "");   // round MP0: the community's radio news
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scEnclaveLedgerRadio"), best.Name, best.PoiName));
                 ScLog.Out("enclave " + best.Id + " '" + best.Name + "' heard on the radio: " + best.PoiName + ", " + where + " from " + (ScZone.HasHome ? "home" : "you")
                           + "; the next reveal from day " + c.EnclaveRadioDay);
@@ -1454,6 +1454,8 @@ namespace SurvivorCommunity
             try
             {
                 if (!e.Known || e.Lost) return;
+                // round MP0: markers are this machine's own, for its own player - none on a dedicated server. MP4: per-player markers
+                if (!(owner is EntityPlayerLocal)) return;
                 NavObjectManager nav = NavObjectManager.Instance;
                 string cls = NavClassFor(e);
                 if (nav == null || owner == null || NavObjectClass.GetNavObjectClass(cls) == null) return;
@@ -1543,7 +1545,7 @@ namespace SurvivorCommunity
             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
             if (e.Known && pl != null) AddMarker(e, pl);
             ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerHostile"), e.Name));
-            if (pl != null) ScCommunity.Tell(pl, string.Format(Localization.Get("scEncTurnedHostile"), e.Name), "ui_denied");
+            ScPlayers.TellCommunity(string.Format(Localization.Get("scEncTurnedHostile"), e.Name), "ui_denied");    // round MP0: news for the whole community
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "' turned hostile for good (" + cause + ")" + (grace > 0f ? ", " + grace.ToString("0.#", CultureInfo.InvariantCulture) + " s grace" : ""));
             ScEncAllies.OnBandChanged(e, before, StandingKey(e));      // E6: an ally's benefit stops
             ScRegistry.SaveAtomic();
@@ -1568,8 +1570,7 @@ namespace SurvivorCommunity
             int released = Release(PoiOf(e), w);
             All.Remove(e);
             Rebuild();
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
-            if (pl != null) ScCommunity.Tell(pl, string.Format(Localization.Get(e.Hostile ? "scEncWipedOut" : "scEncGone"), e.Name), "");
+            ScPlayers.TellCommunity(string.Format(Localization.Get(e.Hostile ? "scEncWipedOut" : "scEncGone"), e.Name), "");   // round MP0: news for the whole community
             ScOutposts.NoteLedger(string.Format(Localization.Get(e.Hostile ? "scEncLedgerWipedOut" : "scEncLedgerGone"), e.Name, e.PoiName));
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "' at " + e.PoiName + " is gone (" + cause + ")"
                       + (released > 0 ? " - " + released + " sleeper area(s) respawn after the loot respawn wait" : ""));

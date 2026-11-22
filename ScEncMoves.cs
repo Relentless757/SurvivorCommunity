@@ -275,7 +275,7 @@ namespace SurvivorCommunity
         /// then each group with a reason that nothing holds rolls EnclaveMoveChance and moves to the building MoveTarget picks
         /// (none fits: tomorrow). ScDaily saves.
         /// </summary>
-        public static void Daily(int day, EntityPlayerLocal player)
+        public static void Daily(int day, EntityPlayer player)         // round MP0: the ticker's anchor - any server
         {
             try
             {
@@ -320,7 +320,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Where "900 m north-east" is measured from: home, or the player without one.</summary>
-        private static bool From(EntityPlayerLocal player, out Vector3 at)
+        private static bool From(EntityPlayer player, out Vector3 at)  // round MP0: no home - the anchor. MP5: per player
         {
             if (ScZone.HasHome)
             {
@@ -340,7 +340,7 @@ namespace SurvivorCommunity
         /// known Neutral or hostile one: "The X have left Junkyard - nobody knows where they went." and a ledger line; one you never
         /// found: the log only. The log, a save.
         /// </summary>
-        internal static void Move(Enclave e, PoiEntry to, string reason, EntityPlayerLocal player, string cause)
+        internal static void Move(Enclave e, PoiEntry to, string reason, EntityPlayer player, string cause)    // round MP0: any player
         {
             int now = ScEncRequests.Now;
             string band = ScEnclaves.StandingKey(e);
@@ -370,11 +370,12 @@ namespace SurvivorCommunity
                 {
                     Vector3 from;
                     string where = From(player, out from) ? ScEnclaves.Where(from, e.Centre) : dir;
-                    ScCommunity.Tell(player, string.Format(Loc("scEncCallRadio"), e.Name, Loc(SaidKey(reason))) + " "
-                                             + string.Format(Loc("scEncMoveTold"), oldName, e.PoiName, where), "");
+                    // round MP0: news for the whole community (the host alone in single player)
+                    ScPlayers.TellCommunity(string.Format(Loc("scEncCallRadio"), e.Name, Loc(SaidKey(reason))) + " "
+                                            + string.Format(Loc("scEncMoveTold"), oldName, e.PoiName, where), "");
                     ScEncRadio.Say(e, ScEncRadio.MoveCall(SaidKey(reason)), player);   // round m1v: their words aloud
                 }
-                else if (wasKnown) ScCommunity.Tell(player, string.Format(Loc("scEncMoveLeft"), e.Name, oldName), "");
+                else if (wasKnown) ScPlayers.TellCommunity(string.Format(Loc("scEncMoveLeft"), e.Name, oldName), "");    // round MP0: the whole community's news
             }
             if (told) ScOutposts.NoteLedger(string.Format(Loc("scEncMoveLedger"), e.Name, oldName, e.PoiName));
             else if (wasKnown) ScOutposts.NoteLedger(string.Format(Loc("scEncMoveLedgerLeft"), e.Name, oldName));

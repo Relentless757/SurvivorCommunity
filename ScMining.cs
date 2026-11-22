@@ -703,7 +703,7 @@ namespace SurvivorCommunity
         /// on watch, MaxRunners), a tool for the job, no earlier haul still to put away; then a physical run to a natural spot, or
         /// - none in reach, PhysicalRuns off - a hidden run with the home biome's mix. error: a localization key.
         /// </summary>
-        public static bool Send(Member m, EntityAlive npc, RunJob job, EntityPlayerLocal player, out string error)
+        public static bool Send(Member m, EntityAlive npc, RunJob job, EntityPlayer player, out string error)
         {
             error = null;
             if (job == RunJob.Supply) { error = "scInternal"; return false; }
@@ -801,7 +801,7 @@ namespace SurvivorCommunity
         /// ScRunners.EnterBack, a mining runner at the gate: Wits XP, the haul into the home crates now (their chunks loaded) or
         /// once they are (Tick), and one line that says both.
         /// </summary>
-        public static void AtGate(EntityPlayerLocal player, Member m)
+        public static void AtGate(EntityPlayer player, Member m)
         {
             ScSkills.AddXp(m, Skill.Wits, ScConfig.RunWitsXp);
             string haul = Describe(m.RunHaul);
@@ -810,7 +810,7 @@ namespace SurvivorCommunity
             Count(Key(m.RunJob) + "-at-gate");
             if (haul.Length == 0)
             {
-                if (player != null) ScCommunity.Tell(player, head, m.Injured ? "ui_denied" : "");
+                if (player != null) ScPlayers.TellCommunity(head, m.Injured ? "ui_denied" : "");     // round MP0: community news
                 ScLog.Out(m.Name + " is back from " + m.RunDestName + " with nothing to put away" + (m.Injured ? " (injured)" : ""));
                 return;
             }
@@ -818,7 +818,7 @@ namespace SurvivorCommunity
             Landed r = Deliver(m, out put, out kept, out left);
             NoteNoRoom(m, r, left);
             string tail = Tail(r, kept, left);
-            if (player != null) ScCommunity.Tell(player, tail.Length > 0 ? head + " " + tail : head, m.Injured ? "ui_denied" : "");
+            if (player != null) ScPlayers.TellCommunity(tail.Length > 0 ? head + " " + tail : head, m.Injured ? "ui_denied" : "");   // round MP0: community news
             ScLog.Out(m.Name + " is back from " + m.RunDestName + " with " + haul + (m.Injured ? " (injured)" : "") + " - " + LogResult(r, put, kept, left));
         }
 
@@ -936,16 +936,24 @@ namespace SurvivorCommunity
             if (all) return true;
             // round 33 glance L3: only the zone's chunks beyond the player's view may be missing - right after a load, a
             // respawn or a teleport into the zone the near ones are still streaming in, and the haul would have gone into
-            // their inventory as "no room" while the crates had room
-            EntityPlayerLocal p = ScCommunity.LocalPlayer;
-            if (p == null || p.IsDead() || p.ChunkObserver == null || !ScZone.Contains(p.position)) return false;
-            Vector3i cp = p.ChunkObserver.curChunkPos;
-            if (cp.x == int.MaxValue || cp.z == int.MaxValue) return false;
-            int view = p.ChunkObserver.viewDim > 0 ? p.ChunkObserver.viewDim : 6;
-            for (int cx = World.toChunkXZ(xMin); cx <= World.toChunkXZ(xMax); cx++)
-                for (int cz = World.toChunkXZ(zMin); cz <= World.toChunkXZ(zMax); cz++)
-                    if (Math.Max(Math.Abs(cx - cp.x), Math.Abs(cz - cp.z)) < view && w.GetChunkSync(cx, cz) == null) return false;
-            return true;
+            // their inventory as "no room" while the crates had room.
+            // Round MP0: any community player inside the zone, not only the host's own player - each one's view must be in
+            // (the server loads chunks round every player); in single player the player, exactly as before
+            bool anyHome = false;
+            List<EntityPlayer> players = ScPlayers.All;
+            for (int i = 0; i < players.Count; i++)
+            {
+                EntityPlayer p = players[i];
+                if (p == null || !ScPlayers.InCommunity(p) || p.IsDead() || p.ChunkObserver == null || !ScZone.Contains(p.position)) continue;
+                Vector3i cp = p.ChunkObserver.curChunkPos;
+                if (cp.x == int.MaxValue || cp.z == int.MaxValue) return false;
+                int view = p.ChunkObserver.viewDim > 0 ? p.ChunkObserver.viewDim : 6;
+                for (int cx = World.toChunkXZ(xMin); cx <= World.toChunkXZ(xMax); cx++)
+                    for (int cz = World.toChunkXZ(zMin); cz <= World.toChunkXZ(zMax); cz++)
+                        if (Math.Max(Math.Abs(cx - cp.x), Math.Abs(cz - cp.z)) < view && w.GetChunkSync(cx, cz) == null) return false;
+                anyHome = true;
+            }
+            return anyHome;
         }
 
         private static bool WindowOpen(int id)
@@ -965,7 +973,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>ScTicker, once a second (every 2 s here): a haul that waited for the home's chunks, or for room, is put away and said.</summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)
         {
             float t = Time.unscaledTime;
             if (t < nextTick) return;
@@ -987,7 +995,7 @@ namespace SurvivorCommunity
                         // still no room anywhere: said once (round 33 glance L5: the gate line said nothing about room when
                         // that attempt only waited for the home's chunks or a closed window)
                         if (!noRoomTold.Add(m.Id)) continue;
-                        if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scMineNoRoomYet"), m.Name, left), "");
+                        if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scMineNoRoomYet"), m.Name, left), "");   // round MP0: community news
                         ScLog.Out(m.Name + "'s haul that waited (" + before + ") has no room in the home crates or their inventory window - tried again in 2 min");
                         continue;
                     }
@@ -995,7 +1003,7 @@ namespace SurvivorCommunity
                     string rest = left.Length > 0 ? " " + string.Format(Localization.Get("scMineTailWaits"), left) : "";
                     string text = r == Landed.NoRoom ? string.Format(Localization.Get("scMineWindowOnly"), m.Name, kept) + rest
                                                      : string.Format(Localization.Get("scMineDelivered"), m.Name, put) + (r == Landed.Some ? " " + Rest(kept, left) : "");
-                    if (player != null) ScCommunity.Tell(player, text, "");
+                    if (player != null) ScPlayers.TellCommunity(text, "");     // round MP0: community news
                     ScLog.Out(m.Name + " puts away the haul that waited (" + before + ") - " + LogResult(r, put, kept, left));
                 }
                 scratch.Clear();

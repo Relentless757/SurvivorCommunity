@@ -158,7 +158,7 @@ namespace SurvivorCommunity
         /// it lasts). The call is on the world's clock: a request clock ahead of the world ("sc day") rolls again for the
         /// world's today each time. Nothing while a siege is open or a call is scheduled for this day or later. ScDaily saves.
         /// </summary>
-        public static void Daily(int day, EntityPlayerLocal player)
+        public static void Daily(int day, EntityPlayer player)         // round MP0: the ticker's anchor - any server
         {
             try
             {
@@ -214,7 +214,7 @@ namespace SurvivorCommunity
         /// No siege open: a scheduled call fires once its time comes and an enclave can make it (PickSource; tried every 10 s);
         /// held back past its window's end, or a clock gone back or far ahead, it lapses.
         /// </summary>
-        private static void TickSchedule(World w, EntityPlayerLocal player, float now)
+        private static void TickSchedule(World w, EntityPlayer player, float now)     // round MP0: any player
         {
             Community c = ScRegistry.Community;
             if (c.EncSiegeAt == 0UL) return;
@@ -247,7 +247,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The enclave that calls: one the rules allow (WhyNot), at random. Null (and why) when there is none.</summary>
-        private static Enclave PickSource(World w, EntityPlayerLocal player, out string why)
+        private static Enclave PickSource(World w, EntityPlayer player, out string why)    // round MP0: any player
         {
             why = WhyNot(null, player, false);
             if (why != null) return null;
@@ -268,7 +268,8 @@ namespace SurvivorCommunity
         /// "force") keeps only what a siege cannot be without: one at a time, enemies on, no other attack being fought, an
         /// enclave on the map that is not hostile and has no open request.
         /// </summary>
-        public static string WhyNot(Enclave e, EntityPlayerLocal player, bool forced)
+        // round MP0: the source is picked against the anchor's position (the host's own player on a host). MP5: per player
+        public static string WhyNot(Enclave e, EntityPlayer player, bool forced)
         {
             World w = ScCommunity.World;
             if (w == null || player == null) return "no world or player";
@@ -343,7 +344,7 @@ namespace SurvivorCommunity
         /// The call: the record (accepted, its deadline and size), a tell, a ledger line, the journal quest (tracked: the
         /// enclave's marker on screen), the log, a save.
         /// </summary>
-        private static EnclaveRequest Call(World w, Enclave e, EntityPlayerLocal player, string why)
+        private static EnclaveRequest Call(World w, Enclave e, EntityPlayer player, string why)     // round MP0: any player
         {
             Community c = ScRegistry.Community;
             int rate = Rate();
@@ -370,14 +371,15 @@ namespace SurvivorCommunity
             sessionReady = false;
             settledSince = -1f;
             string error = null;
-            Quest q = player != null ? ScQuests.StartRequest(player, e, r, ScEncRequests.WhatText(r), out error) : null;
+            EntityPlayerLocal lp = player as EntityPlayerLocal;       // round MP0: the quest goes to the host's own journal. MP4: quests to the right player
+            Quest q = lp != null ? ScQuests.StartRequest(lp, e, r, ScEncRequests.WhatText(r), out error) : null;
             r.QuestCode = q != null ? q.QuestCode : 0;
-            if (player != null) ScCommunity.Tell(player, string.Format(Loc("scEncSiegeCall"), e.Name), "ui_denied");
+            ScPlayers.TellCommunity(string.Format(Loc("scEncSiegeCall"), e.Name), "ui_denied");     // round MP0: the community's radio news
             if (player != null) ScEncRadio.Say(e, EncCall.Siege, player);       // round m1v: ahead of every radio line (text only until round V-b records it)
             ScOutposts.NoteLedger(string.Format(Loc("scEncSiegeLedgerCall"), e.Name));
             ScLog.Out("siege called (" + why + "): " + e.Name + " (enclave " + e.Id + ") - " + r.SiegeSize + " zombie(s), " + (secs / 60UL) + " min to come within "
                       + ScConfig.EnclaveSiegeArriveRange + " m (deadline " + ScBaseAttack.Clock(r.Deadline) + (rate <= 0 ? ", real seconds: time is frozen" : "") + "); mix "
-                      + ScBaseAttack.Mix(player) + (q != null ? ", journal quest " + q.QuestCode : ", no journal quest (" + (error ?? "no player") + ")"));
+                      + ScBaseAttack.Mix(lp) + (q != null ? ", journal quest " + q.QuestCode : ", no journal quest (" + (error ?? "no player") + ")"));
             ScRegistry.SaveAtomic();
             return r;
         }
@@ -388,7 +390,7 @@ namespace SurvivorCommunity
         /// ScEncRequests.Tick, every second (never while the game is paused: the clock stops, nothing spawns into a frozen world):
         /// a scheduled call, the countdown and the arrival, the fight.
         /// </summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)          // round MP0: the ticker's anchor - any server
         {
             try
             {
@@ -422,7 +424,7 @@ namespace SurvivorCommunity
         /// they are (a base attack, an outpost fight in its range) holds the arrival, and the clock stands still while it does
         /// (the E5 review's M1).
         /// </summary>
-        private static void TickCalled(World w, Enclave e, EnclaveRequest r, EntityPlayerLocal player, float now)
+        private static void TickCalled(World w, Enclave e, EnclaveRequest r, EntityPlayer player, float now)    // round MP0: any player
         {
             ulong t = w.worldTime;
             int rate = Rate();
@@ -476,7 +478,7 @@ namespace SurvivorCommunity
         /// siege: a load past half time marks it done the first time this session sees it; one before half time calls when it
         /// gets there. Never throws into the tick.
         /// </summary>
-        private static void TickHurry(World w, Enclave e, EnclaveRequest r, EntityPlayerLocal player, ulong t, ulong full, bool nobodyThere)
+        private static void TickHurry(World w, Enclave e, EnclaveRequest r, EntityPlayer player, ulong t, ulong full, bool nobodyThere)   // round MP0: any player
         {
             try
             {
@@ -497,7 +499,7 @@ namespace SurvivorCommunity
                 }
                 if (!past || !nobodyThere) return;
                 hurryDone = r.Id;
-                if (player != null) ScCommunity.Tell(player, string.Format(Loc("scEncCallRadio"), e.Name, Loc(ScEncRadio.HurryKey)), "ui_denied");
+                ScPlayers.TellCommunity(string.Format(Loc("scEncCallRadio"), e.Name, Loc(ScEncRadio.HurryKey)), "ui_denied");   // round MP0: the community's radio news
                 string said = player != null ? ScEncRadio.Say(e, EncCall.SiegeHurry, player) : "no player";
                 ScLog.Out("siege at " + e.Name + ": half the time to answer is gone and nobody has come - they call again, " + Mmss(SecondsLeft(r, w)) + " left (voice: " + said + ")");
             }
@@ -546,7 +548,7 @@ namespace SurvivorCommunity
         /// The fight, every second: a load's resume; the player leaving (beyond twice the arrive range: Leave); the dead counted
         /// and the rest steered; one more spawned; every attacker dead (Win); a stalled fight over.
         /// </summary>
-        private static void TickLive(World w, Enclave e, EnclaveRequest r, EntityPlayerLocal player, float now)
+        private static void TickLive(World w, Enclave e, EnclaveRequest r, EntityPlayer player, float now)     // round MP0: any player
         {
             float d;
             EntityPlayer by = NearestPlayer(w, e, out d);
@@ -576,7 +578,7 @@ namespace SurvivorCommunity
             if (r.SiegeSpawned < r.SiegeSize && peopleOut && now >= resumeAt && TrySpawn(w, e, r, by, now)) changed = true;
             if (r.SiegeSpawned >= r.SiegeSize && attackers.Count == 0)
             {
-                if (r.SiegeKilled > 0) Win(w, e, r, player, false);
+                if (r.SiegeKilled > 0) Win(w, e, r, by, false);       // round MP0: told to the player at the fight (the nearest)
                 else HeldOut(w, e, r, "the horde never came (nothing could be spawned)");
                 return;
             }
@@ -585,7 +587,7 @@ namespace SurvivorCommunity
             if (lastProgress > t) lastProgress = t;
             if (t >= r.SiegeStarted + (ulong)(Math.Max(0.5f, ScConfig.EnclaveSiegeMaxHours) * TicksPerHour) && t >= lastProgress + TicksPerHour)
             {
-                if (r.SiegeKilled > 0) Win(w, e, r, player, true);
+                if (r.SiegeKilled > 0) Win(w, e, r, by, true);        // round MP0: the player at the fight
                 else HeldOut(w, e, r, "the fight stalled with none killed");
                 return;
             }
@@ -863,7 +865,7 @@ namespace SurvivorCommunity
         /// The player left a live siege (beyond twice the arrive range): the attackers still standing go, then a roll - the share
         /// of the horde killed plus EnclaveSiegeLeaveRoll for each of their people alive - held (HeldOut) or lost (Lose).
         /// </summary>
-        private static void Leave(World w, Enclave e, EnclaveRequest r, EntityPlayerLocal player, float d)
+        private static void Leave(World w, Enclave e, EnclaveRequest r, EntityPlayer player, float d)  // round MP0: any player
         {
             int gone = Release(w, true);
             int living = ScEnclavePeople.Living(e).Count;
@@ -875,7 +877,7 @@ namespace SurvivorCommunity
                       + (held ? "they held" : "they fell"));
             if (held)
             {
-                if (player != null) ScCommunity.Tell(player, string.Format(Loc("scEncSiegeHeldTell"), e.Name), "");
+                ScPlayers.TellCommunity(string.Format(Loc("scEncSiegeHeldTell"), e.Name), "");    // round MP0: the whole community's news
                 HeldOut(w, e, r, "the player left; they held out (" + Pct(chance) + ")");
                 return;
             }

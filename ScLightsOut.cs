@@ -260,7 +260,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>ScTicker, every second (works every 2): dawn ends it; the home lost or moved ends it; a clock gone back moves the end.</summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)     // round MP0: any player (the anchor)
         {
             try
             {
@@ -288,8 +288,11 @@ namespace SurvivorCommunity
                 }
                 if (t < c.LightsOutUntil) return;
                 int on = End("dawn");
-                if (player != null && ScBaseAttack.PlayerHome(player))
-                    ScCommunity.Tell(player, string.Format(Localization.Get("scLightsOutDawn"), on), "");
+                // round MP0: every community player at home hears it, no longer the host alone (single player: you, as before)
+                List<EntityPlayer> all = ScPlayers.All;
+                for (int i = 0; i < all.Count; i++)
+                    if (all[i] != null && ScPlayers.InCommunity(all[i]) && ScBaseAttack.PlayerHome(all[i]))
+                        ScCommunity.Tell(all[i], string.Format(Localization.Get("scLightsOutDawn"), on), "");
             }
             catch (Exception e)
             {

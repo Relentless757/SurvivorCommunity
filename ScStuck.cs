@@ -295,7 +295,7 @@ namespace SurvivorCommunity
             Gain g = Of(m);
             float wait = ScConfig.StuckSeenWaitSeconds;
             float now = Time.unscaledTime;
-            if (wait <= 0f || Unseen(ScCommunity.LocalPlayer, npc.position, to))
+            if (wait <= 0f || UnseenByAll(npc.position, to))     // round MP0 (D 4.7): unseen by every player, not only the host
             {
                 if (g.HeldSince >= 0f)
                 {
@@ -335,10 +335,22 @@ namespace SurvivorCommunity
         /// them), at any distance; or no live player. ScRunners' skip-ahead asks this AND 40 m (RunSkipMinPlayerDist): a
         /// resident's move back lands at her post in the base, where the player usually is within 40 m.
         /// </summary>
-        internal static bool Unseen(EntityPlayerLocal p, Vector3 a, Vector3 b)
+        internal static bool Unseen(EntityPlayer p, Vector3 a, Vector3 b)     // round MP0: any player, not only the local one
         {
             if (p == null || p.IsDead()) return true;
             return !p.IsInViewCone(a) && !p.IsInViewCone(b);
+        }
+
+        /// <summary>
+        /// Round MP0 (D 4.7): Unseen by every player in the world - a remote player looking that way holds the move back as the
+        /// host does. No player at all: unseen. Single player: you alone, as before.
+        /// </summary>
+        internal static bool UnseenByAll(Vector3 a, Vector3 b)
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+                if (!Unseen(all[i], a, b)) return false;
+            return true;
         }
 
         // ------------------------------------------------------------------ the roam's unreachable spots ----

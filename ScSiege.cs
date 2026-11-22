@@ -31,7 +31,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>ScTicker, every second, after ScBaseAttack (its zone is fresh): who was home, and the siege at the end.</summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)
         {
             try
             {
@@ -46,7 +46,8 @@ namespace SurvivorCommunity
                 if (BloodMoonActive(w))
                 {
                     wasBloodMoon = true;
-                    if (on && c.BloodMoonHomeDay == 0 && c.HasHome && ScBaseAttack.Near(player))
+                    // round MP0: any community player near the base counts (a client holding it all night too)
+                    if (on && c.BloodMoonHomeDay == 0 && c.HasHome && ScBaseAttack.AnyNear())
                     {
                         c.BloodMoonHomeDay = Math.Max(1, day);
                         ScLog.Out("siege: the player is home for the blood moon - no siege at its end");
@@ -86,9 +87,9 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The siege: a horde of the usual size, BaseSiegePenalty below the rating ('forced' 0-2 from the console).</summary>
-        public static void Besiege(World w, EntityPlayerLocal player, int forced, string why)
+        public static void Besiege(World w, EntityPlayer player, int forced, string why)
         {
-            int horde = ScBaseAttack.Size(player);
+            int horde = ScBaseAttack.Size(player);     // round MP0: the anchor's gamestage. MP5: gamestage of the players involved
             ScDefence.Settle(w, player, horde, Math.Max(0, ScConfig.BaseSiegePenalty), true, forced, why);
             ScRegistry.SaveAtomic();
         }

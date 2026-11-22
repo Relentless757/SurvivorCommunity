@@ -257,7 +257,7 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ the tick ----
 
         /// <summary>ScTicker, once a second (host): each open call's marker follows her; a call whose fight is over ends.</summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)      // round MP0: any player (the anchor); 'player' is not read here
         {
             if (calls.Count == 0 || w == null) return;
             try

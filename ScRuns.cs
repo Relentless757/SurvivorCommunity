@@ -44,7 +44,7 @@ namespace SurvivorCommunity
             return true;
         }
 
-        public static bool Send(Member m, EntityAlive npc, Resource kind, EntityPlayerLocal player, out string error)
+        public static bool Send(Member m, EntityAlive npc, Resource kind, EntityPlayer player, out string error)
         {
             // luxuries are not fetched (round wl): the dialog and the window never offer it, the console could
             if (kind == Resource.Luxury) { error = "scRunNoLuxury"; return false; }
@@ -81,7 +81,7 @@ namespace SurvivorCommunity
         /// A hidden ("legacy") run: parked at home, invisible, resolved at the day rollover (Resolve). Also a mining run with no
         /// natural spot in reach (ScMining.Send, round 33c), whose job fields are set before the call.
         /// </summary>
-        internal static bool SendHidden(Member m, EntityAlive npc, Resource kind, EntityPlayerLocal player, out string error)
+        internal static bool SendHidden(Member m, EntityAlive npc, Resource kind, EntityPlayer player, out string error)
         {
             error = null;
             try
@@ -101,7 +101,8 @@ namespace SurvivorCommunity
                 ScHandheld.NoteCarried(m, npc, "sent on a hidden run");   // R2: a radio of theirs lets them call for help (decision 5)
 #endif
                 World rw = ScCommunity.World;
-                bool distress = ScRadio.RollDistress(m, player, rw != null ? rw.GetGameRandom() : null);
+                // round MP0: ScRadio takes the local player (another slice's file) - null on a dedicated server: no distress roll there
+                bool distress = ScRadio.RollDistress(m, player as EntityPlayerLocal, rw != null ? rw.GetGameRandom() : null);
                 ScRegistry.SaveAtomic();
                 if (player != null && !distress) ScCommunity.Tell(player, string.Format(Localization.Get("scRunSent"), m.Name, What(m), m.RunEndDay), "");
                 ScLog.Out(m.Name + " left on a supply run for " + WhatLog(m) + ", back on day " + m.RunEndDay);
@@ -116,7 +117,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>A physical run: the runner walks out of the base toward the destination POI right now.</summary>
-        private static bool SendPhysical(Member m, EntityAlive npc, Resource kind, EntityPlayerLocal player, PrefabInstance dest, out string error)
+        private static bool SendPhysical(Member m, EntityAlive npc, Resource kind, EntityPlayer player, PrefabInstance dest, out string error)
         {
             Vector3 arrive = ScRunners.EdgeNearest(ScCommunity.World, dest, npc.position);
             int dist = Mathf.RoundToInt(ScOutposts.DistanceToHome(dest.boundingBoxPosition, dest.boundingBoxSize));
@@ -136,7 +137,7 @@ namespace SurvivorCommunity
         /// A physical run to a destination: destKey (a POI's boundingBoxPosition, or round 33c's natural spot), its name, the point
         /// the runner walks to and the distance the lines name. A mining run's job fields are set before the call.
         /// </summary>
-        internal static bool SendPhysicalTo(Member m, EntityAlive npc, Resource kind, EntityPlayerLocal player, Vector3i destKey, string destName, Vector3 arrive, int dist, out string error)
+        internal static bool SendPhysicalTo(Member m, EntityAlive npc, Resource kind, EntityPlayer player, Vector3i destKey, string destName, Vector3 arrive, int dist, out string error)
         {
             error = null;
             World w = ScCommunity.World;
@@ -281,7 +282,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Day rollover: every run whose day has come resolves; the rest keep going.</summary>
-        public static void Resolve(int day, EntityPlayerLocal player, StringBuilder summary)
+        public static void Resolve(int day, EntityPlayer player, StringBuilder summary)
         {
             var done = new System.Collections.Generic.List<Member>();
             var late = new System.Collections.Generic.List<Member>();
@@ -292,6 +293,7 @@ namespace SurvivorCommunity
                 if (ScRunners.IsPhysical(m))
                 {
                     // a physical run ends when they walk home; the rollover only rescues one far past its ETA
+                    // round MP0: near the post = the anchor, as the runner's re-create (MP5: any player)
                     if (m.Offline && day > m.RunEndDay + ScConfig.RunDeadlineGraceDays && (m.RunLeg != RunLeg.Back || ScRunners.PlayerNearPost(m, player))) late.Add(m);
                 }
                 else if (day >= m.RunEndDay) done.Add(m);
@@ -330,7 +332,7 @@ namespace SurvivorCommunity
                         // a radio distress run: the player's answer decides it, not the dice
                         if (m.RunSafe) { bad = false; dead = false; yield += ScConfig.RescueBundles; }   // round ie1: +1, was x1.25 rounded
                         else { bad = true; dead = roll2 < ScConfig.RunDeathShare; }
-                        ScRadio.EndDistress(w, player, m);
+                        ScRadio.EndDistress(w, player as EntityPlayerLocal, m);     // round MP0: the local player's journal (another slice's file). MP4: quests to the right player
                     }
 
                     if (dead)
@@ -370,13 +372,13 @@ namespace SurvivorCommunity
                     {
                         // round 33c: the haul by name; the crates line follows from ScMining.Tick
                         summary.Append(' ').Append(string.Format(Localization.Get(bad ? "scDailyMineHurt" : "scDailyMineBack"), m.Name, got));
-                        if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get(bad ? "scMineHurt" : "scMineBack"), m.Name, got), bad ? "ui_denied" : "");
+                        if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get(bad ? "scMineHurt" : "scMineBack"), m.Name, got), bad ? "ui_denied" : "");   // round MP0: community news
                         ScLog.Out(m.Name + " is back from the hidden mining run (risk " + risk.ToString("0.00") + ")");
                     }
                     else
                     {
                         summary.Append(' ').Append(string.Format(Localization.Get(bad ? "scDailyRunHurt" : "scDailyRunBack"), m.Name, yield, Localization.Get(ScNames.LocKey(kind))));
-                        if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get(bad ? "scRunHurt" : "scRunBack"), m.Name, yield, Localization.Get(ScNames.LocKey(kind))), bad ? "ui_denied" : "");
+                        if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get(bad ? "scRunHurt" : "scRunBack"), m.Name, yield, Localization.Get(ScNames.LocKey(kind))), bad ? "ui_denied" : "");   // round MP0: community news
                         ScLog.Out(m.Name + " is back from the supply run: " + yield + " " + kind + (bad ? " (injured)" : "") + " (risk " + risk.ToString("0.00") + ")");
                     }
                 }
@@ -434,10 +436,10 @@ namespace SurvivorCommunity
             }
         }
 
-        private static void Die(Member m, EntityPlayerLocal player)
+        private static void Die(Member m, EntityPlayer player)
         {
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
-            ScCommunity.RecordDeath(m, player, "scRunDied");
+            ScCommunity.RecordDeath(m, player as EntityPlayerLocal, "scRunDied");     // round MP0: ScCommunity takes the local player (another slice's file) - its tell is skipped on a dedicated server
             if (npc != null)
             {
                 RemoveEntity(npc);

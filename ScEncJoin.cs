@@ -507,7 +507,7 @@ namespace SurvivorCommunity
         /// ScTicker, every second: the husks; then, with the player at home and the zone loaded, the member on the way who is due
         /// first (the earliest, then the one made first) turns up at a spot ArriveSpot finds, one a second.
         /// </summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)          // round MP0: the ticker's anchor - any server
         {
             try
             {
@@ -515,6 +515,7 @@ namespace SurvivorCommunity
                 if (husks.Count > 0) TickHusks(w);
                 if (player == null || !ScRegistry.Loaded) return;
                 Member m = NextDue(w);
+                // round MP0: they turn up while the anchor is home (the host's own player on a host). MP5: per player
                 if (m == null || !ScZone.HasHome || !ScZone.HomeLoaded || !ScZone.Contains(player.GetBlockPosition())) { searchFor = -1; return; }
                 float t = Time.unscaledTime;
                 if (searchFor != m.Id) { searchFor = m.Id; searchSince = t; }
@@ -608,7 +609,7 @@ namespace SurvivorCommunity
         /// re-keyed (Rekey), made a member's body (ScMissing.Restore's shape: the spawner source, Persist, the cvars, traits and AI
         /// package) and stationed - they walk to their post. A tell; the last of their group writes a ledger line; the log, a save.
         /// </summary>
-        private static void Arrive(World w, EntityPlayerLocal player, Member m, Vector3 spot)
+        private static void Arrive(World w, EntityPlayer player, Member m, Vector3 spot)   // round MP0: the player at home (the anchor)
         {
             Vector3 home;
             HomePoint(out home);

@@ -145,7 +145,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ the scan (ScTicker, every second) ----
 
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)     // round MP0: any player (the anchor); not used here
         {
             try
             {

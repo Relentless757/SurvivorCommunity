@@ -244,7 +244,7 @@ namespace SurvivorCommunity
         /// them: decision D7). A change recomputes morale and moods at once; the registry is saved then, at most every 10 s (a
         /// fight's kills on her come a second apart; the world's own save and the rollover save it too).
         /// </summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)     // round MP0: any player (the anchor)
         {
             try
             {
@@ -253,7 +253,7 @@ namespace SurvivorCommunity
                 if (now < nextTick) return;
                 nextTick = now + 1f;
                 bool changed = Drain();
-                BloodMoon(w, player);
+                BloodMoon(w);      // round MP0: any community player home counts (PlayerHome), so it no longer takes the host's player
                 if (now >= nextSweep)
                 {
                     nextSweep = now + 10f;
@@ -347,14 +347,14 @@ namespace SurvivorCommunity
         /// (following you, or a resident with you home) gets +BondBloodMoon. A blood moon whose end was not seen here (quit before
         /// dawn) gives nothing.
         /// </summary>
-        private static void BloodMoon(World w, EntityPlayerLocal player)
+        private static void BloodMoon(World w)
         {
             if (ScSiege.BloodMoonActive(w))
             {
                 if (wasBloodMoon) return;
                 wasBloodMoon = true;
                 bloodMoonMembers.Clear();
-                bool home = PlayerHome(player);
+                bool home = PlayerHome();
                 foreach (Member m in ScRegistry.Members.Values)
                 {
                     if (WithYou(m, home)) bloodMoonMembers.Add(m.Id);
@@ -365,7 +365,7 @@ namespace SurvivorCommunity
             }
             if (!wasBloodMoon) return;
             wasBloodMoon = false;
-            bool homeAtEnd = PlayerHome(player);
+            bool homeAtEnd = PlayerHome();
             int given = 0;
             foreach (int id in bloodMoonMembers)
             {
@@ -392,9 +392,17 @@ namespace SurvivorCommunity
             return m.Status == MemberStatus.Resident && playerHome;
         }
 
-        private static bool PlayerHome(EntityPlayerLocal player)
+        /// <summary>
+        /// Round MP0 (D 4.11): any community player near home (ScBaseAttack.Near), not only the host's own - a client who stayed
+        /// with the base through the blood moon counts. Single player: you, as before.
+        /// </summary>
+        private static bool PlayerHome()
         {
-            return ScZone.HasHome && ScBaseAttack.Near(player);
+            if (!ScZone.HasHome) return false;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+                if (all[i] != null && ScPlayers.InCommunity(all[i]) && ScBaseAttack.Near(all[i])) return true;
+            return false;
         }
 
         /// <summary>

@@ -329,7 +329,7 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ the tick ----
 
         /// <summary>1 Hz from ScTicker (host): the live exchange, the walk-over, the gatherings, new ones, the flame sweep.</summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)     // round MP0: any player (the anchor); not used here (distances use every player)
         {
             if (w == null || !ScCommunity.IsHost || !ScRegistry.Loaded) return;
             try

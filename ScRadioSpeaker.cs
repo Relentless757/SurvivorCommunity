@@ -304,6 +304,8 @@ namespace SurvivorCommunity
                     string what = keys.Count == 1 ? keys[0] : keys[0] + " .. " + keys[keys.Count - 1];
                     return ScConfig.VoiceLines ? "no recording of " + what + " in " + s.Name + "'s voices yet: the text alone" : "VoiceLines is off: the text alone";
                 }
+                // round MP0: heard and played for this machine's own player only (none on a dedicated server: unheard, the text
+                // alone - ScRadioTalk.PlayNext plays nothing there either). MP4: voices to clients
                 EntityPlayerLocal local = player as EntityPlayerLocal ?? ScCommunity.LocalPlayer;
                 EntityAlive body = s.Body();
                 // the m1v review's fix 1: 3D - a bark is 3D audio cut off at 40 m (ScVoice's OwnMaxDistance), so a body far above or

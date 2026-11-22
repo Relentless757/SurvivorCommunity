@@ -233,7 +233,7 @@ namespace SurvivorCommunity
         /// first: the crash fallback, and what the registry walks once they are out of range); without, they start offline and
         /// parked. They become staff on arrival (TakeUpPost).
         /// </summary>
-        public static bool Post(Member m, EntityAlive npc, Outpost o, EntityPlayerLocal player, out string error)
+        public static bool Post(Member m, EntityAlive npc, Outpost o, EntityPlayer player, out string error)
         {
             if (!CanPost(m, npc, o, out error)) return false;
             World w = ScCommunity.World;
@@ -276,7 +276,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Round op1: the body walks out now (ScRuns.SendPhysicalTo's start, to the outpost).</summary>
-        private static bool SetOut(World w, Member m, EntityAlive npc, Outpost o, int slot, EntityPlayerLocal player, out string error)
+        private static bool SetOut(World w, Member m, EntityAlive npc, Outpost o, int slot, EntityPlayer player, out string error)
         {
             error = null;
             // the snapshot first: without one the registry could not carry them once they are out of sight, and a failed capture
@@ -319,7 +319,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Round op1: their body is not loaded - it stays parked at home and the legs run on the clock (TickJourneys).</summary>
-        private static bool SetOutParked(World w, Member m, Outpost o, int slot, EntityPlayerLocal player, out string error)
+        private static bool SetOutParked(World w, Member m, Outpost o, int slot, EntityPlayer player, out string error)
         {
             error = null;
             try
@@ -372,19 +372,21 @@ namespace SurvivorCommunity
         /// are posted) and, with you near enough to keep a stand-in, the stand-in steps in on the same spot. A capture that fails
         /// is tried again on the next second.
         /// </summary>
-        internal static void ArriveOnline(World w, EntityPlayerLocal player, Member m, EntityAlive npc)
+        internal static void ArriveOnline(World w, EntityPlayer player, Member m, EntityAlive npc)
         {
             Outpost o = ScOutposts.ById(m.OutpostId);
             if (o == null || !o.Holding) { string err; TurnHome(m, player, "scOpTurnedBackGone", out err); return; }
             Vector3 at = npc.position;
-            bool swap = player != null && ScOutposts.DistanceToBox(o, player.position) <= ScConfig.OutpostStandInRange * 1.8f && ScZone.IsLoaded(o.Flag);
+            // round MP0: any community player near enough to keep a stand-in, not only the host's own player
+            float near;
+            bool swap = player != null && NearestAt(o, out near) != null && near <= ScConfig.OutpostStandInRange * 1.8f && ScZone.IsLoaded(o.Flag);
             if (!ScRunners.GoOffline(w, m, npc, "reached " + o.Name, true)) return;
             TakeUpPost(m, o, player);
             if (swap && ScRegistry.GetMember(m.Id) == m && m.Status == MemberStatus.Garrison) SpawnStandIn(w, m, o, at);
         }
 
         /// <summary>Round op1, ScRunners.AdvanceOffline: the walk reached the claim out of your sight.</summary>
-        internal static void ArriveOffline(EntityPlayerLocal player, Member m)
+        internal static void ArriveOffline(EntityPlayer player, Member m)
         {
             Outpost o = ScOutposts.ById(m.OutpostId);
             if (o == null || !o.Holding) { string err; TurnHome(m, player, "scOpTurnedBackGone", out err); return; }
@@ -392,7 +394,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Round op1: at the outpost - staff from now on (yield, security, stand-in); the snapshot, if any, is their body.</summary>
-        private static void TakeUpPost(Member m, Outpost o, EntityPlayerLocal player)
+        private static void TakeUpPost(Member m, Outpost o, EntityPlayer player)
         {
             bool embodied = !string.IsNullOrEmpty(m.Snap);
             ScRunners.ClearRun(m, true);                                                   // the legs end; the snapshot stays
@@ -413,7 +415,7 @@ namespace SurvivorCommunity
         /// claim (on the stand-in's spot while it stands there); one on the way out turns round (TurnHome); one already walking
         /// home goes on. Resident only when they arrive. tellKey: scOpRecalled / scOpRecalledGone, or null for no message.
         /// </summary>
-        public static void Recall(Member m, EntityPlayerLocal player, string tellKey)
+        public static void Recall(Member m, EntityPlayer player, string tellKey)
         {
             if (m == null) return;
             if (m.Status == MemberStatus.Transit)
@@ -435,7 +437,7 @@ namespace SurvivorCommunity
             }
         }
 
-        private static void StartHome(Member m, EntityPlayerLocal player, string tellKey)
+        private static void StartHome(Member m, EntityPlayer player, string tellKey)
         {
             Outpost o = ScOutposts.ById(m.OutpostId);
             World w = ScCommunity.World;
@@ -477,7 +479,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Before round op1, and still when there is nowhere to walk from: home at once, un-hidden and stationed when loaded.</summary>
-        private static void HomeAtOnce(Member m, EntityPlayerLocal player, string tellKey)
+        private static void HomeAtOnce(Member m, EntityPlayer player, string tellKey)
         {
             Outpost o = ScOutposts.ById(m.OutpostId);
             RemoveStandIn(m);
@@ -519,7 +521,7 @@ namespace SurvivorCommunity
         /// Round op1: one on the way to an outpost turns round from where they are (the walker, or the virtual walk) and heads for
         /// the gate. error = a localization key (scRunHeadingHome: already on the way home).
         /// </summary>
-        public static bool TurnHome(Member m, EntityPlayerLocal player, string tellKey, out string error)
+        public static bool TurnHome(Member m, EntityPlayer player, string tellKey, out string error)
         {
             error = null;
             if (!ScCommunity.IsHost) { error = "scHostOnly"; return false; }
@@ -539,7 +541,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Round op1, ScRunners.Arrive (and a parked walk's end): home from the outpost - said and logged.</summary>
-        internal static void HomeAgain(Member m, EntityPlayerLocal player, string from)
+        internal static void HomeAgain(Member m, EntityPlayer player, string from)
         {
             string name = string.IsNullOrEmpty(from) ? "?" : from;
             Told(player, "scOpHomeFrom", m, name);
@@ -547,7 +549,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Anyone posted to (or on the way to) an outpost that no longer exists or is lost heads home (rollover).</summary>
-        public static void Validate(EntityPlayerLocal player)
+        public static void Validate(EntityPlayer player)
         {
             var bad = new List<Member>();
             var turn = new List<Member>();
@@ -563,14 +565,14 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The outpost was disbanded or lost: everyone posted there heads home, and anyone on the way turns round.</summary>
-        public static void OnOutpostGone(Outpost o, EntityPlayerLocal player)
+        public static void OnOutpostGone(Outpost o, EntityPlayer player)
         {
             foreach (Member m in Staff(o)) Recall(m, player, "scOpRecalledGone");
             TurnBack(o, player, "scOpTurnedBackGone");
         }
 
         /// <summary>Round op1: everyone on the way to this outpost turns round (overrun: its garrison falls back). tellKey may be null.</summary>
-        public static void TurnBack(Outpost o, EntityPlayerLocal player, string tellKey)
+        public static void TurnBack(Outpost o, EntityPlayer player, string tellKey)
         {
             foreach (Member m in OnTheWay(o)) { string err; TurnHome(m, player, tellKey, out err); }
         }
@@ -582,7 +584,7 @@ namespace SurvivorCommunity
         /// its legs on the world clock (an embodied one is ScRunners'); a parked body that is loaded is taken into a snapshot -
         /// a traveler's, and a posted member's - so from then on the member is where the registry says.
         /// </summary>
-        private static void TickJourneys(World w, EntityPlayerLocal player, float t)
+        private static void TickJourneys(World w, EntityPlayer player, float t)
         {
             journeyScratch.Clear();
             foreach (var m in ScRegistry.Members.Values)
@@ -671,7 +673,7 @@ namespace SurvivorCommunity
         /// you home, their post loaded and no body of theirs anywhere for ScMissing's grace, they are home too - a resident with no
         /// body, whom ScMissing then lists for Call back.
         /// </summary>
-        private static void ParkedAtGate(World w, EntityPlayerLocal player, Member m, float t)
+        private static void ParkedAtGate(World w, EntityPlayer player, Member m, float t)
         {
             if (TheirBody(m) != null) { absentSince.Remove(m.Id); HomeParked(m, player); return; }
             if (!ScRunners.PlayerNearPost(m, player) || !ScZone.IsLoaded(m.Post) || ScNpc.HasBody(w, m.Id)) { absentSince.Remove(m.Id); return; }
@@ -684,7 +686,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Round op1: a parked member's walk home ends - their body never left: a resident again, un-hidden and stationed when loaded.</summary>
-        private static void HomeParked(Member m, EntityPlayerLocal player)
+        private static void HomeParked(Member m, EntityPlayer player)
         {
             string from = m.RunDestName;
             EndFetch(m.Id, null);
@@ -766,7 +768,7 @@ namespace SurvivorCommunity
         /// capture failed (they travel parked, logged), or (L2) the chunks where it last stood are all in and no body of theirs is
         /// anywhere, not even one being built (NotThere). The observer goes in every case.
         /// </summary>
-        private static void TickFetches(World w, EntityPlayerLocal player, float t)
+        private static void TickFetches(World w, EntityPlayer player, float t)
         {
             if (fetches.Count == 0) return;
             fetchScratch.Clear();
@@ -808,7 +810,7 @@ namespace SurvivorCommunity
         /// Round op1 review (M1): the brief load is over. Taken: with a stand-in kept, it steps aside and the walk home starts again
         /// on its spot now, the real body stepping in there (Session.SwapIn); else they travel parked - logged - and a kept stand-in goes.
         /// </summary>
-        private static void FetchDone(World w, EntityPlayerLocal player, Member m, Fetch f, bool embodied, string why)
+        private static void FetchDone(World w, EntityPlayer player, Member m, Fetch f, bool embodied, string why)
         {
             EndFetch(m.Id, null);
             if (embodied)
@@ -835,7 +837,7 @@ namespace SurvivorCommunity
         /// it). A posting just made is called off: a resident again, one with no body, whom ScMissing lists for Call back when you
         /// are home - told now. One walking home goes on parked: at the edge of the base they become that resident too.
         /// </summary>
-        private static void NotThere(EntityPlayerLocal player, Member m, Fetch f)
+        private static void NotThere(EntityPlayer player, Member m, Fetch f)
         {
             EndFetch(m.Id, null);
             RemoveStandIn(m);
@@ -956,10 +958,29 @@ namespace SurvivorCommunity
             return string.Format(Localization.Get("scUiStaffOnTheWay"), TransitName(m), EtaHours(m));
         }
 
-        private static void Told(EntityPlayerLocal player, string key, Member m, string outpost)
+        private static void Told(EntityPlayer player, string key, Member m, string outpost)
         {
             if (player == null || string.IsNullOrEmpty(key) || m == null) return;
-            ScCommunity.Tell(player, string.Format(Localization.Get(key), m.Name, outpost ?? "?", EtaHours(m)), "");
+            // round MP0: a posted member's news is the community's (every community player; single player: the player)
+            ScPlayers.TellCommunity(string.Format(Localization.Get(key), m.Name, outpost ?? "?", EtaHours(m)), "");
+        }
+
+        /// <summary>
+        /// Round MP0: the community player nearest the outpost's footprint and that distance (MaxValue with nobody) - who is at
+        /// the outpost for stand-ins and visits is any of them, not only the host's own player. Single player: the player.
+        /// </summary>
+        private static EntityPlayer NearestAt(Outpost o, out float dist)
+        {
+            EntityPlayer best = null;
+            dist = float.MaxValue;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (!ScPlayers.InCommunity(all[i])) continue;
+                float d = ScOutposts.DistanceToBox(o, all[i].position);
+                if (best == null || d < dist) { best = all[i]; dist = d; }
+            }
+            return best;
         }
 
         /// <summary>Round op1: where the snapshot was taken (an arrived member's last spot).</summary>
@@ -992,7 +1013,7 @@ namespace SurvivorCommunity
         /// ScTicker, every second: stand-ins at the outpost the player is at, visits stamped for moods. Round op1: first the
         /// journeys (TickJourneys), with or without outposts left.
         /// </summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)
         {
             try
             {
@@ -1005,14 +1026,15 @@ namespace SurvivorCommunity
                 TickJourneys(w, player, now);
                 if (ScRegistry.Outposts.Count == 0) return;
                 int today = ScCommunity.Today;
-                Vector3 pp = player.position;
                 foreach (Outpost o in ScRegistry.Outposts)
                 {
                     if (!o.Holding) continue;
-                    float d = ScOutposts.DistanceToBox(o, pp);
+                    // round MP0: any community player at the outpost - the nearest one - earns the visit and keeps the stand-ins
+                    float d;
+                    EntityPlayer visitor = NearestAt(o, out d);
                     bool near = d <= ScConfig.OutpostStandInRange;
                     if (near && o.LastVisitDay != today) { o.LastVisitDay = today; }
-                    if (near && ScZone.IsLoaded(o.Flag)) Visit(w, player, o, now);
+                    if (near && ScZone.IsLoaded(o.Flag)) Visit(w, visitor, o, now);
                     List<Member> staff = Staff(o);
                     if (staff.Count == 0) continue;
                     bool keep = d <= ScConfig.OutpostStandInRange * 1.8f && ScZone.IsLoaded(o.Flag);
@@ -1038,7 +1060,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The player is at the outpost: recount what they built (every 10 s) and hand over any stash.</summary>
-        private static void Visit(World w, EntityPlayerLocal player, Outpost o, float now)
+        private static void Visit(World w, EntityPlayer player, Outpost o, float now)
         {
             float due;
             if (!nextCount.TryGetValue(o.Id, out due) || now >= due)
@@ -1186,7 +1208,7 @@ namespace SurvivorCommunity
         /// ScOutposts.Daily: an outpost with a crafter posted turns 2 materials into 1 ammo, one with a chemist
         /// 1 fuel + 1 materials into 1 meds - only out of surplus (the stockpile keeps OutpostWorkshopKeep).
         /// </summary>
-        public static void Workshops(int day, EntityPlayerLocal player, StringBuilder summary)
+        public static void Workshops(int day, EntityPlayer player, StringBuilder summary)
         {
             if (!ScConfig.OutpostWorkshop) return;
             try
@@ -1234,7 +1256,7 @@ namespace SurvivorCommunity
         /// ScOutposts.Daily: each staffed outpost may draw a survivor in - a radio contact whose spawn is the
         /// outpost, so they are there the next time the player visits (the usual favour then applies).
         /// </summary>
-        public static void WalkIns(int day, EntityPlayerLocal player, StringBuilder summary)
+        public static void WalkIns(int day, EntityPlayer player, StringBuilder summary)
         {
             try
             {
@@ -1250,11 +1272,13 @@ namespace SurvivorCommunity
                     if (taken) continue;
                     float roll = rnd != null ? rnd.RandomFloat : UnityEngine.Random.value;
                     if (roll >= ScConfig.OutpostWalkInChance) continue;
-                    Contact ct2 = ScRadio.AddContactAt(o.Poi, o.Name, new Vector3i(o.Flag.x + 3, o.Flag.y, o.Flag.z + 3), player, rnd);
+                    // round MP0: ScRadio takes the local player (another slice's file) - null on a dedicated server: a tier-0 class
+                    // and no marker there until it takes any player
+                    Contact ct2 = ScRadio.AddContactAt(o.Poi, o.Name, new Vector3i(o.Flag.x + 3, o.Flag.y, o.Flag.z + 3), player as EntityPlayerLocal, rnd);
                     if (ct2 == null) continue;
                     if (summary.Length > 0) summary.Append(' ');
                     summary.Append(string.Format(Localization.Get("scOpWalkIn"), ct2.Label, o.Name));
-                    if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpWalkInTip"), ct2.Label, o.Name), "");
+                    if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scOpWalkInTip"), ct2.Label, o.Name), "");   // round MP0: community news
                     ScLog.Out("walk-in: " + ct2.Class + " turned up at outpost " + o.Id + " (" + o.Name + ")");
                 }
             }

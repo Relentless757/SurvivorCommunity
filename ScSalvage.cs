@@ -52,7 +52,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>ScBaseAttack.Held (the caller saves): the fight the player was at held - the salvage, its tooltip and ledger line, the record.</summary>
-        public static void Held(EntityPlayerLocal player, int killed)
+        public static void Held(EntityPlayer player, int killed)
         {
             try
             {
@@ -61,7 +61,7 @@ namespace SurvivorCommunity
                 if (units <= 0) return;
                 string line = string.Format(Localization.Get("scSalvageHeld"), units, killed);
                 ScOutposts.NoteLedger(line);
-                if (player != null) ScCommunity.Tell(player, line, "");
+                if (player != null) ScBaseAttack.TellInFight(line, "");    // round MP0: everyone at the fight (single player: the player)
             }
             catch (Exception e)
             {

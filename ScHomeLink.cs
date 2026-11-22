@@ -84,8 +84,10 @@ namespace SurvivorCommunity
         }
 
         /// <summary>ScTicker, every second.</summary>
-        public static void Tick(EntityPlayerLocal player)
+        public static void Tick(EntityPlayer player)
         {
+            // round MP0: the view is the local player's window (the requester is always the host's own player) - with none, a
+            // dedicated server has no view to keep open. MP3: the home link for any player
             try
             {
                 if (observer == null && !waiting) return;
@@ -129,7 +131,7 @@ namespace SurvivorCommunity
                 }
                 // open: keep the home loaded while the linked storage view is up, let it go once it closes
                 if (now - openedAt < GraceSeconds) return;
-                if (!ViewOpen(requester ?? player)) Release();
+                if (!ViewOpen(requester ?? (player as EntityPlayerLocal))) Release();
             }
             catch (Exception e)
             {

@@ -304,7 +304,7 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ the 1 Hz driver ----
 
         /// <summary>ScTicker, every second, after ScEncRequests.Tick: each ally's call - its arrival, the spot, the resume after a load.</summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)          // round MP0: the ticker's anchor - any server
         {
             try
             {
@@ -343,7 +343,9 @@ namespace SurvivorCommunity
         }
 
         /// <summary>One call's second. True when the record changed.</summary>
-        private static bool TickCall(World w, EntityPlayerLocal player, Enclave e, float now)
+        // round MP0: the fighter and the crate come to the anchor (the host's own player on a host), and its tells are theirs.
+        // MP5: per player (the caller)
+        private static bool TickCall(World w, EntityPlayer player, Enclave e, float now)
         {
             if (e.CallKind != Fighter && e.CallKind != Drop) { Clear(e); return true; }
             Session s = SessionOf(e.Id);
@@ -361,7 +363,7 @@ namespace SurvivorCommunity
         /// longer go - hired where they stand when their body is out, else spawned at a spot out of sight on their enclave's
         /// side (any side after AnySideSeconds; a resume any side at once). No spot within GiveUpSeconds: the call fails.
         /// </summary>
-        private static bool ArriveFighter(World w, EntityPlayerLocal player, Enclave e, Session s, float now, bool resume)
+        private static bool ArriveFighter(World w, EntityPlayer player, Enclave e, Session s, float now, bool resume)     // round MP0: any player
         {
             EncPerson p = PersonById(e.CallPid);
             if (!resume && (p == null || p.EnclaveId != e.Id || p.State != EncPerson.StateHome || p.IsLeader || HomeCount(e) < HomeAtLeast))
@@ -422,7 +424,7 @@ namespace SurvivorCommunity
         /// The fighter is here: enlisted with the player (E3's shape) until EnclaveCallFighterHours from now - or, resume, until
         /// the call's own end - a tell with where they are, a ledger line on the first coming, the log.
         /// </summary>
-        private static void Join(World w, EntityPlayerLocal player, Enclave e, EncPerson p, EntityAlive npc, Session s, float now, bool resume, string how)
+        private static void Join(World w, EntityPlayer player, Enclave e, EncPerson p, EntityAlive npc, Session s, float now, bool resume, string how)   // round MP0: any player
         {
             ulong until = resume ? e.CallUntil : w.worldTime + (ulong)Math.Max(1, ScConfig.EnclaveCallFighterHours) * 1000UL;
             ScEnclaveDeals.EnlistBody(p, npc, player, until);
@@ -457,7 +459,7 @@ namespace SurvivorCommunity
         /// hello once near the player. A call loaded live: back near the player ResumeSeconds after the world is up while their
         /// time lasts (else it ends).
         /// </summary>
-        private static bool TickLive(World w, EntityPlayerLocal player, Enclave e, Session s, float now)
+        private static bool TickLive(World w, EntityPlayer player, Enclave e, Session s, float now)    // round MP0: any player
         {
             EncPerson p = PersonById(e.CallPid);
             if (s.Body >= 0)
@@ -501,7 +503,7 @@ namespace SurvivorCommunity
         /// The supply drop: an open column found, the crate of their kind spawned EnclaveDropHeight above it, registered with
         /// the air drop director; a tell, a ledger line, the log; the call is done (the crate is vanilla's from here on).
         /// </summary>
-        private static bool ArriveDrop(World w, EntityPlayerLocal player, Enclave e, Session s, float now)
+        private static bool ArriveDrop(World w, EntityPlayer player, Enclave e, Session s, float now)  // round MP0: any player
         {
             Vector3 ground;
             if (!DropSpot(w, player, out ground))
@@ -564,7 +566,7 @@ namespace SurvivorCommunity
         /// degrees, or anySide - standable (LooseSpot: the player's level first, loaded, no trader area or bedroll zone, not
         /// nearer than the minimum to any player), out of everyone's sight and on settled chunks.
         /// </summary>
-        private static bool FighterSpot(World w, EntityPlayerLocal player, Enclave e, bool anySide, out Vector3 pos)
+        private static bool FighterSpot(World w, EntityPlayer player, Enclave e, bool anySide, out Vector3 pos)   // round MP0: near the anchor. MP5: per player
         {
             pos = Vector3.zero;
             GameRandom r = w.GetGameRandom();
@@ -592,7 +594,7 @@ namespace SurvivorCommunity
         /// (a plant on it at most) and its eight neighbours' too within two blocks of it - no roof, wall or tree in the way -
         /// never water, never a trader's area. ground: the cell on the terrain.
         /// </summary>
-        private static bool DropSpot(World w, EntityPlayerLocal player, out Vector3 ground)
+        private static bool DropSpot(World w, EntityPlayer player, out Vector3 ground)    // round MP0: near the anchor. MP5: per player
         {
             ground = Vector3.zero;
             GameRandom r = w.GetGameRandom();

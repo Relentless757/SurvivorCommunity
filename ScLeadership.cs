@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SurvivorCommunity
@@ -34,8 +35,12 @@ namespace SurvivorCommunity
         public const string MoraleCvar = "$soLeadMorale";
         public const string ShieldCvar = "$soLeadShield";
 
-        /// <summary>Ticker: the facts SurvivorOrigins pays kill XP and daily morale XP from. Written only on change.</summary>
-        public static void Publish(EntityPlayerLocal player)
+        /// <summary>
+        /// Ticker: the facts SurvivorOrigins pays kill XP and daily morale XP from. Written only on change. Round MP0: on every
+        /// community player online (a server-side SetCustomVar on a remote player's entity is sent to the clients: EntityBuffs),
+        /// each with their own sc_inzone; player is the anchor (ScPlayers.Anchor), and only says someone is online.
+        /// </summary>
+        public static void Publish(EntityPlayer player)
         {
             try
             {
@@ -43,13 +48,19 @@ namespace SurvivorCommunity
                 int followers = 0;
                 foreach (var m in ScRegistry.Members.Values)
                     if (m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) followers++;
-                bool inZone = ScZone.HasHome && ScZone.Contains(player.GetBlockPosition());
-                Set(player, FollowersCvar, followers);
-                Set(player, InZoneCvar, inZone ? 1f : 0f);
-                Set(player, MoraleHighCvar, ScConfig.HighMoraleThreshold);
                 int producing = 0;
                 foreach (Outpost o in ScRegistry.Outposts) if (o.State == OutpostState.Active) producing++;
-                Set(player, OutpostsCvar, producing);
+                List<EntityPlayer> all = ScPlayers.All;
+                for (int i = 0; i < all.Count; i++)
+                {
+                    EntityPlayer p = all[i];
+                    if (p == null || p.Buffs == null || !ScPlayers.InCommunity(p)) continue;
+                    bool inZone = ScZone.HasHome && ScZone.Contains(p.GetBlockPosition());
+                    Set(p, FollowersCvar, followers);       // MP5: per player (the followers of each one; the community's count for now)
+                    Set(p, InZoneCvar, inZone ? 1f : 0f);
+                    Set(p, MoraleHighCvar, ScConfig.HighMoraleThreshold);
+                    Set(p, OutpostsCvar, producing);
+                }
             }
             catch (Exception e)
             {
@@ -57,7 +68,7 @@ namespace SurvivorCommunity
             }
         }
 
-        private static void Set(EntityPlayerLocal player, string cvar, float v)
+        private static void Set(EntityPlayer player, string cvar, float v)     // round MP0: any player
         {
             if (player.Buffs.GetCustomVar(cvar) != v) player.Buffs.SetCustomVar(cvar, v);
         }

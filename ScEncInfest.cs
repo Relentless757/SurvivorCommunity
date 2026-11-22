@@ -57,7 +57,7 @@ namespace SurvivorCommunity
         /// The offer's target (ScEncRequests.Offer): the nearest infestation within range, else one started for the request
         /// (ScInfestations.StartNear: how "request"). Null (and why) when there is neither.
         /// </summary>
-        public static Infestation PickTarget(Enclave e, EntityPlayerLocal player, out string no)
+        public static Infestation PickTarget(Enclave e, EntityPlayer player, out string no)      // round MP0: any player (the daily roll)
         {
             no = null;
             if (!ScConfig.Infestations) { no = "Infestations is off"; return null; }
@@ -152,12 +152,11 @@ namespace SurvivorCommunity
                         ScLog.Out("enclave request #" + r.Id + ": its infestation at " + inf.PoiName + " was cleared before the player took it on - \"I already took care of it.\" completes it");
                         continue;
                     }
-                    EntityPlayerLocal pl = ScCommunity.LocalPlayer;
                     ScEncRequests.Close(r, ScEncRequests.Done, "its infestation was cleared", ScEncRequests.GainFor(r), r.TargetName, ScEncRequests.EventFor(r));
                     if (e != null)
                     {
                         e.Thanks = EnclaveRequest.KindInfestation;
-                        if (pl != null) ScCommunity.Tell(pl, string.Format(Loc("scEncReqClearedTell"), e.Name, r.TargetName), "");
+                        ScPlayers.TellCommunity(string.Format(Loc("scEncReqClearedTell"), e.Name, r.TargetName), "");    // round MP0: news for the whole community
                         ScRegistry.SaveAtomic();
                     }
                 }

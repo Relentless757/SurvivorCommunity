@@ -400,7 +400,7 @@ namespace SurvivorCommunity
         public static bool Pinned(Member m) { return m.RunLeg == RunLeg.AtSite && m.RunDistress && !m.RunSafe; }
 
         /// <summary>The gate: a point on the site-to-post line close enough to the post to always be inside the online radius.</summary>
-        public static Vector3 GatePoint(Member m, Vector3 from, EntityPlayerLocal player)
+        public static Vector3 GatePoint(Member m, Vector3 from, EntityPlayer player)
         {
             Vector3 post = ScCommunity.PostCenter(m);
             int d = ViewDim(player);
@@ -530,13 +530,13 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ the 1 Hz driver ----
 
-        private static int ViewDim(EntityPlayerLocal player)
+        private static int ViewDim(EntityPlayer player)
         {
             return player != null && player.ChunkObserver != null && player.ChunkObserver.viewDim > 0 ? player.ChunkObserver.viewDim : 6;
         }
 
         /// <summary>Chebyshev chunk distance from the player's observer (int.MaxValue before the observer's first update).</summary>
-        private static int Ring(EntityPlayerLocal player, Vector3 pos)
+        private static int Ring(EntityPlayer player, Vector3 pos)
         {
             if (player == null || player.ChunkObserver == null) return int.MaxValue;
             Vector3i cp = player.ChunkObserver.curChunkPos;
@@ -547,8 +547,10 @@ namespace SurvivorCommunity
         }
 
         /// <summary>ScTicker.OnGameUpdate, right after Relink. Host, main thread, once a second.</summary>
-        public static void Tick(World w, EntityPlayerLocal player)
+        public static void Tick(World w, EntityPlayer player)
         {
+            // round MP0: 'player' is the anchor (the host's own player whenever there is one, as before; on a dedicated server a
+            // remote player, whose server-side chunk observer stands in). MP5: capture and re-create round every player, not one
             // runners already out keep going even if PhysicalRuns was switched off: only new sends read the switch
             if (w == null || player == null || player.ChunkObserver == null) return;
             Hook(w);
@@ -612,7 +614,7 @@ namespace SurvivorCommunity
             scratch.Clear();
         }
 
-        private static void OnlineTick(World w, EntityPlayerLocal player, Member m, EntityAlive npc, ulong now, float t)
+        private static void OnlineTick(World w, EntityPlayer player, Member m, EntityAlive npc, ulong now, float t)
         {
             Session s = S(m.Id);
             if (npc.onGround && npc.position.y > 1f) { s.LastGoodPos = npc.position; s.HasGoodPos = true; }
@@ -683,7 +685,7 @@ namespace SurvivorCommunity
                 s.NextSnap = t + Math.Max(10f, ScConfig.RunSnapRefreshSeconds);
             }
 
-            // online -> offline
+            // online -> offline (round MP0: against the anchor's ring, view and death, as before. MP5: per player)
             int D = ViewDim(player);
             int ring = Ring(player, npc.position);
             float dist = XZ(npc.position, player.position);
@@ -701,7 +703,7 @@ namespace SurvivorCommunity
             return XZ(pos, ScCommunity.PostCenter(m)) <= 38f;   // Station teleports beyond 40 m: walk right in first
         }
 
-        private static void Watchdog(World w, EntityPlayerLocal player, Member m, EntityAlive npc, Session s, float t)
+        private static void Watchdog(World w, EntityPlayer player, Member m, EntityAlive npc, Session s, float t)
         {
             // The M11 fix 2 (STUCK_DIAG section 7): its clocks run on real time, so the pause menu (single player stops the
             // world's time, not this ticker) or a body that does not tick (a chunk without colliders) counted as a runner
@@ -757,7 +759,7 @@ namespace SurvivorCommunity
                 if (npc.getNavigator() != null) npc.getNavigator().clearPath();
             }
             if (still < ScConfig.RunStuckSkipSeconds) return;
-            bool unseen = XZ(npc.position, player.position) > ScConfig.RunSkipMinPlayerDist && !player.IsInViewCone(npc.position);
+            bool unseen = XZ(npc.position, player.position) > ScConfig.RunSkipMinPlayerDist && !player.IsInViewCone(npc.position);   // round MP0: the anchor's view. MP5: unseen by every player
             bool desperate = still >= ScConfig.RunStuckSkipSeconds * 4f;                         // a minute against a wall, watched or not
             if (!unseen && !desperate) return;
             Vector3 wp;
@@ -787,7 +789,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ legs ----
 
-        private static void EnterSite(World w, EntityPlayerLocal player, Member m, Vector3 at, ulong now)
+        private static void EnterSite(World w, EntityPlayer player, Member m, Vector3 at, ulong now)
         {
             if (w != null)
             {
@@ -801,16 +803,18 @@ namespace SurvivorCommunity
             BeginLeg(m, RunLeg.AtSite, at, at, now);
             // distress is rolled on arrival - never with the player standing right there (that is an escort, not a radio call)
             bool escorted = player != null && XZ(player.position, at) <= ScConfig.RescueTriggerRange;
-            if (!escorted && ScRadio.RollDistress(m, player, w != null ? w.GetGameRandom() : null)) BeginLeg(m, RunLeg.AtSite, at, at, now);   // re-timed to RunDistressHours
+            // round MP0: the anchor near the site (MP5: per player); ScRadio and ScRadioTalk take the local player (other slices'
+            // files) - null on a dedicated server: no distress roll and no radio line there until they take any player
+            if (!escorted && ScRadio.RollDistress(m, player as EntityPlayerLocal, w != null ? w.GetGameRandom() : null)) BeginLeg(m, RunLeg.AtSite, at, at, now);   // re-timed to RunDistressHours
 #if SC_V34
-            if (!m.RunDistress) ScRadioTalk.Say(m, RadioTalk.Arrived, player, false);       // R2 (a distress call said its own line)
+            if (!m.RunDistress) ScRadioTalk.Say(m, RadioTalk.Arrived, player as EntityPlayerLocal, false);       // R2 (a distress call said its own line); MP4: voices to clients
 #endif
             ScLog.Out(m.Name + " reached " + m.RunDestName + (m.Offline ? " (offline)" : "") + (m.RunDistress ? " - and radios for help" : ""));
             ScRegistry.SaveAtomic();
         }
 
         /// <summary>The site search is over: bank the find (prorated for a recall) and head for the gate.</summary>
-        public static void LeaveSite(EntityPlayerLocal player, Member m, Vector3 at, ulong now, bool rescued, float share)
+        public static void LeaveSite(EntityPlayer player, Member m, Vector3 at, ulong now, bool rescued, float share)
         {
 #if SC_V34
             if (ScMining.IsDig(m)) m.RunCarry = ScMining.TakeHaul(m, share, rescued);           // round 33c (M33): real items, onto RunHaul
@@ -826,14 +830,14 @@ namespace SurvivorCommunity
 #if SC_V34
             // R2: a good haul or a poor one on the radio - not after a rescue (you were there) or a failed distress call (hurt);
             // a recall marked both as said already
-            if (!rescued && !m.Injured) ScRadioTalk.OnLeftSite(m, player);
+            if (!rescued && !m.Injured) ScRadioTalk.OnLeftSite(m, player as EntityPlayerLocal);   // round MP0: the local player's radio (another slice's file). MP4: voices to clients
 #endif
             ScLog.Out(m.Name + " leaves " + m.RunDestName + " with " + m.RunCarry + " " + Carried(m) + (rescued ? " (rescued)" : ""));
             ScRegistry.SaveAtomic();
         }
 
         /// <summary>At the gate: the haul counts now, whether or not the player is home to see it.</summary>
-        internal static void EnterBack(EntityPlayerLocal player, Member m, ulong now)
+        internal static void EnterBack(EntityPlayer player, Member m, ulong now)
         {
             if (m.Status == MemberStatus.Transit)
             {
@@ -845,7 +849,7 @@ namespace SurvivorCommunity
                 return;
             }
 #if SC_V34
-            ScRadioTalk.Say(m, RadioTalk.Near, player, false);                                  // R2: "Almost home."
+            ScRadioTalk.Say(m, RadioTalk.Near, player as EntityPlayerLocal, false);             // R2: "Almost home." Round MP0: the local player's radio (another slice's file). MP4: voices to clients
 #endif
             // round r2: she gave the job up hurt - she comes home injured (the community's flag: treated with meds at the rollover),
             // unless she was patched up on the way (her body here, above the line ScMedic bandages at); with her body not here to
@@ -866,9 +870,10 @@ namespace SurvivorCommunity
                 ScSkills.AddXp(m, Skill.Wits, ScConfig.RunWitsXp);
                 if (ScRuns.SpecialtyFor(m.RunKind) == m.Specialty) ScSkills.AddSpecialtyXp(m, 3f);
                 string res = Localization.Get(ScNames.LocKey(m.RunKind));
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get(m.Injured ? "scRunHurt" : "scRunBack"), m.Name, m.RunCarry, res), m.Injured ? "ui_denied" : "");
+                // round MP0: a runner's homecoming is the community's news (every community player; single player: the player)
+                if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get(m.Injured ? "scRunHurt" : "scRunBack"), m.Name, m.RunCarry, res), m.Injured ? "ui_denied" : "");
             }
-            else if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRunBackEmpty"), m.Name, m.RunDestName), "");
+            else if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scRunBackEmpty"), m.Name, m.RunDestName), "");
             ScLog.Out(m.Name + " is back from " + m.RunDestName + (visited ? " with " + m.RunCarry + " " + Carried(m) : " empty-handed (turned back early)") + (m.Injured ? " (injured)" : ""));
             m.RunCarry = 0;
             m.RollPending = false;                                                              // an escorted runner reaching home was never rolled
@@ -878,7 +883,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Inside the zone / near the post: a resident again, saved with their chunk as before.</summary>
-        public static void Arrive(EntityPlayerLocal player, Member m, EntityAlive npc)
+        public static void Arrive(EntityPlayer player, Member m, EntityAlive npc)
         {
             bool posting = m.Status == MemberStatus.Transit;                                  // round op1: home from an outpost
             string from = m.RunDestName;
@@ -931,7 +936,7 @@ namespace SurvivorCommunity
             return m.RunKind.ToString();
         }
 
-        private static void AdvanceOffline(World w, EntityPlayerLocal player, Member m, ulong now)
+        private static void AdvanceOffline(World w, EntityPlayer player, Member m, ulong now)
         {
             switch (m.RunLeg)
             {
@@ -960,7 +965,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The run's dice, rolled once and only while the runner is out of the player's sight.</summary>
-        private static void RollRisk(World w, EntityPlayerLocal player, Member m)
+        private static void RollRisk(World w, EntityPlayer player, Member m)
         {
             m.RollPending = false;
             GameRandom rnd = w.GetGameRandom();
@@ -982,9 +987,9 @@ namespace SurvivorCommunity
             ScRegistry.SaveAtomic();
         }
 
-        private static void DistressTimedOut(World w, EntityPlayerLocal player, Member m, ulong now)
+        private static void DistressTimedOut(World w, EntityPlayer player, Member m, ulong now)
         {
-            ScRadio.EndDistress(w, player, m);                                                // the rescue quest closes as failed
+            ScRadio.EndDistress(w, player as EntityPlayerLocal, m);                           // the rescue quest closes as failed (round MP0: the local player's journal - another slice's file; MP4: quests to the right player)
             if (w.GetGameRandom().RandomFloat < ScConfig.RunDeathShare) { DieOffline(player, m, "scRescueDied"); return; }
             m.Injured = true;
             LeaveSite(player, m, C(m.RunSite), now, false, 1f);
@@ -997,10 +1002,10 @@ namespace SurvivorCommunity
         }
 
         /// <summary>An offline runner dies: no body anywhere; any old copy of theirs is removed when it loads.</summary>
-        private static void DieOffline(EntityPlayerLocal player, Member m, string key)
+        private static void DieOffline(EntityPlayer player, Member m, string key)
         {
             int id = m.Id;
-            ScCommunity.RecordDeath(m, player, key);
+            ScCommunity.RecordDeath(m, player as EntityPlayerLocal, key);     // round MP0: ScCommunity takes the local player (another slice's file) - its tell is skipped on a dedicated server
             ScRegistry.Doomed.Add(id);
             ScLooks.Forget(id);
             World w = ScCommunity.World;
@@ -1020,7 +1025,7 @@ namespace SurvivorCommunity
         /// finishes - the virtual walk cannot get stuck, but a re-create can fail for ever - ends at the gate.
         /// </summary>
         /// <returns>true when this brought them to the gate with their haul (the daily summary says so)</returns>
-        public static bool ForceHome(Member m, EntityPlayerLocal player)
+        public static bool ForceHome(Member m, EntityPlayer player)
         {
             if (!IsPhysical(m)) return false;
             // round op1: a posting journey's walking legs end on their own clock (no site, no dice): only one waiting at the gate is
@@ -1032,7 +1037,7 @@ namespace SurvivorCommunity
             ScLog.Warn(m.Name + ": the run is " + ScConfig.RunDeadlineGraceDays + " day(s) past its ETA (" + m.RunLeg + ") - bringing them home");
             if (m.RunLeg == RunLeg.Outbound || m.RunLeg == RunLeg.AtSite)
             {
-                if (m.RunDistress) ScRadio.EndDistress(w, player, m);
+                if (m.RunDistress) ScRadio.EndDistress(w, player as EntityPlayerLocal, m);     // round MP0: the local player's journal (another slice's file). MP4: quests to the right player
                 if (m.RunSite == Vector3i.zero) m.RunSite = m.LegTo;
                 LeaveSite(player, m, C(m.RunSite), now, false, 1f);
             }
@@ -1071,15 +1076,16 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Is the player close enough to the post for a runner waiting there to be re-created?</summary>
-        public static bool PlayerNearPost(Member m, EntityPlayerLocal player)
+        public static bool PlayerNearPost(Member m, EntityPlayer player)
         {
+            // round MP0: the anchor (the host's own player whenever there is one, as before). MP5: any player, by their own view distance
             if (player == null) return false;
             int d = ViewDim(player);
             return XZ(player.position, ScCommunity.PostCenter(m)) <= 16f * (d - ScConfig.RunOnlineRingMargin);
         }
 
         /// <summary>Recall from the window or the dialog: turn round now (a site visit cut short brings a share of the find).</summary>
-        public static bool Recall(Member m, EntityPlayerLocal player, out string error)
+        public static bool Recall(Member m, EntityPlayer player, out string error)
         {
             error = null;
             if (!ScCommunity.IsHost) { error = "scHostOnly"; return false; }
@@ -1142,11 +1148,13 @@ namespace SurvivorCommunity
         /// her the bandage she lacks) the count is dropped, and starts again once you close it. While the game is paused nothing
         /// is decided, but the count is not dropped: the time it was paused still counts, so she may turn on the first tick after.
         /// </summary>
-        private static void HurtCheck(World w, EntityPlayerLocal player, Member m, EntityAlive npc, Session s, ulong now, float t)
+        private static void HurtCheck(World w, EntityPlayer player, Member m, EntityAlive npc, Session s, ulong now, float t)
         {
             if (!TooHurtForTheJob(m, npc)) { s.HurtSince = -1f; return; }
             if (GameManager.Instance != null && GameManager.Instance.IsPaused()) return;
-            if (ScAmmo.IsWindowOpen(m.Id) || (player != null && ScQuests.TalkingTo(player) == m.Id)) { s.HurtSince = -1f; return; }
+            // round MP0: a talk is the local player's window (ScQuests, another slice's file). MP2: window
+            EntityPlayerLocal lp = player as EntityPlayerLocal;
+            if (ScAmmo.IsWindowOpen(m.Id) || (lp != null && ScQuests.TalkingTo(lp) == m.Id)) { s.HurtSince = -1f; return; }
             if (s.HurtSince < 0f) { s.HurtSince = t; return; }
             if (t - s.HurtSince < HurtConfirmSeconds) return;
             if (!TurnHomeHurt(w, player, m, npc, now, false, true)) s.HurtSince = t;           // not turned (fix 6): asked again in HurtConfirmSeconds
@@ -1160,7 +1168,8 @@ namespace SurvivorCommunity
         {
             try
             {
-                return TooHurtForTheJob(m, npc) && TurnHomeHurt(w, ScCommunity.LocalPlayer, m, npc, w != null ? w.worldTime : 0UL, true, despawnNow);
+                // round MP0: the anchor (the host's own player whenever there is one, as before). MP5: per player
+                return TooHurtForTheJob(m, npc) && TurnHomeHurt(w, ScPlayers.Anchor(), m, npc, w != null ? w.worldTime : 0UL, true, despawnNow);
             }
             catch (Exception e)
             {
@@ -1184,10 +1193,13 @@ namespace SurvivorCommunity
         /// makes moot are marked said. RunHurt is set once the leg has turned (review fix 4: also when a throw comes after it).
         /// True when she turned.
         /// </summary>
-        internal static bool TurnHomeHurt(World w, EntityPlayerLocal player, Member m, EntityAlive npc, ulong now, bool capturing, bool despawnNow)
+        internal static bool TurnHomeHurt(World w, EntityPlayer player, Member m, EntityAlive npc, ulong now, bool capturing, bool despawnNow)
         {
             bool distress = m.RunDistress && !m.RunSafe;
-            if (distress && player == null)
+            // round MP0: the rescue quest lives in the local player's journal (ScRadio, another slice's file) - with no local player
+            // (a dedicated server) it cannot be closed, as before with none. MP4: quests to the right player
+            EntityPlayerLocal lp = player as EntityPlayerLocal;
+            if (distress && lp == null)
             {
                 ScLog.Once("runner-hurt-pinned-noplayer-" + m.Id, m.Name + " is too hurt for the job, but their distress call cannot be closed with no local player - they stay pinned");
                 return false;
@@ -1209,11 +1221,11 @@ namespace SurvivorCommunity
                 // no haul line and no "heading home" line: the hurt line below says it (and, turned on the way out, no "I'm here")
                 ScRadioTalk.Mark(m, RadioTalk.Found | RadioTalk.Empty | RadioTalk.Home | (was == RunLeg.Outbound ? RadioTalk.Out | RadioTalk.Arrived : RadioTalk.None));
 #endif
-                if (rescue) ScRadio.Rescued(w, player, m);                                      // the quest completes; LeaveSite turns her home
+                if (rescue) ScRadio.Rescued(w, lp, m);                                          // the quest completes; LeaveSite turns her home
                 else if (distress)
                 {
                     if (capturing && w != null) ScRadio.OnRunnerOffline(w, m, despawnNow);      // a live event resets as she leaves the world
-                    ScRadio.EndDistress(w, player, m);                                          // the call ends unanswered: its quest fails
+                    ScRadio.EndDistress(w, lp, m);                                              // the call ends unanswered: its quest fails
                 }
                 if (m.RunLeg == RunLeg.Outbound)
                 {
@@ -1255,16 +1267,18 @@ namespace SurvivorCommunity
         /// (a message, radio or not), else on the radio (RadioTalk.HurtHome: the caption alone, there is no recording; heard only
         /// when she carries a radio and you carry one too, as every radio line). Spent either way.
         /// </summary>
-        private static void SayHurtHome(Member m, EntityPlayerLocal player)
+        private static void SayHurtHome(Member m, EntityPlayer player)
         {
 #if SC_V34
-            if (player != null && ScRadioTalk.InPerson(m, player))
+            // round MP0: ScRadioTalk takes the local player (another slice's file) - null on a dedicated server. MP4: voices to clients
+            EntityPlayerLocal lp = player as EntityPlayerLocal;
+            if (lp != null && ScRadioTalk.InPerson(m, lp))
             {
                 ScRadioTalk.Mark(m, RadioTalk.HurtHome);
-                ScCommunity.Tell(player, string.Format(Localization.Get("scRunHurtHome"), m.Name), "ui_denied");
+                ScCommunity.Tell(lp, string.Format(Localization.Get("scRunHurtHome"), m.Name), "ui_denied");
                 return;
             }
-            ScRadioTalk.Say(m, RadioTalk.HurtHome, player, false);
+            ScRadioTalk.Say(m, RadioTalk.HurtHome, lp, false);
 #endif
         }
 
@@ -1334,7 +1348,7 @@ namespace SurvivorCommunity
         /// registry walks her on; in your sight she stops waiting for that threat (HeldReleased): the walk goes on, and she still
         /// runs from it or fights it as before. Each logs once. True when she went offline (the watchdog stops there).
         /// </summary>
-        private static bool HoldClock(World w, EntityPlayerLocal player, Member m, EntityAlive npc, Session s, float gap)
+        private static bool HoldClock(World w, EntityPlayer player, Member m, EntityAlive npc, Session s, float gap)
         {
             if (!s.RouteHeldNow || !RouteMemoFresh(s)) return false;
             s.HeldTotal += Mathf.Clamp(gap, 0f, 2f);
@@ -1522,7 +1536,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ offline -> online ----
 
-        private static bool TryMaterialize(World w, EntityPlayerLocal player, Member m, ulong now, float t)
+        private static bool TryMaterialize(World w, EntityPlayer player, Member m, ulong now, float t)
         {
             Session s = S(m.Id);
             if (!s.SwapIn && t - s.OfflineSince < ScConfig.RunOfflineDwellSeconds) return false;
@@ -1530,6 +1544,7 @@ namespace SurvivorCommunity
             int D = ViewDim(player);
             int margin = ScConfig.RunOnlineRingMargin;
             float dist = XZ(v, player.position);
+            // round MP0: near the anchor and out of its view, as before. MP5: near any player, out of every nearby player's view
             if (player.IsDead() || Ring(player, v) > D - margin || dist > 16f * (D - margin)) { s.SettledSince = -1f; s.PopInBlockedSince = -1f; s.SwapIn = false; return false; }
             // vanilla's pop-in rule: nothing appears within 50 m in front of the player - given up after a while so a
             // runner waiting at the gate still comes home while the player looks that way. Round op1: not for the body that
@@ -1555,7 +1570,7 @@ namespace SurvivorCommunity
             return Materialize(w, player, m, v, now, t, rekey);
         }
 
-        private static bool Materialize(World w, EntityPlayerLocal player, Member m, Vector3 v, ulong now, float t, bool rekey)
+        private static bool Materialize(World w, EntityPlayer player, Member m, Vector3 v, ulong now, float t, bool rekey)
         {
             Session s = S(m.Id);
             Vector3 spot;
@@ -1685,7 +1700,7 @@ namespace SurvivorCommunity
         /// A member came back under a new entity id - a runner re-created under a new id, or a missing resident called
         /// back (ScMissing.Restore): move every record keyed by the old one. fresh: a new body, so it takes the new birth time.
         /// </summary>
-        public static void Rekey(World w, EntityPlayerLocal player, Member m, EntityAlive e, int oldId, bool fresh)
+        public static void Rekey(World w, EntityPlayer player, Member m, EntityAlive e, int oldId, bool fresh)
         {
             ScRegistry.Members.Remove(oldId);
             m.Id = e.entityId;
