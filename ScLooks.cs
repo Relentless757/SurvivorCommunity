@@ -1747,7 +1747,9 @@ namespace SurvivorCommunity
         {
             int id = npc.entityId, cls = npc.entityClass;
             string source = SourceOf(id);
-            if (l != null) sentLook[id] = Wire(l);
+            // the review's S1: a one-to-one send only seeds the record - it never stands for a broadcast, or a look that changed
+            // since (a creator face a frame later) would read as already sent and the clients tracking the body keep the old one
+            if (l != null && !sentLook.ContainsKey(id)) sentLook[id] = Wire(l);
             return ScNet.ToPlayer(player, () => NetPackageManager.GetPackage<NetPackageScLook>().Setup(id, cls, l, source), null);
         }
 
