@@ -42,8 +42,8 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 Why: each client used to roll its own random look for every SC body (members, prospects, enclave people, bands, wild
 survivors, raiders), so every player saw a different person, and no client showed Vanity Vault paints. The server now
 sends each body's look (`NetPackageScLook`) right before it sends the body, answers a client that asks
-(`NetPackageScLookRequest`), and sends a changed look to every client that has the body. Build `sc34_mp1l`, **not
-deployed yet**, untested in game. With `DebugLogging` on, the client logs a `looks:` line per look it gets and per body
+(`NetPackageScLookRequest`), and sends a changed look to every client that has the body. Build `sc34_mp1` (with the mirror part),
+**deployed to 3.4 on 2026-11-23** (port-3.4 939c9531, DLL 2c17828b, protocol 2), untested in game. With `DebugLogging` on, the client logs a `looks:` line per look it gets and per body
 it rebuilds; `sc xnpc` (it runs on the server) counts `mp1-look-pushed`, `-answered` and `-changed-sent`.
 
 **Single player: nothing may change**
@@ -66,7 +66,7 @@ it rebuilds; `sc xnpc` (it runs on the server) counts `mp1-look-pushed`, `-answe
 
 Why: on a client, the community window, the Home Status HUD, the Facilities tab and the talk card showed an empty community
 (morale 50, 0 members, 0 stock), which reads as data loss. The server now sends each client a copy of the community and
-refreshes it after changes. Buttons still act only on the host (round MP2). Build `sc34_mp1m`, **not deployed yet**.
+refreshes it after changes. Buttons still act only on the host (round MP2). Build `sc34_mp1` (with the looks part), **deployed to 3.4 on 2026-11-23** (port-3.4 939c9531, DLL 2c17828b, protocol 2), untested in game.
 
 **Single player: nothing may change**
 - [ ] The community window (Members, Outposts, Facilities), its buttons and the Home Status HUD work and refresh as before.
@@ -99,7 +99,7 @@ refreshes it after changes. Buttons still act only on the host (round MP2). Buil
 
 Why: MP0's dedicated-server test found that an enclave's people were never made there. A server only builds the colliders
 of a chunk an entity is in, so SC's "is the area settled" test never passed. Near a player on another machine it no longer
-requires colliders. Build `sc34_mp01`, **not deployed yet** (self-tested on the test server, 2026-11-23: enclave 7's four
+requires colliders. Shipped inside `sc34_mp1`, **deployed to 3.4 on 2026-11-23** (port-3.4 939c9531, DLL 2c17828b, protocol 2), untested in game (self-tested on the test server, 2026-11-23: enclave 7's four
 people were made at their home spots, full health).
 
 - [ ] Single player: an enclave's people still appear when you come near, and bands on the road still show up.
