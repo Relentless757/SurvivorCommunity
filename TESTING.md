@@ -54,16 +54,28 @@ dialogs, markers, quests and voices for clients come in later rounds. Build `sc3
 - [ ] Log: no SC errors. Once: `community owner <you> recorded by platform id`.
 
 **Joining a server without SC** (the test server before SC goes on it)
-- [ ] You stay connected. Your log says `the server has no SurvivorCommunity network layer`.
+- [x] You stay connected. Your log says `the server has no SurvivorCommunity network layer`. (The user, 2026-11-22: still
+      connected after a minute; the line is in the log, no exceptions.)
 
 **Dedicated server** (a copy of a save with a community; you join with your 3.4 client)
-- [ ] Join: your log says `server runs the same SurvivorCommunity protocol (1)`.
-- [ ] With you at home the day rolls over at midnight: you get the day's summary, stock is used, the morale buff is on you.
-- [ ] A home attack while you're home is the live fight, not the away fight.
-- [ ] Your followers follow you again after the server restarts.
-- [ ] A downed member bleeds out without help, and a resident medic runs to a downed member.
-- [ ] Enclave people appear at their building when you come near; bands on the road; radio survivors.
-- [ ] Airdrops come on the game's own schedule (the radio can't ask for one on a dedicated server yet).
+Self-tested 2026-11-23 (my run: the test server on a copy of ClaudeTest34, the 3.4 client joined through DevLink):
+- [x] Join: your log says `server runs the same SurvivorCommunity protocol (1)`; the server's says `player Elisk runs
+      SurvivorCommunity protocol 1`, then `community owner Elisk recorded by platform id` (the old save's owner id filled in).
+- [x] With you at home the day rolls over at midnight: the server's `daily tick day 5` used 4 food and 3 water, the
+      outpost, enclave and band dailies ran, the morale buff is on the client's player, and the community's news reached
+      the client ("Walt has had enough ...").
+- [x] A home attack while you're home is the live fight: called by the server at full attention, 7 zombies spawned
+      south of the base, `base attack HELD: 7 killed`. The residents' intruder response ran too.
+- [ ] Your followers follow you again after the server restarts. (This save has no following member: not tested.)
+- [x] A downed member bleeds out without help: Walt went down, the bleed paused while the client's player was dead,
+      went on after the respawn, `Walt bled out after 298 s down`. A resident medic: no medic in this save, not tested.
+- [ ] Enclave people appear at their building when you come near; bands on the road; radio survivors. **FAILS**: the
+      enclave is found (`enclave 7 ... found`, its doors unlocked) but its people are never made - `sc enclave spawn 7`
+      says `its POI's chunks are not loaded and settled`, even 16 m from the building. SC's "chunks settled" test
+      (`ScRunners.Settled`) never passes on a dedicated server; bands (`ScBands`) and physical runners use it too. Not an
+      MP0 regression: next round.
+- [ ] Airdrops come on the game's own schedule (the radio can't ask for one on a dedicated server yet). (The server
+      logged `Next Airdrop: 7 12:00`; not waited for.)
 - [ ] Expected missing (later rounds): the community window's data and buttons, the land claim's SC entries, SC dialog
       rows, markers, quests and SC's voices.
 
