@@ -535,6 +535,8 @@ namespace SurvivorCommunity
         /// After every third-person build of one of our bodies (spawn, gear change, ScLooks.Rebuild, XNPC's model switch):
         /// the look's paints. Here and not after EModelSdcsNpc.GenerateMeshes: XNPC hides the rig right after the build
         /// while the body is out of view (always on the first build), and Vanity Vault skips inactive renderers.
+        /// Round MP1: on a client ScLooks.Get gives the look the server sent for the copy, so a client paints what the
+        /// server rolled (a client's placeholder roll has none: Roll paints on the server only).
         /// </summary>
         [HarmonyPatch]
         public static class Patch_CreateVizTP

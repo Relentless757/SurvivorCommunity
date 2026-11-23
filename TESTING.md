@@ -37,6 +37,32 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP1 (part: looks) (2026-11-23): every player sees the same survivors
+
+Why: each client used to roll its own random look for every SC body (members, prospects, enclave people, bands, wild
+survivors, raiders), so every player saw a different person, and no client showed Vanity Vault paints. The server now
+sends each body's look (`NetPackageScLook`) right before it sends the body, answers a client that asks
+(`NetPackageScLookRequest`), and sends a changed look to every client that has the body. Build `sc34_mp1l`, **not
+deployed yet**, untested in game. With `DebugLogging` on, the client logs a `looks:` line per look it gets and per body
+it rebuilds; `sc xnpc` (it runs on the server) counts `mp1-look-pushed`, `-answered` and `-changed-sent`.
+
+**Single player: nothing may change**
+- [ ] Members, prospects, enclave people and raiders look as before after a save and reload, Vanity Vault paints included.
+- [ ] `sc look <member>`, `sc paint <member> roll` and a Wardrobe pick change the body as before.
+- [ ] `sc xnpc` shows no `mp1-look-` counter at all. Log: no SC errors.
+
+**A client on a dedicated server or a listen host** (stand next to each other and compare)
+- [ ] Join near the base: every member has the same face, hair, eyes and clothes on both machines, paints too (Vanity
+      Vault on both). The client's log says `looks: the server's looks arrive` once.
+- [ ] Walk more than 100 m away and come back: the same people, and no visible change as they appear.
+- [ ] Meet a new survivor (radio contact, wild survivor, a band) and raiders: the same people on both machines.
+- [ ] A change made on the server reaches the client within a second or so: `sc look <member>` (server console),
+      `sc paint <member> roll`, a Wardrobe pick by either player, member panel armor (host).
+- [ ] Right after joining, a body may first show another look and then switch once (it was built before the hellos
+      were through). It should never switch twice, and never show a different look after that.
+- [ ] Joining a server without SC (or another SC version): the client log says `looks: the server does not send
+      SurvivorCommunity's looks` and the client keeps its own looks, as before. Still connected.
+
 ## Round MP0.1 (2026-11-23): enclave people, bands and runners on a dedicated server
 
 Why: MP0's dedicated-server test found that an enclave's people were never made there. A server only builds the colliders

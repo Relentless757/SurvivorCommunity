@@ -2116,6 +2116,18 @@ Round MP0 is the groundwork:
   colliders only around entities (`ChunkManager.GenerateCollidersOnlyAroundEntites`), and frees an empty chunk's. So near a
   player on another machine the test needs the chunks loaded, decorated, lit and not brand new, but no colliders (a body
   spawned there brings them). Near the host's own player it is unchanged.
+- **Round MP1, looks (`ScLooks`, "one look on every machine"):** every machine builds SC's bodies (X1), but only the
+  server knows their looks. The server is the authority: it never rolls a look because a client asked. It sends a body's
+  look (`NetPackageScLook`: `Look.Encode`, `EncodeGear`, the server's source) to a client right before it starts sending
+  the body (a prefix on `NetEntityDistributionEntry.updatePlayerEntity`, vanilla's own range test). It has to go before:
+  the packages that follow the spawn build the copy at once, since `World.GetEntity` forces a pending body. A copy built
+  without it, for example while joining before the hellos are through, wears a placeholder (this machine's earlier look
+  for the id, else a roll). It asks with `NetPackageScLookRequest`, once per copy and retried while unanswered, and is
+  rebuilt when the answer comes, one body per frame. Every look change on a live body ends in `ScLooks.Rebuild`, which
+  sends the new look to the clients that track the body when it differs from what they were sent. A client applies a look
+  with raw slot writes: `SetSlotItem`'s equip events would send a buff on a client copy to the server's real body. The
+  client keeps the looks for the session, cleared at the world's start and end. X17 never gives a client's copy a creator
+  face; the server's arrives with its look.
 - **Dedicated-server specifics:**
   - airdrops follow vanilla's schedule (`RadioOnlyAirdrops` applies only with a local player);
   - supply runs sent by a client are hidden runs;

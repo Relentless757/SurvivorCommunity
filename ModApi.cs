@@ -169,11 +169,13 @@ namespace SurvivorCommunity
                     ScTicker.OnGameUpdate();
                     ScWeaponWarm.Update();             // NPC weapon models in the background (round wp)
                     ScBarks.Tick();                    // V2: SC's greetings, chatter and raider taunts (each paces itself)
+                    ScLooks.NetTick();                 // round MP1: a client asks for the server's looks and rebuilds a body with one (out at once elsewhere)
                 });
                 ModEvents.WorldShuttingDown.RegisterHandler((ref ModEvents.SWorldShuttingDownData _d) =>
                 {
                     // round MP0: first, on its own (the review's N9) - the next session says hello again whatever throws below
                     try { ScNet.Reset(); } catch (Exception e) { ScLog.Once("net-reset", e); }
+                    try { ScLooks.ResetNet(); } catch (Exception e) { ScLog.Once("looks-net-reset", e); }   // round MP1: the looks sent and received
                     ScRunners.OnWorldShuttingDown();   // first: runners in the world go back to their snapshot before the world is saved
                     ScEnclavePeople.OnWorldShuttingDown();   // enclave bodies recorded and taken out before the save (E2)
                     ScBands.OnWorldShuttingDown();           // band bodies the same, their walk re-planned from where they were (E13a)
@@ -563,6 +565,8 @@ namespace SurvivorCommunity
             // ScVanity.cs - Vanity Vault paints and tattoos on our bodies after every build (inert without Vanity Vault)
             Add(t, "SDCSUtils::CreateVizTP", Patches_Vanity.Patch_CreateVizTP.Target());
             Add(t, "EModelSDCS::SetVisible", Patches_Vanity.Patch_SetVisible.Target());
+            // ScLooks.cs (round MP1) - the server sends a body's look to a client right before the body
+            Add(t, "NetEntityDistributionEntry::updatePlayerEntity", Patches_LookNet.Patch_TrackStart.Target());
             // ScAmmo.cs - a remote player's open NPC inventory window holds off the ammo move and medical use out of it
             Add(t, "NetPackageHarvestInventoryRequest::ProcessPackage", ScAmmo.RemoteOpenTarget());
             Add(t, "NetPackageHarvestInventoryUpdate::ProcessPackage", ScAmmo.RemoteCloseTarget());

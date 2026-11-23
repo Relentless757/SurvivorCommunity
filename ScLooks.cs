@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Reflection;
 using System.Text;
+using HarmonyLib;
 using UnityEngine;
 
 namespace SurvivorCommunity
@@ -196,6 +198,7 @@ namespace SurvivorCommunity
 #if SC_V34
             pendingFaces.Clear();
 #endif
+            ResetNet();     // round MP1: the looks this machine was sent or sent, and its open questions
         }
 
         /// <summary>Forgets a despawned/purged survivor's session look (entity ids are recycled).</summary>
@@ -204,6 +207,7 @@ namespace SurvivorCommunity
             session.Remove(entityId);
             sessionClass.Remove(entityId);
             sessionSource.Remove(entityId);
+            sentLook.Remove(entityId);                 // round MP1: the look the clients were last sent for that body
             ScVanity.Forget(entityId);                 // a paint still waiting for the body to show
             ScTeam.Forget(entityId);                   // its team-strength verdict (round tm1)
             ScRetreat.Forget(entityId);                // its retreat state (round rt1)
@@ -253,6 +257,10 @@ namespace SurvivorCommunity
         /// The look for an entity that is initialising its player body: the pending spawn look, else the
         /// registry record (reloads), else what this session rolled for it, else a fresh roll (a raider's clothes from
         /// RaiderGearSets).
+        /// Round MP1: a client's copy (isEntityRemote) takes the look the server sent for it (OnLookReceived); without one -
+        /// or with one only from an earlier copy of the body - the server is asked (AskFor), and until its answer the copy
+        /// wears a placeholder: this machine's earlier look for the id, else a roll, as before MP1 (no paints: ScVanity rolls
+        /// on the server only). The registry is never loaded on a client, so nothing else changes there.
         /// </summary>
         public static Look ForEntity(Entity e)
         {
@@ -263,6 +271,16 @@ namespace SurvivorCommunity
             {
                 string cls = e != null ? ScCommunity.ClassName(e as EntityAlive) : "";
                 if (Pending != null) { look = Pending; name = PendingName; Pending = null; PendingName = null; source = "pending"; }
+                // round MP1: a client's copy - the server's look first (fresh: sent for this copy, nothing to ask)
+                bool remote = e != null && e.isEntityRemote;
+                bool fresh = false;
+                if (look == null && remote)
+                {
+                    string from;
+                    look = ReceivedFor(e, out fresh, out from);
+                    if (look != null) source = "server:" + from + (fresh ? "" : " (an earlier copy's)");
+                }
+                if (remote && !fresh) AskFor(e.entityId);
                 if (look == null && e != null)
                 {
                     Member m = ScRegistry.GetMember(e.entityId);
@@ -281,10 +299,12 @@ namespace SurvivorCommunity
                 }
                 if (look == null)
                 {
-                    source = "roll";
+                    source = remote ? "placeholder" : "roll";      // round MP1: a client's roll stands in until the server's look comes
                     World w = ScCommunity.World;
                     look = Roll(ClassIsMale(cls), w != null ? w.GetGameRandom() : null, true, ScXnpc.IsRaiderClass(cls), ScLoadout.TierCap(cls));
                 }
+                if (remote && source.StartsWith("server:", StringComparison.Ordinal)) Patches_Xnpc.Count("mp1-look-built-from-server");
+                else if (remote) Patches_Xnpc.Count("mp1-look-built-placeholder");
                 Validate(look, e, name);    // P2's hair and round 31's hair color fixes land here, before the body is built (X1)
                 if (e != null) { session[e.entityId] = look; sessionClass[e.entityId] = cls; sessionSource[e.entityId] = source; }
             }
@@ -329,6 +349,10 @@ namespace SurvivorCommunity
         public static string CustomFaceRefusal(EntityAlive npc)
         {
             if (npc == null || !ScXnpc.IsSurvivorBody(npc)) return "not a survivor body of ours";
+            // round MP1: a client's copy wears the server's look (the registry is empty here, so the tests below would let
+            // any copy take a face only this machine would see). A creator face is the server's to give; it arrives with
+            // the server's look like any other change. The received data names what that look is.
+            if (npc.isEntityRemote) return ClientFaceRefusal(npc.entityId);
             if (ScRegistry.GetMember(npc.entityId) != null) return "a member";
             if (ScRegistry.GetProspect(npc.entityId) != null) return "a prospect";
             if (ScXnpc.IsCommunity(npc)) return "one of the community (or a stand-in)";
@@ -1437,6 +1461,9 @@ namespace SurvivorCommunity
                 x.EnsureTestAnimatorController("SurvivorCommunity");   // what XNPC's own rebuild does after the meshes
             }
             catch (Exception e) { ScLog.Once("looks-rebuild", e); }
+            // round MP1: every look the server changes on a live body ends in this rebuild (Apply, SyncGear, Sync, sc paint):
+            // the clients that have the body get the new look (when it differs from the one they were sent)
+            if (npc != null && !npc.isEntityRemote) LookChanged(npc);
         }
 
         /// <summary>A whole new face (same sex) plus the look's gear, applied to a loaded survivor.</summary>
@@ -1564,6 +1591,460 @@ namespace SurvivorCommunity
             if (l == null || !l.HasPaint) return "no paints";
             return "paint " + (string.IsNullOrEmpty(l.BodyPaint) ? "-" : l.BodyPaint) + "/" + (string.IsNullOrEmpty(l.FacePaint) ? "-" : l.FacePaint)
                    + " tattoo " + (string.IsNullOrEmpty(l.Tattoo) ? "-" : l.Tattoo);
+        }
+
+        // ---- round MP1: one look on every machine (NetPackageScLook, NetPackageScLookRequest) ----
+        //
+        // Every machine builds SC's bodies (X1), but only the server knows their looks (the registry, the session, Pending at
+        // the spawn). Before MP1 each client rolled its own, so every player saw a different person. Now the server is the
+        // authority and a client builds its copy from the look the server sent for it:
+        //  - the server sends a body's look to a client right BEFORE the game starts sending the body to it (OnTrackStart,
+        //    from Patches_LookNet.Patch_TrackStart): the client keeps it, and its copy is built from it the first time. After
+        //    the spawn package the game sends packages whose handling builds the copy at once (World.GetEntity forces a
+        //    pending body), so a look sent after the spawn would always come too late;
+        //  - a copy built without it (the join, before the two hellos are through; a look the server had not got yet) wears a
+        //    placeholder - this machine's earlier look for the id, else a roll, as before MP1 - asks the server
+        //    (NetPackageScLookRequest: once per copy, again while unanswered, AskTries in all) and is rebuilt when the answer
+        //    comes, one body per frame (a crowd never in one frame);
+        //  - a look the server changes on a live body (Wardrobe, member panel, sc look / paint / gear, a creator face, the
+        //    relink) ends in Rebuild, and LookChanged sends it to every client that has the body.
+        // A client keeps the looks it was sent for the session (cleared at the world's start and end): a body that leaves its
+        // range and comes back is built from the kept look and asks again, unless the server's look came first.
+        // Single player and the host's own bodies: none of this runs (no remote copy, no client to send to).
+
+        /// <summary>Round MP1, client: a look the server sent for a body.</summary>
+        private sealed class Received
+        {
+            /// <summary>The server's look; null when the server has none of SC's for the body (it answered "none").</summary>
+            public Look Look;
+            /// <summary>The entity class it was sent for: a copy of another class (a recycled id) does not take it.</summary>
+            public int Class;
+            /// <summary>Where the server's look came from (member, prospect, session, roll, creator face ...).</summary>
+            public string Source = "";
+            /// <summary>It came for the copy loaded now, or about to be built: that copy asks for nothing.</summary>
+            public bool Fresh;
+        }
+
+        /// <summary>Round MP1, client: a copy's open question - when to ask (again), and how often it was asked.</summary>
+        private sealed class Asked
+        {
+            public float Due;
+            public int Tries;
+        }
+
+        /// <summary>Round MP1, client: the looks the server sent, by entity id. Session only.</summary>
+        private static readonly Dictionary<int, Received> received = new Dictionary<int, Received>();
+        /// <summary>Round MP1, client: the copies waiting for the server's look, by entity id.</summary>
+        private static readonly Dictionary<int, Asked> asks = new Dictionary<int, Asked>();
+        private static readonly List<int> netScratch = new List<int>();
+        /// <summary>Round MP1, client: copies built before their look came, rebuilt one per frame (NetTick).</summary>
+        private static readonly Queue<int> rebuilds = new Queue<int>();
+        private static readonly HashSet<int> rebuildQueued = new HashSet<int>();
+        /// <summary>Round MP1, server: each body's look as last sent to a client (Wire), so a rebuild that changed nothing sends nothing.</summary>
+        private static readonly Dictionary<int, string> sentLook = new Dictionary<int, string>();
+        /// <summary>Round MP1, client: the world whose EntityUnloadedDelegates tells this machine a copy left.</summary>
+        private static World unloadHooked;
+        /// <summary>Round MP1: a copy asks this often in all (the first ask and the retries) before it keeps its placeholder.</summary>
+        private const int AskTries = 3;
+        private const float AskRetrySeconds = 4f;
+        /// <summary>Round MP1: asks sent per frame at most (the join: every body around the player at once).</summary>
+        private const int AsksPerFrame = 8;
+        /// <summary>Round MP1: kept looks above this drop the ones of bodies not loaded now.</summary>
+        private const int ReceivedCap = 2048;
+
+        /// <summary>Round MP1: the look as it goes over the wire - the face (paints and the creator flag in it) and the gear with qualities.</summary>
+        internal static string Wire(Look l)
+        {
+            return l == null ? "" : l.Encode() + "\n" + l.EncodeGear();
+        }
+
+        /// <summary>Round MP1: forgets the looks sent and received, and the open questions (the world's start and end).</summary>
+        public static void ResetNet()
+        {
+            received.Clear();
+            asks.Clear();
+            rebuilds.Clear();
+            rebuildQueued.Clear();
+            sentLook.Clear();
+            UnhookUnloads();
+        }
+
+        // -- server --
+
+        /// <summary>
+        /// Round MP1, server (Patches_LookNet.Patch_TrackStart): the game is about to start sending this body to a remote
+        /// player. One of SC's bodies sends its look first, to a client that said hello with SC's protocol. A body with no
+        /// look of SC's yet sends nothing: the client's copy asks for it once built.
+        /// </summary>
+        internal static void OnTrackStart(Entity e, EntityPlayer player)
+        {
+            EntityAlive npc = e as EntityAlive;
+            if (npc == null || npc.isEntityRemote || !ScXnpc.IsBody(npc) || !ScNet.ClientMatches(player)) return;
+            Look l = Get(npc);
+            if (l == null) return;
+            if (SendLook(player, npc, l)) Patches_Xnpc.Count("mp1-look-pushed");
+        }
+
+        /// <summary>
+        /// Round MP1, server (NetPackageScLookRequest): a client asks for a body's look. Answered to that client alone, with
+        /// the look the server has (Get: never rolled for the asking) or "none of SC's"; only for a body the game sends that
+        /// player (its copy exists there: a request cannot fish for others), and only to a client that said hello with SC's
+        /// protocol. A body the server does not have loaded is not answered: the client asks again, then gives up.
+        /// </summary>
+        internal static void OnLookRequest(ClientInfo sender, int entityId)
+        {
+            try
+            {
+                World w = ScCommunity.World;
+                if (sender == null || w == null || !ScCommunity.IsHost) return;
+                EntityPlayer p = ScPlayers.ByEntity(sender.entityId);
+                if (p == null || p is EntityPlayerLocal || !ScNet.ClientMatches(p)) return;
+                EntityAlive npc = ScNpc.Loaded(w, entityId) as EntityAlive;     // never forces a body still being built
+                if (npc == null || npc.isEntityRemote) return;
+                NetEntityDistributionEntry entry = w.entityDistributer != null ? w.entityDistributer.FindEntry(npc) : null;
+                if (entry == null || !entry.trackedPlayers.Contains(p)) return;
+                Look l = ScXnpc.IsBody(npc) ? Get(npc) : null;
+                if (SendLook(p, npc, l)) Patches_Xnpc.Count(l != null ? "mp1-look-answered" : "mp1-look-answered-none");
+            }
+            catch (Exception e) { ScLog.Once("looks-request", e); }
+        }
+
+        /// <summary>
+        /// Round MP1, server (Rebuild): a live body was rebuilt. When its look differs from the one last sent, every client the
+        /// game sends the body to - and that said hello with SC's protocol - gets the new one. The game's own
+        /// SendPacketToTrackedPlayers sends to every tracking player alike, so its entry's players are walked here instead.
+        /// Nothing is sent, or noted, while no client is connected (single player, a host alone).
+        /// </summary>
+        internal static void LookChanged(EntityAlive npc)
+        {
+            try
+            {
+                ConnectionManager cm = ScNet.Cm;
+                if (npc == null || npc.isEntityRemote || cm == null || !cm.IsServer || cm.Clients == null || cm.Clients.Count == 0) return;
+                Look l = Get(npc);
+                if (l == null) return;
+                string wire = Wire(l), was;
+                if (sentLook.TryGetValue(npc.entityId, out was) && was == wire) return;
+                sentLook[npc.entityId] = wire;
+                World w = ScCommunity.World;
+                NetEntityDistributionEntry entry = w != null && w.entityDistributer != null ? w.entityDistributer.FindEntry(npc) : null;
+                if (entry == null) return;
+                int sent = 0;
+                foreach (EntityPlayer p in entry.trackedPlayers)
+                    if (p != null && !(p is EntityPlayerLocal) && ScNet.ClientMatches(p) && SendLook(p, npc, l)) sent++;
+                if (sent == 0) return;
+                Patches_Xnpc.Count("mp1-look-changed-sent");
+                ScLog.Verbose("looks: body " + npc.entityId + "'s new look sent to " + sent + " client(s): " + Describe(l));
+            }
+            catch (Exception e) { ScLog.Once("looks-changed", e); }
+        }
+
+        /// <summary>Round MP1, server: one body's look (null: "none of SC's") to one remote player; notes what was sent.</summary>
+        private static bool SendLook(EntityPlayer player, EntityAlive npc, Look l)
+        {
+            int id = npc.entityId, cls = npc.entityClass;
+            string source = SourceOf(id);
+            if (l != null) sentLook[id] = Wire(l);
+            return ScNet.ToPlayer(player, () => NetPackageManager.GetPackage<NetPackageScLook>().Setup(id, cls, l, source), null);
+        }
+
+        // -- client --
+
+        /// <summary>Round MP1, client (ForEntity): the server's look for this copy, and whether it came for this copy.</summary>
+        private static Look ReceivedFor(Entity e, out bool fresh, out string source)
+        {
+            fresh = false;
+            source = "";
+            Received r;
+            if (!received.TryGetValue(e.entityId, out r) || r.Class != e.entityClass) return null;
+            fresh = r.Fresh;
+            source = r.Source;
+            return r.Look;
+        }
+
+        /// <summary>Round MP1, client (ForEntity): this copy waits for the server's look - asked by NetTick.</summary>
+        private static void AskFor(int entityId)
+        {
+            HookUnloads();
+            if (!asks.ContainsKey(entityId)) asks[entityId] = new Asked();
+        }
+
+        /// <summary>
+        /// Round MP1, client (X17, CustomFaceRefusal): why a client's copy never takes a creator face - its look is the
+        /// server's, by what the server sent for it.
+        /// </summary>
+        private static string ClientFaceRefusal(int entityId)
+        {
+            Received r;
+            if (!received.TryGetValue(entityId, out r)) return "a client's copy: the server decides its look (not sent yet)";
+            if (r.Look == null) return "a client's copy: the server has no look of SC's for it";
+            return "a client's copy: its look is the server's (" + (r.Look.CreatorFace ? "a creator face, " : "") + r.Source + ")";
+        }
+
+        /// <summary>
+        /// Round MP1, every frame on every machine (ModApi's GameUpdate): a client rebuilds one copy whose look came after it
+        /// was built, and asks for the looks its copies wait for. Two counts read and out on the host, in single player and on
+        /// a client with nothing waiting.
+        /// </summary>
+        public static void NetTick()
+        {
+            if (rebuilds.Count == 0 && asks.Count == 0) return;
+            try
+            {
+                if (rebuilds.Count > 0)
+                {
+                    int id = rebuilds.Dequeue();
+                    rebuildQueued.Remove(id);
+                    RebuildReceived(id);
+                }
+                if (asks.Count > 0) SendAsks();
+            }
+            catch (Exception e) { ScLog.Once("looks-net-tick", e); }
+        }
+
+        /// <summary>
+        /// Round MP1, client: the asks that are due (AsksPerFrame at most). Only once the server's hello is in: before it the
+        /// server may run no SC or another protocol, and it has not heard ours (ScNet.ClientMatches is false there until it
+        /// has). A server that does not send SC's looks drops every ask: each copy keeps its own look, as before MP1.
+        /// </summary>
+        private static void SendAsks()
+        {
+            if (!ScNet.IsClient) { asks.Clear(); return; }
+            if (ScNet.ServerProtocol < 0) return;      // the hello not answered yet
+            if (!ScNet.ServerMatches || !ScNet.ServerKnows<NetPackageScLookRequest>())
+            {
+                asks.Clear();
+                ScLog.OnceOut("looks-ask-off", "looks: the server does not send SurvivorCommunity's looks (no SurvivorCommunity there, or another version) - "
+                                               + "survivors here keep this machine's own looks");
+                return;
+            }
+            float now = Time.time;
+            netScratch.Clear();
+            foreach (KeyValuePair<int, Asked> kv in asks) if (kv.Value.Due <= now) netScratch.Add(kv.Key);
+            int sent = 0;
+            for (int i = 0; i < netScratch.Count && sent < AsksPerFrame; i++)
+            {
+                int id = netScratch[i];
+                Asked a = asks[id];
+                if (a.Tries >= AskTries)
+                {
+                    asks.Remove(id);
+                    Patches_Xnpc.Count("mp1-look-ask-gave-up");
+                    ScLog.Verbose("looks: no answer from the server for body " + id + " after " + AskTries + " asks - it keeps this machine's look");
+                    continue;
+                }
+                a.Tries++;
+                a.Due = now + AskRetrySeconds;
+                ScNet.Cm.SendToServer(NetPackageManager.GetPackage<NetPackageScLookRequest>().Setup(id));
+                Patches_Xnpc.Count("mp1-look-asked");
+                sent++;
+            }
+        }
+
+        /// <summary>
+        /// Round MP1, client (NetPackageScLook): the server's look for a body. Kept for the body's copies (marked validated:
+        /// the server validated it, and this machine never corrects it); a copy already built from another look is queued for
+        /// a rebuild. A body still being built (or not here yet: the look sent before the body) finds it at X1.
+        /// </summary>
+        internal static void OnLookReceived(int entityId, int entityClass, bool has, string lookCode, string gearCode, string source)
+        {
+            try
+            {
+                if (!ScNet.IsClient) return;
+                asks.Remove(entityId);
+                HookUnloads();
+                Look l = null;
+                if (has)
+                {
+                    l = new Look();
+                    if (!l.Decode(lookCode))
+                    {
+                        Patches_Xnpc.Count("mp1-look-unreadable");
+                        ScLog.Once("looks-unreadable", "looks: the server's look for body " + entityId + " could not be read ('" + lookCode + "') - it keeps this machine's");
+                        return;
+                    }
+                    l.DecodeGear(gearCode);
+                    l.Validated = true;
+                }
+                if (received.Count >= ReceivedCap) DropStale();
+                received[entityId] = new Received { Look = l, Class = entityClass, Source = source ?? "", Fresh = true };
+                Patches_Xnpc.Count(l != null ? "mp1-look-received" : "mp1-look-received-none");
+                if (l == null) return;
+                ScLog.OnceOut("looks-first-received", "looks: the server's looks arrive (the first: body " + entityId + ", " + Describe(l) + ")");
+                ScLog.Verbose("looks: the server's look for body " + entityId + " (" + source + "): " + Describe(l));
+                World w = ScCommunity.World;
+                EntityAlive npc = w != null ? ScNpc.Loaded(w, entityId) as EntityAlive : null;
+                if (npc == null || !npc.isEntityRemote || !ScXnpc.IsBody(npc) || npc.entityClass != entityClass) return;
+                if (rebuildQueued.Add(entityId)) rebuilds.Enqueue(entityId);
+            }
+            catch (Exception e) { ScLog.Once("looks-received", e); }
+        }
+
+        /// <summary>Round MP1, client (NetTick): a loaded copy takes the server's look it is not wearing yet.</summary>
+        private static void RebuildReceived(int entityId)
+        {
+            Received r;
+            if (!received.TryGetValue(entityId, out r) || r.Look == null) return;
+            World w = ScCommunity.World;
+            EntityAlive npc = w != null ? ScNpc.Loaded(w, entityId) as EntityAlive : null;
+            // a dead copy keeps what it wears: a rebuild under the ragdoll is not worth the risk
+            if (npc == null || !npc.isEntityRemote || npc.IsDead() || !ScXnpc.IsBody(npc) || npc.entityClass != r.Class) return;
+            Look cur;
+            session.TryGetValue(entityId, out cur);
+            if (ReferenceEquals(cur, r.Look)) return;                  // built from it already (the copy's own X1)
+            if (cur != null && Wire(cur) == Wire(r.Look))
+            {
+                // the same look (an earlier copy's, sent again): nothing to rebuild
+                session[entityId] = r.Look;
+                sessionSource[entityId] = "server:" + r.Source;
+                return;
+            }
+            ApplyReceived(npc, r.Look, r.Source);
+        }
+
+        /// <summary>
+        /// Round MP1, client: a loaded copy takes the server's look - Apply's steps (the rig's sex kept, the archetype, the
+        /// session look, the gear, one Rebuild, which paints it: Patches_Vanity reads the session look), but the armor written
+        /// into the slots raw, as StageGear writes it before the first build. SyncGear's Equipment.SetSlotItem fires each
+        /// piece's equip events, and on a client an effect one starts (a buff) is sent on to the server's real body; a
+        /// client's copy wears its armor for the eye only.
+        /// </summary>
+        private static void ApplyReceived(EntityAlive npc, Look look, string source)
+        {
+            EModelSDCS m = npc.emodel as EModelSDCS;
+            if (m == null) return;
+            look.Male = m.isMale;               // the rig and animator are per sex: never flip it on a live entity
+            m.archetype = BuildArchetype(look);
+            session[npc.entityId] = look;
+            sessionClass[npc.entityId] = ScCommunity.ClassName(npc);
+            sessionSource[npc.entityId] = "server:" + source;
+            RestageGear(npc, look);
+            Rebuild(npc);
+            Patches_Xnpc.Count("mp1-look-rebuilt");
+            ScLog.Verbose("looks: body " + npc.entityId + " rebuilt with the server's look: " + Describe(look));
+        }
+
+        /// <summary>Round MP1, client: raw slot writes (no events) so the copy wears exactly the look's armor; empty slots cleared.</summary>
+        private static void RestageGear(EntityAlive npc, Look look)
+        {
+            if (npc.equipment == null) return;
+            try
+            {
+                Wanted(look, wantNames, wantQuality);
+                for (int slot = 0; slot < 4; slot++)
+                {
+                    if (SameWorn(npc, slot, wantNames[slot], wantQuality[slot])) continue;
+                    ItemValue iv = wantNames[slot].Length > 0 ? WornItem(npc, slot, wantNames[slot], wantQuality[slot]) : null;
+                    npc.equipment.ItemGrid[slot] = iv != null ? new ItemStack(iv, 1) : ItemStack.Empty;
+                }
+                npc.equipment.ResetArmorGroups();
+            }
+            catch (Exception e) { ScLog.Once("looks-restage", e); }
+        }
+
+        /// <summary>Round MP1, client: the kept looks of bodies not loaded now are dropped (ReceivedCap reached).</summary>
+        private static void DropStale()
+        {
+            netScratch.Clear();
+            foreach (KeyValuePair<int, Received> kv in received) if (!kv.Value.Fresh) netScratch.Add(kv.Key);
+            for (int i = 0; i < netScratch.Count; i++) received.Remove(netScratch[i]);
+        }
+
+        private static void HookUnloads()
+        {
+            World w = ScCommunity.World;
+            if (w == null || ReferenceEquals(unloadHooked, w)) return;
+            UnhookUnloads();
+            w.EntityUnloadedDelegates += OnEntityUnloaded;          // World.unloadEntity: every removal, with its reason
+            unloadHooked = w;
+        }
+
+        private static void UnhookUnloads()
+        {
+            if (unloadHooked != null) { try { unloadHooked.EntityUnloadedDelegates -= OnEntityUnloaded; } catch (Exception) { } }
+            unloadHooked = null;
+        }
+
+        /// <summary>
+        /// Round MP1, client: a copy left this machine; its question goes with it. Out of range (Unloaded) its look is kept for
+        /// the next copy's first build, no longer fresh - that copy asks again unless the server's look comes first. Killed,
+        /// despawned or removed, its look and this machine's notes of it go.
+        /// </summary>
+        private static void OnEntityUnloaded(Entity e, EnumRemoveEntityReason reason)
+        {
+            try
+            {
+                if ((object)e == null) return;
+                int id = e.entityId;
+                asks.Remove(id);
+                Received r;
+                if (reason == EnumRemoveEntityReason.Unloaded)
+                {
+                    if (received.TryGetValue(id, out r)) r.Fresh = false;
+                    return;
+                }
+                if (!received.Remove(id) && !session.ContainsKey(id)) return;
+                session.Remove(id);
+                sessionClass.Remove(id);
+                sessionSource.Remove(id);
+                ScVanity.Forget(id);
+            }
+            catch (Exception ex) { ScLog.Once("looks-unloaded", ex); }
+        }
+    }
+
+    /// <summary>
+    /// Round MP1: the server's look of one of SC's bodies goes to a client before the body does (ScLooks.OnTrackStart).
+    /// </summary>
+    public static class Patches_LookNet
+    {
+        /// <summary>
+        /// NetEntityDistributionEntry.updatePlayerEntity(player) is where the server starts sending an entity to a player:
+        /// inside its range and not tracked yet, the player is added and the spawn package queued (NetEntityDistributionEntry
+        /// .cs:111-144). This prefix makes vanilla's own test, term for term, and sends the look first: packages to one client
+        /// leave in order on one channel, so the client has the look before it builds the body. It runs for every tracked
+        /// entity and every player on each pass, so anything but an SCore V4 body is out at the first test, and a body already
+        /// tracked at the second.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_TrackStart
+        {
+            public static MethodBase Target()
+            {
+                return AccessTools.DeclaredMethod(typeof(NetEntityDistributionEntry), "updatePlayerEntity", new[] { typeof(EntityPlayer) });
+            }
+
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                if (Target() != null) return true;
+                ScLog.Warn("NetEntityDistributionEntry.updatePlayerEntity not found - a client builds each survivor first from its own look, then "
+                           + "from the server's (game update?)");
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return Target(); }
+
+            [HarmonyPrefix]
+            public static void Prefix(NetEntityDistributionEntry __instance, EntityPlayer _ep)
+            {
+                Entity t = __instance.trackedEntity;
+                if (!(t is EntityAliveSDXV4) || (object)_ep == null || _ep is EntityPlayerLocal) return;
+                try
+                {
+                    if (__instance.trackedPlayers.Contains(_ep)) return;
+                    // vanilla's range test, as it makes it
+                    float dx = _ep.position.x - (float)(__instance.encodedPos.x / 32);
+                    float dz = _ep.position.z - (float)(__instance.encodedPos.z / 32);
+                    if (dx * dx + dz * dz > (float)(__instance.trackingDistanceThreshold * __instance.trackingDistanceThreshold)) return;
+                    ScLooks.OnTrackStart(t, _ep);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("looks-track-start", e);
+                }
+            }
         }
     }
 }
