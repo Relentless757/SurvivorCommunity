@@ -52,8 +52,9 @@ it rebuilds; `sc xnpc` (it runs on the server) counts `mp1-look-pushed`, `-answe
 - [ ] `sc xnpc` shows no `mp1-look-` counter at all. Log: no SC errors.
 
 **A client on a dedicated server or a listen host** (stand next to each other and compare)
-- [ ] Join near the base: every member has the same face, hair, eyes and clothes on both machines, paints too (Vanity
-      Vault on both). The client's log says `looks: the server's looks arrive` once.
+- [x] Join near the base: every member has the same face, hair, eyes and clothes on both machines, paints too (Vanity
+      Vault on both). The client's log says `looks: the server's looks arrive` once. (Self-tested 2026-11-23 on the dedicated server, the 3.4 client through DevLink.: the line came;
+      Hank's portrait on the client matched `sc look Hank` on the server - helmet, athletic outfit, beard, skin.)
 - [ ] Walk more than 100 m away and come back: the same people, and no visible change as they appear.
 - [ ] Meet a new survivor (radio contact, wild survivor, a band) and raiders: the same people on both machines.
 - [ ] A change made on the server reaches the client within a second or so: `sc look <member>` (server console),
@@ -74,11 +75,13 @@ refreshes it after changes. Buttons still act only on the host (round MP2). Buil
 - [ ] Log: no SC errors, and no `community snapshot` line (nothing is sent in single player).
 
 **A client on a dedicated server or a listen host** (a save with a community, a few members, an outpost)
-- [ ] Join. Right after `server runs the same SurvivorCommunity protocol`, the client's log says `community snapshot from
-      the server: N member(s), M outpost(s), B bytes`.
-- [ ] Open the community window from the ESC menu. Morale and its parts, the stock with its daily net, the members, the
-      ledger and the beds line match the host's window.
-- [ ] Select a member far from you: health (the server's), status, mood, skills and traits show. A downed member shows
+- [x] Join. Right after `server runs the same SurvivorCommunity protocol`, the client's log says `community snapshot from
+      the server: N member(s), M outpost(s), B bytes`. (Self-tested 2026-11-23 on the dedicated server, the 3.4 client through DevLink.) `... protocol (2)`, then `2 member(s), 3 outpost(s),
+      2656 bytes (7668 characters)`.
+- [x] Open the community window from the ESC menu. Morale and its parts, the stock with its daily net, the members, the
+      ledger and the beds line match the host's window. (Self-tested 2026-11-23 on the dedicated server, the 3.4 client through DevLink.) Food 23 (-3, 7 days), water 27, materials 15, fuel 4;
+      Hank and Lena; Outposts 3/1; morale 0 Breaking with its parts (recent deaths -70, beds 0/2).
+- [x] Select a member far from you: health (the server's), status, mood, skills and traits show. (Self-tested 2026-11-23 on the dedicated server, the 3.4 client through DevLink.: Hank 166/166, his skills and traits.) A downed member shows
       "Down - N s"; a missing one shows Missing.
 - [ ] Outposts tab: the outposts, their yields and state, radio on or off, slots and the network's costs match the host's.
 - [ ] Facilities tab: the defense rating, beds, water (a dew collector's level), the campfire's activities (a running
@@ -87,7 +90,8 @@ refreshes it after changes. Buttons still act only on the host (round MP2). Buil
       and the noise. The morale buff icon takes the band color.
 - [ ] Change something on the server (`sc give food 10`, a member follows the host): the client's open window updates
       within about 2 s without reopening.
-- [ ] Every button that would change something says "host only" with the denied sound and changes nothing:
+- [ ] Every button that would change something says "host only" with the denied sound and changes nothing (Follow Me
+      checked 2026-11-23: "The community is managed by the host in this version."):
       - Members tab: Follow, Home, Leave, the runs, Work and the roles;
       - Outposts tab: Mode, Upgrade, Assign and staff Recall;
       - Facilities tab: every action.
