@@ -313,6 +313,8 @@ namespace SurvivorCommunity
         /// what the next call waits for. sc attack end - despawns the attackers and closes the attack (nothing won). sc attack
         /// settle [held|damaged|overrun] - ends it now as a fight without the player: settled on the rating, or as given.
         /// </summary>
+        private static void AttackCmd(List<string> p) { AttackCmdBody(p); }
+
         /// <summary>
         /// Round MP0.1 [READ]: `sc settled [x z]` - whether SC's "chunks settled" test passes at a spot (default: the anchor
         /// player's), and why not: what holds enclave people, bands and runners back there.
@@ -332,10 +334,10 @@ namespace SurvivorCommunity
             }
             string why = ScRunners.SettledWhy(w, at);
             Output("[SC] settled at " + Mathf.FloorToInt(at.x) + ", " + Mathf.FloorToInt(at.z) + ": " + (why ?? "yes")
-                   + (ScPlayers.AnyRemoteWithin(at, 256f) ? " (a remote player is near: the server rule - colliders come with a body)" : " (the host's rule: colliders required)"));
+                   + (ScRunners.ServerRule(at) ? " (a remote player is near: the server rule - colliders come with a body)" : " (the host's rule: colliders required)"));
         }
 
-        private static void AttackCmd(List<string> p)
+        private static void AttackCmdBody(List<string> p)
         {
             World w = ScCommunity.World;
             EntityPlayerLocal player = ScCommunity.LocalPlayer;

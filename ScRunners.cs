@@ -1761,7 +1761,7 @@ namespace SurvivorCommunity
         /// </summary>
         internal static string SettledWhy(World w, Vector3 v)
         {
-            bool remote = ScPlayers.AnyRemoteWithin(v, RemoteSettleRange);
+            bool remote = ServerRule(v);
             if (!remote && !w.IsChunkAreaCollidersLoaded(v)) return "colliders not built (the VehicleManager gate)";
             int cx = World.toChunkXZ(Mathf.FloorToInt(v.x)), cz = World.toChunkXZ(Mathf.FloorToInt(v.z));
             List<long> fresh = w.newlyLoadedChunksThisUpdate;
@@ -1770,26 +1770,44 @@ namespace SurvivorCommunity
                 for (int dz = -1; dz <= 1; dz++)
                 {
                     Chunk ch = w.GetChunkSync(cx + dx, cz + dz) as Chunk;
-                    string at = " (chunk " + (cx + dx) + "," + (cz + dz) + ")";
-                    if (ch == null) return "not loaded" + at;
-                    if (ch.InProgressUnloading) return "unloading" + at;
-                    if (ch.NeedsDecoration) return "not decorated yet" + at;
-                    if (ch.NeedsLightCalculation) return "not lit yet" + at;
+                    // the reason's text only once something fails (the review's nit: this runs for every spot SC weighs, every tick)
+                    if (ch == null) return "not loaded" + At(cx + dx, cz + dz);
+                    if (ch.InProgressUnloading) return "unloading" + At(cx + dx, cz + dz);
+                    if (ch.NeedsDecoration) return "not decorated yet" + At(cx + dx, cz + dz);
+                    if (ch.NeedsLightCalculation) return "not lit yet" + At(cx + dx, cz + dz);
                     // near a remote player no colliders are required: a chunk an entity never entered was never given any (the engine
                     // skips it before it even marks it collision-only), and one that loses its last entity has them freed
-                    if (!remote && !ch.IsCollisionMeshGenerated) return "colliders not built" + at;
+                    if (!remote && !ch.IsCollisionMeshGenerated) return "colliders not built" + At(cx + dx, cz + dz);
                     if (fresh != null)
                     {
                         long key = WorldChunkCache.MakeChunkKey(cx + dx, cz + dz);
-                        lock (fresh) { if (fresh.Contains(key)) return "loaded this very update" + at; }
+                        lock (fresh) { if (fresh.Contains(key)) return "loaded this very update" + At(cx + dx, cz + dz); }
                     }
                 }
             }
             return null;
         }
 
-        /// <summary>Round MP0.1: how near a remote player makes SettledWhy's server rule apply (a server loads ~12 chunks around a player).</summary>
-        private const float RemoteSettleRange = 256f;
+        private static string At(int x, int z) { return " (chunk " + x + "," + z + ")"; }
+
+        /// <summary>
+        /// Round MP0.1: whether SettledWhy's server rule applies at v - a remote player is near (the chunks must still be loaded,
+        /// which is what really bounds it: the review's S2, so the range is generous) and the spot is not in the host's own view,
+        /// where the host's renderer builds the chunks and the old rule holds (the review's S1).
+        /// </summary>
+        internal static bool ServerRule(Vector3 v)
+        {
+            if (!ScPlayers.AnyRemoteWithin(v, RemoteSettleRange)) return false;
+            EntityPlayerLocal host = ScCommunity.LocalPlayer;
+            if (host == null) return true;
+            float dx = host.position.x - v.x, dz = host.position.z - v.z;
+            return dx * dx + dz * dz > HostViewRange * HostViewRange;
+        }
+
+        /// <summary>Round MP0.1: how near a remote player makes the server rule apply (loaded chunks bound it anyway).</summary>
+        private const float RemoteSettleRange = 512f;
+        /// <summary>Round MP0.1 (the review's S1): within this of the host's own player its renderer builds the chunks - the old rule.</summary>
+        private const float HostViewRange = 160f;
 
         /// <summary>The Task order: no resident action runs, the pack's combat does, and ScTravel walks the route.</summary>
         public static void ApplyTravelOrder(EntityAlive npc)
