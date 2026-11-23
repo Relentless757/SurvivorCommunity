@@ -10,7 +10,8 @@ namespace SurvivorCommunity
     /// survivor classes the community owns and, since M10, SC's raider classes - plus the ones on SCore and vanilla
     /// classes that only these bodies need (X8-X13). The numbering is the migration design's (section 1.2).
     ///
-    ///   X1  EModelSdcsNpc.createModel        prefix   the body is built from SC's look, not XNPC's preset archetype
+    ///   X1  EModelSdcsNpc.createModel        prefix   the body is built from SC's look, not XNPC's preset archetype;
+    ///                                                 (round MP1) a client's copy from the server's look (ScLooks.ForEntity)
     ///   X1b MinEventActionSdcsApplyLook      prefix   XNPC's look applier never reaches one of ours (belt and braces);
     ///                                                 (3.4, round R1) a bandit raider goes through to X1c
     ///   X1c SdcsLookApplier.Apply            prefix   (3.4 build, round R1; ScBandits.Patch_GearOnly) a bandit raider gets the
@@ -47,7 +48,8 @@ namespace SurvivorCommunity
     ///                                                                  XNPC's own swaps, which keep the rounds themselves;
     ///                                                                  AnyWeapon's equip of a handed weapon joins the pair
     ///   X17 SdcsCustomLook.ApplyCharacter                     prefix   (3.4 build) a creator face only on a fresh body,
-    ///                                                                  SC's way; never over a look SC stores (D4)
+    ///                                                                  SC's way; never over a look SC stores (D4); (round
+    ///                                                                  MP1) never on a client's copy (the server's look)
     ///   X18 AvatarSdcsNpcController.SdcsAimTick               prefix   (3.4 build, 0-XNPCCore 3.4.02) no level-based aim
     ///                                                                  spread on our bodies: SC's Shooting stars aim them
     ///   X19 AvatarSdcsNpcController.SdcsBanditAimTick         prefix   (3.4 build, 0-XNPCCore 3.4.02) XNPC's bandit spread
@@ -381,6 +383,9 @@ namespace SurvivorCommunity
         /// this session's, else a fresh roll (a raider's clothes from RaiderGearSets). Its sex follows the class: the rig, the
         /// animator, the voice and the ragdoll ("player_" + Sex + "Ragdoll") are the class's, so a record that disagrees is
         /// corrected the way ScLooks.Apply corrects one on a live body.
+        /// Round MP1: this runs on every machine. On a client (the body's copy is isEntityRemote) ForEntity gives the look
+        /// the server sent for it - usually before the body - and otherwise a placeholder while it asks the server; the
+        /// copy is rebuilt when the server's look comes (ScLooks, "one look on every machine").
         /// </summary>
         [HarmonyPatch]
         public static class Patch_CreateModel
@@ -2071,6 +2076,8 @@ namespace SurvivorCommunity
         ///    read from a save - it keeps its own);
         ///  - every other body - a member, a prospect, a recruit or stand-in spawned wearing a stored look, an enclave person,
         ///    a raider - is refused outright: no face, no name, no cvars.
+        ///  - round MP1: a client's copy too (0-XNPCCore calls this on the server only, but its sdcscustom console command
+        ///    can reach a client's copy). The server's creator face reaches clients with the server's look (NetPackageScLook).
         /// XNPC's applier never runs on one of ours and none of its custom cvars is written (XNPC's own classes keep the whole
         /// feature). Counted per outcome.
         /// </summary>

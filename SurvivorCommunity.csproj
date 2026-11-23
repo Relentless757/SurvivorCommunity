@@ -112,6 +112,8 @@
     <Compile Include="Patches_Radio.cs" />
     <Compile Include="Patches_LandClaimModel.cs" />
     <Compile Include="ScLooks.cs" />
+    <Compile Include="NetPackageScLook.cs" />          <!-- round MP1 (looks) -->
+    <Compile Include="NetPackageScLookRequest.cs" />   <!-- round MP1 (looks) -->
     <Compile Include="Patches_Sdcs.cs" />
     <Compile Include="ScAim.cs" />
     <Compile Include="ScLoadout.cs" />
