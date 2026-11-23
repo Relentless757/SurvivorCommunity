@@ -2112,6 +2112,10 @@ Round MP0 is the groundwork:
   - linked storage and item hand-overs (MP3);
   - markers, quests, SC's voices and radio lines (MP4);
   - the radio window, enclave dialogs, physical runners, runner distress calls (MP5).
+- **Round MP0.1, the "settled" test** (`ScRunners.SettledWhy`, `sc settled`): a server builds a collision-only chunk's
+  colliders only around entities (`ChunkManager.GenerateCollidersOnlyAroundEntites`), and frees an empty chunk's. So near a
+  player on another machine the test needs the chunks loaded, decorated, lit and not brand new, but no colliders (a body
+  spawned there brings them). Near the host's own player it is unchanged.
 - **Dedicated-server specifics:**
   - airdrops follow vanilla's schedule (`RadioOnlyAirdrops` applies only with a local player);
   - supply runs sent by a client are hidden runs;

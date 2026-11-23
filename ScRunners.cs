@@ -1747,7 +1747,22 @@ namespace SurvivorCommunity
         /// <summary>The VehicleManager gate plus the 3x3 settled checks: loaded, decorated, lit, colliders built, not brand new (E2's enclave bodies too).</summary>
         internal static bool Settled(World w, Vector3 v)
         {
-            if (!w.IsChunkAreaCollidersLoaded(v)) return false;
+            return SettledWhy(w, v) == null;
+        }
+
+        /// <summary>
+        /// Round MP0.1: why a spot is not settled (null = settled) - Settled's test, for `sc settled` too.
+        /// A server builds a collision-only chunk's colliders only around entities (ChunkManager.GenerateCollidersOnlyAroundEntites:
+        /// an empty chunk's are freed and never rebuilt until an entity comes; the MP0 test on a dedicated server, 2026-11-23:
+        /// empty chunks next to an enclave stayed collisionMesh=False for good, so its people were never made). Where a REMOTE
+        /// player is near - a dedicated server, or a client's area on a listen host - colliders are not required: a body spawned
+        /// there brings its chunk's colliders (the engine builds them around entities), as vanilla's own spawns do. Near the
+        /// host's own player only (single player always) the test is the old one, colliders included.
+        /// </summary>
+        internal static string SettledWhy(World w, Vector3 v)
+        {
+            bool remote = ScPlayers.AnyRemoteWithin(v, RemoteSettleRange);
+            if (!remote && !w.IsChunkAreaCollidersLoaded(v)) return "colliders not built (the VehicleManager gate)";
             int cx = World.toChunkXZ(Mathf.FloorToInt(v.x)), cz = World.toChunkXZ(Mathf.FloorToInt(v.z));
             List<long> fresh = w.newlyLoadedChunksThisUpdate;
             for (int dx = -1; dx <= 1; dx++)
@@ -1755,16 +1770,26 @@ namespace SurvivorCommunity
                 for (int dz = -1; dz <= 1; dz++)
                 {
                     Chunk ch = w.GetChunkSync(cx + dx, cz + dz) as Chunk;
-                    if (ch == null || ch.InProgressUnloading || ch.NeedsDecoration || ch.NeedsLightCalculation || !ch.IsCollisionMeshGenerated) return false;
+                    string at = " (chunk " + (cx + dx) + "," + (cz + dz) + ")";
+                    if (ch == null) return "not loaded" + at;
+                    if (ch.InProgressUnloading) return "unloading" + at;
+                    if (ch.NeedsDecoration) return "not decorated yet" + at;
+                    if (ch.NeedsLightCalculation) return "not lit yet" + at;
+                    // near a remote player no colliders are required: a chunk an entity never entered was never given any (the engine
+                    // skips it before it even marks it collision-only), and one that loses its last entity has them freed
+                    if (!remote && !ch.IsCollisionMeshGenerated) return "colliders not built" + at;
                     if (fresh != null)
                     {
                         long key = WorldChunkCache.MakeChunkKey(cx + dx, cz + dz);
-                        lock (fresh) { if (fresh.Contains(key)) return false; }
+                        lock (fresh) { if (fresh.Contains(key)) return "loaded this very update" + at; }
                     }
                 }
             }
-            return true;
+            return null;
         }
+
+        /// <summary>Round MP0.1: how near a remote player makes SettledWhy's server rule apply (a server loads ~12 chunks around a player).</summary>
+        private const float RemoteSettleRange = 256f;
 
         /// <summary>The Task order: no resident action runs, the pack's combat does, and ScTravel walks the route.</summary>
         public static void ApplyTravelOrder(EntityAlive npc)

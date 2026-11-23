@@ -199,6 +199,24 @@ namespace SurvivorCommunity
             return false;
         }
 
+        /// <summary>
+        /// Round MP0.1: whether a living REMOTE player (not this machine's own) stands within dist meters of pos, flat - an area a
+        /// server keeps loaded for a client (ScRunners.SettledWhy's server rule). Never in single player.
+        /// </summary>
+        public static bool AnyRemoteWithin(Vector3 pos, float dist)
+        {
+            float sq = dist * dist;
+            List<EntityPlayer> all = All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p == null || p is EntityPlayerLocal || p.IsDead()) continue;
+                float dx = p.position.x - pos.x, dz = p.position.z - pos.z;
+                if (dx * dx + dz * dz <= sq) return true;
+            }
+            return false;
+        }
+
         /// <summary>A tell to every community player online (Stage 1: everyone) - the news the whole community should hear.</summary>
         public static void TellCommunity(string text, string sound, int community = SharedCommunity)
         {

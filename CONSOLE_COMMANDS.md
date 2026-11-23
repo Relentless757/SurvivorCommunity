@@ -247,6 +247,12 @@ Example: `sc spec Amy set Construction 5`
 ### `sc scan` [READ]
 Re-counts beds, facilities and crops in the home zone now and prints the timing.
 
+### `sc settled [x z]` [READ]
+Whether the area around a spot (default: the player SC reasons from) counts as loaded and settled - what holds enclave
+people, bands on the road, sieges and supply runners back - and if not, why, naming the chunk. It also says which rule
+applies: near the host's own player colliders are required, near a player on another machine (a dedicated server, or a
+client on a listen host) they are not.
+
 ## 2. Resources and morale
 
 ### `sc give <food|meds|ammo|mats|fuel|water|luxury> <n>` [CHEAT]

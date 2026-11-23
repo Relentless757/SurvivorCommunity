@@ -37,6 +37,18 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP0.1 (2026-11-23): enclave people, bands and runners on a dedicated server
+
+Why: MP0's dedicated-server test found that an enclave's people were never made there. A server only builds the colliders
+of a chunk an entity is in, so SC's "is the area settled" test never passed. Near a player on another machine it no longer
+requires colliders. Build `sc34_mp01`, **not deployed yet** (self-tested on the test server, 2026-11-23: enclave 7's four
+people were made at their home spots, full health).
+
+- [ ] Single player: an enclave's people still appear when you come near, and bands on the road still show up.
+- [ ] Dedicated server: an enclave's people appear when you come within 150 m; `sc settled` there says `yes` and names the
+      server rule.
+- [ ] Dedicated server: a band on the road shows up near you (`sc band spawn` on the server console, then go there).
+
 ## Round MP0 (2026-11-21): multiplayer groundwork - SC runs on a dedicated server, any player counts
 
 Why: the first multiplayer round. SC's once-a-second ticker and the day rollover now run on any server, a dedicated one
