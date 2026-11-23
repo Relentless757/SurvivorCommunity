@@ -53,6 +53,7 @@ namespace SurvivorCommunity
             LastBytes = LastChars = 0;
             Version++;
             lastDerived = null;
+            lastSnapText = null;
             nextDerived = 0f;
             pendingFull.Clear();
         }
@@ -229,6 +230,8 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ the server ----
 
         private static string lastDerived;
+        /// <summary>The review's N1: the clients' text last broadcast (null: none since the last reset).</summary>
+        private static string lastSnapText;
         private static float nextDerived;
         /// <summary>Clients whose hello came while the registry was not loaded yet: their full snapshot goes at the next tick.</summary>
         private static readonly HashSet<int> pendingFull = new HashSet<int>();
@@ -263,12 +266,13 @@ namespace SurvivorCommunity
                 {
                     ScRegistry.TakeDirty();            // a client joining later gets the whole snapshot at its hello
                     lastDerived = null;
+                    lastSnapText = null;
                     pendingFull.Clear();
                     return;
                 }
                 if (pendingFull.Count > 0)
                 {
-                    byte[] snap = Snapshot();
+                    byte[] snap = Snapshot(ScRegistry.BuildText(true));
                     string d = BuildDerived();
                     foreach (ClientInfo ci in targets) if (pendingFull.Contains(ci.entityId)) Send(ci, snap, d);
                     pendingFull.Clear();
@@ -278,10 +282,14 @@ namespace SurvivorCommunity
                 if (!full && now < nextDerived) return;
                 nextDerived = now + DerivedSeconds;
                 string block = BuildDerived();
+                // the review's N1: a save that left the clients' text as it was (a field they never get) sends no snapshot
+                string text = full ? ScRegistry.BuildText(true) : null;
+                if (full && text == lastSnapText) full = false;
                 if (!full && block == lastDerived) return;
                 lastDerived = block;
-                byte[] gz = full ? Snapshot() : null;
+                byte[] gz = full ? Snapshot(text) : null;
                 if (full && gz == null) return;        // too big (logged): nothing a client could read
+                if (full) lastSnapText = text;
                 foreach (ClientInfo ci in targets) Send(ci, gz, block);
             }
             catch (Exception e)
@@ -310,10 +318,10 @@ namespace SurvivorCommunity
             catch (Exception e) { ScLog.Once("mirror-send", e); }
         }
 
-        /// <summary>BuildText(true), gzip'd UTF-8; null when it fails or is too big to send (logged once).</summary>
-        private static byte[] Snapshot()
+        /// <summary>BuildText(true)'s text, gzip'd UTF-8; null when it fails or is too big to send (logged once).</summary>
+        private static byte[] Snapshot(string text)
         {
-            string text = ScRegistry.BuildText(true);
+            if (text == null) return null;
             byte[] gz = Zip(text);
             if (gz.Length > MaxBytes)
             {
