@@ -509,7 +509,7 @@ namespace SurvivorCommunity
         /// <summary>"Beds 12 for 2 survivors - 10 spare (+10 morale)", never null. E6: an ally's Overflow Barracks counts (and is named).</summary>
         public static string BedLine()
         {
-            if (!ScRegistry.Loaded) return "";
+            if (!ScRegistry.Ready) return "";          // round MP1: a read - a client shows the server's copy (ScMirror)
             int m = ScRegistry.Members.Count, b = ScEncAllies.TotalBeds();
             int term = ScMorale.Compute().Beds;
             string s;
@@ -519,13 +519,16 @@ namespace SurvivorCommunity
             else s = string.Format(Localization.Get("scBedsExact"), b, m, term);
             int allies = ScEncAllies.ExtraBeds();
             if (allies > 0) s += " " + string.Format(Localization.Get("scMoraleBedsAllies"), allies);
-            if (LastMissing > 0) s += " - " + Localization.Get("scBedsPartial");
+            if (Missing() > 0) s += " - " + Localization.Get("scBedsPartial");
             return s;
         }
 
+        /// <summary>Round MP1: LastMissing, the server's on a client (its scan never runs there).</summary>
+        public static int Missing() { return ScMirror.Active ? ScMirror.Int("scanmissing") : LastMissing; }
+
         public static string BedColor()
         {
-            if (!ScRegistry.Loaded) return "200,200,200,255";
+            if (!ScRegistry.Ready) return "200,200,200,255";   // round MP1: a read (as BedLine)
             int m = ScRegistry.Members.Count;
             if (m == 0) return "200,200,200,255";
             return ScEncAllies.TotalBeds() < m ? "255,140,120,255" : "170,220,170,255";

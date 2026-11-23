@@ -102,7 +102,9 @@ namespace SurvivorCommunity
             if (ScNpc.IsOnMission(npc) || !npc.enabled) return null;
             if (ScTrust.IsHostileTo(npc, player) || ScEnclavePeople.IsHostileBody(npc)) return null;
             if (npc.Buffs != null && npc.Buffs.HasCustomVar(ScRadio.StandInCvar)) return null;
-            Member m = ScRegistry.GetMember(npc.entityId);
+            // round MP1: the real registry only - on a client (TriggerProactiveGreeting runs there) a copy's answer would change
+            // which of Voice Control's greetings plays, which stays as before until the voices travel (round MP4)
+            Member m = ScRegistry.Loaded ? ScRegistry.GetMember(npc.entityId) : null;
             if (m != null)
             {
                 if (m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) return "follower";
@@ -120,7 +122,7 @@ namespace SurvivorCommunity
                 return "enclave";
             }
             if (ScCommunity.HiredBy(npc) == player.entityId) return "follower";
-            if (ScRegistry.GetProspect(npc.entityId) != null) return "recruit";
+            if (ScRegistry.Loaded && ScRegistry.GetProspect(npc.entityId) != null) return "recruit";   // round MP1: as above
             return "stranger";
         }
 

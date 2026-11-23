@@ -265,11 +265,13 @@ namespace SurvivorCommunity
                 if (Pending != null) { look = Pending; name = PendingName; Pending = null; PendingName = null; source = "pending"; }
                 if (look == null && e != null)
                 {
-                    Member m = ScRegistry.GetMember(e.entityId);
+                    // round MP1: the real registry only - a client's copy is the server's records (and Validate below edits the look
+                    // in place); a client keeps building bodies as before until the looks travel (NetPackageScLook)
+                    Member m = ScRegistry.Loaded ? ScRegistry.GetMember(e.entityId) : null;
                     if (m != null && m.Look != null && (string.IsNullOrEmpty(m.Class) || string.Equals(m.Class, cls, StringComparison.OrdinalIgnoreCase))) { look = m.Look; name = m.Name; source = "member"; }
                     if (look == null)
                     {
-                        Prospect p = ScRegistry.GetProspect(e.entityId);
+                        Prospect p = ScRegistry.Loaded ? ScRegistry.GetProspect(e.entityId) : null;     // round MP1: as above
                         if (p != null && p.Look != null && (string.IsNullOrEmpty(p.Class) || string.Equals(p.Class, cls, StringComparison.OrdinalIgnoreCase))) { look = p.Look; name = p.Name; source = "prospect"; }
                     }
                     if (look == null && session.TryGetValue(e.entityId, out look))
@@ -302,6 +304,7 @@ namespace SurvivorCommunity
             if (npc == null) return null;
             Look l;
             if (session.TryGetValue(npc.entityId, out l)) return l;
+            if (!ScRegistry.Loaded) return null;         // round MP1: a client's copy is not this machine's bodies (as ForEntity)
             Member m = ScRegistry.GetMember(npc.entityId);
             if (m != null && m.Look != null) return m.Look;
             Prospect p = ScRegistry.GetProspect(npc.entityId);

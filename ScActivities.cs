@@ -52,8 +52,9 @@ namespace SurvivorCommunity
 
         // ---- round fd1: the feast and rationing ----
 
-        public static bool FeastActive { get { return ScRegistry.Loaded && ScRegistry.Community.FeastLeft > 0f; } }
-        public static bool RationActive { get { return ScRegistry.Loaded && ScRegistry.Community.RationLeft > 0f; } }
+        // round MP1: reads (the Facilities tab, morale): Ready - a client shows the server's copy (ScMirror keeps the countdowns live)
+        public static bool FeastActive { get { return ScRegistry.Ready && ScRegistry.Community.FeastLeft > 0f; } }
+        public static bool RationActive { get { return ScRegistry.Ready && ScRegistry.Community.RationLeft > 0f; } }
 
         /// <summary>The feast's morale while it lasts (ScMorale's Feast part).</summary>
         public static int FeastMoraleNow() { return FeastActive ? ScRegistry.Community.FeastMorale : 0; }
@@ -80,7 +81,7 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool RationInForce
         {
-            get { return ScRegistry.Loaded && (ScRegistry.Community.RationDay == ScCommunity.Today || ScRegistry.Community.RationLeft > 0f); }
+            get { return ScRegistry.Ready && (ScRegistry.Community.RationDay == ScCommunity.Today || ScRegistry.Community.RationLeft > 0f); }   // round MP1: a read
         }
         public static string RationTimeLeft() { return RationActive ? Clock(ScRegistry.Community.RationLeft) : ""; }
 
@@ -270,7 +271,7 @@ namespace SurvivorCommunity
             nextBuffCheck = 0f;
         }
 
-        public static bool DrinksActive { get { return ScRegistry.Loaded && ScRegistry.Community.DrinksLeft > 0f; } }
+        public static bool DrinksActive { get { return ScRegistry.Ready && ScRegistry.Community.DrinksLeft > 0f; } }   // round MP1: a read (as FeastActive)
 
         /// <summary>The morale the round adds while it lasts (ScMorale's Activity part).</summary>
 #if SC_V34

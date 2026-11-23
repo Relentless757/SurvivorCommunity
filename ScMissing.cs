@@ -33,7 +33,11 @@ namespace SurvivorCommunity
             nextTick = 0f;
         }
 
-        public static bool IsMissing(Member m) { return m != null && missing.Contains(m.Id); }
+        public static bool IsMissing(Member m)
+        {
+            if (m != null && ScMirror.Active) return ScMirror.InList("missing", m.Id);   // round MP1: the server's set (runtime, never saved)
+            return m != null && missing.Contains(m.Id);
+        }
 
         public static int Count { get { return missing.Count; } }
 

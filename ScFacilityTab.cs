@@ -105,7 +105,7 @@ namespace SurvivorCommunity
         public static List<FacilityEntry> Build()
         {
             var list = new List<FacilityEntry>();
-            if (!ScRegistry.Loaded) return list;
+            if (!ScRegistry.Ready) return list;        // round MP1: a client builds its tab from the server's copy (ScMirror)
             for (int i = 0; i < All.Count; i++)
             {
                 try { All[i].Value(list); }
@@ -245,13 +245,24 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ Defense (FT2) ----
 
+        /// <summary>
+        /// The horde the defense rating is measured against: what is left of an open attack, else the next one's size for this
+        /// player's gamestage. Round MP1: shared with the clients' derived block (ScMirror, with the server's anchor player).
+        /// </summary>
+        public static int DefenseHorde(EntityPlayer player)
+        {
+            Community c = ScRegistry.Community;
+            return ScBaseAttack.Open ? Math.Max(1, c.AttackSize - c.AttackKilled) : (player != null ? ScBaseAttack.Size(player) : ScConfig.BaseAttackMin);
+        }
+
         private static void AddDefense(List<FacilityEntry> into)
         {
             Community c = ScRegistry.Community;
             EntityPlayerLocal player = ScCommunity.LocalPlayer;
             World w = ScCommunity.World;
-            int horde = ScBaseAttack.Open ? Math.Max(1, c.AttackSize - c.AttackKilled) : (player != null ? ScBaseAttack.Size(player) : ScConfig.BaseAttackMin);
-            int rating = ScDefence.Rating(horde, null);
+            // round MP1: a client shows the server's rating (the scan's defenses, the guards and the horde are measured there)
+            int horde = ScMirror.Active ? ScMirror.Int("defhorde", ScConfig.BaseAttackMin) : DefenseHorde(player);
+            int rating = ScMirror.Active ? ScMirror.Int("defrating") : ScDefence.Rating(horde, null);
             string ratingColor = rating >= 60 ? Good : rating >= 35 ? Warn : Bad;
             float noise = ScNoise.Current();
             ScNoise.Level lv = ScNoise.LevelOf(noise);
@@ -324,7 +335,7 @@ namespace SurvivorCommunity
             e.Fact("scUiFacBedsCount", allies > 0 ? Fmt("scUiFacBedsWithAllies", beds, allies) : N(beds));
             e.Fact("scUiFacBedsNeeded", N(members));
             e.Fact("scUiFacMorale", Signed(term), term > 0 ? Good : term < 0 ? Bad : Body);
-            e.Fact("scUiFacCounted", L(ScScan.LastMissing > 0 ? "scUiFacCountedPart" : "scUiFacCountedAll"), ScScan.LastMissing > 0 ? Warn : Body);
+            e.Fact("scUiFacCounted", L(ScScan.Missing() > 0 ? "scUiFacCountedPart" : "scUiFacCountedAll"), ScScan.Missing() > 0 ? Warn : Body);   // round MP1: the server's on a client
             e.About = L(ScConfig.BedsBySleepingBag ? "scUiFacBedsRule" : "scUiFacBedsRuleNames") + "\n" + Fmt("scUiFacBedsNight", ScConfig.SleepZoneHeight);
             into.Add(e);
         }

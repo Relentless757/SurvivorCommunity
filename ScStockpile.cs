@@ -391,6 +391,12 @@ namespace SurvivorCommunity
         /// </summary>
         public static int[] NeedForRollover()
         {
+            // round MP1: a client shows the server's figures (the outposts' delivery reads the server's power and runtime state)
+            if (ScMirror.Active)
+            {
+                int[] mn = ScMirror.Ints("need", ScNames.ResourceCount);
+                if (mn != null) return mn;
+            }
             var need = new int[ScNames.ResourceCount];
             // the review of ie1 (L3): the outposts' upkeep and hauling are due with or without members
             if (ScRegistry.Outposts.Count > 0)

@@ -420,6 +420,8 @@ namespace SurvivorCommunity
         {
             message = null;
             if (m == null || role < 0 || role >= RoleCvars.Length) return false;
+            // round MP1: a client's copy of the member is read-only (the body's role cvar would reach the server half-applied)
+            if (!ScRegistry.Loaded) { message = Localization.Get("scHostOnly"); return false; }
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             if (npc == null || npc.IsDead() || npc.Buffs == null) { message = Localization.Get("scNotLoaded"); return false; }
             int mask = ReadMask(npc) ^ (1 << role);

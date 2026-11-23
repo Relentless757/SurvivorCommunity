@@ -52,6 +52,9 @@ namespace SurvivorCommunity
                 Patches_Npc.Patch_SetDead.ReleaseAll(false);
                 World w = ScCommunity.World;
                 if (w == null || !ScRegistry.Loaded) return;
+                // round MP1: the clients' copy of the registry - the last second's changes, at most once a second (its own try;
+                // nothing is built with no remote client, so single player is untouched)
+                ScMirror.ServerTick();
                 // round MP0: no longer the local player - a dedicated server has none. With nobody online there is nothing
                 // to tick (a dedicated server's world time stands still with no players)
                 EntityPlayer player = ScPlayers.Anchor();

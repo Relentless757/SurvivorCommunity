@@ -38,7 +38,7 @@ namespace SurvivorCommunity
             powerSaveDue = false;
         }
 
-        public static bool Active { get { return ScRegistry.Loaded && ScRegistry.Community.LightsOutUntil > 0UL; } }
+        public static bool Active { get { return ScRegistry.Ready && ScRegistry.Community.LightsOutUntil > 0UL; } }   // round MP1: a read - Ready (the Facilities tab on a client)
 
         /// <summary>ScNoise.Steady: the people's part of the noise is multiplied by this (1 without Lights out).</summary>
         public static float PeopleNoiseMult()

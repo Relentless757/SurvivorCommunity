@@ -2086,8 +2086,8 @@ The multiplayer port runs in two stages:
 
 Round MP0 is the groundwork:
 - **The server is the authority.** The registry lives on the server (single player, listen host or dedicated) and is never
-  loaded on a client. `ScRegistry.Loaded` is true only on the server, and a lot of code relies on that, so a future
-  client-side copy must use its own container and flag.
+  loaded on a client. `ScRegistry.Loaded` is true only on the server, and a lot of code relies on that, so a client-side
+  copy needs its own flag (round MP1: `Mirrored`, below).
 - **`ScPlayers`** is the one place SC asks who is playing and where:
   - presence: `AnyHome`, `Home`, `Nearest`, `AnyWithin`;
   - identity: `IdOf`, the platform id `ClientInfo.InternalId` (the host's own is
@@ -2120,6 +2120,31 @@ Round MP0 is the groundwork:
   - airdrops follow vanilla's schedule (`RadioOnlyAirdrops` applies only with a local player);
   - supply runs sent by a client are hidden runs;
   - runners make no distress calls there.
+- **Round MP1, the mirror** (`ScMirror`, `NetPackageScState`): a client holds a read-only copy of the server's registry in
+  `ScRegistry`'s own containers. The community window, the Home Status HUD, the Facilities tab, the talk card and the
+  helpers under them read it unchanged.
+  - **The text:** `ScRegistry.BuildText(forClients)` is the save file's text; `ParseText` reads both. For clients it leaves
+    out:
+    - platform ids, the cleanup bookkeeping and streamer names;
+    - members' entity snapshots (`snap=` and `postsnap=` become `-`, which keeps their meaning: the member is held
+      offline);
+    - handed items, worn pieces and ammo;
+    - enclave trade stock, and the enclaves' and bands' people.
+  - **The flags:** `ScRegistry.Loaded` still means "the authoritative registry" (the server only), and code that writes
+    keeps asking it or `IsHost`. `Mirrored` is a client holding a copy; `Ready` (either one) is for read gates only.
+    `ScMirror.Active` is a client with a copy.
+  - **The push:** a client that said hello with SC's protocol gets the whole snapshot at once. After that the ticker sends,
+    at most once a second, the snapshot if `SaveAtomic` ran since, or else the small derived block if it changed (checked
+    every 2 s). The host's own player and single player get nothing.
+  - **The derived block:** what a client cannot work out itself. It holds morale and its parts, members' moods, attention,
+    the activities' countdowns, radio online, the defense rating and horde, the next rollover's needs and daily flow,
+    noise, beds with the allies', outpost slots, the bundle share, contested outposts' remaining sleepers, and per member
+    the missing set, health, downed and fragile time, and the held order. While `ScMirror.Active`, the helpers answer from
+    it (`ScMorale.Compute`, `ScStockpile.NeedForRollover`, `ScEconomy.DailyFlow`, `ScOutposts.RadioOnlineAnywhere`,
+    `ScMissing.IsMissing`, `ScDowned.StatusText` ...). A few live figures are written into the copy.
+  - **The rule for new code:** a path that runs on a client (patches on entities, render, avatar or UI; dialogs; block
+    commands) and acts on a registry record must check `ScRegistry.Loaded` or `ScCommunity.IsHost`. The window's buttons
+    say scHostOnly on a client until round MP2 adds requests.
 
 ## How it hangs together (for modders)
 

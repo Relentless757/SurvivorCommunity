@@ -702,7 +702,8 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (____npcEntity == null || player == null || ScRegistry.GetMember(____npcEntity.entityId) == null) return;
+                    // round MP1: only the real registry (a client's copy would only run Voice Control's phrase probe for nothing)
+                    if (____npcEntity == null || player == null || !ScRegistry.Loaded || ScRegistry.GetMember(____npcEntity.entityId) == null) return;
                     if (!IsFollowOrder(playerMessage)) return;
                     string error;
                     Member m;

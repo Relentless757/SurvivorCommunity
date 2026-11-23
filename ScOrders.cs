@@ -128,11 +128,14 @@ namespace SurvivorCommunity
         public static string StateWord(Member m)
         {
             if (m == null || (m.Status != MemberStatus.Following && m.Status != MemberStatus.PendingStation)) return "";
-            switch (m.HeldOrder)
+            // round MP1: the held order is the server's runtime state (relink reads it each second): a client has it in the derived block
+            int[] held = ScMirror.Active ? ScMirror.Ints("held." + m.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), 2) : null;
+            if (ScMirror.Active && held == null) return "";
+            switch (held != null ? (EntityUtilities.Orders)held[0] : m.HeldOrder)
             {
                 case EntityUtilities.Orders.Stay:
-                    EntityAlive npc = ScCommunity.FindNpc(m.Id);
-                    bool guarding = npc != null && npc.Buffs != null && npc.Buffs.GetCustomVar("Guarding") >= 1f;
+                    EntityAlive npc = held != null ? null : ScCommunity.FindNpc(m.Id);
+                    bool guarding = held != null ? held[1] != 0 : npc != null && npc.Buffs != null && npc.Buffs.GetCustomVar("Guarding") >= 1f;
                     return Localization.Get(guarding ? "scHeldGuardHere" : "scHeldStay");
                 case EntityUtilities.Orders.Guard: return Localization.Get("scHeldGuard");
                 case EntityUtilities.Orders.Wander: return Localization.Get("scHeldWander");

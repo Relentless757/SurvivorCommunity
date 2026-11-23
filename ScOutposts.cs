@@ -320,6 +320,7 @@ namespace SurvivorCommunity
         /// <summary>slots = min(OutpostMax, 1 + members / OutpostMembersPerSlot + Leadership / OutpostLeadershipPerSlot).</summary>
         public static int Slots()
         {
+            if (ScMirror.Active) return ScMirror.Int("opslots", 1);    // round MP1: the server's (Leadership is its anchor's)
             int members = ScRegistry.Members.Count;
             int bySize = ScConfig.OutpostMembersPerSlot > 0 ? members / ScConfig.OutpostMembersPerSlot : 0;
             int byLead = ScConfig.OutpostLeadershipPerSlot > 0 ? ScLeadership.MoraleBonus() / ScConfig.OutpostLeadershipPerSlot : 0;
@@ -337,6 +338,7 @@ namespace SurvivorCommunity
         {
             try
             {
+                if (ScMirror.Active) return ScMirror.Bool("radio");     // round MP1: power is the server's (a client's graph is not)
                 if (!ScZone.HasHome || !PowerManager.HasInstance) return false;
                 PowerManager pm = PowerManager.Instance;
                 foreach (Vector3i pos in ScRegistry.Community.Radios)
@@ -1092,6 +1094,8 @@ namespace SurvivorCommunity
         {
             World w = ScCommunity.World;
             if (o == null || o.State != OutpostState.Contested || w == null) return "";
+            // round MP1: the sleeper volumes' state is the server's (its text, in the server's language)
+            if (ScMirror.Active) return ScMirror.Str("opleft." + o.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
             PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
             return pi != null ? ScSecurity.RemainingShort(pi, true) : "";
         }

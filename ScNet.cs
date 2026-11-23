@@ -127,6 +127,8 @@ namespace SurvivorCommunity
             }
             else ScLog.Verbose("player " + sender.playerName + " runs SurvivorCommunity protocol " + protocol + " (build " + build + ")");
             sender.SendPackage(NetPackageManager.GetPackage<NetPackageScHello>().Setup(Protocol, Build, true));
+            // round MP1: a client that speaks SC's protocol gets the community's data at once (after the answer, on the same channel)
+            if (protocol == Protocol) ScMirror.OnClientMatched(sender);
         }
 
         /// <summary>Client: the server's answer.</summary>
@@ -147,6 +149,13 @@ namespace SurvivorCommunity
             if (p is EntityPlayerLocal) return true;
             int v;
             return clientProtocol.TryGetValue(p.entityId, out v) && v == Protocol;
+        }
+
+        /// <summary>Round MP1, server: the same for a remote client by its entity id (ScMirror's push walks the ClientInfo list).</summary>
+        public static bool ClientMatches(int entityId)
+        {
+            int v;
+            return clientProtocol.TryGetValue(entityId, out v) && v == Protocol;
         }
 
         public static void ForgetClient(int entityId)

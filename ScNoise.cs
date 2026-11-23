@@ -86,6 +86,7 @@ namespace SurvivorCommunity
 
         public static float Current()
         {
+            if (ScMirror.Active) return ScMirror.Float("noise");     // round MP1: the server counts the people and generators at home
             return Steady() + ScRegistry.Community.NoiseEvents;
         }
 

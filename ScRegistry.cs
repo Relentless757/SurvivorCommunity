@@ -105,6 +105,12 @@ namespace SurvivorCommunity
     {
         public const string FileName = "survivor_community.txt";
         private const string Header = "SCOM 1";
+        /// <summary>
+        /// Round MP1: a client's snap= / postsnap= (BuildText(true)): the snapshot itself stays on the server, but its presence
+        /// says the member is held offline (ScRunners.HeldOffline, IsPhysical, Commit's Garrison) - so it is there, as "-", which
+        /// never deserializes (ScRunners.Deserialize answers null).
+        /// </summary>
+        public const string SnapStub = "-";
 
         public static Community Community = new Community();
         public static readonly Dictionary<int, Member> Members = new Dictionary<int, Member>();
@@ -142,9 +148,25 @@ namespace SurvivorCommunity
         private static volatile bool shuttingDown;
         private static bool loaded;
         private static bool degraded;
+        /// <summary>Round MP1: a client holds the server's snapshot (ApplyMirror).</summary>
+        private static bool mirrored;
+        /// <summary>Round MP1: the server's registry changed since the clients' last snapshot (SaveAtomic sets it; ScMirror takes it).</summary>
+        private static volatile bool dirty;
 
         public static bool IsShuttingDown { get { return shuttingDown; } }
+        /// <summary>
+        /// The authoritative registry is here: the server (single player, a listen host, a dedicated server). Never on a client,
+        /// whose copy is Mirrored - code that writes keeps asking this.
+        /// </summary>
         public static bool Loaded { get { return loaded; } }
+        /// <summary>
+        /// Round MP1: a client holds a read-only copy of the server's registry in these same containers (NetPackageScState,
+        /// ScMirror), so the community window, the Home Status HUD, the Facilities tab and the talk card show it. Never true where
+        /// Loaded is. Nothing here is ever saved: SaveAtomic returns on a client.
+        /// </summary>
+        public static bool Mirrored { get { return mirrored; } }
+        /// <summary>Round MP1: the containers hold community data to show - the real registry or a client's copy. For read gates only.</summary>
+        public static bool Ready { get { return loaded || mirrored; } }
         /// <summary>True when the last load had to skip lines or fall back to the .bak.</summary>
         public static bool Degraded { get { return degraded; } }
         public static string SaveDir { get { return saveDir; } }
@@ -282,10 +304,31 @@ namespace SurvivorCommunity
         {
             try
             {
+                // round MP1: the parse is ParseText, shared with a client's copy of the server's registry (ApplyMirror)
+                return ParseText(File.ReadAllText(path), path);
+            }
+            catch (Exception e)
+            {
+                ScLog.Err("registry: cannot read " + path + ": " + e.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Round MP1: the registry's text (BuildText's form) into the containers, which the caller has emptied: the save file
+        /// (TryLoadFile) and a client's copy of the server's registry (ApplyMirror). Returns false when the text is unreadable
+        /// as a whole; skipped lines mark the load degraded. Only the containers and the records' own state are written.
+        /// </summary>
+        public static bool ParseText(string text, string source = "the server's snapshot")
+        {
+            try
+            {
                 // round fx1 (the review): the registry loads before GameStartDone parses the config, and the Shooting XP
                 // migration below reads ShootingXpMult - parse it now (as ScInfestations.Rebuild already does in this load)
                 ScConfig.EnsureParsed();
-                string[] lines = File.ReadAllLines(path);
+                // round MP1: from text, not the file (File.ReadAllLines split it before; every line is trimmed below, '\r' too)
+                string[] lines = (text ?? "").Split('\n');
+                string path = source;
                 if (lines.Length == 0 || !lines[0].StartsWith("SCOM")) { ScLog.Err("registry: bad header in " + path); return false; }
                 string section = "";
                 Member m = null;
@@ -356,9 +399,59 @@ namespace SurvivorCommunity
             }
             catch (Exception e)
             {
-                ScLog.Err("registry: cannot read " + path + ": " + e.Message);
+                ScLog.Err("registry: cannot read " + source + ": " + e.Message);
                 return false;
             }
+        }
+
+        // ---- round MP1: a client's copy of the server's registry ----
+
+        /// <summary>
+        /// Round MP1, client: the server's snapshot (BuildText(true), from NetPackageScState) replaces whatever copy was here. It
+        /// fills only the containers: none of the load's hooks run (ScRunners, ScOutposts, the enclaves' indexes - all server
+        /// state), Loaded stays false and nothing is ever saved. False (and an empty copy) on unreadable text, and always where the
+        /// registry is the real one.
+        /// </summary>
+        public static bool ApplyMirror(string text)
+        {
+            if (loaded) return false;
+            ClearContainers();
+            bool ok = ParseText(text);
+            degraded = false;                 // the copy says nothing about this machine's (absent) save
+            Cleanup.Clear();                  // server bookkeeping (BuildText(true) leaves it out): never acted on here
+            Doomed.Clear();
+            if (!ok) ClearContainers();
+            mirrored = ok;
+            return ok;
+        }
+
+        /// <summary>Round MP1, client: forget the copy (the world is closing). Never touches the real registry.</summary>
+        public static void ClearMirror()
+        {
+            if (loaded) return;
+            mirrored = false;
+            ClearContainers();
+        }
+
+        private static void ClearContainers()
+        {
+            Community = new Community();
+            Members.Clear();
+            Prospects.Clear();
+            Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); EncRequests.Clear(); Bands.Clear(); BandPeople.Clear();
+            Cleanup.Clear();
+            Doomed.Clear();
+        }
+
+        /// <summary>
+        /// Round MP1, server: whether the registry was saved since the last call (SaveAtomic sets the flag after every mutation that
+        /// matters; ScMirror's push takes it), clearing the flag.
+        /// </summary>
+        public static bool TakeDirty()
+        {
+            bool d = dirty;
+            dirty = false;
+            return d;
         }
 
         private static void CommitOutpost(ref Outpost op)
@@ -1323,17 +1416,46 @@ namespace SurvivorCommunity
                 if (shuttingDown) return;
                 var cm = SingletonMonoBehaviour<ConnectionManager>.Instance;
                 if (cm == null || !cm.IsServer) return;
+                dirty = true;          // round MP1: every mutation that matters saves - the clients' copy follows (ScMirror)
                 if (string.IsNullOrEmpty(saveDir)) { ScLog.Once("save-nodir", "registry save skipped: no save directory yet"); return; }
                 if (!ThreadManager.IsMainThread()) { OnMain(SaveAtomic); return; }
 
-                var sb = new StringBuilder();
+                // round MP1: the text is BuildText's, shared with the clients' snapshot
+                string text = BuildText(false);
+                string real = Path.Combine(saveDir, FileName);
+                string tmp = real + ".tmp";
+                string bak = real + ".bak";
+                Directory.CreateDirectory(saveDir);
+                File.WriteAllText(tmp, text);
+                if (File.Exists(real)) File.Replace(tmp, real, bak);
+                else File.Move(tmp, real);
+                ScLog.Verbose("registry saved: " + Members.Count + " member(s), " + Prospects.Count + " prospect(s)");
+            }
+            catch (Exception e)
+            {
+                ScLog.Err("registry save failed: " + e.Message);
+                Log.Exception(e);
+            }
+        }
+
+        /// <summary>
+        /// The registry as text (the file's format, read back by ParseText). Main thread. Round MP1: forClients is a client's
+        /// snapshot (NetPackageScState): it leaves out what a client must not get or does not need - platform ids (ownerid=,
+        /// leader=), the server's cleanup bookkeeping and streamer names, the members' entity snapshots (snap= and postsnap= become
+        /// "-", which keeps their meaning: the member is held offline), handed items, worn pieces, ammo and magazines, the
+        /// enclaves' trade stock, and the enclaves' and bands' people. Throws on a bad record (SaveAtomic logs it).
+        /// </summary>
+        public static string BuildText(bool forClients)
+        {
+            var sb = new StringBuilder();
+            {
                 sb.AppendLine(Header);
-                sb.AppendLine("# SurvivorCommunity registry - edit only with the game closed");
+                sb.AppendLine(forClients ? "# SurvivorCommunity registry - the server's snapshot for a client" : "# SurvivorCommunity registry - edit only with the game closed");
                 Community c = Community;
                 sb.AppendLine("[community]");
                 if (c.HasHome) sb.AppendLine("home=" + Vec(c.Home));
                 sb.AppendLine("owner=" + Clean(c.Owner));
-                if (!string.IsNullOrEmpty(c.OwnerId)) sb.AppendLine("ownerid=" + Clean(c.OwnerId));   // round MP0
+                if (!forClients && !string.IsNullOrEmpty(c.OwnerId)) sb.AppendLine("ownerid=" + Clean(c.OwnerId));   // round MP0; MP1: never to a client
                 sb.AppendLine("morale=" + c.Morale);
                 sb.AppendLine("lastday=" + c.LastDay);
                 sb.AppendLine("lowmorale=" + c.LowMoraleDays);
@@ -1502,13 +1624,13 @@ namespace SurvivorCommunity
                     for (int i = 0; i < c.Ledger.Count && i < 7; i++) { if (i > 0) l.Append(';'); l.Append(Clean(c.Ledger[i]).Replace("\n", "\\n")); }
                     sb.AppendLine("ledger=" + l);
                 }
-                if (Cleanup.Count > 0)
+                if (!forClients && Cleanup.Count > 0)       // round MP1: server bookkeeping (entity ids), never a client's
                 {
                     var cl = new StringBuilder();
                     foreach (int id in Cleanup) { if (cl.Length > 0) cl.Append(','); cl.Append(id); }
                     sb.AppendLine("cleanup=" + cl);
                 }
-                if (Doomed.Count > 0)
+                if (!forClients && Doomed.Count > 0)        // round MP1: the same
                 {
                     var dm = new StringBuilder();
                     foreach (int id in Doomed) { if (dm.Length > 0) dm.Append(','); dm.Append(id); }
@@ -1516,15 +1638,16 @@ namespace SurvivorCommunity
                 }
                 // round 30: the streamer names given out in this save, one line each (ScStreamerNames cleans a name of every
                 // separator first, so Clean() is only a guard here)
-                foreach (string n in c.StreamerNamesUsed)
-                {
-                    string sn = Clean(n);
-                    if (sn.Length > 0) sb.AppendLine("streamname=" + sn);
-                }
+                if (!forClients)                            // round MP1: the server's list, not shown on a client
+                    foreach (string n in c.StreamerNamesUsed)
+                    {
+                        string sn = Clean(n);
+                        if (sn.Length > 0) sb.AppendLine("streamname=" + sn);
+                    }
                 foreach (var m in Members.Values)
                 {
                     sb.AppendLine("[member]");
-                    WriteMemberFields(sb, m);
+                    WriteMemberFields(sb, m, forClients);
                 }
                 foreach (var ct in Contacts)
                 {
@@ -1600,7 +1723,7 @@ namespace SurvivorCommunity
                     if (en.Kind.Length > 0) sb.AppendLine("kind=" + Clean(en.Kind));
                     sb.AppendLine("turned=" + (en.TurnedHostile ? Math.Max(0, en.HostileDay) : -1).ToString(CultureInfo.InvariantCulture));
                     sb.AppendLine("people=" + (en.PeopleRolled ? 1 : 0));
-                    if (en.Stock.Length > 0) sb.AppendLine("stock=" + en.Stock);   // base64url: never Clean()ed (it has no '=' or ';')
+                    if (!forClients && en.Stock.Length > 0) sb.AppendLine("stock=" + en.Stock);   // base64url: never Clean()ed (it has no '=' or ';'); MP1: bulky, server-side trading
                     if (en.LastRecruitDay >= 0) sb.AppendLine("recruited=" + en.LastRecruitDay.ToString(CultureInfo.InvariantCulture));
                     if (en.NextRequestDay > 0) sb.AppendLine("nextreq=" + en.NextRequestDay.ToString(CultureInfo.InvariantCulture));
                     if (en.Thanks.Length > 0) sb.AppendLine("thanks=" + Clean(en.Thanks));
@@ -1620,7 +1743,8 @@ namespace SurvivorCommunity
                     if (en.LossDay >= 0) sb.AppendLine("lossday=" + en.LossDay.ToString(CultureInfo.InvariantCulture));
                     if (en.NestDay >= 0) sb.AppendLine("nestday=" + en.NestDay.ToString(CultureInfo.InvariantCulture));
                 }
-                foreach (var ep in EncPeople)
+                // round MP1: a client's snapshot has no enclave or band people (bulky, and nothing a client shows reads them yet)
+                foreach (var ep in forClients ? new List<EncPerson>() : EncPeople)
                 {
                     sb.AppendLine("[encperson]");
                     sb.AppendLine("pid=" + ep.Id);
@@ -1639,7 +1763,7 @@ namespace SurvivorCommunity
                     if (ep.Enlisted)
                         sb.AppendLine("enlisted=" + ep.EnlistedBy.ToString(CultureInfo.InvariantCulture) + ":" + ep.EnlistedUntil.ToString(CultureInfo.InvariantCulture)
                                       + ":" + ep.EnlistedBody.ToString(CultureInfo.InvariantCulture));
-                    WriteMemberFields(sb, ep.Who);
+                    WriteMemberFields(sb, ep.Who, forClients);
                 }
                 foreach (var rq in EncRequests)
                 {
@@ -1723,7 +1847,7 @@ namespace SurvivorCommunity
                     if (bd.Trouble != 0) sb.AppendLine("trouble=" + (bd.Trouble == 2 ? 3 : bd.Trouble).ToString(CultureInfo.InvariantCulture));
                     if (bd.Arrived) sb.AppendLine("arrived=1");
                 }
-                foreach (var bp in BandPeople)
+                foreach (var bp in forClients ? new List<BandPerson>() : BandPeople)     // round MP1: as the enclave people
                 {
                     sb.AppendLine("[bandperson]");
                     sb.AppendLine("pid=" + bp.Id.ToString(CultureInfo.InvariantCulture));
@@ -1732,7 +1856,7 @@ namespace SurvivorCommunity
                     sb.AppendLine("state=" + Clean(bp.State));
                     sb.AppendLine("died=" + bp.DiedDay.ToString(CultureInfo.InvariantCulture));
                     sb.AppendLine("health=" + bp.Health.ToString("0.###", CultureInfo.InvariantCulture));
-                    WriteMemberFields(sb, bp.Who);
+                    WriteMemberFields(sb, bp.Who, forClients);
                 }
                 foreach (var p in Prospects.Values)
                 {
@@ -1759,21 +1883,8 @@ namespace SurvivorCommunity
                     if (p.Loadout != null) sb.AppendLine("loadout=" + Clean(p.Loadout.Encode()));
                     if (p.EncPersonId > 0) sb.AppendLine("encp=" + p.EncPersonId.ToString(CultureInfo.InvariantCulture));
                 }
-
-                string real = Path.Combine(saveDir, FileName);
-                string tmp = real + ".tmp";
-                string bak = real + ".bak";
-                Directory.CreateDirectory(saveDir);
-                File.WriteAllText(tmp, sb.ToString());
-                if (File.Exists(real)) File.Replace(tmp, real, bak);
-                else File.Move(tmp, real);
-                ScLog.Verbose("registry saved: " + Members.Count + " member(s), " + Prospects.Count + " prospect(s)");
             }
-            catch (Exception e)
-            {
-                ScLog.Err("registry save failed: " + e.Message);
-                Log.Exception(e);
-            }
+            return sb.ToString();
         }
 
         /// <summary>World shutdown: save, then latch and forget so the next world starts clean.</summary>
@@ -1789,6 +1900,8 @@ namespace SurvivorCommunity
                 {
                     shuttingDown = true;
                     loaded = false;
+                    mirrored = false;          // round MP1: a client's copy goes with the world (the containers are cleared below)
+                    dirty = false;
                     SaveIsNew = false;
                     Community = new Community();
                     Members.Clear();
@@ -1807,14 +1920,16 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// A Member's key=value lines - a [member] section's whole body, and an [encperson]'s person (E2) or a [bandperson]'s
-        /// (E13a) after its own keys - so the sections share one field list, read back by ParseMember.
+        /// (E13a) after its own keys - so the sections share one field list, read back by ParseMember. Round MP1: forClients (a
+        /// client's snapshot, BuildText) leaves out the leader's platform id, handed items, worn pieces, ammo and the ammo pick,
+        /// and writes "-" for snap= and postsnap= (SnapStub).
         /// </summary>
-        private static void WriteMemberFields(StringBuilder sb, Member m)
+        private static void WriteMemberFields(StringBuilder sb, Member m, bool forClients)
         {
             sb.AppendLine("id=" + m.Id);
             sb.AppendLine("class=" + Clean(m.Class));
             sb.AppendLine("name=" + Clean(m.Name));
-            if (!string.IsNullOrEmpty(m.LeaderId)) sb.AppendLine("leader=" + Clean(m.LeaderId));   // round MP0
+            if (!forClients && !string.IsNullOrEmpty(m.LeaderId)) sb.AppendLine("leader=" + Clean(m.LeaderId));   // round MP0; MP1: never to a client
             sb.AppendLine("born=" + m.Born.ToString(CultureInfo.InvariantCulture));
             // E12: one on the way is written a resident (an older build knows no Arriving: a resident with no body is missing
             // there, and "Call back" brings them) with arrive= below, which makes them Arriving again here.
@@ -1853,7 +1968,7 @@ namespace SurvivorCommunity
                               + (m.Offline ? 1 : 0) + ":" + Clean(m.RunDestName));
             }
             if ((heldPost || m.Status == MemberStatus.Transit) && !string.IsNullOrEmpty(m.Snap))
-                sb.AppendLine("postsnap=" + m.Snap);                                    // round op1: base64url (gzip'd: "2:"), never Clean()ed (as snap=)
+                sb.AppendLine("postsnap=" + (forClients ? SnapStub : m.Snap));         // round op1: base64url (gzip'd: "2:"), never Clean()ed (as snap=)
             if (m.BodyAt != Vector3i.zero) sb.AppendLine("bodyat=" + Vec(m.BodyAt));    // round op1 review (a key older builds ignore)
             if (m.Status == MemberStatus.OnRun && m.RunLeg != RunLeg.None)
             {
@@ -1874,7 +1989,7 @@ namespace SurvivorCommunity
 #endif
                 sb.AppendLine("rollpending=" + (m.RollPending ? 1 : 0));
                 if (m.RunHurt) sb.AppendLine("runhurt=1");                              // round r2: turned home hurt (a key older builds ignore)
-                if (!string.IsNullOrEmpty(m.Snap)) sb.AppendLine("snap=" + m.Snap);   // base64url: never Clean()ed (it has no '=' or ';')
+                if (!string.IsNullOrEmpty(m.Snap)) sb.AppendLine("snap=" + (forClients ? SnapStub : m.Snap));   // base64url: never Clean()ed (it has no '=' or ';')
             }
             if (m.Status == MemberStatus.OnRun && m.RunDistress)
             {
@@ -1890,14 +2005,17 @@ namespace SurvivorCommunity
             }
             if (m.Loadout != null) sb.AppendLine("loadout=" + Clean(m.Loadout.Encode()));
 #if SC_V34
-            // round n12: the exact items she was handed, one line each (base64url bytes and an item name: Clean leaves them be)
-            foreach (string line in ScHanded.Lines(m)) sb.AppendLine("handed=" + Clean(line));
-            string worn = ScWardrobe.EncodeWorn(m);                                     // n12 review: the Wardrobe's picks she wears
-            if (worn != null) sb.AppendLine("wardrobe=" + Clean(worn));
-            if (!string.IsNullOrEmpty(m.AmmoGun) && !string.IsNullOrEmpty(m.AmmoPick))   // round U1: the ammo type chosen for her gun
-                sb.AppendLine("ammopick=" + Clean(m.AmmoGun) + "|" + Clean(m.AmmoPick));
+            if (!forClients)     // round MP1: items, worn pieces and the ammo pick stay on the server (bulky; the member panel's slots are host-only)
+            {
+                // round n12: the exact items she was handed, one line each (base64url bytes and an item name: Clean leaves them be)
+                foreach (string line in ScHanded.Lines(m)) sb.AppendLine("handed=" + Clean(line));
+                string worn = ScWardrobe.EncodeWorn(m);                                     // n12 review: the Wardrobe's picks she wears
+                if (worn != null) sb.AppendLine("wardrobe=" + Clean(worn));
+                if (!string.IsNullOrEmpty(m.AmmoGun) && !string.IsNullOrEmpty(m.AmmoPick))   // round U1: the ammo type chosen for her gun
+                    sb.AppendLine("ammopick=" + Clean(m.AmmoGun) + "|" + Clean(m.AmmoPick));
+            }
 #endif
-            if (m.Ammo != null) sb.AppendLine("ammo=" + Clean(ScAmmo.Encode(m.Ammo, m.Mags)));   // magazines %-escaped inside (M11)
+            if (!forClients && m.Ammo != null) sb.AppendLine("ammo=" + Clean(ScAmmo.Encode(m.Ammo, m.Mags)));   // magazines %-escaped inside (M11); MP1: not to a client
             if (m.WatchPost != Vector3i.zero)
                 sb.AppendLine("watch=" + Vec(m.WatchPost) + ":" + m.WatchStart.ToString(CultureInfo.InvariantCulture) + ":" + m.WatchPrepaid + ":" + Vec(m.WatchHome));
             if (m.WatchRestUntil > 0UL) sb.AppendLine("watchrest=" + m.WatchRestUntil.ToString(CultureInfo.InvariantCulture));

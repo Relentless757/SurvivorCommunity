@@ -256,6 +256,9 @@ namespace SurvivorCommunity
         /// <summary>The share for an open now: the setting, cut by ShareCap with every craftsman member's stars.</summary>
         public static float ShareNow()
         {
+            // round MP1 (A 12, the plan's "bundle share"): a client opens bundles itself (as vanilla) - with the server's share,
+            // not the base one an empty registry gave it before. Only the amount changes; the open is the client's as always.
+            if (ScMirror.Active && ScMirror.Has("share")) return Math.Max(0f, ScMirror.Float("share", ScConfig.BundleOpenValueShare));
             int stars = 0;
             try
             {

@@ -9,8 +9,9 @@ namespace SurvivorCommunity
     /// The Home Status panel (Config/XUi_InGame/windows.xml windowScHomeStatus, in the HUD's toolbelt group): at the top, right
     /// of the compass (left of the quest tracker), while the player is inside the home zone - morale (dot + word), six resources (luxuries only show in the window; red below what the next rollover
     /// wants, ScStockpile.NeedForRollover), the member count and the base's noise (ScNoise). Hidden while a modal window is
-    /// open, and with HomeStatusHud=false. Host only, like the registry it reads. Every binding is non-null from the
-    /// constructor: bindings are evaluated while the XML is parsed, before Init.
+    /// open, and with HomeStatusHud=false. Round MP1: on a client too, from the server's copy of the registry (ScMirror: the
+    /// needs and the noise are the server's figures). Every binding is non-null from the constructor: bindings are evaluated
+    /// while the XML is parsed, before Init.
     /// </summary>
     [Preserve]
     public class XUiC_ScHomeStatus : XUiController
@@ -91,7 +92,8 @@ namespace SurvivorCommunity
 
         private bool Wanted()
         {
-            if (!ScConfig.HomeStatusHud || !ScCommunity.IsHost || !ScRegistry.Loaded || !ScRegistry.Community.HasHome) return false;
+            // round MP1: Ready - the real registry, or a client's copy of the server's (it was host-only)
+            if (!ScConfig.HomeStatusHud || !ScRegistry.Ready || !ScRegistry.Community.HasHome) return false;
             EntityPlayerLocal player = (xui != null && xui.playerUI != null) ? xui.playerUI.entityPlayer : null;
             if (player == null || player.IsDead()) return false;
             if (xui.playerUI.windowManager != null && xui.playerUI.windowManager.IsModalWindowOpen()) return false;

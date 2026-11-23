@@ -205,6 +205,7 @@ namespace SurvivorCommunity
 
         public static int AlliedCount()
         {
+            if (ScMirror.Active) return ScMirror.Int("allied");             // round MP1: the server's allies
             int n = 0;
             List<Enclave> all = ScEnclaves.All;
             for (int i = 0; i < all.Count; i++) if (IsAlly(all[i])) n++;
@@ -250,12 +251,14 @@ namespace SurvivorCommunity
         /// <summary>Overflow Barracks: EnclaveBenefitBeds for each such ally.</summary>
         public static int ExtraBeds()
         {
+            if (ScMirror.Active) return ScMirror.Int("extrabeds");          // round MP1: the server's allies
             return Math.Max(0, ScConfig.EnclaveBenefitBeds) * CountActive(Barracks);
         }
 
         /// <summary>The beds SC weighs against its members: the home scan's count (Community.Beds, never written here) plus the allies' (ExtraBeds).</summary>
         public static int TotalBeds()
         {
+            if (ScMirror.Active) return ScMirror.Int("beds", ScRegistry.Community.Beds);   // round MP1
             return ScRegistry.Community.Beds + ExtraBeds();
         }
 

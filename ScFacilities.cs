@@ -114,7 +114,8 @@ namespace SurvivorCommunity
             if (wl > 0) return wl;
             if (!IsDew(bv.type)) return 0;
             int lv;
-            return ScRegistry.Loaded && ScRegistry.Community.DewLevels.TryGetValue(parent, out lv) ? Math.Max(1, Math.Min(lv, MaxLevel(bv.type))) : 1;
+            // round MP1: a read - Ready, so the Facilities tab on a client shows the dew collectors' levels from the server's copy
+            return ScRegistry.Ready && ScRegistry.Community.DewLevels.TryGetValue(parent, out lv) ? Math.Max(1, Math.Min(lv, MaxLevel(bv.type))) : 1;
         }
 
         /// <summary>Water a day from one facility (parent block) at its level.</summary>

@@ -37,6 +37,39 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP1 (part: mirror, 2026-11-23): clients see the community's data
+
+Why: on a client, the community window, the Home Status HUD, the Facilities tab and the talk card showed an empty community
+(morale 50, 0 members, 0 stock), which reads as data loss. The server now sends each client a copy of the community and
+refreshes it after changes. Buttons still act only on the host (round MP2). Build `sc34_mp1m`, **not deployed yet**.
+
+**Single player: nothing may change**
+- [ ] The community window (Members, Outposts, Facilities), its buttons and the Home Status HUD work and refresh as before.
+- [ ] Talk to a member: the talk card, the dialog rows and "Ask to leave" work as before.
+- [ ] Log: no SC errors, and no `community snapshot` line (nothing is sent in single player).
+
+**A client on a dedicated server or a listen host** (a save with a community, a few members, an outpost)
+- [ ] Join. Right after `server runs the same SurvivorCommunity protocol`, the client's log says `community snapshot from
+      the server: N member(s), M outpost(s), B bytes`.
+- [ ] Open the community window from the ESC menu. Morale and its parts, the stock with its daily net, the members, the
+      ledger and the beds line match the host's window.
+- [ ] Select a member far from you: health (the server's), status, mood, skills and traits show. A downed member shows
+      "Down - N s"; a missing one shows Missing.
+- [ ] Outposts tab: the outposts, their yields and state, radio on or off, slots and the network's costs match the host's.
+- [ ] Facilities tab: the defense rating, beds, water (a dew collector's level), the campfire's activities (a running
+      feast counts down), the radio and the watch posts match the host's.
+- [ ] Inside the home zone, the Home Status HUD shows morale, the stock (red where the next rollover is short), the members
+      and the noise. The morale buff icon takes the band color.
+- [ ] Change something on the server (`sc give food 10`, a member follows the host): the client's open window updates
+      within about 2 s without reopening.
+- [ ] Every button that would change something says "host only" with the denied sound and changes nothing:
+      - Members tab: Follow, Home, Leave, the runs, Work and the roles;
+      - Outposts tab: Mode, Upgrade, Assign and staff Recall;
+      - Facilities tab: every action.
+- [ ] Talk to a member: her talk card shows (role, mood, traits). "Ask to leave" says "host only" and she stays.
+- [ ] Leave the server and join a single-player game: the window is empty there. Rejoin the server: it fills again.
+- [ ] Logs: no SC errors on either side.
+
 ## Round MP0.1 (2026-11-23): enclave people, bands and runners on a dedicated server
 
 Why: MP0's dedicated-server test found that an enclave's people were never made there. A server only builds the colliders
