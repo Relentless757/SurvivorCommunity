@@ -403,7 +403,8 @@ namespace SurvivorCommunity
         private static string RaceSeed(EntityAlive npc, bool raider, string seed)
         {
             if (raider || npc == null) return seed;
-            Member m = ScRegistry.GetMember(npc.entityId);
+            // round MP1: the real registry only - a client keeps choosing a voice as before until the voices travel (round MP4)
+            Member m = ScRegistry.Loaded ? ScRegistry.GetMember(npc.entityId) : null;
             return m != null && !string.IsNullOrEmpty(m.Name) ? m.Name : seed;
         }
 

@@ -1164,6 +1164,8 @@ public class DialogActionScWorkEnd : BaseDialogAction
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
+            // round MP1: a client now finds her in its copy of the registry - the shift is the server's (round MP2): said, not silent
+            if (m != null && !ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }
             if (m == null || !ScWork.OnShift(m.Id)) return;
             ScWork.End(m, npc, "That's all for now.", true, false);
             ScCommunity.Tell(player, string.Format(Localization.Get("scEncCallSays"), m.Name, Localization.Get("scWorkEndSaid")), "");

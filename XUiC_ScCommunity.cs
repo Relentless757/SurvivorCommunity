@@ -59,6 +59,8 @@ namespace SurvivorCommunity
         private XUiV_Texture selPortrait;
         private bool selHasPortrait;
         private int portraitVersion = -1;
+        /// <summary>Round MP1: the client copy's version this window last refreshed from (ScMirror.Version; it never moves on the host).</summary>
+        private int mirrorVersion = -1;
         private string communityName = "";
 
         // ---- the Outposts tab ----
@@ -155,6 +157,7 @@ namespace SurvivorCommunity
                 {
                     Outpost o = OutpostSelected;
                     if (o == null || !o.Holding) return;
+                    if (RefusedOnClient(true)) return;       // round MP1
                     ScOutpostPerks.CycleMode(o);
                     ScRegistry.SaveAtomic();
                     opMessage = string.Format(Localization.Get("scOpModeSet"), o.Name, ScOutpostPerks.ModeLabel(o));
@@ -264,6 +267,8 @@ namespace SurvivorCommunity
             {
                 if (IsOpen())
                 {
+                    // round MP1: a client's copy of the server's registry was replaced (or its derived block): refresh at once
+                    if (mirrorVersion != ScMirror.Version) { mirrorVersion = ScMirror.Version; nextRefresh = 0f; }
                     if (Time.unscaledTime >= nextRefresh) Refresh();
                     else if (filterDirty) ApplyFilter();
                     if (ScPortraits.Version != portraitVersion)
@@ -286,6 +291,23 @@ namespace SurvivorCommunity
         {
             return xui != null && xui.playerUI != null && xui.playerUI.windowManager != null
                    && xui.playerUI.windowManager.IsWindowOpen(ScCommunity.WindowGroup);
+        }
+
+        /// <summary>
+        /// Round MP1: a client's window shows the server's community (ScMirror) but cannot act on it until round MP2's requests:
+        /// every button that would change something says so (scHostOnly, as the verbs themselves do) - never silent, and never
+        /// a half-applied change to the client's copy or to a body. False on the host and in single player.
+        /// </summary>
+        private bool RefusedOnClient(bool outposts = false)
+        {
+            if (ScCommunity.IsHost) return false;
+            string text = Localization.Get("scHostOnly");
+            if (outposts) opMessage = text; else message = text;
+            runPicking = false;
+            EntityPlayerLocal p = Player;
+            if (p != null) p.PlayOneShot("ui_denied");
+            RefreshBindingsSelfAndChildren();
+            return true;
         }
 
         /// <summary>
@@ -463,6 +485,7 @@ namespace SurvivorCommunity
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null || !WorkOpen) return;
+            if (RefusedOnClient()) return;               // round MP1
             string msg;
             bool ok;
             ScWork.CallOrEnd(m, p, out msg, out ok);
@@ -480,6 +503,7 @@ namespace SurvivorCommunity
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null || !WorkOpen) return;
+            if (RefusedOnClient()) return;               // round MP1: ToggleRole writes the body's role cvar
             string msg;
             if (!ScCraft.ToggleRole(m, role, out msg)) p.PlayOneShot("ui_denied");
             message = msg ?? "";
@@ -534,7 +558,7 @@ namespace SurvivorCommunity
             opList.Clear();
             for (int i = 0; i < ScNames.ResourceCount; i++) netYield[i] = 0;
             radioOnline = false;
-            if (!ScRegistry.Loaded) { ApplyOutpostRows(); return; }
+            if (!ScRegistry.Ready) { ApplyOutpostRows(); return; }      // round MP1: Ready (a client's copy; the radio is the server's)
             foreach (Outpost o in ScRegistry.Outposts) if (o.Holding) opList.Add(o);
             opList.Sort((a, b) => a.Id.CompareTo(b.Id));
             foreach (Outpost o in ScRegistry.Outposts) if (!o.Holding) opList.Add(o);
@@ -654,6 +678,7 @@ namespace SurvivorCommunity
             Outpost o = OutpostSelected;
             if (o == null) return;
             if (assignOutpostId >= 0) { assignOutpostId = -1; message = ""; filter = Filter.All; filterDirty = true; RefreshBindingsSelfAndChildren(); return; }
+            if (RefusedOnClient(true)) return;            // round MP1: no pick that could only be refused
             if (!o.Holding || ScGarrison.Assigned(o) >= ScGarrison.StaffCap(o))     // round op1: those on the way hold their post
             {
                 opMessage = Localization.Get(!o.Holding ? "scOpPostLost" : "scOpPostFull");
@@ -674,6 +699,7 @@ namespace SurvivorCommunity
             Outpost o = ScOutposts.ById(assignOutpostId);
             EntityPlayerLocal p = Player;
             if (o == null) { assignOutpostId = -1; return false; }
+            if (RefusedOnClient()) return true;          // round MP1
             string err;
             if (!ScGarrison.Post(m, ScCommunity.FindNpc(m.Id), o, p, out err))
             {
@@ -699,6 +725,7 @@ namespace SurvivorCommunity
         private bool TryAssignWatch(Member m)
         {
             EntityPlayerLocal p = Player;
+            if (RefusedOnClient()) return true;          // round MP1
             string err;
             if (!ScWatch.Assign(assignWatch, m, p, out err))
             {
@@ -721,6 +748,7 @@ namespace SurvivorCommunity
             Outpost o = OutpostSelected;
             EntityPlayerLocal p = Player;
             if (o == null || p == null) return;
+            if (RefusedOnClient(true)) return;           // round MP1
             string msg;
             if (ScOutpostRisk.DamagedNow(o))        // the same button repairs a damaged outpost
             {
@@ -751,6 +779,7 @@ namespace SurvivorCommunity
             if (o == null) return;
             List<Member> staff = ScGarrison.Slots(o);                      // round op1: staff, then those on the way
             if (slot >= staff.Count) return;
+            if (RefusedOnClient(true)) return;           // round MP1
             Member m = staff[slot];
             bool onTheWay = ScGarrison.HeadingOut(m);
             ScGarrison.Recall(m, p, null);
@@ -868,7 +897,7 @@ namespace SurvivorCommunity
         /// </summary>
         private string NetResource(Resource r)
         {
-            if (!ScRegistry.Loaded) return "";
+            if (!ScRegistry.Ready) return "";          // round MP1: Ready (the server's daily flow on a client)
             int g = dayGain[(int)r], u = dayUse[(int)r], v = g - u;
             if (v > 0) return "+" + v.ToString(CultureInfo.InvariantCulture);
             if (v < 0) return v.ToString(CultureInfo.InvariantCulture);
@@ -887,7 +916,7 @@ namespace SurvivorCommunity
                 && name != "tabmembers" && name != "taboutposts" && name != "outpostcount") return false;
             Community c = ScRegistry.Community;
             Outpost o = OutpostSelected;
-            bool loaded = ScRegistry.Loaded;
+            bool loaded = ScRegistry.Ready;              // round MP1: Ready (a client's copy)
             switch (name)
             {
                 case "tabmembers": value = (tab == Tab.Members).ToString(); return true;
@@ -1029,6 +1058,7 @@ namespace SurvivorCommunity
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null) return;
+            if (RefusedOnClient()) return;               // round MP1
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             string err;
             if (m.Status == MemberStatus.Arriving)
@@ -1113,6 +1143,7 @@ namespace SurvivorCommunity
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null) return;
+            if (RefusedOnClient()) return;               // round MP1
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             string err;
             if (m.Status == MemberStatus.Arriving) err = "scEncJoinOnTheWay";      // E12: still on the way
@@ -1126,6 +1157,7 @@ namespace SurvivorCommunity
         {
             Member m = Selected;
             if (m == null) return;
+            if (RefusedOnClient()) return;               // round MP1: ScCommunity.Leave has no host gate of its own
             float now = Time.unscaledTime;
             if (now > confirmLeaveUntil)
             {
@@ -1150,6 +1182,7 @@ namespace SurvivorCommunity
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null) return;
+            if (RefusedOnClient()) return;               // round MP1
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             string err;
             runPicking = false;
@@ -1165,6 +1198,7 @@ namespace SurvivorCommunity
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null) return;
+            if (RefusedOnClient()) return;               // round MP1
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             string err;
             runPicking = false;
@@ -1191,7 +1225,7 @@ namespace SurvivorCommunity
         {
             helping.Clear();
             hurting.Clear();
-            if (!ScRegistry.Loaded) return;
+            if (!ScRegistry.Ready) return;             // round MP1: Ready (the server's terms on a client: ScMorale.Compute)
             ScMorale.Parts p = ScMorale.Compute();
             Community c = ScRegistry.Community;
             int members = ScRegistry.Members.Count;
@@ -1214,7 +1248,7 @@ namespace SurvivorCommunity
             AddPart(p.Comfort, Localization.Get("scEncBenefit_comfort"), "ui_game_symbol_party");
             AddPart(p.EnclaveLost, Localization.Get("scMoraleEnclaveLost"), "ui_game_symbol_map_fortress");
             // I3: the infestations near home, by how many there are
-            AddPart(p.Nests, string.Format(Localization.Get("scMoraleNestsCount"), ScInfestations.NearHome().Count), "ui_game_symbol_infection");
+            AddPart(p.Nests, string.Format(Localization.Get("scMoraleNestsCount"), ScMirror.Active ? ScMirror.Int("nests") : ScInfestations.NearHome().Count), "ui_game_symbol_infection");   // round MP1
             helping.Sort((a, b) => b.Value.CompareTo(a.Value));
             hurting.Sort((a, b) => a.Value.CompareTo(b.Value));
         }
@@ -1280,7 +1314,7 @@ namespace SurvivorCommunity
                                            c.Get(Resource.Water), c.Get(Resource.Luxury));
                     return true;
                 case "breakdown":
-                    _value = ScRegistry.Loaded ? ScMorale.Breakdown() : "";
+                    _value = ScRegistry.Ready ? ScMorale.Breakdown() : "";      // round MP1: Ready
                     return true;
                 case "listheader":
                     _value = string.Format(Localization.Get("scWinListHeader"), ScRegistry.Members.Count);
@@ -1500,7 +1534,7 @@ namespace SurvivorCommunity
 
         private static int BedsShort()
         {
-            if (!ScRegistry.Loaded) return 0;
+            if (!ScRegistry.Ready) return 0;           // round MP1: Ready
             int m = ScRegistry.Members.Count;
             return m == 0 ? 0 : Math.Max(0, m - ScEncAllies.TotalBeds());      // E6: an ally's Overflow Barracks counts
         }
@@ -1514,7 +1548,7 @@ namespace SurvivorCommunity
         /// </summary>
         private string DaysLeft(Community c, Resource r, int use)
         {
-            if (!ScRegistry.Loaded) return "";
+            if (!ScRegistry.Ready) return "";          // round MP1: Ready
             int gain = Math.Max(0, dayGain[(int)r]);
             use = Math.Max(0, use);
             if (use == 0) return gain > 0 ? string.Format(Localization.Get("scWinComingIn"), gain) : "";
@@ -1530,6 +1564,20 @@ namespace SurvivorCommunity
 
         private static string Health(Member sel, string which)
         {
+            if (sel != null && ScMirror.Active)
+            {
+                // round MP1: the server's body (a client has hers only within 80 m): "hp.<id>=health,max,fill", none while unloaded
+                string[] f = ScMirror.Str("hp." + sel.Id.ToString(CultureInfo.InvariantCulture)).Split(',');
+                bool known = f.Length == 3;
+                switch (which)
+                {
+                    case "selhealth": return known ? f[0] : "-";
+                    case "selhealthmax": return known ? f[1] : "-";
+                    default:
+                        float fill;
+                        return known && float.TryParse(f[2], NumberStyles.Float, CultureInfo.InvariantCulture, out fill) ? Fill(fill) : "0";
+                }
+            }
             EntityAlive npc = sel != null ? ScCommunity.FindNpc(sel.Id) : null;
             bool live = npc != null && !npc.IsDead() && npc.Stats != null && npc.Stats.Health != null;
             switch (which)

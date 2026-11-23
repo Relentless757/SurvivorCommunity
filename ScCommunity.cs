@@ -1254,6 +1254,8 @@ namespace SurvivorCommunity
         {
             ScLog.Out("Leave requested for " + (m != null ? m.Name : "?") + " (" + (reasonKey ?? "-") + ") from " + Caller());
             if (m == null) return;
+            // round MP1: only the real registry - a client's copy (ScMirror) is never changed (its callers say scHostOnly first)
+            if (!ScRegistry.Loaded) return;
 #if SC_V34
             // round U2: a downed member does not leave - Leave detaches her, 0-XNPCCore would find no leader and her bleed-out would
             // stop for good (an invulnerable stranger); asked again once she is up

@@ -654,6 +654,9 @@ namespace SurvivorCommunity
         /// <summary>The member or prospect record's pair: the registry is the truth for the community's own people.</summary>
         private static Loadout FromRecord(EntityAlive e, string cls)
         {
+            // round MP1: the real registry only - PostInit runs on a client for its copy of every body, and the server's records
+            // there are a copy; a client keeps choosing the pair as before (its cvars or a seeded roll)
+            if (!ScRegistry.Loaded) return null;
             Member m = ScRegistry.GetMember(e.entityId);
             if (m != null && m.Loadout != null && SameClass(m.Class, cls)) return m.Loadout.Clone();
             Prospect p = ScRegistry.GetProspect(e.entityId);

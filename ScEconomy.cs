@@ -87,6 +87,7 @@ namespace SurvivorCommunity
 
         public static int FoodEaten()
         {
+            if (ScMirror.Active) return ScMirror.Int("food");      // round MP1: the server's (tonight's rationing is on its side)
             int raw, saved;
             Member cook;
             return FoodEaten(out raw, out saved, out cook);
@@ -405,6 +406,13 @@ namespace SurvivorCommunity
         {
             Array.Clear(gain, 0, gain.Length);
             Array.Clear(use, 0, use.Length);
+            if (ScMirror.Active)
+            {
+                // round MP1: a client shows the server's next rollover (deliveries read its power and runtime state)
+                int[] mg = ScMirror.Ints("gain", gain.Length), mu = ScMirror.Ints("use", use.Length);
+                if (day == ScCommunity.Today + 1 && mg != null && mu != null) { Array.Copy(mg, gain, gain.Length); Array.Copy(mu, use, use.Length); }
+                return;
+            }
             if (!ScRegistry.Loaded) return;
             Community c = ScRegistry.Community;
             int n = ScNames.ResourceCount;

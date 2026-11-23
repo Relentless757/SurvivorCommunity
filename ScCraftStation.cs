@@ -125,7 +125,9 @@ namespace SurvivorCommunity
             if (p == null || id == p.entityId || id == -1) return false;
             wg = rs.windowGroup != null ? rs.windowGroup.Controller as XUiC_WorkstationWindowGroup : null;
             if (wg == null) return false;
-            m = ScRegistry.GetMember(id);
+            // round MP1: the real registry only - a client's own window keeps making a member's queue as vanilla does (this class's
+            // note), whatever its copy of the registry says; round MP3 brings the station to clients
+            m = ScRegistry.Loaded ? ScRegistry.GetMember(id) : null;
             return m != null;
         }
 
@@ -542,6 +544,7 @@ namespace SurvivorCommunity
                 if (Same(list[i], id, scrapped)) { first = i; break; }
             if (first < 0 || list[first].CrafterEntityID == crafter) return false;
             int other = list[first].CrafterEntityID;
+            if (!ScRegistry.Loaded) return false;      // round MP1: a client's TE copy is listed as vanilla lists it (as MemberStack)
             if (ScRegistry.GetMember(crafter) == null && ScRegistry.GetMember(other) == null) return false;
             int own = -1;
             for (int i = first + 1; i < list.Count; i++)

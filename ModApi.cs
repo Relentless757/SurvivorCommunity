@@ -59,6 +59,7 @@ namespace SurvivorCommunity
                     ScConfig.Reset();
                     ScLog.ResetForNewWorld();
                     ScTicker.Reset();
+                    ScMirror.Reset();                // round MP1: no client copy or push state carries into a new world
 #if SC_V34
                     ScSleep.Reset();                 // round n06: no night lease carries into a new world
                     ScSocial.Reset();                // round U3: no exchange, walk-over or gathering carries into a new world
@@ -176,6 +177,7 @@ namespace SurvivorCommunity
                     // round MP0: first, on its own (the review's N9) - the next session says hello again whatever throws below
                     try { ScNet.Reset(); } catch (Exception e) { ScLog.Once("net-reset", e); }
                     try { ScLooks.ResetNet(); } catch (Exception e) { ScLog.Once("looks-net-reset", e); }   // round MP1: the looks sent and received
+                    ScMirror.OnWorldShuttingDown();          // round MP1: a client forgets the server's copy (its own try)
                     ScRunners.OnWorldShuttingDown();   // first: runners in the world go back to their snapshot before the world is saved
                     ScEnclavePeople.OnWorldShuttingDown();   // enclave bodies recorded and taken out before the save (E2)
                     ScBands.OnWorldShuttingDown();           // band bodies the same, their walk re-planned from where they were (E13a)
@@ -226,7 +228,8 @@ namespace SurvivorCommunity
                         // a hire ends a grudge, as joining does (ScTrust): suspended, it would come back on dismissal
                         EntityAlive hired = ScCommunity.World != null ? ScCommunity.World.GetEntity(hiredId) as EntityAlive : null;
                         if (hired != null) ScTrust.StripOnJoin(hired);
-                        Member m = ScRegistry.GetMember(hiredId);
+                        // round MP1: SCore raises this on the hiring client too - a client's copy of the registry is never changed
+                        Member m = ScRegistry.Loaded ? ScRegistry.GetMember(hiredId) : null;
                         if (m != null && m.Status == MemberStatus.Resident)
                         {
                             m.Status = MemberStatus.Following;

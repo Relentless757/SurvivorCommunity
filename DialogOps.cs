@@ -32,6 +32,8 @@ namespace SurvivorCommunity
             // current body): the favour operators below then work for them as for anyone
             Prospect p = ScRegistry.GetProspect(npc.entityId);
             if (p != null) return p;
+            // round MP1: rolling one is the server's (a client's copy of the prospects is read-only; round MP2 sends it there)
+            if (!ScCommunity.IsHost) return null;
             // never rolled here for one of an enclave's people (E2): a prospect from here pins the body (Persist,
             // StaticSpawner, a wait order) - E3 rolls theirs, unpinned, through their enclave's recruit path
             if (ScEnclavePeople.IsEnclaveNpc(npc)) return null;
@@ -93,7 +95,8 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool CheckDone(EntityAlive npc, EntityPlayer player, Prospect p)
         {
-            if (p != null && !p.Done && ScQuests.FavourQuestDone(player, p.Id))
+            // round MP1: marking it done is the server's - on a client (a copy of the prospect) this stays the read it is there
+            if (ScCommunity.IsHost && p != null && !p.Done && ScQuests.FavourQuestDone(player, p.Id))
             {
                 p.Done = true;
                 if (npc != null && npc.Buffs != null) npc.Buffs.SetCustomVar("sc_favourDone", 1f);
@@ -309,6 +312,7 @@ public class DialogActionScStartPoiQuest : BaseDialogAction
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
             if (lp == null || p == null) return;
+            if (!ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }   // round MP1: a client's copy is read-only (MP2 sends it)
             string error;
             // asked again with the quest already in the journal: it is marked, nothing to say
             if (ScQuests.Start(lp, p, out error) || error == "scQuestAlready") ScFavourStart.Mark(p);
@@ -331,6 +335,7 @@ public class DialogActionScStartSuppliesQuest : BaseDialogAction
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
             if (lp == null || p == null || p.Favour != FavourKind.Supplies || p.Done) return;
+            if (!ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }   // round MP1: a client's copy is read-only (MP2 sends it)
             string error;
             if (ScQuests.StartSupplies(lp, p, out error) || error == "scQuestAlready") ScFavourStart.Mark(p);
             else ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
@@ -353,6 +358,7 @@ public class DialogActionScFavourPoiCleared : BaseDialogAction
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
             if (p == null || p.Favour != FavourKind.Poi) return;
+            if (!ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }   // round MP1: a client's copy is read-only (MP2 sends it)
             if (!p.Done)
             {
                 string why;
@@ -383,6 +389,7 @@ public class DialogActionScTakeFavourItems : BaseDialogAction
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
             if (lp == null || p == null || p.Favour != FavourKind.Supplies || p.Done) return;
+            if (!ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }   // round MP1: a client's copy is read-only (MP2 sends it)
             // value="any": handed over in the talk that named them, before taking the favour on (ScHasFavourItems "any")
             if (!p.Started && !(Value ?? "").Trim().Equals("any", StringComparison.OrdinalIgnoreCase)) return;
             // never take the goods when the join that follows would be refused
@@ -566,6 +573,9 @@ public class DialogActionScLeave : BaseDialogAction
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
             if (m == null) return;
+            // round MP1: a client now finds her in its copy of the registry - leaving is the server's (round MP2), said as the
+            // other member orders say it (Follow, Go home, Recall and Run refuse with scHostOnly in their verbs)
+            if (!ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }
             ScCommunity.Leave(m, "scLeft");
         }
         catch (Exception e) { ScLog.Once("act-leave", e); }

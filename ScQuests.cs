@@ -978,7 +978,8 @@ namespace SurvivorCommunity
                 if (Is(q, SuppliesQuestId))
                 {
                     // no building: the survivor (TickMarkers keeps it on them; retried there until the registry is in)
-                    Prospect p = ProspectFor(q);
+                    // round MP1: not from a client's copy - the marker is the server's to keep (TickMarkers), markers travel in MP4
+                    Prospect p = ScRegistry.Loaded ? ProspectFor(q) : null;
                     if (p == null) return;
                     at = GiverPosition(p) + new Vector3(0f, 0.25f, 0f);
                 }

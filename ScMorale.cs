@@ -72,6 +72,12 @@ namespace SurvivorCommunity
         /// <summary>Computes every term without storing anything.</summary>
         public static Parts Compute()
         {
+            // round MP1: a client shows the server's terms (they read the server's runtime state, its Leadership and power)
+            if (ScMirror.Active)
+            {
+                Parts mp;
+                if (ScMirror.TryParts(out mp)) return mp;
+            }
             Community c = ScRegistry.Community;
             var p = new Parts();
             int members = ScRegistry.Members.Count;
@@ -145,6 +151,8 @@ namespace SurvivorCommunity
         {
             try
             {
+                // round MP1: stored only in the real registry - a client's copy keeps the server's morale and moods (the window asks)
+                if (!ScRegistry.Loaded) return ScRegistry.Community.Morale;
                 Community c = ScRegistry.Community;
                 Parts p = Compute();
                 c.Morale = p.Total;

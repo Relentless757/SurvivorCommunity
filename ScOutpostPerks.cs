@@ -91,7 +91,7 @@ namespace SurvivorCommunity
         /// <summary>Normal -> quiet -> push -> normal.</summary>
         public static void CycleMode(Outpost o)
         {
-            if (o == null) return;
+            if (o == null || !ScRegistry.Loaded) return;      // round MP1: never a client's copy (the window refuses there first)
             o.Mode = (Mathf.Clamp(o.Mode, 0, 2) + 1) % 3;
         }
 

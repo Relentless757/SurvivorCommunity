@@ -417,7 +417,7 @@ namespace SurvivorCommunity
         /// </summary>
         public static void Recall(Member m, EntityPlayer player, string tellKey)
         {
-            if (m == null) return;
+            if (m == null || !ScRegistry.Loaded) return;      // round MP1: never a client's copy (the window refuses there first)
             if (m.Status == MemberStatus.Transit)
             {
                 if (!HeadingOut(m)) return;

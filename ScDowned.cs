@@ -767,6 +767,7 @@ namespace SurvivorCommunity
         public static string StatusText(Member m, bool brief)
         {
             if (m == null) return null;
+            if (ScMirror.Active) return MirrorStatusText(m, brief);     // round MP1: the server's downed state (DownFacts)
             Down d;
             if (!downs.TryGetValue(m.Id, out d) || d.Rising || d.Body == null || d.Body.IsDead() || !IsDown(d.Body)) return null;
             int s = Mathf.Max(0, Mathf.CeilToInt(Api.BleedLeftSafe(d.Body)));
@@ -774,6 +775,37 @@ namespace SurvivorCommunity
             if (brief) return t;
             if (d.MedicId >= 0) return t + " - " + string.Format(Localization.Get("scStDownMedic"), d.MedicName);
             if (d.Home && d.ToldNoMedic) return t + " - " + Localization.Get("scStDownNoMedic");
+            return t;
+        }
+
+        /// <summary>
+        /// Round MP1, server: StatusText's facts for the clients' copy (ScMirror's derived block) - the seconds left, who is
+        /// coming (medic 1, with the name) or that nobody can (2), else 0. False when she is not down. A read.
+        /// </summary>
+        public static bool DownFacts(Member m, out int seconds, out int medic, out string medicName)
+        {
+            seconds = 0;
+            medic = 0;
+            medicName = "";
+            if (m == null) return false;
+            Down d;
+            if (!downs.TryGetValue(m.Id, out d) || d.Rising || d.Body == null || d.Body.IsDead() || !IsDown(d.Body)) return false;
+            seconds = Mathf.Max(0, Mathf.CeilToInt(Api.BleedLeftSafe(d.Body)));
+            if (d.MedicId >= 0) { medic = 1; medicName = d.MedicName ?? ""; }
+            else if (d.Home && d.ToldNoMedic) medic = 2;
+            return true;
+        }
+
+        /// <summary>Round MP1, client: StatusText from the server's facts ("down.&lt;id&gt;=seconds,medic", "downmedic.&lt;id&gt;=name").</summary>
+        private static string MirrorStatusText(Member m, bool brief)
+        {
+            string id = m.Id.ToString(CultureInfo.InvariantCulture);
+            int[] f = ScMirror.Ints("down." + id, 2);
+            if (f == null) return null;
+            string t = string.Format(Localization.Get("scStDown"), Mathf.Max(0, f[0]));
+            if (brief) return t;
+            if (f[1] == 1) return t + " - " + string.Format(Localization.Get("scStDownMedic"), ScMirror.Str("downmedic." + id));
+            if (f[1] == 2) return t + " - " + Localization.Get("scStDownNoMedic");
             return t;
         }
 
@@ -804,7 +836,8 @@ namespace SurvivorCommunity
         public static string FragileText(Member m, bool brief)
         {
             if (m == null) return null;
-            float s = FragileSeconds(ScCommunity.FindNpc(m.Id));
+            // round MP1: a client reads the server's clock (whole minutes; the cvar is not synced to a client's copy of her)
+            float s = ScMirror.Active ? ScMirror.Int("fragile." + m.Id.ToString(CultureInfo.InvariantCulture)) : FragileSeconds(ScCommunity.FindNpc(m.Id));
             if (s <= 0f) return null;
             return string.Format(Localization.Get(brief ? "scStFragile" : "scStFragileLong"), Minutes(s));
         }

@@ -118,6 +118,14 @@ namespace SurvivorCommunity
             FacilityEntry e = FacilitySelected;
             EntityPlayerLocal p = Player;
             if (e == null || p == null || slot >= e.Actions.Count) return;
+            // round MP1: a client sees the server's facilities; acting on them waits for round MP2's requests - said, never silent
+            if (!ScCommunity.IsHost)
+            {
+                p.PlayOneShot("ui_denied");
+                facMessage = Localization.Get("scHostOnly");
+                RefreshBindingsSelfAndChildren();
+                return;
+            }
             FacilityAction a = e.Actions[slot];
             string msg = null;
             bool ok = false;
@@ -188,10 +196,10 @@ namespace SurvivorCommunity
             switch (name)
             {
                 case "tabfacilities": value = (tab == Tab.Facilities).ToString(); return true;
-                case "facilitycount": value = ScRegistry.Loaded ? Num(facList.Count) : ""; return true;
+                case "facilitycount": value = ScRegistry.Ready ? Num(facList.Count) : ""; return true;     // round MP1: Ready (a client's copy)
                 case "facsummary":
                 {
-                    if (!ScRegistry.Loaded) { value = ""; return true; }
+                    if (!ScRegistry.Ready) { value = ""; return true; }       // round MP1: Ready (a client's copy)
                     Community c = ScRegistry.Community;
                     int morale = ScMorale.Compute().Facilities;
                     value = string.Format(Localization.Get("scUiFacSummary"), c.Facilities, (morale > 0 ? "+" : "") + Num(morale), c.HomeWater);
