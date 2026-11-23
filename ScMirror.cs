@@ -247,7 +247,7 @@ namespace SurvivorCommunity
             {
                 if (ci == null || !ScCommunity.IsHost) return;
                 if (!ScRegistry.Loaded) { pendingFull.Add(ci.entityId); return; }
-                Send(ci, Snapshot(), BuildDerived());
+                Send(ci, Snapshot(ScRegistry.BuildText(true)), BuildDerived());
             }
             catch (Exception e) { ScLog.Once("mirror-hello", e); }
         }
