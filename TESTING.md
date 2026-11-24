@@ -37,6 +37,63 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP3 (review fixes) (2026-11-24): linked storage keeps RE Inventory's footprint, claims block nothing, nothing deleted
+
+Why: the MP3 reviews found that with RE Inventory a swap or a batch of deposits skipped the footprint test (a box could go
+past its grid again, in single player too), that one open view blocked every box of the base for hand-opens and NPC jobs
+(an AFK player blocked it forever, and a re-created member's overflow was logged as lost), and a list of smaller holes. Now
+a swap goes as a take and then a deposit, every deposit of a batch is judged against the boxes as the batch leaves them, a
+deposit with no room comes back alone, a box opened by hand leaves the views instead of being refused, NPC jobs write the
+boxes a view shows and the view follows, an idle view closes after 5 minutes (with other players in the game), and the
+overflow drops in a bag. Also: a forced station unlock no longer pays a member's crafts twice, and an AutoEquip armor piece
+given back to a full bag is no longer worn and doubled. Build `sc34_mp3` (branch `mp3`), **not deployed**, untested in game.
+
+**Single player (RE Inventory with `zzzz_GridInv_SurvivorCommunity`)**
+- [ ] A crate with exactly one free spot a rifle fits, everything else full. Hold a rifle, click a bandage in linked storage
+      (a swap): the bandage is on your cursor and the rifle lands in a box whose grid seats it. Open each crate by hand: none
+      has more than its grid shows (no extra rows grown).
+- [ ] Every box full: swap a rifle for a bandage. The bandage stays yours, the rifle comes back to your backpack with "No box
+      has room for that." Count both: nothing doubled, nothing lost.
+- [ ] Shift-click three rifles into a base with room for one: the first goes in, the next two say "No box has room for that."
+      and stay in the backpack.
+- [ ] A resident's home job (logs, meat) while linked storage is open: a stack it tops up changes in the open view within a
+      second; take that stack right after - nothing doubled.
+- [ ] An item with a huge payload (a filled pouch item, if you have one) is shown in linked storage and can be taken and put
+      back (it used to be hidden).
+- [ ] Leave linked storage open for 6 minutes without touching anything: it stays open (single player has no idle limit).
+      Alt-tab away for a minute with it open: it stays open.
+- [ ] Open linked storage from more than 40 m from the home claim (the community window's Open storage): "You are too far
+      from the land claim ..." instead of a window that flashes and closes.
+- [ ] Log: no SC error, no `patched an unlisted method`.
+
+**A client on a dedicated server**
+- [ ] The swap and the shift-click steps above on the client (RE Inventory on both sides): the same results; the server's
+      log has `... written for <client> (N deposit(s) found no room and go back)` for the shift-click batch.
+- [ ] The backpack's move-all into boxes with room for half of it: half goes in, the rest stays in (or comes back to) the
+      backpack with "No box has room for that." - never all or nothing.
+- [ ] Leave the view open for 5 minutes without moving the mouse: it closes with "Linked storage closed: nothing was moved
+      in it for a few minutes." Move the mouse over it every minute instead: it stays open.
+- [ ] Take a stack and press Esc at once with a full backpack: the stack is on your cursor until the server answers, then in
+      your backpack or at your feet - never both in the box and on the ground.
+- [ ] Linked storage at an outpost (Radioing home ...) while another window is open for more than 20 s: the view still opens
+      when you close that window (or tells you it was closed).
+- [ ] Re-create a runner whose inventory window holds more than her new body and the home crates take: the rest lies in a
+      bag at her feet; the log says `... dropped in a bag at their feet`, never `lost`.
+- [ ] A station a member crafts at: open it on the client, then pull the network cable (or freeze the client) for 15 s
+      and reconnect. The server's log may say `a client's late station write-back brought back N crafted item(s) ... not
+      paid twice`; `sc craft` shows her XP paid once for those crafts.
+- [ ] An AutoEquip armor piece (a modded one) refused back to a client with a full backpack: it lands at their feet and the
+      piece they wear stays on them.
+
+**Two players**
+- [ ] Player A has linked storage open; player B opens one of its crates by hand: it opens. A's view drops that crate's
+      stacks within a second; A's take from such a stack before the update is refused ("That box was opened or locked by
+      someone else ...") and put back.
+- [ ] Player A goes AFK with linked storage open: after 5 minutes A's view closes with the idle line; B and the residents'
+      jobs were never blocked meanwhile.
+- [ ] A resident's home job writes a stack while A's view has it in flight (take it the moment the log shows the job): A's
+      take is refused ("That stack changed ...") and nothing is doubled.
+
 ## Round MP3 (part: stockpile and packing) (2026-11-24): clients use the packing station
 
 Why: a client's Pack, Deposit and Withdraw said "host only". An open box belongs to the player who has it open (the server's
@@ -160,8 +217,8 @@ box a player has open, a box locked against the community, and a box a view clai
 - [ ] Refresh: the same view again. Close and open again at once: nothing lost.
 - [ ] With AutoHomeFirstClaim on and no home: the claim's Linked storage makes it the home and opens the view.
 - [ ] Lock one of your crates with a password: it is still linked (it is yours).
-- [ ] New: while linked storage is open, a resident's home job (logs, meat, a seed to replant) does not use the boxes (the
-      haul goes to the stockpile or the survivor's inventory as when the boxes are full); once closed, it does again.
+- [ ] ~~While linked storage is open, a resident's home job does not use the boxes~~ - changed by the MP3 review fixes: the
+      jobs use the boxes and the view shows their changes (see "Round MP3 (review fixes)" above).
 
 **A client on a dedicated server (or a listen host)**
 - [ ] The Open storage button, the home claim's Linked storage, Outpost storage and Linked storage at an outpost all open
@@ -172,7 +229,7 @@ box a player has open, a box locked against the community, and a box a view clai
 - [ ] Shift-click into full boxes: "No box has room for that." and the item stays in (or comes back to) the backpack.
 - [ ] Walk away with the view open: the window closes at 32 m and the server's log ends the session; the boxes open by hand
       again.
-- [ ] Open the view, then quit the game (or kill the client): within about 20 seconds the boxes open by hand again for others.
+- [ ] Open the view, then quit the game (or kill the client): within about 20 seconds the server's log ends the session.
 - [ ] Die right after a take (a zombie at your back, or a fall): after the respawn the box no longer has the stack, and it
       is in the death backpack (or the bag) once - never in both. The boxes open by hand again after the respawn.
 - [ ] A friend's password-locked crate inside the zone is NOT in the client's view ("1 box(es) in use or locked not shown");
@@ -181,13 +238,14 @@ box a player has open, a box locked against the community, and a box a view clai
 **Two players at once**
 - [ ] Player A has a crate open by hand; player B opens linked storage: that crate is left out of B's view ("in use or
       locked"), and B's moves never change it.
-- [ ] Player A has linked storage open; player B tries to open one of its crates by hand: refused with "Someone is using
-      this box through linked storage." Once A closes the view, B can open it.
+- [ ] ~~Player A has linked storage open; player B's hand-open of one of its crates is refused~~ - changed by the MP3
+      review fixes: B's open goes ahead and the crate leaves A's view (see "Round MP3 (review fixes)" above).
 - [ ] Both open linked storage, both take the same stack at the same moment: one gets it, the other sees "That stack
       changed in the meantime ..." and the stack is off their cursor. Count the item: no duplicate.
 - [ ] Both drop items into empty cells at once until the boxes are full: every item is in a box or back with its player.
 - [ ] A takes a stack, B's view shows that cell empty within a second (the server's update).
-- [ ] A resident's home job runs while A has the view open: it never writes A's boxes, and A's counts stay exact.
+- [ ] A resident's home job runs while A has the view open: it writes A's boxes, A's view shows the change within a
+      second, and A's counts stay exact (changed by the MP3 review fixes).
 
 ## Round MP2 (review fixes) (2026-11-23): toggles carry their intent, and the review's smaller fixes
 

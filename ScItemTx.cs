@@ -135,6 +135,10 @@ namespace SurvivorCommunity
         /// <summary>
         /// The player's own machine: the stacks into their bag and toolbelt; what does not fit is dropped at their feet (never
         /// lost). Returns how many items were dropped (0 = all fitted).
+        /// Round MP3 (review packing/gear m4): an armor piece with AutoEquip never goes through XUiM_PlayerInventory.AddItem, which
+        /// would put it ON and then place the piece it took off - and with a full bag lose that old piece while reporting the new
+        /// one as left over (dropped too: doubled). It goes into the bag or the toolbelt as an item, and is dropped at the feet when
+        /// neither has room.
         /// </summary>
         public static int GiveToLocal(EntityPlayerLocal p, IList<ItemStack> stacks)
         {
@@ -147,7 +151,14 @@ namespace SurvivorCommunity
                 {
                     if (s == null || s.IsEmpty()) continue;
                     ItemStack c = s.Clone();
-                    if (inv != null && inv.AddItem(c)) continue;          // AddItem lowers c.count by what fitted
+                    ItemClassArmor armor = c.itemValue != null ? c.itemValue.ItemClass as ItemClassArmor : null;
+                    if (inv != null && armor != null && armor.AutoEquip)
+                    {
+                        // round MP3 (review packing/gear m4): both lower c.count in place by what they stacked; a true placed the rest
+                        if (inv.AddItemToBackpack(c) || c.count <= 0) continue;
+                        if (inv.AddItemToToolbelt(c) || c.count <= 0) continue;
+                    }
+                    else if (inv != null && inv.AddItem(c)) continue;     // AddItem lowers c.count by what fitted
                     if (c.count <= 0) continue;
                     dropped += c.count;
                     GameManager gm = GameManager.Instance;

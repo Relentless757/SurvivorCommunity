@@ -35,14 +35,17 @@ namespace SurvivorCommunity
     ///
     /// Sessions and claims. storage.open scans the zone (or an outpost's building) for the player who asked and CLAIMS the
     /// boxes it shows: the session (one per player) holds them until the view closes (storage.close), the player walks away
-    /// (MaxDistance), stops answering (storage.keep, KeepTimeout), dies, disconnects, or opens another view. Sweep (once a second,
-    /// ScHomeLink.Tick) and the world's start and end (Reset) make sure no claim outlives its player. A claim keeps three
-    /// writers out of the box:
-    ///  - a vanilla open: a prefix on TEFeatureStorage.OnLockRequestServer refuses the lock with a line (Patches_LinkedStorage),
-    ///    so no client ever holds an open copy of a claimed box (an open box belongs to the player who has it open: their copy
-    ///    overwrites any server-side write, game:TEFeatureStorage.cs:486-488, game:NetPackageTileEntity.cs);
-    ///  - SC's own NPC writers (ScStorage.DepositInZone, TopUpInZone, TakeOneInZone skip claimed boxes);
-    ///  - nothing else of SC's.
+    /// (MaxDistance), stops answering (storage.keep, KeepTimeout; never the host's own player), leaves it idle (IdleTimeout), dies,
+    /// disconnects, or opens another view. Sweep (once a second, ScTicker) and the world's start and end (Reset) make sure no
+    /// claim outlives its player. Round MP3 (review storage M2): a claim is only the list of boxes a view may write; it keeps
+    /// nobody out, because every write is judged against the box itself at that moment:
+    ///  - a vanilla open goes ahead, and the box leaves every view that showed it (OnVanillaOpen, a postfix on
+    ///    TEFeatureStorage.OnLockRequestServer, Patches_LinkedStorage): an open box belongs to the player who has it open (their
+    ///    copy overwrites any server-side write, game:TEFeatureStorage.cs:486-488, game:NetPackageTileEntity.cs), so a view's
+    ///    later change to it is refused (not in the session, and open by someone: UsableFor);
+    ///  - SC's own NPC writers (ScStorage.DepositInZone, TopUpInZone, TakeOneInZone) write a claimed box like any other and push
+    ///    the slots they wrote to the views that show them (PushWritten); a view's change to such a slot is refused by the
+    ///    compare-and-set and resynced. They still skip a box a player has open by hand, or one locked against the community.
     /// Two players' views may claim the same box (several sessions): their changes are compare-and-set against the box itself,
     /// so the second change to a slot is refused and resynced, and every committed change is pushed to the other views that
     /// show the slot (NetPackageScStorage, slot updates).
@@ -54,25 +57,32 @@ namespace SurvivorCommunity
     /// Changes. storage.cells carries one BATCH: every cell the view changed since its last batch, each an entry of
     ///  - CAS: box x y z, slot index, the slot's code as the view last had it (expect), the code it wants there (new);
     ///  - deposit: the stack for a cell with no box slot behind it; the server picks the first claimed box with room.
-    /// A batch is all or nothing: every entry is checked first (the box is in the session, loaded, not open by anyone, not
-    /// locked against the sender, the slot still holds exactly `expect`, the new stack is valid; a deposit finds room), and only
+    /// A batch is all or nothing for its compare-and-sets: every entry is checked first (the box is in the session, loaded, not
+    /// open by anyone, not locked against the sender, the slot still holds exactly `expect`, the new stack is valid), and only
     /// then written (UpdateSlot, SetModified). A refused batch writes nothing and answers every entry's slot as it is now, so the
-    /// view resyncs and puts its own cursor and inventory back (ScLinkedContainer). A batch longer than PartEntries goes in
-    /// parts (the request's int list holds 255 numbers); the server buffers them and judges the whole batch at the last part.
-    /// The view keeps one batch in flight.
+    /// view resyncs and puts its own cursor and inventory back (ScLinkedContainer). Round MP3 (review storage M1, m10): the
+    /// deposits are judged after every compare-and-set, each against the boxes as the batch's earlier entries leave them (the
+    /// grid bridge's footprint test included, RoomAsPlanned), and a deposit no box has room for is answered "-" on its own -
+    /// the rest of the batch is written and only that item goes back to its player. A batch whose deposits all failed and that
+    /// has nothing else is refused as before. A batch longer than PartEntries goes in parts (the request's int list holds 255
+    /// numbers); the server buffers them and judges the whole batch at the last part. The view keeps one batch in flight.
     ///
     /// Stacks are compared by their encoding (ScItemTx.Encode: the game's own ItemStack.Write, base64) - ItemValue.Equals
     /// compares its mod arrays by reference, so two copies of the same modded gun never "equal". The view echoes the code the
-    /// server gave it, so the compare is always the server's own Encode against itself.
+    /// server gave it, so the compare is always the server's own Encode against itself. Round MP3 (review storage m9): the
+    /// host's own view never leaves this machine, so its codes are not capped (CodeFor, StackOf); only a remote player's are.
     ///
     /// Ops (ScActions requests, Community access):
-    ///   storage.open   kind, x, y, z           kind = ScStorage.Kind*; x y z = the claim pressed (KindOutpost, KindHomeLink)
+    ///   storage.open   kind, x, y, z           kind = ScStorage.Kind*; x y z = the claim pressed (KindOutpost, KindHomeLink);
+    ///                                          refused farther than MaxDistance from the view's anchor (review storage m4)
     ///   storage.cells  session, batch, part, parts, then per entry (flags, x, y, z, index); s: per entry (expect, new) for a
     ///                  CAS, (stack, "") for a deposit (flags bit 0)
-    ///                  answer (the last part): Done or Fail(reason), hints res (EncodeResults: every entry's slot after the
-    ///                  batch, or as it is now when refused), fs (free slots), fc (free cells, -1 = no bridge)
+    ///                  answer (the last part): Done (with scStorageFull when a deposit found no room) or Fail(reason), hints
+    ///                  res (EncodeResults: every entry's slot after the batch, or as it is now when refused; "-" = a deposit
+    ///                  not placed), fs (free slots), fc (free cells, -1 = no bridge)
     ///   storage.close  session
-    ///   storage.keep   session                 the view is still open (every few seconds)
+    ///   storage.keep   session, active         the view is still open (every few seconds); active 1 = the player used the
+    ///                                          window since the last keep (review storage M2's idle limit)
     /// </summary>
     public static class ScStorageServer
     {
@@ -89,8 +99,15 @@ namespace SurvivorCommunity
         public const int PartEntries = (255 - HeadInts) / EntryInts;
         /// <summary>A batch longer than this is refused outright (no view has this many cells).</summary>
         public const int MaxBatchEntries = 12000;
-        /// <summary>A view whose player sent nothing (storage.keep, a change) for this long is let go.</summary>
+        /// <summary>A view whose player sent nothing (storage.keep, a change) for this long is let go (never the host's own: review
+        /// storage m8, its requests run inline and a long frame or a pause is no silence).</summary>
         public const float KeepTimeout = 20f;
+        /// <summary>
+        /// Round MP3 (review storage M2): a view with no cell change and no use of its window (storage.keep's active flag) for
+        /// this long is closed, and its player told why - a view left open by a player gone AFK holds its claims no longer. Not in
+        /// single player (nobody else to wait for it), so the host's own view only while another player is in the world.
+        /// </summary>
+        public const float IdleTimeout = 300f;
         /// <summary>A view whose player is farther than this from its anchor is let go (the loot window closes at 32 m).</summary>
         public const float MaxDistance = 40f;
         /// <summary>
@@ -119,6 +136,11 @@ namespace SurvivorCommunity
             public readonly HashSet<Vector3i> BoxSet = new HashSet<Vector3i>();
             public int SkippedChunks;
             public float LastSeen;
+            /// <summary>Round MP3 (review storage M2): the last cell change, or the last keep that said the window was used.</summary>
+            public float LastActive;
+            /// <summary>Round MP3 (review storage m8, m9): the host's own player's view - its codes are not capped (CodeFor), and it
+            /// never ends on silence.</summary>
+            public bool Local;
             /// <summary>When the sweep first saw the player dead (-1: alive), and when they were alive again (-1: never died).</summary>
             public float DeadSince = -1f;
             public float RespawnedAt = -1f;
@@ -155,6 +177,31 @@ namespace SurvivorCommunity
             public string Code;
         }
 
+        /// <summary>
+        /// Round MP3 (review storage M1): one batch's planned writes, by slot and by box - a deposit's room is judged against the
+        /// box as these leave it (RoomAsPlanned).
+        /// </summary>
+        private sealed class BatchPlan
+        {
+            public readonly Dictionary<SlotKey, Planned> Slots = new Dictionary<SlotKey, Planned>();
+            public readonly Dictionary<Vector3i, List<int>> ByBox = new Dictionary<Vector3i, List<int>>();
+
+            public bool TryGet(SlotKey k, out Planned p) { return Slots.TryGetValue(k, out p); }
+            public bool Has(SlotKey k) { return Slots.ContainsKey(k); }
+            public bool Touches(Vector3i pos) { return ByBox.ContainsKey(pos); }
+
+            public void Set(SlotKey k, Planned p)
+            {
+                if (!Slots.ContainsKey(k))
+                {
+                    List<int> l;
+                    if (!ByBox.TryGetValue(k.Pos, out l)) ByBox[k.Pos] = l = new List<int>();
+                    l.Add(k.Index);
+                }
+                Slots[k] = p;
+            }
+        }
+
         private static readonly Dictionary<int, Session> sessions = new Dictionary<int, Session>();
         /// <summary>Free cells per box by the grid bridge, dropped for a box any writer changes: the bridge packs a box's grid per question.</summary>
         private static readonly Dictionary<Vector3i, int> freeCellsByBox = new Dictionary<Vector3i, int>();
@@ -169,14 +216,6 @@ namespace SurvivorCommunity
         }
 
         // ------------------------------------------------------------------ claims ----
-
-        /// <summary>Server: whether any linked storage view claims the box at pos (NPC writers keep out of it).</summary>
-        public static bool IsClaimed(Vector3i pos)
-        {
-            if (sessions.Count == 0) return false;
-            foreach (Session s in sessions.Values) if (s.BoxSet.Contains(pos)) return true;
-            return false;
-        }
 
         /// <summary>Server: the player's open view's session id, -1 when none.</summary>
         public static int SessionIdOf(int entityId)
@@ -193,30 +232,39 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Server (Patches_LinkedStorage, the prefix on TEFeatureStorage.OnLockRequestServer): may this player open the box by
-        /// hand? Not while another player's linked storage view claims it - they are told why. A claim of their own view is
-        /// stale (they are opening a box, so their linked window is closed): it is let go, and the box opens.
+        /// Server (Patches_LinkedStorage, a postfix on TEFeatureStorage.OnLockRequestServer that answered yes): a player opened
+        /// this box by hand. Round MP3 (review storage M2): no longer refused - a view left open (an AFK player) blocked every box
+        /// of the base. The box leaves every view that showed it instead: from now on it belongs to the opener's machine (an open
+        /// box's copy overwrites server-side writes), so a view's next change to it is refused (it is out of the session, and
+        /// UsableFor sees it open) and its cells are pushed as gone. The opener's own view is closing anyway (they are opening a
+        /// box): it only loses the box, and its last changes to other boxes still count.
         /// </summary>
-        internal static bool AllowVanillaOpen(TEFeatureStorage st, int lockingPlayerId)
+        internal static void OnVanillaOpen(TEFeatureStorage st, int lockingPlayerId)
         {
-            if (sessions.Count == 0 || st == null) return true;
+            if (sessions.Count == 0 || st == null) return;
             Vector3i pos = st.ToWorldPos();
-            bool own = false, other = false;
-            foreach (Session s in sessions.Values)
+            var holders = new List<int>();
+            foreach (Session s in sessions.Values) if (s.BoxSet.Contains(pos)) holders.Add(s.EntityId);
+            for (int i = 0; i < holders.Count; i++)
             {
-                if (!s.BoxSet.Contains(pos)) continue;
-                if (s.EntityId == lockingPlayerId) own = true;
-                else other = true;
+                Session s;
+                if (!sessions.TryGetValue(holders[i], out s)) continue;
+                s.BoxSet.Remove(pos);
+                s.Boxes.Remove(pos);
+                if (ScConfig.Verbose) ScLog.Verbose("linked storage: the box at " + pos + " was opened by hand - it leaves session " + s.Id);
+                if (s.EntityId == lockingPlayerId) continue;
+                try
+                {
+                    int n = st.ItemGrid != null ? st.ItemGrid.Length : 0;
+                    var gone = new List<ScStorage.Slot>(n);
+                    for (int k = 0; k < n; k++) gone.Add(new ScStorage.Slot { Pos = pos, Index = k, Code = ResGone });
+                    SendSlots(s, gone);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("storage-vanilla-open-push", e);
+                }
             }
-            if (other)
-            {
-                EntityPlayer p = ScPlayers.ByEntity(lockingPlayerId);
-                if (p != null) ScCommunity.Tell(p, Localization.Get("scStorageInUseLinked"), "ui_denied");
-                if (ScConfig.Verbose) ScLog.Verbose("linked storage: a hand-open of the box at " + pos + " refused - a linked storage view holds it");
-                return false;
-            }
-            if (own) End(lockingPlayerId, null);
-            return true;
         }
 
         // ------------------------------------------------------------------ the rules (F3-F5) ----
@@ -275,6 +323,63 @@ namespace SurvivorCommunity
             return st != null && st.ItemGrid != null && !OpenBySomeone(st) && !LockedAgainst(st, viewer);
         }
 
+        // ------------------------------------------------------------------ codes (round MP3, review storage m9) ----
+
+        /// <summary>
+        /// A stack's code for one view: ScItemTx.Encode, capped at ScItemTx.MaxEncoded because a remote player's codes travel in
+        /// requests and packages (null = too large: hidden from that view, refused from it). The host's own view never leaves
+        /// this machine, so for it (local) a stack past the cap is coded in full the same way - the game's ItemStack.Write as
+        /// base64, byte for byte what Encode would give without its cap - and stays visible and usable, as before round MP3.
+        /// A helper here, not a second encoder: below the cap it IS ScItemTx.Encode.
+        /// </summary>
+        internal static string CodeFor(ItemStack s, bool local)
+        {
+            string c = ScItemTx.Encode(s);
+            if (c != null || !local) return c;
+            try
+            {
+                using (var ms = new System.IO.MemoryStream())
+                {
+                    using (PooledBinaryWriter w = MemoryPools.poolBinaryWriter.AllocSync(false))
+                    {
+                        w.SetBaseStream(ms);
+                        s.Write(w);
+                    }
+                    return Convert.ToBase64String(ms.ToArray());
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-code-full", e);
+                return null;
+            }
+        }
+
+        /// <summary>The stack a CodeFor string holds (never null; empty for "" or anything unreadable). Past the cap only for the
+        /// host's own view; below it, ScItemTx.Decode.</summary>
+        internal static ItemStack StackOf(string code, bool local)
+        {
+            if (!local || string.IsNullOrEmpty(code) || code.Length <= ScItemTx.MaxEncoded) return ScItemTx.Decode(code);
+            try
+            {
+                byte[] bytes = Convert.FromBase64String(code);
+                using (var ms = new System.IO.MemoryStream(bytes))
+                using (PooledBinaryReader r = MemoryPools.poolBinaryReader.AllocSync(false))
+                {
+                    r.SetBaseStream(ms);
+                    ItemStack s = new ItemStack();
+                    s.Read(r);
+                    if (s.itemValue == null || s.itemValue.ItemClass == null || s.count <= 0) return ItemStack.Empty.Clone();
+                    return s;
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-stack-full", e);
+                return ItemStack.Empty.Clone();
+            }
+        }
+
         /// <summary>A box changed (any writer): its cached free cells go.</summary>
         public static void Invalidate(Vector3i pos)
         {
@@ -322,7 +427,9 @@ namespace SurvivorCommunity
             if (w == null || !ScZone.HasHome) return "scNeedHome";
             End(p.entityId, null);
             ScConfig.EnsureParsed();
-            var s = new Session { Id = ++nextSession, EntityId = p.entityId, Kind = kind, Anchor = anchor, Area = area, LastSeen = Time.unscaledTime };
+            // round MP3 (review storage M2, m8, m9): the idle clock starts now; the host's own view is Local
+            var s = new Session { Id = ++nextSession, EntityId = p.entityId, Kind = kind, Anchor = anchor, Area = area, LastSeen = Time.unscaledTime,
+                                  LastActive = Time.unscaledTime, Local = p is EntityPlayerLocal };
             var v = new ScStorageView { Session = s.Id, Kind = kind, Anchor = anchor, Name = name ?? "" };
             PlatformUserIdentifierAbs viewer = UserIdOf(p);
             int xMin, xMax, zMin, zMax;
@@ -353,8 +460,9 @@ namespace SurvivorCommunity
                             {
                                 ItemStack it = items[k];
                                 if (it == null || it.IsEmpty()) continue;
-                                string code = ScItemTx.Encode(it);
-                                if (code == null) continue;                  // too large to send: stays in its box, out of the view
+                                // round MP3 (review storage m9): too large to send stays in its box, out of a REMOTE view only
+                                string code = CodeFor(it, s.Local);
+                                if (code == null) continue;
                                 v.Slots.Add(new ScStorage.Slot { Pos = pos, Index = k, Stack = it.Clone(), Code = code });
                             }
                         }
@@ -392,9 +500,10 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Server, once a second (ScHomeLink.Tick): a view whose player is gone (disconnected, forgotten), dead for DeadHold, far
-        /// from the view's anchor or silent for KeepTimeout is let go, so no claim is ever stuck. A dead player's view is held (no
-        /// distance or silence test) until DeadHold, and for RespawnGrace after the respawn: their last batch comes back then.
+        /// Server, once a second (ScTicker, in its own try: review storage m7): a view whose player is gone (disconnected,
+        /// forgotten), dead for DeadHold, far from the view's anchor, silent for KeepTimeout (a remote player only: review storage
+        /// m8) or idle for IdleTimeout (review storage M2) is let go, so no claim is ever stuck. A dead player's view is held (no
+        /// distance, silence or idle test) until DeadHold, and for RespawnGrace after the respawn: their last batch comes back then.
         /// </summary>
         public static void Sweep()
         {
@@ -421,12 +530,16 @@ namespace SurvivorCommunity
                         s.DeadSince = -1f;
                         s.RespawnedAt = now;
                         s.LastSeen = now;
+                        s.LastActive = now;          // round MP3 (review storage M2): the idle clock starts again too
                     }
                     if (s.RespawnedAt >= 0f && now - s.RespawnedAt < RespawnGrace) continue;
-                    Vector3 pp = p.position;
-                    float dx = pp.x - (s.Anchor.x + 0.5f), dz = pp.z - (s.Anchor.z + 0.5f);
-                    if (dx * dx + dz * dz > MaxDistance * MaxDistance) { End(s.EntityId, "scStorageClosedFar"); continue; }
-                    if (now - s.LastSeen > KeepTimeout) End(s.EntityId, "scStorageSessionEnded");
+                    if (TooFar(p, s.Anchor)) { End(s.EntityId, "scStorageClosedFar"); continue; }
+                    // round MP3 (review storage m8): the host's own requests run inline - a long frame, a loading hitch or a
+                    // suspended PC is no silence, so its view never ends on silence (it ends on close, distance, idle or death)
+                    if (!s.Local && now - s.LastSeen > KeepTimeout) { End(s.EntityId, "scStorageSessionEnded"); continue; }
+                    // round MP3 (review storage M2): nothing moved and the window unused for IdleTimeout - the player is told
+                    // why it closed. Never in single player: there is nobody it could keep waiting.
+                    if ((!s.Local || ScPlayers.All.Count > 1) && now - s.LastActive > IdleTimeout) End(s.EntityId, "scStorageClosedIdle");
                 }
             }
             catch (Exception e)
@@ -441,6 +554,15 @@ namespace SurvivorCommunity
             if (p == null || !sessions.TryGetValue(p.entityId, out s) || s.Id != sessionId) return null;
             s.LastSeen = Time.unscaledTime;
             return s;
+        }
+
+        /// <summary>The player stands farther than MaxDistance (flat) from the view's anchor (the loot window closes at 32 m).</summary>
+        private static bool TooFar(EntityPlayer p, Vector3i anchor)
+        {
+            if (p == null) return true;
+            Vector3 pp = p.position;
+            float dx = pp.x - (anchor.x + 0.5f), dz = pp.z - (anchor.z + 0.5f);
+            return dx * dx + dz * dz > MaxDistance * MaxDistance;
         }
 
         // ------------------------------------------------------------------ handlers ----
@@ -462,6 +584,7 @@ namespace SurvivorCommunity
                     if (o == null) { reply.Fail("scOpNotHere"); return; }
                     why = ScActionsClaim.WhyNotOwnClaim(claim, sender);
                     if (why != null) { reply.Fail(why); return; }
+                    if (TooFar(sender, claim)) { reply.Fail("scStorageTooFar"); return; }      // round MP3 (review storage m4)
                     why = Open(sender, kind, claim, o.Box, o.Name);
                     break;
                 }
@@ -470,6 +593,7 @@ namespace SurvivorCommunity
                     if (ScOutposts.AtClaim(claim) == null) { reply.Fail("scOpNotHere"); return; }
                     why = ScActionsClaim.WhyNotOwnClaim(claim, sender);
                     if (why != null) { reply.Fail(why); return; }
+                    if (TooFar(sender, claim)) { reply.Fail("scStorageTooFar"); return; }      // round MP3 (review storage m4)
                     ScHomeLink.Request(sender, claim, reply);       // answers itself: opens now, or radios home first
                     return;
                 }
@@ -478,6 +602,10 @@ namespace SurvivorCommunity
                     // the home zone's boxes, the view standing on the home claim (as before: its chunk must be loaded here)
                     Vector3i home = ScZone.Home;
                     if (w == null || w.GetChunkSync(World.toChunkXZ(home.x), World.toChunkXZ(home.z)) == null) { reply.Fail("scNotLoaded"); return; }
+                    // round MP3 (review storage m4): the view stands on the home claim and its window closes 32 m from it, so an
+                    // open from farther away only flashed the window; now it is refused with a line, and a modified client can
+                    // no longer read the boxes from across the map
+                    if (TooFar(sender, home)) { reply.Fail("scStorageTooFar"); return; }
                     why = Open(sender, ScStorage.KindHome, home, null, null);
                     break;
                 }
@@ -494,11 +622,13 @@ namespace SurvivorCommunity
             reply.Done();
         }
 
-        /// <summary>storage.keep session: the view is still open.</summary>
+        /// <summary>storage.keep session active: the view is still open (active 1: its window was used since the last keep).</summary>
         [ScAction(OpKeep, ScActionAccess.Community)]
         private static void KeepAction(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
         {
-            if (SessionOf(sender, args.Int(0, -1)) == null) { reply.Fail("scStorageSessionEnded", ""); return; }
+            Session s = SessionOf(sender, args.Int(0, -1));
+            if (s == null) { reply.Fail("scStorageSessionEnded", ""); return; }
+            if (args.Int(1, 0) != 0) s.LastActive = Time.unscaledTime;      // round MP3 (review storage M2): the idle clock
             reply.Done();
         }
 
@@ -509,6 +639,18 @@ namespace SurvivorCommunity
             int sid = args.Int(0, -1), batch = args.Int(1, -1), part = args.Int(2, -1), parts = args.Int(3, -1);
             Session s = SessionOf(sender, sid);
             if (s == null) { reply.Fail("scStorageSessionEnded"); return; }    // no res: nothing was written
+            float now = Time.unscaledTime;
+            s.LastActive = now;                                                 // round MP3 (review storage M2): a change is activity
+            // round MP3 (review storage m4): a change is judged only near the view's anchor (Sweep ends a far view once a second;
+            // this closes the gap for a modified client). Not while the player is dead or just respawned: their held batch comes
+            // back from the spawn point (DeadHold, RespawnGrace). Refused without res: nothing was written.
+            bool justBack = s.DeadSince >= 0f || (s.RespawnedAt >= 0f && now - s.RespawnedAt < RespawnGrace);
+            if (!justBack && TooFar(sender, s.Anchor))
+            {
+                s.PartBroken = true;
+                reply.Fail("scStorageClosedFar");
+                return;
+            }
             int n = Math.Max(0, (args.Ints.Length - HeadInts) / EntryInts);
             if (part < 0 || parts < 1 || part >= parts || n > PartEntries || args.Strs.Length < 2 * n)
             {
@@ -552,42 +694,70 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Judges and applies one whole batch: every entry is checked against the boxes as they are now, with the batch's own
-        /// earlier entries laid over them; any failure refuses the whole batch and writes nothing. Answers res for every entry.
+        /// Judges and applies one whole batch. Round MP3 (review storage M1, m10): every compare-and-set first, against the boxes as
+        /// they are now with the batch's earlier entries laid over them - any failure refuses the whole batch and writes nothing;
+        /// then every deposit, against the boxes as all of that leaves them (FindRoom, RoomAsPlanned: the grid bridge's footprint
+        /// test on the planned contents, as the box's own grid would judge it), and a deposit no box has room for is answered "-"
+        /// on its own while the rest is written. A batch of deposits only, none of them placed, is refused as before. Answers res
+        /// for every entry.
         /// </summary>
         private static void ApplyBatch(Session s, EntityPlayer sender, List<Entry> entries, ScActionReply reply)
         {
             PlatformUserIdentifierAbs viewer = UserIdOf(sender);
-            var planned = new Dictionary<SlotKey, Planned>();
+            var plan = new BatchPlan();
             var placed = new SlotKey[entries.Count];
             var gone = new bool[entries.Count];
-            string why = null;
+            var notPlaced = new bool[entries.Count];
+            string why = null, full = null;
+            int cas = 0, deposits = 0, unplaced = 0;
+            // the compare-and-sets (all or nothing)
             for (int k = 0; k < entries.Count && why == null; k++)
             {
                 Entry e = entries[k];
-                if (e.Deposit)
-                {
-                    ItemStack stack = ScItemTx.Decode(e.A);
-                    if (stack.IsEmpty() || !Placeable(stack)) { why = "scActionFailed"; break; }
-                    SlotKey at;
-                    TEFeatureStorage into;
-                    if (!FindRoom(s, viewer, stack, planned, out at, out into)) { why = FullKey(s); break; }
-                    placed[k] = at;
-                    planned[at] = new Planned { St = into, Stack = stack, Code = e.A };
-                    continue;
-                }
+                if (e.Deposit) continue;
+                cas++;
                 var key = new SlotKey(e.Pos, e.Index);
                 placed[k] = key;
                 TEFeatureStorage st = s.BoxSet.Contains(e.Pos) ? ScStorage.Resolve(e.Pos) : null;
                 if (st == null || st.ItemGrid == null || e.Index < 0 || e.Index >= st.ItemGrid.Length) { gone[k] = true; why = "scStorageBoxGone"; break; }
                 if (!UsableFor(st, viewer)) { gone[k] = true; why = "scStorageInUse"; break; }
                 Planned pl;
-                string cur = planned.TryGetValue(key, out pl) ? pl.Code : ScItemTx.Encode(st.ItemGrid[e.Index]);
+                bool wasPlanned = plan.TryGet(key, out pl);
+                string cur = wasPlanned ? pl.Code : CodeFor(st.ItemGrid[e.Index], s.Local);       // round MP3 (review storage m9)
                 if (cur == null || !string.Equals(cur, e.A ?? "", StringComparison.Ordinal)) { why = "scStorageChanged"; break; }
-                ItemStack next = string.IsNullOrEmpty(e.B) ? ItemStack.Empty.Clone() : ScItemTx.Decode(e.B);
+                ItemStack next = string.IsNullOrEmpty(e.B) ? ItemStack.Empty.Clone() : StackOf(e.B, s.Local);
                 if (!string.IsNullOrEmpty(e.B) && (next.IsEmpty() || !Placeable(next))) { why = "scActionFailed"; break; }
-                planned[key] = new Planned { St = st, Stack = next, Code = string.IsNullOrEmpty(e.B) ? "" : e.B };
+                // round MP3 (review storage M1): a DIFFERENT item into a slot passes the grid bridge's footprint test on the box as
+                // the batch leaves it, with this slot emptied - a box never goes past its grid. The view sends a swap as a take and,
+                // once that is answered, a deposit (ScLinkedContainer.SendDirty), so this only guards another sender.
+                ItemStack was = wasPlanned ? pl.Stack : st.ItemGrid[e.Index];
+                bool newItem = !next.IsEmpty() && (was == null || was.IsEmpty() || was.itemValue == null || was.itemValue.type != next.itemValue.type);
+                if (newItem && ScStorage.BoxHasRoomFor != null && !RoomAsPlanned(plan, e.Pos, st, next, e.Index)) { why = FullKey(s); break; }
+                plan.Set(key, new Planned { St = st, Stack = next, Code = string.IsNullOrEmpty(e.B) ? "" : e.B });
             }
+            // the deposits, each against the boxes as every compare-and-set and the deposits before it leave them
+            for (int k = 0; k < entries.Count && why == null; k++)
+            {
+                Entry e = entries[k];
+                if (!e.Deposit) continue;
+                ItemStack stack = StackOf(e.A, s.Local);
+                if (stack.IsEmpty() || !Placeable(stack)) { why = "scActionFailed"; break; }
+                SlotKey at;
+                TEFeatureStorage into;
+                if (!FindRoom(s, viewer, stack, plan, out at, out into))
+                {
+                    // round MP3 (review storage m10): only this deposit is not placed ("-"): the view gives its item back
+                    notPlaced[k] = true;
+                    unplaced++;
+                    full = FullKey(s);
+                    continue;
+                }
+                placed[k] = at;
+                plan.Set(at, new Planned { St = into, Stack = stack, Code = e.A });
+                deposits++;
+            }
+            // nothing at all to write (deposits only, none placed): refused as a whole, as before
+            if (why == null && cas == 0 && deposits == 0) why = full ?? "scActionFailed";
             if (why != null)
             {
                 // nothing written: every entry's slot as it is now, so the view resyncs what it showed
@@ -598,14 +768,25 @@ namespace SurvivorCommunity
                     if (e.Deposit) { now[k] = Res(Vector3i.zero, -1, ResNotPlaced); continue; }
                     now[k] = Res(e.Pos, e.Index, gone[k] ? ResGone : LiveCode(s, viewer, e.Pos, e.Index));
                 }
-                FinishReply(s, reply, now);
+                SetResults(s, reply, now);
                 reply.Fail(why);
                 if (ScConfig.Verbose) ScLog.Verbose("linked storage: batch of " + entries.Count + " change(s) refused (" + why + ") for " + (sender.PlayerDisplayName ?? "?"));
                 return;
             }
-            // commit: every planned write, then the answer and the other views' updates
-            var touched = new List<KeyValuePair<SlotKey, string>>();
-            foreach (KeyValuePair<SlotKey, Planned> kv in planned)
+            Commit(s, sender, entries, plan, placed, notPlaced, unplaced, full, reply);
+        }
+
+        /// <summary>
+        /// Writes a judged batch and answers it. Round MP3 (review storage m1): from the first write on, the batch IS in the boxes,
+        /// so the answer is Done whatever happens after it - the answer is set right after the writes, every later step (res, the
+        /// free room, the log, the other views' updates) has its own try, and res is built entry by entry with the planned code as
+        /// an entry's fallback. A refusal now would make the view put back (and settle with the player) what the boxes hold.
+        /// </summary>
+        private static void Commit(Session s, EntityPlayer sender, List<Entry> entries, BatchPlan plan, SlotKey[] placed, bool[] notPlaced,
+                                   int unplaced, string full, ScActionReply reply)
+        {
+            var touched = new List<SlotKey>(plan.Slots.Count);
+            foreach (KeyValuePair<SlotKey, Planned> kv in plan.Slots)
             {
                 try
                 {
@@ -617,27 +798,56 @@ namespace SurvivorCommunity
                     ScLog.Once("storage-commit", ex);
                 }
                 Invalidate(kv.Key.Pos);
-                touched.Add(new KeyValuePair<SlotKey, string>(kv.Key, LiveCodeRaw(kv.Value.St, kv.Key.Index)));
+                touched.Add(kv.Key);
             }
+            // done - with "no box has room for that" when a deposit is handed back (review storage m10)
+            if (unplaced > 0) reply.Done(full ?? "scStorageFull", "ui_denied");
+            else reply.Done();
             var res = new string[entries.Count];
             for (int k = 0; k < entries.Count; k++)
             {
-                TEFeatureStorage st = ScStorage.Resolve(placed[k].Pos);
-                res[k] = Res(placed[k].Pos, placed[k].Index, st != null ? LiveCodeRaw(st, placed[k].Index) : ResGone);
+                try
+                {
+                    if (notPlaced[k]) { res[k] = Res(Vector3i.zero, -1, ResNotPlaced); continue; }
+                    TEFeatureStorage st = ScStorage.Resolve(placed[k].Pos);
+                    res[k] = Res(placed[k].Pos, placed[k].Index, st != null ? LiveCodeRaw(st, placed[k].Index, s.Local) : ResGone);
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("storage-commit-res", ex);
+                    Planned pl;
+                    res[k] = notPlaced[k] ? Res(Vector3i.zero, -1, ResNotPlaced)
+                                          : Res(placed[k].Pos, placed[k].Index, plan.TryGet(placed[k], out pl) ? pl.Code : ResGone);
+                }
             }
-            FinishReply(s, reply, res);
-            reply.Done();
-            if (ScConfig.Verbose) ScLog.Verbose("linked storage: batch of " + entries.Count + " change(s) written for " + (sender.PlayerDisplayName ?? "?"));
-            PushToOthers(s, touched);
+            SetResults(s, reply, res);
+            try
+            {
+                if (ScConfig.Verbose)
+                    ScLog.Verbose("linked storage: batch of " + entries.Count + " change(s) written for " + (sender.PlayerDisplayName ?? "?")
+                                  + (unplaced > 0 ? " (" + unplaced + " deposit(s) found no room and go back)" : ""));
+            }
+            catch (Exception ex) { ScLog.Once("storage-commit-log", ex); }
+            try { PushSlots(s, touched); }
+            catch (Exception ex) { ScLog.Once("storage-commit-push", ex); }
         }
 
-        private static void FinishReply(Session s, ScActionReply reply, string[] res)
+        /// <summary>The reply's hints: res first (the view settles by it), then the free room in its own try (round MP3, review
+        /// storage m1: a bridge fault there never costs res).</summary>
+        private static void SetResults(Session s, ScActionReply reply, string[] res)
         {
-            int fs, fc;
-            Totals(s, out fs, out fc);
             reply.SetHint("res", string.Join("|", res));
-            reply.SetHint("fs", fs);
-            reply.SetHint("fc", fc);
+            try
+            {
+                int fs, fc;
+                Totals(s, out fs, out fc);
+                reply.SetHint("fs", fs);
+                reply.SetHint("fc", fc);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-reply-totals", e);
+            }
         }
 
         /// <summary>A stack a box may take: a known item, at most a full stack, and not one the game keeps out of containers (quest items).</summary>
@@ -662,21 +872,24 @@ namespace SurvivorCommunity
         {
             TEFeatureStorage st = s.BoxSet.Contains(pos) ? ScStorage.Resolve(pos) : null;
             if (st == null || st.ItemGrid == null || index < 0 || index >= st.ItemGrid.Length || !UsableFor(st, viewer)) return ResGone;
-            return LiveCodeRaw(st, index);
+            return LiveCodeRaw(st, index, s.Local);
         }
 
-        private static string LiveCodeRaw(TEFeatureStorage st, int index)
+        /// <summary>A slot's code for one view (local: the host's own, uncapped - round MP3, review storage m9); ResGone when the
+        /// box is gone or the stack is too large for that view.</summary>
+        private static string LiveCodeRaw(TEFeatureStorage st, int index, bool local)
         {
             if (st == null || st.ItemGrid == null || index < 0 || index >= st.ItemGrid.Length) return ResGone;
-            return ScItemTx.Encode(st.ItemGrid[index]) ?? ResGone;
+            return CodeFor(st.ItemGrid[index], local) ?? ResGone;
         }
 
         /// <summary>
         /// A deposit's slot: the first claimed box (scan order) the player may use with a free slot not planned in this batch, and
         /// with the grid bridge, room for the stack's footprint (the bridge runs here, where the box lives). Cached "full" answers
-        /// are hints: one more look with every box asked afresh, as before.
+        /// are hints: one more look with every box asked afresh, as before. Round MP3 (review storage M1): a box the batch already
+        /// writes is judged as the batch leaves it (RoomAsPlanned), never by its live figures, which do not know those writes.
         /// </summary>
-        private static bool FindRoom(Session s, PlatformUserIdentifierAbs viewer, ItemStack stack, Dictionary<SlotKey, Planned> planned, out SlotKey at, out TEFeatureStorage into)
+        private static bool FindRoom(Session s, PlatformUserIdentifierAbs viewer, ItemStack stack, BatchPlan plan, out SlotKey at, out TEFeatureStorage into)
         {
             for (int pass = 0; pass < 2; pass++)
             {
@@ -686,7 +899,8 @@ namespace SurvivorCommunity
                     Vector3i pos = s.Boxes[b];
                     TEFeatureStorage st = ScStorage.Resolve(pos);
                     if (!UsableFor(st, viewer)) continue;
-                    if (ScStorage.BoxFreeCells != null)
+                    bool touched = plan.Touches(pos);
+                    if (!touched && ScStorage.BoxFreeCells != null)
                     {
                         cached |= freeCellsByBox.ContainsKey(pos);
                         if (CellsFree(pos, st) <= 0) continue;
@@ -694,8 +908,12 @@ namespace SurvivorCommunity
                     if (ScStorage.BoxHasRoomFor != null)
                     {
                         bool room;
-                        try { room = ScStorage.BoxHasRoomFor(st, stack); }
-                        catch (Exception e) { ScLog.Once("storage-room", e); room = true; }
+                        if (touched) room = RoomAsPlanned(plan, pos, st, stack, -1);
+                        else
+                        {
+                            try { room = ScStorage.BoxHasRoomFor(st, stack); }
+                            catch (Exception e) { ScLog.Once("storage-room", e); room = true; }
+                        }
                         if (!room) continue;
                     }
                     ItemStack[] items = st.ItemGrid.items;
@@ -703,7 +921,7 @@ namespace SurvivorCommunity
                     {
                         if (items[i] != null && !items[i].IsEmpty()) continue;
                         var key = new SlotKey(pos, i);
-                        if (planned.ContainsKey(key)) continue;
+                        if (plan.Has(key)) continue;           // a slot the batch writes is never reused within it (res names one slot)
                         at = key;
                         into = st;
                         return true;
@@ -717,6 +935,54 @@ namespace SurvivorCommunity
             return false;
         }
 
+        /// <summary>
+        /// Round MP3 (review storage M1): the grid bridge's footprint test (ScStorage.BoxHasRoomFor) on the box as this batch leaves
+        /// it - its planned slots laid over the live ones, and emptyIndex (a slot about to take a different item, -1 for none)
+        /// emptied. The bridge reads the box's own slot array (packed afresh per question), so the planned stacks are put into
+        /// that array for the one call and the box's own slot objects are put back in the finally: plain array entries, so no
+        /// SlotChanged, no SetModified, nothing is sent or saved, and nothing else runs in between (the main thread; the game
+        /// serializes a loaded chunk's boxes on the main thread too: NetPackageTileEntity.Setup, ChunkProviderGenerateWorld's
+        /// SaveRandomChunks). A fault answers "no room" (refused, never past the grid).
+        /// </summary>
+        private static bool RoomAsPlanned(BatchPlan plan, Vector3i pos, TEFeatureStorage st, ItemStack stack, int emptyIndex)
+        {
+            if (ScStorage.BoxHasRoomFor == null) return true;
+            ItemStack[] items = st != null && st.ItemGrid != null ? st.ItemGrid.items : null;
+            if (items == null) return false;
+            var saved = new List<KeyValuePair<int, ItemStack>>();
+            try
+            {
+                List<int> idx;
+                if (plan.ByBox.TryGetValue(pos, out idx))
+                {
+                    for (int i = 0; i < idx.Count; i++)
+                    {
+                        int n = idx[i];
+                        Planned p;
+                        if (n < 0 || n >= items.Length || !plan.TryGet(new SlotKey(pos, n), out p)) continue;
+                        saved.Add(new KeyValuePair<int, ItemStack>(n, items[n]));
+                        items[n] = p.Stack != null && !p.Stack.IsEmpty() ? p.Stack.Clone() : ItemStack.Empty.Clone();
+                    }
+                }
+                if (emptyIndex >= 0 && emptyIndex < items.Length)
+                {
+                    saved.Add(new KeyValuePair<int, ItemStack>(emptyIndex, items[emptyIndex]));
+                    items[emptyIndex] = ItemStack.Empty.Clone();
+                }
+                return ScStorage.BoxHasRoomFor(st, stack);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-room-planned", e);
+                return false;
+            }
+            finally
+            {
+                // newest first: a slot saved twice gets its own (first-saved) object back last
+                for (int i = saved.Count - 1; i >= 0; i--) items[saved[i].Key] = saved[i].Value;
+            }
+        }
+
         /// <summary>Why a deposit found no room (round m1p's keys): no box has room, or the view links none at all.</summary>
         private static string FullKey(Session s)
         {
@@ -725,28 +991,59 @@ namespace SurvivorCommunity
             return s.Kind == ScStorage.KindOutpost ? "scStorageNoBoxesOutpost" : "scStorageNoBoxes";
         }
 
-        /// <summary>Every other open view that shows a written box gets the slots' new codes (and its fresh free room).</summary>
-        private static void PushToOthers(Session from, List<KeyValuePair<SlotKey, string>> touched)
+        /// <summary>
+        /// Every open view except `except` (null: every view) that shows a written slot gets the slot's new code and its fresh free
+        /// room. Round MP3 (review storage m9): each view's code is its own - capped for a remote player, where a stack too large
+        /// to send goes as "!" (the cell leaves that view; the stack stays in its box), uncapped for the host's own.
+        /// </summary>
+        private static void PushSlots(Session except, List<SlotKey> keys)
         {
-            if (sessions.Count < 2 || touched.Count == 0) return;
-            foreach (Session o in sessions.Values)
+            if (sessions.Count == 0 || keys == null || keys.Count == 0) return;
+            var targets = new List<Session>(sessions.Count);
+            foreach (Session o in sessions.Values) if (!ReferenceEquals(o, except)) targets.Add(o);
+            for (int t = 0; t < targets.Count; t++)
             {
-                if (o == from) continue;
+                Session o = targets[t];
                 List<ScStorage.Slot> list = null;
-                for (int i = 0; i < touched.Count; i++)
+                for (int i = 0; i < keys.Count; i++)
                 {
-                    if (!o.BoxSet.Contains(touched[i].Key.Pos)) continue;
+                    if (!o.BoxSet.Contains(keys[i].Pos)) continue;
                     if (list == null) list = new List<ScStorage.Slot>();
-                    list.Add(new ScStorage.Slot { Pos = touched[i].Key.Pos, Index = touched[i].Key.Index, Code = touched[i].Value });
+                    list.Add(new ScStorage.Slot { Pos = keys[i].Pos, Index = keys[i].Index, Code = LiveCodeRaw(ScStorage.Resolve(keys[i].Pos), keys[i].Index, o.Local) });
                 }
-                if (list == null) continue;
-                EntityPlayer p = ScPlayers.ByEntity(o.EntityId);
-                if (p == null || !(p is EntityPlayerLocal || ScNet.ClientMatches(p))) continue;
-                int fs, fc, id = o.Id;
-                Totals(o, out fs, out fc);
-                List<ScStorage.Slot> updates = list;
-                ScNet.ToPlayer(p, () => NetPackageManager.GetPackage<NetPackageScStorage>().SetupSlots(id, updates, fs, fc),
-                               () => ScStorage.OnSlots(id, CopySlots(updates), fs, fc));
+                if (list != null) SendSlots(o, list);
+            }
+        }
+
+        /// <summary>One view's slot updates (NetPackageScStorage; the host's own view gets them at once).</summary>
+        private static void SendSlots(Session o, List<ScStorage.Slot> updates)
+        {
+            EntityPlayer p = ScPlayers.ByEntity(o.EntityId);
+            if (p == null || !(p is EntityPlayerLocal || ScNet.ClientMatches(p))) return;
+            int fs, fc, id = o.Id;
+            Totals(o, out fs, out fc);
+            ScNet.ToPlayer(p, () => NetPackageManager.GetPackage<NetPackageScStorage>().SetupSlots(id, updates, fs, fc),
+                           () => ScStorage.OnSlots(id, CopySlots(updates), fs, fc));
+        }
+
+        /// <summary>
+        /// Round MP3 (review storage M2): an NPC writer (ScStorage.DepositInZone, TopUpInZone, TakeOneInZone) wrote these box
+        /// slots, claimed or not - every view that shows one gets its new content, as after a commit. A view's own change to such
+        /// a slot was made against the old content, so the compare-and-set refuses it and the view resyncs: nothing is lost or
+        /// doubled either way. Server only; never throws.
+        /// </summary>
+        public static void PushWritten(List<KeyValuePair<Vector3i, int>> slots)
+        {
+            if (sessions.Count == 0 || slots == null || slots.Count == 0) return;
+            try
+            {
+                var keys = new List<SlotKey>(slots.Count);
+                for (int i = 0; i < slots.Count; i++) keys.Add(new SlotKey(slots[i].Key, slots[i].Value));
+                PushSlots(null, keys);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-push-npc", e);
             }
         }
 

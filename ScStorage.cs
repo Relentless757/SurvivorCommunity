@@ -18,8 +18,10 @@ namespace SurvivorCommunity
     ///  - This class holds THIS machine's view (Slots, the counts, Current) and opens it in the loot window when the server's
     ///    view arrives (OnView); RequestOpen asks for one. ScLinkedContainer turns the window's changes into batches and puts the
     ///    player's cursor and inventory back when the server refuses one. Pump (every frame, ScStoragePump) drives it.
-    ///  - The NPC writers below (DepositInZone, TopUpInZone, TakeOneInZone) run on the server and skip a box a player has open,
-    ///    a box locked against the community, and a box a linked storage view claims (F3-F5, single player too).
+    ///  - The NPC writers below (DepositInZone, TopUpInZone, TakeOneInZone) run on the server and skip a box a player has open
+    ///    and a box locked against the community (F3-F5, single player too). Round MP3 (review storage M2): a box a linked storage
+    ///    view shows is written like any other, and the slots written are pushed to the views that show them
+    ///    (ScStorageServer.PushWritten); a view's change made against the old content is refused by the compare-and-set.
     /// The grid bridge's room delegates (BoxHasRoomFor, BoxFreeCells) run on the server only, where the boxes live; the view
     /// gets the server's free room in numbers (FreeSlots, FreeCellsServer).
     /// </summary>
@@ -170,15 +172,22 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ NPC writers (the server) ----
 
         /// <summary>
-        /// Round MP3 (F3-F5): may an NPC job write this box? Not while a linked storage view claims it (that view's changes are
-        /// compared against the box), not while a player has it open (their copy would overwrite the job's write, and the job's
-        /// take would come back), and not when it is locked against the community (a friend's password-locked crate).
+        /// Round MP3 (F3-F5): may an NPC job write this box? Not while a player has it open (their copy would overwrite the job's
+        /// write, and the job's take would come back), and not when it is locked against the community (a friend's
+        /// password-locked crate). Round MP3 (review storage M2): a box a linked storage view shows is no longer skipped - an open
+        /// view kept every job out of the whole base, and ScJobs.CarryWindow then had nowhere to put a member's overflow. The
+        /// view's changes are compare-and-set against the box, and the job's writes are pushed to it (PushWritten).
         /// </summary>
         private static bool NpcMayUse(Vector3i pos, TEFeatureStorage st)
         {
-            if (ScStorageServer.IsClaimed(pos)) return false;
             if (ScStorageServer.OpenBySomeone(st)) return false;
             return !ScStorageServer.LockedAgainst(st, CommunityUserId());
+        }
+
+        /// <summary>Round MP3 (review storage M2): the slots an NPC writer wrote, for the views that show them (never throws).</summary>
+        private static void Pushed(List<KeyValuePair<Vector3i, int>> written)
+        {
+            if (written != null && written.Count > 0) ScStorageServer.PushWritten(written);
         }
 
         /// <summary>
@@ -206,7 +215,8 @@ namespace SurvivorCommunity
         /// Puts one stack into the first box of the home zone's linked storage with a free slot (and, with the grid bridge,
         /// room for its footprint): what a member hands back when they keep a weapon you gave them (ScArms). The boxes are
         /// walked here rather than through a view's scan. Loaded chunks only. False when no box has room. Round MP3: a box a
-        /// player has open, a box locked against the community, or one a linked storage view claims is skipped (NpcMayUse).
+        /// player has open, or a box locked against the community, is skipped (NpcMayUse); the slot written goes to the linked
+        /// storage views that show its box (review storage M2).
         /// </summary>
         public static bool DepositInZone(ItemStack stack, out Vector3i box)
         {
@@ -232,6 +242,7 @@ namespace SurvivorCommunity
                         st.SetModified();
                         ScStorageServer.Invalidate(b.Key);
                         box = b.Key;
+                        Pushed(new List<KeyValuePair<Vector3i, int>> { new KeyValuePair<Vector3i, int>(b.Key, k) });   // round MP3 (review storage M2)
                         return true;
                     }
                 }
@@ -285,6 +296,7 @@ namespace SurvivorCommunity
         public static int TopUpInZone(ItemStack stack)
         {
             int count = 0, left = 0;
+            List<KeyValuePair<Vector3i, int>> written = null;       // round MP3 (review storage M2): pushed to the views (finally)
             try
             {
                 if (stack == null || stack.IsEmpty() || stack.itemValue == null) return 0;
@@ -302,6 +314,8 @@ namespace SurvivorCommunity
                         int add = Math.Min(left, max - s.count);
                         b.Value.UpdateSlot(k, new ItemStack(s.itemValue.Clone(), s.count + add));
                         left -= add;
+                        if (written == null) written = new List<KeyValuePair<Vector3i, int>>();
+                        written.Add(new KeyValuePair<Vector3i, int>(b.Key, k));
                         b.Value.SetModified();
                         ScStorageServer.Invalidate(b.Key);
                     }
@@ -313,6 +327,10 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("storage-topup-zone", e);
                 return count - left;
+            }
+            finally
+            {
+                Pushed(written);
             }
         }
 
@@ -334,6 +352,7 @@ namespace SurvivorCommunity
                         b.Value.SetModified();
                         ScStorageServer.Invalidate(b.Key);
                         box = b.Key;
+                        Pushed(new List<KeyValuePair<Vector3i, int>> { new KeyValuePair<Vector3i, int>(b.Key, k) });   // round MP3 (review storage M2)
                         return true;
                     }
                 }
@@ -573,6 +592,10 @@ namespace SurvivorCommunity
         private static Vector3i openClaim;
         private static float openAt;
         private static float nextKeep;
+        /// <summary>Round MP3 (review storage M2): the last use of the open view's window (the cursor moved), and when the last keep
+        /// went - a keep says "active" when the window was used in between (the server's idle limit).</summary>
+        private static float lastUse, lastKeepAt;
+        private static Vector3 lastCursor;
         private static GameObject pumpHost;
 
         /// <summary>Every machine, at the world's start and end (ScHomeLink.Reset): no view carries over.</summary>
@@ -715,6 +738,7 @@ namespace SurvivorCommunity
             c.Rebuild();
             Current = c;
             nextKeep = Time.unscaledTime + KeepSeconds;
+            lastUse = Time.unscaledTime;                // round MP3 (review storage M2): opening it is a use
             OpenLootWindow(player, c, CurrentTitle ?? Localization.Get("scStorageTitle"), own);
             string drawnBy = c.GridDrawn ? ", " + c.StackCap + " stacks, grid inventory" : (c.OwnWindow ? ", SC's window" : ", vanilla grid");
             ScLog.Out("linked storage opened: " + Boxes + " box(es), " + LiveStacks() + " stack(s), " + FreeCells() + " free cell(s), grid " + c.GetContainerSize().x + "x" + c.GetContainerSize().y
@@ -768,15 +792,35 @@ namespace SurvivorCommunity
                     closing.RemoveAt(i);
                     if (Current == null || Current.Session != c.Session) SendClose(c.Session);
                 }
-                if (Current != null && now >= nextKeep)
+                if (Current != null) NoteUse(me, now);
+                if ((Current != null || pendingView != null) && now >= nextKeep)
                 {
                     nextKeep = now + KeepSeconds;
-                    int sid = Current.Session;
-                    ScActions.Request(ScStorageServer.OpKeep, r =>
+                    // round MP3 (review storage M2): active 1 when the window was used since the last keep (the server's idle limit)
+                    int active = lastUse > lastKeepAt ? 1 : 0;
+                    lastKeepAt = now;
+                    if (Current != null)
                     {
-                        // the server let the view go (it ended the session): the window follows
-                        if (!r.Ok && Current != null && Current.Session == sid) CloseWindow();
-                    }, sid);
+                        int sid = Current.Session;
+                        ScActions.Request(ScStorageServer.OpKeep, r =>
+                        {
+                            // the server let the view go (it ended the session): the window follows
+                            if (!r.Ok && Current != null && Current.Session == sid) CloseWindow();
+                        }, sid, active);
+                    }
+                    if (pendingView != null && (Current == null || Current.Session != pendingView.Session))
+                    {
+                        // round MP3 (review storage m11): a home link's view waiting for another window is kept too (the server
+                        // lets a silent view go after 20 s; the wait is 25 s), and told when it is let go after all
+                        int psid = pendingView.Session;
+                        ScActions.Request(ScStorageServer.OpKeep, r =>
+                        {
+                            if (r.Ok || pendingView == null || pendingView.Session != psid) return;
+                            pendingView = null;
+                            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+                            if (pl != null) ScCommunity.Tell(pl, ScActions.Localize("scStorageSessionEnded"), "ui_denied");
+                        }, psid, 1);
+                    }
                 }
                 if (openWanted && (!Busy() || now - openAt > PendingOpenSeconds))
                 {
@@ -788,6 +832,28 @@ namespace SurvivorCommunity
             catch (Exception e)
             {
                 ScLog.Once("storage-pump", e);
+            }
+        }
+
+        /// <summary>
+        /// Round MP3 (review storage M2): the open view's window is in use - the cursor moved over the screen (a mouse or a
+        /// controller's cursor). A cell change counts on the server by itself (storage.cells).
+        /// </summary>
+        private static void NoteUse(EntityPlayerLocal me, float now)
+        {
+            try
+            {
+                if (me == null || me.PlayerUI == null || me.PlayerUI.CursorController == null) return;
+                Vector3 cur = me.PlayerUI.CursorController.GetLocalScreenPosition();
+                if ((cur - lastCursor).sqrMagnitude > 4f)
+                {
+                    lastCursor = cur;
+                    lastUse = now;
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-note-use", e);
             }
         }
 
@@ -856,9 +922,11 @@ namespace SurvivorCommunity
         {
             try
             {
-                if (pendingView != null && pendingView.Session == session) pendingView = null;
-                if (Current == null || Current.Session != session) return;
-                CloseWindow();
+                // round MP3 (review storage m11): a waiting home link view the server let go is told too (it closed silently)
+                bool wasPending = pendingView != null && pendingView.Session == session;
+                if (wasPending) pendingView = null;
+                if (!wasPending && (Current == null || Current.Session != session)) return;
+                if (!wasPending) CloseWindow();
                 EntityPlayerLocal p = ScCommunity.LocalPlayer;
                 if (p != null && !string.IsNullOrEmpty(reason)) ScCommunity.Tell(p, ScActions.Localize(reason), "ui_denied");
             }

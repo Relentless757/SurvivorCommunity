@@ -41,6 +41,10 @@ namespace SurvivorCommunity
     ///  - On the host and in single player the batch is answered at once, inline, in the same frame (one code path); AddItem,
     ///    TryStackItem and Sort ask the server first there, as 3.2's logic did, and nothing moves on a refusal. On a client they
     ///    move at once and a refusal gives the items back.
+    ///  - Round MP3 review fixes: with the grid bridge on the server, a swap (a different item into a backed cell) goes as a take
+    ///    and then, once answered, a deposit the footprint test judges (M1); a deposit the server could not place comes back on
+    ///    its own while the rest of the batch stands (m10); a batch held at a death keeps its cells unsettled (m2); the host's own
+    ///    view codes stacks past ScItemTx's cap in full (m9, ScStorageServer.CodeFor).
     /// Layout as on 3.2 (Rebuild): ONE grid, live stacks first, then a band of empty cells for the boxes' free room; capped
     /// by Grid Inventory's widget pool (StackCap, ShowLimit) when it draws the view (ScStorage.SizeFor). Without Grid
     /// Inventory it opens in SC's own window (round s1, OwnWindow): vanilla's looting window with 360 cells in a scrolling
@@ -137,6 +141,12 @@ namespace SurvivorCommunity
 
         /// <summary>Round MP3: changes on their way - unsent cells or a batch in flight.</summary>
         internal bool Busy { get { return flight != null || held != null || dirty.Count > 0; } }
+
+        /// <summary>Round MP3 (review storage m9): this machine's codes - the host's own view is never sent anywhere, so a stack past
+        /// ScItemTx's cap is coded in full there (ScStorageServer.CodeFor); a client's are capped (null = too large), as before.</summary>
+        private static string Code(ItemStack s) { return ScStorageServer.CodeFor(s, ScCommunity.IsHost); }
+
+        private static ItemStack StackOf(string code) { return ScStorageServer.StackOf(code, ScCommunity.IsHost); }
 
         // ---- layout ----
 
@@ -256,11 +266,16 @@ namespace SurvivorCommunity
             return -1;
         }
 
-        /// <summary>A box slot whose content is unknown until the batch in flight is answered.</summary>
+        /// <summary>A box slot whose content is unknown until the batch in flight is answered. Round MP3 (review storage m2): a batch
+        /// held at the player's death counts too - it is sent again after the respawn, so a push must not overwrite its cells
+        /// (the player would keep what they took and the box's new content would show as well).</summary>
         private bool InFlight(ScStorage.Slot _s)
         {
-            if (flight == null || _s == null) return false;
-            for (int i = 0; i < flight.Changes.Count; i++) if (ReferenceEquals(flight.Changes[i].Slot, _s)) return true;
+            if (_s == null) return false;
+            if (flight != null)
+                for (int i = 0; i < flight.Changes.Count; i++) if (ReferenceEquals(flight.Changes[i].Slot, _s)) return true;
+            if (held != null)
+                for (int i = 0; i < held.Changes.Count; i++) if (ReferenceEquals(held.Changes[i].Slot, _s)) return true;
             return false;
         }
 
@@ -399,6 +414,7 @@ namespace SurvivorCommunity
             dirty.Clear();
             dirtySet.Clear();
             var changes = new List<Change>();
+            List<int> again = null;         // round MP3 (review storage M1): swapped cells, sent again as deposits once this batch is answered
             bool notify = false;
             for (int n = 0; n < cells.Length; n++)
             {
@@ -420,14 +436,14 @@ namespace SurvivorCommunity
                         notify = true;
                         continue;
                     }
-                    string dep = ScItemTx.Encode(now);
+                    string dep = Code(now);         // round MP3 (review storage m9): never null on the host
                     if (dep == null) { RefuseLocal(i, "scStorageTooLarge"); notify = true; continue; }
                     var placeholder = new ScStorage.Slot { Pos = Vector3i.zero, Index = -1, Stack = ItemStack.Empty.Clone(), Code = "" };
                     SetMap(i, placeholder);
                     changes.Add(new Change { Slot = placeholder, Deposit = true, New = dep });
                     continue;
                 }
-                string code = ScItemTx.Encode(now);
+                string code = Code(now);
                 if (code == null)
                 {
                     // too large to send (an item with a huge payload): the cell goes back to its box's content, the player's side too
@@ -440,10 +456,27 @@ namespace SurvivorCommunity
                     continue;
                 }
                 if (string.Equals(code, s.Code, StringComparison.Ordinal)) continue;     // back to what the box holds: nothing to send
+                if (ScStorage.RoomInCells && !now.IsEmpty() && now.itemValue != null && s.Stack.itemValue != null
+                    && now.itemValue.type != s.Stack.itemValue.type)
+                {
+                    // round MP3 (review storage M1): a DIFFERENT item in a backed cell - RE Inventory's swap writes the old stack's
+                    // cell empty and the new one into it in one call, one dirty cell by the pump. Written as one compare-and-set it
+                    // skipped the footprint test and could put a box past its grid. With the grid bridge on the server it goes the
+                    // way it went before round MP3 (two writes: the take unmapped the cell, the drop was a deposit): the old stack
+                    // leaves its slot in this batch, and once that is answered the cell (still holding the new item, its slot now
+                    // empty) goes as a deposit, into the first box whose grid seats it - refused, it comes back to the player.
+                    // Refused here, the cell is put back and settled as any refused change (the cell stays mapped to the old slot).
+                    // Without the bridge a slot is a slot and the swap stays one compare-and-set into the same slot, as before.
+                    changes.Add(new Change { Slot = s, Expect = s.Code ?? "", New = "" });
+                    if (again == null) again = new List<int>();
+                    again.Add(i);
+                    continue;
+                }
                 changes.Add(new Change { Slot = s, Expect = s.Code ?? "", New = code });
             }
             if (notify) Notify();
             if (changes.Count == 0) return false;
+            if (again != null) for (int a = 0; a < again.Count; a++) MarkDirty(again[a]);
             Transmit(changes, null);
             return true;
         }
@@ -505,7 +538,8 @@ namespace SurvivorCommunity
                         ScStorage.CloseWindowOf(this);
                         return;
                     }
-                    Accept(f, res);
+                    // round MP3 (review storage m10): a deposit the server found no room for came back on its own - say why
+                    if (Accept(f, res) > 0 && !string.IsNullOrEmpty(r.Message)) Tell(r.Message, string.IsNullOrEmpty(r.Sound) ? "ui_denied" : r.Sound);
                     makeGood = 0;
                     return;
                 }
@@ -526,15 +560,38 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Accepted: each slot takes the server's code; a deposit learns its box and slot; an emptied slot leaves its cell.</summary>
-        private void Accept(Flight f, ScStorage.Slot[] res)
+        /// <summary>
+        /// Accepted: each slot takes the server's code; a deposit learns its box and slot; an emptied slot leaves its cell. Round
+        /// MP3 (review storage m10): a deposit answered "-" was not placed (no box had room) while the rest was written - its cell is
+        /// emptied and whatever the cell holds now goes back to the player (none of it reached a box: the deposit, and anything
+        /// changed on that cell since). Returns how many deposits came back.
+        /// </summary>
+        private int Accept(Flight f, ScStorage.Slot[] res)
         {
             bool current = ReferenceEquals(ScStorage.Current, this);
+            List<ItemStack> back = null;
+            int returned = 0;
             for (int k = 0; k < f.Changes.Count; k++)
             {
                 Change c = f.Changes[k];
                 ScStorage.Slot r = res[k];
                 ScStorage.Slot s = c.Slot;
+                if (c.Deposit && r.Code == ScStorageServer.ResNotPlaced)
+                {
+                    returned++;
+                    int dc = CellOf(s);
+                    if (dc < 0 || dc >= ItemGrid.Length) continue;
+                    ItemStack here = ItemGrid[dc].Clone();
+                    if (!here.IsEmpty())
+                    {
+                        if (back == null) back = new List<ItemStack>();
+                        back.Add(here);
+                    }
+                    SetMap(dc, null);
+                    SetQuiet(dc, null);
+                    if (dirtySet.Remove(dc)) dirty.Remove(dc);       // its pending change (if any) went back with it
+                    continue;
+                }
                 if (c.Deposit)
                 {
                     s.Pos = r.Pos;
@@ -548,10 +605,16 @@ namespace SurvivorCommunity
                 }
                 bool gone = r.Code == ScStorageServer.ResGone;
                 s.Code = gone ? "" : r.Code;
-                s.Stack = gone ? ItemStack.Empty.Clone() : ScItemTx.Decode(r.Code);
+                s.Stack = gone ? ItemStack.Empty.Clone() : StackOf(r.Code);
                 int cell = CellOf(s);
                 if (cell >= 0 && s.Stack.IsEmpty() && ItemGrid[cell].IsEmpty() && !dirtySet.Contains(cell)) SetMap(cell, null);
             }
+            if (back != null)
+            {
+                Settle(back, new List<ItemStack>());
+                Notify();
+            }
+            return returned;
         }
 
         /// <summary>
@@ -563,12 +626,14 @@ namespace SurvivorCommunity
         {
             var cells = new List<int>();
             var now = new Dictionary<ScStorage.Slot, string>();
+            var expect = new Dictionary<ScStorage.Slot, string>();
             for (int k = 0; k < f.Changes.Count; k++)
             {
                 Change c = f.Changes[k];
                 int cell = CellOf(c.Slot);
                 if (cell >= 0 && !cells.Contains(cell)) cells.Add(cell);
                 if (!c.Deposit && res != null) now[c.Slot] = res[k].Code;
+                if (!c.Deposit && !expect.ContainsKey(c.Slot)) expect[c.Slot] = c.Expect ?? "";
             }
             for (int i = 0; i < dirty.Count; i++) if (!cells.Contains(dirty[i])) cells.Add(dirty[i]);
             dirty.Clear();
@@ -583,6 +648,10 @@ namespace SurvivorCommunity
                 ItemStack here = ItemGrid[i].Clone();
                 bool real = s != null && s.Index >= 0;
                 ItemStack before = real && s.Stack != null ? s.Stack.Clone() : ItemStack.Empty.Clone();
+                // round MP3 (review storage m2): a slot of this batch is owed as the batch saw it (its Expect), whatever reached
+                // Slot.Stack since - a push while the batch was held at a death made the take look settled, and doubled it
+                string ex;
+                if (real && expect.TryGetValue(s, out ex)) before = StackOf(ex);
                 if (!here.IsEmpty()) back.Add(here);
                 if (!before.IsEmpty()) owed.Add(before);
                 ItemStack show = ItemStack.Empty.Clone();
@@ -594,7 +663,7 @@ namespace SurvivorCommunity
                         // its box as it is now; a box gone or out of reach (locked, opened) leaves the view
                         bool gone = code == ScStorageServer.ResGone;
                         s.Code = gone ? "" : code;
-                        s.Stack = gone ? ItemStack.Empty.Clone() : ScItemTx.Decode(code);
+                        s.Stack = gone ? ItemStack.Empty.Clone() : StackOf(code);
                     }
                     show = s.Stack != null ? s.Stack.Clone() : ItemStack.Empty.Clone();
                     if (show.IsEmpty()) SetMap(i, null);
@@ -643,13 +712,17 @@ namespace SurvivorCommunity
             for (int u = 0; u < updates.Count; u++)
             {
                 ScStorage.Slot up = updates[u];
+                // round MP3: "!" = the slot left this view (its box was opened by hand, review storage M2; or its stack is too large
+                // for a client's view, m9) - shown as empty here, the stack stays in its box
+                bool gone = up.Code == ScStorageServer.ResGone;
+                string code = gone ? "" : (up.Code ?? "");
                 for (int i = 0; i < map.Length; i++)
                 {
                     ScStorage.Slot s = map[i];
                     if (s == null || s.Index != up.Index || s.Pos != up.Pos) continue;
                     if (!Settled(i)) break;
-                    s.Code = up.Code ?? "";
-                    s.Stack = ScItemTx.Decode(s.Code);
+                    s.Code = code;
+                    s.Stack = StackOf(code);
                     SetQuiet(i, s.Stack);
                     if (s.Stack.IsEmpty()) SetMap(i, null);
                     changed = true;
@@ -661,8 +734,8 @@ namespace SurvivorCommunity
                 {
                     ScStorage.Slot s = ScStorage.Slots[k];
                     if (s.Index != up.Index || s.Pos != up.Pos || CellOf(s) >= 0) continue;
-                    s.Code = up.Code ?? "";
-                    s.Stack = ScItemTx.Decode(s.Code);
+                    s.Code = code;
+                    s.Stack = StackOf(code);
                 }
             }
             if (changed) Notify();
@@ -720,7 +793,7 @@ namespace SurvivorCommunity
             if (s == null || s.IsEmpty() || s.itemValue == null) return null;
             ItemClass ic = s.itemValue.ItemClass;
             if (ic != null && ic.CanStack() && !s.itemValue.HasQuality) return "t" + s.itemValue.type;
-            string c = ScItemTx.Encode(new ItemStack(s.itemValue.Clone(), 1));
+            string c = Code(new ItemStack(s.itemValue.Clone(), 1));           // round MP3 (review storage m9): the host's own codes
             return "x" + (c ?? s.itemValue.type.ToString());
         }
 
@@ -921,7 +994,7 @@ namespace SurvivorCommunity
                 // the host: the boxes first, as before (the frame's own changes go ahead of it)
                 if (flight == null && dirty.Count > 0) SendDirty();
                 if (flight != null) { Tell("scStorageBusy"); return false; }
-                string code = ScItemTx.Encode(_itemStack);
+                string code = Code(_itemStack);             // round MP3 (review storage m9): never too large on the host
                 if (code == null) { Tell("scStorageTooLarge"); return false; }
                 var placeholder = new ScStorage.Slot { Pos = Vector3i.zero, Index = -1, Stack = ItemStack.Empty.Clone(), Code = "" };
                 SetMap(at, placeholder);
@@ -999,7 +1072,7 @@ namespace SurvivorCommunity
         /// refuses it - never "" for it, which would empty the slot).</summary>
         private static Change Cas(ScStorage.Slot s, ItemStack next)
         {
-            return new Change { Slot = s, Expect = s.Code ?? "", New = ScItemTx.Encode(next) };
+            return new Change { Slot = s, Expect = s.Code ?? "", New = Code(next) };       // round MP3 (review storage m9)
         }
 
         /// <summary>
@@ -1023,7 +1096,7 @@ namespace SurvivorCommunity
                     ScStorage.Slot s = f.Changes[k].Slot;
                     bool gone = res[k].Code == ScStorageServer.ResGone;
                     s.Code = gone ? "" : res[k].Code;
-                    s.Stack = gone ? ItemStack.Empty.Clone() : ScItemTx.Decode(res[k].Code);
+                    s.Stack = gone ? ItemStack.Empty.Clone() : StackOf(res[k].Code);
                     int cell = CellOf(s);
                     if (cell < 0) continue;
                     SetQuiet(cell, s.Stack);

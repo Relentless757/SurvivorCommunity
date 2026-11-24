@@ -47,6 +47,11 @@ namespace SurvivorCommunity
                 nextTick = now + Interval;
 
                 if (!ScCommunity.IsHost) return;
+                // round MP3 (review storage m7): linked storage's sessions are swept first and in their own try - it used to run
+                // late in this tick (ScHomeLink.Tick), after the "nobody online" return, so a fault in any earlier step stopped it
+                // and no view's claim ever ended
+                try { ScStorageServer.Sweep(); }
+                catch (Exception e) { ScLog.Once("storage-sweep-tick", e); }
                 // before the local-player test below, so a dedicated server sweeps too: a dead NPC's window a remote
                 // player held drops at the body once its open mark has expired (Patches_Npc)
                 Patches_Npc.Patch_SetDead.ReleaseAll(false);

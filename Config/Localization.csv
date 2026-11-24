@@ -406,7 +406,6 @@ scRoleCraftsmanship,UI,Menu,,,,"Craftsman"
 scRoleConstruction,UI,Menu,,,,Builder
 scRoleLogistics,UI,Menu,,,,Quartermaster
 scRoleBartering,UI,Menu,,,,Trader
-scStorageInUseLinked,UI,Tooltip,,,,Someone is using this box through linked storage. Try again when they are done.
 scStorageChanged,UI,Tooltip,,,,"That stack changed in the meantime. Linked storage shows it as it is now, and your last move was undone."
 scStorageBoxGone,UI,Tooltip,,,,"That box is gone. Linked storage no longer shows it, and your last move was undone."
 scStorageInUse,UI,Tooltip,,,,"That box was opened or locked by someone else. Linked storage no longer shows it, and your last move was undone."
@@ -415,6 +414,8 @@ scStorageClosedFar,UI,Tooltip,,,,Linked storage closed: you walked too far away.
 scStorageTooLarge,UI,Tooltip,,,,That item cannot go through linked storage. Put it straight into a box.
 scStorageBusy,UI,Tooltip,,,,Linked storage is still saving your last move.
 scStorageSkipped,UI,Menu,,,,"({0} box(es) in use or locked not shown)"
+scStorageTooFar,UI,Tooltip,,,,"You are too far from the land claim to use linked storage. Come closer, then open it again."
+scStorageClosedIdle,UI,Tooltip,,,,"Linked storage closed: nothing was moved in it for a few minutes. Open it again when you need it."
 scMemberGone,UI,Tooltip,,,,They are no longer in the community.
 scFavourGone,UI,Tooltip,,,,That favor is no longer open.
 scFollowingOther,UI,Tooltip,,,,{0} is following someone else.

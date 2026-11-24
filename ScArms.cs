@@ -2106,8 +2106,13 @@ namespace SurvivorCommunity
             return first;
         }
 
-        /// <summary>One backpack holding the items (the container SC drops a dead survivor's window in: it stays until looted).</summary>
-        private static void DropBag(Vector3 at, List<ItemStack> items, EntityAlive npc)
+        /// <summary>
+        /// One backpack holding the items (the container SC drops a dead survivor's window in: it stays until looted). Round MP3
+        /// (review storage M2): internal, for ScJobs.CarryWindow's overflow too; true once the items are on their way into the
+        /// world (the bag's spawn requested, or loose drops made) - false only when it failed before that, so a caller may drop
+        /// them another way without doubling them.
+        /// </summary>
+        internal static bool DropBag(Vector3 at, List<ItemStack> items, EntityAlive npc)
         {
             string className = ScCommunity.ClassExists(EntityClass.FromString("BackpackNPC")) ? "BackpackNPC" : "Backpack";
             EntityItem pack = EntityFactory.CreateEntity(EntityClass.FromString(className), at) as EntityItem;
@@ -2115,7 +2120,7 @@ namespace SurvivorCommunity
             {
                 // no bag class: loose items, which despawn like any drop
                 foreach (ItemStack st in items) GameManager.Instance.ItemDropServer(st, at, Vector3.zero, -1, 60f);
-                return;
+                return true;
             }
 #if SC_V34
             // 3.4: a Bag is a grid (empty slots to begin with), filled through SetSlot (it clones), and the creation data carries
@@ -2130,7 +2135,10 @@ namespace SurvivorCommunity
             for (int i = 0; i < items.Count; i++) bag.items[i] = items[i].Clone();
             GameManager.Instance.RequestToSpawnEntityServer(new EntityCreationData(pack, true) { entityName = Localization.Get(npc.EntityName), id = -1, bag = bag });
 #endif
-            pack.OnEntityUnload();
+            // round MP3 (review storage M2): the bag is requested - a fault in the template's cleanup must not read as "not dropped"
+            try { pack.OnEntityUnload(); }
+            catch (Exception e) { ScLog.Once("arms-dropbag-unload", e); }
+            return true;
         }
 
         private static string WhereKey(string where)

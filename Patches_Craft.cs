@@ -440,9 +440,10 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// C1e's sweep (round MP3: shared with the remote sweep): every entry of the station's list under a member's id is paid
-        /// to her (ScCraft.OnCrafted, "sweep") and taken off. The server only (the registry's side).
+        /// to her (ScCraft.OnCrafted, "sweep") and taken off. The server only (the registry's side). paid (round MP3, review
+        /// packing/gear m2): when given, collects the entries paid and taken off.
         /// </summary>
-        internal static void SweepMembers(TileEntityWorkstation te, string counter, string why)
+        internal static void SweepMembers(TileEntityWorkstation te, string counter, string why, List<CraftCompleteData> paid = null)
         {
             List<CraftCompleteData> list = te != null ? te.CraftCompleteList : null;
             if (list == null || list.Count == 0 || !ScCommunity.IsHost || !ScRegistry.Loaded) return;
@@ -459,6 +460,7 @@ namespace SurvivorCommunity
                 // owed to the crates then (round 33a: expected until it arrives, ScWork.NoteMadeAtStation)
                 if (d.CraftedItemStack != null && d.CraftedItemStack.itemValue != null) ScWork.NoteMadeAtStation(m.Id, d.CraftedItemStack.itemValue.type, items);
                 list.RemoveAt(i);
+                if (paid != null) paid.Add(d);
                 changed = true;
                 Count(counter);
                 ScLog.Out("a station's list held " + items + " x " + d.RecipeName + " made by " + m.Name + " - paid to her now" + why);
@@ -506,11 +508,164 @@ namespace SurvivorCommunity
                     if (ScPlayers.ByEntity(__0) is EntityPlayerLocal) return;      // the host's own: its C1e swept at the open
                     World w = ScCommunity.World;
                     if (w != null && w.GetPrimaryPlayerId() == __0) return;
-                    SweepMembers(ws, "c1e-station-list-swept-remote", " (player " + __0 + " closed the station)");
+                    var paid = new List<CraftCompleteData>();
+                    SweepMembers(ws, "c1e-station-list-swept-remote", " (player " + __0 + " closed the station)", paid);
+                    RememberSwept(ws, paid);                                    // round MP3 (review packing/gear m2)
                 }
                 catch (Exception e)
                 {
                     ScLog.Once("craft-sweep-remote", e);
+                }
+            }
+        }
+
+        /// <summary>Round MP3 (review packing/gear m2): one paid entry of a remote sweep, kept SweptSeconds.</summary>
+        private sealed class SweptEntry
+        {
+            public Vector3i Pos;
+            public string Key;
+            public int Items;
+            public float At;
+        }
+
+        /// <summary>How long a remote sweep's paid entries are remembered against a late write-back (a forced unlock comes after
+        /// 10 s without the client's keep-open; a link stalled much longer than this drops the client).</summary>
+        private const float SweptSeconds = 60f;
+        private static readonly List<SweptEntry> swept = new List<SweptEntry>();
+
+        /// <summary>An entry's identity for the late write-back check: crafter, recipe, item (and the scrapped item vanilla merges by).</summary>
+        private static string SweptKey(CraftCompleteData d)
+        {
+            int type = d.CraftedItemStack != null && d.CraftedItemStack.itemValue != null ? d.CraftedItemStack.itemValue.type : 0;
+            return d.CrafterEntityID + "|" + (d.RecipeName ?? "") + "|" + type + "|" + (d.ItemScrapped ?? "");
+        }
+
+        private static void RememberSwept(TileEntityWorkstation ws, List<CraftCompleteData> paid)
+        {
+            if (paid == null || paid.Count == 0) return;
+            float now = UnityEngine.Time.unscaledTime;
+            Vector3i pos = ws.ToWorldPos();
+            for (int i = 0; i < paid.Count; i++)
+            {
+                CraftCompleteData d = paid[i];
+                int items = d.CraftedItemStack != null ? Math.Max(0, d.CraftedItemStack.count) : 0;
+                if (items > 0) swept.Add(new SweptEntry { Pos = pos, Key = SweptKey(d), Items = items, At = now });
+            }
+        }
+
+        /// <summary>The remembered items per entry key at this station (null when none), old records dropped.</summary>
+        private static Dictionary<string, int> SweptAt(Vector3i pos)
+        {
+            float now = UnityEngine.Time.unscaledTime;
+            swept.RemoveAll(e => now - e.At > SweptSeconds);
+            Dictionary<string, int> r = null;
+            for (int i = 0; i < swept.Count; i++)
+            {
+                if (swept[i].Pos != pos) continue;
+                if (r == null) r = new Dictionary<string, int>();
+                int n;
+                r.TryGetValue(swept[i].Key, out n);
+                r[swept[i].Key] = n + swept[i].Items;
+            }
+            return r;
+        }
+
+        private static Dictionary<string, int> CountByKey(List<CraftCompleteData> list)
+        {
+            var r = new Dictionary<string, int>();
+            if (list == null) return r;
+            for (int i = 0; i < list.Count; i++)
+            {
+                CraftCompleteData d = list[i];
+                if (d == null || d.CraftedItemStack == null) continue;
+                string k = SweptKey(d);
+                int n;
+                r.TryGetValue(k, out n);
+                r[k] = n + Math.Max(0, d.CraftedItemStack.count);
+            }
+            return r;
+        }
+
+        /// <summary>Round MP3 (review packing/gear m2): TileEntityWorkstation.read(PooledBinaryReader, StreamModeRead), declared there.</summary>
+        public static MethodBase WorkstationReadTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(TileEntityWorkstation), "read", new[] { typeof(PooledBinaryReader), typeof(StreamModeRead) });
+        }
+
+        /// <summary>
+        /// Round MP3 (review packing/gear m2): a forced unlock (LockManager, after 10 s without a client's keep-open) runs the remote
+        /// sweep: her entries are paid and taken off. If that client's link then recovers, its queued station writes arrive and the
+        /// server takes the whole list from them (NetPackageTileEntity reads a client's tile entity with no lock test), so the paid
+        /// entries are back and C1d or the next sweep would pay them again. So for SweptSeconds after a remote sweep, a client's
+        /// write to that station while NOBODY holds it (a lock holder's own write-back is never touched: a station opened after the
+        /// sweep starts from the server's list) is trimmed: per entry (crafter, recipe, item), what the write ADDED over the
+        /// server's list, up to what the sweep paid, is taken off again unpaid. A craft the client's window really made after the
+        /// sweep is the excess beyond that and is paid as usual. XP only; no item moves (the list is a record of crafts made).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_StationLateWriteBack
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(WorkstationReadTarget, "TileEntityWorkstation.read(PooledBinaryReader, StreamModeRead)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return WorkstationReadTarget(); }
+
+            /// <summary>__1 the stream mode (by position). __state: the server's list per entry key before a late write, null otherwise.</summary>
+            [HarmonyPrefix]
+            public static void Prefix(TileEntityWorkstation __instance, StreamModeRead __1, out Dictionary<string, int> __state)
+            {
+                __state = null;
+                try
+                {
+                    if (__1 != StreamModeRead.FromClient || swept.Count == 0 || !ScCommunity.IsHost || __instance == null) return;
+                    if (SweptAt(__instance.ToWorldPos()) == null) return;
+                    if (LockManager.Instance != null && LockManager.Instance.IsLockedServer(__instance, 0)) return;    // the holder's own write
+                    __state = CountByKey(__instance.CraftCompleteList);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-late-write-pre", e);
+                    __state = null;
+                }
+            }
+
+            [HarmonyPostfix]
+            public static void Postfix(TileEntityWorkstation __instance, Dictionary<string, int> __state)
+            {
+                if (__state == null) return;
+                try
+                {
+                    List<CraftCompleteData> list = __instance.CraftCompleteList;
+                    Dictionary<string, int> paid = SweptAt(__instance.ToWorldPos());
+                    if (list == null || paid == null) return;
+                    Dictionary<string, int> after = CountByKey(list);
+                    int trimmed = 0;
+                    foreach (KeyValuePair<string, int> kv in paid)
+                    {
+                        int was, now;
+                        __state.TryGetValue(kv.Key, out was);
+                        if (!after.TryGetValue(kv.Key, out now)) continue;
+                        int cut = Math.Min(now - was, kv.Value);
+                        for (int i = list.Count - 1; i >= 0 && cut > 0; i--)
+                        {
+                            CraftCompleteData d = list[i];
+                            if (d == null || d.CraftedItemStack == null || SweptKey(d) != kv.Key) continue;
+                            int k = Math.Min(cut, d.CraftedItemStack.count);
+                            d.CraftedItemStack.count -= k;
+                            cut -= k;
+                            trimmed += k;
+                            if (d.CraftedItemStack.count <= 0) list.RemoveAt(i);
+                        }
+                    }
+                    if (trimmed <= 0) return;
+                    Count("c1e-late-write-back-trimmed");
+                    ScLog.Out("a client's late station write-back brought back " + trimmed + " crafted item(s) a member was already paid for at the"
+                              + " forced close - taken off again, not paid twice");
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-late-write-post", e);
                 }
             }
         }

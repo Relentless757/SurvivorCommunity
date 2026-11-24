@@ -13,7 +13,8 @@ namespace SurvivorCommunity
     /// Round MP3 (part L, multiplayer): the server's, per player. storage.open with ScStorage.KindHomeLink (ScStorageServer) calls
     /// Request for the player who pressed; each player has their own observer and their own wait, and the observer is let go
     /// when that player's view ends (OnSessionEnded) - closed, walked away, replaced, disconnected. The wait for the player's
-    /// other window to close happens on their own machine (ScStorage.OnView). Tick also sweeps linked storage's sessions.
+    /// other window to close happens on their own machine (ScStorage.OnView). Linked storage's sessions are swept by ScTicker
+    /// itself (round MP3, review storage m7: in their own try).
     /// </summary>
     public static class ScHomeLink
     {
@@ -129,10 +130,10 @@ namespace SurvivorCommunity
             Drop(l);
         }
 
-        /// <summary>ScTicker, every second (the server): linked storage's sweep, then each home link - load, open, release.</summary>
+        /// <summary>ScTicker, every second (the server): each home link - load, open, release. Round MP3 (review storage m7):
+        /// linked storage's sweep moved to the start of ScTicker's tick, in its own try.</summary>
         public static void Tick(EntityPlayer player)
         {
-            ScStorageServer.Sweep();
             if (links.Count == 0) return;
             try
             {

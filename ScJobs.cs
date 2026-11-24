@@ -1412,8 +1412,11 @@ namespace SurvivorCommunity
         /// that does not fit into the home crates, the old container dropped. Only while no entity holds the old id (as
         /// before: an id another entity now uses keeps its window). A fresh body (ScSpawn) was given the rounds of her pair
         /// gun her ammo record counts - every store, the window included (ScAmmo.RestoreRecorded) - so those stacks stay
-        /// behind rather than come twice (SC moves ammo out of the window into the bag whenever it is closed anyway). Logged;
-        /// a loss (no room anywhere) is a warning.
+        /// behind rather than come twice (SC moves ammo out of the window into the bag whenever it is closed anyway). Logged.
+        /// Round MP3 (review storage M2): what fits neither the new body's window nor a home crate is no longer lost - it goes
+        /// into one bag at her feet (ScArms.DropBag; loose drops if no bag can be made). Before round MP3 the crates took more
+        /// of it (DepositInZone also wrote a box a player had open); such a box is still skipped (F3), so that part now lands at
+        /// her feet instead. The old window is removed only after every stack has a place.
         /// </summary>
         public static void CarryWindow(World w, Member m, int oldId, EntityAlive e, bool fresh)
         {
@@ -1421,8 +1424,9 @@ namespace SurvivorCommunity
             {
                 if (w == null || e == null || w.GetEntity(oldId) != null || !HarvestManager.Has(oldId)) return;
                 ItemStack[] items = HarvestManager.GetOrCreate(oldId).items;
-                int moved = 0, toCrates = 0, recorded = 0;
+                int moved = 0, toCrates = 0, recorded = 0, dropped = 0;
                 var lost = new List<string>();
+                var ground = new List<ItemStack>();         // round MP3 (review storage M2): into a bag at her feet, never deleted
                 var ammo = new HashSet<int>();
                 ItemActionRanged gun = fresh ? ScAmmo.RangedAction(ScAmmo.PairGun(e)) : null;
                 if (gun != null && gun.MagazineItemNames != null)
@@ -1438,18 +1442,45 @@ namespace SurvivorCommunity
                         moved += s.count - c.count;                                    // AddItem left what did not fit in c
                         Vector3i box;
                         if (ScStorage.DepositInZone(c, out box)) toCrates += c.count;
-                        else lost.Add(c.count + "x " + ItemLabel(c.itemValue.ItemClass != null ? c.itemValue.ItemClass.GetItemName() : "?"));
+                        else
+                        {
+                            ground.Add(c);
+                            dropped += c.count;
+                            lost.Add(c.count + "x " + ItemLabel(c.itemValue.ItemClass != null ? c.itemValue.ItemClass.GetItemName() : "?"));
+                        }
                     }
                 }
+                if (ground.Count > 0) DropAtFeet(e, ground);
                 HarvestManager.Remove(oldId);
                 Count("runner-window-carried");
                 if (moved + toCrates + recorded > 0 || lost.Count > 0)
                     ScLog.Out(m.Name + "'s inventory window came with them to entity " + e.entityId + ": " + moved + " item(s)"
                               + (toCrates > 0 ? ", " + toCrates + " that did not fit into the home crates" : "")
                               + (recorded > 0 ? ", " + recorded + " round(s) of their gun left behind (the fresh body got their ammo record)" : ""));
-                if (lost.Count > 0) ScLog.Warn(m.Name + "'s inventory window: no room for " + string.Join(", ", lost.ToArray()) + " in the new body or the home crates - lost");
+                if (lost.Count > 0)
+                    ScLog.Warn(m.Name + "'s inventory window: no room for " + string.Join(", ", lost.ToArray()) + " in the new body or the home crates - "
+                               + dropped + " item(s) dropped in a bag at their feet");
             }
             catch (Exception ex) { ScLog.Once("runner-harvest", ex); }
+        }
+
+        /// <summary>
+        /// Round MP3 (review storage M2): CarryWindow's overflow at the member's feet - one bag (ScArms.DropBag, the bag SC drops a
+        /// dead survivor's window in), else loose drops; only when the bag never got as far as being requested, so nothing is
+        /// dropped twice. The server (CarryWindow runs there).
+        /// </summary>
+        private static void DropAtFeet(EntityAlive e, List<ItemStack> stacks)
+        {
+            Vector3 at = e.position + Vector3.up;
+            bool bagged = false;
+            try { bagged = ScArms.DropBag(at, stacks, e); }
+            catch (Exception ex) { ScLog.Once("runner-window-bag", ex); }
+            if (bagged) return;
+            foreach (ItemStack s in stacks)
+            {
+                try { GameManager.Instance.ItemDropServer(s.Clone(), at, Vector3.zero, -1, 60f); }
+                catch (Exception ex) { ScLog.Once("runner-window-drop", ex); }
+            }
         }
 
         /// <summary>
