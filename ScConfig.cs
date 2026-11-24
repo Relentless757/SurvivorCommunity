@@ -1423,6 +1423,11 @@ namespace SurvivorCommunity
         public static readonly List<string> RaiderGearSets = new List<string>();
         public static int TraitsPerRecruit = 2;
         public static bool Verbose = false;
+        /// <summary>
+        /// Round MP2 (multiplayer, Shared mode): true = only the community's owner and the server's admins may dismiss members,
+        /// disband outposts, move the home and order rationing (ScActionAccess.Owner); false (default) = every player may.
+        /// </summary>
+        public static bool SharedOwnerOnly = false;
         public static readonly List<TraitDef> Traits = new List<TraitDef>();
 
         private static bool parsed;
@@ -1485,6 +1490,7 @@ namespace SurvivorCommunity
             PoiFavourRange = 300;
             TraitsPerRecruit = 2;
             Verbose = false;
+            SharedOwnerOnly = false;          // round MP2
             Traits.Clear();
             SurvivorLookChance = 0.5f;
             SurvivorGearSets.Clear();
@@ -2822,6 +2828,9 @@ namespace SurvivorCommunity
                 bool verbose = Verbose;
                 if (p.Values.ContainsKey("DebugLogging")) p.ParseBool("DebugLogging", ref verbose);
                 Verbose = verbose;
+                bool ownerOnly = SharedOwnerOnly;     // round MP2
+                if (p.Values.ContainsKey("SharedOwnerOnly")) p.ParseBool("SharedOwnerOnly", ref ownerOnly);
+                SharedOwnerOnly = ownerOnly;
 
                 string s;
                 if (p.Values.TryGetValue("BedBlocks", out s) && !string.IsNullOrEmpty(s)) { BedBlocks.Clear(); BedBlocks.AddRange(SplitList(s)); }

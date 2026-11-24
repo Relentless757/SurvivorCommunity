@@ -77,6 +77,9 @@
     <Compile Include="ScNet.cs" />
     <Compile Include="ScMirror.cs" />          <!-- round MP1: the clients' copy of the registry -->
     <Compile Include="NetPackageScState.cs" /> <!-- round MP1 -->
+    <Compile Include="ScActions.cs" />         <!-- round MP2: clients act (the request protocol) -->
+    <Compile Include="NetPackageScAction.cs" /> <!-- round MP2 -->
+    <Compile Include="NetPackageScResult.cs" /> <!-- round MP2 -->
     <Compile Include="ScTraits.cs" />
     <Compile Include="ScTraitEffects.cs" />   <!-- round m1t -->
     <Compile Include="ScLifeSkills.cs" />     <!-- round m1t -->

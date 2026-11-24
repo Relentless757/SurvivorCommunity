@@ -2123,3 +2123,9 @@ scRaiderFemaleT2,entityclasses,Entity,,,,Raider
 scRaiderFemaleT3,entityclasses,Entity,,,,Raider
 scBondTerm,UI,Menu,,,,Bond {0}
 scNetMismatch,UI,Tooltip,,,,"Survivor Community: your version differs from the server's. Install the same version as the server, or some features will not work."
+scActionNoServer,UI,Tooltip,,,,"The server does not run Survivor Community, so this cannot be done here."
+scActionDenied,UI,Tooltip,,,,"Only the community's owner or an admin can do that on this server."
+scActionUnknown,UI,Tooltip,,,,"The server does not know that request. Install the same Survivor Community version as the server."
+scActionFailed,UI,Tooltip,,,,"That did not work. The server's log has the details."
+scActionNoPlayer,UI,Tooltip,,,,"There is no player to act for."
+scActionNotReady,UI,Tooltip,,,,"The community's data is not loaded yet. Try again in a moment."

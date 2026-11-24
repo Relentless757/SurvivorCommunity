@@ -1498,6 +1498,10 @@
 			<property name="RaiderGearSets" value="Raider,Biker,Enforcer,Assassin,Rogue,Commando,Nomad,Scavenger,Primitive" />
 
 			<property name="DebugLogging" value="false" />
+			<!-- SharedOwnerOnly (multiplayer): true = only the community's owner (the player who set its home) and the
+			     server's admins may dismiss members, disband outposts, move the home and order rationing. false: every
+			     player on the server may. Single player is unaffected. -->
+			<property name="SharedOwnerOnly" value="false" />
 
 			<!-- Traits, rolled by weight at recruit. Keys: weight, morale (community offset), mood (own offset),
 			     skill=Name:stars (starting bonus), spec=Specialty (preferred), xp (skill XP multiplier), timid=1 (flees).

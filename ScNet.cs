@@ -17,7 +17,7 @@ namespace SurvivorCommunity
     public static class ScNet
     {
         /// <summary>Bump on any change to a NetPackageSc* layout or meaning.</summary>
-        public const int Protocol = 2;      // 1: MP0 (hello). 2: MP1 (NetPackageScState, NetPackageScLook, NetPackageScLookRequest)
+        public const int Protocol = 3;      // 1: MP0 (hello). 2: MP1 (NetPackageScState, NetPackageScLook, NetPackageScLookRequest). 3: MP2 (NetPackageScAction, NetPackageScResult, NetPackageScTalkContext)
 
         /// <summary>This build's id (the assembly's module version id, short) - logged beside a protocol mismatch.</summary>
         public static readonly string Build = MakeBuild();
