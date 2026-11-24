@@ -169,9 +169,15 @@ namespace SurvivorCommunity
         /// shows an entry for every enabled command in order, and a tap runs the first one. Round MP2: Upgrade on a client too,
         /// from its copy of the registry (it asks the server: facility.upgrade).
         /// </summary>
+        /// <summary>Round MP2 (re-check m2): the facility and level the radial last showed (its commands built) - the press sends that.</summary>
+        private static Vector3i shownAt = Vector3i.zero;
+        private static int shownLevel = -1;
+
         public static BlockActivationCommand[] Commands(WorldBase world, Vector3i pos, BlockValue bv)
         {
             Vector3i parent = Parent(world, pos, ref bv);
+            shownAt = parent;                                   // round MP2 (re-check m2)
+            shownLevel = LevelAt(parent, bv);
             bool canUp = ScActionsWindow.CanRequest && InHome(parent) && LevelAt(parent, bv) < MaxLevel(bv.type);
             return canUp ? InfoAndUpgrade : InfoOnly;
         }
@@ -203,7 +209,10 @@ namespace SurvivorCommunity
                 // told here, as before: the line, and the denied sound when it was refused
                 // round MP2 (review core/window M1): the level this machine shows goes last - a second press after the first one's
                 // upgrade is refused (scActionChanged), never a second level
-                ScActions.Request("facility.upgrade", r => ScCommunity.Tell(player, r.Text, r.Sound), parent.x, parent.y, parent.z, LevelAt(parent, bv));
+                // round MP2 (re-check m2): on a client the level the radial showed when it opened (a press-time read could already
+                // see the first press's upgrade); the host reads it now, as it always re-reads at once
+                int seen = ScMirror.Active && shownAt == parent && shownLevel >= 0 ? shownLevel : LevelAt(parent, bv);
+                ScActions.Request("facility.upgrade", r => ScCommunity.Tell(player, r.Text, r.Sound), parent.x, parent.y, parent.z, seen);
             }
             catch (Exception e)
             {

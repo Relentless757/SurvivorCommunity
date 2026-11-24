@@ -470,6 +470,9 @@ namespace SurvivorCommunity
         private static readonly string[] RoleButtons = { "Cook", "Smith", "Chemist", "Crafter" };
         /// <summary>The member whose work-and-roles row is open (-1: none); it closes when another one is selected.</summary>
         private int workPickingId = -1;
+        // round MP2 (re-check M1): what the work row last SHOWED, by member - a client's press sends that as its intent (the cvars
+        // reach a client before its label re-renders, so a press-time read could flip a shift another player just started)
+        private int shownWorkId = -1, shownWorkIntent = -1, shownRoleId = -1, shownRoleMask = -1;
 
         private bool WorkOpen { get { return workPickingId >= 0 && workPickingId == selectedId; } }
 
@@ -490,6 +493,7 @@ namespace SurvivorCommunity
             EntityPlayerLocal p = Player;
             if (m == null || p == null || !WorkOpen) return;
             int intent = ScWork.OnWorkShiftView(m) ? 0 : 1;     // round MP2 (review core/window M1): what the button says - 1 Call, 0 End
+            if (ScMirror.Active && shownWorkId == m.Id && shownWorkIntent >= 0) intent = shownWorkIntent;   // re-check M1: as rendered
             ScActions.Request("member.work", r =>
             {
                 ShowReply(r, false);
@@ -510,8 +514,8 @@ namespace SurvivorCommunity
             EntityPlayerLocal p = Player;
             if (m == null || p == null || !WorkOpen) return;
             // round MP2 (review core/window M1): the state wanted - the opposite of what the button shows (ScWork.UiValue's roleNcolor)
-            EntityAlive npc = ScCommunity.FindNpc(m.Id);
-            int mask = npc != null ? ScCraft.ReadMask(npc) : m.CraftRoles;
+            int mask = RoleMaskNow(m);
+            if (ScMirror.Active && shownRoleId == m.Id && shownRoleMask >= 0) mask = shownRoleMask;     // re-check M1: as rendered
             bool on = mask >= 0 && role >= 0 && role < ScCraft.RoleCvars.Length && (mask & (1 << role)) != 0;
             ScActions.Request("member.role", r =>
             {
@@ -520,6 +524,15 @@ namespace SurvivorCommunity
             }, m.Id, role, on ? 0 : 1);
 #endif
         }
+
+#if SC_V34
+        /// <summary>Round MP2 (re-check M1): the member's role bits as the row reads them (the body's cvars, else the record).</summary>
+        private static int RoleMaskNow(Member m)
+        {
+            EntityAlive npc = ScCommunity.FindNpc(m.Id);
+            return npc != null ? ScCraft.ReadMask(npc) : m.CraftRoles;
+        }
+#endif
 
         /// <summary>The row's bindings. Always a string (bindings are read while the XML is parsed, before a world exists).</summary>
         private bool WorkBinding(string name, Member sel, ref string value)
@@ -534,6 +547,9 @@ namespace SurvivorCommunity
             }
 #if SC_V34
             value = ScWork.UiValue(name, sel, runPicking, WorkOpen) ?? "";
+            // round MP2 (re-check M1): note what this row shows now - a client's press sends it as the intent
+            if (sel != null && name == "worklabel") { shownWorkId = sel.Id; shownWorkIntent = ScWork.OnWorkShiftView(sel) ? 0 : 1; }
+            else if (sel != null && name == "role0color") { shownRoleId = sel.Id; shownRoleMask = RoleMaskNow(sel); }
 #else
             value = name == "msgvisible" ? (!runPicking).ToString()
                   : name == "workmenuvisible" || name == "workpicking" ? "False"

@@ -288,7 +288,11 @@ namespace SurvivorCommunity
             FacilityEntry e = null;
             foreach (FacilityEntry x in ScFacilityTab.Build(sender)) if (x.Key == key) { e = x; break; }
             FacilityAction a = e != null && slot >= 0 && slot < e.Actions.Count ? e.Actions[slot] : null;
-            if (a == null || a.MatchKey != id) { reply.Fail("scActionChanged"); return; }
+            // round MP2 (re-check m1): an Assign guard pick names its post - another first empty post here is no reason to refuse
+            Vector3i guardPost = Vector3i.zero;
+            bool guardPick = memberId >= 0 && a != null && ScFacilityTab.TryGuardPost(id, out guardPost)
+                             && a.MatchKey.StartsWith(ScFacilityTab.AssignGuardIdPrefix, StringComparison.Ordinal);
+            if (a == null || (a.MatchKey != id && !guardPick)) { reply.Fail("scActionChanged"); return; }
             if (!ScActions.Allowed(sender, a.Access)) { reply.Fail("scActionDenied"); return; }
             string why;
             try { why = a.WhyNot != null ? a.WhyNot() : null; }
@@ -305,7 +309,7 @@ namespace SurvivorCommunity
                 // changed since is refused, not turned into the opposite
                 int seen = args.Int(2, -1);
                 if (seen >= 0 && a.PickState != null && a.PickState(m) != seen) { reply.Fail("scActionChanged"); return; }
-                try { ok = a.Pick(m, sender, out msg); }
+                try { ok = guardPick ? ScFacilityTab.AssignGuardAt(guardPost, m, sender, out msg) : a.Pick(m, sender, out msg); }   // re-check m1
                 catch (Exception ex) { ScLog.Once("community-facility-pick", ex); msg = Localization.Get("scInternal"); ok = false; }
             }
             else

@@ -818,7 +818,7 @@ namespace SurvivorCommunity
                 Label = L("scUiFacAssignGuard"),
                 // round MP2 (review core/window m1): the post the pick names is part of the id - the server's first empty post
                 // being another one (this one manned or gone meanwhile) answers scActionChanged, never a guard at another post
-                Id = "scUiFacAssignGuard@" + post.x.ToString(CultureInfo.InvariantCulture) + "," + post.y.ToString(CultureInfo.InvariantCulture)
+                Id = AssignGuardIdPrefix + post.x.ToString(CultureInfo.InvariantCulture) + "," + post.y.ToString(CultureInfo.InvariantCulture)
                      + "," + post.z.ToString(CultureInfo.InvariantCulture),
                 Ready = whyNot() == null,
                 WhyNot = whyNot,
@@ -833,6 +833,29 @@ namespace SurvivorCommunity
         /// The post's own Assign guard for the resident picked (ScWatch tells the player too). Round MP2: the post is the first
         /// empty one of the server's rebuild at the pick (facility.do), the player the one who picked.
         /// </summary>
+        /// <summary>Round MP2 (re-check m1): the Assign guard pick's id prefix; the post follows as x,y,z.</summary>
+        public const string AssignGuardIdPrefix = "scUiFacAssignGuard@";
+
+        /// <summary>Round MP2 (re-check m1): the post an Assign guard pick's id names, if it is one.</summary>
+        public static bool TryGuardPost(string id, out Vector3i post)
+        {
+            post = Vector3i.zero;
+            if (string.IsNullOrEmpty(id) || !id.StartsWith(AssignGuardIdPrefix, StringComparison.Ordinal)) return false;
+            string[] f = id.Substring(AssignGuardIdPrefix.Length).Split(',');
+            int x, y, z;
+            if (f.Length != 3 || !int.TryParse(f[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out x)
+                || !int.TryParse(f[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out y)
+                || !int.TryParse(f[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out z)) return false;
+            post = new Vector3i(x, y, z);
+            return post != Vector3i.zero;
+        }
+
+        /// <summary>Round MP2 (re-check m1): the Assign guard pick at the post it named (ScWatch.Assign checks that post).</summary>
+        public static bool AssignGuardAt(Vector3i post, Member m, EntityPlayer player, out string message)
+        {
+            return AssignGuard(post, m, player, out message);
+        }
+
         private static bool AssignGuard(Vector3i post, Member m, EntityPlayer player, out string message)
         {
             if (HostOnly(out message)) return false;
