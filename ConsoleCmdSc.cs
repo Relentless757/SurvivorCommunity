@@ -5,7 +5,11 @@ using System.Text;
 
 namespace SurvivorCommunity
 {
-    /// <summary>"sc" console command: status | members | day | morale N | give res N | relink | home [set] | dump | save.</summary>
+    /// <summary>
+    /// "sc" console command: status | members | day | morale N | give res N | relink | home [set] | dump | save. Round MP2: it
+    /// runs on the server for every player and acts for the one who typed it (sender); the subcommands that act on the
+    /// typing player's own machine (ui, portrait, voice play/stop/rescan) are also scl's (ConsoleCmdScl).
+    /// </summary>
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
@@ -19,22 +23,74 @@ namespace SurvivorCommunity
         /// raises no log callback, so the F1 console - which shows every Log.Out line through Log.LogCallbacks - and a
         /// dedicated server's telnet log feed do not show the line twice.
         /// </summary>
-        private static void Output(string s)
+        internal static void Output(string s)      // round MP2: internal - scl (ConsoleCmdScl) answers through it too
         {
             SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s);
             ToLog(s);
         }
 
-        private static void ToLog(string s)
+        internal static void ToLog(string s)
         {
             try { Log.WriteLine("[SC console] " + s); }
             catch (Exception) { }   // never let the log copy cost the answer
+        }
+
+        /// <summary>
+        /// Round MP2 (multiplayer): the player who typed the command, for every player-bound subcommand (where you stand, what
+        /// you are near, who acts). sc is no client command, so a client's sc runs here on the server (vanilla sends it with the
+        /// client's ClientInfo) and its answer goes back to that client's console. It used to act with ScCommunity.LocalPlayer:
+        /// the host's own player on a listen host, nobody on a dedicated server. Null with no player: telnet, the web console,
+        /// a dedicated server's own console - the subcommands keep their old "no player" answers there. Set for one Execute
+        /// (main thread).
+        /// </summary>
+        private static EntityPlayer sender;
+        /// <summary>Round MP2: sc came from a remote client (its machine-local subcommands answer "use scl ...").</summary>
+        private static bool senderRemote;
+
+        /// <summary>Round MP2: the sender (see sender).</summary>
+        private static EntityPlayer Me { get { return sender; } }
+
+        /// <summary>
+        /// Round MP2: the player behind a console call - a remote client's own player (its ClientInfo's entity), else this
+        /// machine's (single player, the host's own console; telnet on a listen host, as before), else null.
+        /// </summary>
+        private static EntityPlayer ResolveSender(CommandSenderInfo info, out bool remote)
+        {
+            remote = false;
+            try
+            {
+                ClientInfo ci = info.RemoteClientInfo;
+                if (ci != null)
+                {
+                    remote = true;
+                    return ScPlayers.ByEntity(ci.entityId);
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("console-sender", e);
+            }
+            return ScCommunity.LocalPlayer;
+        }
+
+        /// <summary>
+        /// Round MP2: a subcommand that acts on the typing player's own machine (its windows, its portraits, its audio) asked
+        /// from a client: it would run here on the server. True (and the hint printed) when so.
+        /// </summary>
+        private static bool ClientLocalOnly(string what)
+        {
+            if (!senderRemote) return false;
+            Output("[SC] sc " + what + " runs on the server, not in your game: type scl " + what + " instead (scl acts on your own game, any player may use it)");
+            return true;
         }
 
         public override void Execute(List<string> _params, CommandSenderInfo _senderInfo)
         {
             // round 29b: which command the [SC console] lines below answer, and when (the log-only lines carry no timestamp)
             ToLog("> sc " + (_params != null ? string.Join(" ", _params.ToArray()) : "") + " (" + DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) + ")");
+            // round MP2: resolved once - the player who typed it (see sender)
+            sender = ResolveSender(_senderInfo, out senderRemote);
+            if (senderRemote) ToLog("  (from " + (sender != null ? sender.PlayerDisplayName + ", entity " + sender.entityId : "a remote client with no player in the world") + ")");
             try
             {
                 string sub = _params.Count > 0 ? _params[0].ToLowerInvariant() : "status";
@@ -78,7 +134,7 @@ namespace SurvivorCommunity
                     case "gear": Gear(_params); break;
                     case "anim": Anim(_params); break;
                     case "aim": AimCmd(_params); break;
-                    case "portrait": PortraitCmd(_params); break;
+                    case "portrait": if (!ClientLocalOnly(string.Join(" ", _params.ToArray()))) PortraitCmd(_params); break;   // round MP2: a client's own game: scl portrait
                     case "poi": PoiCmd(_params); break;
                     case "outpost": case "outposts": OutpostCmd(_params); break;
                     case "enclave": case "enclaves": EnclaveCmd(_params); break;
@@ -96,7 +152,7 @@ namespace SurvivorCommunity
                         Member m = _params.Count > 1 ? FindMember(_params[1]) : null;
                         if (m == null) { Output("[SC] usage: sc restore <member id|name> - respawns a resident whose entity is gone, at their post"); break; }
                         string err;
-                        bool ok = ScMissing.Restore(m, ScCommunity.LocalPlayer, true, out err);
+                        bool ok = ScMissing.Restore(m, Me as EntityPlayerLocal, true, out err);   // MP2 merge: ScMissing.Restore takes EntityPlayerLocal
                         Output("[SC] " + (ok ? m.Name + " is back at the post as entity " + m.Id : "refused: " + Localization.Get(err ?? "scInternal")));
                         break;
                     }
@@ -106,7 +162,7 @@ namespace SurvivorCommunity
                         if (_params.Count < 3 || !ScNames.TryResource(_params[1], out give) || !ScNames.TryResource(_params[2], out get)) { Output("[SC] sc barter <give> <get> (ignores the once-a-day wait)"); break; }
                         ScRegistry.Community.RadioNextBarterDay = 0;
                         string msg;
-                        bool ok = ScBarter.Trade(give, get, ScCommunity.LocalPlayer, out msg);
+                        bool ok = ScBarter.Trade(give, get, Me as EntityPlayerLocal, out msg);   // MP2 merge: ScBarter.Trade (ScScouting.cs) takes EntityPlayerLocal
                         Output("[SC] " + (ok ? "" : "refused: ") + msg);
                         break;
                     }
@@ -116,7 +172,7 @@ namespace SurvivorCommunity
                         if (_params.Count < 2 || !ScNames.TryResource(_params[1], out r)) { Output("[SC] sc scout <food|meds|ammo|mats|fuel> (ignores the once-a-day wait)"); break; }
                         ScRegistry.Community.RadioNextScoutDay = 0;
                         string msg;
-                        bool ok = ScScouting.Scout(r, ScCommunity.LocalPlayer, out msg);
+                        bool ok = ScScouting.Scout(r, Me as EntityPlayerLocal, out msg);   // MP2 merge: ScScouting.Scout takes EntityPlayerLocal
                         Output("[SC] " + (ok ? "" : "refused: ") + msg);
                         break;
                     }
@@ -141,10 +197,10 @@ namespace SurvivorCommunity
                     case "mags": ScMagsTrim.ConsoleCmd(_params, Output); break;   // round m1p: mags [id|name [trim [confirm]]] - magazines against the tier, the opt-in trim
                     case "chat": ScSocial.ConsoleCmd(_params, Output); break;   // round U3: chat [<a> <b> [force] | meet <a> <b> | gather [end] | lines [id|name]] - small talk, the campfire
                     case "craft": ScCraft.ConsoleCmd(_params, Output); break;   // C1: craft [table | station [radius] | <id|name> [spec <Specialty> | end]]
-                    case "ui": UiCmd(_params); break;                            // round n10/n11: ui [reset] - where the talk card and the member inventory panel sit
+                    case "ui": if (!ClientLocalOnly(string.Join(" ", _params.ToArray()))) UiCmd(_params); break;   // round n10/n11: ui [reset] - where the talk card and the member inventory panel sit (round MP2: a client's own: scl ui)
                     case "bond": ScBond.ConsoleCmd(_params, Output); break;     // round U4: bond [id|name [add <n> | set <n> | event <e>] | decay]
                     case "perks": ScPerks.ConsoleCmd(_params, Output); break;   // round U5: perks [id|name [apply]] - weapon perks from the stars
-                    case "party": Output("[SC] " + ScPartyCap.Line(ScCommunity.LocalPlayer)); break;   // round U6: 0-XNPCCore's party cap and SC's followers
+                    case "party": Output("[SC] " + ScPartyCap.Line(Me)); break;   // round U6: 0-XNPCCore's party cap and SC's followers (round MP2: the sender's)
                     case "traits": case "trait": ScTraitConsole.TraitsCmd(_params, Output); break;     // round m1t: traits [sim [n] | <id|name> [set|add|remove ...]]
                     case "spec": case "specialty": ScTraitConsole.SpecCmd(_params, Output); break;    // round m1t: spec [sim [n] | <id|name> [set <Specialty> [stars]]]
 #endif
@@ -160,6 +216,48 @@ namespace SurvivorCommunity
             {
                 Output("[SC] error: " + e.Message);
                 Log.Exception(e);
+            }
+            finally
+            {
+                sender = null;          // round MP2: one command's sender only
+                senderRemote = false;
+            }
+        }
+
+        /// <summary>
+        /// Round MP2: scl's subcommands (ConsoleCmdScl, run on the typing player's own machine): ui, portrait and voice play /
+        /// stop / rescan - the same code as sc's, with this machine's own player as the sender. On a client they read the copy
+        /// of the community only. False: not one of them.
+        /// </summary>
+        internal static bool ExecuteClientLocal(List<string> p)
+        {
+            EntityPlayer was = sender;
+            bool wasRemote = senderRemote;
+            sender = ScCommunity.LocalPlayer;
+            senderRemote = false;
+            try
+            {
+                string sub = p != null && p.Count > 0 ? p[0].ToLowerInvariant() : "";
+                switch (sub)
+                {
+#if SC_V34
+                    case "ui": UiCmd(p); return true;
+#endif
+                    case "portrait": PortraitCmd(p); return true;
+                    case "voice": return VoiceLocalCmd(p, true);
+                }
+                return false;
+            }
+            catch (Exception e)
+            {
+                Output("[SC] error: " + e.Message);
+                Log.Exception(e);
+                return true;
+            }
+            finally
+            {
+                sender = was;
+                senderRemote = wasRemote;
             }
         }
 
@@ -253,7 +351,7 @@ namespace SurvivorCommunity
 
         private static void Day()
         {
-            EntityPlayerLocal p = ScCommunity.LocalPlayer;
+            EntityPlayer p = Me;                     // round MP2: the sender (the rollover's player: gamestage, tells)
             if (!ScCommunity.IsHost || p == null) { Output("[SC] host only"); return; }
             Community c = ScRegistry.Community;
             c.LastDay++;
@@ -302,7 +400,7 @@ namespace SurvivorCommunity
             if (!c.HasHome) Output("[SC] no community home yet - nothing is counted");
             foreach (string line in ScNoise.Breakdown().Split('\n')) Output("[SC] " + line);
             World w = ScCommunity.World;
-            if (c.HasHome && w != null) foreach (string line in ScBaseAttack.StatusText(w, ScCommunity.LocalPlayer).Split('\n')) Output("[SC] " + line);
+            if (c.HasHome && w != null) foreach (string line in ScBaseAttack.StatusText(w, Me).Split('\n')) Output("[SC] " + line);   // round MP2: the sender
         }
 
         /// <summary>
@@ -328,7 +426,7 @@ namespace SurvivorCommunity
             if (p.Count >= 3 && int.TryParse(p[1], out x) && int.TryParse(p[2], out z)) at = new Vector3(x + 0.5f, 0f, z + 0.5f);
             else
             {
-                EntityPlayer a = ScPlayers.Anchor();
+                EntityPlayer a = Me ?? ScPlayers.Anchor();     // round MP2: the sender's spot (telnet: the anchor's)
                 if (a == null) { Output("[SC] settled <x> <z> (no player online for the default spot)"); return; }
                 at = a.position;
             }
@@ -340,7 +438,7 @@ namespace SurvivorCommunity
         private static void AttackCmdBody(List<string> p)
         {
             World w = ScCommunity.World;
-            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            EntityPlayer player = Me;                // round MP2: the sender
             if (w == null || player == null) { Output("[SC] no world / player"); return; }
             string verb = p.Count >= 2 ? p[1].ToLowerInvariant() : "";
             if (verb == "status")
@@ -388,7 +486,7 @@ namespace SurvivorCommunity
         /// </summary>
         private static void DefenceCmd(List<string> p)
         {
-            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            EntityPlayer player = Me;                // round MP2: the sender
             Community c = ScRegistry.Community;
             int horde;
             if (p.Count >= 2)
@@ -407,7 +505,7 @@ namespace SurvivorCommunity
         private static void SiegeCmd(List<string> p)
         {
             World w = ScCommunity.World;
-            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            EntityPlayer player = Me;                // round MP2: the sender
             if (!ScCommunity.IsHost || w == null || player == null) { Output("[SC] host only, in a world"); return; }
             if (!ScRegistry.Community.HasHome) { Output("[SC] no community home"); return; }
             int forced = p.Count >= 2 ? ScDefence.ParseResult(p[1]) : -1;
@@ -427,7 +525,7 @@ namespace SurvivorCommunity
         private static void WatchCmd(List<string> p)
         {
             World w = ScCommunity.World;
-            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            EntityPlayer player = Me;                // round MP2: the sender (ScWatch's verbs take EntityPlayer)
             if (!ScCommunity.IsHost || w == null) { Output("[SC] host only, in a world"); return; }
             string verb = p.Count >= 2 ? p[1].ToLowerInvariant() : "list";
             string usage = "watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan | watch fatigue (a post: its number or x,y,z)";
@@ -495,7 +593,7 @@ namespace SurvivorCommunity
             }
             if (verb != "check" && verb != "stamp" && verb != "repaint") { Output("[SC] " + usage); return; }
             World w = ScCommunity.World;
-            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            EntityPlayer player = Me;                // round MP2: the sender
             if (w == null || player == null) { Output("[SC] in a world, as the local player"); return; }
             if ((verb == "stamp" || verb == "repaint") && !ScCommunity.IsHost) { Output("[SC] host only"); return; }
             if (verb == "repaint")
@@ -510,14 +608,17 @@ namespace SurvivorCommunity
                        + (loaded < columns ? " (" + (columns - loaded) + " of " + columns + " block columns aren't loaded: go closer to check them)" : ""));
                 return;
             }
-            WorldRayHitInfo hit = player.HitInfo;
+            // round MP2: check and stamp read the block you look at - only the host's own player's aim is on this machine
+            EntityPlayerLocal looker = player as EntityPlayerLocal;
+            if (looker == null) { Output("[SC] tower check / stamp read the block you look at, which only the host's own game knows - run them there (sc tower repaint works for anyone)"); return; }
+            WorldRayHitInfo hit = looker.HitInfo;
             if (hit == null || !hit.bHitValid || !GameUtils.IsBlockOrTerrain(hit.tag)) { Output("[SC] look at the ground where the tower should stand"); return; }
             Vector3i kit = hit.lastBlockPos;
-            int rot = ScTower.PlacerRotation(player.position, kit);
+            int rot = ScTower.PlacerRotation(looker.position, kit);
             if (p.Count >= 3 && (!int.TryParse(p[2], out rot) || rot < 0 || rot > 3)) { Output("[SC] " + usage); return; }
             var plan = new ScTower.Plan();
             string arg;
-            string key = ScTower.Check(w, kit, rot, GameManager.Instance.persistentLocalPlayer, ScTower.Owner(player.entityId), plan, out arg);
+            string key = ScTower.Check(w, kit, rot, GameManager.Instance.persistentLocalPlayer, ScTower.Owner(looker.entityId), plan, out arg);
             if (key != null) { Output("[SC] kit at " + ScTower.P(kit) + " rotation " + rot + ": refused - " + ScTower.Text(key, arg)); return; }
             Output("[SC] kit at " + ScTower.P(kit) + " rotation " + rot + " (tower turned " + plan.Turns * 90 + " deg): fits - " + ScTower.Counts(plan));
             if (verb != "stamp") return;
@@ -690,7 +791,7 @@ namespace SurvivorCommunity
         private static void Spawn(List<string> p)
         {
             World w = ScCommunity.World;
-            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            EntityPlayer player = Me;                // round MP2: in front of the sender
             if (w == null || player == null) { Output("[SC] no world / player"); return; }
             bool hostile = false;
             for (int i = 1; i < p.Count; i++)
@@ -715,7 +816,7 @@ namespace SurvivorCommunity
         /// RaiderGearSets), and the fixed weapons handed to ScLoadout as Pending; ScLoadout rolls the rest and gives the
         /// gun its starting ammo.
         /// </summary>
-        private static void SpawnXnpc(List<string> p, World w, EntityPlayerLocal player, bool hostile)
+        private static void SpawnXnpc(List<string> p, World w, EntityPlayer player, bool hostile)     // round MP2: any player (was EntityPlayerLocal)
         {
             GameRandom rnd = w.GetGameRandom();
             string sex = null, set = null;
@@ -866,7 +967,7 @@ namespace SurvivorCommunity
                 float secs = 5f;
                 if (p.Count > 3 && !float.TryParse(p[3], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out secs)) secs = 5f;
                 secs = Mathf.Clamp(secs, 0f, 60f);
-                EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+                EntityPlayer lp = Me;                                // round MP2: the sender's nearest
                 EntityAlive near = lp != null ? ScVoice.Nearest(lp.position, 20f) : null;
                 if (near == null) { Output("[SC] voice: no survivor with a voice within 20 m"); return; }
                 Output("[SC] voice: " + ScVoice.SayLineLater(near, line, secs));
@@ -885,28 +986,48 @@ namespace SurvivorCommunity
                 Output(text);
                 return;
             }
-            if (a == "stop") { ScVoice.Stop(); Output("[SC] voice: stopped"); return; }
-            if (a == "rescan") { Output("[SC] voice: " + ScVoice.Rescan()); return; }
+            // round MP2: stop, rescan and play are this machine's audio - a client's sc would play them on the server: scl voice
+            if (a == "stop" || a == "rescan" || (a == "play" && p.Count > 2))
+            {
+                if (ClientLocalOnly(string.Join(" ", p.ToArray()))) return;
+                VoiceLocalCmd(p, false);
+                return;
+            }
+            Output("[SC] voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>]");
+        }
+
+        /// <summary>
+        /// Round MP2: sc voice's machine-local part - stop, rescan, play &lt;line&gt; [id|name] - shared with scl voice (scl: plain
+        /// "scl voice" is the status, and anything else its usage). False: not one of them (sc only).
+        /// </summary>
+        private static bool VoiceLocalCmd(List<string> p, bool scl)
+        {
+            string a = p.Count > 1 ? p[1].ToLowerInvariant() : "";
+            if (scl && a == "") { Output("[SC] voice: " + ScVoice.Status()); Output("[SC] voice gate: " + ScVoice.GateStatus()); return true; }
+            if (a == "stop") { ScVoice.Stop(); Output("[SC] voice: stopped"); return true; }
+            if (a == "rescan") { Output("[SC] voice: " + ScVoice.Rescan()); return true; }
             if (a == "play" && p.Count > 2)
             {
                 EntityAlive npc = null;
                 if (p.Count > 3) npc = FindBodyNpc(p[3]);
                 else
                 {
-                    EntityPlayerLocal player = ScCommunity.LocalPlayer;
+                    EntityPlayer player = Me;                        // round MP2: the sender (scl: this machine's own player)
                     if (player != null) npc = ScVoice.Nearest(player.position, 20f);
                 }
-                if (npc == null) { Output("[SC] voice: no survivor with a voice " + (p.Count > 3 ? "matches " + p[3] : "within 20 m")); return; }
+                if (npc == null) { Output("[SC] voice: no survivor with a voice " + (p.Count > 3 ? "matches " + p[3] : "within 20 m")); return true; }
                 Output("[SC] voice: " + ScVoice.PlayLine(npc, p[2]));
-                return;
+                return true;
             }
-            Output("[SC] voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>]");
+            if (!scl) return false;
+            Output("[SC] scl voice [play <line> [id|name] | stop | rescan]");
+            return true;
         }
 
         /// <summary>V2's sc voice subcommands (who, greet, chatter, taunt, barks, line); false when a is none of them.</summary>
         private static bool VoiceV2Cmd(string a, List<string> p)
         {
-            EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+            EntityPlayer lp = Me;                                    // round MP2: the sender's surroundings
             switch (a)
             {
                 case "who":
@@ -925,7 +1046,7 @@ namespace SurvivorCommunity
                 {
                     EntityAlive npc = p.Count > 2 ? FindBodyNpc(p[2]) : lp != null ? ScVoice.Nearest(lp.position, 20f) : null;
                     if (npc == null) { Output("[SC] voice greet: " + (p.Count > 2 ? "no NPC matches " + p[2] : "no survivor with a voice within 20 m")); return true; }
-                    Output("[SC] voice greet: " + ScGreetings.GreetNow(npc, lp));
+                    Output("[SC] voice greet: " + ScGreetings.GreetNow(npc, lp as EntityPlayerLocal));   // MP2 merge: ScGreetings.GreetNow takes EntityPlayerLocal
                     return true;
                 }
                 case "chatter":
@@ -963,11 +1084,11 @@ namespace SurvivorCommunity
             return false;
         }
 
-        /// <summary>E8: the nearest living body of an enclave's people within r metres of the local player, or null.</summary>
+        /// <summary>E8: the nearest living body of an enclave's people within r metres of the local player, or null. Round MP2: the sender.</summary>
         private static EntityAlive NearestEnclaveBody(float r)
         {
             World w = ScCommunity.World;
-            EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+            EntityPlayer lp = Me;
             if (w == null || lp == null) return null;
             EntityAlive best = null;
             float bestSq = r * r;
@@ -1064,7 +1185,7 @@ namespace SurvivorCommunity
         private static void LoadoutNear(float r)
         {
             World w = ScCommunity.World;
-            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            EntityPlayer player = Me;                // round MP2: around the sender
             if (w == null || player == null) { Output("[SC] no world / player"); return; }
             var list = new List<Entity>();
             w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(player.position, new Vector3(2f * r, 2f * r, 2f * r)), list);
@@ -1113,10 +1234,10 @@ namespace SurvivorCommunity
         private static void RecruitCmd(List<string> p)
         {
             EntityAlive npc = p.Count > 1 ? FindSurvivor(p[1]) : null;
-            EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+            EntityPlayer lp = Me;                    // round MP2: the sender recruits
             if (npc == null || lp == null) { Output("[SC] usage: sc recruit <id|name> - joins a loaded survivor without the favour (testing)"); return; }
             string error;
-            bool ok = ScCommunity.Join(npc, lp, out error);
+            bool ok = ScCommunity.Join(npc, lp as EntityPlayerLocal, out error);   // MP2 merge: ScCommunity.Join takes EntityPlayerLocal
             Output("[SC] " + (ok ? ScCommunity.DisplayName(npc) + " joined the community (entity " + npc.entityId + ")"
                                  : "refused: " + Localization.Get(error ?? "scInternal")));
         }
@@ -1126,7 +1247,7 @@ namespace SurvivorCommunity
             Member m = FindMember(key);
             if (m != null) { EntityAlive e = ScCommunity.FindNpc(m.Id); if (e != null) return e; }
             World w = ScCommunity.World;
-            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            EntityPlayer player = Me;                // round MP2: around the sender
             if (w == null || player == null) return null;
             int id;
             if (int.TryParse(key, out id)) return ScNpc.As(w.GetEntity(id));
@@ -1438,7 +1559,7 @@ namespace SurvivorCommunity
 
         private static void RunnersCmd()
         {
-            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            EntityPlayerLocal player = Me as EntityPlayerLocal;      // MP2 merge: ScRunners.Describe takes EntityPlayerLocal (then: Me)
             int n = 0;
             foreach (var m in ScRegistry.Members.Values)
             {
@@ -1464,7 +1585,7 @@ namespace SurvivorCommunity
         /// <summary>sc run &lt;member&gt; recall | home | skip | offline | hurt [share] - drive a physical run (tests).</summary>
         private static void RunControl(Member m, string sub, string arg)
         {
-            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            EntityPlayer player = Me;                // round MP2: the sender
             World w = ScCommunity.World;
             if (!ScRunners.IsPhysical(m) || w == null) { Output("[SC] " + m.Name + " is not on a physical run"); return; }
             EntityAlive npc = m.Offline ? null : ScNpc.As(w.GetEntity(m.Id));
@@ -1543,7 +1664,7 @@ namespace SurvivorCommunity
                 string tool, where, derr;
                 int tier;
                 bool has = ScMining.BestTool(dnpc, job, out tool, out tier, out where);
-                bool sent = ScMining.Send(dm, dnpc, job, ScCommunity.LocalPlayer, out derr);
+                bool sent = ScMining.Send(dm, dnpc, job, Me, out derr);      // round MP2: the sender
                 Output("[SC] " + (sent ? dm.Name + " sent to " + ScMining.Key(job) + " with " + tool + " (T" + tier + ", " + where + ")"
                                          + (ScRunners.IsPhysical(dm) ? " on foot to " + dm.RunDestName + " " + dm.RunDest : " on a hidden run") + ", back around day " + dm.RunEndDay
                                          + " (a whole run would bring " + ScMining.Expected(dm) + ")"
@@ -1556,7 +1677,7 @@ namespace SurvivorCommunity
             Member m = FindMember(p[1]);
             if (m == null) { Output("[SC] no member '" + p[1] + "'"); return; }
             string err;
-            bool ok = ScRuns.Send(m, ScCommunity.FindNpc(m.Id), r, ScCommunity.LocalPlayer, out err);
+            bool ok = ScRuns.Send(m, ScCommunity.FindNpc(m.Id), r, Me, out err);      // round MP2: the sender
             // round fx2: the refusal is a localization key (it printed "refused: scOpOnTheWay"); the text, as sc outpost post prints it
             Output("[SC] " + (ok ? m.Name + " sent for " + r + (ScRunners.IsPhysical(m) ? " on foot to " + m.RunDestName + " " + m.RunDest : "") + ", back around day " + m.RunEndDay + " (expected " + ScRuns.Yield(m, r) + ")" : "refused: " + Localization.Get(err ?? "scInternal")));
         }
@@ -1605,7 +1726,7 @@ namespace SurvivorCommunity
             ScConfig.EnsureParsed();
             string sub = p.Count > 1 ? p[1].ToLowerInvariant() : "";
             World w = ScCommunity.World;
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            EntityPlayer pl = Me;                    // round MP2: where the sender stands
             if (sub == "classify")
             {
                 if (p.Count < 3) { Output("[SC] usage: sc poi classify <prefab name>"); return; }
@@ -1648,7 +1769,7 @@ namespace SurvivorCommunity
             return Mathf.Sqrt((cx - h.x) * (cx - h.x) + (cz - h.z) * (cz - h.z));
         }
 
-        private static void DescribePoi(PrefabInstance pi, World w, EntityPlayerLocal pl)
+        private static void DescribePoi(PrefabInstance pi, World w, EntityPlayer pl)     // round MP2: any player
         {
             Prefab pf = pi.prefab;
             PoiClass c = ScPoiTypes.Classify(pi);
@@ -1673,7 +1794,7 @@ namespace SurvivorCommunity
             if (infested != null) Output("[SC]   " + infested);
         }
 
-        private static void PoiNear(World w, EntityPlayerLocal pl, int r)
+        private static void PoiNear(World w, EntityPlayer pl, int r)     // round MP2: any player
         {
             DynamicPrefabDecorator dec = GameManager.Instance.GetDynamicPrefabDecorator();
             if (dec == null) { Output("[SC] no prefab decorator"); return; }
@@ -1785,7 +1906,7 @@ namespace SurvivorCommunity
                     bool all = p.Count > 2 && p[2].Equals("all", StringComparison.OrdinalIgnoreCase);
                     Enclave e = all ? null : EnclaveArg(p);
                     if (!all && e == null) return;
-                    int n = ScEnclaves.SetKnown(e, sub == "reveal", ScCommunity.LocalPlayer);
+                    int n = ScEnclaves.SetKnown(e, sub == "reveal", Me);      // round MP2: the sender
                     lines.Add(n + " enclave(s) " + (sub == "reveal" ? "revealed, with their markers" : "hidden again, markers off"));
                     break;
                 }
@@ -1878,7 +1999,7 @@ namespace SurvivorCommunity
                         Output("[SC] sc enclave reseed confirm - drops EVERY enclave and seeds again with the late-seed rules (testing only)");
                         return;
                     }
-                    lines.Add(ScEnclaves.Reseed(ScCommunity.LocalPlayer));
+                    lines.Add(ScEnclaves.Reseed(Me));      // round MP2: the sender
                     break;
                 // E6: the refills owed for lost enclaves; "now" moves them in at once (one anyway with none owed)
                 case "refill": ScEncAllies.RefillCommand(p, lines); break;
@@ -2002,7 +2123,7 @@ namespace SurvivorCommunity
                     int x = 0, z = 0;
                     bool at = p.Count > 3 && int.TryParse(p[2], out x) && int.TryParse(p[3], out z);
                     if (p.Count > 2 && !at) { Output("[SC] sc infest add [<x> <z>] - the POI you stand in, or the one at x z"); return; }
-                    lines.Add(ScInfestations.ConsoleAdd(at, x, z, ScCommunity.LocalPlayer));
+                    lines.Add(ScInfestations.ConsoleAdd(at, x, z, Me as EntityPlayerLocal));   // MP2 merge: ScInfestations.ConsoleAdd takes EntityPlayerLocal
                     break;
                 }
                 case "clear":
@@ -2010,7 +2131,7 @@ namespace SurvivorCommunity
                     bool all = p.Count > 2 && p[2].Equals("all", StringComparison.OrdinalIgnoreCase);
                     Infestation inf = all ? null : InfestArg(p);
                     if (!all && inf == null) return;
-                    int n = ScInfestations.ConsoleClear(inf, ScCommunity.LocalPlayer);
+                    int n = ScInfestations.ConsoleClear(inf, Me as EntityPlayerLocal);   // MP2 merge: ScInfestations.ConsoleClear takes EntityPlayerLocal
                     lines.Add(n + " infestation(s) ended - records and markers only, the rooms are left as they are");
                     break;
                 }
@@ -2018,17 +2139,17 @@ namespace SurvivorCommunity
                 {
                     Infestation inf = InfestArg(p);
                     if (inf == null) return;
-                    lines.Add(ScInfestations.ConsoleSpread(inf, ScCommunity.LocalPlayer));
+                    lines.Add(ScInfestations.ConsoleSpread(inf, Me as EntityPlayerLocal));   // MP2 merge: ScInfestations.ConsoleSpread takes EntityPlayerLocal
                     break;
                 }
-                case "roll": lines.Add(ScInfestations.ConsoleRoll(ScCommunity.LocalPlayer)); break;
+                case "roll": lines.Add(ScInfestations.ConsoleRoll(Me as EntityPlayerLocal)); break;   // MP2 merge: ScInfestations.ConsoleRoll takes EntityPlayerLocal
                 case "reveal":
                 case "hide":
                 {
                     bool all = p.Count > 2 && p[2].Equals("all", StringComparison.OrdinalIgnoreCase);
                     Infestation inf = all ? null : InfestArg(p);
                     if (!all && inf == null) return;
-                    int n = ScInfestations.SetKnown(inf, sub == "reveal", ScCommunity.LocalPlayer);
+                    int n = ScInfestations.SetKnown(inf, sub == "reveal", Me);      // round MP2: the sender
                     lines.Add(n + " infestation(s) " + (sub == "reveal" ? "revealed, with their markers" : "hidden again, markers off"));
                     break;
                 }
@@ -2075,7 +2196,7 @@ namespace SurvivorCommunity
         {
             ScConfig.EnsureParsed();
             string sub = p.Count > 1 ? p[1].ToLowerInvariant() : "list";
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            EntityPlayer pl = Me;                    // round MP2: the sender
             if (!ScCommunity.IsHost) { Output("[SC] host only"); return; }
             switch (sub)
             {
@@ -2090,6 +2211,7 @@ namespace SurvivorCommunity
                     if (!OwnClaimIn(pi, pl, out claim)) { Output("[SC] no land claim of yours inside " + ScSecurity.DisplayName(pi) + " - place one there first"); return; }
                     string msg;
                     Outpost o = ScOutposts.Establish(claim, pl, true, out msg);
+                    if (o != null) ScOutposts.HostMarkersFollow(pl);      // round MP2: a client's outpost on the listen host's own map
                     if (o != null && p.Count > 2)
                     {
                         PoiRow row = ScPoiTypes.FindRow(p[2]);
@@ -2097,6 +2219,7 @@ namespace SurvivorCommunity
                         else if (p[2].Equals(ScOutposts.ScavengeRow, StringComparison.OrdinalIgnoreCase)) ScOutposts.SetType(o, null);
                         else Output("[SC] no row '" + p[2] + "' - kept the classified type");
                         ScOutposts.RefreshMarkers(pl);
+                        ScOutposts.HostMarkersFollow(pl);      // round MP2: the listen host's own map, when a client typed it
                         ScRegistry.SaveAtomic();
                     }
                     Output("[SC] " + (o != null ? "outpost " + o.Id + ": " + OutpostLine(o) : "refused: " + msg));
@@ -2132,6 +2255,7 @@ namespace SurvivorCommunity
                     ScOutposts.SetType(o, ScPoiTypes.Classify(pi));
                     o.Tier = Math.Max(0, (int)pi.prefab.DifficultyTier);
                     ScOutposts.RefreshMarkers(pl);
+                    ScOutposts.HostMarkersFollow(pl);      // round MP2: the listen host's own map, when a client typed it
                     ScRegistry.SaveAtomic();
                     Output("[SC] outpost " + o.Id + " reclassified: " + before + " -> " + o.Row);
                     return;
@@ -2147,6 +2271,7 @@ namespace SurvivorCommunity
                     if (st == OutpostState.Lost) o.LostDay = ScCommunity.Today;
                     ScOutposts.Rebuild();
                     ScOutposts.RefreshMarkers(pl);
+                    ScOutposts.HostMarkersFollow(pl);      // round MP2: the listen host's own map, when a client typed it
                     ScRegistry.SaveAtomic();
                     Output("[SC] " + OutpostLine(o));
                     return;
@@ -2187,7 +2312,7 @@ namespace SurvivorCommunity
                     Outpost o = OutpostArg(p);
                     if (o == null) return;
                     string msg;
-                    bool ok = ScOutpostPerks.Upgrade(o, pl, out msg);
+                    bool ok = ScOutpostPerks.Upgrade(o, pl, out msg);   // round MP2: the sender
                     Output("[SC] " + (ok ? "" : "refused: ") + msg);
                     return;
                 }
@@ -2226,7 +2351,9 @@ namespace SurvivorCommunity
                     Outpost o = OutpostArg(p);
                     if (o == null) return;
                     string msg;
-                    bool ok = sub == "pay" ? ScOutpostRisk.PayDemand(o, pl, out msg) : sub == "refuse" ? ScOutpostRisk.RefuseDemand(o, pl, out msg) : ScOutpostRisk.Repair(o, pl, out msg);
+                    // round MP2: Repair takes the sender; PayDemand / RefuseDemand (the radio's demand answer) still take the host's own player - MP5: the radio for clients
+                    EntityPlayerLocal lpl = pl as EntityPlayerLocal;
+                    bool ok = sub == "pay" ? ScOutpostRisk.PayDemand(o, lpl, out msg) : sub == "refuse" ? ScOutpostRisk.RefuseDemand(o, lpl, out msg) : ScOutpostRisk.Repair(o, pl, out msg);
                     Output("[SC] " + (ok ? "" : "refused: ") + msg);
                     return;
                 }
@@ -2258,6 +2385,7 @@ namespace SurvivorCommunity
                     o.Level = Mathf.Clamp(n, 1, 3);
                     o.LevelDay = ScCommunity.Today;
                     ScOutposts.RefreshMarkers(pl);
+                    ScOutposts.HostMarkersFollow(pl);      // round MP2: the listen host's own map, when a client typed it
                     ScRegistry.SaveAtomic();
                     Output("[SC] " + OutpostLine(o));
                     return;
@@ -2277,7 +2405,7 @@ namespace SurvivorCommunity
             return o;
         }
 
-        private static bool OwnClaimIn(PrefabInstance pi, EntityPlayerLocal pl, out Vector3i claim)
+        private static bool OwnClaimIn(PrefabInstance pi, EntityPlayer pl, out Vector3i claim)     // round MP2: any player
         {
             claim = Vector3i.zero;
             var pp = GameManager.Instance.persistentPlayers;
@@ -2298,7 +2426,7 @@ namespace SurvivorCommunity
         /// world is taken offline first, then the next tick moves them on (to the post, or to the gate). One at the gate walks in
         /// once you are home.
         /// </summary>
-        private static void OutpostSkip(Member m, EntityPlayerLocal pl)
+        private static void OutpostSkip(Member m, EntityPlayer pl)     // round MP2: any player
         {
             World w = ScCommunity.World;
             if (m == null || m.Status != MemberStatus.Transit || w == null) { Output("[SC] usage: sc outpost skip <member id|name> (one on the road to or from an outpost)"); return; }
@@ -2396,9 +2524,10 @@ namespace SurvivorCommunity
             }
 #if SC_V34
             // R2: the handheld radio - yours, the tab, every runner's radio and moments said, the queue, this session's counters
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            EntityPlayer pl = Me;                    // round MP2: the sender's (the Radio tab is the host's own window only)
+            EntityPlayerLocal lpl = pl as EntityPlayerLocal;
             Output("[SC] handheld radio: item " + (ScHandheld.Item() != null ? ScHandheld.ItemName : "MISSING (items.xml did not apply)") + "; you carry one: "
-                   + ScHandheld.Carries(pl) + "; Radio tab " + (XUiC_ScRadioTab.Wanted(pl != null && pl.PlayerUI != null ? pl.PlayerUI.xui : null) ? "shown" : "hidden")
+                   + ScHandheld.Carries(pl) + "; Radio tab " + (lpl == null ? "? (your own game's window)" : XUiC_ScRadioTab.Wanted(lpl.PlayerUI != null ? lpl.PlayerUI.xui : null) ? "shown" : "hidden")
                    + " (HandheldRadioTab=" + ScConfig.HandheldRadioTab + "); the home station " + (ScRadio.Online() ? "has power" : "is OFFLINE")
                    + "; DistressNeedsRadio=" + ScConfig.DistressNeedsRadio + ", RunnerRadioTalk=" + ScConfig.RunnerRadioTalk);
             int outCount = 0;
@@ -2412,7 +2541,7 @@ namespace SurvivorCommunity
             if (outCount == 0) Output("[SC]   no runner out");
             Output("[SC] radio talk: " + ScRadioTalk.QueueState() + "; counters: " + ScHandheld.Counters());
             Output("[SC] runners' " + ScRunnerCall.Describe());      // round 29b
-            Output("[SC] " + ScHordeVoice.Describe(pl));              // vo4
+            Output("[SC] " + ScHordeVoice.Describe(lpl));             // vo4 (MP2 merge: ScHordeVoice.Describe takes EntityPlayerLocal)
             Output("[SC] " + ScEncRadio.Describe(pl));                // round m1v
             Output("[SC] sc radio give <member> (a handheld radio into their inventory) | sc radio talk <member> <out|arrived|found|empty|trouble|home|near|recall|hurt> (says it now)"
                    + " | sc radio attacked <member> [force] (their call for help as if a zombie hurt them now; force: whatever the rules)"
@@ -2449,7 +2578,7 @@ namespace SurvivorCommunity
             }
             RadioTalk ev;
             if (p.Count < 4 || !ScRadioTalk.TryEvent(p[3], out ev)) { Output("[SC] sc radio talk <member> <out|arrived|found|empty|trouble|home|near|recall|hurt>"); return true; }
-            string said = ScRadioTalk.Say(m, ev, ScCommunity.LocalPlayer, true);
+            string said = ScRadioTalk.Say(m, ev, Me, true);      // round MP2: the sender
             ScRegistry.SaveAtomic();
             Output("[SC] " + m.Name + " " + ev + ": " + said);
             return true;
@@ -2484,7 +2613,8 @@ namespace SurvivorCommunity
             if (ScHordeVoice.HasSide(mo) && side == null)
                 side = ScBaseAttack.Open ? ScHordeVoice.SideKey(ScBaseAttack.Side(ScRegistry.Community.AttackBearing))
                                          : ScHordeVoice.Sides[UnityEngine.Random.Range(0, ScHordeVoice.Sides.Length)];
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            EntityPlayer pl = Me;                    // round MP2: the sender (told the at-home warning)
+            EntityPlayerLocal lpl = pl as EntityPlayerLocal;     // MP2 merge: ScHordeVoice.SayAtHome / SayAway take EntityPlayerLocal
             string what = mo.ToString().ToLowerInvariant() + (ScHordeVoice.HasSide(mo) ? " (" + side + ")" : "") + (force ? ", forced" : "");
             if (ScHordeVoice.AtHome(mo))
             {
@@ -2497,10 +2627,10 @@ namespace SurvivorCommunity
                             : mo == HordeMoment.Spotted ? string.Format(Localization.Get("scWatchSpotted"), m.Name, side)
                             : string.Format(Localization.Get("scWatchClear"), m.Name);
                 ScCommunity.Tell(pl, text, mo == HordeMoment.Clear ? "" : "ui_denied");
-                Output("[SC] " + m.Name + " " + what + ": " + ScHordeVoice.SayAtHome(mo, m, body, side, pl, force));
+                Output("[SC] " + m.Name + " " + what + ": " + ScHordeVoice.SayAtHome(mo, m, body, side, lpl, force));
                 return;
             }
-            Output("[SC] the radio from home, " + what + ": " + ScHordeVoice.SayAway(mo, side, m, pl, force)
+            Output("[SC] the radio from home, " + what + ": " + ScHordeVoice.SayAway(mo, side, m, lpl, force)
                    + " (the message itself carries the attack's numbers: see it with sc attack while away)");
         }
 #endif
@@ -2514,7 +2644,7 @@ namespace SurvivorCommunity
             if (m.RunDistress) { Output("[SC] " + m.Name + " already called for help from " + m.RunPoiName); return; }
             World w = ScCommunity.World;
             if (ScRunners.IsPhysical(m) && m.RunLeg != RunLeg.AtSite) { Output("[SC] " + m.Name + " is on a physical run and calls for help only at the site (" + m.RunLeg + " now; sc run " + m.Name + " skip)"); return; }
-            bool ok = ScRadio.ForceDistress(m, ScCommunity.LocalPlayer, w != null ? w.GetGameRandom() : null);
+            bool ok = ScRadio.ForceDistress(m, Me, w != null ? w.GetGameRandom() : null);      // round MP2: the sender
             if (ok && ScRunners.IsPhysical(m) && w != null) ScRunners.BeginLeg(m, RunLeg.AtSite, ScRunners.C(m.RunSite), ScRunners.C(m.RunSite), w.worldTime);   // held for RunDistressHours
             if (ok) ScRegistry.SaveAtomic();
             Output("[SC] " + (ok ? m.Name + " radios for help from " + m.RunPoiName + " " + m.RunPoi : "no POI in range or no radio online (radios seen: " + ScRadio.Radios.Count + ", online " + ScRadio.Online() + ")"));
@@ -2541,7 +2671,7 @@ namespace SurvivorCommunity
         /// <summary>sc trust &lt;id|name&gt; [forgive]: where a survivor stands with you (ScTrust); forgive clears a grudge (testing).</summary>
         private static void TrustCmd(List<string> p)
         {
-            EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+            EntityPlayer lp = Me;                    // round MP2: the sender's standing
             if (lp == null) { Output("[SC] no local player"); return; }
             if (p.Count < 2) { Output("[SC] usage: sc trust <id|name> [forgive] - " + ScTrust.Report()); return; }
             EntityAlive e = FindBodyNpc(p[1]);
@@ -2803,7 +2933,7 @@ namespace SurvivorCommunity
                 EntityClass ec;
                 bool enemyEntity = EntityClass.list.TryGetValue(e.entityClass, out ec) && ec != null && ec.bIsEnemyEntity;
                 sb.Append("faction=").Append(f != null ? f.Name : e.factionId.ToString()).Append(" IsEnemyEntity=").Append(enemyEntity);
-                EntityPlayerLocal p = ScCommunity.LocalPlayer;
+                EntityPlayer p = Me;                 // round MP2: the sender
                 if (p != null)
                     sb.Append(" enemyOfYou=").Append(EntityTargetingUtilities.IsEnemy(e, p))
                       .Append(" youCanHurt=").Append(EntityTargetingUtilities.CanTakeDamage(e, p))
@@ -2892,7 +3022,7 @@ namespace SurvivorCommunity
                     sb.Append(' ').Append(ScMelee.Describe(e, dist, scoreReach));
                 }
                 sb.Append(" seeRay=").Append(FirstHit(e, foe, e.GetSeeDistance(), UAI.SCoreUtils.GetHitMaskByWeaponBuff(e)));
-                EntityPlayerLocal p = ScCommunity.LocalPlayer;
+                EntityPlayer p = Me;                 // round MP2: the sender
                 if (p != null) sb.Append(" player ").Append(PlayerFromLine(e, foe, p));
                 string why = UAI.UAIConsiderationScIntruder.Why(e, foe);
                 float rest = UAI.ScDefendState.RestLeft(e.entityId);
@@ -3024,7 +3154,7 @@ namespace SurvivorCommunity
             }
 #endif
             World w = ScCommunity.World;
-            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            EntityPlayer player = Me;                // round MP2: around the sender
             if (w == null || player == null) { Output("[SC] no world / player"); return; }
             float r = 40f;
             if (p.Count >= 2) float.TryParse(p[1], out r);
@@ -3127,7 +3257,7 @@ namespace SurvivorCommunity
         private static void Relink()
         {
             World w = ScCommunity.World;
-            EntityPlayerLocal p = ScCommunity.LocalPlayer;
+            EntityPlayer p = Me;                     // round MP2: the sender
             if (w == null || p == null) { Output("[SC] no world / player"); return; }
             ScTicker.Relink(w, p);
             Output("[SC] relinked");
@@ -3160,7 +3290,7 @@ namespace SurvivorCommunity
         /// </summary>
         private static void Home(List<string> p)
         {
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            EntityPlayer pl = Me;                    // round MP2: the sender - their claim, and the community's owner by their platform id
             string sub = p.Count > 1 ? p[1].ToLowerInvariant() : "";
             if (sub == "set" || sub == "start")
             {

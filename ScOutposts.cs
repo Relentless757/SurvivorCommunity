@@ -172,8 +172,21 @@ namespace SurvivorCommunity
                 if (!active) { ScCommunity.Tell(placer, Localization.Get("scFlagNotActive"), "ui_denied"); continue; }
                 string msg;
                 Outpost o = Establish(claim, placer, false, out msg);
+                if (o != null) HostMarkersFollow(placer);     // round MP2: a client's flag (TEFeatureSCCommunity.OnAdded) on a listen host
                 ScCommunity.Tell(placer, o != null ? msg : string.Format(Localization.Get("scFlagPlain"), msg), o != null ? "" : "ui_denied");
             }
+        }
+
+        /// <summary>
+        /// Round MP2: an outpost a remote player established (radial, flag) gets its marker only on the establishing player's
+        /// own machine (AddMarker: the host's own player's; MP4: per-player markers), so the listen host's own map follows here.
+        /// Nothing for the host's own action (Establish marked it) or on a dedicated server.
+        /// </summary>
+        internal static void HostMarkersFollow(EntityPlayer actor)
+        {
+            if (actor == null || actor is EntityPlayerLocal) return;
+            EntityPlayerLocal host = ScCommunity.LocalPlayer;
+            if (host != null) RefreshMarkers(host);
         }
 
         /// <summary>Round MP0: the online player who owns this land claim, or null (unknown, or not online).</summary>
@@ -184,7 +197,7 @@ namespace SurvivorCommunity
             return ScPlayers.ByEntity(owner.EntityId);
         }
 
-        /// <summary>Two-step disband: the claim armed and when (Time.unscaledTime).</summary>
+        /// <summary>Two-step disband: the claim armed and when (Time.unscaledTime). Round MP2: this machine's own player's (DisbandPressed).</summary>
         private static Vector3i disbandArmed;
         private static float disbandUntil;
 
@@ -606,8 +619,13 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>Radial "Disband outpost": the first press arms it for 5 seconds, the second disbands.</summary>
-        public static void DisbandPressed(Vector3i claim, EntityPlayerLocal player)
+        /// <summary>
+        /// Radial "Disband outpost": the first press arms it for 5 seconds, the second disbands. Round MP2: it runs on the
+        /// machine that pressed (TEFeatureSCCommunity.OnBlockActivated), so the arming is that player's own - it was one
+        /// server-wide state - and reads the client's copy there; the second press asks the server (outpost.disbandclaim,
+        /// ScActionsClaim), which checks the claim again and disbands (inline in single player and for the host's own player).
+        /// </summary>
+        public static void DisbandPressed(Vector3i claim, EntityPlayer player)
         {
             Outpost o = AtClaim(claim);
             if (o == null) return;
@@ -615,7 +633,7 @@ namespace SurvivorCommunity
             if (disbandArmed == claim && now < disbandUntil)
             {
                 disbandUntil = 0f;
-                Disband(o, player);
+                ScActionsClaim.RequestDisband(claim, player);   // round MP2: was Disband(o, player) here, on the host only
                 return;
             }
             disbandArmed = claim;

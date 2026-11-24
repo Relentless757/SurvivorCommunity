@@ -80,6 +80,65 @@ With `DebugLogging` on, the server logs `action <op> by <player>: done / refused
 - [ ] Both pick the same resident for the same Watch post: one guard; the other is told the post is manned.
 - [ ] One disbands an outpost while the other upgrades it: the second is told the outpost is not there any more.
 
+## Round MP2 (part: radials and console, 2026-11-23): the land claim radial and the console act for whoever uses them
+
+Why: the land claim's SC entries were the host's own (a client saw none), an Outpost Claim Block placed by a client never
+established itself, and `sc` typed by a client acted with the host's player (on a dedicated server with nobody). Now the
+radial shows on a client from its copy of the community and asks the server (`home.set`, `outpost.establish`,
+`outpost.disbandclaim`), which checks the claim against the player who pressed. `sc` acts for the player who typed it, and
+the new `scl` command runs `ui`, `portrait` and `voice play/stop/rescan` in the typing player's own game. Build `sc34_mp2r`
+(on the MP2 core), not deployed, untested in game.
+
+**Single player: nothing may change**
+- [ ] No community yet: hold E on your land claim, pick Start a community here: "Your community starts here: this land
+      claim is its home." The log says `community started: home set to ... by radial (Start a community here)`.
+- [ ] Another claim of yours: Set as community home moves the home ("This land claim is now your community's home.").
+- [ ] A claim in a cleared POI away from home: Establish outpost tells the outpost and its yield, or why not (denied
+      sound), as before. The map marker appears.
+- [ ] An outpost's claim: Outpost opens the Outposts tab on it. Disband outpost once: the confirm tooltip; again within
+      5 s: "The outpost at ... is disbanded."; a press after 5 s only arms it again.
+- [ ] An Outpost Claim Block placed in a cleared POI establishes itself within a few seconds, as before.
+- [ ] Linked storage (home and outpost) opens as before.
+- [ ] `sc home set`, `sc spawn`, `sc poi`, `sc loadout near`, `sc raiders`, `sc recruit <name>`, `sc ui`,
+      `sc portrait all` and `sc voice play <line>` work as before.
+- [ ] `scl ui`, `scl portrait all`, `scl voice`, `scl voice play <line>` do what their `sc` twins do. Plain `scl` prints
+      its usage.
+- [ ] Log: no SC errors.
+
+**A client on a dedicated server** (SC on both, protocol 3; the client got the community snapshot)
+- [ ] No community yet: on the client's own land claim the radial shows Start a community here and Community. Start:
+      the client's tooltip says the community starts here, the server's log adds `(by <name>)`, and the client's window
+      shows the home within about a second. `sc status` on the server shows the client as `owner=`.
+- [ ] Another claim of the client's: Set as community home moves the home. Someone else's claim: no SC entries.
+- [ ] Establish outpost from the client's claim in a cleared POI: the outpost's tooltip, the fee leaves the stock, and
+      the outpost shows in the client's Outposts tab within a couple of seconds.
+- [ ] An Outpost Claim Block the client places in a cleared POI establishes itself; the tooltip reaches the client.
+- [ ] Disband outpost: one press only arms it (the confirm tooltip); a second within 5 s disbands it.
+- [ ] Linked storage and Outpost storage: "The community is managed by the host in this version." (denied sound),
+      nothing opens.
+- [ ] `SharedOwnerOnly` true and a client that is neither the owner nor an admin: Set as community home and the second
+      Disband press say "Only the community's owner or an admin can do that on this server."; Establish still works.
+- [ ] Console, an admin client: `sc home set` makes the claim the client stands in the home (owner: the client);
+      `sc spawn` spawns in front of the client; `sc poi`, `sc loadout near`, `sc raiders`, `sc party`, `sc settled`
+      answer for where the client stands; the server log's `[SC console]` lines say `(from <name>, entity N)`.
+- [ ] `sc ui`, `sc portrait all`, `sc voice play <line>` from the client answer "... type scl ... instead" and change
+      nothing. `scl ui`, `scl portrait all` and `scl voice play <line>` act in the client's own game, also for a
+      client that is no admin (vanilla answers `sc` with "denied" for them).
+- [ ] Telnet on the dedicated server: `sc spawn` says `no world / player`; `scl ui` says scl acts on a player's own game.
+- [ ] After the MP2 merge only (their verbs still take the host's own player here): `sc recruit`, `sc restore`,
+      `sc barter`, `sc scout`, `sc watch assign`, `sc infest add`, `sc outpost upgrade|repair|pay|refuse` act for the client.
+
+**A client on a listen host**
+- [ ] The host's own radial and console behave exactly as in single player.
+- [ ] The client establishes an outpost (radial or flag): the HOST's map gets its marker too.
+
+**Two players pressing the same thing**
+- [ ] Two players with no community press Start a community here on their own claims at about the same time: one
+      community starts; the other is told "Someone already started the community elsewhere..." and the home stays.
+- [ ] The claim's owner arms Disband outpost while another player disbands that outpost from the community window: the
+      owner's second press says "There is no outpost at this land claim anymore." and nothing else changes.
+- [ ] Two admin clients type `sc spawn` at once: each survivor appears in front of the player who typed it.
+
 ## Round MP1 (part: looks) (2026-11-23): every player sees the same survivors
 
 Why: each client used to roll its own random look for every SC body (members, prospects, enclave people, bands, wild

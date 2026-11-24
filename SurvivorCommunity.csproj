@@ -97,6 +97,7 @@
     <Compile Include="DialogOps.cs" />
     <Compile Include="UaiOps.cs" />
     <Compile Include="TEFeatureSCCommunity.cs" />
+    <Compile Include="ScActionsClaim.cs" />    <!-- round MP2 (part R): the land claim radial's requests -->
     <Compile Include="TEFeatureSCPacking.cs" />
     <Compile Include="ScStockpile.cs" />
     <Compile Include="ScEconomy.cs" />
@@ -243,6 +244,7 @@
     <Compile Include="Patches_Menu.cs" />
     <Compile Include="XUiC_ScPackingStrip.cs" />
     <Compile Include="ConsoleCmdSc.cs" />
+    <Compile Include="ConsoleCmdScl.cs" />     <!-- round MP2 (part R): scl, the client-local console command -->
   </ItemGroup>
 
   <ItemGroup>

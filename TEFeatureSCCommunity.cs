@@ -16,6 +16,10 @@ namespace SurvivorCommunity
     /// action as "Set as community home", under its own label) and no "Linked storage"; "Community" opens the window
     /// without adopting the claim. "Set as community home" shows only while a home exists elsewhere (moving it), and
     /// the home's own claim offers neither. AutoHomeFirstClaim true restores the old adoption by Community / Linked storage.
+    ///
+    /// Round MP2 (multiplayer): the entries show on a client too, from its copy of the community, for its own claims; what
+    /// they change goes to the server as ScActions requests (ScActionsClaim), which checks the claim against the sender.
+    /// Linked storage stays the host's own until MP3.
     /// </summary>
     [Preserve]
     public class TEFeatureSCCommunity : TEFeatureAbs
@@ -95,9 +99,14 @@ namespace SurvivorCommunity
             base.OnAdded(_blockPos, _blockValue);
             try
             {
-                if (!ScCommunity.IsHost || base.Parent == null || !base.Parent.LocalPlayerIsOwner) return;
+                if (!ScCommunity.IsHost || base.Parent == null) return;
                 Block b = _blockValue.Block;
                 if (b == null || !string.Equals(b.GetBlockName(), ScOutposts.FlagBlock, StringComparison.OrdinalIgnoreCase)) return;
+                // round MP2: the PLACING player's ownership, tested here on the server - the composite's owner (set from the
+                // placer as the block went down) is an online community player. LocalPlayerIsOwner is the host's own player's
+                // only: false for a client's flag on a listen host and for every flag on a dedicated server, so those never
+                // established themselves. A POI's or the console's block has no owner and is still left alone.
+                if (!base.Parent.LocalPlayerIsOwner && ScActionsClaim.PlacerOf(base.Parent) == null) return;
                 ScOutposts.QueueFlag(ToWorldPos());
             }
             catch (Exception e)
@@ -135,7 +144,10 @@ namespace SurvivorCommunity
                 bool disband = CommandIs(_commandName, CmdDisband);
                 bool opStorage = CommandIs(_commandName, CmdOutpostStorage);
                 if (!community && !setHome && !startHome && !storage && !establish && !outpost && !disband && !opStorage) return true;
-                if (!ScCommunity.IsHost) return false;
+                // round MP2: a client shows them from its copy of the community (the home, the outposts) - its requests act on
+                // the server (OnBlockActivated). The ownership test below runs on the pressing machine for its own player:
+                // a client's own claim passes there; the server checks it again against the sender.
+                if (!ScCommunity.IsHost && !ScRegistry.Ready) return false;
                 if (base.Parent == null || !base.Parent.LocalPlayerIsOwner) return false;
                 TEFeatureLandClaim lc = base.Parent.GetFeature<TEFeatureLandClaim>();
                 if (lc == null || !lc.IsPrimary()) return false;
@@ -168,35 +180,35 @@ namespace SurvivorCommunity
         {
             try
             {
-                if (CommandIs(_commandName, CmdSetHome) || CommandIs(_commandName, CmdStartHome))
+                // round MP2: every change goes through a request (ScActionsClaim: home.set, outpost.establish,
+                // outpost.disbandclaim) - run inline in single player and for the host's own player, sent to the server from a
+                // client. The windows open here, on the pressing machine (from its copy on a client).
+                bool startHome = CommandIs(_commandName, CmdStartHome);
+                if (startHome || CommandIs(_commandName, CmdSetHome))
                 {
-                    bool started = !ScZone.HasHome;
-                    ScZone.SetHome(_blockPos, _player);
-                    ScRegistry.SaveAtomic();
-                    ScCommunity.Tell(_player, Localization.Get(started ? "scHomeStarted" : "scHomeSet"), "");
-                    ScLog.Out(started ? "community started: home set to " + _blockPos + " by radial (Start a community here)"
-                                      : "community home set to " + _blockPos + " by radial");
+                    ScActionsClaim.RequestHome(_blockPos, startHome ? ScActionsClaim.HomeStart : ScActionsClaim.HomeSet, _player);
                     return true;
                 }
                 if (CommandIs(_commandName, CmdCommunity))
                 {
                     // round 32a: opening the window starts nothing (the home is opt-in), unless AutoHomeFirstClaim
-                    if (!ScZone.HasHome && ScConfig.AutoHomeFirstClaim) { ScZone.SetHome(_blockPos, _player); ScRegistry.SaveAtomic(); ScLog.Out("community home set to " + _blockPos + " by the radial's Community (AutoHomeFirstClaim)"); }
+                    if (!ScZone.HasHome && ScConfig.AutoHomeFirstClaim) ScActionsClaim.RequestHome(_blockPos, ScActionsClaim.HomeAdoptCommunity, _player);
                     ScCommunity.OpenWindow(_player);
                     return true;
                 }
                 if (CommandIs(_commandName, CmdStorage))
                 {
-                    if (ScOutposts.AtClaim(_blockPos) != null) { ScHomeLink.Request(_player, _blockPos); return true; }
-                    if (!ScZone.HasHome && ScConfig.AutoHomeFirstClaim) { ScZone.SetHome(_blockPos, _player); ScRegistry.SaveAtomic(); ScLog.Out("community home set to " + _blockPos + " by the radial's Linked storage (AutoHomeFirstClaim)"); }
+                    bool atOutpost = ScOutposts.AtClaim(_blockPos) != null;
+                    if (atOutpost && ScCommunity.IsHost) { ScHomeLink.Request(_player, _blockPos); return true; }
+                    if (!atOutpost && !ScZone.HasHome && ScConfig.AutoHomeFirstClaim) ScActionsClaim.RequestHome(_blockPos, ScActionsClaim.HomeAdoptStorage, _player);
+                    // round MP2: linked storage (and the outpost's home link) stays the host's own until MP3 (item transactions)
+                    if (!ScCommunity.IsHost) { ScCommunity.Tell(_player, Localization.Get("scHostOnly"), "ui_denied"); return true; }
                     ScStorage.OpenWindow(_player);
                     return true;
                 }
                 if (CommandIs(_commandName, CmdEstablish))
                 {
-                    string msg;
-                    Outpost o = ScOutposts.Establish(_blockPos, _player, false, out msg);
-                    ScCommunity.Tell(_player, msg, o != null ? "" : "ui_denied");
+                    ScActionsClaim.RequestEstablish(_blockPos, _player);
                     return true;
                 }
                 if (CommandIs(_commandName, CmdOutpost))
@@ -213,7 +225,10 @@ namespace SurvivorCommunity
                 if (CommandIs(_commandName, CmdOutpostStorage))
                 {
                     Outpost o = ScOutposts.AtClaim(_blockPos);
-                    if (o != null) ScStorage.OpenWindow(_player, _blockPos, o.Box, string.Format(Localization.Get("scOpStorageTitle"), o.Name));
+                    if (o == null) return true;
+                    // round MP2: linked storage stays the host's own until MP3 (item transactions)
+                    if (!ScCommunity.IsHost) { ScCommunity.Tell(_player, Localization.Get("scHostOnly"), "ui_denied"); return true; }
+                    ScStorage.OpenWindow(_player, _blockPos, o.Box, string.Format(Localization.Get("scOpStorageTitle"), o.Name));
                     return true;
                 }
             }
