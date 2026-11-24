@@ -138,6 +138,57 @@ member.geardrop by <player>` line per request (and `member.ammoline` every 2 s w
       feet); she carries the new one; reopen - the pack is as left.
 - [ ] Two clients at the same station: only one can open it (vanilla's lock); the member's crafts are paid once, at the close.
 
+## Round MP3 (part: linked storage) (2026-11-24): every player uses linked storage, and no box is written while someone has it open
+
+Why: linked storage was the host's own, and even there it could lose or double items: it wrote into crates a remote player
+had open (their copy then overwrote the write), its stale view overwrote boxes others had changed, and it linked friends'
+locked crates. Now the server scans and claims the boxes for each player's view, every cell change is a compare-and-set
+the server judges in batches (all or nothing), and a refused change is put back on the player's side too. NPC jobs skip a
+box a player has open, a box locked against the community, and a box a view claims. Build `sc34_mp3l` (branch `mp3-l`),
+**not deployed**, untested in game. With `DebugLogging` on, the server logs each session (`linked storage: session N for
+... claims ...`), each batch (`... written` / `... refused (<reason>)`) and each session's end.
+
+**Single player (and the host's own play): nothing may change, apart from the fixes**
+- [ ] Linked storage from the community window's Open storage button, from the home claim's radial, Outpost storage at an
+      outpost, and Linked storage at an outpost (Radioing home..., then the home's boxes): the same window, size, strip
+      and log line (`linked storage opened: ...`) as before.
+- [ ] Take a stack, take half, drop one, drop a stack on an empty cell (it goes into the first box with room), swap two
+      different items, merge onto a stack, shift-click both ways, the backpack's move-all, Take all, Sort: every box on the
+      wall changes as before, and nothing is doubled or lost (count a stack before and after).
+- [ ] Drop on an empty cell with every box full: "No box has room for that." and the item is back in the backpack (with RE
+      Inventory too: it now lands in the backpack, not on the cursor). Shift-click with every box full: nothing moves.
+- [ ] Refresh: the same view again. Close and open again at once: nothing lost.
+- [ ] With AutoHomeFirstClaim on and no home: the claim's Linked storage makes it the home and opens the view.
+- [ ] Lock one of your crates with a password: it is still linked (it is yours).
+- [ ] New: while linked storage is open, a resident's home job (logs, meat, a seed to replant) does not use the boxes (the
+      haul goes to the stockpile or the survivor's inventory as when the boxes are full); once closed, it does again.
+
+**A client on a dedicated server (or a listen host)**
+- [ ] The Open storage button, the home claim's Linked storage, Outpost storage and Linked storage at an outpost all open
+      the view on the client (no more "host only"). The server's log has `action storage.open by <client>: done`.
+- [ ] Every move from the single-player list works on the client, the boxes change on the server (open one by hand after
+      closing the view), and nothing is doubled or lost: count before and after, with the client's log free of
+      `could not be taken back`.
+- [ ] Shift-click into full boxes: "No box has room for that." and the item stays in (or comes back to) the backpack.
+- [ ] Walk away with the view open: the window closes at 32 m and the server's log ends the session; the boxes open by hand
+      again.
+- [ ] Open the view, then quit the game (or kill the client): within about 20 seconds the boxes open by hand again for others.
+- [ ] Die right after a take (a zombie at your back, or a fall): after the respawn the box no longer has the stack, and it
+      is in the death backpack (or the bag) once - never in both. The boxes open by hand again after the respawn.
+- [ ] A friend's password-locked crate inside the zone is NOT in the client's view ("1 box(es) in use or locked not shown");
+      it is in the friend's own view.
+
+**Two players at once**
+- [ ] Player A has a crate open by hand; player B opens linked storage: that crate is left out of B's view ("in use or
+      locked"), and B's moves never change it.
+- [ ] Player A has linked storage open; player B tries to open one of its crates by hand: refused with "Someone is using
+      this box through linked storage." Once A closes the view, B can open it.
+- [ ] Both open linked storage, both take the same stack at the same moment: one gets it, the other sees "That stack
+      changed in the meantime ..." and the stack is off their cursor. Count the item: no duplicate.
+- [ ] Both drop items into empty cells at once until the boxes are full: every item is in a box or back with its player.
+- [ ] A takes a stack, B's view shows that cell empty within a second (the server's update).
+- [ ] A resident's home job runs while A has the view open: it never writes A's boxes, and A's counts stay exact.
+
 ## Round MP2 (review fixes) (2026-11-23): toggles carry their intent, and the review's smaller fixes
 
 Why: the MP2 reviews found that a toggle or a two-purpose button (Repair / Upgrade, Call to work / End work, a crafting

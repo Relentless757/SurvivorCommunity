@@ -117,6 +117,9 @@
     <Compile Include="ScLinkedContainer.cs" Condition="'$(ScGame)'!='34'" />
     <Compile Include="ScLinkedContainer34.cs" Condition="'$(ScGame)'=='34'" />
     <Compile Include="XUiC_ScLinkedStrip.cs" />
+    <Compile Include="ScStorageServer.cs" />      <!-- round MP3 (part L): linked storage, the server's side (sessions, claims, compare-and-set) -->
+    <Compile Include="NetPackageScStorage.cs" />  <!-- round MP3 (part L) -->
+    <Compile Include="Patches_LinkedStorage.cs" /> <!-- round MP3 (part L): no hand-open of a claimed box, no throw while a change is on its way -->
     <Compile Include="ScRadio.cs" />
     <Compile Include="BlockScRadio.cs" />
     <Compile Include="XUiC_ScRadio.cs" />

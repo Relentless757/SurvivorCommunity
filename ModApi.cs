@@ -418,6 +418,10 @@ namespace SurvivorCommunity
             Add(t, "XUiC_QuestObjectivesWindow::GetBindingValueInternal", AccessTools.Method(typeof(XUiC_QuestObjectivesWindow), "GetBindingValueInternal", binding));
 #if SC_V34
             Add(t, "TileEntity::OnUnlockedServer", Patches_Craft.UnlockedTarget());   // round MP3 (part G): a client's station craft with a member
+            // round MP3 (part L): linked storage's claim on the boxes it shows, and no throw while a change is in flight
+            Add(t, "TEFeatureStorage::OnLockRequestServer", Patches_LinkedStorage.Patch_LinkedVanillaOpen.Target());
+            Add(t, "XUiC_DragAndDropWindow::DropCurrentItem()", AccessTools.DeclaredMethod(typeof(XUiC_DragAndDropWindow), "DropCurrentItem", Type.EmptyTypes));
+            Add(t, "XUiC_DragAndDropWindow::DropCurrentItem(int)", AccessTools.DeclaredMethod(typeof(XUiC_DragAndDropWindow), "DropCurrentItem", new[] { typeof(int) }));
             // 3.4: StartQuest(Quest.QuestSource source, bool newQuest = true, bool notify = true) - the source is new
             Add(t, "Quest::StartQuest", AccessTools.Method(typeof(Quest), "StartQuest", new[] { typeof(Quest.QuestSource), typeof(bool), typeof(bool) }));
 #else
