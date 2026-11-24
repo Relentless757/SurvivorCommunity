@@ -37,6 +37,50 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP3 (part: stockpile and packing) (2026-11-24): clients use the packing station
+
+Why: a client's Pack, Deposit and Withdraw said "host only". An open box belongs to the player who has it open (the server's
+writes into it are thrown away), so the items now move in that player's own open grid and the server changes only the
+stockpile and the Craftsmanship XP (ops `stock.packed`, `stock.deposit`, `stock.withdraw`, `stock.refund`). Opening a bundle
+on a client now pays the Logistics member too (`bundle.opened`). On the host and in single player the same code runs at
+once, so nothing should look different there. Build `sc34_mp3t` (branch `mp3-t`), not deployed, untested in game. With
+`DebugLogging` on, the server logs `action stock.<op> by <player>: done / refused (<message>)` for every press.
+
+**Single player (and the host's own play): nothing may change**
+- [ ] A packing station with loose food, meds and ammo: each Pack button packs as before ("Packed N Food into 1 large and 1
+      small bundle(s)."), leftovers stay, "Not enough ... points" when short. With a Craftsmanship member at home, more
+      bundles from the same items, and her XP grows (`sc members`: `spec Craftsmanship N(..xp)`).
+- [ ] Deposit: "N bundle(s) added to the stockpile: +3 Food, ..." and the strip's stock line goes up at once; with no
+      bundles: "There are no bundles in the box." The log line `deposited N bundle(s) (...)` as before.
+- [ ] Withdraw: one small bundle in the box, the stock line down by one. With 0 in stock: "The stockpile has no Food
+      bundles." With a full box: "The box is full." and the stock unchanged. With 0 stock AND a full box: the stockpile line
+      (it is checked first, as before).
+- [ ] An outpost's land claim box (a held outpost): the strip shows and works there too.
+- [ ] Open a bundle with a Logistics member at home: she learns as before (`sc members`, her XP).
+
+**A client on a dedicated server** (a save with a home, a packing station, a Craftsmanship and a Logistics member, an
+outpost)
+- [ ] The strip shows on the station with the server's stock. Pack each category: the box's items turn into bundles in the
+      client's grid; the server's log says `packed N <res> unit(s) ... at the station by <client>`. With a Craftsmanship
+      member at home: the same number of bundles as the host would make from the same items, and her XP grows.
+- [ ] Deposit: the bundles leave the box, the stock line goes up at once (before the server's copy arrives) and stays up;
+      the server's log: `deposited N bundle(s) (...) by <client>: ...`. Close and reopen the box: the bundles are gone,
+      nothing came back.
+- [ ] Withdraw a few times: one small bundle each, the stock line down by one each. Close and reopen: they are still there.
+- [ ] Withdraw with 0 in stock: "The stockpile has no ... bundles." and nothing changes. With a full box: "The box is full."
+- [ ] The outpost's land claim box: the strip shows on the client (the copy's outposts) and works.
+- [ ] Hard to time, best effort: fill the last empty slot right after pressing Withdraw (or close the box): "The box is
+      full." and the stock line is back up by one (the unit was refunded); never a bundle AND the unit.
+- [ ] Open a bundle with a Logistics member at home: her XP grows on the server (`sc members`, `spec Logistics N(..xp)`; a
+      client's `sc` runs on the server).
+- [ ] The server's log has no SC error.
+
+**Two players**
+- [ ] Two stations, both Withdraw the last unit of a resource at once: one gets the bundle, the other "The stockpile has no
+      ... bundles."; the stock ends at 0, never below, and exactly one bundle exists.
+- [ ] Two stations, both Deposit at once: the stock goes up by the sum of both boxes' units.
+- [ ] One player has the station open; the other cannot open it (vanilla's lock) - nothing for SC to do.
+
 ## Round MP2 (review fixes) (2026-11-23): toggles carry their intent, and the review's smaller fixes
 
 Why: the MP2 reviews found that a toggle or a two-purpose button (Repair / Upgrade, Call to work / End work, a crafting

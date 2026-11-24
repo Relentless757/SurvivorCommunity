@@ -104,6 +104,7 @@
     <Compile Include="ScActionsClaim.cs" />    <!-- round MP2 (part R): the land claim radial's requests -->
     <Compile Include="TEFeatureSCPacking.cs" />
     <Compile Include="ScStockpile.cs" />
+    <Compile Include="ScActionsStock.cs" />    <!-- round MP3 (part T): the packing station's and bundle opening's requests -->
     <Compile Include="ScEconomy.cs" />
     <Compile Include="ScFacilities.cs" />
     <Compile Include="ScActivities.cs" />

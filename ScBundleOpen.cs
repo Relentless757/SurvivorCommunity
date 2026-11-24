@@ -425,7 +425,9 @@ namespace SurvivorCommunity
                           + share.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + " of " + pack + ")"
                           + (dropped > 0 ? ", " + dropped + " item(s) on the ground (inventory full)" : ""));
 #if SC_V34
-                ScLifeSkills.OnBundleOpened();     // round m1t: the Logistics member learns
+                // round m1t: the Logistics member learns. Round MP3: on the server (bundle.opened) - inline on the host as
+                // before; a client's open asks it (ScLifeSkills.OnBundleOpened only pays where the registry is loaded)
+                ScActionsStock.RequestBundleOpened(bundleName);
 #endif
                 return true;
             }

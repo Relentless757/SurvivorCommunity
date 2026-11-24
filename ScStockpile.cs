@@ -14,7 +14,13 @@ namespace SurvivorCommunity
     ///   Deposit  - moves every bundle in the box into the stockpile at its size (bundles only exist in transit;
     ///              the old one-size bundle counts 1)
     ///   Withdraw - one Small bundle from the stockpile back into the box
-    /// and the daily consumption the ticker runs. Host only.
+    /// and the daily consumption the ticker runs.
+    /// Round MP3 (multiplayer, part T): an open box belongs to the player who has it open - the server never writes it (a
+    /// server write into a box a client has open is thrown away and then overwritten by the client's copy). So the verbs are
+    /// split: the ITEM side runs on the machine that has the station open, in its own open grid (Pack, TakeBundles, PutBack,
+    /// AddSmall - the host's own box, or a client's), and the STOCKPILE side on the server (CreditDeposit, DebitWithdraw, the
+    /// Craftsmanship XP), asked through ScActionsStock's ops. On the host and in single player both halves run back to back,
+    /// inline, with the same checks, lines and order as before.
     /// </summary>
     public static class ScStockpile
     {
@@ -35,10 +41,24 @@ namespace SurvivorCommunity
                 TEFeatureStorage st = te as TEFeatureStorage;
                 if (st == null || st.Parent == null) return null;
                 if (st.Parent.GetFeature<TEFeatureSCPacking>() != null) return st;
-                if (st.Parent.GetFeature<TEFeatureLandClaim>() != null && ScOutposts.IsOutpostClaim(st.Parent.ToWorldPos())) return st;
+                if (st.Parent.GetFeature<TEFeatureLandClaim>() != null && IsOutpostDoor(st.Parent.ToWorldPos())) return st;
                 return null;
             }
             catch (Exception) { return null; }
+        }
+
+        /// <summary>
+        /// Round MP3: whether a land claim is a held outpost's (its box is the stockpile's door out there). The server asks
+        /// ScOutposts' flags as before; a client's flags are never built (its copy of the registry has no load hook, MP1), so it
+        /// reads the copy's outposts instead - the same test ScOutposts.Rebuild makes (held, this flag).
+        /// </summary>
+        private static bool IsOutpostDoor(Vector3i claim)
+        {
+            if (ScOutposts.IsOutpostClaim(claim)) return true;
+            if (!ScMirror.Active) return false;
+            foreach (Outpost o in ScRegistry.Outposts)
+                if (o != null && o.Holding && o.Flag == claim) return true;
+            return false;
         }
 
         /// <summary>A bundle stack: its resource and the units ONE of its items holds (Small 1, Medium 2, Large 3, old 1).</summary>
@@ -90,13 +110,27 @@ namespace SurvivorCommunity
             public int PointsEach;
         }
 
-        /// <summary>Packs one category. Returns the number of bundles made (0 with a message key + args).</summary>
-        public static int Pack(TEFeatureStorage st, Resource r, EntityPlayerLocal player, out string message)
+        /// <summary>The Craftsmanship pack threshold for a resource: PointsPerBundle x (1 - PackBonusPerStar x stars), floor 0.6, at least 1.</summary>
+        public static int PackThreshold(Resource r, int craftStars)
+        {
+            float packMult = Math.Max(0.6f, 1f - ScConfig.PackBonusPerStar * craftStars);
+            return Math.Max(1, (int)Math.Round(ScConfig.PointsPerBundle[(int)r] * packMult));
+        }
+
+        /// <summary>
+        /// Packs one category. Returns the number of bundles made (0 with a message key + args).
+        /// Round MP3: runs on the machine that has the station open (the host, or a client in its own open grid - the box is
+        /// its holder's), with the Craftsmanship stars of the registry or, on a client, of the server's copy; the strip asks
+        /// only where ScActionsWindow.RequestRefusal() is null. The craftsmen's XP is the server's: stock.packed
+        /// (ScActionsStock.RequestPacked), inline on the host. The overflow goes to the player's own bag (GiveBundles): on a
+        /// client that is its own local player.
+        /// </summary>
+        public static int Pack(TEFeatureStorage st, Resource r, EntityPlayer player, out string message)
         {
             message = null;
             try
             {
-                if (!ScCommunity.IsHost) { message = Localization.Get("scHostOnly"); return 0; }
+                // round MP3: no host gate any more - the item side is whoever has the box open (see above)
                 if (st == null) { message = Localization.Get("scInternal"); return 0; }
                 ScConfig.EnsureParsed();
 #if SC_V34
@@ -119,9 +153,9 @@ namespace SurvivorCommunity
                     total += (long)each * s.count;
                 }
                 // Craftsmanship: stationed craftsmen pack tighter (threshold x (1 - PackBonusPerStar x stars), floor 0.6)
+                // round MP3: on a client the members are the server's copy (status, specialty and stars: a pure read of it)
                 int craftStars = ScSkills.SpecialistStars(Specialty.Craftsmanship);
-                float packMult = Math.Max(0.6f, 1f - ScConfig.PackBonusPerStar * craftStars);
-                int threshold = Math.Max(1, (int)Math.Round(ScConfig.PointsPerBundle[(int)r] * packMult));
+                int threshold = PackThreshold(r, craftStars);
                 int bundles = (int)(total / threshold);
                 if (bundles <= 0)
                 {
@@ -145,15 +179,15 @@ namespace SurvivorCommunity
 
                 int large, medium, small;
                 SplitUnits(bundles, out large, out medium, out small);
-                int made = GiveBundles(st, r, BundleSize.Large, large, player) * 3
-                         + GiveBundles(st, r, BundleSize.Medium, medium, player) * 2
-                         + GiveBundles(st, r, BundleSize.Small, small, player);
+                // round MP3: the sizes really given are kept apart (stock.packed checks them against the units)
+                int gotLarge = GiveBundles(st, r, BundleSize.Large, large, player);
+                int gotMedium = GiveBundles(st, r, BundleSize.Medium, medium, player);
+                int gotSmall = GiveBundles(st, r, BundleSize.Small, small, player);
+                int made = gotLarge * 3 + gotMedium * 2 + gotSmall;
                 st.SetModified();
-                if (made > 0 && craftStars > 0)
-                {
-                    foreach (var cm in ScRegistry.Members.Values)
-                        if (cm.Specialty == Specialty.Craftsmanship && cm.IsHome && cm.Status != MemberStatus.OnRun) ScSkills.AddSpecialtyXp(cm, 1f);
-                }
+                // round MP3: the craftsmen's XP (made > 0 and stars > 0, as before) is paid by the server - inline on the host,
+                // where it runs right here as it always did
+                if (made > 0) ScActionsStock.RequestPacked(st, r, made, gotLarge, gotMedium, gotSmall, threshold);
                 message = string.Format(Localization.Get("scPackedInto"), made, Localization.Get(ScNames.LocKey(r)), SizesText(large, medium, small));
                 ScLog.Out("packed " + made + " " + r + " unit(s) (" + large + " large, " + medium + " medium, " + small + " small) from " + total + " points at the station");
                 return made;
@@ -169,21 +203,31 @@ namespace SurvivorCommunity
         /// <summary>
         /// Bundles of one size into the box; what does not fit goes to the player, then the ground. No box (st null: an
         /// enclave's threat payout, E2): the player, then the ground. Returns the bundles given.
+        /// Round MP3: the box must be one this machine has open (the server never writes a box a client has open). The player
+        /// may be any player:
+        /// - this machine's own (EntityPlayerLocal: the host's, or a client packing in its own grid): their bag, then their
+        ///   feet, as before;
+        /// - a remote player on the server: their bag is their own machine's. With toRemote given, the stacks go into it, and
+        ///   the caller sends them in its reply (ScItemTx.StacksToHint) for that player's machine to add (ScItemTx.GiveToLocal:
+        ///   the bag, the rest at their feet); without it they are dropped at the player's feet from here (never lost).
         /// </summary>
-        public static int GiveBundles(TEFeatureStorage st, Resource r, BundleSize size, int count, EntityPlayerLocal player)
+        public static int GiveBundles(TEFeatureStorage st, Resource r, BundleSize size, int count, EntityPlayer player, List<ItemStack> toRemote = null)
         {
             if (count <= 0) return 0;
             ItemValue iv = BundleValue(r, size);
             if (iv == null) return 0;
             int stackMax = Math.Max(1, iv.ItemClass.Stacknumber.Value);
             int given = 0;
+            EntityPlayerLocal local = player as EntityPlayerLocal;
             while (given < count)
             {
                 int n = Math.Min(stackMax, count - given);
                 var stack = new ItemStack(iv.Clone(), n);
                 if (st != null && st.AddItem(stack)) { given += n; continue; }
-                if (player != null && player.PlayerUI != null && player.PlayerUI.xui != null && player.PlayerUI.xui.PlayerInventory != null
-                    && player.PlayerUI.xui.PlayerInventory.AddItem(stack)) { given += n; continue; }
+                if (local != null && local.PlayerUI != null && local.PlayerUI.xui != null && local.PlayerUI.xui.PlayerInventory != null
+                    && local.PlayerUI.xui.PlayerInventory.AddItem(stack)) { given += n; continue; }
+                // round MP3: a remote player's bag is reached through the caller's reply
+                if (player != null && local == null && toRemote != null) { toRemote.Add(stack); given += n; continue; }
                 if (player != null)
                 {
                     GameManager.Instance.ItemDropServer(stack, player.GetDropPosition(), UnityEngine.Vector3.zero, -1, 60f);
@@ -195,13 +239,18 @@ namespace SurvivorCommunity
             return given;
         }
 
-        /// <summary>Moves every bundle in the box into the stockpile, each at its size. Returns the number of bundles moved.</summary>
-        public static int Deposit(TEFeatureStorage st, out string message)
+        // ---- deposit and withdraw (round MP3: the item side on the box's machine, the stockpile side on the server) ----
+
+        /// <summary>
+        /// Deposit, the item side (the machine that has the station open): takes every bundle out of the box, recording each
+        /// slot and stack in taken (to put back on a refusal) and the units per resource in counts. Returns the bundles taken
+        /// (0 with the message: none in the box, or no grid). The stockpile is credited by stock.deposit (CreditDeposit).
+        /// </summary>
+        public static int TakeBundles(TEFeatureStorage st, List<KeyValuePair<int, ItemStack>> taken, int[] counts, out string message)
         {
             message = null;
             try
             {
-                if (!ScCommunity.IsHost) { message = Localization.Get("scHostOnly"); return 0; }
 #if SC_V34
                 if (st == null || st.ItemGrid == null) { message = Localization.Get("scInternal"); return 0; }
                 ItemStack[] items = st.ItemGrid.items;
@@ -210,7 +259,6 @@ namespace SurvivorCommunity
                 ItemStack[] items = st.items;
 #endif
                 int moved = 0;
-                var counts = new int[ScNames.ResourceCount];
                 for (int i = 0; i < items.Length; i++)
                 {
                     Resource r;
@@ -218,14 +266,11 @@ namespace SurvivorCommunity
                     if (!IsBundle(items[i], out r, out units)) continue;
                     counts[(int)r] += items[i].count * units;
                     moved += items[i].count;
+                    if (taken != null) taken.Add(new KeyValuePair<int, ItemStack>(i, items[i].Clone()));
                     st.UpdateSlot(i, ItemStack.Empty.Clone());
                 }
                 if (moved == 0) { message = Localization.Get("scNoBundles"); return 0; }
-                for (int i = 0; i < ScNames.ResourceCount; i++) ScRegistry.Community.Add((Resource)i, counts[i]);
                 st.SetModified();
-                ScRegistry.SaveAtomic();
-                message = string.Format(Localization.Get("scDepositedUnits"), moved, ScOutposts.Amounts(counts));
-                ScLog.Out("deposited " + moved + " bundle(s) (" + ScOutposts.Amounts(counts) + "): " + StockText());
                 return moved;
             }
             catch (Exception e)
@@ -236,30 +281,94 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>One Small bundle (one unit) from the stockpile into the box.</summary>
-        public static bool Withdraw(TEFeatureStorage st, Resource r, out string message)
+        /// <summary>
+        /// Deposit refused (the machine that took them): the bundles go back - into their own slots, else any empty slot,
+        /// while boxHeld (this machine still has that box open); the rest (all of them when it does not) into the player's
+        /// bag, then at their feet (ScItemTx.GiveToLocal). Returns how many bundles did not go back into the box.
+        /// </summary>
+        public static int PutBack(TEFeatureStorage st, List<KeyValuePair<int, ItemStack>> taken, EntityPlayerLocal player, bool boxHeld)
         {
-            message = null;
+            if (taken == null || taken.Count == 0) return 0;
+            var rest = new List<ItemStack>();
             try
             {
-                if (!ScCommunity.IsHost) { message = Localization.Get("scHostOnly"); return false; }
-                if (st == null) { message = Localization.Get("scInternal"); return false; }
-                if (ScRegistry.Community.Get(r) <= 0) { message = string.Format(Localization.Get("scStockEmpty"), Localization.Get(ScNames.LocKey(r))); return false; }
-                ItemValue iv = BundleValue(r, BundleSize.Small);
-                if (iv == null) { message = Localization.Get("scInternal"); return false; }
-                if (!st.AddItem(new ItemStack(iv.Clone(), 1))) { message = Localization.Get("scBoxFull"); return false; }
-                ScRegistry.Community.Add(r, -1);
-                st.SetModified();
-                ScRegistry.SaveAtomic();
-                message = string.Format(Localization.Get("scWithdrawn"), Localization.Get(ScNames.LocKey(r)));
-                return true;
+                ItemStack[] items = boxHeld && st != null && st.ItemGrid != null ? st.ItemGrid.items : null;
+                bool changed = false;
+                foreach (var kv in taken)
+                {
+                    ItemStack s = kv.Value;
+                    if (s == null || s.IsEmpty()) continue;
+                    if (items != null && kv.Key >= 0 && kv.Key < items.Length && (items[kv.Key] == null || items[kv.Key].IsEmpty()))
+                    {
+                        st.UpdateSlot(kv.Key, s.Clone());
+                        changed = true;
+                        continue;
+                    }
+                    if (items != null && st.AddItem(s.Clone())) { changed = true; continue; }
+                    rest.Add(s);
+                }
+                if (changed) st.SetModified();
             }
             catch (Exception e)
             {
-                ScLog.Once("withdraw", e);
-                message = Localization.Get("scInternal");
-                return false;
+                ScLog.Once("deposit-putback", e);
             }
+            int n = 0;
+            foreach (ItemStack s in rest) n += s.count;
+            if (rest.Count > 0) ScItemTx.GiveToLocal(player, rest);
+            return n;
+        }
+
+        /// <summary>
+        /// Deposit, the stockpile side (the server, stock.deposit): the units in, saved; the old log line (a remote player's
+        /// deposit names them: by).
+        /// </summary>
+        public static void CreditDeposit(int[] counts, int moved, string by = null)
+        {
+            for (int i = 0; i < ScNames.ResourceCount; i++) ScRegistry.Community.Add((Resource)i, counts[i]);
+            ScRegistry.SaveAtomic();
+            ScLog.Out("deposited " + moved + " bundle(s) (" + ScOutposts.Amounts(counts) + ")" + (by != null ? " by " + by : "") + ": " + StockText());
+        }
+
+        /// <summary>Withdraw, before asking: the box has an empty slot (st.AddItem's test).</summary>
+        public static bool HasRoom(TEFeatureStorage st)
+        {
+            ItemStack[] items = st != null && st.ItemGrid != null ? st.ItemGrid.items : null;
+            if (items == null) return false;
+            for (int i = 0; i < items.Length; i++) if (items[i] == null || items[i].IsEmpty()) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Withdraw, the stockpile side (the server, stock.withdraw): one unit out, saved - or false with the reason as a
+        /// localization key (scStockEmpty takes the resource's name; the strip formats it), checked in the old order: the
+        /// stock, the bundle item, the box's room (as the asking machine saw it).
+        /// </summary>
+        public static bool DebitWithdraw(Resource r, bool room, out string why)
+        {
+            why = null;
+            if (ScRegistry.Community.Get(r) <= 0) { why = "scStockEmpty"; return false; }
+            if (BundleValue(r, BundleSize.Small) == null) { why = "scInternal"; return false; }
+            if (!room) { why = "scBoxFull"; return false; }
+            ScRegistry.Community.Add(r, -1);
+            ScRegistry.SaveAtomic();
+            return true;
+        }
+
+        /// <summary>Withdraw, the item side (the machine that has the box open, after the server's debit): one Small bundle in.</summary>
+        public static bool AddSmall(TEFeatureStorage st, Resource r)
+        {
+            ItemValue iv = st != null ? BundleValue(r, BundleSize.Small) : null;
+            if (iv == null || !st.AddItem(new ItemStack(iv.Clone(), 1))) return false;
+            st.SetModified();
+            return true;
+        }
+
+        /// <summary>A Small bundle of r (or null), for a withdrawal that ends in the player's bag.</summary>
+        public static ItemStack SmallStack(Resource r)
+        {
+            ItemValue iv = BundleValue(r, BundleSize.Small);
+            return iv != null ? new ItemStack(iv.Clone(), 1) : null;
         }
 
         public static string StockText()
@@ -267,6 +376,14 @@ namespace SurvivorCommunity
             Community c = ScRegistry.Community;
             return string.Format(Localization.Get("scStockText"), c.Get(Resource.Food), c.Get(Resource.Meds), c.Get(Resource.Ammo), c.Get(Resource.Materials), c.Get(Resource.Fuel),
                                  c.Get(Resource.Water), c.Get(Resource.Luxury));
+        }
+
+        /// <summary>Round MP3: the same line from given figures (one per Resource): a client shows the server's answer at once.</summary>
+        public static string StockText(int[] n)
+        {
+            if (n == null || n.Length < ScNames.ResourceCount) return StockText();
+            return string.Format(Localization.Get("scStockText"), n[(int)Resource.Food], n[(int)Resource.Meds], n[(int)Resource.Ammo], n[(int)Resource.Materials],
+                                 n[(int)Resource.Fuel], n[(int)Resource.Water], n[(int)Resource.Luxury]);
         }
 
         // ---- daily use ----
