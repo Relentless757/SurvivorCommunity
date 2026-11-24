@@ -46,7 +46,7 @@ a swap goes as a take and then a deposit, every deposit of a batch is judged aga
 deposit with no room comes back alone, a box opened by hand leaves the views instead of being refused, NPC jobs write the
 boxes a view shows and the view follows, an idle view closes after 5 minutes (with other players in the game), and the
 overflow drops in a bag. Also: a forced station unlock no longer pays a member's crafts twice, and an AutoEquip armor piece
-given back to a full bag is no longer worn and doubled. Build `sc34_mp3` (branch `mp3`), **not deployed**, untested in game.
+given back to a full bag is no longer worn and doubled. Build `sc34_mp3`, **deployed to 3.4 on 2026-11-24** (port-3.4 b975a10c, DLL 0cc844a4, protocol 4; the dedicated server loads the same folder), untested in game.
 
 **Single player (RE Inventory with `zzzz_GridInv_SurvivorCommunity`)**
 - [ ] A crate with exactly one free spot a rifle fits, everything else full. Hold a rifle, click a bandage in linked storage
@@ -100,7 +100,7 @@ Why: a client's Pack, Deposit and Withdraw said "host only". An open box belongs
 writes into it are thrown away), so the items now move in that player's own open grid and the server changes only the
 stockpile and the Craftsmanship XP (ops `stock.packed`, `stock.deposit`, `stock.withdraw`, `stock.refund`). Opening a bundle
 on a client now pays the Logistics member too (`bundle.opened`). On the host and in single player the same code runs at
-once, so nothing should look different there. Build `sc34_mp3t` (branch `mp3-t`), not deployed, untested in game. With
+once, so nothing should look different there. Build `sc34_mp3` (all parts and the review fixes), **deployed to 3.4 on 2026-11-24** (port-3.4 b975a10c, DLL 0cc844a4, protocol 4; the dedicated server loads the same folder), untested in game. With
 `DebugLogging` on, the server logs `action stock.<op> by <player>: done / refused (<message>)` for every press.
 
 **Single player (and the host's own play): nothing may change**
@@ -146,7 +146,7 @@ inventory, and the client got her crafting XP). The weapon and armor slots and t
 answers (`member.geardrop`, `member.geartake`, `member.ammo`; the line itself is `member.ammoline`); the tool slots move
 the tool in the client's own copy of her pack (SCore merges it back on close); a client's station window knows the
 members from its copy of the registry, and the server pays her crafts when the client closes the station. The bag stays
-the host's. Build `sc34_mp3g`, **not deployed**, untested in game. With `DebugLogging` on the server logs an `action
+the host's. Build `sc34_mp3` (all parts and the review fixes), **deployed to 3.4 on 2026-11-24** (port-3.4 b975a10c, DLL 0cc844a4, protocol 4; the dedicated server loads the same folder), untested in game. With `DebugLogging` on the server logs an `action
 member.geardrop by <player>` line per request (and `member.ammoline` every 2 s while a client's panel is open).
 
 **Single player: nothing may change**
@@ -201,8 +201,8 @@ Why: linked storage was the host's own, and even there it could lose or double i
 had open (their copy then overwrote the write), its stale view overwrote boxes others had changed, and it linked friends'
 locked crates. Now the server scans and claims the boxes for each player's view, every cell change is a compare-and-set
 the server judges in batches (all or nothing), and a refused change is put back on the player's side too. NPC jobs skip a
-box a player has open, a box locked against the community, and a box a view claims. Build `sc34_mp3l` (branch `mp3-l`),
-**not deployed**, untested in game. With `DebugLogging` on, the server logs each session (`linked storage: session N for
+box a player has open, a box locked against the community, and a box a view claims. Build `sc34_mp3` (all parts and the review fixes),
+**deployed to 3.4 on 2026-11-24** (port-3.4 b975a10c, DLL 0cc844a4, protocol 4; the dedicated server loads the same folder), untested in game. With `DebugLogging` on, the server logs each session (`linked storage: session N for
 ... claims ...`), each batch (`... written` / `... refused (<reason>)`) and each session's end.
 
 **Single player (and the host's own play): nothing may change, apart from the fixes**
