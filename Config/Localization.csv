@@ -21,6 +21,9 @@ scFavourNotEnough,UI,Tooltip,,,,You are not carrying enough of what they asked f
 scFavourNotDone,UI,Tooltip,,,,They are still waiting for their favour.
 scFavourPoiDone,UI,Tooltip,,,,"{0} is clear - go back to {1} and they will join your community."
 scHostOnly,UI,Tooltip,,,,The community is managed by the host in this version.
+scActionMemberGone,UI,Tooltip,,,,That survivor is not in the community any more.
+scActionOutpostGone,UI,Tooltip,,,,That outpost is not there any more.
+scActionChanged,UI,Tooltip,,,,That changed in the meantime. Look again and try once more.
 scNotHireable,UI,Tooltip,,,,They are not interested in joining.
 scAlreadyMember,UI,Tooltip,,,,They are already part of your community.
 scAlreadyHired,UI,Tooltip,,,,They already have a leader.

@@ -8,7 +8,8 @@ using UnityEngine.Scripting;
 /// The Watch post (base defence D3, SurvivorCommunity.ScWatch): a full cube a guard stands on. Placing it inside the home
 /// zone registers it (at most WatchMaxPosts; the placement is refused elsewhere, with the reason on the press); its radial
 /// offers "Assign guard" (the community window picks one), "Relieve guard" and vanilla's pickup; breaking or picking it up
-/// ends its guard's watch. The facing is the block's rotation (Place=TowardsPlacer: the way the player looked).
+/// ends its guard's watch. The facing is the block's rotation (Place=TowardsPlacer: the way the player looked). Round MP2:
+/// every player's radial offers Assign and Relieve (the server acts: member.watch, watch.relieve).
 /// </summary>
 [Preserve]
 public class BlockScWatchPost : Block
@@ -31,7 +32,9 @@ public class BlockScWatchPost : Block
     {
         try
         {
-            bool post = SurvivorCommunity.ScCommunity.IsHost && SurvivorCommunity.ScWatch.IsPost(_blockPos);
+            // round MP2: on a client too, from its copy of the registry (IsPost and GuardOf read it there): Assign opens the window
+            // on this machine to pick the guard (member.watch), Relieve asks the server (watch.relieve)
+            bool post = SurvivorCommunity.ScActionsWindow.CanRequest && SurvivorCommunity.ScWatch.IsPost(_blockPos);
             bool manned = post && SurvivorCommunity.ScWatch.GuardOf(_blockPos) != null;
             watchCmds[0].enabled = post && !manned;
             watchCmds[1].enabled = manned;

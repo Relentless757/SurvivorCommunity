@@ -712,6 +712,8 @@ namespace SurvivorCommunity
         public static bool PayDemand(Outpost o, EntityPlayerLocal player, out string message)
         {
             message = null;
+            // round MP2: never on a client's copy (E10; the radio window that answers it opens on the host only until MP5)
+            if (!ScRegistry.Loaded) { message = Localization.Get("scHostOnly"); return false; }
             if (o == null || !HasDemand(o)) { message = Localization.Get("scRiskNoDemand"); return false; }
             Community c = ScRegistry.Community;
             if (c.Get(Resource.Ammo) < o.DemandAmmo || c.Get(Resource.Food) < o.DemandFood)
@@ -733,6 +735,7 @@ namespace SurvivorCommunity
         public static bool RefuseDemand(Outpost o, EntityPlayerLocal player, out string message)
         {
             message = null;
+            if (!ScRegistry.Loaded) { message = Localization.Get("scHostOnly"); return false; }     // round MP2: as PayDemand (E10)
             if (o == null || !HasDemand(o)) { message = Localization.Get("scRiskNoDemand"); return false; }
             o.DemandUntil = -1;
             StartAttack(o, true, player, true);
@@ -741,10 +744,14 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>"Repair now": the damage is paid off in materials and the outpost works again tomorrow.</summary>
-        public static bool Repair(Outpost o, EntityPlayerLocal player, out string message)
+        /// <summary>
+        /// "Repair now": the damage is paid off in materials and the outpost works again tomorrow. Round MP2: any player
+        /// (outpost.upgrade on the server); never on a client's copy (E10: it had no gate of its own).
+        /// </summary>
+        public static bool Repair(Outpost o, EntityPlayer player, out string message)
         {
             message = null;
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded) { message = Localization.Get("scHostOnly"); return false; }
             if (o == null || !DamagedNow(o)) { message = Localization.Get("scRiskNotDamaged"); return false; }
             Community c = ScRegistry.Community;
             int mats = ScOutpostPerks.Salvaged(ScConfig.OutpostRepairMats);

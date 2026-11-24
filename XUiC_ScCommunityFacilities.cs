@@ -8,7 +8,8 @@ namespace SurvivorCommunity
     /// btnFac1..8 (a page; btnFacPrev / btnFacNext), the selected facility's detail and its action buttons btnFacDo1..3, and
     /// the member pick an action can start (Call to work, Assign guard: the Members tab shows the residents with the action's
     /// hint, and the one picked is handed to the action; any tab click cancels it). The entries themselves are ScFacilityTab's.
-    /// Every binding answers with a string, before a world exists too (bindings run while the XML is parsed).
+    /// Every binding answers with a string, before a world exists too (bindings run while the XML is parsed). Round MP2: the
+    /// entries are built for this machine's player, and an action (or the pick's member) goes to the server as facility.do.
     /// </summary>
     public partial class XUiC_ScCommunity
     {
@@ -20,6 +21,9 @@ namespace SurvivorCommunity
         private string facMessage = "";
         /// <summary>A facility action picking a resident on the Members tab (null: none).</summary>
         private FacilityAction facPick;
+        /// <summary>Round MP2: the pick's entry key and button slot - what facility.do names it by (the list may be rebuilt meanwhile).</summary>
+        private string facPickKey = "";
+        private int facPickSlot = -1;
 
         /// <summary>From Init: the tab button, the rows, the pager and the action buttons (all optional in the XML).</summary>
         private void InitFacilities()
@@ -57,11 +61,14 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>Refresh: the entries again from saved state; the page and the selection kept where they still exist.</summary>
+        /// <summary>
+        /// Refresh: the entries again from saved state; the page and the selection kept where they still exist. Round MP2: built
+        /// for this machine's own player (a client: from its copy, its position) - Build(viewer), no longer the host's.
+        /// </summary>
         private void BuildFacilities()
         {
             facList.Clear();
-            try { facList.AddRange(ScFacilityTab.Build()); }
+            try { facList.AddRange(ScFacilityTab.Build(Player)); }
             catch (Exception e) { ScLog.Once("community-facilities", e); }
             facTop = Math.Max(0, Math.Min(facTop, FacMaxTop()));
             if (FacilitySelected == null && facList.Count > 0) facSelected = facList[0].Key;
@@ -112,75 +119,76 @@ namespace SurvivorCommunity
             RefreshBindingsSelfAndChildren();
         }
 
-        /// <summary>An action button: it acts (the outcome under the buttons), or it starts a pick on the Members tab.</summary>
+        /// <summary>
+        /// An action button: it acts (the outcome under the buttons), or it starts a pick on the Members tab. Round MP2: the server
+        /// acts (facility.do: the entry's key, the slot and the action's id; ScActionsWindow.FacilityDo rebuilds the entry for this
+        /// player there and checks it again). The WhyNot asked here is this machine's look - a client's is a hint from its copy.
+        /// </summary>
         private void OnFacilityDo(int slot)
         {
             FacilityEntry e = FacilitySelected;
             EntityPlayerLocal p = Player;
             if (e == null || p == null || slot >= e.Actions.Count) return;
-            // round MP1: a client sees the server's facilities; acting on them waits for round MP2's requests - said, never silent
-            if (!ScCommunity.IsHost)
-            {
-                p.PlayOneShot("ui_denied");
-                facMessage = Localization.Get("scHostOnly");
-                RefreshBindingsSelfAndChildren();
-                return;
-            }
             FacilityAction a = e.Actions[slot];
-            string msg = null;
-            bool ok = false;
             string why = null;
             try { why = a.WhyNot != null ? a.WhyNot() : null; }
             catch (Exception ex) { ScLog.Once("community-facility-whynot", ex); why = Localization.Get("scInternal"); }
-            if (why != null) msg = why;                // a dim action says why, and a pick does not open (the Fable review's finding 6)
-            else if (a.Pick != null)
+            if (why != null)
             {
-                if (!ScCommunity.IsHost) msg = Localization.Get("scHostOnly");
-                else
-                {
-                    // the residents, picking one (Select -> TryFacilityPick)
-                    facPick = a;
-                    facMessage = "";
-                    tab = Tab.Members;
-                    filter = Filter.AtBase;
-                    page = 0;
-                    message = a.PickHint ?? "";
-                    ApplyFilter();
-                    return;
-                }
+                // a dim action says why, and a pick does not open (the Fable review's finding 6)
+                p.PlayOneShot("ui_denied");
+                facMessage = why;
+                Refresh();
+                return;
             }
-            else if (a.Run != null)
+            if (a.Pick != null)
             {
-                try { ok = a.Run(p, out msg); }
-                catch (Exception ex) { ScLog.Once("community-facility-action", ex); msg = Localization.Get("scInternal"); }
+                // the residents, picking one (Select -> TryFacilityPick)
+                facPick = a;
+                facPickKey = e.Key;
+                facPickSlot = slot;
+                facMessage = "";
+                tab = Tab.Members;
+                filter = Filter.AtBase;
+                page = 0;
+                message = a.PickHint ?? "";
+                ApplyFilter();
+                return;
             }
-            else return;
-            if (!ok) p.PlayOneShot("ui_denied");
-            facMessage = msg ?? "";
-            Refresh();
+            if (a.Run == null) return;
+            ScActions.Request("facility.do", new[] { slot, -1 }, new[] { e.Key, a.MatchKey }, r =>
+            {
+                facMessage = r.Text;
+                PlaySound(r.Sound);
+                AfterReply();
+            });
         }
 
-        /// <summary>Select's first look: a pick is open - the action runs on her; done, the window goes back to the facility.</summary>
+        /// <summary>
+        /// Select's first look: a pick is open - the action runs on her; done, the window goes back to the facility. Round MP2: on
+        /// the server (facility.do with the member); a refusal shows in the pick's line and the pick stays open.
+        /// </summary>
         private bool TryFacilityPick(Member m)
         {
             FacilityAction a = facPick;
-            EntityPlayerLocal p = Player;
             if (a == null || a.Pick == null) { facPick = null; return false; }
-            string msg = null;
-            bool ok = false;
-            try { ok = a.Pick(m, p, out msg); }
-            catch (Exception ex) { ScLog.Once("community-facility-pick", ex); msg = Localization.Get("scInternal"); }
-            if (!ok)
+            ScActions.Request("facility.do", new[] { facPickSlot, m.Id }, new[] { facPickKey, a.MatchKey }, r =>
             {
-                message = msg ?? "";                  // the reason in the pick's own line; the pick stays open
-                if (p != null) p.PlayOneShot("ui_denied");
-                RefreshBindingsSelfAndChildren();
-                return true;
-            }
-            EndFacilityPick();
-            tab = Tab.Facilities;
-            facMessage = msg ?? "";
-            Refresh();
+                if (!r.Ok)
+                {
+                    message = r.Text;                 // the reason in the pick's own line; the pick stays open
+                    PlaySound(r.Sound);
+                    RefreshBindingsSelfAndChildren();
+                    return;
+                }
+                if (facPick == a)                     // a client: the pick may have been left meanwhile (another tab, the window closed)
+                {
+                    EndFacilityPick();
+                    tab = Tab.Facilities;
+                }
+                facMessage = r.Text;
+                AfterReply();
+            });
             return true;
         }
 

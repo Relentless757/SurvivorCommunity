@@ -146,9 +146,13 @@ namespace SurvivorCommunity
             return pos;
         }
 
+        /// <summary>Round MP2: the parent of a multi-block (facility.upgrade follows a child it is sent to its parent).</summary>
+        public static Vector3i ParentOf(WorldBase world, Vector3i pos, ref BlockValue bv) { return Parent(world, pos, ref bv); }
+
+        /// <summary>Inside the home zone. Round MP2: a read - Ready, so a client's radial and info read its copy; TryUpgrade keeps Loaded.</summary>
         private static bool InHome(Vector3i pos)
         {
-            return ScRegistry.Loaded && ScRegistry.Community.HasHome && ScZone.Contains(pos);
+            return ScRegistry.Ready && ScRegistry.Community.HasHome && ScZone.Contains(pos);
         }
 
         // ------------------------------------------------------------------ the radial ----
@@ -162,12 +166,13 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The facility's commands: Info, and Upgrade while it is inside the home zone and below its top level. The game
-        /// shows an entry for every enabled command in order, and a tap runs the first one.
+        /// shows an entry for every enabled command in order, and a tap runs the first one. Round MP2: Upgrade on a client too,
+        /// from its copy of the registry (it asks the server: facility.upgrade).
         /// </summary>
         public static BlockActivationCommand[] Commands(WorldBase world, Vector3i pos, BlockValue bv)
         {
             Vector3i parent = Parent(world, pos, ref bv);
-            bool canUp = ScCommunity.IsHost && InHome(parent) && LevelAt(parent, bv) < MaxLevel(bv.type);
+            bool canUp = ScActionsWindow.CanRequest && InHome(parent) && LevelAt(parent, bv) < MaxLevel(bv.type);
             return canUp ? InfoAndUpgrade : InfoOnly;
         }
 
@@ -194,9 +199,9 @@ namespace SurvivorCommunity
                     ScCommunity.Tell(player, InfoText(parent, bv), "");
                     return true;
                 }
-                string msg;
-                bool ok = TryUpgrade(world as World, parent, bv, player, out msg);
-                ScCommunity.Tell(player, msg ?? "", ok ? "" : "ui_denied");
+                // round MP2: the server upgrades it (facility.upgrade; inline on the host and in single player) and the answer is
+                // told here, as before: the line, and the denied sound when it was refused
+                ScActions.Request("facility.upgrade", r => ScCommunity.Tell(player, r.Text, r.Sound), parent.x, parent.y, parent.z);
             }
             catch (Exception e)
             {
@@ -213,7 +218,7 @@ namespace SurvivorCommunity
         {
             Vector3i parent = Parent(world, pos, ref bv);
             int level = LevelAt(parent, bv);
-            bool canUp = ScCommunity.IsHost && InHome(parent) && level < MaxLevel(bv.type);
+            bool canUp = ScActionsWindow.CanRequest && InHome(parent) && level < MaxLevel(bv.type);      // round MP2: a client too
             return string.Format(Localization.Get(canUp ? "scFacPromptUp" : "scFacPrompt"), "{0}", NameOf(bv), level);
         }
 
@@ -228,18 +233,22 @@ namespace SurvivorCommunity
         {
             int level = LevelAt(parent, bv), top = MaxLevel(bv.type);
             string name = NameOf(bv);
-            if (!ScCommunity.IsHost) return string.Format(Localization.Get("scFacInfoClient"), name, level, top);
+            // round MP2: a client with the server's copy reads the whole line (it can upgrade now); without one, the short line
+            if (!ScRegistry.Ready || !ScActionsWindow.CanRequest) return string.Format(Localization.Get("scFacInfoClient"), name, level, top);
             if (!InHome(parent)) return string.Format(Localization.Get("scFacInfoOutside"), name, level, top);
             string s = string.Format(Localization.Get("scFacInfo"), name, level, top, WaterAt(parent, bv));
             if (level >= top) return s + " " + Localization.Get("scFacInfoTop");
             return s + " " + string.Format(Localization.Get("scFacInfoNext"), level + 1, NextCost(level), ScRegistry.Community.Get(Resource.Materials));
         }
 
-        /// <summary>One level up for stockpile materials: a well becomes the next model, a dew collector's level goes up.</summary>
-        public static bool TryUpgrade(World world, Vector3i parent, BlockValue bv, EntityPlayerLocal player, out string message)
+        /// <summary>
+        /// One level up for stockpile materials: a well becomes the next model, a dew collector's level goes up. Round MP2: on the
+        /// server for any player (facility.upgrade, the Facilities tab's facility.do); never on a client's copy (E10).
+        /// </summary>
+        public static bool TryUpgrade(World world, Vector3i parent, BlockValue bv, EntityPlayer player, out string message)
         {
             message = null;
-            if (!ScCommunity.IsHost) { message = Localization.Get("scHostOnly"); return false; }
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded) { message = Localization.Get("scHostOnly"); return false; }
             if (world == null || !IsFacility(bv.type)) { message = Localization.Get("scInternal"); return false; }
             string name = NameOf(bv);
             if (!InHome(parent)) { message = string.Format(Localization.Get("scFacOutside"), name); return false; }

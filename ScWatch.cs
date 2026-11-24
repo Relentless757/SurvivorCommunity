@@ -218,7 +218,9 @@ namespace SurvivorCommunity
         {
             try
             {
-                if (!ScCommunity.IsHost || !ScRegistry.Loaded) return Localization.Get("scWatchPostName");
+                // round MP2: a client reads its copy of the registry (Ready) - its radial offers Assign and Relieve now; the
+                // registration below (NotePost) stays the server's
+                if (!ScRegistry.Ready) return Localization.Get("scWatchPostName");
                 if (!IsPost(pos))
                 {
                     string why = ScConfig.WatchPosts ? PostRefusal(pos) : "scWatchOff";
@@ -414,7 +416,7 @@ namespace SurvivorCommunity
         public static bool CanAssign(Vector3i post, Member m, out string error)
         {
             error = null;
-            if (!ScCommunity.IsHost) { error = "scHostOnly"; return false; }
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded) { error = "scHostOnly"; return false; }     // round MP2: never a client's copy (E10)
             if (!ScConfig.WatchPosts) { error = "scWatchOff"; return false; }
             if (!IsPost(post)) { error = "scWatchErrNotPost"; return false; }
             if (GuardOf(post) != null) { error = "scWatchManned"; return false; }
@@ -473,8 +475,11 @@ namespace SurvivorCommunity
             return ScCommunity.SolidFloor(w.GetBlock(post));
         }
 
-        /// <summary>A shift starts: the ammo leaves the stockpile, the post becomes the guard's, the old post is kept.</summary>
-        public static bool Assign(Vector3i post, Member m, EntityPlayerLocal player, out string error)
+        /// <summary>
+        /// A shift starts: the ammo leaves the stockpile, the post becomes the guard's, the old post is kept. Round MP2: any player
+        /// (member.watch, the Facilities tab's Assign guard; on the server) - told they took the watch.
+        /// </summary>
+        public static bool Assign(Vector3i post, Member m, EntityPlayer player, out string error)
         {
             if (!CanAssign(post, m, out error)) return false;
 #if SC_V34
@@ -517,20 +522,23 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>The radial's "Relieve guard" and sc watch relieve: the shift ends early - no rest, nothing refunded.</summary>
-        public static bool Relieve(Member m, EntityPlayerLocal player, string why)
+        /// <summary>
+        /// The radial's "Relieve guard" (watch.relieve, on the server) and sc watch relieve: the shift ends early - no rest, nothing
+        /// refunded. Round MP2: any player; never on a client's copy (E10).
+        /// </summary>
+        public static bool Relieve(Member m, EntityPlayer player, string why)
         {
-            if (!ScCommunity.IsHost || !OnWatch(m)) return false;
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded || !OnWatch(m)) return false;
             End(m, null, "scWatchRelieved", false, why, player);
             ScRegistry.SaveAtomic();
             saveDue = false;
             return true;
         }
 
-        /// <summary>sc watch end: the shift ends now as if its hours had run (the rest applies).</summary>
-        public static bool EndShiftNow(Member m, EntityPlayerLocal player)
+        /// <summary>sc watch end: the shift ends now as if its hours had run (the rest applies). Round MP2: any player.</summary>
+        public static bool EndShiftNow(Member m, EntityPlayer player)
         {
-            if (!ScCommunity.IsHost || !OnWatch(m)) return false;
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded || !OnWatch(m)) return false;
             End(m, null, "scWatchShiftOver", true, "ended from the console", player);
             ScRegistry.SaveAtomic();
             saveDue = false;
@@ -594,16 +602,21 @@ namespace SurvivorCommunity
                 if (ScPlayers.InCommunity(all[i]) && ScBaseAttack.PlayerHome(all[i])) ScCommunity.Tell(all[i], text, sound);
         }
 
-        /// <summary>The post's "Assign guard": the community window opens to pick one, or the reason shows.</summary>
+        /// <summary>
+        /// The post's "Assign guard": the community window opens to pick one, or the reason shows. Round MP2: on every machine,
+        /// from its copy of the registry on a client; the pick asks the server (member.watch), which checks it all again.
+        /// </summary>
         public static void OpenAssign(Vector3i post, EntityPlayerLocal player)
         {
             if (player == null) return;
-            string err = null;
-            if (!ScCommunity.IsHost) err = "scHostOnly";
-            else if (!ScConfig.WatchPosts) err = "scWatchOff";
-            else if (!IsPost(post)) err = PostRefusal(post) ?? "scWatchErrNotPost";
-            else if (GuardOf(post) != null) err = "scWatchManned";
-            else if (ScRegistry.Community.Get(Resource.Ammo) < Math.Max(0, ScConfig.WatchShiftAmmo)) err = "scWatchNoAmmo";
+            string err = ScActionsWindow.RequestRefusal();      // round MP2: it was "host only" on any client
+            if (err == null)
+            {
+                if (!ScConfig.WatchPosts) err = "scWatchOff";
+                else if (!IsPost(post)) err = PostRefusal(post) ?? "scWatchErrNotPost";
+                else if (GuardOf(post) != null) err = "scWatchManned";
+                else if (ScRegistry.Community.Get(Resource.Ammo) < Math.Max(0, ScConfig.WatchShiftAmmo)) err = "scWatchNoAmmo";
+            }
             if (err != null)
             {
                 ScCommunity.Tell(player, ErrorText(err, null, post), "ui_denied");
@@ -613,16 +626,17 @@ namespace SurvivorCommunity
             ScCommunity.OpenWindow(player);
         }
 
-        /// <summary>The post's "Relieve guard".</summary>
+        /// <summary>
+        /// The post's "Relieve guard". Round MP2: the server relieves the guard (watch.relieve: ScActionsWindow.WatchRelieve; inline
+        /// on the host) and a refusal is told here, as before ("Nobody is on watch at ..."); the relief itself is told to the
+        /// players at the base by End.
+        /// </summary>
         public static void RelieveAt(Vector3i post, EntityPlayerLocal player)
         {
-            Member g = ScCommunity.IsHost ? GuardOf(post) : null;
-            if (g == null)
+            ScActions.Request("watch.relieve", r =>
             {
-                if (player != null) ScCommunity.Tell(player, ErrorText(ScCommunity.IsHost ? "scWatchNoGuard" : "scHostOnly", null, post), "ui_denied");
-                return;
-            }
-            Relieve(g, player, "relieved at the post");
+                if (player != null && !r.Ok) ScCommunity.Tell(player, r.Text, r.Sound);
+            }, post.x, post.y, post.z);
         }
 
         // ------------------------------------------------------------------ the guard ----

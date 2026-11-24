@@ -96,6 +96,8 @@ namespace SurvivorCommunity
             public bool DutyChecked;
             /// <summary>Round 29a: the last check's answer, for the console ("can repair", "nothing damaged" ...).</summary>
             public string DutyState = "";
+            /// <summary>Round MP2: the entity id of the player she is linked to (the one who called her or talked to her).</summary>
+            public int OwnerId;
         }
 
         private static readonly Dictionary<int, Shift> shifts = new Dictionary<int, Shift>();
@@ -141,16 +143,51 @@ namespace SurvivorCommunity
         /// <summary>On a real work shift (the Community tab's Work button): a talk hold does not count.</summary>
         public static bool OnWorkShift(int memberId) { return OnShift(memberId) && !InTalk(memberId); }
 
+        /// <summary>
+        /// Round MP2: OnWorkShift for the window, on any machine. Shifts live on the server; a client sees one through her body's
+        /// sc_shift (sent to clients since this round; a talk hold sets none), while the body is within its range.
+        /// </summary>
+        public static bool OnWorkShiftView(Member m)
+        {
+            if (m == null) return false;
+            if (!ScMirror.Active) return OnWorkShift(m.Id);
+            EntityAlive npc = ScCommunity.FindNpc(m.Id);
+            return npc != null && npc.Buffs != null && npc.Buffs.GetCustomVar(ShiftCvar) > 0f;
+        }
+
+        /// <summary>
+        /// Round MP2: sc_shift on her body, sent to the clients at once (their dialog rows read it: "That's all for now.", the run
+        /// and "Ask to leave"), and 0 instead of a removal when it ends - a removal never reaches a client (EntityBuffs). Every
+        /// reader asks &gt; 0 (the rows: "eq 1" and "not").
+        /// </summary>
+        private static void SetShiftCvar(EntityAlive npc, bool on)
+        {
+            if (npc == null || npc.Buffs == null) return;
+            if (!on && npc.Buffs.GetCustomVar(ShiftCvar) <= 0f) return;      // nothing to send (absent or 0 already)
+            npc.Buffs.SetCustomVar(ShiftCvar, on ? 1f : 0f, true, CVarOperation.set, true);
+        }
+
+        /// <summary>Round MP2: the player a shift is linked to (its Owner), else the host's own player as before; null when neither.</summary>
+        private static EntityPlayer OwnerOf(Shift s)
+        {
+            EntityPlayer p = s != null && s.OwnerId > 0 ? ScPlayers.ByEntity(s.OwnerId) : null;
+            return p ?? ScCommunity.LocalPlayer;
+        }
+
         public static int Count { get { return shifts.Count; } }
 
         // ------------------------------------------------------------------ start ----
 
-        /// <summary>Can this member start a shift now (the dialog's ScCanWork, the tab's Call to work)? error: a Localization key.</summary>
+        /// <summary>
+        /// Can this member start a shift now (the dialog's ScCanWork, the tab's Call to work)? error: a Localization key. Round
+        /// MP2: also a read - a client's work button is colored from its copy (Ready; it said "host only" there); Start keeps the
+        /// server-only gate.
+        /// </summary>
         public static bool CanStart(Member m, EntityAlive npc, EntityPlayer player, out string error)
         {
             error = null;
             if (!ScConfig.WorkShiftsEnabled) { error = "scWorkOff"; return false; }
-            if (!ScCommunity.IsHost) { error = "scHostOnly"; return false; }
+            if (!ScRegistry.Ready) { error = "scHostOnly"; return false; }
             if (m == null || player == null) { error = "scInternal"; return false; }
             if (OnWorkShift(m.Id)) { error = "scWorkAlready"; return false; }
             if (m.Status != MemberStatus.Resident) { error = "scWorkNotResident"; return false; }
@@ -176,9 +213,10 @@ namespace SurvivorCommunity
         /// dropped so the link is seen at once, sc_shift, and the spot she holds on her Guard order until an order sets its own:
         /// the player's block when called, else where she stands.
         /// </summary>
-        public static bool Start(Member m, EntityAlive npc, EntityPlayerLocal player, bool call, out string error)
+        public static bool Start(Member m, EntityAlive npc, EntityPlayer player, bool call, out string error)     // round MP2: any player
         {
             if (!CanStart(m, npc, player, out error)) return false;
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded) { error = "scHostOnly"; return false; }     // round MP2: never a client's copy (E10)
             // round 28: a talk hold (the Community tab opened from her talk) gives way to the call - the link is written again below
             if (InTalk(m.Id))
             {
@@ -191,11 +229,12 @@ namespace SurvivorCommunity
                 npc.Buffs.SetCustomVar("Owner", player.entityId);
                 player.Buffs.SetCustomVar("EntityID", player.entityId);
                 SphereCache.LeaderCache.Remove(npc.entityId);
-                npc.Buffs.SetCustomVar(ShiftCvar, 1f);
+                SetShiftCvar(npc, true);                    // round MP2: sent to the clients (their "That's all for now." row)
                 ScCommunity.ApplyPost(npc, EntityUtilities.CenterPosition(call ? player.position : npc.position));
                 if (call) ScCommunity.DropPath(npc);
                 float now = Time.time;
-                shifts[m.Id] = new Shift { Started = now, PhaseSince = now, NextDeposit = now + DepositSeconds, Phase = Phase.Called, Called = call };
+                shifts[m.Id] = new Shift { Started = now, PhaseSince = now, NextDeposit = now + DepositSeconds, Phase = Phase.Called, Called = call,
+                                           OwnerId = player.entityId };
                 starts++;
                 ScLog.Out(m.Name + " starts a work shift (" + (call ? "called from the Community tab" : "talked to") + ") at " + npc.GetBlockPosition()
                           + " - " + m.Specialty + " " + m.SpecLevel + " stars, roles " + ScCraft.MaskText(ScCraft.ReadMask(npc)));
@@ -257,7 +296,8 @@ namespace SurvivorCommunity
                 SphereCache.LeaderCache.Remove(npc.entityId);
                 ScCommunity.ApplyPost(npc, EntityUtilities.CenterPosition(npc.position));
                 float now = Time.time, real = Time.unscaledTime;
-                shifts[m.Id] = new Shift { Started = now, PhaseSince = now, NextDeposit = now + DepositSeconds, Phase = Phase.Talk, TalkSince = real, TalkSeen = real, CapSince = real };
+                shifts[m.Id] = new Shift { Started = now, PhaseSince = now, NextDeposit = now + DepositSeconds, Phase = Phase.Talk, TalkSince = real, TalkSeen = real, CapSince = real,
+                                           OwnerId = player.entityId };     // round MP2
                 talkStarts++;
                 LogTalkGroupsOnce(player);
                 ScLog.Verbose(m.Name + ": talk hold - linked to you while the talk and its windows are open (at " + npc.GetBlockPosition() + ")");
@@ -388,7 +428,7 @@ namespace SurvivorCommunity
         private static void Promote(Member m, EntityAlive npc, Shift s, int mode)
         {
             float now = Time.time;
-            npc.Buffs.SetCustomVar(ShiftCvar, 1f);
+            SetShiftCvar(npc, true);                        // round MP2: sent to the clients
             s.Phase = Phase.Working;
             s.Started = now;
             s.PhaseSince = now;
@@ -420,12 +460,12 @@ namespace SurvivorCommunity
                 if (npc != null && npc.Buffs != null && !npc.IsDead())
                 {
                     if (s != null) Deposit(m, npc, s, true);
-                    npc.Buffs.RemoveCustomVar(ShiftCvar);
+                    SetShiftCvar(npc, false);                       // round MP2: 0, sent to the clients (was a removal)
                     if (station) ScCommunity.Station(m, npc, !talk);   // Detach drops her craft order first (DropJob); review L6: no teleport after a talk
-                    else ScCommunity.Detach(npc, ScCommunity.LocalPlayer);
+                    else ScCommunity.Detach(npc, OwnerOf(s));       // round MP2: the shift's own player (it was the host's own)
                     DropMarker(npc);                                // SCore drew a hire marker for the owner link: it goes with it
                 }
-                else DropHireMark(m.Id);
+                else DropHireMark(m.Id, OwnerOf(s));
                 GiveUpPending(m, s, "her shift ended first");        // round 33 review L3: counted, not dropped unseen
                 ScCraft.FlushXp(true);                              // the shift's XP is saved with its end (review #6)
                 if (talk)
@@ -440,7 +480,7 @@ namespace SurvivorCommunity
                 endReasons[reason ?? "?"] = n + 1;
                 ScLog.Out(m.Name + "'s work shift ends (" + reason + ")" + (s != null ? " after " + (int)(Time.time - s.Started) + " s, " + s.Jobs + " job(s), "
                           + s.Crafts + " item(s) made, " + s.Deposited + " put in the crates" : ""));
-                if (station && tell && npc != null) ScCommunity.Tell(ScCommunity.LocalPlayer, string.Format(Localization.Get("scWorkBack"), m.Name), "");
+                if (station && tell && npc != null) ScCommunity.Tell(OwnerOf(s), string.Format(Localization.Get("scWorkBack"), m.Name), "");   // round MP2: the shift's player
             }
             catch (Exception e)
             {
@@ -463,7 +503,7 @@ namespace SurvivorCommunity
         public static void Forget(int memberId, EntityAlive npc)
         {
             if (shifts.Remove(memberId)) ScLog.Verbose("work shift of " + memberId + " forgotten (stationed or cleaned up)");
-            if (npc != null && npc.Buffs != null && npc.Buffs.HasCustomVar(ShiftCvar)) npc.Buffs.RemoveCustomVar(ShiftCvar);
+            SetShiftCvar(npc, false);          // round MP2: 0, sent to the clients (was a removal)
             DropMarker(npc);       // review #5: after Station's Detach (Go home, a reload's leftover link) the companion marker goes too
         }
 
@@ -478,12 +518,13 @@ namespace SurvivorCommunity
             Shift s;
             if (m == null || npc == null || !shifts.TryGetValue(m.Id, out s))
             {
-                if (npc != null && npc.Buffs != null && npc.Buffs.HasCustomVar(ShiftCvar))
+                // round MP2: > 0 - an ended shift leaves sc_shift at 0 now (it was removed), which is no stale shift
+                if (npc != null && npc.Buffs != null && npc.Buffs.GetCustomVar(ShiftCvar) > 0f)
                 {
                     // review #2: a reload ended the shift (in memory) but the body kept its job state - 0-XNPCCore's craft-here
                     // mode and buff - beside the Owner cvar the resident rule now removes: they go too, so its craft task cannot
                     // pick it up again (C1f keeps a resident's ended job where she is meanwhile)
-                    npc.Buffs.RemoveCustomVar(ShiftCvar);
+                    SetShiftCvar(npc, false);
                     SdcsLootMode.Clear(npc);
                     if (npc.Buffs.HasBuff(SdcsLootMode.EnableCraftHereBuff)) npc.Buffs.RemoveBuff(SdcsLootMode.EnableCraftHereBuff);
                     DropJob(npc, "a shift a reload ended");
@@ -688,16 +729,17 @@ namespace SurvivorCommunity
                 string why = m == null ? "no longer a member" : m.Status != MemberStatus.Resident ? "now " + m.Status : "her body unloaded";
                 if (npc != null && npc.Buffs != null)
                 {
-                    npc.Buffs.RemoveCustomVar(ShiftCvar);
+                    SetShiftCvar(npc, false);                       // round MP2: 0, sent to the clients (was a removal)
                     if (m != null && m.Status != MemberStatus.Following && m.Status != MemberStatus.PendingStation)
                     {
-                        // round MP0: the anchor's party - a shift starts only from the host's own talk or tab until MP2, so its
-                        // owner is the host's player (the anchor there); a dedicated server has no shifts yet
-                        ScCommunity.Detach(npc, player);
+                        // round MP0: the anchor's party. Round MP2: the shift's own player (any player can call one to work
+                        // now), else the anchor as before
+                        EntityPlayer owner = gone != null && gone.OwnerId > 0 ? ScPlayers.ByEntity(gone.OwnerId) : null;
+                        ScCommunity.Detach(npc, owner ?? player);
                         DropMarker(npc);
                     }
                 }
-                else if (m == null || (m.Status != MemberStatus.Following && m.Status != MemberStatus.PendingStation)) DropHireMark(id);
+                else if (m == null || (m.Status != MemberStatus.Following && m.Status != MemberStatus.PendingStation)) DropHireMark(id, OwnerOf(gone));
                 if (talk)
                 {
                     talkEnds++;
@@ -784,9 +826,8 @@ namespace SurvivorCommunity
         /// SCore's V4 leader component writes hired_&lt;id&gt; on the player every frame while the owner link stands; Detach takes it off
         /// again. With no body to detach (unloaded, gone) it is taken off here, as Detach would.
         /// </summary>
-        private static void DropHireMark(int id)
+        private static void DropHireMark(int id, EntityPlayer p)       // round MP2: the shift's player (it was always the host's own)
         {
-            EntityPlayerLocal p = ScCommunity.LocalPlayer;
             if (p == null || p.Buffs == null || !p.Buffs.HasCustomVar("hired_" + id)) return;
             p.Buffs.RemoveCustomVar("hired_" + id);
             EntityUtilities.CheckForDanglingHires(p.entityId);
@@ -1046,12 +1087,16 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ the Community tab ----
 
-        /// <summary>The tab's Call to work / End work.</summary>
-        public static void CallOrEnd(Member m, EntityPlayerLocal player, out string message, out bool ok)
+        /// <summary>
+        /// The tab's Call to work / End work. Round MP2: any player (member.work, the Facilities tab's facility.do, on the server) -
+        /// she walks to them; never on a client's copy (E10).
+        /// </summary>
+        public static void CallOrEnd(Member m, EntityPlayer player, out string message, out bool ok)
         {
             ok = false;
             message = "";
             if (m == null || player == null) return;
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded) { message = Localization.Get("scHostOnly"); return; }
             if (ScDowned.RefuseVerb(m)) { message = Localization.Get("scDownedBusy"); return; }   // round U2 (D4): no shift starts or ends from the tab while she is down
             if (OnWorkShift(m.Id))
             {
@@ -1079,11 +1124,12 @@ namespace SurvivorCommunity
                 case "workmenulabel": return Localization.Get(workOpen && sel != null ? "scUiWorkClose" : "scUiWorkMenu");
                 case "workpicking": return (workOpen && sel != null && !runPicking).ToString();
                 case "msgvisible": return (!runPicking && !(workOpen && sel != null)).ToString();
-                case "worklabel": return Localization.Get(sel != null && OnWorkShift(sel.Id) ? "scUiWorkEnd" : "scUiWorkCall");
+                // round MP2: OnWorkShiftView - a client sees her shift on her body (it has no shifts of its own)
+                case "worklabel": return Localization.Get(sel != null && OnWorkShiftView(sel) ? "scUiWorkEnd" : "scUiWorkCall");
                 case "workcolor":
                 {
                     if (sel == null) return Dim;
-                    if (OnWorkShift(sel.Id)) return Body;
+                    if (OnWorkShiftView(sel)) return Body;
                     string why;
                     return CanStart(sel, ScCommunity.FindNpc(sel.Id), ScCommunity.LocalPlayer, out why) ? Body : Dim;
                 }
@@ -1104,7 +1150,7 @@ namespace SurvivorCommunity
         public static string Describe(Member m, EntityAlive npc)
         {
             Shift s;
-            string cvar = npc != null && npc.Buffs != null ? " (sc_shift=" + (npc.Buffs.HasCustomVar(ShiftCvar) ? "1" : "-") + " Owner="
+            string cvar = npc != null && npc.Buffs != null ? " (sc_shift=" + (npc.Buffs.GetCustomVar(ShiftCvar) > 0f ? "1" : "-") + " Owner="     // round MP2: 0 = none
                           + npc.Buffs.GetCustomVar("Owner").ToString("0", CultureInfo.InvariantCulture) + " Leader=" + npc.Buffs.GetCustomVar("Leader").ToString("0", CultureInfo.InvariantCulture)
                           + " SdcsLootMode=" + npc.Buffs.GetCustomVar("SdcsLootMode").ToString("0", CultureInfo.InvariantCulture) + ")" : "";
             if (!shifts.TryGetValue(m.Id, out s)) return "none" + cvar;
@@ -1155,7 +1201,12 @@ namespace SurvivorCommunity
 // Round 28 (X3, decision 2): "I have work for you." (ScCanWork / ScWorkStart) is gone - 0-XNPCCore's Craft... serves every
 // member, a resident through the talk hold (ScWork.StartTalk); a craft order given there makes the work shift (ScWork.Promote).
 
-/// <summary>C1: "That's all for now." - the shift ends, she says so as the talk closes and walks back to her post.</summary>
+/// <summary>
+/// C1: "That's all for now." - the shift ends, she says so as the talk closes and walks back to her post. Round MP2: the server
+/// ends it (member.workend, ScActionsWindow; inline on the host and in single player) and the talker is told her answer here;
+/// her voice plays on the host's own machine only until MP4. A client finds her in its copy of the registry; whether she is
+/// on a shift is the server's to say (nothing at all when she is not, as before).
+/// </summary>
 public class DialogActionScWorkEnd : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
@@ -1164,12 +1215,8 @@ public class DialogActionScWorkEnd : BaseDialogAction
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
-            // round MP1: a client now finds her in its copy of the registry - the shift is the server's (round MP2): said, not silent
-            if (m != null && !ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }
-            if (m == null || !ScWork.OnShift(m.Id)) return;
-            ScWork.End(m, npc, "That's all for now.", true, false);
-            ScCommunity.Tell(player, string.Format(Localization.Get("scEncCallSays"), m.Name, Localization.Get("scWorkEndSaid")), "");
-            ScVoice.SayAfterTalk(npc, "scWorkEndSaid");
+            if (m == null) return;
+            ScActions.Request("member.workend", r => { if (player != null) ScCommunity.Tell(player, r.Text, r.Sound); }, m.Id);
         }
         catch (Exception e) { ScLog.Once("act-workend", e); }
     }

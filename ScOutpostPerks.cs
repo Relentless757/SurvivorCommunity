@@ -180,10 +180,13 @@ namespace SurvivorCommunity
             return Math.Max(0, since + need - ScCommunity.Today);
         }
 
-        /// <summary>Why "Upgrade" is refused, as a finished tooltip; null = it may go ahead.</summary>
+        /// <summary>
+        /// Why "Upgrade" is refused, as a finished tooltip; null = it may go ahead. Round MP2: a read - a client's window colors the
+        /// button from its copy (Ready; it said "host only" there); Upgrade keeps the server-only gate.
+        /// </summary>
         public static string CanUpgrade(Outpost o)
         {
-            if (!ScCommunity.IsHost) return Localization.Get("scHostOnly");
+            if (!ScRegistry.Ready) return Localization.Get("scHostOnly");
             if (o == null || !o.Holding) return Localization.Get("scOpPostLost");
             if (o.Level >= 3) return string.Format(Localization.Get("scOpUpgradeMax"), o.Name);
             if (o.State != OutpostState.Active) return string.Format(Localization.Get("scOpUpgradeNotActive"), o.Name);
@@ -198,8 +201,10 @@ namespace SurvivorCommunity
             return null;
         }
 
-        public static bool Upgrade(Outpost o, EntityPlayerLocal player, out string message)
+        /// <summary>The next level, bought (outpost.upgrade on the server, sc outpost upgrade). Round MP2: any player; never a client's copy (E10).</summary>
+        public static bool Upgrade(Outpost o, EntityPlayer player, out string message)
         {
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded) { message = Localization.Get("scHostOnly"); return false; }
             message = CanUpgrade(o);
             if (message != null) return false;
             int mats, fuel;
@@ -210,7 +215,7 @@ namespace SurvivorCommunity
             o.Level++;
             o.LevelDay = ScCommunity.Today;
             ScOutposts.NoteLedger(string.Format(Localization.Get("scOpLedgerLevel"), o.Name, o.Level));
-            ScOutposts.RefreshMarkers(player);
+            ScOutposts.RefreshMarkers(player);      // round MP2: the host's own player's map only (MP4: markers for remote players)
             ScRegistry.SaveAtomic();
             message = string.Format(Localization.Get("scOpUpgraded"), o.Name, o.Level, ScOutposts.YieldText(ScOutposts.Estimate(o)));
             ScLog.Out("outpost " + o.Id + " at " + o.Name + " upgraded to level " + o.Level + " for " + mats + " mats + " + fuel + " fuel");

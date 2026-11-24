@@ -456,5 +456,9 @@
     <Compile Include="ScSalvage.cs" />
     <Compile Include="ScConfigFacilities.cs" />
   </ItemGroup>
+  <!-- round MP2 (part W): the server's side of the community window, the Facilities tab, the Watch post and well radials -->
+  <ItemGroup Condition="'$(ScGame)'=='34'">
+    <Compile Include="ScActionsWindow.cs" />
+  </ItemGroup>
 
 </Project>

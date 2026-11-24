@@ -85,11 +85,13 @@ namespace SurvivorCommunity
         }
         public static string RationTimeLeft() { return RationActive ? Clock(ScRegistry.Community.RationLeft) : ""; }
 
-        /// <summary>Why a feast cannot be held now, as a finished line; null = it can.</summary>
+        /// <summary>
+        /// Why a feast cannot be held now, as a finished line; null = it can. Round MP2: a read - a client's Facilities tab asks it
+        /// of its copy (Ready; it said "host only" there), and PrepareFeast keeps the server-only gate.
+        /// </summary>
         public static string WhyNotFeast()
         {
-            if (!ScCommunity.IsHost) return Localization.Get("scHostOnly");
-            if (!ScRegistry.Loaded || !ScRegistry.Community.HasHome) return Localization.Get("scNeedHome");
+            if (!ScRegistry.Ready || !ScRegistry.Community.HasHome) return Localization.Get("scNeedHome");
             if (ScRegistry.Members.Count == 0) return Localization.Get("scActNoMembersFeast");
             Community c = ScRegistry.Community;
             if (FeastActive) return Localization.Get("scActFeastRunning");          // review: also yesterday's, past the rollover
@@ -102,11 +104,15 @@ namespace SurvivorCommunity
             return null;
         }
 
-        /// <summary>Holds the feast: the food leaves the stockpile, the morale and the max stamina start at once.</summary>
-        public static bool PrepareFeast(EntityPlayerLocal player, out string message)
+        /// <summary>
+        /// Holds the feast: the food leaves the stockpile, the morale and the max stamina start at once. Round MP2: any player (the
+        /// Facilities tab's facility.do, on the server); never on a client's copy (E10).
+        /// </summary>
+        public static bool PrepareFeast(EntityPlayer player, out string message)
         {
             message = WhyNotFeast();
             if (message != null) return false;
+            if (!ScRegistry.Loaded) { message = Localization.Get("scHostOnly"); return false; }
             try
             {
                 Community c = ScRegistry.Community;
@@ -138,11 +144,10 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Why rationing cannot be enacted now, as a finished line; null = it can.</summary>
+        /// <summary>Why rationing cannot be enacted now, as a finished line; null = it can. Round MP2: a read (as WhyNotFeast).</summary>
         public static string WhyNotRation()
         {
-            if (!ScCommunity.IsHost) return Localization.Get("scHostOnly");
-            if (!ScRegistry.Loaded || !ScRegistry.Community.HasHome) return Localization.Get("scNeedHome");
+            if (!ScRegistry.Ready || !ScRegistry.Community.HasHome) return Localization.Get("scNeedHome");
             if (ScRegistry.Members.Count == 0) return Localization.Get("scActNoMembersRation");
             if (ScRegistry.Community.RationDay == ScCommunity.Today) return Localization.Get("scActRationToday");
             if (FeastActive) return Localization.Get("scActRationFeast");           // round fd2: not during a feast
@@ -160,11 +165,15 @@ namespace SurvivorCommunity
             return eaten - Math.Max(0, Math.Min(eaten, kept)) <= 0;
         }
 
-        /// <summary>Enacts rationing: tonight's rollover eats less, and the penalty starts at once.</summary>
-        public static bool EnactRationing(EntityPlayerLocal player, out string message)
+        /// <summary>
+        /// Enacts rationing: tonight's rollover eats less, and the penalty starts at once. Round MP2: any player (facility.do
+        /// checks the Owner access first); never on a client's copy (E10).
+        /// </summary>
+        public static bool EnactRationing(EntityPlayer player, out string message)
         {
             message = WhyNotRation();
             if (message != null) return false;
+            if (!ScRegistry.Loaded) { message = Localization.Get("scHostOnly"); return false; }
             try
             {
                 Community c = ScRegistry.Community;
@@ -288,11 +297,10 @@ namespace SurvivorCommunity
             return (s / 60).ToString(CultureInfo.InvariantCulture) + ":" + (s % 60).ToString("00", CultureInfo.InvariantCulture);
         }
 
-        /// <summary>Why the round cannot be poured now, as a finished line; null = it can.</summary>
+        /// <summary>Why the round cannot be poured now, as a finished line; null = it can. Round MP2: a read (as WhyNotFeast).</summary>
         public static string WhyNotDrinks()
         {
-            if (!ScCommunity.IsHost) return Localization.Get("scHostOnly");
-            if (!ScRegistry.Loaded || !ScRegistry.Community.HasHome) return Localization.Get("scNeedHome");
+            if (!ScRegistry.Ready || !ScRegistry.Community.HasHome) return Localization.Get("scNeedHome");
             if (ScRegistry.Members.Count == 0) return Localization.Get("scActNoMembers");
             Community c = ScRegistry.Community;
             if (c.DrinksDay == ScCommunity.Today) return Localization.Get(DrinksActive ? "scActDrinksRunning" : "scActDrinksToday");
@@ -301,11 +309,15 @@ namespace SurvivorCommunity
             return null;
         }
 
-        /// <summary>Pours the round: the cost leaves the stockpile and the morale starts at once.</summary>
-        public static bool PourDrinks(EntityPlayerLocal player, out string message)
+        /// <summary>
+        /// Pours the round: the cost leaves the stockpile and the morale starts at once. Round MP2: any player (facility.do, on the
+        /// server); never on a client's copy (E10).
+        /// </summary>
+        public static bool PourDrinks(EntityPlayer player, out string message)
         {
             message = WhyNotDrinks();
             if (message != null) return false;
+            if (!ScRegistry.Loaded) { message = Localization.Get("scHostOnly"); return false; }
             try
             {
                 Community c = ScRegistry.Community;
