@@ -2283,6 +2283,32 @@ Round MP0 is the groundwork:
   - A client sees a band line's tokens raw for one round trip; two tooltips when a client's request fails at once; a
     controller's cursor jumps to the first row when facts land (members NIT 3-5).
 
+- **Round MP3 (part T), the packing station and bundle opening** (`ScActionsStock`, `ScStockpile`, `XUiC_ScPackingStrip`):
+  an open box belongs to the player who has it open (the server's writes into a box a client has open are thrown away,
+  then overwritten by the client's copy), so the item side runs on the machine that has the station open, in its own open
+  grid, and the server changes only the stockpile and the XP. The strip calls the ops on every machine; the host's run
+  inline, so both halves run back to back there with the old checks, lines and order.
+  - **Ops** (whole numbers unless marked s:; x, y, z = the station's block): `stock.packed` (x, y, z, resource, units,
+    large, medium, small, threshold) after a pack in the grid: the craftsmen's XP; `stock.deposit` (x, y, z, bundles, then
+    the units per `Resource`, 7) after the bundles left the grid: credit (a refusal puts them back: their slots, any empty
+    slot, the bag, the feet); `stock.withdraw` (x, y, z, resource, room 1/0) before the bundle goes into the grid: debit,
+    with a refund `ticket` hint; `stock.refund` (ticket) when the bundle no longer fit or the box was closed in between (a
+    refused refund puts the bundle into the bag instead); `bundle.opened` (s: the bundle's item name): the Logistics XP
+    (the open itself stays the opening machine's, as vanilla). Deposit, withdraw and refund answer the `stock` hint (the 7
+    figures after the op), which a client's strip shows until its copy changes (`ScMirror.Version`).
+  - **Checks:** the position holds a packing station or a held outpost claim's box (`ScStockpile.StationOf`); a remote
+    sender is within the loot window's own closing distance of it (plus slack) and holds its open lock (`LockManager`'s
+    single lock on that storage feature, channel 0). The amounts are the client's (co-op trust), checked only for
+    plausibility. Tickets are single-use, the sender's own, 120 s.
+  - **A client's outposts:** its `ScOutposts` flags are never built, so `StationOf` reads the copy's outposts there.
+  - **`ScStockpile.GiveBundles`** takes any `EntityPlayer`: this machine's own player gets the bag, then the feet, as
+    before; for a remote player on the server pass a `toRemote` list and send it in the reply (`ScItemTx.StacksToHint`),
+    for that player's machine to add (`ScItemTx.GiveToLocal`). Without the list the bundles drop at their feet. Never give
+    into a box (`st`) this machine does not have open.
+  - **Known gaps:** a reply that never comes (a disconnect, or one later than `ScActions`' 30 s) loses what was in flight: a
+    deposit's bundles to the player, a withdrawal's unit to the community. A refused `stock.packed` keeps the bundles and
+    pays no XP. A client packs with its copy's Craftsmanship stars, which can be one push behind.
+
 ## How it hangs together (for modders)
 
 - NPCs are 0-XNPCCore's `EntityAliveSDXV4` survivors (SCore's legacy `EntityAliveSDX` still works for pack NPCs). A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars

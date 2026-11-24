@@ -21,6 +21,11 @@ scFavourNotEnough,UI,Tooltip,,,,You are not carrying enough of what they asked f
 scFavourNotDone,UI,Tooltip,,,,They are still waiting for their favour.
 scFavourPoiDone,UI,Tooltip,,,,"{0} is clear - go back to {1} and they will join your community."
 scHostOnly,UI,Tooltip,,,,The community is managed by the host in this version.
+scStockNotStation,UI,Packing,,,,That box is not a packing station any more.
+scStockNotNear,UI,Packing,,,,You are too far from the packing station.
+scStockNotOpen,UI,Packing,,,,The packing station is not open for you any more. Open it again and try once more.
+scWithdrawnBag,UI,Packing,,,,"One small {0} bundle taken from the stockpile. The box was full, so it is in your bag (or at your feet)."
+scDepositBack,UI,Packing,,,,{0} bundle(s) went to your bag (or at your feet).
 scActionMemberGone,UI,Tooltip,,,,That survivor is not in the community any more.
 scActionOutpostGone,UI,Tooltip,,,,That outpost is not there any more.
 scActionChanged,UI,Tooltip,,,,That changed in the meantime. Look again and try once more.
