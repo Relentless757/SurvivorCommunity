@@ -19,7 +19,7 @@ namespace SurvivorCommunity
     ///
     /// Round MP2 (multiplayer): the entries show on a client too, from its copy of the community, for its own claims; what
     /// they change goes to the server as ScActions requests (ScActionsClaim), which checks the claim against the sender.
-    /// Linked storage stays the host's own until MP3.
+    /// Round MP3: Linked storage and Outpost storage too (storage.open, ScStorageServer).
     /// </summary>
     [Preserve]
     public class TEFeatureSCCommunity : TEFeatureAbs
@@ -199,13 +199,16 @@ namespace SurvivorCommunity
                 if (CommandIs(_commandName, CmdStorage))
                 {
                     bool atOutpost = ScOutposts.AtClaim(_blockPos) != null;
-                    if (atOutpost && ScCommunity.IsHost) { ScHomeLink.Request(_player, _blockPos); return true; }
-                    // round MP2: linked storage (and the outpost's home link) stays the host's own until MP3 (item transactions).
-                    // Round MP2 (review radials MINOR 1): refused BEFORE the AutoHomeFirstClaim adoption - a refused action must
-                    // not make the client's claim the home
-                    if (!ScCommunity.IsHost) { ScCommunity.Tell(_player, Localization.Get("scHostOnly"), "ui_denied"); return true; }
-                    if (!atOutpost && !ScZone.HasHome && ScConfig.AutoHomeFirstClaim) ScActionsClaim.RequestHome(_blockPos, ScActionsClaim.HomeAdoptStorage, _player);
-                    ScStorage.OpenWindow(_player);
+                    // round MP3: linked storage (and the outpost's home link) for every player - the server scans, claims and
+                    // answers with the view (ScStorage.RequestOpen; at once on the host). Round MP2 (review radials MINOR 1): a
+                    // machine that cannot ask the server is refused BEFORE the AutoHomeFirstClaim adoption - a refused action
+                    // must not make the client's claim the home. The adoption goes first, so the server (which takes requests
+                    // in order) has the home when the open arrives.
+                    string refusal = ScActionsWindow.RequestRefusal();
+                    if (refusal != null) { ScCommunity.Tell(_player, ScActions.Localize(refusal), "ui_denied"); return true; }
+                    if (atOutpost) { ScStorage.RequestOpen(_player, ScStorage.KindHomeLink, _blockPos); return true; }
+                    if (!ScZone.HasHome && ScConfig.AutoHomeFirstClaim) ScActionsClaim.RequestHome(_blockPos, ScActionsClaim.HomeAdoptStorage, _player);
+                    ScStorage.RequestOpen(_player, ScStorage.KindHome, _blockPos);
                     return true;
                 }
                 if (CommandIs(_commandName, CmdEstablish))
@@ -228,9 +231,8 @@ namespace SurvivorCommunity
                 {
                     Outpost o = ScOutposts.AtClaim(_blockPos);
                     if (o == null) return true;
-                    // round MP2: linked storage stays the host's own until MP3 (item transactions)
-                    if (!ScCommunity.IsHost) { ScCommunity.Tell(_player, Localization.Get("scHostOnly"), "ui_denied"); return true; }
-                    ScStorage.OpenWindow(_player, _blockPos, o.Box, string.Format(Localization.Get("scOpStorageTitle"), o.Name));
+                    // round MP3: the outpost's own boxes for every player (the server scans its building and names the title)
+                    ScStorage.RequestOpen(_player, ScStorage.KindOutpost, _blockPos);
                     return true;
                 }
             }

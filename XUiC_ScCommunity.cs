@@ -112,7 +112,8 @@ namespace SurvivorCommunity
                     ScLog.Err("community window: no member rows (controller ScMemberRow) in windows.xml");
                 if (rows != null) for (int i = 0; i < rows.Length; i++) rows[i].Bind(this);
                 Hook("btnClose", () => Close());
-                Hook("btnStorage", () => { Close(); ScStorage.OpenWindow(Player); });
+                // round MP3: linked storage for every player - the server answers with the view (at once on the host)
+                Hook("btnStorage", () => { EntityPlayerLocal p = Player; Close(); ScStorage.RequestOpen(p, ScStorage.KindHome, Vector3i.zero); });
                 Hook("btnPrev", () => Turn(-1));
                 Hook("btnNext", () => Turn(1));
                 Hook("btnFollow", OnFollow);

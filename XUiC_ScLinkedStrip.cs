@@ -12,6 +12,9 @@ namespace SurvivorCommunity
     /// Refresh closes and reopens the container through the normal path (a re-bind of the slots under
     /// GridInventory's takeover broke its scrolling). Same shape as the packing strip; every binding is
     /// non-null before Init.
+    /// Round MP3 (part L): the figures are the view's, as the server counted them (ScStorage: the boxes live on the server),
+    /// plus the boxes left out because someone has them open or they are locked; Refresh asks the server for the same view
+    /// again (ScStorage.Refresh, once this view's last changes are answered).
     /// </summary>
     [Preserve]
     public class XUiC_ScLinkedStrip : XUiController
@@ -80,7 +83,8 @@ namespace SurvivorCommunity
                 return false;
             }
             if (anchorStood && !stands) return true;
-            return ScStorage.CurrentArea == null && !ScZone.HasHome;     // the home zone's boxes, and no home any more
+            // the home zone's boxes (at home, or from an outpost), and no home any more (round MP3: a client reads its copy)
+            return ScStorage.CurrentKind != ScStorage.KindOutpost && !ScZone.HasHome;
         }
 
         /// <summary>A live land claim at this position (the host's land claim map); true when the map cannot tell.</summary>
@@ -107,8 +111,7 @@ namespace SurvivorCommunity
                 {
                     // outside the press handler: the open path closes every modal window first
                     reopen = false;
-                    EntityPlayerLocal p = (xui != null && xui.playerUI != null) ? xui.playerUI.entityPlayer : null;
-                    if (Container() != null && p != null) ScStorage.OpenWindow(p, ScStorage.CurrentAnchor, ScStorage.CurrentArea, ScStorage.CurrentTitle);   // same view again
+                    if (Container() != null) ScStorage.Refresh();     // round MP3: the same view again, from the server
                     return;
                 }
                 float now = Time.unscaledTime;
@@ -129,11 +132,13 @@ namespace SurvivorCommunity
                 {
                     // the boxes' whole free room, in the unit the grid is drawn in (the grid itself only lays out a
                     // band of empty rows under the stacks)
-                    bool cellsUnit = c.GridDrawn && ScStorage.BoxFreeCells != null;
+                    // round MP3: cells when the server counted them with the grid bridge (the boxes live there)
+                    bool cellsUnit = c.GridDrawn && ScStorage.RoomInCells;
                     h = string.Format(Localization.Get(cellsUnit ? "scStorageHeaderCells" : "scStorageHeader"),
                                       ScStorage.Boxes, ScStorage.LiveStacks(), ScStorage.FreeFor(c.GridDrawn));
                     if (c.Hidden > 0) h += " - " + string.Format(Localization.Get("scStorageMore"), c.Hidden);
                     if (ScStorage.SkippedChunks > 0) h += " " + string.Format(Localization.Get("scStorageUnloaded"), ScStorage.SkippedChunks);
+                    if (ScStorage.SkippedBoxes > 0) h += " " + string.Format(Localization.Get("scStorageSkipped"), ScStorage.SkippedBoxes);   // round MP3
                 }
                 if (v != visible || h != header)
                 {

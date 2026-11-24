@@ -380,7 +380,10 @@ walk back.
   strip counts free cells - a box with a free slot but no run of cells for a rifle does not
   count.
 - Boxes in chunks that are not loaded are out of reach (the strip says how many chunks were skipped).
-  The packing station is not part of it. Host only.
+  The packing station is not part of it. Round MP3: every player can use it, on a listen host or a dedicated server
+  (see "Round MP3 (part L), linked storage" under Multiplayer). A box somebody has open by hand, or a box locked against
+  you (a friend's password-locked crate), is left out of your view ("N box(es) in use or locked not shown"); while your view
+  is open nobody can open its boxes by hand, and residents' home jobs leave them alone.
 
 ## Radio station
 
@@ -2282,6 +2285,74 @@ Round MP0 is the groundwork:
   - No per-player request budget; no range check on the three claim ops (only the sender's own claim passes) (radials NIT 2).
   - A client sees a band line's tokens raw for one round trip; two tooltips when a client's request fails at once; a
     controller's cursor jumps to the first row when facts land (members NIT 3-5).
+
+- **Round MP3 (part L), linked storage** (`ScStorageServer`, `NetPackageScStorage`, `ScStorage`, `ScLinkedContainer34`,
+  `ScHomeLink`, `Patches_LinkedStorage`): the server owns the boxes; every player's view, the host's own included, goes
+  through the same claim and compare-and-set path.
+  - **Ops** (ScActions, Community access):
+    - `storage.open` (kind, x, y, z): kind `ScStorage.KindHome` 0 (the window's Open storage button, the home claim's
+      Linked storage; x y z unused), `KindOutpost` 1 (Outpost storage at that claim), `KindHomeLink` 2 (the home's boxes
+      from the outpost claim at x y z: `ScHomeLink` loads the home zone per player and answers "Radioing home...").
+      The answer only carries a refusal; the view comes as `NetPackageScStorage` (the host's own player gets it inline).
+    - `storage.cells` (session, batch, part, parts, then per entry flags, x, y, z, index; s: per entry expect and new for
+      a compare-and-set, or the stack and "" for a deposit, flags bit 0): one batch of cell changes, in parts of
+      `ScStorageServer.PartEntries` (50; a request holds 255 ints), judged whole at the last part. The answer's hints:
+      `res` (per entry `x,y,z,index,code`, '=' as '~', `!` = the box is gone or out of reach, `-` = a deposit not placed;
+      the slots after the batch, or as they are now when refused), `fs` and `fc` (the view's free slots and free cells,
+      `fc` -1 without the grid bridge on the server).
+    - `storage.close` (session), `storage.keep` (session, every 5 s while the view is open).
+  - **`NetPackageScStorage`** (server to client; layout in its header): the view (session, kind, anchor, outpost name,
+    counts, then every stack as box x y z, slot, code), slot updates (another view wrote boxes this view shows), and "the
+    server ended the view" (a reason key).
+  - **Sessions and claims:** one session per player holds the boxes its view shows. A claim keeps vanilla out (a prefix on
+    `TEFeatureStorage.OnLockRequestServer` refuses a hand-open with "Someone is using this box through linked storage") and
+    SC's NPC writers out. Two players' views may claim the same box: their changes are compared against the box itself, and
+    every commit is pushed to the other views that show the slot. A session ends on `storage.close`, on a new open, on the
+    player's disconnect, 40 m from the view's anchor, after 20 s without `storage.keep`, at the world's start and end, or
+    when its own player opens one of its boxes by hand (`ScStorageServer.Sweep`, once a second from `ScHomeLink.Tick`). A
+    dead player's view is held (claims kept, no distance or silence test) for up to 2 minutes and 15 s past the respawn:
+    ScActions refuses a dead player's requests, so a batch that reached the server just after the death is held by the view
+    and sent again after the respawn (its items may already lie in the death backpack: only the commit keeps them from being
+    doubled), and the view's close waits for the respawn too. No claim can outlive its player.
+  - **The F3-F5 rules, for everyone (single player too):** a view leaves out a box that somebody has open
+    (`LockManager.IsLockedServer`, or the server's own open flag) and one locked (`TEFeatureLockable`) against the viewer.
+    `DepositInZone`, `TopUpInZone` and `TakeOneInZone` skip a box that is open, claimed by a view, or locked against the
+    community's owner (the host's own player while a save has no owner id yet).
+  - **Compare-and-set on the encoding:** stacks are compared as `ScItemTx.Encode` strings, never with `ItemValue.Equals`
+    (it compares mod arrays by reference, so two copies of one modded gun never match). The view echoes the code the server
+    sent, so the server always compares its own encoding with itself.
+  - **The view** (`ScLinkedContainer34`): the window's changes only mark cells; once a frame (`ScStoragePump.LateUpdate`,
+    after the click is done, when the cell and the cursor agree) every changed cell goes in one batch, and one batch is in
+    flight per view. A refused batch writes nothing; the view puts every cell of that batch, and every cell changed since,
+    back to its box as it is now, and settles with the player: what those cells held goes back to the bag and toolbelt (or
+    the ground), what they showed before is taken back from the cursor, then the bag and toolbelt (the exact item; netted
+    per item first). While a change is on its way the cursor's item cannot be thrown on the ground
+    (`XUiC_DragAndDropWindow.DropCurrentItem` is held), so a refused take finds it. On the host AddItem, TryStackItem and
+    Sort's merges ask the server first (answered at once) and nothing moves on a refusal, as before; on a client they move at
+    once and a refusal gives the items back. The grid bridge's room delegates run on the server only; the view shows the
+    server's figures.
+  - **Loss and duplication, per cell operation** (the brief's rule 1; "refused" = another view or the world changed the
+    slot, the box is gone, locked or open, or there is no room; nothing of a refused batch is written):
+
+    | Operation | Who moves the item | Server changes | Refused | Stale view | Two players | No answer |
+    |---|---|---|---|---|---|---|
+    | Take, take half, shift-click or Take all out of a cell | the player's grid, to the cursor or bag | the batch's commit (slot E to less) | the cell shows the box as it is; the taken items come off the cursor, bag or toolbelt | compare fails: refused | the first batch wins; the second is refused and gives the items back | disconnect only (see below) |
+    | Drop, drop one or merge onto a cell with a box slot | the player's grid, from the cursor | commit (slot E to more) | the dropped items go back to the bag (or the ground) | refused | as above | disconnect only |
+    | Swap on a cell with a box slot | the player's grid | commit (slot E to the new item) | the new item goes back to the bag; E comes off the cursor | refused | as above | disconnect only |
+    | Drop on an empty cell (deposit) | the player's grid | commit (the first claimed box with room) | the item goes back to the bag | n/a (room is checked then) | each deposit gets its own slot | disconnect only |
+    | Shift-click or move-all from the backpack | host: the server first; client: the player's grid | commit | host: nothing moved, the backpack keeps it; client: given back | n/a | as above | disconnect only |
+    | Sort (merging partial stacks) | host: the server first; client: two cells | one commit for both slots | host: nothing moved; client: both cells put back, nothing reaches the player | refused | refused | disconnect only |
+    | NPC job deposit or take | the server | at once | the box is skipped (claimed, open or locked) | n/a | n/a | n/a |
+    | Hand-open of a claimed box | nobody | none | refused with a line | n/a | n/a | n/a |
+
+    Every move between the view's own cells nets to zero. A batch is answered on the reliable channel, so "no answer" only
+    happens when the client disconnects; then what was in flight may be lost or doubled (the brief's accepted case), and
+    after 40 s the view gives up and closes. A death in flight is not a refusal: the batch is held and sent again after the
+    respawn (above); a client dead for more than about 2 minutes gets it put back like any refusal. One residual case is
+    logged (`could not be taken back`) and not exact: within the round trip of a refused take, the player used, scrapped or
+    dropped (through the backpack's own menu) the taken item, and the box no longer holds it either (if it does, the view
+    takes it from the box instead, as a fresh change). It needs a conflicting change to that same slot by another view or
+    the world within that round trip; in single player it cannot happen.
 
 ## How it hangs together (for modders)
 

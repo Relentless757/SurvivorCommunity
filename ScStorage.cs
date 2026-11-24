@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Platform;
 using UnityEngine;
 
 namespace SurvivorCommunity
@@ -10,7 +11,17 @@ namespace SurvivorCommunity
     /// cells write straight back into the real box slot (take, swap, merge), and a drop on an empty cell
     /// goes into the first box with a free slot. Boxes in unloaded chunks are out of reach - the scan walks
     /// the loaded chunks' tile entity lists, which is cheap. The packing station is left out on purpose.
-    /// Host only (the window refuses to open elsewhere).
+    ///
+    /// Round MP3 (part L, multiplayer): the server owns the boxes, every player (the host's own included) has a view.
+    ///  - ScStorageServer (the server) scans and claims the boxes for one player's view, and writes them: every cell change
+    ///    is a compare-and-set against the box slot, judged in batches (all or nothing).
+    ///  - This class holds THIS machine's view (Slots, the counts, Current) and opens it in the loot window when the server's
+    ///    view arrives (OnView); RequestOpen asks for one. ScLinkedContainer turns the window's changes into batches and puts the
+    ///    player's cursor and inventory back when the server refuses one. Pump (every frame, ScStoragePump) drives it.
+    ///  - The NPC writers below (DepositInZone, TopUpInZone, TakeOneInZone) run on the server and skip a box a player has open,
+    ///    a box locked against the community, and a box a linked storage view claims (F3-F5, single player too).
+    /// The grid bridge's room delegates (BoxHasRoomFor, BoxFreeCells) run on the server only, where the boxes live; the view
+    /// gets the server's free room in numbers (FreeSlots, FreeCellsServer).
     /// </summary>
     public static class ScStorage
     {
@@ -18,20 +29,35 @@ namespace SurvivorCommunity
         public sealed class Slot
         {
             public Vector3i Pos;
+            /// <summary>The slot in its box; round MP3: -1 = a deposit the server has not placed yet.</summary>
             public int Index;
+            /// <summary>The box slot's content as the server last confirmed it (the cell can differ while a change is on its way).</summary>
             public ItemStack Stack;
+            /// <summary>Round MP3: Stack as the server encoded it (ScItemTx.Encode, "" = empty) - what a change sends as "what I
+            /// saw" for the server's compare-and-set.</summary>
+            public string Code = "";
         }
 
+        /// <summary>Round MP3: what a view shows - the home zone's boxes at home, an outpost's own boxes, or the home's boxes
+        /// from an outpost (ScHomeLink).</summary>
+        public const int KindHome = 0, KindOutpost = 1, KindHomeLink = 2;
+
+        /// <summary>This machine's open view: the stacks the server sent, sorted by name here (in this machine's language).</summary>
         public static readonly List<Slot> Slots = new List<Slot>();
-        private static readonly List<Vector3i> boxes = new List<Vector3i>();
-        public static int Boxes { get { return boxes.Count; } }
+        private static int viewBoxes;
+        public static int Boxes { get { return viewBoxes; } }
         public static int FreeSlots;
+        /// <summary>Round MP3: the boxes' free cells as the server's grid bridge counts them; -1 = no bridge there (a slot is a cell).</summary>
+        public static int FreeCellsServer = -1;
         public static int SkippedChunks;
+        /// <summary>Round MP3: boxes left out of the view - open by someone, or locked against this player.</summary>
+        public static int SkippedBoxes;
 
         // ---- grid bridge --------------------------------------------------------------------------
         // With GridInventory a box holds an AREA, not a stack count: a free slot is worth nothing when no
         // run of free cells fits the item's footprint. The zzzz_GridInv_SurvivorCommunity patch registers
         // these three; without it every stack is one cell and a box with a free slot takes anything, as before.
+        // Round MP3: BoxHasRoomFor and BoxFreeCells are asked on the server only (ScStorageServer), where the box lives.
 
         /// <summary>Cells a stack covers on a grid; null = one.</summary>
         public static Func<ItemStack, int> StackArea;
@@ -67,25 +93,6 @@ namespace SurvivorCommunity
         /// </summary>
         public const string OwnWindowGroup = "sclinkedstorage";
 
-        /// <summary>Free cells per box, filled lazily and dropped for a box the view writes to: re-packing every
-        /// box on every question (the strip asks twice a second) costs a grid pack per box.</summary>
-        private static readonly Dictionary<Vector3i, int> freeByBox = new Dictionary<Vector3i, int>();
-
-        private static int BoxFree(Vector3i pos)
-        {
-            int n;
-            if (freeByBox.TryGetValue(pos, out n)) return n;
-            n = 0;
-            TEFeatureStorage st = Resolve(pos);
-            if (st != null)
-            {
-                try { n = Math.Max(0, BoxFreeCells(st)); }
-                catch (Exception e) { ScLog.Once("storage-freecells", e); }
-            }
-            freeByBox[pos] = n;
-            return n;
-        }
-
         public static int AreaOf(ItemStack stack)
         {
             if (StackArea == null || stack == null || stack.IsEmpty()) return 1;
@@ -93,14 +100,14 @@ namespace SurvivorCommunity
             catch (Exception e) { ScLog.Once("storage-area", e); return 1; }
         }
 
-        /// <summary>The real room to deposit into, in cells: the boxes' free cells with the bridge, else FreeSlots.</summary>
+        /// <summary>The real room to deposit into, in cells: the boxes' free cells by the server's bridge, else FreeSlots.</summary>
         public static int FreeCells()
         {
-            if (BoxFreeCells == null) return Math.Max(0, FreeSlots);
-            int n = 0;
-            for (int b = 0; b < boxes.Count; b++) n += BoxFree(boxes[b]);
-            return n;
+            return FreeCellsServer >= 0 ? FreeCellsServer : Math.Max(0, FreeSlots);
         }
+
+        /// <summary>Round MP3: the view's free room is counted in cells (the server has the grid bridge).</summary>
+        public static bool RoomInCells { get { return FreeCellsServer >= 0; } }
 
         /// <summary>Room in the unit the view is drawn in: cells on Grid Inventory's grid, slots on vanilla's.</summary>
         public static int FreeFor(bool gridDrawn)
@@ -108,81 +115,7 @@ namespace SurvivorCommunity
             return gridDrawn ? FreeCells() : Math.Max(0, FreeSlots);
         }
 
-        /// <summary>Rebuilds the list from the loaded boxes inside the zone. Returns false without a home.</summary>
-        public static bool Scan()
-        {
-            Slots.Clear();
-            boxes.Clear();
-            freeByBox.Clear();
-            FreeSlots = 0;
-            SkippedChunks = 0;
-            try
-            {
-                World w = ScCommunity.World;
-                if (w == null || !ScZone.HasHome) return false;
-                ScConfig.EnsureParsed();
-                int xMin, xMax, zMin, zMax;
-                int[] area = CurrentArea;
-                if (area != null) { xMin = area[0]; xMax = area[1]; zMin = area[2]; zMax = area[3]; }
-                else ScZone.Bounds(out xMin, out xMax, out zMin, out zMax);
-                int cxMin = World.toChunkXZ(xMin), cxMax = World.toChunkXZ(xMax);
-                int czMin = World.toChunkXZ(zMin), czMax = World.toChunkXZ(zMax);
-                for (int cx = cxMin; cx <= cxMax; cx++)
-                {
-                    for (int cz = czMin; cz <= czMax; cz++)
-                    {
-                        Chunk chunk = w.GetChunkSync(cx, cz) as Chunk;
-                        if (chunk == null) { SkippedChunks++; continue; }
-                        var tes = chunk.tileEntities;
-                        if (tes == null || tes.list == null) continue;
-                        for (int i = 0; i < tes.list.Count; i++)
-                        {
-                            TileEntityComposite tc = tes.list[i] as TileEntityComposite;
-                            if (tc == null) continue;
-                            TEFeatureStorage st = tc.GetFeature<TEFeatureStorage>();
-                            if (st == null) continue;
-                            if (tc.GetFeature<TEFeatureSCPacking>() != null) continue;      // the packing station is a workbench, not a store
-#if SC_V34
-                            if (!(tc.PlayerPlaced || IsPlayerStorage(st))) continue;         // world loot is not the community's
-#else
-                            if (!(tc.PlayerPlaced || st.bPlayerStorage)) continue;           // world loot is not the community's
-#endif
-                            Vector3i pos = tc.ToWorldPos();
-                            if (area != null ? (pos.x < xMin || pos.x > xMax || pos.z < zMin || pos.z > zMax) : !ScZone.Contains(pos)) continue;
-#if SC_V34
-                            // a land claim block's own storage (keystoneBlock's 7x4) is not linked: in one grid with the crates
-                            // nothing shows which cells are its own (user, 2026-10-31). It stays on the block, opened there:
-                            // an outpost's packing strip rides it (ScStockpile.StationOf), and a saved block's items would be lost
-                            // with the feature (TileEntityComposite.read skips a payload the block no longer defines).
-                            if (tc.GetFeature<TEFeatureLandClaim>() != null) continue;
-#endif
-                            boxes.Add(pos);
-#if SC_V34
-                            ItemStack[] items = st.ItemGrid != null ? st.ItemGrid.items : null;   // 3.4: the grid's slots (read only)
-#else
-                            ItemStack[] items = st.items;
-#endif
-                            if (items == null) continue;
-                            for (int k = 0; k < items.Length; k++)
-                            {
-                                ItemStack s = items[k];
-                                if (s == null || s.IsEmpty()) { FreeSlots++; continue; }
-                                Slots.Add(new Slot { Pos = pos, Index = k, Stack = s.Clone() });
-                            }
-                        }
-                    }
-                }
-                Slots.Sort(Compare);
-                return true;
-            }
-            catch (Exception e)
-            {
-                ScLog.Once("storage-scan", e);
-                return false;
-            }
-        }
-
-        private static int Compare(Slot a, Slot b)
+        internal static int Compare(Slot a, Slot b)
         {
             string na = Name(a.Stack), nb = Name(b.Stack);
             int c = string.Compare(na, nb, StringComparison.OrdinalIgnoreCase);
@@ -217,124 +150,73 @@ namespace SurvivorCommunity
             catch (Exception) { return null; }
         }
 
-        /// <summary>Writes a cell's new content into the real box slot it came from.</summary>
-        public static bool WriteThrough(Slot s, ItemStack stack)
+        /// <summary>
+        /// Round MP3: the boxes linked storage links (and NPC jobs fill) - player-placed storage, never the packing station (a
+        /// workbench, not a store) nor a land claim block's own storage. The zone or area test is the caller's.
+        /// </summary>
+        internal static bool Linkable(TileEntityComposite tc, TEFeatureStorage st)
+        {
+            if (tc == null || st == null || st.ItemGrid == null) return false;
+            if (tc.GetFeature<TEFeatureSCPacking>() != null) return false;      // the packing station is a workbench, not a store
+            if (!(tc.PlayerPlaced || IsPlayerStorage(st))) return false;        // world loot is not the community's
+            // a land claim block's own storage (keystoneBlock's 7x4) is not linked: in one grid with the crates
+            // nothing shows which cells are its own (user, 2026-10-31). It stays on the block, opened there:
+            // an outpost's packing strip rides it (ScStockpile.StationOf), and a saved block's items would be lost
+            // with the feature (TileEntityComposite.read skips a payload the block no longer defines).
+            if (tc.GetFeature<TEFeatureLandClaim>() != null) return false;
+            return true;
+        }
+
+        // ------------------------------------------------------------------ NPC writers (the server) ----
+
+        /// <summary>
+        /// Round MP3 (F3-F5): may an NPC job write this box? Not while a linked storage view claims it (that view's changes are
+        /// compared against the box), not while a player has it open (their copy would overwrite the job's write, and the job's
+        /// take would come back), and not when it is locked against the community (a friend's password-locked crate).
+        /// </summary>
+        private static bool NpcMayUse(Vector3i pos, TEFeatureStorage st)
+        {
+            if (ScStorageServer.IsClaimed(pos)) return false;
+            if (ScStorageServer.OpenBySomeone(st)) return false;
+            return !ScStorageServer.LockedAgainst(st, CommunityUserId());
+        }
+
+        /// <summary>
+        /// Who the NPCs work for, for a box's lock: the community's owner (platform id); a save whose owner id is not known yet
+        /// (from before round MP0, until the owner is online once) counts the host's own player. Null (a dedicated server with no
+        /// owner id): any lock keeps the jobs out.
+        /// </summary>
+        private static PlatformUserIdentifierAbs CommunityUserId()
         {
             try
             {
-                if (s == null) return false;
-                TEFeatureStorage st = Resolve(s.Pos);
-#if SC_V34
-                if (st == null || st.ItemGrid == null || s.Index < 0 || s.Index >= st.ItemGrid.Length) return false;
-#else
-                if (st == null || st.items == null || s.Index < 0 || s.Index >= st.items.Length) return false;
-#endif
-                ItemStack v = (stack == null) ? ItemStack.Empty.Clone() : stack.Clone();
-                bool wasEmpty = s.Stack == null || s.Stack.IsEmpty();
-                st.UpdateSlot(s.Index, v);
-                st.SetModified();
-                freeByBox.Remove(s.Pos);
-                s.Stack = v.Clone();
-                if (wasEmpty && !v.IsEmpty()) FreeSlots = Math.Max(0, FreeSlots - 1);
-                else if (!wasEmpty && v.IsEmpty()) FreeSlots++;
-                return true;
+                string id = ScRegistry.Community != null ? ScRegistry.Community.OwnerId : null;
+                PlatformUserIdentifierAbs u;
+                if (!string.IsNullOrEmpty(id) && PlatformUserIdentifierAbs.TryFromCombinedString(id, out u)) return u;
+                return ScCommunity.LocalPlayer != null ? PlatformManager.InternalLocalUserIdentifier : null;
             }
             catch (Exception e)
             {
-                ScLog.Once("storage-write", e);
-                return false;
+                ScLog.Once("storage-community-id", e);
+                return null;
             }
         }
 
         /// <summary>
-        /// A drop on an empty cell: the first box (from the last scan) with a free slot takes it - and, with
-        /// the grid bridge, only a box whose grid has room for the item's footprint (BoxHasRoomFor).
+        /// Puts one stack into the first box of the home zone's linked storage with a free slot (and, with the grid bridge,
+        /// room for its footprint): what a member hands back when they keep a weapon you gave them (ScArms). The boxes are
+        /// walked here rather than through a view's scan. Loaded chunks only. False when no box has room. Round MP3: a box a
+        /// player has open, a box locked against the community, or one a linked storage view claims is skipped (NpcMayUse).
         /// </summary>
-        public static bool Deposit(ItemStack stack, out Slot placed)
+        public static bool DepositInZone(ItemStack stack, out Vector3i box)
         {
-#if SC_V34
-            if (DepositOnce(stack, out placed)) return true;
-            // a box can gain room without the view writing to it (another player on a server): the cached
-            // "full" is a hint, so look once more with every box asked afresh
-            if (freeByBox.Count > 0)
-            {
-                freeByBox.Clear();
-                if (DepositOnce(stack, out placed)) return true;
-            }
-            // 3.4 (DebugLogging): why nothing took it - each box the view links, its block, slots and room
-            if (ScConfig.Verbose)
-                ScLog.Verbose("linked storage: no box takes " + Name(stack) + " x" + (stack != null ? stack.count : 0) + " - " + BoxesSummary(stack));
-            return false;
-#else
-            if (DepositOnce(stack, out placed)) return true;
-            // a box can gain room without the view writing to it (another player on a server): the cached
-            // "full" is a hint, so look once more with every box asked afresh
-            if (freeByBox.Count == 0) return false;
-            freeByBox.Clear();
-            return DepositOnce(stack, out placed);
-#endif
-        }
-#if SC_V34
-
-        /// <summary>
-        /// 3.4 (DebugLogging): the boxes the view links, for the deposit log - "block at pos: N slots, M empty", plus the
-        /// bridge's free cells and its answer for this stack when the bridge sets them; "no boxes linked" without boxes.
-        /// </summary>
-        private static string BoxesSummary(ItemStack stack)
-        {
-            if (boxes.Count == 0) return "no boxes linked";
-            var sb = new System.Text.StringBuilder();
-            for (int b = 0; b < boxes.Count; b++)
-            {
-                if (b > 0) sb.Append("; ");
-                TEFeatureStorage st = Resolve(boxes[b]);
-                sb.Append(BlockNameAt(boxes[b])).Append(" at ").Append(boxes[b]);
-                if (st == null || st.ItemGrid == null) { sb.Append(": not loaded"); continue; }
-                ItemStack[] items = st.ItemGrid.items;
-                int empty = 0;
-                for (int i = 0; i < items.Length; i++) if (items[i] == null || items[i].IsEmpty()) empty++;
-                sb.Append(": ").Append(items.Length).Append(" slots, ").Append(empty).Append(" empty");
-                try
-                {
-                    if (BoxFreeCells != null) sb.Append(", ").Append(BoxFreeCells(st)).Append(" free cells");
-                    if (BoxHasRoomFor != null && stack != null) sb.Append(BoxHasRoomFor(st, stack) ? ", room for it" : ", NO room for it");
-                }
-                catch (Exception e) { sb.Append(" (bridge: ").Append(e.Message).Append(")"); }
-            }
-            return sb.ToString();
-        }
-
-        /// <summary>3.4 (DebugLogging): the block's name at a box position, for the deposit log.</summary>
-        private static string BlockNameAt(Vector3i pos)
-        {
-            try
-            {
-                World w = ScCommunity.World;
-                BlockValue bv = w != null ? w.GetBlock(pos) : BlockValue.Air;
-                return bv.Block != null ? bv.Block.GetBlockName() : "?";
-            }
-            catch (Exception) { return "?"; }
-        }
-#endif
-
-        private static bool DepositOnce(ItemStack stack, out Slot placed)
-        {
-            placed = null;
+            box = Vector3i.zero;
             try
             {
                 if (stack == null || stack.IsEmpty()) return false;
-                for (int b = 0; b < boxes.Count; b++)
+                foreach (KeyValuePair<Vector3i, TEFeatureStorage> b in ZoneBoxes())
                 {
-                    TEFeatureStorage st = Resolve(boxes[b]);
-#if SC_V34
-                    if (st == null || st.ItemGrid == null) continue;
-#else
-                    if (st == null || st.items == null) continue;
-#endif
-                    // a full box is skipped before the footprint test packs its grid (Move-All into a base of full
-                    // crates would pack every box per stack). Only "no room at all": for a box Grid Inventory leaves
-                    // on vanilla slots the figure is free SLOTS, which a footprint must not be compared against.
-                    if (BoxFreeCells != null && BoxFree(boxes[b]) <= 0) continue;
+                    TEFeatureStorage st = b.Value;
                     if (BoxHasRoomFor != null)
                     {
                         bool room;
@@ -342,99 +224,15 @@ namespace SurvivorCommunity
                         catch (Exception e) { ScLog.Once("storage-room", e); room = true; }
                         if (!room) continue;
                     }
-#if SC_V34
-                    ItemStack[] items = st.ItemGrid.items;          // 3.4: the grid's slots - read here, written through UpdateSlot
-                    for (int i = 0; i < items.Length; i++)
+                    ItemStack[] items = st.ItemGrid.items;
+                    for (int k = 0; k < items.Length; k++)
                     {
-                        if (items[i] != null && !items[i].IsEmpty()) continue;
-#else
-                    for (int i = 0; i < st.items.Length; i++)
-                    {
-                        if (st.items[i] != null && !st.items[i].IsEmpty()) continue;
-#endif
-                        st.UpdateSlot(i, stack.Clone());
+                        if (items[k] != null && !items[k].IsEmpty()) continue;
+                        st.UpdateSlot(k, stack.Clone());
                         st.SetModified();
-                        freeByBox.Remove(boxes[b]);
-                        placed = new Slot { Pos = boxes[b], Index = i, Stack = stack.Clone() };
-                        Slots.Add(placed);
-                        if (FreeSlots > 0) FreeSlots--;
-#if SC_V34
-                        if (ScConfig.Verbose)
-                            ScLog.Verbose("linked storage: " + Name(stack) + " x" + stack.count + " into " + BlockNameAt(boxes[b]) + " at " + boxes[b] + ", slot " + i);
-#endif
+                        ScStorageServer.Invalidate(b.Key);
+                        box = b.Key;
                         return true;
-                    }
-                }
-                return false;
-            }
-            catch (Exception e)
-            {
-                ScLog.Once("storage-deposit", e);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Puts one stack into the first box of the home zone's linked storage with a free slot (and, with the grid bridge,
-        /// room for its footprint): what a member hands back when they keep a weapon you gave them (ScArms). The boxes are
-        /// walked here rather than through Scan, which would replace the view's list and its area (an outpost's, when that
-        /// was the last view opened). Loaded chunks only. False when no box has room.
-        /// </summary>
-        public static bool DepositInZone(ItemStack stack, out Vector3i box)
-        {
-            box = Vector3i.zero;
-            try
-            {
-                World w = ScCommunity.World;
-                if (w == null || !ScZone.HasHome || stack == null || stack.IsEmpty()) return false;
-                int xMin, xMax, zMin, zMax;
-                ScZone.Bounds(out xMin, out xMax, out zMin, out zMax);
-                for (int cx = World.toChunkXZ(xMin); cx <= World.toChunkXZ(xMax); cx++)
-                {
-                    for (int cz = World.toChunkXZ(zMin); cz <= World.toChunkXZ(zMax); cz++)
-                    {
-                        Chunk chunk = w.GetChunkSync(cx, cz) as Chunk;
-                        var tes = chunk != null ? chunk.tileEntities : null;
-                        if (tes == null || tes.list == null) continue;
-                        for (int i = 0; i < tes.list.Count; i++)
-                        {
-                            // the same boxes Scan links: player-placed storage inside the zone, never the packing station
-                            TileEntityComposite tc = tes.list[i] as TileEntityComposite;
-                            TEFeatureStorage st = tc != null ? tc.GetFeature<TEFeatureStorage>() : null;
-#if SC_V34
-                            if (st == null || st.ItemGrid == null || tc.GetFeature<TEFeatureSCPacking>() != null) continue;
-                            if (!(tc.PlayerPlaced || IsPlayerStorage(st))) continue;
-                            if (tc.GetFeature<TEFeatureLandClaim>() != null) continue;     // not linked (Scan)
-#else
-                            if (st == null || st.items == null || tc.GetFeature<TEFeatureSCPacking>() != null) continue;
-                            if (!(tc.PlayerPlaced || st.bPlayerStorage)) continue;
-#endif
-                            Vector3i pos = tc.ToWorldPos();
-                            if (!ScZone.Contains(pos)) continue;
-                            if (BoxHasRoomFor != null)
-                            {
-                                bool room;
-                                try { room = BoxHasRoomFor(st, stack); }
-                                catch (Exception e) { ScLog.Once("storage-room", e); room = true; }
-                                if (!room) continue;
-                            }
-#if SC_V34
-                            ItemStack[] items = st.ItemGrid.items;
-                            for (int k = 0; k < items.Length; k++)
-                            {
-                                if (items[k] != null && !items[k].IsEmpty()) continue;
-#else
-                            for (int k = 0; k < st.items.Length; k++)
-                            {
-                                if (st.items[k] != null && !st.items[k].IsEmpty()) continue;
-#endif
-                                st.UpdateSlot(k, stack.Clone());
-                                st.SetModified();
-                                freeByBox.Remove(pos);
-                                box = pos;
-                                return true;
-                            }
-                        }
                     }
                 }
                 return false;
@@ -445,11 +243,10 @@ namespace SurvivorCommunity
                 return false;
             }
         }
-#if SC_V34
 
         /// <summary>
         /// Round 29a (J29): the boxes DepositInZone fills - player-placed storage inside the home zone, loaded, never the packing
-        /// station or a land claim block's own storage - with their positions.
+        /// station or a land claim block's own storage - with their positions. Round MP3: only boxes an NPC may use (NpcMayUse).
         /// </summary>
         private static IEnumerable<KeyValuePair<Vector3i, TEFeatureStorage>> ZoneBoxes()
         {
@@ -468,11 +265,10 @@ namespace SurvivorCommunity
                     {
                         TileEntityComposite tc = tes.list[i] as TileEntityComposite;
                         TEFeatureStorage st = tc != null ? tc.GetFeature<TEFeatureStorage>() : null;
-                        if (st == null || st.ItemGrid == null || tc.GetFeature<TEFeatureSCPacking>() != null) continue;
-                        if (!(tc.PlayerPlaced || IsPlayerStorage(st))) continue;
-                        if (tc.GetFeature<TEFeatureLandClaim>() != null) continue;
+                        if (!Linkable(tc, st)) continue;
                         Vector3i pos = tc.ToWorldPos();
                         if (!ScZone.Contains(pos)) continue;
+                        if (!NpcMayUse(pos, st)) continue;           // round MP3 (F3-F5)
                         yield return new KeyValuePair<Vector3i, TEFeatureStorage>(pos, st);
                     }
                 }
@@ -507,7 +303,7 @@ namespace SurvivorCommunity
                         b.Value.UpdateSlot(k, new ItemStack(s.itemValue.Clone(), s.count + add));
                         left -= add;
                         b.Value.SetModified();
-                        freeByBox.Remove(b.Key);
+                        ScStorageServer.Invalidate(b.Key);
                     }
                     if (left <= 0) break;
                 }
@@ -536,7 +332,7 @@ namespace SurvivorCommunity
                         if (s == null || s.IsEmpty() || s.itemValue == null || s.itemValue.type != type) continue;
                         b.Value.UpdateSlot(k, s.count > 1 ? new ItemStack(s.itemValue.Clone(), s.count - 1) : ItemStack.Empty.Clone());
                         b.Value.SetModified();
-                        freeByBox.Remove(b.Key);
+                        ScStorageServer.Invalidate(b.Key);
                         box = b.Key;
                         return true;
                     }
@@ -549,17 +345,15 @@ namespace SurvivorCommunity
                 return false;
             }
         }
-#endif
 
-        /// <summary>Stacks that still hold something (takes leave empty entries until the next scan).</summary>
+        /// <summary>Stacks that still hold something (takes leave empty entries until the next view).</summary>
         public static int LiveStacks()
         {
             int n = 0;
-            for (int i = 0; i < Slots.Count; i++) if (!Slots[i].Stack.IsEmpty()) n++;
+            for (int i = 0; i < Slots.Count; i++) if (Slots[i].Stack != null && !Slots[i].Stack.IsEmpty()) n++;
             return n;
         }
 
-#if SC_V34
         /// <summary>
         /// 3.2's TEFeatureStorage.bPlayerStorage on 3.4: a box with an owner (Parent.Owner, as 3.2's getter asked first), or one
         /// whose stored flag says so - 3.4 keeps that flag on the grid (ItemGrid.PlayerOwned, set when a player places it).
@@ -571,10 +365,6 @@ namespace SurvivorCommunity
 
         /// <summary>Whether Grid Inventory will draw this container: the bridge's answer, else "it is loaded".</summary>
         public static bool GridDrawsIt(TEFeatureStorage te)
-#else
-        /// <summary>Whether Grid Inventory will draw this container: the bridge's answer, else "it is loaded".</summary>
-        public static bool GridDrawsIt(ITileEntityLootable te)
-#endif
         {
             if (GridDraws != null)
             {
@@ -610,15 +400,11 @@ namespace SurvivorCommunity
             ScConfig.EnsureParsed();
             bool gi = GridDrawsIt(c);
             bool known = GridDraws != null;                // the bridge can tell; without it keep the old fixed size
-            bool own = false;
-#if SC_V34
-            own = c.OwnWindow;                             // round s1: SC's own window, set by OpenWindow (never with Grid Inventory)
-#endif
+            bool own = c.OwnWindow;                        // round s1: SC's own window, set by OpenView (never with Grid Inventory)
             int rows = !gi ? (own ? GridRowsMax : VanillaRows) : (known ? GridRowsMax : LegacyGridRows);
-#if SC_V34
             // round s1b: in SC's own window the view takes the columns its grid declares (9; 8 in AshfallUI's look, as wide as
             // AshfallUI's loot window for the widest vanilla crate, so INSPECT and the inventory fit beside it), read ONCE by
-            // OwnWindowFor and handed over in c.ViewCols by OpenWindow - a second read that failed would fall back to 9 in a
+            // OwnWindowFor and handed over in c.ViewCols by OpenView - a second read that failed would fall back to 9 in a
             // window 8 wide, and SetSlots would then write 9 into its grid for every later open. Vanilla's looting window and
             // RE Inventory's grid keep Cols: the looting grid's cols change with every crate opened there.
             int cols = own ? Math.Max(1, c.ViewCols) : ScLinkedContainer.Cols;
@@ -641,7 +427,6 @@ namespace SurvivorCommunity
                 if (widgets > 0) rows = Math.Min(rows, Math.Max(1, widgets / cols));
                 else if (gi || own) rows = Math.Min(rows, VanillaRows);    // unknown: never past vanilla's grid
             }
-#endif
             if (ScConfig.LinkedStorageRows > 0) rows = Math.Min(rows, ScConfig.LinkedStorageRows);
             c.RowsCap = Math.Max(1, rows);
             int pool = WidgetPool();
@@ -650,7 +435,6 @@ namespace SurvivorCommunity
             c.GridDrawn = gi;
         }
 
-#if SC_V34
         /// <summary>3.4: the item widgets of a loot window group's grid - "looting" (vanilla's looting window: 90, or RE
         /// Inventory's) or OwnWindowGroup (360) - or 0 when the group is not found.</summary>
         private static int LootWidgets(string _groupId)
@@ -721,7 +505,6 @@ namespace SurvivorCommunity
             return null;
         }
 
-#endif
         /// <summary>
         /// Is GridInventory driving the loot window? Its mod folder / ModInfo name is not fixed (it ships as
         /// "RE Inventory"), so the assembly's grid class is the test - and the bridge's hooks, when installed.
@@ -735,7 +518,6 @@ namespace SurvivorCommunity
 
         /// <summary>The open container (null when the loot window shows something else or is closed).</summary>
         public static ScLinkedContainer Current;
-#if SC_V34
 
         /// <summary>3.4: the cells the open view should draw (ScLinkedContainer.CellsNow), 0 = no limit. For the bridge, which
         /// references no SCore and so cannot touch ScLinkedContainer, a subclass of SCore's container.</summary>
@@ -743,13 +525,11 @@ namespace SurvivorCommunity
         {
             return Current != null ? Current.CellsNow() : 0;
         }
-#endif
 
         /// <summary>
         /// SCore's EntityUtilities.OpenContainer with the title passed on its own: that helper hands the loot window
         /// te.lootListName as the title, so a view with a title of its own would need an unknown loot list key.
         /// </summary>
-#if SC_V34
         /// <param name="own">SC's own window (round s1, OwnWindowFor; the view was sized for it); null = vanilla's looting window.</param>
         private static void OpenLootWindow(EntityPlayerLocal player, ScLinkedContainer te, string title, XUiC_LootWindowGroup own)
         {
@@ -766,100 +546,371 @@ namespace SurvivorCommunity
             if (group == null) { EntityUtilities.OpenContainer(player, te); return; }
             group.OpenLooting(title, te, false);
         }
-#else
-        private static void OpenLootWindow(EntityPlayerLocal player, ITileEntityLootable te, string title)
-        {
-            LocalPlayerUI ui = player.PlayerUI;
-            ui.windowManager.CloseAllOpenModalWindows(null, false);
-            GUIWindow window = ui.windowManager.GetWindow("looting");
-            XUiC_LootWindowGroup group = window is XUiWindowGroup ? ((XUiWindowGroup)window).Controller as XUiC_LootWindowGroup : null;
-            te.bWasTouched = true;                      // straight in: no open timer (which reads openTime)
-            if (group == null) { EntityUtilities.OpenContainer(player, te); return; }
-            group.OpenLooting(title, te);
-        }
-#endif
-        /// <summary>
-        /// The block the open view is anchored on: the home claim, or (ScHomeLink) the outpost claim the player
-        /// radioed from. Vanilla's loot window closes itself when the player is more than 32 m from its container's
-        /// ToWorldCenterPos, so a view opened from afar must stand where the player stands. Null = the home claim.
-        /// </summary>
-        public static Vector3i? CurrentAnchor;
-        /// <summary>The boxes' area of the open view {xMin, xMax, zMin, zMax}: an outpost's POI; null = the home zone.</summary>
-        public static int[] CurrentArea;
+
+        // ------------------------------------------------------------------ the view on this machine (round MP3) ----
+
+        /// <summary>The open view's session (the server's id), what it shows (Kind*), the claim it stands on, and its title.</summary>
+        public static int CurrentSession = -1;
+        public static int CurrentKind = KindHome;
+        public static Vector3i CurrentAnchorPos;
         public static string CurrentTitle;
 
-        /// <summary>
-        /// Opens linked storage in vanilla's loot window: a virtual container that borrows the home block's
-        /// chunk and position (vanilla's close path reads ToWorldPos / blockValue) and lays the merged
-        /// stacks out in one scrolling grid. SCore's OpenContainer is the same call its NPC inventories use.
-        /// </summary>
-        public static void OpenWindow(EntityPlayerLocal player)
+        /// <summary>Seconds between storage.keep requests while a view is open (the server lets a view go after its KeepTimeout).</summary>
+        private const float KeepSeconds = 5f;
+        /// <summary>A home link's view waits this long for the player's other window to close (as the old host-side wait).</summary>
+        private const float PendingViewSeconds = 25f;
+        /// <summary>An open asked while the last view still finishes its changes waits at most this long.</summary>
+        private const float PendingOpenSeconds = 10f;
+        /// <summary>A dead client's closed view waits at most this long for the respawn before its close is sent anyway.</summary>
+        private const float DeadCloseSeconds = 150f;
+
+        /// <summary>Views the window let go whose last changes are still on their way (each sends storage.close once settled).</summary>
+        private static readonly List<ScLinkedContainer> closing = new List<ScLinkedContainer>();
+        private static ScStorageView pendingView;
+        private static float pendingViewAt;
+        private static bool openWanted;
+        private static int openKind;
+        private static Vector3i openClaim;
+        private static float openAt;
+        private static float nextKeep;
+        private static GameObject pumpHost;
+
+        /// <summary>Every machine, at the world's start and end (ScHomeLink.Reset): no view carries over.</summary>
+        public static void ResetView()
         {
-            OpenWindow(player, null);
+            Current = null;
+            closing.Clear();
+            pendingView = null;
+            openWanted = false;
+            CurrentSession = -1;
+            Slots.Clear();
         }
 
-        /// <summary>anchor = where the view stands (see CurrentAnchor); null = the home claim.</summary>
-        public static void OpenWindow(EntityPlayerLocal player, Vector3i? anchor)
-        {
-            OpenWindow(player, anchor, null, null);
-        }
-
         /// <summary>
-        /// area = the boxes to link {xMin, xMax, zMin, zMax} (an outpost's own storage) - null = the home zone;
-        /// anchor = where the view stands (the player's claim); title = the window's title (null = linked storage).
+        /// Round MP3: opens linked storage for this machine's player - the community window's Open storage button and the land
+        /// claim radial's Linked storage / Outpost storage, on every machine. The server scans, claims and answers with the view
+        /// (OnView); on the host and in single player all of it runs at once. kind = KindHome (claim unused), KindOutpost or
+        /// KindHomeLink (claim = the outpost's claim the player stands at). An open asked while the last view still has
+        /// changes on their way waits for their answer: the server takes requests in order, and a new view ends the old one.
         /// </summary>
-        public static void OpenWindow(EntityPlayerLocal player, Vector3i? anchor, int[] area, string title)
+        public static void RequestOpen(EntityPlayerLocal player, int kind, Vector3i claim)
         {
             try
             {
-                if (player == null || player.PlayerUI == null || player.PlayerUI.windowManager == null) return;
-                if (!ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }
-                if (!ScZone.HasHome) { ScCommunity.Tell(player, Localization.Get("scNeedHome"), "ui_denied"); return; }
-                World w = ScCommunity.World;
-                Vector3i home = ScZone.Home;
-                Chunk homeChunk = (w != null) ? w.GetChunkSync(World.toChunkXZ(home.x), World.toChunkXZ(home.z)) as Chunk : null;
-                if (homeChunk == null && area == null) { ScCommunity.Tell(player, Localization.Get("scNotLoaded"), "ui_denied"); return; }
-                Vector3i at = anchor ?? home;
-                Chunk chunk = anchor.HasValue && w != null ? w.GetChunkSync(World.toChunkXZ(at.x), World.toChunkXZ(at.z)) as Chunk : homeChunk;
-                if (chunk == null) { chunk = homeChunk; at = home; }
-                if (chunk == null) { ScCommunity.Tell(player, Localization.Get("scNotLoaded"), "ui_denied"); return; }
-                CurrentArea = area;
-                CurrentTitle = title;
-                Scan();
-                var c = new ScLinkedContainer(chunk, new Vector3i(World.toBlockXZ(at.x), at.y, World.toBlockXZ(at.z)));
-                CurrentAnchor = at == home ? (Vector3i?)null : at;
-                c.lootListName = ScLinkedContainer.LootListKey;       // a real key: the title goes to the window below
-#if SC_V34
-                // round s1: without RE Inventory, SC's own window (360 cells, scrolling); the view is sized for the window
-                // it opens in
-                XUiC_LootWindowGroup own = OwnWindowFor(player, out int ownCols);
-                c.OwnWindow = own != null;
-                if (own != null) c.ViewCols = ownCols;                // round s1b: its grid's columns, read once (SizeFor)
-#endif
-                SizeFor(c);
-                c.Rebuild();
-                Current = c;
-#if SC_V34
-                OpenLootWindow(player, c, title ?? Localization.Get("scStorageTitle"), own);
-                string drawnBy = c.GridDrawn ? ", " + c.StackCap + " stacks, grid inventory" : (c.OwnWindow ? ", SC's window" : ", vanilla grid");
-#else
-                OpenLootWindow(player, c, title ?? Localization.Get("scStorageTitle"));
-                string drawnBy = c.GridDrawn ? ", " + c.StackCap + " stacks, grid inventory" : ", vanilla grid";
-#endif
-                ScLog.Out("linked storage opened: " + Boxes + " box(es), " + LiveStacks() + " stack(s), " + FreeCells() + " free cell(s), grid " + c.GetContainerSize().x + "x" + c.GetContainerSize().y
-                          + " (cap " + c.RowsCap + " rows" + drawnBy + "), "
-                          + c.Hidden + " stack(s) and " + c.HiddenCells + " free cell(s) not shown");
-#if SC_V34
-                // 3.4 (DebugLogging): what the view links, and the size the window really shows (RE Inventory 3.3+ resizes
-                // a gridded container to its own rule unless the bridge exempts the view)
-                if (ScConfig.Verbose)
-                    ScLog.Verbose("linked storage boxes: " + BoxesSummary(null) + " | view " + c.ItemGrid.Length + " cells as shown");
-#endif
+                if (player == null) return;
+                string why = ScActionsWindow.RequestRefusal();
+                if (why != null) { ScCommunity.Tell(player, ScActions.Localize(why), "ui_denied"); return; }
+                EnsurePump();
+                if (Busy())
+                {
+                    openWanted = true;
+                    openKind = kind;
+                    openClaim = claim;
+                    openAt = Time.unscaledTime;
+                    return;
+                }
+                SendOpen(kind, claim);
             }
             catch (Exception e)
             {
-                ScLog.Once("storage-open", e);
+                ScLog.Once("storage-request-open", e);
             }
+        }
+
+        /// <summary>The strip's Refresh: the same view again, laid out afresh (once this view's changes are answered).</summary>
+        public static void Refresh()
+        {
+            EntityPlayerLocal p = ScCommunity.LocalPlayer;
+            if (p == null || Current == null) return;
+            RequestOpen(p, CurrentKind, CurrentAnchorPos);
+        }
+
+        private static void SendOpen(int kind, Vector3i claim)
+        {
+            ScActions.Request(ScStorageServer.OpOpen, new[] { kind, claim.x, claim.y, claim.z }, null, r =>
+            {
+                if (r.Ok && string.IsNullOrEmpty(r.Message)) return;
+                EntityPlayerLocal p = ScCommunity.LocalPlayer;
+                if (p != null) ScCommunity.Tell(p, r.Text, r.Sound);
+            });
+        }
+
+        private static void SendClose(int session)
+        {
+            if (session < 0) return;
+            ScActions.Request(ScStorageServer.OpClose, null, session);
+        }
+
+        /// <summary>
+        /// Round MP3: the server's view for this machine's player (NetPackageScStorage on a client; at once on the host). Opens it
+        /// in the loot window - a home link's view waits while another window is up, as before, so the player is never yanked out
+        /// of something else.
+        /// </summary>
+        public static void OnView(ScStorageView v)
+        {
+            try
+            {
+                if (v == null) return;
+                EntityPlayerLocal p = ScCommunity.LocalPlayer;
+                if (p == null || p.PlayerUI == null || p.PlayerUI.windowManager == null) { SendClose(v.Session); return; }
+                EnsurePump();
+                if (pendingView != null && pendingView.Session != v.Session) SendClose(pendingView.Session);
+                pendingView = null;
+                if (v.Kind == KindHomeLink && p.PlayerUI.windowManager.IsModalWindowOpen())
+                {
+                    pendingView = v;
+                    pendingViewAt = Time.unscaledTime;
+                    return;
+                }
+                OpenView(p, v);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-onview", e);
+            }
+        }
+
+        /// <summary>
+        /// Opens linked storage in vanilla's loot window: a virtual container that borrows the anchor block's chunk and
+        /// position (vanilla's close path reads ToWorldPos / blockValue, and the window closes itself 32 m from it) and lays the
+        /// merged stacks out in one scrolling grid. SCore's OpenContainer is the same call its NPC inventories use.
+        /// </summary>
+        private static void OpenView(EntityPlayerLocal player, ScStorageView v)
+        {
+            World w = ScCommunity.World;
+            Vector3i at = v.Anchor;
+            Chunk chunk = w != null ? w.GetChunkSync(World.toChunkXZ(at.x), World.toChunkXZ(at.z)) as Chunk : null;
+            if (chunk == null)
+            {
+                ScCommunity.Tell(player, Localization.Get("scNotLoaded"), "ui_denied");
+                SendClose(v.Session);
+                return;
+            }
+            if (Current != null) Retire(Current);            // Refresh, or a second open: the old view's last changes finish first
+            Slots.Clear();
+            for (int i = 0; i < v.Slots.Count; i++)
+            {
+                Slot s = v.Slots[i];
+                if (s.Stack == null) s.Stack = ScItemTx.Decode(s.Code);
+                if (!s.Stack.IsEmpty()) Slots.Add(s);
+            }
+            Slots.Sort(Compare);
+            viewBoxes = v.Boxes;
+            FreeSlots = v.FreeSlots;
+            FreeCellsServer = v.FreeCells;
+            SkippedChunks = v.SkippedChunks;
+            SkippedBoxes = v.SkippedBoxes;
+            CurrentSession = v.Session;
+            CurrentKind = v.Kind;
+            CurrentAnchorPos = v.Anchor;
+            CurrentTitle = v.Kind == KindOutpost ? string.Format(Localization.Get("scOpStorageTitle"), v.Name) : null;
+            var c = new ScLinkedContainer(chunk, new Vector3i(World.toBlockXZ(at.x), at.y, World.toBlockXZ(at.z))) { Session = v.Session };
+            c.lootListName = ScLinkedContainer.LootListKey;       // a real key: the title goes to the window below
+            // round s1: without RE Inventory, SC's own window (360 cells, scrolling); the view is sized for the window
+            // it opens in
+            XUiC_LootWindowGroup own = OwnWindowFor(player, out int ownCols);
+            c.OwnWindow = own != null;
+            if (own != null) c.ViewCols = ownCols;                // round s1b: its grid's columns, read once (SizeFor)
+            SizeFor(c);
+            c.Rebuild();
+            Current = c;
+            nextKeep = Time.unscaledTime + KeepSeconds;
+            OpenLootWindow(player, c, CurrentTitle ?? Localization.Get("scStorageTitle"), own);
+            string drawnBy = c.GridDrawn ? ", " + c.StackCap + " stacks, grid inventory" : (c.OwnWindow ? ", SC's window" : ", vanilla grid");
+            ScLog.Out("linked storage opened: " + Boxes + " box(es), " + LiveStacks() + " stack(s), " + FreeCells() + " free cell(s), grid " + c.GetContainerSize().x + "x" + c.GetContainerSize().y
+                      + " (cap " + c.RowsCap + " rows" + drawnBy + "), "
+                      + c.Hidden + " stack(s) and " + c.HiddenCells + " free cell(s) not shown"
+                      + (SkippedBoxes > 0 ? ", " + SkippedBoxes + " box(es) in use or locked left out" : ""));
+            if (ScConfig.Verbose)
+                ScLog.Verbose("linked storage: session " + v.Session + ", view " + c.ItemGrid.Length + " cells as shown");
+        }
+
+        /// <summary>A view the window let go: its last changes are sent and answered, then its claims go (Pump).</summary>
+        private static void Retire(ScLinkedContainer c)
+        {
+            if (c == null) return;
+            if (ReferenceEquals(Current, c)) Current = null;
+            if (!c.Closed) c.ClosedAt = Time.unscaledTime;
+            c.Closed = true;
+            if (!closing.Contains(c)) closing.Add(c);
+        }
+
+        /// <summary>A view of this machine's has changes on their way (an open waits for them; a thrown item waits too).</summary>
+        public static bool Busy()
+        {
+            if (Current != null && Current.Busy) return true;
+            for (int i = 0; i < closing.Count; i++) if (closing[i].Busy) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Every frame (ScStoragePump.LateUpdate, after the window has handled its clicks): a view the window closed is retired,
+        /// each view sends its changed cells as one batch (one in flight), closed views release their claims once settled, the
+        /// open view tells the server it is still open, and a waiting open or home link view goes ahead.
+        /// </summary>
+        internal static void Pump()
+        {
+            try
+            {
+                float now = Time.unscaledTime;
+                if (Current != null && !Current.IsShown()) Retire(Current);
+                if (Current != null) Current.Pump(now);
+                EntityPlayerLocal me = ScCommunity.LocalPlayer;
+                bool deadClient = !ScCommunity.IsHost && me != null && me.IsDead();
+                for (int i = closing.Count - 1; i >= 0; i--)
+                {
+                    ScLinkedContainer c = closing[i];
+                    c.Pump(now);
+                    if (c.Busy) continue;
+                    // a client's requests are refused while it is dead: the close waits for the respawn (the server holds the
+                    // view ScStorageServer.DeadHold at most)
+                    if (deadClient && now - c.ClosedAt < DeadCloseSeconds) continue;
+                    closing.RemoveAt(i);
+                    if (Current == null || Current.Session != c.Session) SendClose(c.Session);
+                }
+                if (Current != null && now >= nextKeep)
+                {
+                    nextKeep = now + KeepSeconds;
+                    int sid = Current.Session;
+                    ScActions.Request(ScStorageServer.OpKeep, r =>
+                    {
+                        // the server let the view go (it ended the session): the window follows
+                        if (!r.Ok && Current != null && Current.Session == sid) CloseWindow();
+                    }, sid);
+                }
+                if (openWanted && (!Busy() || now - openAt > PendingOpenSeconds))
+                {
+                    openWanted = false;
+                    SendOpen(openKind, openClaim);
+                }
+                if (pendingView != null) PumpPendingView(now);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-pump", e);
+            }
+        }
+
+        /// <summary>A home link's view waiting for the player's other window: opens once it is closed; dropped (and its claims
+        /// let go) when the player walked away from the claim or got in a vehicle, or after PendingViewSeconds.</summary>
+        private static void PumpPendingView(float now)
+        {
+            ScStorageView v = pendingView;
+            EntityPlayerLocal p = ScCommunity.LocalPlayer;
+            if (p == null || p.PlayerUI == null || p.PlayerUI.windowManager == null) { pendingView = null; SendClose(v.Session); return; }
+            Vector3 pos = p.position;
+            float dx = pos.x - v.Anchor.x - 0.5f, dz = pos.z - v.Anchor.z - 0.5f;
+            if (p.AttachedToEntity != null || dx * dx + dz * dz > 28f * 28f || now - pendingViewAt > PendingViewSeconds)
+            {
+                pendingView = null;
+                SendClose(v.Session);
+                ScCommunity.Tell(p, Localization.Get("scOpDoorCancelled"), "ui_denied");
+                return;
+            }
+            if (p.PlayerUI.windowManager.IsModalWindowOpen()) return;
+            pendingView = null;
+            OpenView(p, v);
+        }
+
+        /// <summary>Closes the window showing the open view (a clean close through the window manager: vanilla's OnClose runs).</summary>
+        private static void CloseWindow()
+        {
+            try
+            {
+                EntityPlayerLocal p = ScCommunity.LocalPlayer;
+                if (p == null || p.PlayerUI == null || p.PlayerUI.windowManager == null) return;
+                GUIWindowManager wm = p.PlayerUI.windowManager;
+                if (wm.IsWindowOpen(XUiC_LootWindowGroup.ID)) wm.Close(XUiC_LootWindowGroup.ID);
+                if (wm.IsWindowOpen(OwnWindowGroup)) wm.Close(OwnWindowGroup);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-closewindow", e);
+            }
+        }
+
+        /// <summary>Round MP3: closes the window when it shows this view (a view that cannot go on: no answer, a broken answer).</summary>
+        internal static void CloseWindowOf(ScLinkedContainer c)
+        {
+            if (c != null && ReferenceEquals(Current, c)) CloseWindow();
+        }
+
+        /// <summary>Round MP3: another view wrote boxes this view shows - the slots' new codes and the boxes' free room.</summary>
+        public static void OnSlots(int session, List<Slot> updates, int freeSlots, int freeCells)
+        {
+            try
+            {
+                ScLinkedContainer c = ViewOf(session);
+                if (c == null) return;
+                if (ReferenceEquals(c, Current)) SetFree(freeSlots, freeCells);
+                c.ApplyPush(updates);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-onslots", e);
+            }
+        }
+
+        /// <summary>Round MP3: the server ended this view (walked away, silent too long): the window closes, with the reason.</summary>
+        public static void OnClosed(int session, string reason)
+        {
+            try
+            {
+                if (pendingView != null && pendingView.Session == session) pendingView = null;
+                if (Current == null || Current.Session != session) return;
+                CloseWindow();
+                EntityPlayerLocal p = ScCommunity.LocalPlayer;
+                if (p != null && !string.IsNullOrEmpty(reason)) ScCommunity.Tell(p, ScActions.Localize(reason), "ui_denied");
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-onclosed", e);
+            }
+        }
+
+        /// <summary>The boxes' free room as the server last counted it (a batch's answer, a push).</summary>
+        internal static void SetFree(int freeSlots, int freeCells)
+        {
+            FreeSlots = Math.Max(0, freeSlots);
+            FreeCellsServer = freeCells;
+        }
+
+        private static ScLinkedContainer ViewOf(int session)
+        {
+            if (Current != null && Current.Session == session) return Current;
+            for (int i = 0; i < closing.Count; i++) if (closing[i].Session == session) return closing[i];
+            return null;
+        }
+
+        /// <summary>
+        /// Round m1p (memory sc-port-3-4, round 6's "Left"): why nothing took the item, from this view. "No box has room for
+        /// that." (scStorageFull) - unless the view linked no box at all, when the message says so: the base has none
+        /// (scStorageNoBoxes), the outpost's own storage has none (scStorageNoBoxesOutpost), or none was found in the part of the
+        /// land that is loaded (scStorageNoBoxesUnloaded: boxes in unloaded chunks are out of reach, so "none" would not be the
+        /// real cause).
+        /// </summary>
+        internal static string ViewFullKey()
+        {
+            if (Boxes > 0) return "scStorageFull";
+            if (SkippedChunks > 0) return "scStorageNoBoxesUnloaded";
+            return CurrentKind == KindOutpost ? "scStorageNoBoxesOutpost" : "scStorageNoBoxes";
+        }
+
+        private static void EnsurePump()
+        {
+            if (pumpHost != null) return;
+            pumpHost = new GameObject("ScLinkedStoragePump");
+            UnityEngine.Object.DontDestroyOnLoad(pumpHost);
+            pumpHost.AddComponent<ScStoragePump>();
+        }
+    }
+
+    /// <summary>Round MP3 (part L): drives linked storage on a machine with a view, after the window has handled the frame's clicks.</summary>
+    public class ScStoragePump : MonoBehaviour
+    {
+        private void LateUpdate()
+        {
+            ScStorage.Pump();
         }
     }
 }

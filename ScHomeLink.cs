@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SurvivorCommunity
@@ -8,155 +9,197 @@ namespace SurvivorCommunity
     /// HOME linked storage. The home zone is far out of the player's chunk radius, so it is loaded with a chunk
     /// observer ("Radioing home..."); once every zone chunk is in, the same view as at home opens, and the
     /// observer stays until that view closes. It goes over the radio, so the home radio must have power.
-    /// Host only; one request at a time.
+    ///
+    /// Round MP3 (part L, multiplayer): the server's, per player. storage.open with ScStorage.KindHomeLink (ScStorageServer) calls
+    /// Request for the player who pressed; each player has their own observer and their own wait, and the observer is let go
+    /// when that player's view ends (OnSessionEnded) - closed, walked away, replaced, disconnected. The wait for the player's
+    /// other window to close happens on their own machine (ScStorage.OnView). Tick also sweeps linked storage's sessions.
     /// </summary>
     public static class ScHomeLink
     {
-        /// <summary>A zone bigger than this many chunks from its centre is only partly loaded (the view says so).</summary>
+        /// <summary>A zone bigger than this many chunks from its center is only partly loaded (the view says so).</summary>
         private const int MaxViewDim = 10;
         private const float TimeoutSeconds = 25f;
-        private const float GraceSeconds = 3f;
 
-        private static ChunkManager.ChunkObserver observer;
-        /// <summary>The observer's centre chunk and reach: readiness only waits on chunks it can load.</summary>
-        private static int obsCx, obsCz, obsDim;
-        /// <summary>The outpost claim the player radioed from: the view is anchored there (the loot window closes
-        /// itself 32 m from its container).</summary>
-        private static Vector3i anchor;
-        private static EntityPlayerLocal requester;
-        private static bool waiting;
-        private static float deadline;
-        private static float openedAt;
-        private static float nextNote;
-
-        public static bool Busy { get { return observer != null; } }
-
-        private static readonly System.Collections.Generic.HashSet<long> pending = new System.Collections.Generic.HashSet<long>();
-
-        public static void Reset()
+        private sealed class Link
         {
-            Release();
-            requester = null;
-            waiting = false;
+            public int EntityId;
+            /// <summary>The outpost claim the player radioed from: the view is anchored there (the loot window closes
+            /// itself 32 m from its container).</summary>
+            public Vector3i Claim;
+            public ChunkManager.ChunkObserver Observer;
+            /// <summary>The observer's center chunk and reach: readiness only waits on chunks it can load.</summary>
+            public int ObsCx, ObsCz, ObsDim;
+            public bool Waiting;
+            public float Deadline;
+            public float NextNote;
+            /// <summary>The linked storage session the home is held for (-1: none yet).</summary>
+            public int Session = -1;
         }
 
-        /// <summary>The radial on an outpost's claim (claim = where the player stands).</summary>
-        public static void Request(EntityPlayerLocal player, Vector3i claim)
+        private static readonly Dictionary<int, Link> links = new Dictionary<int, Link>();
+        private static readonly HashSet<long> pending = new HashSet<long>();
+        private static readonly List<int> scratch = new List<int>();
+
+        /// <summary>Some player's home link is calling or holding the home zone.</summary>
+        public static bool Busy { get { return links.Count > 0; } }
+
+        /// <summary>Every machine, at the world's start and end: no home link, linked storage view or claim carries over.</summary>
+        public static void Reset()
+        {
+            foreach (Link l in links.Values) Release(l);
+            links.Clear();
+            ScStorage.ResetView();
+            ScStorageServer.Reset();
+        }
+
+        /// <summary>
+        /// Server: the radial's Linked storage on an outpost's claim (claim = where the player stands; the caller checked it is
+        /// theirs). Opens the home's view at once when the home zone is loaded, else loads it and opens it from Tick. Answers the
+        /// request: the refusal, "Radioing home...", or done.
+        /// </summary>
+        internal static void Request(EntityPlayer player, Vector3i claim, ScActionReply reply)
         {
             try
             {
-                if (player == null) return;
-                if (!ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }
-                if (!ScZone.HasHome) { ScCommunity.Tell(player, Localization.Get("scNeedHome"), "ui_denied"); return; }
-                if (!ScOutposts.RadioOnlineAnywhere()) { ScCommunity.Tell(player, Localization.Get("scOpDoorSilent"), "ui_denied"); return; }
-                if (waiting) { ScCommunity.Tell(player, Localization.Get("scOpDoorWaiting"), ""); return; }
-                requester = player;
-                anchor = claim;
-                if (ZoneReady())
+                if (player == null) { reply.Fail("scActionNoPlayer"); return; }
+                if (!ScZone.HasHome) { reply.Fail("scNeedHome"); return; }
+                if (!ScOutposts.RadioOnlineAnywhere()) { reply.Fail("scOpDoorSilent"); return; }
+                Link l;
+                if (links.TryGetValue(player.entityId, out l) && l.Waiting) { reply.Fail("scOpDoorWaiting", ""); return; }
+                if (l == null)
                 {
-                    Open();
+                    l = new Link { EntityId = player.entityId };
+                    links[player.entityId] = l;
+                }
+                l.Claim = claim;
+                l.Session = -1;
+                if (ZoneReady(l))
+                {
+                    string why = OpenFor(l, player);
+                    if (why != null) { Drop(l); reply.Fail(why); }
+                    else reply.Done();
                     return;
                 }
-                if (observer == null)
+                if (l.Observer == null)
                 {
                     int xMin, xMax, zMin, zMax;
                     ScZone.Bounds(out xMin, out xMax, out zMin, out zMax);
-                    Vector3 centre = new Vector3((xMin + xMax) * 0.5f, ScZone.Home.y, (zMin + zMax) * 0.5f);
+                    Vector3 center = new Vector3((xMin + xMax) * 0.5f, ScZone.Home.y, (zMin + zMax) * 0.5f);
                     int half = Math.Max(xMax - xMin, zMax - zMin) / 2;
                     int dim = Mathf.Clamp(half / 16 + 2, 2, MaxViewDim);
-                    observer = GameManager.Instance.AddChunkObserver(centre, false, dim, -1);
-                    obsCx = World.toChunkXZ(Mathf.FloorToInt(centre.x));
-                    obsCz = World.toChunkXZ(Mathf.FloorToInt(centre.z));
-                    obsDim = dim;
-                    ScLog.Out("home link: loading the home zone around " + centre + " (" + dim + " chunk radius) for the linked storage");
+                    l.Observer = GameManager.Instance.AddChunkObserver(center, false, dim, -1);
+                    l.ObsCx = World.toChunkXZ(Mathf.FloorToInt(center.x));
+                    l.ObsCz = World.toChunkXZ(Mathf.FloorToInt(center.z));
+                    l.ObsDim = dim;
+                    ScLog.Out("home link: loading the home zone around " + center + " (" + dim + " chunk radius) for the linked storage"
+                              + (player is EntityPlayerLocal ? "" : " (for " + (player.PlayerDisplayName ?? "?") + ")"));
                 }
-                waiting = true;
-                deadline = Time.unscaledTime + TimeoutSeconds;
-                nextNote = Time.unscaledTime + 6f;
-                ScCommunity.Tell(player, Localization.Get("scOpDoorCalling"), "");
+                l.Waiting = true;
+                l.Deadline = Time.unscaledTime + TimeoutSeconds;
+                l.NextNote = Time.unscaledTime + 6f;
+                reply.Done("scOpDoorCalling", "");
             }
             catch (Exception e)
             {
                 ScLog.Once("homelink-request", e);
-                Release();
-                waiting = false;
+                Link l;
+                if (player != null && links.TryGetValue(player.entityId, out l)) Drop(l);
+                reply.Fail("scActionFailed");
             }
         }
 
-        /// <summary>ScTicker, every second.</summary>
+        /// <summary>The home's view for the link's player, standing at the outpost claim. Returns a refusal, or null.</summary>
+        private static string OpenFor(Link l, EntityPlayer p)
+        {
+            l.Waiting = false;
+            string why = ScStorageServer.Open(p, ScStorage.KindHomeLink, l.Claim, null, null);    // the HOME zone's boxes, standing at the outpost
+            if (why != null) return why;
+            l.Session = ScStorageServer.SessionIdOf(p.entityId);
+            ScLog.Out("home link: linked storage opened from afar" + (l.Observer != null ? " (home held loaded until it closes)" : " (home was already loaded)"));
+            return null;
+        }
+
+        /// <summary>Server (ScStorageServer.End): a view ended - the home link that held the home zone for it lets go.</summary>
+        internal static void OnSessionEnded(int entityId)
+        {
+            Link l;
+            if (!links.TryGetValue(entityId, out l) || l.Waiting || l.Session < 0) return;
+            if (ScStorageServer.HasSession(entityId, l.Session)) return;
+            Drop(l);
+        }
+
+        /// <summary>ScTicker, every second (the server): linked storage's sweep, then each home link - load, open, release.</summary>
         public static void Tick(EntityPlayer player)
         {
-            // round MP0: the view is the local player's window (the requester is always the host's own player) - with none, a
-            // dedicated server has no view to keep open. MP3: the home link for any player
+            ScStorageServer.Sweep();
+            if (links.Count == 0) return;
             try
             {
-                if (observer == null && !waiting) return;
                 float now = Time.unscaledTime;
-                if (waiting)
+                scratch.Clear();
+                scratch.AddRange(links.Keys);
+                for (int i = 0; i < scratch.Count; i++)
                 {
-                    if (requester == null || requester.IsDead())
+                    Link l;
+                    if (!links.TryGetValue(scratch[i], out l)) continue;
+                    EntityPlayer p = ScPlayers.ByEntity(l.EntityId);
+                    if (!l.Waiting)
                     {
-                        waiting = false;
-                        Release();
-                        return;
+                        // open: keep the home loaded while that view is open, let it go once it ends
+                        if (l.Session < 0 || !ScStorageServer.HasSession(l.EntityId, l.Session)) Drop(l);
+                        continue;
                     }
-                    if (ZoneReady())
+                    if (p == null || p.IsDead())
                     {
-                        // never yank the player out of something else: wait while another window is up, drop the
-                        // call if they walked away from the claim (the view would close itself) or got in a vehicle
-                        if (requester.AttachedToEntity != null || DistanceToAnchor() > 28f)
+                        Drop(l);
+                        continue;
+                    }
+                    if (ZoneReady(l))
+                    {
+                        // never open on a player who left: drop the call if they walked away from the claim (the view would close
+                        // itself) or got in a vehicle. Another window up is waited for on their own machine (ScStorage.OnView).
+                        if (p.AttachedToEntity != null || Distance(p, l.Claim) > 28f)
                         {
-                            waiting = false;
-                            Release();
-                            ScCommunity.Tell(requester, Localization.Get("scOpDoorCancelled"), "ui_denied");
-                            return;
+                            Drop(l);
+                            ScCommunity.Tell(p, Localization.Get("scOpDoorCancelled"), "ui_denied");
+                            continue;
                         }
-                        if (requester.PlayerUI != null && requester.PlayerUI.windowManager != null && requester.PlayerUI.windowManager.IsModalWindowOpen()) return;
-                        waiting = false;
-                        Open();
+                        string why = OpenFor(l, p);
+                        if (why != null)
+                        {
+                            Drop(l);
+                            ScCommunity.Tell(p, ScActions.Localize(why), "ui_denied");
+                        }
                     }
-                    else if (now > deadline)
+                    else if (now > l.Deadline)
                     {
-                        waiting = false;
-                        Release();
-                        if (requester != null) ScCommunity.Tell(requester, Localization.Get("scOpDoorNoAnswer"), "ui_denied");
+                        Drop(l);
+                        ScCommunity.Tell(p, Localization.Get("scOpDoorNoAnswer"), "ui_denied");
                         ScLog.Warn("home link: the home zone did not load in " + TimeoutSeconds + " s - gave up");
                     }
-                    else if (now >= nextNote && requester != null)
+                    else if (now >= l.NextNote)
                     {
-                        nextNote = now + 6f;
-                        ScCommunity.Tell(requester, Localization.Get("scOpDoorCalling"), "");
+                        l.NextNote = now + 6f;
+                        ScCommunity.Tell(p, Localization.Get("scOpDoorCalling"), "");
                     }
-                    return;
                 }
-                // open: keep the home loaded while the linked storage view is up, let it go once it closes
-                if (now - openedAt < GraceSeconds) return;
-                if (!ViewOpen(requester ?? (player as EntityPlayerLocal))) Release();
             }
             catch (Exception e)
             {
                 ScLog.Once("homelink-tick", e);
-                Release();
-                waiting = false;
             }
         }
 
-        private static float DistanceToAnchor()
+        private static float Distance(EntityPlayer p, Vector3i claim)
         {
-            if (requester == null) return float.MaxValue;
-            Vector3 p = requester.position;
-            return Mathf.Sqrt((p.x - anchor.x - 0.5f) * (p.x - anchor.x - 0.5f) + (p.z - anchor.z - 0.5f) * (p.z - anchor.z - 0.5f));
+            if (p == null) return float.MaxValue;
+            Vector3 pos = p.position;
+            return Mathf.Sqrt((pos.x - claim.x - 0.5f) * (pos.x - claim.x - 0.5f) + (pos.z - claim.z - 0.5f) * (pos.z - claim.z - 0.5f));
         }
 
-        private static void Open()
-        {
-            openedAt = Time.unscaledTime;
-            ScStorage.OpenWindow(requester, anchor, null, null);   // the HOME zone's boxes, standing at the outpost
-            ScLog.Out("home link: linked storage opened from afar" + (observer != null ? " (home held loaded until it closes)" : " (home was already loaded)"));
-        }
-
-        /// <summary>Every chunk of the zone's bounds is loaded and settled (ScStorage.Scan skips the others).</summary>
-        private static bool ZoneReady()
+        /// <summary>Every chunk of the zone's bounds is loaded and settled (the view's scan skips the others).</summary>
+        private static bool ZoneReady(Link l)
         {
             World w = ScCommunity.World;
             if (w == null || !ScZone.HasHome) return false;
@@ -165,11 +208,11 @@ namespace SurvivorCommunity
             int cxMin = World.toChunkXZ(xMin), cxMax = World.toChunkXZ(xMax);
             int czMin = World.toChunkXZ(zMin), czMax = World.toChunkXZ(zMax);
             // a zone wider than the observer reaches: settle for the part it loads (the view skips the rest)
-            if (observer != null)
+            if (l.Observer != null)
             {
-                int reach = Math.Max(1, obsDim - 1);
-                cxMin = Math.Max(cxMin, obsCx - reach); cxMax = Math.Min(cxMax, obsCx + reach);
-                czMin = Math.Max(czMin, obsCz - reach); czMax = Math.Min(czMax, obsCz + reach);
+                int reach = Math.Max(1, l.ObsDim - 1);
+                cxMin = Math.Max(cxMin, l.ObsCx - reach); cxMax = Math.Min(cxMax, l.ObsCx + reach);
+                czMin = Math.Max(czMin, l.ObsCz - reach); czMax = Math.Min(czMax, l.ObsCz + reach);
             }
             pending.Clear();
             var fresh = w.newlyLoadedChunksThisUpdate;
@@ -186,34 +229,20 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>Is the loot window open on the linked storage - vanilla's looting window, or (round s1, without RE
-        /// Inventory) SC's own linked storage window? Missing the second would let the home zone go while its boxes show.</summary>
-        public static bool ViewOpen(EntityPlayerLocal player)
+        /// <summary>The link is over: its observer goes and it is forgotten.</summary>
+        private static void Drop(Link l)
+        {
+            if (l == null) return;
+            Release(l);
+            links.Remove(l.EntityId);
+        }
+
+        private static void Release(Link l)
         {
             try
             {
-                if (player == null || player.PlayerUI == null || player.PlayerUI.windowManager == null) return false;
-                return ViewOpenIn(player, "looting") || ViewOpenIn(player, ScStorage.OwnWindowGroup);
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
-
-        private static bool ViewOpenIn(EntityPlayerLocal player, string group)
-        {
-            if (!player.PlayerUI.windowManager.IsWindowOpen(group)) return false;
-            XUiC_LootWindowGroup lg = player.PlayerUI.xui != null ? player.PlayerUI.xui.FindWindowGroupByName(group) as XUiC_LootWindowGroup : null;
-            return lg == null || lg.te is ScLinkedContainer;
-        }
-
-        private static void Release()
-        {
-            try
-            {
-                if (observer == null) return;
-                if (GameManager.Instance != null && GameManager.Instance.World != null) GameManager.Instance.RemoveChunkObserver(observer);
+                if (l == null || l.Observer == null) return;
+                if (GameManager.Instance != null && GameManager.Instance.World != null) GameManager.Instance.RemoveChunkObserver(l.Observer);
                 ScLog.Out("home link: released the home zone");
             }
             catch (Exception e)
@@ -222,7 +251,7 @@ namespace SurvivorCommunity
             }
             finally
             {
-                observer = null;
+                if (l != null) l.Observer = null;
             }
         }
     }
