@@ -281,11 +281,6 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>
-        /// Deposit refused (the machine that took them): the bundles go back - into their own slots, else any empty slot,
-        /// while boxHeld (this machine still has that box open); the rest (all of them when it does not) into the player's
-        /// bag, then at their feet (ScItemTx.GiveToLocal). Returns how many bundles did not go back into the box.
-        /// </summary>
         /// <summary>Round MP3 (re-check F1): how many of this item (by type) the box holds now.</summary>
         private static int CountOf(TEFeatureStorage st, ItemValue iv)
         {
@@ -300,6 +295,11 @@ namespace SurvivorCommunity
             catch (Exception) { return 0; }
         }
 
+        /// <summary>
+        /// Deposit refused (the machine that took them): the bundles go back - into their own slots, else any empty slot,
+        /// while boxHeld (this machine still has that box open); the rest (all of them when it does not) into the player's
+        /// bag, then at their feet (ScItemTx.GiveToLocal). Returns how many bundles did not go back into the box.
+        /// </summary>
         public static int PutBack(TEFeatureStorage st, List<KeyValuePair<int, ItemStack>> taken, EntityPlayerLocal player, bool boxHeld)
         {
             if (taken == null || taken.Count == 0) return 0;
