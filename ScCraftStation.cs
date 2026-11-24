@@ -49,8 +49,16 @@ namespace SurvivorCommunity
     /// lives). When her order ends with the station closed, 0-XNPCCore's Cancel takes her unmade crafts out of the queue and
     /// gives their ingredients back, as before. A kept item whose window closes before it fits is dropped: its craft is still
     /// in the queue (never counted off, never listed), so the station makes it again - SCore's extras for that one craft
-    /// included, as the game does with its own "no room" item. Host or single player (the registry's side), members only: a
-    /// multiplayer client's own window still makes a member's queue as vanilla does.
+    /// included, as the game does with its own "no room" item. Members only.
+    ///
+    /// Round MP3 (part G, the c2 bug for clients): a multiplayer client's station window makes the queue on ITS machine (it
+    /// holds the station's lock; its copy is written back to the server on every change and on close), so the same rules
+    /// run there: MemberStack and KeepApart know the members from the client's copy of the registry (ScRegistry.Ready: the
+    /// mirror) - only the window's own item flow reads it, nothing in the registry is written. Her item goes into the
+    /// station's output (never the client's inventory), listed under her id (never the client's: no CraftedItem, no
+    /// Survivor Origins XP for him); the server pays her for the listing when the client lets the station go
+    /// (Patches_Craft C1e, the remote sweep) or by 0-XNPCCore's own tick (C1d), which waits while the station is locked.
+    /// A member the client's copy does not know yet (it follows within about a second) is crafted as vanilla does.
     /// </summary>
     public static class ScCraftStation
     {
@@ -125,9 +133,9 @@ namespace SurvivorCommunity
             if (p == null || id == p.entityId || id == -1) return false;
             wg = rs.windowGroup != null ? rs.windowGroup.Controller as XUiC_WorkstationWindowGroup : null;
             if (wg == null) return false;
-            // round MP1: the real registry only - a client's own window keeps making a member's queue as vanilla does (this class's
-            // note), whatever its copy of the registry says; round MP3 brings the station to clients
-            m = ScRegistry.Loaded ? ScRegistry.GetMember(id) : null;
+            // round MP3: the registry, or a client's copy of it (ScRegistry.Ready) - a client's open window makes her queue on its
+            // own machine, and only this window's item flow reads the record (on the server Ready is Loaded: unchanged there)
+            m = ScRegistry.Ready ? ScRegistry.GetMember(id) : null;
             return m != null;
         }
 
@@ -544,7 +552,9 @@ namespace SurvivorCommunity
                 if (Same(list[i], id, scrapped)) { first = i; break; }
             if (first < 0 || list[first].CrafterEntityID == crafter) return false;
             int other = list[first].CrafterEntityID;
-            if (!ScRegistry.Loaded) return false;      // round MP1: a client's TE copy is listed as vanilla lists it (as MemberStack)
+            // round MP3: a client's open window lists on its own copy of the station, which goes back to the server: kept apart
+            // there too, from its copy of the registry (as MemberStack; on the server Ready is Loaded)
+            if (!ScRegistry.Ready) return false;
             if (ScRegistry.GetMember(crafter) == null && ScRegistry.GetMember(other) == null) return false;
             int own = -1;
             for (int i = first + 1; i < list.Count; i++)

@@ -28,6 +28,8 @@ namespace SurvivorCommunity
     {
         public readonly string Op;
         public readonly ScActionAccess Access;
+        /// <summary>Round MP3: a read a client polls (the member panel's ammo line, every 2 s) - not written to the DebugLogging log.</summary>
+        public bool Quiet { get; set; }
 
         public ScActionAttribute(string op, ScActionAccess access = ScActionAccess.Community)
         {
@@ -159,6 +161,7 @@ namespace SurvivorCommunity
         {
             public ScActionHandler Handler;
             public ScActionAccess Access;
+            public bool Quiet;
         }
 
         private struct Pending
@@ -210,7 +213,7 @@ namespace SurvivorCommunity
                             ScActionHandler h;
                             try { h = (ScActionHandler)Delegate.CreateDelegate(typeof(ScActionHandler), mi); }
                             catch (Exception) { ScLog.Warn("action handler " + t.Name + "." + mi.Name + " does not match (EntityPlayer, ScActionArgs, ScActionReply)"); continue; }
-                            handlers[a.Op] = new Entry { Handler = h, Access = a.Access };
+                            handlers[a.Op] = new Entry { Handler = h, Access = a.Access, Quiet = a.Quiet };
                         }
                         catch (Exception e) { ScLog.Once("actions-scan-" + t.Name + "." + mi.Name, e); }
                     }
@@ -358,7 +361,7 @@ namespace SurvivorCommunity
                 r.Fail("scActionFailed");
                 r.Hint = "";                // the review's n4: no follow-up from a half-run handler
             }
-            if (ScConfig.Verbose)
+            if (ScConfig.Verbose && !e.Quiet)
                 ScLog.Verbose("action " + op + " by " + p.PlayerDisplayName + ": " + (r.Ok ? "done" : "refused") + (string.IsNullOrEmpty(r.Message) ? "" : " (" + r.Message + ")"));
             return r;
         }

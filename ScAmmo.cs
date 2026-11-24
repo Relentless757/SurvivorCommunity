@@ -1158,6 +1158,21 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round MP3 (part G): does a remote player OTHER than this one have this NPC's inventory window open? A remote
+        /// player's own open copy is the one their member panel's requests act through (ScMemberEquip.Gate), so it is no
+        /// obstacle to them; anyone else's still is. Stale marks are dropped first, as IsRemoteOpen. The host's own player is
+        /// never marked, so for the host this answers exactly as IsRemoteOpen.
+        /// </summary>
+        public static bool IsRemoteOpenByOther(int npc, int player)
+        {
+            if (!IsRemoteOpen(npc)) return false;
+            Dictionary<int, float> by;
+            if (!remoteOpen.TryGetValue(npc, out by)) return false;
+            foreach (int p in by.Keys) if (p != player) return true;
+            return false;
+        }
+
+        /// <summary>
         /// Is this NPC's inventory window open anywhere: on the host's own screen (the container's user-accessing flag) or
         /// on a remote player's (IsRemoteOpen)? False without a window. SC's own writes to a window (ScNpc.SetItem /
         /// AddItem -&gt; SCore's UpdateSlot) send no change notice, so even the host's open grid would keep showing - and

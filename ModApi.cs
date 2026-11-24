@@ -417,6 +417,7 @@ namespace SurvivorCommunity
             Add(t, "XUiC_QuestDescriptionWindow::GetBindingValueInternal", AccessTools.Method(typeof(XUiC_QuestDescriptionWindow), "GetBindingValueInternal", binding));
             Add(t, "XUiC_QuestObjectivesWindow::GetBindingValueInternal", AccessTools.Method(typeof(XUiC_QuestObjectivesWindow), "GetBindingValueInternal", binding));
 #if SC_V34
+            Add(t, "TileEntity::OnUnlockedServer", Patches_Craft.UnlockedTarget());   // round MP3 (part G): a client's station craft with a member
             // 3.4: StartQuest(Quest.QuestSource source, bool newQuest = true, bool notify = true) - the source is new
             Add(t, "Quest::StartQuest", AccessTools.Method(typeof(Quest), "StartQuest", new[] { typeof(Quest.QuestSource), typeof(bool), typeof(bool) }));
 #else

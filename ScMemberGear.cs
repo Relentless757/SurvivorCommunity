@@ -224,7 +224,9 @@ namespace SurvivorCommunity
             var best = new ToolPick[JobCount];
             if (npc == null) return best;
             Scan(npc, window, StoreWindow, best);
-            Scan(npc, npc.bag != null && npc.bag.ItemGrid != null ? npc.bag.ItemGrid.items : null, StoreBag, best);
+            // round MP3: a multiplayer client has no copy of her bag (the game never sends an NPC's) - whatever its copy of the
+            // body holds there is not hers to show, nor to take from (ScMemberEquip.CopyTakeTool)
+            Scan(npc, ScCommunity.IsHost && npc.bag != null && npc.bag.ItemGrid != null ? npc.bag.ItemGrid.items : null, StoreBag, best);
             Scan(npc, npc.inventory != null && npc.inventory.ItemGrid != null ? npc.inventory.ItemGrid.items : null, StoreToolbelt, best);
             for (int j = 0; j < JobCount; j++)
             {

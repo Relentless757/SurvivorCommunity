@@ -32,6 +32,9 @@ namespace SurvivorCommunity
     ///
     /// Patch_VcSetAmmo: Voice Control's own ammo pick on a member (the order wheel's ammo page, the spoken phrase) becomes her
     /// ammo choice in SC's record too (ScAmmoChoice.Noted), so SC's switch back to the chosen type never undoes it.
+    /// Round MP3: in multiplayer it fires on the server only, for every player's pick, and writes the server's record: Voice
+    /// Control's VCCommandRouter.Execute sends a client's SetAmmo to the server (NetPackageVCCommand) and runs
+    /// MutateSetAmmo only in ExecuteAuthoritative there - a client never runs it, so no client-side write is lost.
     ///
     /// Each target is bound by name (Voice Control is not referenced at build time) and optional: an older Voice Control
     /// without the type binds nothing and logs nothing; one that has the type but not the method logs one error.
