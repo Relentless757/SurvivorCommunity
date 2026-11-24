@@ -298,13 +298,20 @@ namespace SurvivorCommunity
                 {
                     ItemStack s = kv.Value;
                     if (s == null || s.IsEmpty()) continue;
-                    if (items != null && kv.Key >= 0 && kv.Key < items.Length && (items[kv.Key] == null || items[kv.Key].IsEmpty()))
+                    try        // round MP3 (review m3): a try per stack - one slot that throws goes to the player, the rest still go back
                     {
-                        st.UpdateSlot(kv.Key, s.Clone());
-                        changed = true;
-                        continue;
+                        if (items != null && kv.Key >= 0 && kv.Key < items.Length && (items[kv.Key] == null || items[kv.Key].IsEmpty()))
+                        {
+                            st.UpdateSlot(kv.Key, s.Clone());
+                            changed = true;
+                            continue;
+                        }
+                        if (items != null && st.AddItem(s.Clone())) { changed = true; continue; }
                     }
-                    if (items != null && st.AddItem(s.Clone())) { changed = true; continue; }
+                    catch (Exception e)
+                    {
+                        ScLog.Once("deposit-putback-slot", e);
+                    }
                     rest.Add(s);
                 }
                 if (changed) st.SetModified();

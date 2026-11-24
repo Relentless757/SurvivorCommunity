@@ -154,8 +154,12 @@ namespace SurvivorCommunity
     /// </summary>
     public static class ScActions
     {
-        /// <summary>A client's request with no answer after this many real seconds is forgotten (the server never got it).</summary>
-        private const float PendingSeconds = 30f;
+        /// <summary>
+        /// A client's request with no answer after this many real seconds is forgotten. The server answers every request it gets,
+        /// so only a broken connection leaves one unanswered (and world shutdown clears the table): round MP3's review (m1) - a
+        /// short timeout dropped a SLOW answer's callback (a stalled server), and with it the give-back of items in flight.
+        /// </summary>
+        private const float PendingSeconds = 900f;
 
         private struct Entry
         {

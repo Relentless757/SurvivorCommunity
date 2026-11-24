@@ -164,6 +164,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// The player's own machine: removes up to count items that match (bag first, then toolbelt) and records in removed
         /// exactly what left (to give back on a refusal). Returns how many items left.
+        /// The removal is vanilla's XUiM_PlayerInventory.RemoveItems: by item TYPE, skipping modded stacks, and nothing at all when
+        /// the planned amount is not there in unmodded stacks (round MP3 review, m5). Fit for bundles and plain resources; for
+        /// one exact stack (a modded gun, a slot) move that stack itself instead.
         /// </summary>
         public static int TakeFromLocal(EntityPlayerLocal p, Func<ItemValue, bool> match, int count, List<ItemStack> removed)
         {
