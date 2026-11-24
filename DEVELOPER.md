@@ -2157,6 +2157,34 @@ Round MP0 is the groundwork:
   - **The rule for new code:** a path that runs on a client (patches on entities, render, avatar or UI; dialogs; block
     commands) and acts on a registry record must check `ScRegistry.Loaded` or `ScCommunity.IsHost`. The window's buttons
     say scHostOnly on a client until round MP2 adds requests.
+- **Round MP2, the land claim radial and the console** (`ScActionsClaim`, `TEFeatureSCCommunity`, `ConsoleCmdSc`,
+  `ConsoleCmdScl`):
+  - **Ops** (ScActions requests; the radial asks on every machine, the handler runs on the server):
+    - `home.set x y z [mode]` (Owner): the claim becomes the home and the SENDER its owner (`ScZone.SetHome`: platform
+      id). `mode` is an optional fourth int, 0 when absent: 0 sets or moves the home; 1 is Start a community here, refused
+      (`scHomeAlreadyStarted`) once a home exists, so two players starting at once get one community; 2 and 3 are
+      AutoHomeFirstClaim's silent adoption by Community / Linked storage, which do nothing once a home exists.
+    - `outpost.establish x y z` (Community): `ScOutposts.Establish` with every gate of `CanEstablish`.
+    - `outpost.disbandclaim x y z` (Owner): the outpost on that claim, `ScOutposts.Disband` (which tells the sender).
+    - Every handler first checks the claim against the sender in the server's claim map
+      (`ScActionsClaim.WhyNotOwnClaim`: an active land claim of theirs). The radial's `LocalPlayerIsOwner` only runs on
+      the pressing machine, for its own player.
+  - **The radial** shows on a client from its copy (`ScRegistry.Ready`). The two-press Disband confirm is the pressing
+    machine's own state (`ScOutposts.DisbandPressed`); the second press sends the request. Linked storage and the outpost's
+    home link still refuse on a client (scHostOnly) until MP3. An Outpost Claim Block queues itself on the server when any
+    online community player placed it (`ScActionsClaim.PlacerOf`: the composite's owner, set from the placer).
+  - **Markers:** an outpost a remote player establishes is marked on that player's machine only from MP4 on;
+    `ScOutposts.HostMarkersFollow` keeps the listen host's own map up to date meanwhile.
+  - **`sc`** is no client command, so a client's `sc` runs on the server. It acts for the player who typed it:
+    `ConsoleCmdSc.Me`, the client's entity from `CommandSenderInfo.RemoteClientInfo`, else the local player, else null
+    (telnet, the web console, a dedicated server's own console: the old "no player" answers). Code in `ConsoleCmdSc` uses
+    `Me`, never `ScCommunity.LocalPlayer`. Several handlers it hands a subcommand to still read `LocalPlayer` themselves
+    (the enclave, band, lights-out and refill commands, among others) and answer for the host until they are converted.
+  - **`scl`** (`ConsoleCmdScl`, long name `survivorcommunitylocal`) is a client command (`IsExecuteOnClient`, permission
+    level 1000: any player). It runs `ui [reset]`, `portrait ...` and `voice [play|stop|rescan]` in the typing player's own
+    game through the same code (`ConsoleCmdSc.ExecuteClientLocal`), reading only that machine's copy. The game runs a
+    command on the client as a whole, never per subcommand, hence two commands. A client's `sc ui`, `sc portrait` and
+    `sc voice play|stop|rescan` answer "type scl ... instead".
 
 ## How it hangs together (for modders)
 

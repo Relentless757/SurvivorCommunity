@@ -1198,6 +1198,11 @@ scLightsOutOrderedNoGens,UI,Tooltip,,,,Lights out until {0}: your people keep it
 scLightsOutNotOn,UI,Tooltip,,,,It isn't lights out.
 scLightsOnOrdered,UI,Tooltip,,,,Lights on: the base is back to normal. Generators back on: {0}.
 scLightsOutDawn,UI,Tooltip,,,,Dawn: lights out is over. Generators back on: {0}.
+scHomeAlreadyStarted,UI,Tooltip,,,,"Someone already started the community elsewhere. To move its home here, hold E on this claim again and pick Set as community home."
+scHomeNotOutpost,UI,Tooltip,,,,An outpost's land claim can't be the community's home.
+scClaimInactive,UI,Tooltip,,,,This is not an active land claim.
+scClaimNotYours,UI,Tooltip,,,,Only this land claim's owner can do that.
+scOpNotHere,UI,Tooltip,,,,There is no outpost at this land claim anymore.
 scLightsOutAboutOn,UI,Menu,,,,"Lights out until {0}: {1}% less noise from your people, generators off: {2}. Lights on ends it now."
 scLightsOutAbout,UI,Menu,,,,"Lights out orders a quiet night: until dawn your people make {0}% less noise and the generators in the base are switched off, and with them whatever they power (lights, traps, turrets, a radio station on them). From {1}."
 scLightsOutAboutNoGens,UI,Menu,,,,Lights out orders a quiet night: until dawn your people make {0}% less noise. From {1}.

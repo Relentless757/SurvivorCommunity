@@ -9,8 +9,12 @@ For what the mod does, see README.txt.
 How to use the console
 ----------------------
 
-- Press F1 to open the console. Commands are built for single player (you are the host). Most of them refuse or do
-  nothing on a pure client.
+- Press F1 to open the console. Commands are built for single player (you are the host).
+- Multiplayer: "sc" runs on the server, whoever types it, and only admins may use it (vanilla's permission level 0). It
+  acts for the player who typed it: "sc spawn" spawns in front of you, "sc poi" describes the POI you stand in,
+  "sc home set" makes your claim the home. Typed on a dedicated server's own console (telnet, the web console) it has no
+  player, and the subcommands that need one say so. A few subcommands act on your own game rather than the server: on a
+  client, use "scl" for them (section 16).
 - SC has one command, "sc" (long name "survivorcommunity"). Type "sc" alone for the same output as "sc status". An
   unknown subcommand prints the full one-line syntax list.
 - Every "sc" answer is also written to the log, each line starting "[SC console]", with a "> sc <what you typed> (time)"
@@ -1069,7 +1073,8 @@ Aim-pose counters and every NPC in a ranged fight, or one NPC in detail. A numbe
 sc portrait <id|name|all>
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 Re-shoots portraits for the community window. "sc portrait frame [fov dist yaw eyelift aimlift]" shows or sets the
-camera framing for this session.
+camera framing for this session. On a client in multiplayer use "scl portrait ..." (section 16): "sc portrait" would
+shoot them on the server.
 
 sc ui [READ] and sc ui reset
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1078,7 +1083,8 @@ panel ("Equipment..." on a member). It shows their saved places, where the talk 
 on ("MemberInventoryPanel") and, while the panel is open, whose inventory it shows and how full her pack and bag are.
 "sc ui reset" forgets both saved places, so the talk card opens left of the spoken line again and the panel left of your
 backpack (each jumps there if it is open). Right-clicking a window's title bar (the talk card's name bar) does the same
-for that window. The places are kept in "%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt".
+for that window. The places are kept in "%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt". On a client in
+multiplayer use "scl ui [reset]" (section 16): "sc ui" would look at the server's windows.
 
 sc voice [READ]
 ~~~~~~~~~~~~~~~
@@ -1088,6 +1094,8 @@ Other voice subcommands:
 
 - "sc voice play <line> [id|name]": a survivor (that one, or the nearest with a voice within 20 m) says a clip now.
 - "sc voice stop", "sc voice rescan" (re-reads the voice folder without a restart), "sc voice gate" [READ].
+- On a client in multiplayer, "play", "stop" and "rescan" are "scl voice ..." (section 16): they are your own game's
+  sound.
 - "sc voice sayline [line] [seconds]": the nearest survivor is given a say-line through Voice Control after a delay
   (default "ammo.dry", 5 s). A line with an argument works too ("book.recipe:forgedIron",
   "basekeep.need:resourceForgedIron").
@@ -1154,6 +1162,28 @@ to you.
 - lcbu verify [READ]: Cross-checks the registry, the vanilla claim map and loaded tile entities. Ends in PASS or FAIL.
 
 Examples: "lcbu near 3", "lcbu set 2", "lcbu verify"
+
+
+16. Your own game in multiplayer: scl (long name survivorcommunitylocal)
+------------------------------------------------------------------------
+
+"sc" always runs on the server, so the subcommands that act on your own game (your windows, your portraits, your
+sound) would act on the server's machine there. "scl" runs them in the game of whoever types it. Any player may use it,
+admin or not: it changes nothing but your own game. On a client it reads your game's copy of the community. In single
+player and for the host it does exactly what the "sc" twin does. "scl" alone prints its usage.
+
+- scl ui [READ] and scl ui reset: as "sc ui": where your talk card and member inventory panel sit; "reset" puts both
+  back to their default places.
+- scl portrait <id|name|all>: as "sc portrait": re-shoots portraits in your own community window.
+- scl portrait frame [fov dist yaw eyelift aimlift]: as "sc portrait frame": shows or sets your camera framing for this
+  session.
+- scl voice [READ]: your game's voice switches, the voices found and the voice gate.
+- scl voice play <line> [id|name]: a survivor (that one, or the nearest with a voice within 20 m) says a clip now, in
+  your game only.
+- scl voice stop, scl voice rescan: stops the line playing; re-reads your voice folder without a restart.
+
+On a client, "sc ui", "sc portrait" and "sc voice play|stop|rescan" answer "type scl ... instead" and change nothing. On
+a dedicated server's own console "scl" only says that it belongs in a player's game.
 
 
 Handy vanilla commands while testing

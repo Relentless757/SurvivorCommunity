@@ -4,7 +4,8 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 
 ## How to use the console
 
-- Press **F1** to open the console. Commands are built for single player (you are the host). Most of them refuse or do nothing on a pure client.
+- Press **F1** to open the console. Commands are built for single player (you are the host).
+- **Multiplayer:** `sc` runs on the server, whoever types it, and only admins may use it (vanilla's permission level 0). It acts for the player who typed it: `sc spawn` spawns in front of you, `sc poi` describes the POI you stand in, `sc home set` makes your claim the home. Typed on a dedicated server's own console (telnet, the web console) it has no player, and the subcommands that need one say so. A few subcommands act on your own game rather than the server: on a client, use `scl` for them (section 16).
 - SC has one command, `sc` (long name `survivorcommunity`). Type `sc` alone for the same output as `sc status`. An unknown subcommand prints the full one-line syntax list.
 - Every `sc` answer is also written to the log, each line starting `[SC console]`, with a `> sc <what you typed> (time)` line before it. The log is `%USERPROFILE%\AppData\LocalLow\The Fun Pimps\7 Days To Die\Player.log`. Send that file with a bug report. (`lcbu` output goes to the console; do not count on it being in the log.)
 - Words are not case sensitive. Aliases work: `facility`/`facilities`, `outpost`/`outposts`, `enclave`/`enclaves`, `band`/`bands`, `infest`/`infestation`/`infestations`, `sleepers`/`sleeper`, `defense`/`defence`.
@@ -88,6 +89,7 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc infest add` | Infest the POI you stand in. [CHEAT] |
 | `sc sleepers [scan\|repair]` | Zombie-cap fix status and repair. |
 | `sc voice` / `sc voice who` | Voice system status; who the nearest NPC is and which voice lines it can say. [READ] |
+| `scl ui` / `scl portrait all` / `scl voice play <line>` | Multiplayer: the same as `sc ui`, `sc portrait` and `sc voice play`, in your own game. Any player may use it. |
 | `sc restore <member>` | Respawn a resident whose body is gone. [CHEAT] |
 | `sc relink` | Re-link NPC bodies to the registry. Try this before reporting a "lost" member. |
 | `sc save` | Force-write the SC registry. |
@@ -729,10 +731,10 @@ Animator diagnostics for a survivor (controller, clips, parameters).
 Aim-pose counters and every NPC in a ranged fight, or one NPC in detail. A number also finds raiders.
 
 ### `sc portrait <id|name|all>`
-Re-shoots portraits for the community window. `sc portrait frame [fov dist yaw eyelift aimlift]` shows or sets the camera framing for this session.
+Re-shoots portraits for the community window. `sc portrait frame [fov dist yaw eyelift aimlift]` shows or sets the camera framing for this session. On a client in multiplayer use `scl portrait ...` (section 16): `sc portrait` would shoot them on the server.
 
 ### `sc ui` [READ] and `sc ui reset`
-Where SC's two movable windows sit: the talk card (the survivor card shown while you talk) and the member inventory panel ("Equipment..." on a member). It shows their saved places, where the talk card is, whether the panel is switched on (`MemberInventoryPanel`) and, while the panel is open, whose inventory it shows and how full her pack and bag are. `sc ui reset` forgets both saved places, so the talk card opens left of the spoken line again and the panel left of your backpack (each jumps there if it is open). Right-clicking a window's title bar (the talk card's name bar) does the same for that window. The places are kept in `%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt`.
+Where SC's two movable windows sit: the talk card (the survivor card shown while you talk) and the member inventory panel ("Equipment..." on a member). It shows their saved places, where the talk card is, whether the panel is switched on (`MemberInventoryPanel`) and, while the panel is open, whose inventory it shows and how full her pack and bag are. `sc ui reset` forgets both saved places, so the talk card opens left of the spoken line again and the panel left of your backpack (each jumps there if it is open). Right-clicking a window's title bar (the talk card's name bar) does the same for that window. The places are kept in `%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt`. On a client in multiplayer use `scl ui [reset]` (section 16): `sc ui` would look at the server's windows.
 
 ### `sc voice` [READ]
 Voice switches, player in use, voices found, and the voice gate.
@@ -741,6 +743,7 @@ Other voice subcommands:
 
 - `sc voice play <line> [id|name]`: a survivor (that one, or the nearest with a voice within 20 m) says a clip now.
 - `sc voice stop`, `sc voice rescan` (re-reads the voice folder without a restart), `sc voice gate` [READ].
+- On a client in multiplayer, `play`, `stop` and `rescan` are `scl voice ...` (section 16): they are your own game's sound.
 - `sc voice sayline [line] [seconds]`: the nearest survivor is given a say-line through Voice Control after a delay (default `ammo.dry`, 5 s). A line with an argument works too (`book.recipe:forgedIron`, `basekeep.need:resourceForgedIron`).
 - `sc voice context [id|name]` [READ]: the paragraph Voice Control's chat is given for an enclave person.
 - `sc voice who [id|name]` [READ]: race, sex, origin, voice chain and which lines the NPC can say. With Vanity Vault it also shows the skin tone, the face and the rule that chose the voice race: `skin Porcelain, face 10 Black -> Black (VoiceRaceByFace)`; `skin Umber, face 3 White, a dark tone for a man -> Black (VoiceRaceByFace, VoiceDarkTonesMale)`; for a face number outside 1-16 (or with `VoiceRaceByFace` false, which adds `; VoiceRaceByFace off`) the tone's race from `VoiceRaceBySkin` (`skin Espresso, face 20 (no face race) -> Black (VoiceRaceBySkin)`), or that the tone is not in it (any voice of their sex).
@@ -780,6 +783,21 @@ See section 1.
 | `lcbu verify` [READ] | Cross-checks the registry, the vanilla claim map and loaded tile entities. Ends in PASS or FAIL. |
 
 Examples: `lcbu near 3`, `lcbu set 2`, `lcbu verify`
+
+## 16. Your own game in multiplayer: `scl` (long name `survivorcommunitylocal`)
+
+`sc` always runs on the server, so the subcommands that act on your own game (your windows, your portraits, your sound) would act on the server's machine there. `scl` runs them in the game of whoever types it. Any player may use it, admin or not: it changes nothing but your own game. On a client it reads your game's copy of the community. In single player and for the host it does exactly what the `sc` twin does. `scl` alone prints its usage.
+
+| Syntax | What it does |
+|---|---|
+| `scl ui` [READ] and `scl ui reset` | As `sc ui`: where your talk card and member inventory panel sit; `reset` puts both back to their default places. |
+| `scl portrait <id\|name\|all>` | As `sc portrait`: re-shoots portraits in your own community window. |
+| `scl portrait frame [fov dist yaw eyelift aimlift]` | As `sc portrait frame`: shows or sets your camera framing for this session. |
+| `scl voice` [READ] | Your game's voice switches, the voices found and the voice gate. |
+| `scl voice play <line> [id\|name]` | A survivor (that one, or the nearest with a voice within 20 m) says a clip now, in your game only. |
+| `scl voice stop`, `scl voice rescan` | Stops the line playing; re-reads your voice folder without a restart. |
+
+On a client, `sc ui`, `sc portrait` and `sc voice play|stop|rescan` answer "type scl ... instead" and change nothing. On a dedicated server's own console `scl` only says that it belongs in a player's game.
 
 ---
 
