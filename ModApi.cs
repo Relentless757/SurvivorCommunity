@@ -61,6 +61,7 @@ namespace SurvivorCommunity
                     ScTicker.Reset();
                     ScMirror.Reset();                // round MP1: no client copy or push state carries into a new world
                     ScActions.Reset();               // round MP2: no unanswered request carries into a new world
+                    ScTalkContext.Reset();           // round MP2 (part M): no talk context or hand-over carries into a new world
 #if SC_V34
                     ScSleep.Reset();                 // round n06: no night lease carries into a new world
                     ScSocial.Reset();                // round U3: no exchange, walk-over or gathering carries into a new world
@@ -179,6 +180,7 @@ namespace SurvivorCommunity
                     try { ScNet.Reset(); } catch (Exception e) { ScLog.Once("net-reset", e); }
                     try { ScLooks.ResetNet(); } catch (Exception e) { ScLog.Once("looks-net-reset", e); }   // round MP1: the looks sent and received
                     try { ScActions.Reset(); } catch (Exception e) { ScLog.Once("actions-reset", e); }      // round MP2: a client's unanswered requests
+                    try { ScTalkContext.Reset(); } catch (Exception e) { ScLog.Once("talk-reset", e); }     // round MP2 (part M): the talk context
                     ScMirror.OnWorldShuttingDown();          // round MP1: a client forgets the server's copy (its own try)
                     ScRunners.OnWorldShuttingDown();   // first: runners in the world go back to their snapshot before the world is saved
                     ScEnclavePeople.OnWorldShuttingDown();   // enclave bodies recorded and taken out before the save (E2)

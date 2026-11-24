@@ -59,7 +59,7 @@ namespace SurvivorCommunity
         /// text to show - 0-XNPCCore's own, with the counts - which the callers pass through Localization.Get (an unknown key comes
         /// back unchanged). A read.
         /// </summary>
-        public static bool Refuses(Member m, EntityAlive npc, EntityPlayerLocal player, out string error)
+        public static bool Refuses(Member m, EntityAlive npc, EntityPlayer player, out string error)     // round MP2: the follower's own player
         {
             error = null;
             if (!ScConfig.SharePartyCap || npc == null || player == null || !Available) return false;
@@ -84,7 +84,7 @@ namespace SurvivorCommunity
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static bool Full(EntityAlive npc, EntityPlayerLocal player, out string error)
+        private static bool Full(EntityAlive npc, EntityPlayer player, out string error)
         {
             error = null;
             if (!SdcsParty.WouldOverflow(player, npc)) return false;

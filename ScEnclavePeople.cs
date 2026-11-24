@@ -1839,7 +1839,7 @@ namespace SurvivorCommunity
             if (e is EntityPlayer) return true;
             EntityBuffs bf = e.Buffs;
             if (bf == null) return false;
-            if (bf.HasCustomVar("sc_member") || bf.HasCustomVar(ScRadio.StandInCvar)) return true;
+            if (bf.GetCustomVar("sc_member") > 0f || bf.HasCustomVar(ScRadio.StandInCvar)) return true;   // round MP2 (E9): the value (0 on a client once cleared)
             int leader = ScCommunity.HiredBy(e);
             if (leader <= 0) return false;
             World w = ScCommunity.World;

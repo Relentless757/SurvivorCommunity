@@ -51,7 +51,8 @@ namespace SurvivorCommunity
         public static string Fill(string text, EntityAlive npc, EntityPlayer player, out string voiceKey)
         {
             voiceKey = null;
-            if (string.IsNullOrEmpty(text) || text.IndexOf('{') < 0 || !ScCommunity.IsHost) return text;
+            if (string.IsNullOrEmpty(text) || text.IndexOf('{') < 0) return text;
+            if (!ScCommunity.IsHost) return ScBands.Fill(text, npc, player);    // round MP2: a client's band line, from the talk context (an enclave line stays as it is: MP5)
             EncPerson p = ScEnclavePeople.PersonOf(npc);
             Enclave e = ScEnclavePeople.EnclaveOf(p);
             if (e == null) return ScBands.Fill(text, npc, player);          // E13a: one of a drifter band ({bandwhere}, {bandjoinfacts})

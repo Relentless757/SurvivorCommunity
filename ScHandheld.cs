@@ -147,7 +147,7 @@ namespace SurvivorCommunity
         /// false: any runner, as before R2. The "Call back" of a member whose body is gone and the outposts' recall are not
         /// runs and do not come here. Also asked by the window's button color on every refresh, so it counts nothing.
         /// </summary>
-        public static bool WindowRecallAllowed(Member m, EntityPlayerLocal player)
+        public static bool WindowRecallAllowed(Member m, EntityPlayer player)     // round MP2: any player (the window's request runs on the server)
         {
             if (m == null || !ScConfig.WindowRecallNeedsRadio) return true;
             return m.RunRadio || ScRadioTalk.InPerson(m, player);

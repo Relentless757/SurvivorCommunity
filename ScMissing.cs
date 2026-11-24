@@ -14,7 +14,7 @@ namespace SurvivorCommunity
     /// The window shows them as Missing, and "Call back" (or the console's "sc restore") respawns them at their post
     /// from their record: the class, look and worn gear, name, skills, specialty, traits and mood. What they carried
     /// is lost. They come back under a new entity id; the old id goes on the Doomed list, so if the old body ever
-    /// loads again it is removed rather than doubled. Host only.
+    /// loads again it is removed rather than doubled. Host only (round MP2: a client's "Call back" is a member.follow request).
     /// </summary>
     public static class ScMissing
     {
@@ -92,8 +92,11 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>"Call back": a missing (or, from the console, any unloaded) resident respawns at their post.</summary>
-        public static bool Restore(Member m, EntityPlayerLocal player, bool force, out string error)
+        /// <summary>
+        /// "Call back": a missing (or, from the console, any unloaded) resident respawns at their post. Round MP2: any player (the
+        /// member.follow request's sender, ScActionsMembers): the tell goes to them (ShowTooltipMP reaches a remote one).
+        /// </summary>
+        public static bool Restore(Member m, EntityPlayer player, bool force, out string error)
         {
             error = null;
             try

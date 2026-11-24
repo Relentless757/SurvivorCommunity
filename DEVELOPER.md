@@ -2219,6 +2219,39 @@ Round MP0 is the groundwork:
     command on the client as a whole, never per subcommand, hence two commands. A client's `sc ui`, `sc portrait` and
     `sc voice play|stop|rescan` answer "type scl ... instead".
 
+- **Round MP2 (part M), member orders and the talk** (`ScActionsMembers`, `ScTalkContext`, `NetPackageScTalkContext`):
+  - **Ops** (`[ScAction]` handlers; ints, `member` = `Member.Id`, `npc` = entity id): `member.follow` (member, mode: 0 or
+    absent the window's branch - call back a missing member (hint `select` = the new id), turn round one on the way to an
+    outpost, recall a runner (the radio rule), recall a posted one, send a follower home, else follow; 1 the talk's "Follow
+    me"; 2 the talk's "Head home" to a runner met outside); `member.home` (member, mode 1: the talk's); `member.leave`
+    (member, mode; Owner access; mode 0 refuses a downed member with scDownedBusy); `member.join` (npc, journal: 1 when the
+    asking player's POI favour quest is past its clearing); `favour.start` (npc, kind = `FavourKind`); `favour.poicleared`
+    (npc, journal); `favour.items` (npc, any) and `favour.given` (npc, any, resource, taken): the supplies hand-over;
+    `band.join` (npc). A remote player's favour quest closes on their own machine: the reply's hint `fclose` (prospect id)
+    and `fdone` (1 completed, 0 removed), done by `ScTalkContext.ApplyQuestHint`.
+  - **The talk context:** a client sends `Open` (npc, its journal's verdict) when a talk with an SCore NPC opens (a postfix on
+    `XUiC_DialogWindowGroup.OnOpen`); the server rolls the profile and the favour there (never on a client: E4) and answers
+    with `ScTalkFacts` (the recruit verdict and reason, the home, the favour, the POI's sleeper verdict, a band's answers and
+    line tokens). The client keeps it per NPC, re-evaluates the open response list, and picks the first statement again
+    while the talk still shows the one it opened on (a band's greeting is a phase). Every SC dialog requirement keeps its
+    code on the server and has a client path that reads the facts, the copy (`ScTalkContext.View` builds a NEW prospect -
+    the copy is never changed) and the client's own journal and inventory. A new requirement that needs server-only state
+    adds a field to `ScTalkFacts` (and bumps `ScNet.Protocol`).
+  - **Order on the wire:** a client's "Mark it" sends `favour.start` BEFORE the quest goes into its journal: the reliable
+    channel keeps order, so the server holds the POI as a favour's before the sleeper subscribe `AddQuest` sends arrives
+    (E6: `ScQuests.IsOurPoi(pos, subscribers)` answers from the registry - POI favours taken on and not done, accepted
+    request places - whenever a remote player subscribed). The host keeps its old order (quest first, then the mark).
+  - **The supplies hand-over** is two steps: the server says what to take (or refuses: no home, roster full), the client
+    takes it from its own bag recording what left, the server checks again and marks the favour done - or refuses with
+    `refund=1` and the client gives the items back. The row's `ScJoin` waits for the hand-over on a client.
+  - **A favour is shared** (two players may take the same one): whoever finishes it finishes it for everyone; when they
+    join, die or turn hostile every other player's copy of the quest is removed (`ScTalkContext.CloseFavourForOthers`,
+    the package's `Close`).
+  - **Cvars the talk's rows read** (`sc_member`, `sc_following`, `sc_onrun`, `sc_favour`, `sc_favourDone`): write them with
+    `ScCommunity.SetSynced` (force-sent, only on a change) and clear them with `ScCommunity.ClearSynced` (clients get a 0,
+    then the server removes it, so every server-side reader and the save see what they always did). Code that runs on a
+    client tests the value (`> 0`), never `HasCustomVar`.
+
 ## How it hangs together (for modders)
 
 - NPCs are 0-XNPCCore's `EntityAliveSDXV4` survivors (SCore's legacy `EntityAliveSDX` still works for pack NPCs). A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars

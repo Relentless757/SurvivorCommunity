@@ -2014,14 +2014,38 @@ namespace SurvivorCommunity
         /// <summary>The band person behind the NPC being talked to (alive) and their band, or false. Host only.</summary>
         public static bool Talking(EntityPlayer player, EntityNPC talkingTo, out Band b, out BandPerson p)
         {
+            return Talking(talkingTo != null ? (EntityAlive)talkingTo : ScFavours.CurrentNpc(player), out b, out p);
+        }
+
+        /// <summary>Round MP2: the same for a body named directly (the talk context's NPC). Host only.</summary>
+        public static bool Talking(EntityAlive npc, out Band b, out BandPerson p)
+        {
             b = null;
             p = null;
             if (!ScCommunity.IsHost) return false;
-            EntityAlive npc = talkingTo != null ? (EntityAlive)talkingTo : ScFavours.CurrentNpc(player);
             p = PersonOf(npc);
             if (p == null || !p.Alive) return false;
             b = ById(p.BandId);
             return b != null;
+        }
+
+        /// <summary>
+        /// Round MP2 (part M), server: a band person's part of the talk context (ScTalkContext.Build) - what DialogRequirementScBand
+        /// and ScBandCome answer for this player, and the line's tokens (Fill) as text. Nothing for anybody else.
+        /// </summary>
+        internal static void TalkFacts(EntityAlive npc, EntityPlayer player, ScTalkFacts f)
+        {
+            Band b;
+            BandPerson p;
+            if (f == null || !Talking(npc, out b, out p)) return;
+            if (!b.IsRaiders && b.Trust >= 0) f.Band = b.Trust > 0 ? 2 : 1;
+            if (HiddenWhy(b, player) == null) f.BandCome = Accepts(b) ? 1 : 2;
+            BandPerson lead = LeaderOf(b);
+            f.BandWhere = WhereFacts(b, player);
+            f.BandJoinFacts = JoinFacts(b);
+            f.BandName = p.Name ?? "";
+            f.BandLeader = lead != null ? lead.Name ?? "" : "";
+            f.BandCount = Coming(b);
         }
 
         /// <summary>How many would come: the living.</summary>
@@ -2078,7 +2102,8 @@ namespace SurvivorCommunity
         /// </summary>
         public static string Fill(string text, EntityAlive npc, EntityPlayer player)
         {
-            if (string.IsNullOrEmpty(text) || text.IndexOf('{') < 0 || !ScCommunity.IsHost) return text;
+            if (string.IsNullOrEmpty(text) || text.IndexOf('{') < 0) return text;
+            if (!ScCommunity.IsHost) return FillFromFacts(text, npc);           // round MP2: a client's line, from the talk context
             BandPerson p = PersonOf(npc);
             Band b = p != null ? ById(p.BandId) : null;
             if (b == null) return text;
@@ -2092,12 +2117,28 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// "Welcome to the community." (DialogActionScBandJoin): one of a drifter band being talked to, every gate again
-        /// (HiddenWhy, Accepts), then the join (JoinNow). False with the reason (a tooltip).
+        /// Round MP2: a client's band line - the tokens the server filled in at the talk's open (ScTalkFacts), the line as it is
+        /// without them. ScEncDialog.Fill (DialogOpsEnclaves.cs) hands a client's lines here.
         /// </summary>
-        public static bool Join(EntityPlayerLocal player, EntityAlive npc, out string reason)
+        private static string FillFromFacts(string text, EntityAlive npc)
+        {
+            ScTalkFacts f = npc != null ? ScTalkContext.Facts(npc.entityId) : null;
+            if (f == null || f.Band <= 0) return text;
+            string s = text;
+            s = s.Replace("{bandwhere}", f.BandWhere ?? "").Replace("{bandjoinfacts}", f.BandJoinFacts ?? "");
+            s = s.Replace("{name}", f.BandName ?? "").Replace("{leader}", f.BandLeader ?? "");
+            return s.Replace("{count}", f.BandCount.ToString(CultureInfo.InvariantCulture));
+        }
+
+        /// <summary>
+        /// "Welcome to the community." (DialogActionScBandJoin): one of a drifter band being talked to, every gate again
+        /// (HiddenWhy, Accepts), then the join (JoinNow). False with the reason (a tooltip). Round MP2: any player (band.join's
+        /// sender, ScActionsMembers) - the server's verb.
+        /// </summary>
+        public static bool Join(EntityPlayer player, EntityAlive npc, out string reason)
         {
             reason = null;
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded) { reason = Loc("scHostOnly"); return false; }     // round MP2 (E10)
             BandPerson p = PersonOf(npc);
             Band b = p != null ? ById(p.BandId) : null;
             if (player == null || b == null || npc.IsDead() || !p.Alive)
@@ -2134,7 +2175,7 @@ namespace SurvivorCommunity
         /// facts), a ledger line, the log, a save. Returns the console's line. Round m1v (the review's fix 4): by - the one the
         /// player talked to (the dialog) - says their word, in the tell and aloud; null (any other way): the leader.
         /// </summary>
-        internal static string JoinNow(Band b, EntityPlayerLocal player, string cause, BandPerson by = null)
+        internal static string JoinNow(Band b, EntityPlayer player, string cause, BandPerson by = null)     // round MP2: any player
         {
             World w = ScCommunity.World;
             BandPerson leader = LeaderOf(b);

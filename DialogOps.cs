@@ -7,6 +7,12 @@ using UnityEngine;
 // DialogRequirementScFavour in this assembly (the "DialogRequirement" / "DialogAction" prefix is inserted
 // after the last '.' before the comma), so these classes live outside the namespace. All of them find the
 // NPC through the player cvar CurrentNPC that SCore sets when a conversation opens.
+// Round MP2 (multiplayer, part M): requirements and actions run on the TALKING machine (XUiC_DialogResponseEntry,
+// Dialog.SelectResponse). Each requirement keeps its code on the server (single player, the host's own player: unchanged)
+// and has a client path that reads the talk context (ScTalkContext: what the server said at the talk's open), the copy of
+// the registry and the client's own journal and inventory - no requirement changes anything on a client. Every action that
+// changes the community is an ScActions request on every machine (ScActionsMembers' ops; inline on the server), and the
+// answer's tooltip, sound and journal close are the callback's.
 
 namespace SurvivorCommunity
 {
@@ -47,7 +53,7 @@ namespace SurvivorCommunity
             Roll(p, npc.position, npc.rand ?? (w != null ? w.GetGameRandom() : null));
             ScRegistry.Prospects[p.Id] = p;
             npc.Buffs.SetCustomVar("Persist", 1f);                       // a prospect must survive the chunk
-            npc.Buffs.SetCustomVar("sc_favour", (int)p.Favour);
+            ScCommunity.SetSynced(npc, "sc_favour", (int)p.Favour);      // round MP2 (E9): force-sent
             npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
             // they wait here (SCore guard order: fights what comes, walks back) so the player can find them again - unless
             // they are the player's own hired companion (decision D9: they may join), who keeps whatever order the player
@@ -96,13 +102,31 @@ namespace SurvivorCommunity
         public static bool CheckDone(EntityAlive npc, EntityPlayer player, Prospect p)
         {
             // round MP1: marking it done is the server's - on a client (a copy of the prospect) this stays the read it is there
-            if (ScCommunity.IsHost && p != null && !p.Done && ScQuests.FavourQuestDone(player, p.Id))
-            {
-                p.Done = true;
-                if (npc != null && npc.Buffs != null) npc.Buffs.SetCustomVar("sc_favourDone", 1f);
-                ScLeadership.Count(ScLeadership.FavourEvent);
-            }
+            if (ScCommunity.IsHost && p != null && !p.Done && ScQuests.FavourQuestDone(player, p.Id)) MarkDone(npc, p);
             return p != null && p.Done;
+        }
+
+        /// <summary>
+        /// Round MP2: the favour is done - the mark CheckDone, "already cleared", the hand-over and a client's journal verdict
+        /// (ScTalkContext, member.join) share: Done, sc_favourDone (force-sent: E9), the leadership count. The caller saves when it
+        /// did before (CheckDone never did: the next save takes it). Server only.
+        /// </summary>
+        internal static void MarkDone(EntityAlive npc, Prospect p)
+        {
+            if (p == null || p.Done || !ScRegistry.Loaded) return;
+            p.Done = true;
+            if (npc != null) ScCommunity.SetSynced(npc, "sc_favourDone", 1f);
+            ScLeadership.Count(ScLeadership.FavourEvent);
+        }
+
+        /// <summary>
+        /// Round MP2: the prospect a dialog row reads - the registry's on the server (as before), the talk context's view on a
+        /// client (ScTalkContext.View: the copy's, with what the server said at the talk's open; a new object, never the copy).
+        /// </summary>
+        internal static Prospect Lookup(EntityAlive npc)
+        {
+            if (npc == null) return null;
+            return ScCommunity.IsHost ? ScRegistry.GetProspect(npc.entityId) : ScTalkContext.View(npc.entityId);
         }
 
         /// <summary>
@@ -131,7 +155,10 @@ namespace SurvivorCommunity
 
 // ---------------------------------------------------------------- requirements ----
 
-/// <summary>The NPC may be asked to join (host, hireable human, not hired by somebody else, not a member, roster not full).</summary>
+/// <summary>
+/// The NPC may be asked to join (host, hireable human, not hired by somebody else, not a member, roster not full). Round MP2: a
+/// client reads the server's verdict from the talk's open (ScTalkContext.CanRecruit), unless its copy says they joined since.
+/// </summary>
 public class DialogRequirementScCanRecruit : BaseDialogRequirement
 {
     public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
@@ -139,6 +166,7 @@ public class DialogRequirementScCanRecruit : BaseDialogRequirement
         try
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
+            if (!ScCommunity.IsHost) return ScTalkContext.CanRecruit(npc);       // round MP2: the client's path
             string why;
             return npc != null && ScCommunity.CanRecruit(npc, player, out why);
         }
@@ -146,7 +174,10 @@ public class DialogRequirementScCanRecruit : BaseDialogRequirement
     }
 }
 
-/// <summary>value="poi" | "supplies": the favour this NPC asks for (rolled on first sight).</summary>
+/// <summary>
+/// value="poi" | "supplies": the favour this NPC asks for (rolled on first sight). Round MP2 (E4): the roll is the server's -
+/// at the talk's open for a client (ScTalkContext), which reads the prospect from its copy and the facts and never rolls one.
+/// </summary>
 public class DialogRequirementScFavour : BaseDialogRequirement
 {
     public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
@@ -154,7 +185,17 @@ public class DialogRequirementScFavour : BaseDialogRequirement
         try
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
-            if (npc == null || !ScCommunity.IsHost) return false;
+            if (npc == null) return false;
+            if (!ScCommunity.IsHost)
+            {
+                // round MP2: the client's path - a read, no roll (E4)
+                Prospect cp = ScTalkContext.View(npc.entityId);
+                if (cp == null) return false;
+                string cv = (Value ?? "").Trim().ToLowerInvariant();
+                if (cv == "poi") return cp.Favour == FavourKind.Poi;
+                if (cv == "supplies") return cp.Favour == FavourKind.Supplies;
+                return cp.Favour != FavourKind.None;
+            }
             // Never roll (and pin as persistent) an NPC that cannot join anyway - requirement evaluation
             // order is not something to rely on.
             string why;
@@ -170,7 +211,10 @@ public class DialogRequirementScFavour : BaseDialogRequirement
     }
 }
 
-/// <summary>The favour is complete (value="not" inverts).</summary>
+/// <summary>
+/// The favour is complete (value="not" inverts). Round MP2: a client reads the prospect's Done (its copy, the facts) or its
+/// own journal (the favour's quest past the clearing: the server marks it at the talk's open, or on the join - member.join).
+/// </summary>
 public class DialogRequirementScFavourDone : BaseDialogRequirement
 {
     public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
@@ -178,8 +222,17 @@ public class DialogRequirementScFavourDone : BaseDialogRequirement
         try
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
-            Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
-            bool done = ScFavours.CheckDone(npc, player, p);
+            bool done;
+            if (!ScCommunity.IsHost)
+            {
+                Prospect cp = npc != null ? ScTalkContext.View(npc.entityId) : null;     // round MP2: the client's path, a read
+                done = cp != null && (cp.Done || ScQuests.FavourQuestDone(player, cp.Id));
+            }
+            else
+            {
+                Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
+                done = ScFavours.CheckDone(npc, player, p);
+            }
             return (Value ?? "").Trim().Equals("not", StringComparison.OrdinalIgnoreCase) ? !done : done;
         }
         catch (Exception e) { ScLog.Once("req-favourdone", e); return false; }
@@ -188,7 +241,8 @@ public class DialogRequirementScFavourDone : BaseDialogRequirement
 
 /// <summary>
 /// The player's community has a home whose land claim stands (ScZone.EnsureHome: since round 32a it adopts no claim by itself
-/// unless AutoHomeFirstClaim). value="not": there is none (round 32a's "start a community first" answer); on a client, neither.
+/// unless AutoHomeFirstClaim). value="not": there is none (round 32a's "start a community first" answer). Round MP2: a client
+/// reads the server's EnsureHome from the talk's open, else its copy's home (ScTalkContext.HasHome) - never EnsureHome itself.
 /// </summary>
 public class DialogRequirementScHasHome : BaseDialogRequirement
 {
@@ -196,8 +250,13 @@ public class DialogRequirementScHasHome : BaseDialogRequirement
     {
         try
         {
-            if (!ScCommunity.IsHost) return false;
-            bool has = ScZone.EnsureHome(player);
+            bool has;
+            if (!ScCommunity.IsHost)
+            {
+                if (!ScRegistry.Mirrored) return false;                  // no copy yet: neither row, as before round MP2
+                has = ScTalkContext.HasHome(player);                     // round MP2: the client's path
+            }
+            else has = ScZone.EnsureHome(player);
             return (Value ?? "").Trim().Equals("not", StringComparison.OrdinalIgnoreCase) ? !has : has;
         }
         catch (Exception e) { ScLog.Once("req-hashome", e); return false; }
@@ -215,7 +274,7 @@ public class DialogRequirementScHasFavourItems : BaseDialogRequirement
         try
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
-            Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
+            Prospect p = ScFavours.Lookup(npc);          // round MP2: a client's view (its own inventory is the right one to count)
             if (p == null || p.Favour != FavourKind.Supplies) return false;
             if (!p.Started && !(Value ?? "").Trim().Equals("any", StringComparison.OrdinalIgnoreCase)) return false;
             return ScCategories.CountInPlayer(player, p.ItemCategory) >= p.ItemCount;
@@ -236,7 +295,7 @@ public class DialogRequirementScFavourQuestOpen : BaseDialogRequirement
         try
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
-            Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
+            Prospect p = ScFavours.Lookup(npc);          // round MP2: a client's view (its own journal is the right one to read)
             if (p == null) return false;
             bool open = ScQuests.FindFavour(player, p.Id) != null;
             return (Value ?? "").Trim().Equals("not", StringComparison.OrdinalIgnoreCase) ? !open : open;
@@ -249,7 +308,8 @@ public class DialogRequirementScFavourQuestOpen : BaseDialogRequirement
 /// The POI favour's building already reads clear (ScFavours.PoiReadsCleared, from the saved sleeper volumes, which the
 /// world keeps for every POI, loaded or not), or its quest is past the clearing. Chooses the "Mark it" that leads to
 /// the survivor's answer and "Actually, I've already cleared that."; value="not" picks the "Mark it" that just ends
-/// the talk. Neither shows once the favour is done.
+/// the talk. Neither shows once the favour is done. Round MP2: a client reads the server's verdict on the volumes from the
+/// talk's open (ScTalkFacts.PoiCleared), and its own journal.
 /// </summary>
 public class DialogRequirementScFavourPoiCleared : BaseDialogRequirement
 {
@@ -258,10 +318,16 @@ public class DialogRequirementScFavourPoiCleared : BaseDialogRequirement
         try
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
-            Prospect p = npc != null && ScCommunity.IsHost ? ScRegistry.GetProspect(npc.entityId) : null;
+            Prospect p = ScFavours.Lookup(npc);
             if (p == null || p.Favour != FavourKind.Poi || p.Done) return false;
             string why;
-            bool cleared = ScFavours.PoiReadsCleared(p, out why) || ScQuests.FavourQuestDone(player, p.Id);
+            bool cleared;
+            if (!ScCommunity.IsHost)
+            {
+                ScTalkFacts f = ScTalkContext.Facts(npc.entityId);                // round MP2: the client's path
+                cleared = (f != null && f.PoiCleared) || ScQuests.FavourQuestDone(player, p.Id);
+            }
+            else cleared = ScFavours.PoiReadsCleared(p, out why) || ScQuests.FavourQuestDone(player, p.Id);
             return (Value ?? "").Trim().Equals("not", StringComparison.OrdinalIgnoreCase) ? !cleared : cleared;
         }
         catch (Exception e)
@@ -275,7 +341,10 @@ public class DialogRequirementScFavourPoiCleared : BaseDialogRequirement
 
 // ---------------------------------------------------------------- actions ----
 
-/// <summary>Tooltip describing the favour ("Secure X for me" / "Bring me N food items").</summary>
+/// <summary>
+/// Tooltip describing the favour ("Secure X for me" / "Bring me N food items"). Round MP2: a client describes the favour the
+/// server rolled at the talk's open (never rolls one: E4).
+/// </summary>
 public class DialogActionScFavourBrief : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
@@ -283,7 +352,7 @@ public class DialogActionScFavourBrief : BaseDialogAction
         try
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
-            Prospect p = npc != null ? ScFavours.Ensure(npc, player) : null;
+            Prospect p = npc == null ? null : ScCommunity.IsHost ? ScFavours.Ensure(npc, player) : ScTalkContext.View(npc.entityId);
             if (p == null) return;
             ScCommunity.Tell(player, ScFavours.Describe(p) + (p.Done ? " " + Localization.Get("scFavourAlreadyDone") : ""), "");
         }
@@ -291,17 +360,23 @@ public class DialogActionScFavourBrief : BaseDialogAction
     }
 }
 
-/// <summary>Marks the favour taken on (Prospect.Started) and saves, once.</summary>
+/// <summary>Marks the favour taken on (Prospect.Started) and saves, once. Round MP2: the favour.start request's (server only).</summary>
 internal static class ScFavourStart
 {
     public static void Mark(Prospect p)
     {
-        if (p == null || p.Started) return;
+        if (p == null || p.Started || !ScRegistry.Loaded) return;     // round MP2 (E10): never on a client's copy
         p.Started = true;
         ScRegistry.SaveAtomic();
     }
 }
 
+/// <summary>
+/// "Mark it": the POI favour's quest into the player's own journal, and favour.start marks it taken on. Round MP2: the host
+/// starts the quest first and marks after, as before; a client sends the mark FIRST - the reliable channel keeps order, so the
+/// server holds the POI as a favour's (Patches_Quest, E6) before the sleeper subscribe its AddQuest sends arrives - and drops
+/// its quest again if the server refuses.
+/// </summary>
 public class DialogActionScStartPoiQuest : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
@@ -310,21 +385,39 @@ public class DialogActionScStartPoiQuest : BaseDialogAction
         {
             EntityPlayerLocal lp = player as EntityPlayerLocal;
             EntityAlive npc = ScFavours.CurrentNpc(player);
-            Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
+            Prospect p = ScFavours.Lookup(npc);
             if (lp == null || p == null) return;
-            if (!ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }   // round MP1: a client's copy is read-only (MP2 sends it)
+            int npcId = npc.entityId, pid = p.Id;
             string error;
-            // asked again with the quest already in the journal: it is marked, nothing to say
-            if (ScQuests.Start(lp, p, out error) || error == "scQuestAlready") ScFavourStart.Mark(p);
-            else ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
-            string why;
-            ScLog.Out(p.PoiName + " for " + p.Name + (ScFavours.PoiReadsCleared(p, out why) ? " already reads clear" : " is not clear yet: " + why));
+            if (ScCommunity.IsHost)
+            {
+                // asked again with the quest already in the journal: it is marked, nothing to say
+                if (ScQuests.Start(lp, p, out error) || error == "scQuestAlready")
+                    ScActions.Request("favour.start", r => ScTalkContext.Tell(player, r, false), npcId, (int)FavourKind.Poi);   // marks and logs the POI's state
+                else
+                {
+                    ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+                    string why;
+                    ScLog.Out(p.PoiName + " for " + p.Name + (ScFavours.PoiReadsCleared(p, out why) ? " already reads clear" : " is not clear yet: " + why));
+                }
+                return;
+            }
+            ScActions.Request("favour.start", r =>
+            {
+                if (r.Ok) ScTalkContext.Note(npcId, true, false);
+                else ScQuests.CloseFavour(lp, pid, false);                     // the server said no: the quest goes again
+                ScTalkContext.Tell(player, r, false);
+            }, npcId, (int)FavourKind.Poi);
+            if (!ScQuests.Start(lp, p, out error) && error != "scQuestAlready") ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
         }
         catch (Exception e) { ScLog.Once("act-startquest", e); }
     }
 }
 
-/// <summary>"Sure, I'll see what I can find.": takes on the supplies favour and puts its quest in the journal.</summary>
+/// <summary>
+/// "Sure, I'll see what I can find.": takes on the supplies favour and puts its quest in the journal. Round MP2: the quest
+/// into the player's own journal first, then favour.start (Started); a client drops the quest again if the server refuses.
+/// </summary>
 public class DialogActionScStartSuppliesQuest : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
@@ -333,12 +426,22 @@ public class DialogActionScStartSuppliesQuest : BaseDialogAction
         {
             EntityPlayerLocal lp = player as EntityPlayerLocal;
             EntityAlive npc = ScFavours.CurrentNpc(player);
-            Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
+            Prospect p = ScFavours.Lookup(npc);
             if (lp == null || p == null || p.Favour != FavourKind.Supplies || p.Done) return;
-            if (!ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }   // round MP1: a client's copy is read-only (MP2 sends it)
             string error;
-            if (ScQuests.StartSupplies(lp, p, out error) || error == "scQuestAlready") ScFavourStart.Mark(p);
-            else ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+            if (!ScQuests.StartSupplies(lp, p, out error) && error != "scQuestAlready")
+            {
+                ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+                return;
+            }
+            bool added = error == null;
+            int npcId = npc.entityId, pid = p.Id;
+            ScActions.Request("favour.start", r =>
+            {
+                if (r.Ok) ScTalkContext.Note(npcId, true, false);
+                else if (added && !ScCommunity.IsHost) ScQuests.CloseFavour(lp, pid, false);   // the server said no: the quest goes again
+                ScTalkContext.Tell(player, r, false);
+            }, npcId, (int)FavourKind.Supplies);
         }
         catch (Exception e) { ScLog.Once("act-startsupplies", e); }
     }
@@ -348,6 +451,8 @@ public class DialogActionScStartSuppliesQuest : BaseDialogAction
 /// "Actually, I've already cleared that.": the POI reads clear (checked again here - the list was built a moment
 /// ago), so the favour is done. This survivor's quest closes as completed: "Mark it" just put it in the journal, and
 /// on a clear POI vanilla has already moved it on to "return to &lt;name&gt;" - which is where the player is standing.
+/// Round MP2: favour.poicleared decides on the server (the volumes there; a client sends its journal's verdict) and the
+/// answer closes the quest on the player's own journal.
 /// </summary>
 public class DialogActionScFavourPoiCleared : BaseDialogAction
 {
@@ -356,29 +461,28 @@ public class DialogActionScFavourPoiCleared : BaseDialogAction
         try
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
-            Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
+            Prospect p = ScFavours.Lookup(npc);
             if (p == null || p.Favour != FavourKind.Poi) return;
-            if (!ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }   // round MP1: a client's copy is read-only (MP2 sends it)
-            if (!p.Done)
+            int npcId = npc.entityId;
+            bool journal = !ScCommunity.IsHost && ScQuests.FavourQuestDone(player, p.Id);     // the host reads its own on the server
+            ScActions.Request("favour.poicleared", r =>
             {
-                string why;
-                if (!ScFavours.PoiReadsCleared(p, out why) && !ScQuests.FavourQuestDone(player, p.Id))
-                {
-                    ScCommunity.Tell(player, string.Format(Localization.Get("scFavourPoiNotClear"), p.PoiName, why), "ui_denied");
-                    return;
-                }
-                p.Done = true;
-                if (npc.Buffs != null) npc.Buffs.SetCustomVar("sc_favourDone", 1f);
-                ScLeadership.Count(ScLeadership.FavourEvent);
-                ScRegistry.SaveAtomic();
-                ScLog.Out("favour done: " + p.PoiName + " was already clear (the player said so to " + p.Name + ")");
-            }
-            ScQuests.CloseFavour(player, p.Id, true);
+                ScTalkContext.ApplyQuestHint(player, r);
+                if (r.Ok) ScTalkContext.Note(npcId, false, true);
+                ScTalkContext.Tell(player, r, false);
+            }, npcId, journal ? 1 : 0);
         }
         catch (Exception e) { ScLog.Once("act-poicleared", e); }
     }
 }
 
+/// <summary>
+/// The supplies hand-over. Round MP2, two steps (the player's bag is their own machine's): favour.items asks the server
+/// whether they may take it now (the home, the roster - never the goods when the join that follows would be refused) and
+/// what; this machine takes the items from its own bag; favour.given tells the server, which checks again and marks the
+/// favour done - or refuses (another player did the favour meanwhile, the roster filled), and the items go back. On the
+/// server (single player, the host) both steps run inline, the same frame, as the old action did.
+/// </summary>
 public class DialogActionScTakeFavourItems : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
@@ -387,39 +491,70 @@ public class DialogActionScTakeFavourItems : BaseDialogAction
         {
             EntityPlayerLocal lp = player as EntityPlayerLocal;
             EntityAlive npc = ScFavours.CurrentNpc(player);
-            Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
+            Prospect p = ScFavours.Lookup(npc);
             if (lp == null || p == null || p.Favour != FavourKind.Supplies || p.Done) return;
-            if (!ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }   // round MP1: a client's copy is read-only (MP2 sends it)
             // value="any": handed over in the talk that named them, before taking the favour on (ScHasFavourItems "any")
-            if (!p.Started && !(Value ?? "").Trim().Equals("any", StringComparison.OrdinalIgnoreCase)) return;
-            // never take the goods when the join that follows would be refused
-            if (!ScZone.EnsureHome(player)) { ScCommunity.Tell(player, Localization.Get(ScZone.NeedHomeKey()), "ui_denied"); return; }
-            if (ScRegistry.Members.Count >= ScConfig.MaxMembers) { ScCommunity.Tell(player, Localization.Get("scRosterFull"), "ui_denied"); return; }
-            if (ScCategories.CountInPlayer(player, p.ItemCategory) < p.ItemCount)
-            {
-                ScCommunity.Tell(player, Localization.Get("scFavourNotEnough"), "ui_denied");
-                return;
-            }
-            int taken = ScCategories.RemoveFromPlayer(lp, p.ItemCategory, p.ItemCount);
-            if (taken >= p.ItemCount)
-            {
-                p.Done = true;
-                npc.Buffs.SetCustomVar("sc_favourDone", 1f);
-                ScLeadership.Count(ScLeadership.FavourEvent);
-                ScRegistry.SaveAtomic();
-                ScQuests.CloseFavour(player, p.Id, true);
-                ScLog.Out(p.Name + " received " + taken + " " + p.ItemCategory + " item(s)");
-            }
-            else
-            {
-                ScLog.Warn("supplies favour: asked to remove " + p.ItemCount + " but removed " + taken);
-            }
+            bool any = (Value ?? "").Trim().Equals("any", StringComparison.OrdinalIgnoreCase);
+            if (!p.Started && !any) return;
+            int npcId = npc.entityId;
+            // a client's row's ScJoin waits for it (the host's runs inline: it is through before ScJoin, as it always was)
+            if (!ScCommunity.IsHost) ScTalkContext.BeginHandOver(npcId);
+            ScActions.Request("favour.items", r => Step1(lp, npcId, any, r), npcId, any ? 1 : 0);
         }
         catch (Exception e) { ScLog.Once("act-takeitems", e); }
     }
+
+    /// <summary>The server's go-ahead (what, how many): the items leave this machine's bag, then favour.given.</summary>
+    private static void Step1(EntityPlayerLocal lp, int npcId, bool any, ScActionReply r)
+    {
+        if (!r.Ok)
+        {
+            ScTalkContext.Tell(lp, r, false);
+            ScTalkContext.EndHandOver(npcId, false);
+            return;
+        }
+        Resource res = (Resource)Math.Max(0, Math.Min(ScNames.ResourceCount - 1, r.HintInt(ScActionsMembers.HintResource)));
+        int count = r.HintInt(ScActionsMembers.HintCount);
+        if (ScCategories.CountInPlayer(lp, res) < count)
+        {
+            ScCommunity.Tell(lp, Localization.Get("scFavourNotEnough"), "ui_denied");
+            ScTalkContext.EndHandOver(npcId, false);
+            return;
+        }
+        var removed = new List<ItemStack>();
+        // the host takes them as it always did; a client records what left, to give it back on a refusal
+        int taken = ScCommunity.IsHost ? ScCategories.RemoveFromPlayer(lp, res, count) : ScTalkContext.TakeItems(lp, res, count, removed);
+        if (taken >= count)
+        {
+            ScActions.Request("favour.given", r2 => Step2(lp, npcId, removed, r2), npcId, any ? 1 : 0, (int)res, taken);
+            return;
+        }
+        ScLog.Warn("supplies favour: asked to remove " + count + " but removed " + taken);
+        if (!ScCommunity.IsHost) ScTalkContext.Refund(lp, removed);         // round MP2: a client gives back what did leave
+        ScTalkContext.EndHandOver(npcId, false);
+    }
+
+    /// <summary>The server's answer to the hand-over: done (the quest closes here), or refused (the items go back).</summary>
+    private static void Step2(EntityPlayerLocal lp, int npcId, List<ItemStack> removed, ScActionReply r)
+    {
+        ScTalkContext.ApplyQuestHint(lp, r);
+        if (!r.Ok)
+        {
+            if (r.HasHint(ScActionsMembers.HintRefund)) ScTalkContext.Refund(lp, removed);
+            ScTalkContext.Tell(lp, r, false);
+            ScTalkContext.EndHandOver(npcId, false);
+            return;
+        }
+        ScTalkContext.Note(npcId, false, true);
+        ScTalkContext.EndHandOver(npcId, true);         // a client's ScJoin of the same row goes now
+    }
 }
 
-/// <summary>Joins the community once the favour is done (no dukes).</summary>
+/// <summary>
+/// Joins the community once the favour is done (no dukes). Round MP2: member.join, with this machine's journal verdict (a
+/// client's POI favour quest past the clearing). In a row whose supplies hand-over is still in flight on a client
+/// (scGiveSupplies: ScTakeFavourItems, then ScJoin) it waits for the hand-over and goes after it (ScTalkContext).
+/// </summary>
 public class DialogActionScJoin : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
@@ -429,10 +564,9 @@ public class DialogActionScJoin : BaseDialogAction
             EntityPlayerLocal lp = player as EntityPlayerLocal;
             EntityAlive npc = ScFavours.CurrentNpc(player);
             if (lp == null || npc == null) return;
-            Prospect p = ScRegistry.GetProspect(npc.entityId);
-            if (p != null && !p.Done) { ScCommunity.Tell(player, Localization.Get("scFavourNotDone"), "ui_denied"); return; }
-            string error;
-            if (!ScCommunity.Join(npc, lp, out error)) ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+            bool journal = !ScCommunity.IsHost && ScQuests.FavourQuestDone(lp, npc.entityId);
+            if (!ScCommunity.IsHost && ScTalkContext.HandOverPending(npc.entityId)) { ScTalkContext.JoinAfterHandOver(npc.entityId, player, journal); return; }
+            ScTalkContext.RequestJoin(npc.entityId, player, journal);
         }
         catch (Exception e) { ScLog.Once("act-join", e); }
     }
@@ -441,6 +575,7 @@ public class DialogActionScJoin : BaseDialogAction
 /// <summary>
 /// Round 32a: "I could use someone like you in my community." with no usable home (scJoinNoHome) - the tooltip says how to
 /// get one: no home yet, Start a community here on a land claim's radial; the home's claim gone, Set as community home.
+/// Round MP2: a client says it from its copy of the community (which home it has).
 /// </summary>
 public class DialogActionScNeedHomeTip : BaseDialogAction
 {
@@ -448,13 +583,16 @@ public class DialogActionScNeedHomeTip : BaseDialogAction
     {
         try
         {
-            if (player is EntityPlayerLocal && ScCommunity.IsHost) ScCommunity.Tell(player, Localization.Get(ScZone.NeedHomeKey()), "ui_denied");
+            if (player is EntityPlayerLocal && (ScCommunity.IsHost || ScRegistry.Mirrored)) ScCommunity.Tell(player, Localization.Get(ScZone.NeedHomeKey()), "ui_denied");
         }
         catch (Exception e) { ScLog.Once("act-needhometip", e); }
     }
 }
 
-/// <summary>Member order: follow the player (refused when the party is full, or below RefuseOrdersBelowMood when that is set).</summary>
+/// <summary>
+/// Member order: follow the player (refused when the party is full, or below RefuseOrdersBelowMood when that is set). Round
+/// MP2: member.follow, the talk's mode (Follow only); the answer's tooltip either way, as before.
+/// </summary>
 public class DialogActionScFollow : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
@@ -463,22 +601,15 @@ public class DialogActionScFollow : BaseDialogAction
         {
             EntityPlayerLocal lp = player as EntityPlayerLocal;
             EntityAlive npc = ScFavours.CurrentNpc(player);
-            Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
+            Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;      // a client: its copy (the server checks again)
             if (lp == null || npc == null || m == null) return;
-            string error;
-            if (ScCommunity.Follow(m, npc, lp, out error)) ScCommunity.Tell(player, string.Format(Localization.Get("scWinNowFollowing"), m.Name), "");
-            else
-            {
-                ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
-                // round m1w (P7): no room in the party - she says so too, once that line is recorded
-                if (ScVoiceRoutes.IsFollowFull(error)) ScVoiceRoutes.SayRefusal(npc, "scFollowFullSaid", "the talk's Come with me: no room in the party");
-            }
+            ScActions.Request("member.follow", r => ScTalkContext.Tell(player, r, true), m.Id, ScActionsMembers.ModeTalk);
         }
         catch (Exception e) { ScLog.Once("act-follow", e); }
     }
 }
 
-/// <summary>Member order: back to the post (walks when near, teleports when the player is inside the base).</summary>
+/// <summary>Member order: back to the post (walks when near, teleports when the player is inside the base). Round MP2: member.home.</summary>
 public class DialogActionScGoHome : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
@@ -489,15 +620,16 @@ public class DialogActionScGoHome : BaseDialogAction
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
             if (lp == null || npc == null || m == null) return;
-            string error;
-            if (ScCommunity.ReturnHome(m, npc, lp, out error)) ScCommunity.Tell(player, string.Format(Localization.Get("scStationed"), m.Name), "");
-            else ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+            ScActions.Request("member.home", r => ScTalkContext.Tell(player, r, true), m.Id, ScActionsMembers.ModeTalk);
         }
         catch (Exception e) { ScLog.Once("act-gohome", e); }
     }
 }
 
-/// <summary>Member order, to a runner met out in the world: head home now (ScRunners.Recall).</summary>
+/// <summary>
+/// Member order, to a runner met out in the world: head home now (ScRunners.Recall). Round MP2: member.follow, the talk's
+/// recall mode (in person: no radio needed).
+/// </summary>
 public class DialogActionScRecall : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
@@ -508,9 +640,7 @@ public class DialogActionScRecall : BaseDialogAction
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
             if (lp == null || npc == null || m == null) return;
-            string error;
-            if (ScRunners.Recall(m, lp, out error)) ScCommunity.Tell(player, string.Format(Localization.Get("scRunRecalled"), m.Name), "");
-            else ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+            ScActions.Request("member.follow", r => ScTalkContext.Tell(player, r, true), m.Id, ScActionsMembers.ModeTalkRecall);
         }
         catch (Exception e) { ScLog.Once("act-recall", e); }
     }
@@ -518,7 +648,8 @@ public class DialogActionScRecall : BaseDialogAction
 
 /// <summary>
 /// Member order: a supply run for the resource named in the action's value (food|meds|ammo|mats|fuel), or (round 33c, M33, 3.4)
-/// a mining run - mine | clay (ScMining.Send).
+/// a mining run - mine | clay (ScMining.Send). Round MP2: member.run (member, kind or -1, job or -1); only a refusal is told,
+/// as before (the run's own news says the rest).
 /// </summary>
 public class DialogActionScRun : BaseDialogAction
 {
@@ -530,18 +661,17 @@ public class DialogActionScRun : BaseDialogAction
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
             if (lp == null || npc == null || m == null) return;
-            string error;
 #if SC_V34
             RunJob job;
             if (ScMining.TryJob(Value, out job))
             {
-                if (!ScMining.Send(m, npc, job, lp, out error)) ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+                ScActions.Request("member.run", r => ScTalkContext.Tell(player, r, false), m.Id, -1, (int)job);
                 return;
             }
 #endif
             Resource kind;
             if (!ScNames.TryResource(Value, out kind)) { ScLog.Err("dialog action ScRun: unknown resource '" + Value + "'"); return; }
-            if (!ScRuns.Send(m, npc, kind, lp, out error)) ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+            ScActions.Request("member.run", r => ScTalkContext.Tell(player, r, false), m.Id, (int)kind, -1);
         }
         catch (Exception e) { ScLog.Once("act-run", e); }
     }
@@ -563,7 +693,10 @@ public class DialogRequirementScMiningRuns : BaseDialogRequirement
     }
 }
 
-/// <summary>Member order: leave the community (after the dialog's confirmation statement).</summary>
+/// <summary>
+/// Member order: leave the community (after the dialog's confirmation statement). Round MP2: member.leave, the talk's mode -
+/// Leave's own tell (to the whole community) is the answer; only a refusal with words of its own is told here.
+/// </summary>
 public class DialogActionScLeave : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
@@ -571,12 +704,9 @@ public class DialogActionScLeave : BaseDialogAction
         try
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
-            Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
+            Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;      // a client: its copy (the server checks again)
             if (m == null) return;
-            // round MP1: a client now finds her in its copy of the registry - leaving is the server's (round MP2), said as the
-            // other member orders say it (Follow, Go home, Recall and Run refuse with scHostOnly in their verbs)
-            if (!ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }
-            ScCommunity.Leave(m, "scLeft");
+            ScActions.Request("member.leave", r => ScTalkContext.Tell(player, r, false), m.Id, ScActionsMembers.ModeTalk);
         }
         catch (Exception e) { ScLog.Once("act-leave", e); }
     }
@@ -609,7 +739,8 @@ public class DialogRequirementScFollowerVerb : BaseDialogRequirement
                 npc = ScCommunity.World != null ? ScCommunity.World.GetEntity((int)player.Buffs.GetCustomVar("CurrentNPC")) as EntityAlive : null;
             if (npc == null || npc.Buffs == null) return true;
             if (npc.Buffs.HasCustomVar(ScRadio.StandInCvar) || ScEnclavePeople.IsEnclaveNpc(npc) || ScBands.IsBandNpc(npc)) return false;
-            if (!npc.Buffs.HasCustomVar("sc_member")) return true;
+            // round MP2 (E9): by the value - a client's copy keeps the 0 a dismissal sent it (ScCommunity.ClearSynced)
+            if (npc.Buffs.GetCustomVar("sc_member") <= 0f) return true;
             return npc.Buffs.GetCustomVar("sc_following") > 0f;
         }
         catch (Exception e) { ScLog.Once("req-followerverb", e); return true; }

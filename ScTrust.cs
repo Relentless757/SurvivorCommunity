@@ -83,7 +83,8 @@ namespace SurvivorCommunity
         public static Trust Level(EntityAlive npc, EntityPlayer player)
         {
             if (IsHostileTo(npc, player)) return Trust.Hostile;
-            if (npc != null && npc.Buffs != null && npc.Buffs.HasCustomVar("sc_favourDone")) return Trust.Friendly;
+            // round MP2 (E9): the value, not the presence - a client's copy keeps the 0 a clear sent it (ScCommunity.ClearSynced)
+            if (npc != null && npc.Buffs != null && npc.Buffs.GetCustomVar("sc_favourDone") > 0f) return Trust.Friendly;
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
             return p != null && p.Done ? Trust.Friendly : Trust.Neutral;
         }
@@ -99,8 +100,9 @@ namespace SurvivorCommunity
             if (!ScNpc.IsFramework(npc)) return false;
             if (IsTrader(npc)) return false;
             // your own people: friendly fire decides (before the hire test - a member who ever followed carries Owner)
+            // round MP2 (E9): sc_member by its value (a client's copy keeps the 0 a clear sent it)
             if (ScRegistry.GetMember(npc.entityId) != null
-                || (npc.Buffs != null && (npc.Buffs.HasCustomVar(ScRadio.StandInCvar) || npc.Buffs.HasCustomVar("sc_member")))) return ScConfig.CommunityFriendlyFire;
+                || (npc.Buffs != null && (npc.Buffs.HasCustomVar(ScRadio.StandInCvar) || npc.Buffs.GetCustomVar("sc_member") > 0f))) return ScConfig.CommunityFriendlyFire;
             return ScCommunity.HiredBy(npc) <= 0;
         }
 
@@ -122,10 +124,13 @@ namespace SurvivorCommunity
             Prospect p = ScRegistry.GetProspect(npc.entityId);
             if (p != null)
             {
-                ScQuests.CloseFavour(player, p.Id, false);
+                // round MP2: the hitter's journal is on their own machine - the host's here as before; a client's (and every other
+                // player's who took the favour on: it is shared, the E 4.4 decision) through ScTalkContext's favour close
+                if (player is EntityPlayerLocal) ScQuests.CloseFavour(player, p.Id, false);
+                ScTalkContext.CloseFavourForOthers(p.Id, false, player as EntityPlayerLocal);
                 ScRegistry.Prospects.Remove(p.Id);
-                npc.Buffs.RemoveCustomVar("sc_favour");
-                npc.Buffs.RemoveCustomVar("sc_favourDone");
+                ScCommunity.ClearSynced(npc, "sc_favour");          // round MP2 (E9): clients get the 0
+                ScCommunity.ClearSynced(npc, "sc_favourDone");
                 ScRegistry.SaveAtomic();
             }
             ScCommunity.Tell(player, string.Format(Localization.Get("scTrustHostile"), name), "");

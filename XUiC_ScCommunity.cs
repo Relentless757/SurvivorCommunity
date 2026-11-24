@@ -1089,8 +1089,8 @@ namespace SurvivorCommunity
             ScActions.Request("member.follow", r =>
             {
                 // a member called back (ScMissing.Restore) returns under a new entity id: the selection follows her - the hint
-                // member=<id>, or (the host: the same record, renumbered in place) the record's own id
-                int moved = r.HintInt("member", -1);
+                // select=<id> (ScActionsMembers.HintSelect), or (the host: the same record, renumbered in place) the record's own id
+                int moved = r.HintInt(ScActionsMembers.HintSelect, -1);
                 if (moved < 0 && asked.Id != before) moved = asked.Id;
                 if (moved >= 0 && selectedId == before) selectedId = moved;
                 ShowReply(r, false);

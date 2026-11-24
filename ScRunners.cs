@@ -887,7 +887,7 @@ namespace SurvivorCommunity
         {
             bool posting = m.Status == MemberStatus.Transit;                                  // round op1: home from an outpost
             string from = m.RunDestName;
-            npc.Buffs.RemoveCustomVar(OnRunCvar);
+            ScCommunity.ClearSynced(npc, OnRunCvar);      // round MP2 (E9): clients get the 0 (the talk rows gate on it)
             ClearRun(m);
             if (posting) { m.OutpostId = -1; m.Status = MemberStatus.Resident; }                // Station says so too, unless it defers (downed)
             ScCommunity.Station(m, npc);                                                     // Resident, Guard order; no teleport within 40 m
@@ -1818,7 +1818,7 @@ namespace SurvivorCommunity
             npc.Buffs.RemoveCustomVar("Owner");
             SphereCache.LeaderCache.Remove(npc.entityId);
             if (npc.Buffs.GetCustomVar("CurrentOrder") != OrderTask) npc.Buffs.SetCustomVar("CurrentOrder", OrderTask);   // SetCurrentOrder is a no-op for Task
-            npc.Buffs.SetCustomVar(OnRunCvar, 1f);
+            ScCommunity.SetSynced(npc, OnRunCvar, 1f);    // round MP2 (E9): force-sent to clients
         }
 
         public static bool HasTravelOrder(EntityAlive npc)

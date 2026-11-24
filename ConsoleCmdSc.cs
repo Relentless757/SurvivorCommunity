@@ -152,7 +152,7 @@ namespace SurvivorCommunity
                         Member m = _params.Count > 1 ? FindMember(_params[1]) : null;
                         if (m == null) { Output("[SC] usage: sc restore <member id|name> - respawns a resident whose entity is gone, at their post"); break; }
                         string err;
-                        bool ok = ScMissing.Restore(m, Me as EntityPlayerLocal, true, out err);   // MP2 merge: ScMissing.Restore takes EntityPlayerLocal
+                        bool ok = ScMissing.Restore(m, Me, true, out err);   // round MP2: the sender
                         Output("[SC] " + (ok ? m.Name + " is back at the post as entity " + m.Id : "refused: " + Localization.Get(err ?? "scInternal")));
                         break;
                     }
@@ -162,7 +162,7 @@ namespace SurvivorCommunity
                         if (_params.Count < 3 || !ScNames.TryResource(_params[1], out give) || !ScNames.TryResource(_params[2], out get)) { Output("[SC] sc barter <give> <get> (ignores the once-a-day wait)"); break; }
                         ScRegistry.Community.RadioNextBarterDay = 0;
                         string msg;
-                        bool ok = ScBarter.Trade(give, get, Me as EntityPlayerLocal, out msg);   // MP2 merge: ScBarter.Trade (ScScouting.cs) takes EntityPlayerLocal
+                        bool ok = ScBarter.Trade(give, get, Me as EntityPlayerLocal, out msg);   // MP5 (the radio): ScBarter.Trade takes the host's own player
                         Output("[SC] " + (ok ? "" : "refused: ") + msg);
                         break;
                     }
@@ -172,7 +172,7 @@ namespace SurvivorCommunity
                         if (_params.Count < 2 || !ScNames.TryResource(_params[1], out r)) { Output("[SC] sc scout <food|meds|ammo|mats|fuel> (ignores the once-a-day wait)"); break; }
                         ScRegistry.Community.RadioNextScoutDay = 0;
                         string msg;
-                        bool ok = ScScouting.Scout(r, Me as EntityPlayerLocal, out msg);   // MP2 merge: ScScouting.Scout takes EntityPlayerLocal
+                        bool ok = ScScouting.Scout(r, Me as EntityPlayerLocal, out msg);   // MP5 (the radio): ScScouting.Scout takes the host's own player
                         Output("[SC] " + (ok ? "" : "refused: ") + msg);
                         break;
                     }
@@ -1046,7 +1046,7 @@ namespace SurvivorCommunity
                 {
                     EntityAlive npc = p.Count > 2 ? FindBodyNpc(p[2]) : lp != null ? ScVoice.Nearest(lp.position, 20f) : null;
                     if (npc == null) { Output("[SC] voice greet: " + (p.Count > 2 ? "no NPC matches " + p[2] : "no survivor with a voice within 20 m")); return true; }
-                    Output("[SC] voice greet: " + ScGreetings.GreetNow(npc, lp as EntityPlayerLocal));   // MP2 merge: ScGreetings.GreetNow takes EntityPlayerLocal
+                    Output("[SC] voice greet: " + ScGreetings.GreetNow(npc, lp as EntityPlayerLocal));   // MP4 (voices): ScGreetings.GreetNow takes the host's own player
                     return true;
                 }
                 case "chatter":
@@ -1237,7 +1237,7 @@ namespace SurvivorCommunity
             EntityPlayer lp = Me;                    // round MP2: the sender recruits
             if (npc == null || lp == null) { Output("[SC] usage: sc recruit <id|name> - joins a loaded survivor without the favour (testing)"); return; }
             string error;
-            bool ok = ScCommunity.Join(npc, lp as EntityPlayerLocal, out error);   // MP2 merge: ScCommunity.Join takes EntityPlayerLocal
+            bool ok = ScCommunity.Join(npc, lp, out error);   // round MP2: the sender
             Output("[SC] " + (ok ? ScCommunity.DisplayName(npc) + " joined the community (entity " + npc.entityId + ")"
                                  : "refused: " + Localization.Get(error ?? "scInternal")));
         }
@@ -1559,7 +1559,7 @@ namespace SurvivorCommunity
 
         private static void RunnersCmd()
         {
-            EntityPlayerLocal player = Me as EntityPlayerLocal;      // MP2 merge: ScRunners.Describe takes EntityPlayerLocal (then: Me)
+            EntityPlayerLocal player = Me as EntityPlayerLocal;      // MP5 (runners): ScRunners.Describe takes the host's own player
             int n = 0;
             foreach (var m in ScRegistry.Members.Values)
             {
@@ -2123,7 +2123,7 @@ namespace SurvivorCommunity
                     int x = 0, z = 0;
                     bool at = p.Count > 3 && int.TryParse(p[2], out x) && int.TryParse(p[3], out z);
                     if (p.Count > 2 && !at) { Output("[SC] sc infest add [<x> <z>] - the POI you stand in, or the one at x z"); return; }
-                    lines.Add(ScInfestations.ConsoleAdd(at, x, z, Me as EntityPlayerLocal));   // MP2 merge: ScInfestations.ConsoleAdd takes EntityPlayerLocal
+                    lines.Add(ScInfestations.ConsoleAdd(at, x, z, Me as EntityPlayerLocal));   // MP5 (the world): ScInfestations' console verbs take the host's own player
                     break;
                 }
                 case "clear":
@@ -2131,7 +2131,7 @@ namespace SurvivorCommunity
                     bool all = p.Count > 2 && p[2].Equals("all", StringComparison.OrdinalIgnoreCase);
                     Infestation inf = all ? null : InfestArg(p);
                     if (!all && inf == null) return;
-                    int n = ScInfestations.ConsoleClear(inf, Me as EntityPlayerLocal);   // MP2 merge: ScInfestations.ConsoleClear takes EntityPlayerLocal
+                    int n = ScInfestations.ConsoleClear(inf, Me as EntityPlayerLocal);   // MP5
                     lines.Add(n + " infestation(s) ended - records and markers only, the rooms are left as they are");
                     break;
                 }
@@ -2139,10 +2139,10 @@ namespace SurvivorCommunity
                 {
                     Infestation inf = InfestArg(p);
                     if (inf == null) return;
-                    lines.Add(ScInfestations.ConsoleSpread(inf, Me as EntityPlayerLocal));   // MP2 merge: ScInfestations.ConsoleSpread takes EntityPlayerLocal
+                    lines.Add(ScInfestations.ConsoleSpread(inf, Me as EntityPlayerLocal));   // MP5
                     break;
                 }
-                case "roll": lines.Add(ScInfestations.ConsoleRoll(Me as EntityPlayerLocal)); break;   // MP2 merge: ScInfestations.ConsoleRoll takes EntityPlayerLocal
+                case "roll": lines.Add(ScInfestations.ConsoleRoll(Me as EntityPlayerLocal)); break;   // MP5
                 case "reveal":
                 case "hide":
                 {
@@ -2541,7 +2541,7 @@ namespace SurvivorCommunity
             if (outCount == 0) Output("[SC]   no runner out");
             Output("[SC] radio talk: " + ScRadioTalk.QueueState() + "; counters: " + ScHandheld.Counters());
             Output("[SC] runners' " + ScRunnerCall.Describe());      // round 29b
-            Output("[SC] " + ScHordeVoice.Describe(lpl));             // vo4 (MP2 merge: ScHordeVoice.Describe takes EntityPlayerLocal)
+            Output("[SC] " + ScHordeVoice.Describe(lpl));             // vo4 (MP4, voices: ScHordeVoice.Describe takes the host's own player)
             Output("[SC] " + ScEncRadio.Describe(pl));                // round m1v
             Output("[SC] sc radio give <member> (a handheld radio into their inventory) | sc radio talk <member> <out|arrived|found|empty|trouble|home|near|recall|hurt> (says it now)"
                    + " | sc radio attacked <member> [force] (their call for help as if a zombie hurt them now; force: whatever the rules)"
@@ -2614,7 +2614,7 @@ namespace SurvivorCommunity
                 side = ScBaseAttack.Open ? ScHordeVoice.SideKey(ScBaseAttack.Side(ScRegistry.Community.AttackBearing))
                                          : ScHordeVoice.Sides[UnityEngine.Random.Range(0, ScHordeVoice.Sides.Length)];
             EntityPlayer pl = Me;                    // round MP2: the sender (told the at-home warning)
-            EntityPlayerLocal lpl = pl as EntityPlayerLocal;     // MP2 merge: ScHordeVoice.SayAtHome / SayAway take EntityPlayerLocal
+            EntityPlayerLocal lpl = pl as EntityPlayerLocal;     // MP4 (voices): ScHordeVoice.SayAtHome / SayAway take the host's own player
             string what = mo.ToString().ToLowerInvariant() + (ScHordeVoice.HasSide(mo) ? " (" + side + ")" : "") + (force ? ", forced" : "");
             if (ScHordeVoice.AtHome(mo))
             {

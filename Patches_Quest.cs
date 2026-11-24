@@ -11,7 +11,8 @@ namespace SurvivorCommunity
     /// the same prefix for its own quests; both check their own journals, so they coexist. A POI held as an
     /// outpost is never re-armed either: a trader quest accepted there before it was established would otherwise
     /// quietly refill it with sleepers the first time the player walks in. Nor is an enclave's POI (E1): its rooms
-    /// stay clear (Patches_Enclaves would only clear them again).
+    /// stay clear (Patches_Enclaves would only clear them again). Round MP2 (E6): a quest in a REMOTE player's journal is out
+    /// of the server's sight, so with a remote subscriber the server answers from the registry as well (ScQuests.IsOurPoi).
     /// </summary>
     public static class Patches_Quest
     {
@@ -26,7 +27,8 @@ namespace SurvivorCommunity
                     if (__instance == null || __instance.hasRefreshed) return;
                     bool outpost = ScOutposts.IsOutpostPoi(__instance.position);
                     bool enclave = !outpost && ScEnclaves.IsEnclavePoi(__instance.position);
-                    if (!outpost && !enclave && !ScQuests.IsOurPoi(__instance.position)) return;
+                    // round MP2 (E6): with the subscribers - a remote player's favour POI is held from the server's records
+                    if (!outpost && !enclave && !ScQuests.IsOurPoi(__instance.position, __instance.EntityList)) return;
                     __instance.hasRefreshed = true;
                     ScLog.Verbose("suppressed the quest POI re-arm at " + __instance.position + (outpost ? " (our outpost)" : enclave ? " (an enclave's POI)" : " (favour quest)"));
                 }

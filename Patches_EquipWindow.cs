@@ -121,7 +121,8 @@ namespace SurvivorCommunity
         /// <summary>One of the community's bodies away from her inventory: a runner on the road (sc_onrun) or a stand-in (sc_standin). A read.</summary>
         private static bool Away(EntityAlive npc)
         {
-            return npc.Buffs != null && ((npc.Buffs.HasCustomVar(ScRunners.OnRunCvar) && npc.Buffs.HasCustomVar("sc_member")) || npc.Buffs.HasCustomVar(ScRadio.StandInCvar));
+            // round MP2 (E9): the value, not the presence - a cleared cvar is 0 on a client (ScCommunity.ClearSynced)
+            return npc.Buffs != null && ((npc.Buffs.GetCustomVar(ScRunners.OnRunCvar) > 0f && npc.Buffs.GetCustomVar("sc_member") > 0f) || npc.Buffs.HasCustomVar(ScRadio.StandInCvar));
         }
 
         /// <summary>

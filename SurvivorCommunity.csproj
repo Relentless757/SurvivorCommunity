@@ -80,6 +80,9 @@
     <Compile Include="ScActions.cs" />         <!-- round MP2: clients act (the request protocol) -->
     <Compile Include="NetPackageScAction.cs" /> <!-- round MP2 -->
     <Compile Include="NetPackageScResult.cs" /> <!-- round MP2 -->
+    <Compile Include="ScActionsMembers.cs" />  <!-- round MP2 (part M): member orders, joining, favours, band join -->
+    <Compile Include="ScTalkContext.cs" />     <!-- round MP2 (part M): the talk context -->
+    <Compile Include="NetPackageScTalkContext.cs" /> <!-- round MP2 (part M) -->
     <Compile Include="ScTraits.cs" />
     <Compile Include="ScTraitEffects.cs" />   <!-- round m1t -->
     <Compile Include="ScLifeSkills.cs" />     <!-- round m1t -->

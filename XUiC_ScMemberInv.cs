@@ -63,7 +63,7 @@ namespace SurvivorCommunity
             if (ScRegistry.GetMember(npc.entityId) != null) return true;
             // a multiplayer client: the registry lives on the host, which stamps sc_member on every member's body (a synced
             // cvar); a radio stand-in carries it too and is no member
-            return !ScCommunity.IsHost && npc.Buffs != null && npc.Buffs.HasCustomVar("sc_member") && !npc.Buffs.HasCustomVar(ScRadio.StandInCvar);
+            return !ScCommunity.IsHost && npc.Buffs != null && npc.Buffs.GetCustomVar("sc_member") > 0f && !npc.Buffs.HasCustomVar(ScRadio.StandInCvar);   // round MP2 (E9): the value (0 once cleared)
         }
 
         /// <summary>

@@ -173,7 +173,7 @@ namespace SurvivorCommunity
         /// <summary>A community member or an outpost stand-in (both carry our cvar from the moment they exist).</summary>
         public static bool IsCommunityNpc(EntityAlive e)
         {
-            return e != null && e.Buffs != null && (e.Buffs.HasCustomVar("sc_member") || e.Buffs.HasCustomVar(ScRadio.StandInCvar));
+            return e != null && e.Buffs != null && (e.Buffs.GetCustomVar("sc_member") > 0f || e.Buffs.HasCustomVar(ScRadio.StandInCvar));   // round MP2 (E9): the value (0 on a client once cleared)
         }
 
         /// <summary>Removes a Voice Control hire contract. True when there was one.</summary>
@@ -1810,7 +1810,7 @@ namespace SurvivorCommunity
             string who = ScCommunity.DisplayName(npc) + " (" + npc.entityId + ")";
             if (inventoryAsked > 0)
             {
-                bool away = npc.Buffs.HasCustomVar(ScRunners.OnRunCvar) || !npc.Buffs.HasCustomVar("sc_member");
+                bool away = npc.Buffs.GetCustomVar(ScRunners.OnRunCvar) > 0f || !(npc.Buffs.GetCustomVar("sc_member") > 0f);   // round MP2 (E9): the values
                 if (!away && player != null && EntityUtilities.ExecuteCMD(npc.entityId, "OpenInventory", player))
                 {
                     result = dialogText ?? "*opens inventory*";

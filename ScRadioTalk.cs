@@ -193,7 +193,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Told to come home over the radio (XUiC_ScRadio): the acknowledgment; the way home needs no other line.</summary>
-        public static void OnRecalled(Member m, EntityPlayerLocal player)
+        public static void OnRecalled(Member m, EntityPlayer player)      // round MP2: any player (Say takes one)
         {
             Mark(m, RadioTalk.Found | RadioTalk.Empty | RadioTalk.Home);
             Say(m, RadioTalk.RecallAck, player, false);
@@ -251,7 +251,7 @@ namespace SurvivorCommunity
 
         /// <summary>A physical runner's body within InPersonRange of the player: they would just talk (and the community window
         /// may turn them round without a radio: ScHandheld.WindowRecallAllowed).</summary>
-        internal static bool InPerson(Member m, EntityPlayerLocal player)
+        internal static bool InPerson(Member m, EntityPlayer player)      // round MP2: any player (a position)
         {
             if (player == null || !ScRunners.IsPhysical(m) || m.Offline) return false;
             EntityAlive body = ScCommunity.FindNpc(m.Id);

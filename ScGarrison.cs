@@ -306,7 +306,7 @@ namespace SurvivorCommunity
                 // back to how they were: a resident at their post
                 try
                 {
-                    npc.Buffs.RemoveCustomVar(ScRunners.OnRunCvar);
+                    ScCommunity.ClearSynced(npc, ScRunners.OnRunCvar);      // round MP2 (E9)
                     ScRunners.ClearRun(m);
                     m.OutpostId = -1;
                     ScCommunity.Station(m, npc);
