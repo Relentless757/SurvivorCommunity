@@ -85,8 +85,13 @@ namespace SurvivorCommunity
         internal bool Closed;
         internal float ClosedAt;
 
-        /// <summary>A batch with no answer after this many real seconds is given up (only a dropped connection does that).</summary>
-        private const float FlightTimeout = 40f;
+        /// <summary>
+        /// A batch with no answer after this many real seconds is given up (only a dropped connection does that). Round MP3 (review
+        /// storage m6, the residual): as long as ScActions keeps a request (900 s) - a late answer after a give-up is ignored, and
+        /// a late REFUSAL ignored would leave the player holding what the box still holds; the server answers every request, so
+        /// only a stall (the view stays busy) or a broken connection (the world closes) ever gets near this.
+        /// </summary>
+        private const float FlightTimeout = 900f;
         /// <summary>Times in a row the view may make good a shortfall from a box (TakeFromView) before it only logs it.</summary>
         private const int MakeGoodLimit = 3;
         /// <summary>A batch refused because the player was dead is held this long for the respawn (the server holds the view
