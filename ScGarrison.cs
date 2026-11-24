@@ -210,7 +210,7 @@ namespace SurvivorCommunity
         public static bool CanPost(Member m, EntityAlive npc, Outpost o, out string error)
         {
             error = null;
-            if (!ScCommunity.IsHost) { error = "scHostOnly"; return false; }
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded) { error = "scHostOnly"; return false; }     // round MP2: never a client's copy (E10)
             if (m == null || o == null) { error = "scInternal"; return false; }
             if (!o.Holding) { error = "scOpPostLost"; return false; }
             if (m.Status == MemberStatus.Garrison) { error = m.OutpostId == o.Id ? "scOpPostAlready" : "scOpPostElsewhere"; return false; }
@@ -524,7 +524,7 @@ namespace SurvivorCommunity
         public static bool TurnHome(Member m, EntityPlayer player, string tellKey, out string error)
         {
             error = null;
-            if (!ScCommunity.IsHost) { error = "scHostOnly"; return false; }
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded) { error = "scHostOnly"; return false; }     // round MP2: never a client's copy (E10)
             if (m == null || m.Status != MemberStatus.Transit) { error = "scInternal"; return false; }
             if (m.RunLeg != RunLeg.Outbound) { error = "scRunHeadingHome"; return false; }
             World w = ScCommunity.World;

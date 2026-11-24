@@ -72,23 +72,29 @@ namespace SurvivorCommunity
             return hour >= w.DuskHour - ScConfig.LightsOutBeforeDuskHours;
         }
 
-        /// <summary>Why it cannot be ordered now, as a finished line; null: it can.</summary>
+        /// <summary>
+        /// Why it cannot be ordered now, as a finished line; null: it can. Round MP2: a read - a client's Facilities tab asks it of
+        /// its copy (Ready; it said "host only" there); Order keeps the server-only gate.
+        /// </summary>
         public static string WhyNot(World w)
         {
-            if (!ScCommunity.IsHost) return Localization.Get("scHostOnly");
-            if (!ScRegistry.Loaded || !ScRegistry.Community.HasHome) return Localization.Get("scNeedHome");
+            if (!ScRegistry.Ready || !ScRegistry.Community.HasHome) return Localization.Get("scNeedHome");
             if (!ScConfig.LightsOut) return Localization.Get("scLightsOutOff");
             if (Active) return string.Format(Localization.Get("scLightsOutAlready"), ScFacilityTab.TimeOfDay(ScRegistry.Community.LightsOutUntil));
             if (!InWindow(w)) return string.Format(Localization.Get("scLightsOutTooEarly"), FromText(w));
             return null;
         }
 
-        /// <summary>The Defense entry's Lights out: people's noise down, the zone's running generators off, until dawn.</summary>
-        public static bool Order(EntityPlayerLocal player, out string message)
+        /// <summary>
+        /// The Defense entry's Lights out: people's noise down, the zone's running generators off, until dawn. Round MP2: any
+        /// player (facility.do, on the server: the order is told to the one who gave it); never on a client's copy (E10).
+        /// </summary>
+        public static bool Order(EntityPlayer player, out string message)
         {
             World w = ScCommunity.World;
             message = WhyNot(w);
             if (message != null) return false;
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded) { message = Localization.Get("scHostOnly"); return false; }
             Community c = ScRegistry.Community;
             int off = 0;
             try
@@ -132,11 +138,11 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>The Defense entry's "Lights on": it ends now.</summary>
-        public static bool CancelByOrder(EntityPlayerLocal player, out string message)
+        /// <summary>The Defense entry's "Lights on": it ends now. Round MP2: any player (facility.do, on the server).</summary>
+        public static bool CancelByOrder(EntityPlayer player, out string message)
         {
             message = null;
-            if (!ScCommunity.IsHost) { message = Localization.Get("scHostOnly"); return false; }
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded) { message = Localization.Get("scHostOnly"); return false; }
             if (!Active) { message = Localization.Get("scLightsOutNotOn"); return false; }
             int on = End("cancelled from the community window");
             message = string.Format(Localization.Get("scLightsOnOrdered"), on);

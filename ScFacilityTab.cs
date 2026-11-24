@@ -18,11 +18,17 @@ namespace SurvivorCommunity
     /// </summary>
     public sealed class FacilityAction
     {
-        public delegate bool RunFn(EntityPlayerLocal player, out string message);
-        public delegate bool PickFn(Member m, EntityPlayerLocal player, out string message);
+        // round MP2: the acting player is any player - Run and Pick run on the server with the one who pressed (facility.do)
+        public delegate bool RunFn(EntityPlayer player, out string message);
+        public delegate bool PickFn(Member m, EntityPlayer player, out string message);
 
         public string Label = "";
-        /// <summary>Lit (it can act now); a dim button still says why not when pressed.</summary>
+        /// <summary>
+        /// Round MP2: the action's stable id - its label's localization key. facility.do matches the button a client pressed by
+        /// its slot and this, the same in every language (a client's Label is in its own). Empty: the Label is matched (MatchKey).
+        /// </summary>
+        public string Id = "";
+        /// <summary>Lit (it can act now); a dim button still says why not when pressed. On a client only a hint: the server judges.</summary>
         public bool Ready;
         public bool Danger;
         public RunFn Run;
@@ -30,6 +36,11 @@ namespace SurvivorCommunity
         public string PickHint = "";
         /// <summary>Why it can't act now, as a finished line (null: it can) - asked before a pick opens (the Fable review's finding 6).</summary>
         public Func<string> WhyNot;
+        /// <summary>Round MP2: who may use it in Shared mode (rationing: Owner) - facility.do checks it on the server.</summary>
+        public ScActionAccess Access = ScActionAccess.Community;
+
+        /// <summary>Round MP2: what facility.do matches the action by (Id, else the Label).</summary>
+        public string MatchKey { get { return !string.IsNullOrEmpty(Id) ? Id : Label ?? ""; } }
     }
 
     /// <summary>One row of the Facilities tab and what its right-hand panel shows.</summary>
@@ -48,8 +59,11 @@ namespace SurvivorCommunity
         }
     }
 
-    /// <summary>Adds a facility's entries (none, one, or one per block) to the tab's list.</summary>
-    public delegate void FacilityProvider(List<FacilityEntry> into);
+    /// <summary>
+    /// Adds a facility's entries (none, one, or one per block) to the tab's list. Round MP2: viewer is the player the list is
+    /// built for - this machine's own for the window, the player who pressed for the server's check (facility.do); may be null.
+    /// </summary>
+    public delegate void FacilityProvider(List<FacilityEntry> into, EntityPlayer viewer);
 
     /// <summary>
     /// The community window's Facilities tab (round m1f, 2026-11-17; ROADMAP.md section 3 item 4, the user's decisions of the
@@ -64,7 +78,9 @@ namespace SurvivorCommunity
     /// loaded.
     ///
     /// Defense (FT2, the D5 window section): the defense rating, the noise and the attention, the last attack, and Lights out
-    /// (ScLightsOut). Host only, like the rest of the window's actions; on a client every action says so.
+    /// (ScLightsOut). Round MP2: every player acts - a client builds its tab from its copy of the registry with its own player
+    /// (Build(viewer)), and its buttons ask the server (facility.do, ScActionsWindow), which rebuilds the entry for that player,
+    /// re-checks it and runs it there. A client's Ready colors are a hint.
     /// </summary>
     public static class ScFacilityTab
     {
@@ -101,14 +117,23 @@ namespace SurvivorCommunity
 
         public static void Reset() { }
 
-        /// <summary>Every entry, in the registry's order. Never throws (a provider that does is logged once and skipped).</summary>
+        /// <summary>Every entry for the server's anchor player (the host's own player whenever there is one): sc facility tab.</summary>
         public static List<FacilityEntry> Build()
+        {
+            return Build(ScPlayers.Anchor());      // round MP2: was LocalPlayer - the same player on a host and in single player
+        }
+
+        /// <summary>
+        /// Every entry, in the registry's order, as viewer sees it (round MP2: the window's own player, or the player whose
+        /// facility.do the server checks). Never throws (a provider that does is logged once and skipped).
+        /// </summary>
+        public static List<FacilityEntry> Build(EntityPlayer viewer)
         {
             var list = new List<FacilityEntry>();
             if (!ScRegistry.Ready) return list;        // round MP1: a client builds its tab from the server's copy (ScMirror)
             for (int i = 0; i < All.Count; i++)
             {
-                try { All[i].Value(list); }
+                try { All[i].Value(list, viewer); }
                 catch (Exception e) { ScLog.Once("facility-tab-" + All[i].Key, e); }
             }
             return list;
@@ -130,10 +155,13 @@ namespace SurvivorCommunity
 
         private static string F1(float v) { return v.ToString("0.#", CultureInfo.InvariantCulture); }
 
-        /// <summary>The refusal every action gives on a client (the community is the host's).</summary>
+        /// <summary>
+        /// The refusal an action gives anywhere but on the server. Round MP2: a client's press goes to the server (facility.do), so
+        /// this is only the defense in depth (E10): a Run or Pick never acts on a client's copy.
+        /// </summary>
         private static bool HostOnly(out string message)
         {
-            message = ScCommunity.IsHost ? null : L("scHostOnly");
+            message = ScCommunity.IsHost && ScRegistry.Loaded ? null : L("scHostOnly");
             return message != null;
         }
 
@@ -229,17 +257,16 @@ namespace SurvivorCommunity
                 if (kv.Value > 0 && !c.ScanSites.ContainsKey(kv.Key)) { water = true; break; }
         }
 
-        /// <summary>A member is on a work shift (not a talk hold).</summary>
+        /// <summary>A member is on a work shift (not a talk hold). Round MP2: on a client, as its copies of the bodies say (ScWork.OnWorkShiftView).</summary>
         private static bool AnyOnWorkShift()
         {
-            foreach (Member m in ScRegistry.Members.Values) if (ScWork.OnWorkShift(m.Id)) return true;
+            foreach (Member m in ScRegistry.Members.Values) if (ScWork.OnWorkShiftView(m)) return true;
             return false;
         }
 
-        /// <summary>The player stands inside the home zone.</summary>
-        private static bool PlayerAtHome()
+        /// <summary>The player stands inside the home zone. Round MP2: the viewer (it was the host's own player).</summary>
+        private static bool PlayerAtHome(EntityPlayer p)
         {
-            EntityPlayerLocal p = ScCommunity.LocalPlayer;
             return p != null && ScZone.HasHome && ScZone.Contains(p.GetBlockPosition());
         }
 
@@ -255,10 +282,10 @@ namespace SurvivorCommunity
             return ScBaseAttack.Open ? Math.Max(1, c.AttackSize - c.AttackKilled) : (player != null ? ScBaseAttack.Size(player) : ScConfig.BaseAttackMin);
         }
 
-        private static void AddDefense(List<FacilityEntry> into)
+        private static void AddDefense(List<FacilityEntry> into, EntityPlayer viewer)
         {
             Community c = ScRegistry.Community;
-            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            EntityPlayer player = viewer;          // round MP2: the viewer's horde (it was the host's own player's)
             World w = ScCommunity.World;
             // round MP1: a client shows the server's rating (the scan's defenses, the guards and the horde are measured there)
             int horde = ScMirror.Active ? ScMirror.Int("defhorde", ScConfig.BaseAttackMin) : DefenseHorde(player);
@@ -296,10 +323,12 @@ namespace SurvivorCommunity
             if (ScConfig.SalvageKillsPerMaterial > 0) about.Append('\n').Append(Fmt("scUiFacSalvageAbout", ScConfig.SalvageKillsPerMaterial));
             e.About = about.ToString();
 
+            // round MP2: "Lights on" is lit for every player (it was Ready = IsHost: always on the host, never on a client); the ids
+            // are what facility.do matches the buttons by
             if (ScLightsOut.Active)
-                e.Actions.Add(new FacilityAction { Label = L("scUiFacLightsOn"), Ready = ScCommunity.IsHost, Run = ScLightsOut.CancelByOrder });
+                e.Actions.Add(new FacilityAction { Label = L("scUiFacLightsOn"), Id = "scUiFacLightsOn", Ready = true, Run = ScLightsOut.CancelByOrder });
             else
-                e.Actions.Add(new FacilityAction { Label = L("scUiFacLightsOut"), Ready = ScLightsOut.WhyNot(w) == null, Run = ScLightsOut.Order });
+                e.Actions.Add(new FacilityAction { Label = L("scUiFacLightsOut"), Id = "scUiFacLightsOut", Ready = ScLightsOut.WhyNot(w) == null, Run = ScLightsOut.Order });
             into.Add(e);
         }
 
@@ -318,7 +347,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ Beds ----
 
-        private static void AddBeds(List<FacilityEntry> into)
+        private static void AddBeds(List<FacilityEntry> into, EntityPlayer viewer)
         {
             int members = ScRegistry.Members.Count, beds = ScEncAllies.TotalBeds(), allies = ScEncAllies.ExtraBeds();
             int term = ScMorale.Compute().Beds;
@@ -342,7 +371,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ Water (the summary; the sources come at the end) ----
 
-        private static void AddWater(List<FacilityEntry> into)
+        private static void AddWater(List<FacilityEntry> into, EntityPlayer viewer)
         {
             Community c = ScRegistry.Community;
             int wells = CountSites(n => ScFacilities.WellLevel(TypeOf(n)) > 0), dews = CountSites(n => ScFacilities.IsDew(TypeOf(n)));
@@ -379,7 +408,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Each well and dew collector the scan saw in the zone, with its level, its water and Upgrade.</summary>
-        private static void AddWaterSites(List<FacilityEntry> into)
+        private static void AddWaterSites(List<FacilityEntry> into, EntityPlayer viewer)
         {
             Community c = ScRegistry.Community;
             foreach (KeyValuePair<Vector3i, string> s in AllSites())
@@ -411,15 +440,19 @@ namespace SurvivorCommunity
                 e.Actions.Add(new FacilityAction
                 {
                     Label = L("scUiFacUpgrade"),
-                    Ready = ScCommunity.IsHost && !maxed && c.Get(Resource.Materials) >= cost,
-                    Run = (EntityPlayerLocal p, out string msg) => UpgradeSite(at, p, out msg),
+                    Id = "scUiFacUpgrade",
+                    Ready = !maxed && c.Get(Resource.Materials) >= cost,     // round MP2: lit on a client too (it was IsHost && ...)
+                    Run = (EntityPlayer p, out string msg) => UpgradeSite(at, p, out msg),
                 });
                 into.Add(e);
             }
         }
 
-        /// <summary>ScFacilities' own upgrade for the block at pos - only while its part of the base is loaded (it swaps the block).</summary>
-        private static bool UpgradeSite(Vector3i pos, EntityPlayerLocal player, out string message)
+        /// <summary>
+        /// ScFacilities' own upgrade for the block at pos - only while its part of the base is loaded (it swaps the block). Round
+        /// MP2: on the server (facility.do), for the player who pressed; "loaded" is the server's loaded chunks.
+        /// </summary>
+        private static bool UpgradeSite(Vector3i pos, EntityPlayer player, out string message)
         {
             if (HostOnly(out message)) return false;
             World w = ScCommunity.World;
@@ -431,7 +464,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ the workshop ----
 
-        private static void AddWorkshop(List<FacilityEntry> into)
+        private static void AddWorkshop(List<FacilityEntry> into, EntityPlayer viewer)
         {
             Community c = ScRegistry.Community;
             var kinds = new List<string>();
@@ -472,8 +505,9 @@ namespace SurvivorCommunity
             e.Actions.Add(new FacilityAction
             {
                 Label = L("scUiWorkCall"),
-                Ready = WorkWhyNot() == null,
-                WhyNot = WorkWhyNot,
+                Id = "scUiWorkCall",
+                Ready = WorkWhyNot(viewer) == null,
+                WhyNot = () => WorkWhyNot(viewer),
                 PickHint = L("scUiFacPickWork"),
                 Pick = CallToWork,
             });
@@ -481,20 +515,20 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Call to work can't start now: a client, shifts off, or the player outside the base (every pick would say so) - unless
-        /// someone is on a work shift: picking her ends it from anywhere, as the Members tab does (ScWork.CallOrEnd; the
-        /// re-check's N2), and ScWork.CanStart still refuses a new shift away from the base, member by member.
+        /// Call to work can't start now: shifts off, or the viewer outside the base (every pick would say so) - unless someone
+        /// is on a work shift: picking her ends it from anywhere, as the Members tab does (ScWork.CallOrEnd; the re-check's N2),
+        /// and ScWork.CanStart still refuses a new shift away from the base, member by member. Round MP2: no "host only" any
+        /// more (a client's pick goes to the server), and the viewer is the player asking.
         /// </summary>
-        private static string WorkWhyNot()
+        private static string WorkWhyNot(EntityPlayer viewer)
         {
-            if (!ScCommunity.IsHost) return L("scHostOnly");
             if (!ScConfig.WorkShiftsEnabled) return L("scWorkOff");
-            if (!PlayerAtHome() && !AnyOnWorkShift()) return L("scWorkNotHome");
+            if (!PlayerAtHome(viewer) && !AnyOnWorkShift()) return L("scWorkNotHome");
             return null;
         }
 
         /// <summary>The Members tab's Call to work for the resident picked (it ends her shift when she is already on one, as there).</summary>
-        private static bool CallToWork(Member m, EntityPlayerLocal player, out string message)
+        private static bool CallToWork(Member m, EntityPlayer player, out string message)
         {
             if (HostOnly(out message)) return false;
             bool ok;
@@ -510,7 +544,7 @@ namespace SurvivorCommunity
         /// last count where chunks are not loaded) and the food they give a day (ScEconomy.Harvest), with the gardener who
         /// lowers the crops a food takes (ScEconomy.CropsPerFood). No action.
         /// </summary>
-        private static void AddFarm(List<FacilityEntry> into)
+        private static void AddFarm(List<FacilityEntry> into, EntityPlayer viewer)
         {
             Community c = ScRegistry.Community;
             Member gardener;
@@ -553,7 +587,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ the campfire, host of the round of drinks ----
 
-        private static void AddCampfire(List<FacilityEntry> into)
+        private static void AddCampfire(List<FacilityEntry> into, EntityPlayer viewer)
         {
             Community c = ScRegistry.Community;
             int fires = CountSites(IsCampfireName);
@@ -594,32 +628,34 @@ namespace SurvivorCommunity
                     about.Append(L(a[2]));
                 about.Append('\n');
                 if (a[0] == ScActivities.Drinks)
-                    e.Actions.Add(new FacilityAction { Label = L("scUiActDrinksDo"), Ready = ScActivities.WhyNotDrinks() == null, Run = PourDrinks });
+                    e.Actions.Add(new FacilityAction { Label = L("scUiActDrinksDo"), Id = "scUiActDrinksDo", Ready = ScActivities.WhyNotDrinks() == null, Run = PourDrinks });
                 else if (a[0] == ScActivities.Feast)          // round fd1
-                    e.Actions.Add(new FacilityAction { Label = L("scUiActFeastDo"), Ready = ScActivities.WhyNotFeast() == null, Run = HoldFeast });
-                else if (a[0] == ScActivities.Ration)
-                    e.Actions.Add(new FacilityAction { Label = L("scUiActRationDo"), Ready = ScActivities.WhyNotRation() == null, Run = Ration });
+                    e.Actions.Add(new FacilityAction { Label = L("scUiActFeastDo"), Id = "scUiActFeastDo", Ready = ScActivities.WhyNotFeast() == null, Run = HoldFeast });
+                else if (a[0] == ScActivities.Ration)         // round MP2: Owner (SharedOwnerOnly: the owner and admins)
+                    e.Actions.Add(new FacilityAction { Label = L("scUiActRationDo"), Id = "scUiActRationDo", Ready = ScActivities.WhyNotRation() == null, Run = Ration,
+                                                       Access = ScActionAccess.Owner });
             }
             about.Append(L(ScConfig.CampfireGathering ? "scUiFacCampfireAbout" : "scUiFacCampfireAboutOff"));
             e.About = about.ToString();
             into.Add(e);
         }
 
-        private static bool PourDrinks(EntityPlayerLocal player, out string message)
+        // round MP2: any player (the one who pressed, on the server); the tell reaches a remote one as a tooltip (ShowTooltipMP)
+        private static bool PourDrinks(EntityPlayer player, out string message)
         {
             bool ok = ScActivities.PourDrinks(player, out message);
             if (ok && player != null) ScCommunity.Tell(player, message, "");
             return ok;
         }
 
-        private static bool HoldFeast(EntityPlayerLocal player, out string message)
+        private static bool HoldFeast(EntityPlayer player, out string message)
         {
             bool ok = ScActivities.PrepareFeast(player, out message);
             if (ok && player != null) ScCommunity.Tell(player, message, "");
             return ok;
         }
 
-        private static bool Ration(EntityPlayerLocal player, out string message)
+        private static bool Ration(EntityPlayer player, out string message)
         {
             bool ok = ScActivities.EnactRationing(player, out message);
             if (ok && player != null) ScCommunity.Tell(player, message, "");
@@ -633,8 +669,9 @@ namespace SurvivorCommunity
             if (ScRegistry.Community.FeastDay == ScCommunity.Today) return L("scUiActFeastDoneToday");
             if (ScActivities.WhyNotFeast() == null) return L("scUiActReady");
             if (ScActivities.RationInForce) return L("scUiActFeastRationing");      // round fd2
-            // name what is missing only when the rest is in place (host, a home, members): else it would blame the cook
-            if (ScCommunity.IsHost && ScRegistry.Community.HasHome && ScRegistry.Members.Count > 0)
+            // name what is missing only when the rest is in place (a home, members): else it would blame the cook. Round MP2:
+            // on a client too (it was the host only), from its copy
+            if (ScRegistry.Ready && ScRegistry.Community.HasHome && ScRegistry.Members.Count > 0)
             {
                 Member cook;
                 if (ScSkills.BestSpecialist(Specialty.Cooking, out cook) <= 0) return L("scUiActFeastNeedsCook");
@@ -659,7 +696,7 @@ namespace SurvivorCommunity
                 return ScActivities.RationActive ? Fmt("scUiActRationRunning", ScActivities.RationTimeLeft()) : L("scUiActRationDoneToday");
             if (ScActivities.WhyNotRation() == null) return L("scUiActReady");
             if (ScActivities.FeastActive) return L("scUiActRationFeast");            // round fd2
-            if (ScCommunity.IsHost && ScRegistry.Community.HasHome && ScRegistry.Members.Count > 0 && ScActivities.RationSavesNothing())
+            if (ScRegistry.Ready && ScRegistry.Community.HasHome && ScRegistry.Members.Count > 0 && ScActivities.RationSavesNothing())   // round MP2: a client too
                 return L("scUiActRationNothing");
             return L("scUiActNotReadyPlain");
         }
@@ -688,7 +725,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ the radio station ----
 
-        private static void AddRadio(List<FacilityEntry> into)
+        private static void AddRadio(List<FacilityEntry> into, EntityPlayer viewer)
         {
             Community c = ScRegistry.Community;
             int radios = 0;
@@ -716,7 +753,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ watch posts ----
 
-        private static void AddWatch(List<FacilityEntry> into)
+        private static void AddWatch(List<FacilityEntry> into, EntityPlayer viewer)
         {
             Community c = ScRegistry.Community;
             int posts = c.WatchPosts.Count, manned = 0;
@@ -756,10 +793,10 @@ namespace SurvivorCommunity
             if (ScConfig.WatchFatigue) about.Append('\n').Append(ScWatchFatigue.AboutText());
             e.About = about.ToString();
             Vector3i post = firstEmpty;
-            // why the pick can't open (the Fable review's finding 6): every resident picked would be refused the same way
+            // why the pick can't open (the Fable review's finding 6): every resident picked would be refused the same way. Round
+            // MP2: no "host only" any more - a client's pick goes to the server (facility.do), which asks this again there
             Func<string> whyNot = () =>
             {
-                if (!ScCommunity.IsHost) return L("scHostOnly");
                 if (!ScConfig.WatchPosts) return L("scWatchOff");
                 if (post == Vector3i.zero) return L(posts == 0 ? "scUiFacWatchNoPost" : "scUiFacWatchAllManned");
                 if (ScRegistry.Community.Get(Resource.Ammo) < Math.Max(0, ScConfig.WatchShiftAmmo)) return ScWatch.ErrorText("scWatchNoAmmo", null, post);
@@ -768,17 +805,21 @@ namespace SurvivorCommunity
             var assign = new FacilityAction
             {
                 Label = L("scUiFacAssignGuard"),
+                Id = "scUiFacAssignGuard",
                 Ready = whyNot() == null,
                 WhyNot = whyNot,
                 PickHint = post != Vector3i.zero ? Fmt("scUiWatchPick", ScWatch.Label(post)) : "",
-                Pick = (Member m, EntityPlayerLocal p, out string msg) => AssignGuard(post, m, p, out msg),
+                Pick = (Member m, EntityPlayer p, out string msg) => AssignGuard(post, m, p, out msg),
             };
             e.Actions.Add(assign);
             into.Add(e);
         }
 
-        /// <summary>The post's own Assign guard for the resident picked (ScWatch tells the player too).</summary>
-        private static bool AssignGuard(Vector3i post, Member m, EntityPlayerLocal player, out string message)
+        /// <summary>
+        /// The post's own Assign guard for the resident picked (ScWatch tells the player too). Round MP2: the post is the first
+        /// empty one of the server's rebuild at the pick (facility.do), the player the one who picked.
+        /// </summary>
+        private static bool AssignGuard(Vector3i post, Member m, EntityPlayer player, out string message)
         {
             if (HostOnly(out message)) return false;
             string err;
@@ -804,7 +845,7 @@ namespace SurvivorCommunity
             catch (Exception e) { ScLog.Once("facility-tower-note", e); }
         }
 
-        private static void AddTower(List<FacilityEntry> into)
+        private static void AddTower(List<FacilityEntry> into, EntityPlayer viewer)
         {
             Community c = ScRegistry.Community;
             World w = ScCommunity.World;

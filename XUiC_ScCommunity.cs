@@ -153,16 +153,7 @@ namespace SurvivorCommunity
                 HookOptional("btnOpDisband", OnOutpostDisband);
                 HookOptional("btnOpAssign", OnOutpostAssign);
                 HookOptional("btnOpUpgrade", OnOutpostUpgrade);
-                HookOptional("btnOpMode", () =>
-                {
-                    Outpost o = OutpostSelected;
-                    if (o == null || !o.Holding) return;
-                    if (RefusedOnClient(true)) return;       // round MP1
-                    ScOutpostPerks.CycleMode(o);
-                    ScRegistry.SaveAtomic();
-                    opMessage = string.Format(Localization.Get("scOpModeSet"), o.Name, ScOutpostPerks.ModeLabel(o));
-                    Refresh();
-                });
+                HookOptional("btnOpMode", OnOutpostMode);      // round MP2: a method (it was a lambda that cycled it here)
                 HookOptional("btnStaff1Recall", () => OnStaffRecall(0));
                 HookOptional("btnStaff2Recall", () => OnStaffRecall(1));
                 searchInput = GetChildById("searchInput") as XUiC_TextInput;
@@ -293,21 +284,34 @@ namespace SurvivorCommunity
                    && xui.playerUI.windowManager.IsWindowOpen(ScCommunity.WindowGroup);
         }
 
+        // ---- round MP2: every button that changes the community asks the server (ScActions.Request; ScActionsWindow and part M
+        //      hold the handlers). On the host and in single player the answer comes at once, inline, so the window shows it
+        //      exactly where and how the old inline code did; on a client it comes a moment later (or never: nothing waits on it).
+        //      MP1's RefusedOnClient ("host only" on a client) is gone with it. ----
+
         /// <summary>
-        /// Round MP1: a client's window shows the server's community (ScMirror) but cannot act on it until round MP2's requests:
-        /// every button that would change something says so (scHostOnly, as the verbs themselves do) - never silent, and never
-        /// a half-applied change to the client's copy or to a body. False on the host and in single player.
+        /// Round MP2: an answer's line in the member panel (or the Outposts tab's), and its sound (the denied one on a refusal, as
+        /// the old code played it). okFallback: the line when a handler answered done without one.
         /// </summary>
-        private bool RefusedOnClient(bool outposts = false)
+        private void ShowReply(ScActionReply r, bool outposts, string okFallback = null)
         {
-            if (ScCommunity.IsHost) return false;
-            string text = Localization.Get("scHostOnly");
+            string text = r.Text;
+            if (r.Ok && text.Length == 0 && okFallback != null) text = okFallback;
             if (outposts) opMessage = text; else message = text;
-            runPicking = false;
+            PlaySound(r.Sound);
+        }
+
+        private void PlaySound(string sound)
+        {
             EntityPlayerLocal p = Player;
-            if (p != null) p.PlayOneShot("ui_denied");
-            RefreshBindingsSelfAndChildren();
-            return true;
+            if (p != null && !string.IsNullOrEmpty(sound)) p.PlayOneShot(sound);
+        }
+
+        /// <summary>Round MP2: after an answer - the refresh the old code did, now while the window is still open (a client's answer can come after it closed).</summary>
+        private void AfterReply()
+        {
+            if (IsOpen()) Refresh();
+            else nextRefresh = 0f;
         }
 
         /// <summary>
@@ -478,36 +482,37 @@ namespace SurvivorCommunity
             RefreshBindingsSelfAndChildren();
         }
 
-        /// <summary>Call to work (a resident at home walks over to you) or End work (back to her post).</summary>
+        /// <summary>Call to work (a resident at home walks over to you) or End work (back to her post). Round MP2: member.work.</summary>
         private void OnWork()
         {
 #if SC_V34
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null || !WorkOpen) return;
-            if (RefusedOnClient()) return;               // round MP1
-            string msg;
-            bool ok;
-            ScWork.CallOrEnd(m, p, out msg, out ok);
-            message = msg ?? "";
-            if (!ok) p.PlayOneShot("ui_denied");
-            workPickingId = -1;                      // the message shows where the row was
-            Refresh();
+            ScActions.Request("member.work", r =>
+            {
+                ShowReply(r, false);
+                workPickingId = -1;                  // the message shows where the row was
+                AfterReply();
+            }, m.Id);
 #endif
         }
 
-        /// <summary>A role toggle: 0-XNPCCore's role cvar on the body, as the order wheel's Roles page writes it.</summary>
+        /// <summary>
+        /// A role toggle: 0-XNPCCore's role cvar on the body, as the order wheel's Roles page writes it. Round MP2: member.role (the
+        /// server writes the cvar; it is sent to the clients).
+        /// </summary>
         private void OnRole(int role)
         {
 #if SC_V34
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null || !WorkOpen) return;
-            if (RefusedOnClient()) return;               // round MP1: ToggleRole writes the body's role cvar
-            string msg;
-            if (!ScCraft.ToggleRole(m, role, out msg)) p.PlayOneShot("ui_denied");
-            message = msg ?? "";
-            RefreshBindingsSelfAndChildren();
+            ScActions.Request("member.role", r =>
+            {
+                ShowReply(r, false);
+                RefreshBindingsSelfAndChildren();
+            }, m.Id, role);
 #endif
         }
 
@@ -642,19 +647,20 @@ namespace SurvivorCommunity
             RefreshBindingsSelfAndChildren();
         }
 
+        /// <summary>
+        /// Disband (two presses), or Forget a lost outpost's record (one). Round MP2: the server does either (outpost.disband, an
+        /// Owner action: with SharedOwnerOnly the owner's and the admins'); the confirm stays here.
+        /// </summary>
         private void OnOutpostDisband()
         {
             Outpost o = OutpostSelected;
             EntityPlayerLocal p = Player;
             if (o == null || p == null) return;
-            if (!ScCommunity.IsHost) { opMessage = Localization.Get("scHostOnly"); RefreshBindingsSelfAndChildren(); return; }
+            int id = o.Id;
             if (!o.Holding)
             {
                 // a lost outpost's record: forget it now instead of waiting for it to drop off
-                ScRegistry.Outposts.Remove(o);
-                ScRegistry.SaveAtomic();
-                opSelectedId = -1;
-                Refresh();
+                ScActions.Request("outpost.disband", r => OnDisbanded(r, id), id, 1);
                 return;
             }
             float now = Time.unscaledTime;
@@ -666,10 +672,28 @@ namespace SurvivorCommunity
                 return;
             }
             confirmDisbandUntil = 0f;
-            ScOutposts.Disband(o, p);
-            opSelectedId = -1;
-            opMessage = string.Format(Localization.Get("scOpDisbanded"), o.Name);
-            Refresh();
+            ScActions.Request("outpost.disband", r => OnDisbanded(r, id), id, 0);
+        }
+
+        /// <summary>Round MP2: outpost.disband's answer - the selection goes with the outpost; a forgotten record says nothing, as before.</summary>
+        private void OnDisbanded(ScActionReply r, int id)
+        {
+            if (r.Ok && opSelectedId == id) opSelectedId = -1;
+            if (!r.Ok || r.Text.Length > 0) opMessage = r.Text;
+            PlaySound(r.Sound);
+            AfterReply();
+        }
+
+        /// <summary>Mode: normal -> quiet -> push (a held outpost). Round MP2: the server cycles it (outpost.mode).</summary>
+        private void OnOutpostMode()
+        {
+            Outpost o = OutpostSelected;
+            if (o == null || !o.Holding) return;
+            ScActions.Request("outpost.mode", r =>
+            {
+                ShowReply(r, true);
+                AfterReply();
+            }, o.Id);
         }
 
         /// <summary>Assign: switch to the members with a "pick someone" hint; pressed again (or any tab) cancels.</summary>
@@ -678,7 +702,6 @@ namespace SurvivorCommunity
             Outpost o = OutpostSelected;
             if (o == null) return;
             if (assignOutpostId >= 0) { assignOutpostId = -1; message = ""; filter = Filter.All; filterDirty = true; RefreshBindingsSelfAndChildren(); return; }
-            if (RefusedOnClient(true)) return;            // round MP1: no pick that could only be refused
             if (!o.Holding || ScGarrison.Assigned(o) >= ScGarrison.StaffCap(o))     // round op1: those on the way hold their post
             {
                 opMessage = Localization.Get(!o.Holding ? "scOpPostLost" : "scOpPostFull");
@@ -693,73 +716,72 @@ namespace SurvivorCommunity
             ApplyFilter();
         }
 
-        /// <summary>Assign mode: the member picked is posted (and the window returns to the outpost), or the reason shows.</summary>
+        /// <summary>
+        /// Assign mode: the member picked is posted (and the window returns to the outpost), or the reason shows. Round MP2: the
+        /// server posts her (member.post); its hint outpost=&lt;id&gt; is the outpost the window goes to.
+        /// </summary>
         private bool TryAssign(Member m)
         {
             Outpost o = ScOutposts.ById(assignOutpostId);
-            EntityPlayerLocal p = Player;
             if (o == null) { assignOutpostId = -1; return false; }
-            if (RefusedOnClient()) return true;          // round MP1
-            string err;
-            if (!ScGarrison.Post(m, ScCommunity.FindNpc(m.Id), o, p, out err))
+            int outpostId = o.Id;
+            ScActions.Request("member.post", r =>
             {
-                message = Localization.Get(err ?? "scInternal");
-                if (p != null) p.PlayOneShot("ui_denied");
-                RefreshBindingsSelfAndChildren();
-                return true;
-            }
-            assignOutpostId = -1;
-            filter = Filter.All;
-            message = "";
-            tab = Tab.Outposts;
-            opSelectedId = o.Id;
-            opMessage = string.Format(Localization.Get("scOpSetsOff"), m.Name, o.Name, ScGarrison.EtaHours(m));   // round op1: on foot, about N h
-            Refresh();
+                if (!r.Ok)
+                {
+                    ShowReply(r, false);             // the reason in the pick's line; the pick stays open
+                    RefreshBindingsSelfAndChildren();
+                    return;
+                }
+                assignOutpostId = -1;
+                filter = Filter.All;
+                message = "";
+                tab = Tab.Outposts;
+                opSelectedId = r.HintInt("outpost", outpostId);
+                opMessage = r.Text;                  // round op1: "sets off on foot, about N h"
+                AfterReply();
+            }, m.Id, outpostId);
             return true;
         }
 
         /// <summary>
         /// Watch assign mode (base defence D3): the member picked takes the watch (ScWatch.Assign tells the player and the
-        /// window closes), or the reason shows and the pick stays open.
+        /// window closes), or the reason shows and the pick stays open. Round MP2: the server assigns her (member.watch).
         /// </summary>
         private bool TryAssignWatch(Member m)
         {
-            EntityPlayerLocal p = Player;
-            if (RefusedOnClient()) return true;          // round MP1
-            string err;
-            if (!ScWatch.Assign(assignWatch, m, p, out err))
+            Vector3i post = assignWatch;
+            int id = m.Id;
+            ScActions.Request("member.watch", r =>
             {
-                message = ScWatch.ErrorText(err, m, assignWatch);
-                if (p != null) p.PlayOneShot("ui_denied");
-                RefreshBindingsSelfAndChildren();
-                return true;
-            }
-            assignWatch = Vector3i.zero;
-            filter = Filter.All;
-            filterDirty = true;
-            message = "";
-            selectedId = m.Id;
-            Close();
+                if (!r.Ok)
+                {
+                    ShowReply(r, false);
+                    RefreshBindingsSelfAndChildren();
+                    return;
+                }
+                if (assignWatch != post) return;     // a client: the pick was left meanwhile (another tab, the window closed)
+                assignWatch = Vector3i.zero;
+                filter = Filter.All;
+                filterDirty = true;
+                message = "";
+                selectedId = id;
+                Close();
+            }, id, post.x, post.y, post.z);
             return true;
         }
 
+        /// <summary>Upgrade, or Repair for a damaged outpost (the same button). Round MP2: outpost.upgrade.</summary>
         private void OnOutpostUpgrade()
         {
             Outpost o = OutpostSelected;
             EntityPlayerLocal p = Player;
             if (o == null || p == null) return;
-            if (RefusedOnClient(true)) return;           // round MP1
-            string msg;
-            if (ScOutpostRisk.DamagedNow(o))        // the same button repairs a damaged outpost
+            ScActions.Request("outpost.upgrade", r =>
             {
-                if (!ScOutpostRisk.Repair(o, p, out msg)) p.PlayOneShot("ui_denied");
-                opMessage = msg ?? "";
-                Refresh();
-                return;
-            }
-            if (!ScOutpostPerks.Upgrade(o, p, out msg)) p.PlayOneShot("ui_denied");
-            opMessage = msg ?? "";
-            Refresh();
+                ShowReply(r, true);
+                AfterReply();
+            }, o.Id);
         }
 
         /// <summary>R2: a runner the window cannot turn round for want of a radio (grayed; the click says why).</summary>
@@ -772,20 +794,18 @@ namespace SurvivorCommunity
 #endif
         }
 
+        /// <summary>A staff row's Recall. Round MP2: by member id (member.recallposted) - a slot means another member on a stale copy.</summary>
         private void OnStaffRecall(int slot)
         {
             Outpost o = OutpostSelected;
-            EntityPlayerLocal p = Player;
             if (o == null) return;
             List<Member> staff = ScGarrison.Slots(o);                      // round op1: staff, then those on the way
             if (slot >= staff.Count) return;
-            if (RefusedOnClient(true)) return;           // round MP1
-            Member m = staff[slot];
-            bool onTheWay = ScGarrison.HeadingOut(m);
-            ScGarrison.Recall(m, p, null);
-            ScRegistry.SaveAtomic();
-            opMessage = string.Format(Localization.Get(onTheWay ? "scOpTurnedBack" : "scOpRecalled"), m.Name, o.Name);
-            Refresh();
+            ScActions.Request("member.recallposted", r =>
+            {
+                ShowReply(r, true);
+                AfterReply();
+            }, staff[slot].Id);
         }
 
         /// <summary>st1/st2: a posted member, an empty post, or the post level 2 unlocks.</summary>
@@ -1052,90 +1072,30 @@ namespace SurvivorCommunity
         }
 
         // ---- orders ----
+        // Round MP2: Follow / Recall / Call back, Home and Leave are part M's ops (member.follow, member.home, member.leave): the
+        // branch on her state that OnFollow held (call back a missing member, turn a traveler round, recall a runner over the radio,
+        // recall posted staff, follow) runs on the server, against her state there. What stays here: the labels' routing (a
+        // follower's button reads "Home"), Leave's two-press confirm, and where the answer shows.
 
         private void OnFollow()
         {
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null) return;
-            if (RefusedOnClient()) return;               // round MP1
-            EntityAlive npc = ScCommunity.FindNpc(m.Id);
-            string err;
-            if (m.Status == MemberStatus.Arriving)
+            // a follower's (or one heading home's) button reads "Home" (followlabel): it sends her home, as it always did
+            if (m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) { OnHome(); return; }
+            int before = m.Id;
+            Member asked = m;
+            ScActions.Request("member.follow", r =>
             {
-                // E12: still on the way (ScEncJoin) - no orders until they turn up at home
-                message = Localization.Get("scEncJoinOnTheWay");
-                p.PlayOneShot("ui_denied");
-                RefreshBindingsSelfAndChildren();
-                return;
-            }
-            if (ScMissing.IsMissing(m))
-            {
-                // the body is gone from the world: respawn them at their post from their record
-                string cerr;
-                int before = m.Id;
-                if (ScMissing.Restore(m, p, false, out cerr))
-                {
-                    if (selectedId == before) selectedId = m.Id;      // they come back under a new entity id
-                    message = string.Format(Localization.Get("scMissingRestored"), m.Name);
-                }
-                else { message = Localization.Get(cerr ?? "scInternal"); p.PlayOneShot("ui_denied"); }
-                Refresh();
-                return;
-            }
-            if (m.Status == MemberStatus.Transit)
-            {
-                // round op1: on the way to an outpost - turn round now (no radio needed: a posting is not a run); walking home already: coming
-                string terr;
-                if (ScGarrison.TurnHome(m, p, null, out terr)) message = string.Format(Localization.Get("scOpTurnedBack"), m.Name, ScGarrison.TransitName(m));
-                else { message = Localization.Get(terr ?? "scInternal"); p.PlayOneShot("ui_denied"); }
-                Refresh();
-                return;
-            }
-            if (ScRunners.IsPhysical(m))
-            {
-                // out on a physical run: turn round now
-#if SC_V34
-                // R2 (user, 2026-11-09): only over their radio, or in person - asked only of a runner the recall could turn round,
-                // so pinned down / already heading home keep their own refusals (the re-check's LOW-2)
-                bool turnable = m.RunLeg == RunLeg.Outbound || (m.RunLeg == RunLeg.AtSite && !ScRunners.Pinned(m));
-                if (turnable && !ScHandheld.WindowRecallAllowed(m, p))
-                {
-                    message = string.Format(Localization.Get("scRecallNoRadio"), m.Name);
-                    ScHandheld.Count("window recall refused: runner has no radio");
-                    p.PlayOneShot("ui_denied");
-                    Refresh();
-                    return;
-                }
-                bool byRadio = m.RunRadio && !ScRadioTalk.InPerson(m, p);
-#endif
-                string rerr;
-                if (ScRunners.Recall(m, p, out rerr))
-                {
-                    message = string.Format(Localization.Get("scRunRecalled"), m.Name);
-#if SC_V34
-                    if (byRadio) { ScRadioTalk.OnRecalled(m, p); ScRegistry.SaveAtomic(); }      // R2: "Copy that." on the radio
-#endif
-                }
-                else { message = Localization.Get(rerr ?? "scInternal"); p.PlayOneShot("ui_denied"); }
-                Refresh();
-                return;
-            }
-            if (m.Status == MemberStatus.Garrison)
-            {
-                Outpost po = ScGarrison.PostOf(m);
-                ScGarrison.Recall(m, p, null);                                 // round op1: they walk home (the line below says so)
-                ScRegistry.SaveAtomic();
-                message = string.Format(Localization.Get("scOpRecalled"), m.Name, po != null ? po.Name : "?");
-                Refresh();
-                return;
-            }
-            if (npc == null) err = "scNotLoaded";
-            else if (m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) { OnHome(); return; }
-            else if (ScCommunity.Follow(m, npc, p, out err)) message = string.Format(Localization.Get("scWinNowFollowing"), m.Name);
-            if (npc != null && ScVoiceRoutes.IsFollowFull(err)) ScVoiceRoutes.SayRefusal(npc, "scFollowFullSaid", "the community window's Follow me: no room in the party");   // round m1w (P7)
-            if (err != null) { message = Localization.Get(err); p.PlayOneShot("ui_denied"); }
-            Refresh();
+                // a member called back (ScMissing.Restore) returns under a new entity id: the selection follows her - the hint
+                // member=<id>, or (the host: the same record, renumbered in place) the record's own id
+                int moved = r.HintInt("member", -1);
+                if (moved < 0 && asked.Id != before) moved = asked.Id;
+                if (moved >= 0 && selectedId == before) selectedId = moved;
+                ShowReply(r, false);
+                AfterReply();
+            }, m.Id);
         }
 
         private void OnHome()
@@ -1143,21 +1103,18 @@ namespace SurvivorCommunity
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null) return;
-            if (RefusedOnClient()) return;               // round MP1
-            EntityAlive npc = ScCommunity.FindNpc(m.Id);
-            string err;
-            if (m.Status == MemberStatus.Arriving) err = "scEncJoinOnTheWay";      // E12: still on the way
-            else if (npc == null) err = "scNotLoaded";
-            else if (ScCommunity.ReturnHome(m, npc, p, out err)) message = string.Format(Localization.Get("scStationed"), m.Name);
-            if (err != null) { message = Localization.Get(err); p.PlayOneShot("ui_denied"); }
-            Refresh();
+            string done = string.Format(Localization.Get("scStationed"), m.Name);
+            ScActions.Request("member.home", r =>
+            {
+                ShowReply(r, false, done);
+                AfterReply();
+            }, m.Id);
         }
 
         private void OnLeave()
         {
             Member m = Selected;
             if (m == null) return;
-            if (RefusedOnClient()) return;               // round MP1: ScCommunity.Leave has no host gate of its own
             float now = Time.unscaledTime;
             if (now > confirmLeaveUntil)
             {
@@ -1167,44 +1124,52 @@ namespace SurvivorCommunity
                 return;
             }
             confirmLeaveUntil = 0f;
-#if SC_V34
-            if (ScDowned.MemberDown(m)) { message = Localization.Get("scDownedBusy"); if (Player != null) Player.PlayOneShot("ui_denied"); Refresh(); return; }   // round U2: not while she is down (Leave tells her too)
-#endif
-            ScCommunity.Leave(m, "scLeft");
-            selectedId = -1;
-            runPicking = false;
-            message = string.Format(Localization.Get("scLeft"), m.Name);
-            Refresh();
+            // round MP2: the server lets her go (member.leave, an Owner action), its downed check included (round U2: not while
+            // she is down)
+            int id = m.Id;
+            string done = string.Format(Localization.Get("scLeft"), m.Name);
+            ScActions.Request("member.leave", r =>
+            {
+                if (r.Ok)
+                {
+                    if (selectedId == id) selectedId = -1;
+                    runPicking = false;
+                }
+                ShowReply(r, false, done);
+                AfterReply();
+            }, id);
         }
 
+        /// <summary>A supply run from the run picker. Round MP2: member.run (the server sends her; a client's run is a hidden run).</summary>
         private void OnRun(Resource kind)
         {
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null) return;
-            if (RefusedOnClient()) return;               // round MP1
-            EntityAlive npc = ScCommunity.FindNpc(m.Id);
-            string err;
             runPicking = false;
-            if (ScRuns.Send(m, npc, kind, p, out err)) message = string.Format(Localization.Get("scRunSent"), m.Name, Localization.Get(ScNames.LocKey(kind)), m.RunEndDay);
-            else { message = Localization.Get(err ?? "scInternal"); p.PlayOneShot("ui_denied"); }
-            Refresh();
+            ScActions.Request("member.run", r =>
+            {
+                ShowReply(r, false);
+                AfterReply();
+            }, m.Id, (int)kind, -1);
         }
 
 #if SC_V34
-        /// <summary>Round 33c (M33): a mining run from the run picker (ScMining.Send: a tool for the job, a natural spot or a hidden run).</summary>
+        /// <summary>
+        /// Round 33c (M33): a mining run from the run picker (ScMining.Send: a tool for the job, a natural spot or a hidden run).
+        /// Round MP2: member.run with the job.
+        /// </summary>
         private void OnRunJob(RunJob job)
         {
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null) return;
-            if (RefusedOnClient()) return;               // round MP1
-            EntityAlive npc = ScCommunity.FindNpc(m.Id);
-            string err;
             runPicking = false;
-            if (ScMining.Send(m, npc, job, p, out err)) message = string.Format(Localization.Get("scRunSent"), m.Name, ScRuns.What(m), m.RunEndDay);
-            else { message = Localization.Get(err ?? "scInternal"); p.PlayOneShot("ui_denied"); }
-            Refresh();
+            ScActions.Request("member.run", r =>
+            {
+                ShowReply(r, false);
+                AfterReply();
+            }, m.Id, -1, (int)job);
         }
 #else
         /// <summary>Round 33 review L4: the 3.2 build has no mining runs (ScMining is 3.4 only).</summary>

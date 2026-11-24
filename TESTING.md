@@ -37,6 +37,49 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP2 (part: window) (2026-11-23): clients use the community window, its Facilities tab and the radials
+
+Why: a client saw the server's community (MP1) but every button said "host only". Now every button of the community
+window (Members, Outposts, Facilities), the Watch post's Assign / Relieve, the well and dew collector's Upgrade and the
+talk row "That's all for now." ask the server, which checks the request against the community as it is now and answers.
+On the host and in single player the same code runs at once, so nothing should look or sound different there. Build
+`sc34_mp2w` (part W only; it needs parts M and R merged for Follow, Home, Leave and the land claim's entries), not deployed.
+With `DebugLogging` on, the server logs `action <op> by <player>: done / refused (<message>)` for every request.
+
+**Single player (and the host's own play): nothing may change**
+- [ ] Members tab: Send on a run (each resource), Mine and Dig clay, Work (Call to work, End work), each role button,
+      Follow / Home / Recall / Call back, Ask to leave (two presses): the same lines, sounds and refreshes as before.
+- [ ] Outposts tab: Assign a resident (the window jumps to the outpost with "sets off on foot, about N h"), Upgrade,
+      Repair a damaged outpost, Mode (normal, quiet, push), staff Recall, Disband (two presses), Forget a lost outpost.
+- [ ] Facilities tab: Lights out, then Lights on; Pour drinks, Hold a feast, Enact rationing (each line once in the tab
+      and once as a tooltip, as before); a well's Upgrade (the site rows at the end); Call to work and Assign guard (each
+      picks a resident on the Members tab, then shows the outcome on the Facilities tab).
+- [ ] A Watch post: Assign guard opens the window and picks; Relieve guard says the guard comes down. On an empty post
+      Relieve is not offered; with no ammo Assign says so.
+- [ ] A well and a dew collector: hold E, Upgrade: the same line and the denied sound when the stockpile is short.
+- [ ] Talk to a resident on a work shift: "That's all for now." ends it, she says so and walks back. Log: no SC errors.
+
+**A client on a dedicated server** (a save with a home, a few members, an outpost, a Watch post, a well)
+- [ ] Every button above works for the client, with its line in the same place and the denied sound on a refusal. The
+      server's log has one `action ... by <client name>` line per press.
+- [ ] Send a member on a run from far away (more than 80 m from her): the run buttons show and she leaves (a hidden run).
+- [ ] Post a member: the window switches to the Outposts tab with that outpost selected.
+- [ ] The Facilities tab's colors are hints: "Lights on" is lit, an action that cannot run says why when pressed.
+- [ ] Watch post radial on the client: Assign guard and Relieve guard show from the client's copy and work.
+- [ ] Well radial on the client: Upgrade shows inside the base and upgrades; Info shows the whole line.
+- [ ] Talk to a member on a work shift: "That's all for now." shows on the client and ends it (she does not speak on the
+      client yet: voices are round MP4).
+- [ ] With `SharedOwnerOnly` set on the server, a client who is neither the owner nor an admin is refused Disband and
+      Enact rationing ("Only the community's owner or an admin can do that on this server."); the rest still works.
+- [ ] Packing station, linked storage (the Storage button) and the member panel's gear still say "host only" (round MP3).
+
+**Two players pressing the same thing**
+- [ ] Both press Pour drinks (or Enact rationing) at once: one round, one line; the other is told the round is running
+      (rationing: enacted today).
+- [ ] Both send the same member on a run: one run; the other is told she is on a run.
+- [ ] Both pick the same resident for the same Watch post: one guard; the other is told the post is manned.
+- [ ] One disbands an outpost while the other upgrades it: the second is told the outpost is not there any more.
+
 ## Round MP1 (part: looks) (2026-11-23): every player sees the same survivors
 
 Why: each client used to roll its own random look for every SC body (members, prospects, enclave people, bands, wild

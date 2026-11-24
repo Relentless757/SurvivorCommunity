@@ -708,6 +708,8 @@ namespace SurvivorCommunity
             error = null;
             if (job == RunJob.Supply) { error = "scInternal"; return false; }
             if (!ScConfig.MiningRuns) { error = "scMineOff"; return false; }
+            // round MP2: the server's (member.run): ScRuns.CanSend below is a read now, so the gate is here (E10)
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded) { error = "scHostOnly"; return false; }
             if (!ScRuns.CanSend(m, npc, out error)) return false;
             if (!string.IsNullOrEmpty(m.RunHaul)) { error = "scMineHaulPending"; return false; }
             string tool, where;

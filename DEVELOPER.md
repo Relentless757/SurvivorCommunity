@@ -2157,6 +2157,38 @@ Round MP0 is the groundwork:
   - **The rule for new code:** a path that runs on a client (patches on entities, render, avatar or UI; dialogs; block
     commands) and acts on a registry record must check `ScRegistry.Loaded` or `ScCommunity.IsHost`. The window's buttons
     say scHostOnly on a client until round MP2 adds requests.
+- **Round MP2, the community window, its Facilities tab and the radials (`ScActionsWindow`):** every button that changes
+  the community calls `ScActions.Request` on every machine, the host included, and shows the answer's text and sound where
+  the old inline code showed its result. The handlers run on the server with the player who asked and re-check everything
+  with the verbs' own tests.
+  - **Ops** (whole numbers unless marked s:):
+    - `member.run` (member, kind, job): a supply run (kind = `Resource`, job -1) or a mining run (kind -1, job = `RunJob`);
+    - `member.work` (member): Call to work / End work;
+    - `member.workend` (member): "That's all for now.", silent when she is on no shift;
+    - `member.role` (member, role 0-3): a crafting role on or off;
+    - `member.post` (member, outpost id): answers the hint `outpost=<id>`;
+    - `member.watch` (member, x, y, z): the guard for that Watch post;
+    - `member.recallposted` (member): a staff row's Recall;
+    - `outpost.disband` (outpost id, forget 0/1), Owner access: disband a held outpost, or forget a lost one's record;
+    - `outpost.upgrade` (outpost id): repairs a damaged outpost, else buys its next level;
+    - `outpost.mode` (outpost id);
+    - `facility.do` (slot, member or -1; s: entry key, s: action id): one action of the Facilities tab;
+    - `facility.upgrade` (x, y, z): the well or dew collector radial's Upgrade;
+    - `watch.relieve` (x, y, z): the Watch post radial's Relieve guard.
+  - **The Facilities tab:** `ScFacilityTab.Build(viewer)` builds the entries for a player (a provider is
+    `(List<FacilityEntry> into, EntityPlayer viewer)`), so a client builds its tab from its copy with its own player and the
+    server rebuilds the entry for the player who pressed. `FacilityAction.Run` and `Pick` take an `EntityPlayer`. Give every
+    action an `Id` (its label's localization key): `facility.do` matches a pressed button by its slot and that id, so a
+    list that changed in between, or a client in another language, cannot fire the wrong action. An action that needs more
+    than Community access sets `Access` (rationing: `Owner`). `Ready` and `WhyNot` on a client are hints from its copy.
+  - **Reads and writes:** the checks the window, the tab and the radials read for display (`ScRuns.CanSend`,
+    `ScWork.CanStart`, `ScOutpostPerks.CanUpgrade`, `ScActivities.WhyNot*`, `ScLightsOut.WhyNot`) answer from a client's copy
+    (`ScRegistry.Ready`). The verbs that write (`Send`, `Start`, `CallOrEnd`, `Upgrade`, `Repair`, `PourDrinks`,
+    `PrepareFeast`, `EnactRationing`, `Order`, `TryUpgrade`, `Assign`, `Relieve` ...) refuse unless `ScRegistry.Loaded`.
+    `ScActionsWindow.CanRequest` says whether this machine can ask the server at all (the radials show their SC commands
+    by it).
+  - **`sc_shift`** (a member on a work shift) is sent to the clients and set to 0 when the shift ends, no longer removed:
+    the dialog rows read it there, and a removal never reaches a client. Test it with `> 0`.
 
 ## How it hangs together (for modders)
 

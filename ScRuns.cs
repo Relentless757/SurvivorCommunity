@@ -24,17 +24,21 @@ namespace SurvivorCommunity
             return ScRegistry.CountStatus(MemberStatus.OnRun);
         }
 
-        /// <summary>Can this member be sent right now? (error = localization key)</summary>
+        /// <summary>
+        /// Can this member be sent right now? (error = localization key) Round MP2: also a read - a client's window shows its run
+        /// buttons from its copy (Ready; it said "host only" there), and Send keeps the server-only gate. A body beyond the
+        /// client's 80 m that the server has loaded (the copy's health line) counts as there: the server judges it.
+        /// </summary>
         public static bool CanSend(Member m, EntityAlive npc, out string error)
         {
             error = null;
-            if (!ScCommunity.IsHost) { error = "scHostOnly"; return false; }
+            if (!ScRegistry.Ready) { error = "scHostOnly"; return false; }
             if (m == null) { error = "scInternal"; return false; }
             if (m.Status == MemberStatus.OnRun) { error = "scOnRun"; return false; }
             if (m.Status == MemberStatus.Transit) { error = "scOpOnTheWay"; return false; }     // round op1: on the road to or from an outpost
             if (m.Status != MemberStatus.Resident) { error = "scRunNotHome"; return false; }
             if (ScWatch.OnWatch(m)) { error = "scWatchBusy"; return false; }     // relieve them at the Watch post first (D3)
-            if (npc == null) { error = "scNotLoaded"; return false; }
+            if (npc == null && !BodyOnServer(m)) { error = "scNotLoaded"; return false; }      // round MP2: BodyOnServer (a client)
 #if SC_V34
             if (ScDowned.RefuseVerb(m)) { error = "scDownedBusy"; return false; }   // round U2: no run for a downed member (mining too)
 #endif
@@ -44,10 +48,21 @@ namespace SurvivorCommunity
             return true;
         }
 
+        /// <summary>
+        /// Round MP2: a client's copy says the server has this member's body loaded (the derived block's health line, ScMirror) -
+        /// a body beyond the client's own 80 m. Never on the server: it has the body or not.
+        /// </summary>
+        private static bool BodyOnServer(Member m)
+        {
+            return m != null && ScMirror.Has("hp." + m.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        /// <summary>A supply run (member.run on the server, the console). Round MP2: never on a client's copy (E10).</summary>
         public static bool Send(Member m, EntityAlive npc, Resource kind, EntityPlayer player, out string error)
         {
             // luxuries are not fetched (round wl): the dialog and the window never offer it, the console could
             if (kind == Resource.Luxury) { error = "scRunNoLuxury"; return false; }
+            if (!ScCommunity.IsHost || !ScRegistry.Loaded) { error = "scHostOnly"; return false; }
             if (!CanSend(m, npc, out error)) return false;
             // round md1: her medical kit topped up from the stockpile before the snapshot (TryCapture) takes it along; a hidden
             // run's parked body keeps it. Never blocks the run
