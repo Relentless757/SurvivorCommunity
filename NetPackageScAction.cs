@@ -16,8 +16,11 @@ namespace SurvivorCommunity
     /// </summary>
     public class NetPackageScAction : NetPackage
     {
-        /// <summary>A string argument is cut to this many characters (names, keys and labels are far shorter).</summary>
-        private const int MaxString = 1024;
+        /// <summary>
+        /// A string argument is cut to this many characters (names, keys and labels are far shorter; round MP3: an item stack
+        /// encoded by ScItemTx is at most ScItemTx.MaxEncoded, 4000).
+        /// </summary>
+        private const int MaxString = 4096;
         /// <summary>The op's name is cut to this many characters (the review's m4: the longest is about 20).</summary>
         private const int MaxOp = 64;
 

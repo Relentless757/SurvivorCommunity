@@ -80,6 +80,7 @@
     <Compile Include="ScActions.cs" />         <!-- round MP2: clients act (the request protocol) -->
     <Compile Include="NetPackageScAction.cs" /> <!-- round MP2 -->
     <Compile Include="NetPackageScResult.cs" /> <!-- round MP2 -->
+    <Compile Include="ScItemTx.cs" />          <!-- round MP3: items between a player's own inventory and the community -->
     <Compile Include="ScActionsMembers.cs" />  <!-- round MP2 (part M): member orders, joining, favours, band join -->
     <Compile Include="ScTalkContext.cs" />     <!-- round MP2 (part M): the talk context -->
     <Compile Include="NetPackageScTalkContext.cs" /> <!-- round MP2 (part M) -->
