@@ -43,8 +43,8 @@ Why: the MP2 reviews found that a toggle or a two-purpose button (Repair / Upgra
 role, an outpost's Mode, a well's Upgrade) did whatever the server's state said, so a second press from a client a push
 behind did the OPPOSITE of what its button showed. Each now sends what it meant, and a press that no longer fits is answered
 "That changed in the meantime. Look again and try once more." Also: a talk never makes a client the community's owner, the
-talk's orders and favours need the player beside the survivor, and a few smaller fixes (below). Build `sc34_mp2`, not
-deployed, untested in game.
+talk's orders and favours need the player beside the survivor, and a few smaller fixes (below). Build `sc34_mp2`,
+**deployed to 3.4 on 2026-11-24** (port-3.4 9470e8f7, DLL 5710eca8, protocol 3; the dedicated server loads the same folder), untested in game.
 
 **Single player (and the host's own play): nothing may change**
 - [ ] Outposts tab: Repair a damaged outpost, then Upgrade; Mode cycles normal, quiet, push. Members tab: Call to work,
@@ -82,7 +82,7 @@ Why: a client saw the server's community (MP1) but every button said "host only"
 window (Members, Outposts, Facilities), the Watch post's Assign / Relieve, the well and dew collector's Upgrade and the
 talk row "That's all for now." ask the server, which checks the request against the community as it is now and answers.
 On the host and in single player the same code runs at once, so nothing should look or sound different there. Build
-`sc34_mp2w` (part W only; it needs parts M and R merged for Follow, Home, Leave and the land claim's entries), not deployed.
+`sc34_mp2` (all three parts and the review fixes), **deployed to 3.4 on 2026-11-24** (port-3.4 9470e8f7, DLL 5710eca8, protocol 3; the dedicated server loads the same folder), untested in game.
 With `DebugLogging` on, the server logs `action <op> by <player>: done / refused (<message>)` for every request.
 
 **Single player (and the host's own play): nothing may change**
@@ -125,8 +125,8 @@ Why: the land claim's SC entries were the host's own (a client saw none), an Out
 established itself, and `sc` typed by a client acted with the host's player (on a dedicated server with nobody). Now the
 radial shows on a client from its copy of the community and asks the server (`home.set`, `outpost.establish`,
 `outpost.disbandclaim`), which checks the claim against the player who pressed. `sc` acts for the player who typed it, and
-the new `scl` command runs `ui`, `portrait` and `voice play/stop/rescan` in the typing player's own game. Build `sc34_mp2r`
-(on the MP2 core), not deployed, untested in game.
+the new `scl` command runs `ui`, `portrait` and `voice play/stop/rescan` in the typing player's own game. Build `sc34_mp2`
+(all three parts and the review fixes), **deployed to 3.4 on 2026-11-24** (port-3.4 9470e8f7, DLL 5710eca8, protocol 3; the dedicated server loads the same folder), untested in game.
 
 **Single player: nothing may change**
 - [ ] No community yet: hold E on your land claim, pick Start a community here: "Your community starts here: this land
@@ -190,8 +190,8 @@ the new `scl` command runs `ui`, `portrait` and `voice play/stop/rescan` in the 
 Why: on a client the talk's member rows did nothing and the recruit rows never showed (their requirements ran on the client,
 where the community is a read-only copy). Member orders, joining, the recruit favours and a band's join are now requests the
 server answers (`member.follow`, `member.home`, `member.leave`, `member.join`, `favour.*`, `band.join`), and the server tells
-a client what the recruit rows need when a talk opens (`NetPackageScTalkContext`). Build `sc34_mp2m` (part M only; the
-window's buttons are part W), not deployed, untested in game. With `DebugLogging` on, the client logs a
+a client what the recruit rows need when a talk opens (`NetPackageScTalkContext`). Build `sc34_mp2` (all three parts and
+the review fixes), **deployed to 3.4 on 2026-11-24** (port-3.4 9470e8f7, DLL 5710eca8, protocol 3; the dedicated server loads the same folder), untested in game. With `DebugLogging` on, the client logs a
 `talk context for <id>` line per talk and the server an `action <op> by <player>` line per request.
 
 **Single player: nothing may change**
