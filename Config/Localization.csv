@@ -2140,3 +2140,4 @@ scActionUnknown,UI,Tooltip,,,,"The server does not know that request. Install th
 scActionFailed,UI,Tooltip,,,,"That did not work. The server's log has the details."
 scActionNoPlayer,UI,Tooltip,,,,"There is no player to act for."
 scActionNotReady,UI,Tooltip,,,,"The community's data is not loaded yet. Try again in a moment."
+scActionDead,UI,Tooltip,,,,You can't do that while dead.

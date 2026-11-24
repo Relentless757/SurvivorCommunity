@@ -193,16 +193,24 @@ namespace SurvivorCommunity
                 foreach (Type t in types)
                 {
                     if (t == null) continue;
-                    foreach (MethodInfo mi in t.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+                    // the review's m2: a try per type and per method - one that throws must not leave every later op unknown
+                    MethodInfo[] methods;
+                    try { methods = t.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly); }
+                    catch (Exception e) { ScLog.Once("actions-scan-" + t.Name, e); continue; }
+                    foreach (MethodInfo mi in methods)
                     {
-                        ScActionAttribute a = mi.GetCustomAttribute<ScActionAttribute>();
-                        if (a == null) continue;
-                        if (string.IsNullOrEmpty(a.Op)) { ScLog.Warn("action handler " + t.Name + "." + mi.Name + " has no op"); continue; }
-                        if (handlers.ContainsKey(a.Op)) { ScLog.Warn("action op '" + a.Op + "' is registered twice (" + t.Name + "." + mi.Name + " ignored)"); continue; }
-                        ScActionHandler h;
-                        try { h = (ScActionHandler)Delegate.CreateDelegate(typeof(ScActionHandler), mi); }
-                        catch (Exception) { ScLog.Warn("action handler " + t.Name + "." + mi.Name + " does not match (EntityPlayer, ScActionArgs, ScActionReply)"); continue; }
-                        handlers[a.Op] = new Entry { Handler = h, Access = a.Access };
+                        try
+                        {
+                            ScActionAttribute a = mi.GetCustomAttribute<ScActionAttribute>();
+                            if (a == null) continue;
+                            if (string.IsNullOrEmpty(a.Op)) { ScLog.Warn("action handler " + t.Name + "." + mi.Name + " has no op"); continue; }
+                            if (handlers.ContainsKey(a.Op)) { ScLog.Warn("action op '" + a.Op + "' is registered twice (" + t.Name + "." + mi.Name + " ignored)"); continue; }
+                            ScActionHandler h;
+                            try { h = (ScActionHandler)Delegate.CreateDelegate(typeof(ScActionHandler), mi); }
+                            catch (Exception) { ScLog.Warn("action handler " + t.Name + "." + mi.Name + " does not match (EntityPlayer, ScActionArgs, ScActionReply)"); continue; }
+                            handlers[a.Op] = new Entry { Handler = h, Access = a.Access };
+                        }
+                        catch (Exception e) { ScLog.Once("actions-scan-" + t.Name + "." + mi.Name, e); }
                     }
                 }
                 ScLog.Verbose("actions: " + handlers.Count + " op(s) registered");
@@ -331,10 +339,12 @@ namespace SurvivorCommunity
             Entry e;
             if (op == null || !handlers.TryGetValue(op, out e))
             {
-                ScLog.Warn("unknown action '" + (op ?? "") + "' - the sender runs a different SurvivorCommunity version");
+                // the review's m4: once per op, not per request
+                ScLog.Once("action-unknown-" + (op ?? ""), "unknown action '" + (op ?? "") + "' - the sender runs a different SurvivorCommunity version");
                 return r.Fail("scActionUnknown");
             }
             if (p == null) return r.Fail("scActionNoPlayer");
+            if (!(p is EntityPlayerLocal) && p.IsDead()) return r.Fail("scActionDead");     // the review's m4: as the old UI implied
             if (!Allowed(p, e.Access)) return r.Fail("scActionDenied");
             try
             {
@@ -344,6 +354,7 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("action-" + op, ex);
                 r.Fail("scActionFailed");
+                r.Hint = "";                // the review's n4: no follow-up from a half-run handler
             }
             if (ScConfig.Verbose)
                 ScLog.Verbose("action " + op + " by " + p.PlayerDisplayName + ": " + (r.Ok ? "done" : "refused") + (string.IsNullOrEmpty(r.Message) ? "" : " (" + r.Message + ")"));
@@ -385,14 +396,20 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>The community's owner (by platform id), an admin, or anyone while the community has no owner yet.</summary>
+        /// <summary>
+        /// The community's owner (by platform id), an admin, or anyone while the community has no owner yet. A save from before
+        /// round MP0 knows its owner only by display name until they are online once (ScTicker backfills OwnerId): that name
+        /// counts then (the review's m3), as ScPlayers.OwnerOnline matches it.
+        /// </summary>
         public static bool IsOwnerOrAdmin(EntityPlayer p)
         {
             if (p == null) return false;
             if (IsAdmin(p)) return true;
             Community c = ScRegistry.Community;
-            if (c == null || string.IsNullOrEmpty(c.OwnerId)) return true;
-            return string.Equals(ScPlayers.IdOf(p), c.OwnerId, StringComparison.Ordinal);
+            if (c == null) return true;
+            if (!string.IsNullOrEmpty(c.OwnerId)) return string.Equals(ScPlayers.IdOf(p), c.OwnerId, StringComparison.Ordinal);
+            if (!string.IsNullOrEmpty(c.Owner)) return string.Equals(p.PlayerDisplayName, c.Owner, StringComparison.Ordinal);
+            return true;
         }
 
         // ------------------------------------------------------------------ text ----

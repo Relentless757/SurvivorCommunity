@@ -18,6 +18,8 @@ namespace SurvivorCommunity
     {
         /// <summary>A string argument is cut to this many characters (names, keys and labels are far shorter).</summary>
         private const int MaxString = 1024;
+        /// <summary>The op's name is cut to this many characters (the review's m4: the longest is about 20).</summary>
+        private const int MaxOp = 64;
 
         private int request;
         private int community;
@@ -51,6 +53,7 @@ namespace SurvivorCommunity
             request = r.ReadInt32();
             community = r.ReadInt32();
             op = r.ReadString();
+            if (op.Length > MaxOp) op = op.Substring(0, MaxOp);
             int n = r.ReadByte();
             ints = new int[n];
             for (int i = 0; i < n; i++) ints[i] = r.ReadInt32();
