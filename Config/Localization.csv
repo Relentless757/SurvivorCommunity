@@ -1204,6 +1204,8 @@ scLightsOutOrderedNoGens,UI,Tooltip,,,,Lights out until {0}: your people keep it
 scLightsOutNotOn,UI,Tooltip,,,,It isn't lights out.
 scLightsOnOrdered,UI,Tooltip,,,,Lights on: the base is back to normal. Generators back on: {0}.
 scLightsOutDawn,UI,Tooltip,,,,Dawn: lights out is over. Generators back on: {0}.
+scInvRefuseReopen,UI,Menu,,,,"Close {0}'s inventory and open it again, then try once more."
+scInvRefuseTooBig,UI,Menu,,,,The {0} carries too much data to hand over through this slot. Put it in their pack instead.
 scHomeAlreadyStarted,UI,Tooltip,,,,"Someone already started the community elsewhere. To move its home here, hold E on this claim again and pick Set as community home."
 scHomeNotOutpost,UI,Tooltip,,,,An outpost's land claim can't be the community's home.
 scClaimInactive,UI,Tooltip,,,,This is not an active land claim.

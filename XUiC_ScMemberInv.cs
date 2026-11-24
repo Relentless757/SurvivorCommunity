@@ -275,7 +275,8 @@ namespace SurvivorCommunity
     /// Tools/generate_member_inventory_ui.py). Top to bottom: the title bar (her name, "Member · status · T2", the close
     /// button; the drag handle of the whole window, task t40), her card (XUiC_ScMemberCard: the talk snapshot's card bound to
     /// her) beside her equipment (ScMemberGear: the pair, the armor, the best tool per job - display only in Phase 1, usable
-    /// since round n12 on the host: XUiC_ScGearSlot, SlotDrop / SlotTake, ScMemberEquip), then her storage: the PACK (her
+    /// since round n12 on the host: XUiC_ScGearSlot, SlotDrop / SlotTake, ScMemberEquip; since round MP3 on a multiplayer
+    /// client too: requests to the server, ScActionsGear), then her storage: the PACK (her
     /// inventory window, SCore's container, on vanilla's own
     /// XUiC_LootContainer so drag and drop, shift-click and take-all are the game's) and the BAG (npc.bag, XUiC_ScBagGrid;
     /// shown on the host only: a multiplayer client has no copy of an NPC's bag).
@@ -305,6 +306,18 @@ namespace SurvivorCommunity
         private TEFeatureStorage te;
         private EntityAlive npc;
         private float nextRefresh;
+
+        /// <summary>Round MP3: the member on show and her container (the host's in place: ScActionsGear's handlers for the host's own panel).</summary>
+        internal EntityAlive Shown { get { return npc; } }
+        internal TEFeatureStorage Container { get { return te; } }
+
+        /// <summary>
+        /// Round MP3, a client: its gear request on the way (one at a time), as a token; given up after GearWaitSeconds (a
+        /// reply that comes later still settles its own items).
+        /// </summary>
+        private int gearRequest, gearSeq;
+        private float gearWaitUntil;
+        private const float GearWaitSeconds = 10f;
         private string armorKey;
         private ScWindowMover mover;     // the title bar drags the window (ScWindowMover.cs)
         private bool wasReleased, activeKeyDown;
@@ -375,6 +388,7 @@ namespace SurvivorCommunity
             te = storage;
             npc = member;
             armorKey = null;
+            gearRequest = 0;                 // round MP3: a request of an earlier opening settles its own items when it answers
             Pack.SetSlots(storage);
             // SetSlots lays the grid out in the container's own columns (8); the panel's are wider
             if (packGrid != null) { packGrid.Columns = packCols; packGrid.Rows = (storage.ItemGrid.Length + packCols - 1) / packCols; }
@@ -527,14 +541,238 @@ namespace SurvivorCommunity
         /// <summary>
         /// A stack released over an equipment slot (XUiC_ScGearSlot): ScMemberEquip makes the change, or says why not. Done,
         /// the cursor holds what the slot held (or nothing) in the same frame, and the slots show the change at once.
+        /// Round MP3: a request (ScActionsGear) on every machine - inline on the host, on its own cursor as before; a client's
+        /// weapon and armor slots ask the server (ClientDrop), its tool slots move the tool into its own copy of her pack.
         /// </summary>
         internal void SlotDrop(XUiC_ScGearSlot slot, ItemStack cursor)
         {
             if (slot == null || npc == null || te == null) return;
+            if (!ScCommunity.IsHost)
+            {
+                if (slot.Kind == ScMemberEquip.GearKind.Tool) CopyToolDrop(slot, cursor);
+                else ClientDrop(slot, cursor);
+                return;
+            }
+            ItemStack before = cursor;
+            ScActions.Request(ScActionsGear.OpDrop, new[] { npc.entityId, (int)slot.Kind, slot.Index }, null, reply =>
+            {
+                // the handler set the cursor already (the review's fix 2: the dropped stack is spent - she has it now)
+                if (!reply.Ok) { slot.Denied(reply.Text); return; }
+                try { slot.PlayPlaceSound(before); }
+                catch (Exception e) { ScLog.Once("memberinv-place-sound", e); }
+                Refresh(true);
+            });
+        }
+
+        /// <summary>
+        /// An equipment slot's item taken with an empty cursor: onto the cursor, or (toBackpack, shift-click) into the player's
+        /// backpack - what the backpack had no room for lands on the cursor instead. Round MP3: a request, as SlotDrop.
+        /// </summary>
+        internal void SlotTake(XUiC_ScGearSlot slot, bool toBackpack)
+        {
+            if (slot == null || npc == null || te == null || !xui.DragAndDropWindow.CurrentStack.IsEmpty()) return;
+            if (!ScCommunity.IsHost)
+            {
+                if (slot.Kind == ScMemberEquip.GearKind.Tool) CopyToolTake(slot, toBackpack);
+                else ClientTake(slot, toBackpack);
+                return;
+            }
+            ScActions.Request(ScActionsGear.OpTake, new[] { npc.entityId, (int)slot.Kind, slot.Index, toBackpack ? 1 : 0 }, null, reply =>
+            {
+                if (!reply.Ok) { slot.Denied(reply.Text); return; }
+                if (reply.HintInt(ScActionsGear.HintPlaced, 0) > 0) slot.PlayPlaceSound();      // all of it went into the backpack
+                Refresh(true);
+            });
+        }
+
+        /// <summary>
+        /// Round U1: the ammo line clicked - step 1 the next type she has rounds of, -1 the one before (ScAmmoChoice.Cycle); a
+        /// refusal shows as a slot's does. Round MP3: a request (member.ammo) on every machine; a client then asks for the line
+        /// again.
+        /// </summary>
+        private void Ammo(int step)
+        {
+            if (npc == null || te == null) return;
+            try
+            {
+                EntityPlayerLocal player = xui.playerUI.entityPlayer;
+                ScActions.Request(ScActionsGear.OpAmmo, reply =>
+                {
+                    try
+                    {
+                        string text = reply.Text;
+                        if (!reply.Ok)
+                        {
+                            if (!string.IsNullOrEmpty(text))
+                                GameManager.ShowTooltip(player, text.Replace("{", "{{").Replace("}", "}}"), string.Empty, "ui_denied");
+                        }
+                        else if (!string.IsNullOrEmpty(text))     // done, but she can load it only once a magazine is empty (L&L)
+                            GameManager.ShowTooltip(player, text.Replace("{", "{{").Replace("}", "}}"), string.Empty, "");
+                        if (!ScCommunity.IsHost) ScAmmoChoice.ClientLineStale();
+                        if (npc != null) Refresh(true);
+                    }
+                    catch (Exception e) { ScLog.Once("memberinv-ammo-reply", e); }
+                }, npc.entityId, step < 0 ? -1 : 1);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("memberinv-ammo", e);
+            }
+        }
+
+        // ------------------------------------------------------------------ round MP3: a client's gear slots ----
+
+        /// <summary>Is the panel still open on the container this callback's request was made from?</summary>
+        private bool StillShows(TEFeatureStorage copy)
+        {
+            return windowGroup != null && windowGroup.isShowing && copy != null && ReferenceEquals(te, copy);
+        }
+
+        private bool GearBusy { get { return gearRequest != 0 && Time.unscaledTime < gearWaitUntil; } }
+
+        private int BeginGear()
+        {
+            gearRequest = ++gearSeq;
+            if (gearRequest == 0) gearRequest = ++gearSeq;
+            gearWaitUntil = Time.unscaledTime + GearWaitSeconds;
+            return gearRequest;
+        }
+
+        private void EndGear(int token)
+        {
+            if (gearRequest == token) gearRequest = 0;
+        }
+
+        /// <summary>
+        /// A client's weapon or armor drop: the take half first (ScItemTx) - the stack leaves the cursor now and travels in the
+        /// request; a refusal (or a server that cannot answer) gives it back, a done gives the cursor what the slot held.
+        /// </summary>
+        private void ClientDrop(XUiC_ScGearSlot slot, ItemStack cursor)
+        {
+            if (cursor == null || cursor.IsEmpty() || GearBusy) return;
+            if (cursor.count != 1) { slot.Denied(ScMemberEquip.Text("scInvRefuseStack")); return; }
+            string enc = ScItemTx.Encode(cursor);
+            if (string.IsNullOrEmpty(enc)) { slot.Denied(ScMemberEquip.Text("scInvRefuseTooBig", ScMemberEquip.Label(cursor.itemValue))); return; }
+            EntityPlayerLocal player = xui.playerUI.entityPlayer;
+            TEFeatureStorage copy = te;
+            ItemStack sent = cursor.Clone();
+            xui.DragAndDropWindow.SetCurrentStack(ItemStack.Empty.Clone());
+            int token = BeginGear();
+            ScActions.Request(ScActionsGear.OpDrop, new[] { npc.entityId, (int)slot.Kind, slot.Index }, new[] { enc }, reply =>
+            {
+                EndGear(token);
+                try
+                {
+                    if (!reply.Ok)
+                    {
+                        ToPlayer(player, copy, sent, false);         // theirs again: the cursor, else the bag
+                        Deny(slot, copy, player, reply.Text);
+                        return;
+                    }
+                    Settle(player, copy, reply, false);
+                    if (StillShows(copy))
+                    {
+                        try { slot.PlayPlaceSound(sent); }
+                        catch (Exception e) { ScLog.Once("memberinv-place-sound", e); }
+                        Refresh(true);
+                    }
+                }
+                catch (Exception e) { ScLog.Once("memberinv-client-drop", e); }
+            });
+        }
+
+        /// <summary>
+        /// A client's weapon or armor take: asked of the server; what comes back goes on the cursor, or (toBackpack) into the
+        /// backpack - room checked here first, as the host checks it; what still does not fit lands on the cursor.
+        /// </summary>
+        private void ClientTake(XUiC_ScGearSlot slot, bool toBackpack)
+        {
+            if (GearBusy || slot.ItemStack == null || slot.ItemStack.IsEmpty()) return;
+            EntityPlayerLocal player = xui.playerUI.entityPlayer;
+            if (toBackpack && !ScMemberEquip.BackpackRoom(player, slot.ItemStack)) { slot.Denied(ScMemberEquip.Text("scInvRefuseBackpackFull")); return; }
+            TEFeatureStorage copy = te;
+            int token = BeginGear();
+            ScActions.Request(ScActionsGear.OpTake, new[] { npc.entityId, (int)slot.Kind, slot.Index, toBackpack ? 1 : 0 }, null, reply =>
+            {
+                EndGear(token);
+                try
+                {
+                    if (!reply.Ok) { Deny(slot, copy, player, reply.Text); return; }
+                    bool onCursor = Settle(player, copy, reply, toBackpack);
+                    if (StillShows(copy))
+                    {
+                        if (toBackpack && !onCursor)
+                        {
+                            try { slot.PlayPlaceSound(); }
+                            catch (Exception e) { ScLog.Once("memberinv-place-sound", e); }
+                        }
+                        Refresh(true);
+                    }
+                }
+                catch (Exception e) { ScLog.Once("memberinv-client-take", e); }
+            });
+        }
+
+        /// <summary>
+        /// A done answer's items onto this machine: her Wardrobe pick's real piece out of this machine's copy of her pack (pt -
+        /// only while that copy is still the session's: once the panel closed it went back with the piece in it, and the
+        /// piece stays hers), else the slot's old item (cur), on the cursor or (toBackpack) into the backpack; other items
+        /// (give) into the bag. True when something landed on the cursor.
+        /// </summary>
+        private bool Settle(EntityPlayerLocal player, TEFeatureStorage copy, ScActionReply reply, bool toBackpack)
+        {
+            List<ItemStack> cur = ScItemTx.HintToStacks(reply.HintStr(ScActionsGear.HintCursor));
+            List<ItemStack> give = ScItemTx.HintToStacks(reply.HintStr(ScActionsGear.HintGive));
+            List<ItemStack> pt = ScItemTx.HintToStacks(reply.HintStr(ScActionsGear.HintPackTake));
+            ItemStack main = cur.Count > 0 ? cur[0] : ItemStack.Empty.Clone();
+            for (int i = 1; i < cur.Count; i++) give.Add(cur[i]);
+            if (pt.Count > 0 && npc != null && StillShows(copy) && ScMemberEquip.IsSessionCopy(npc.entityId, copy))
+            {
+                ItemStack got = ScMemberEquip.TakeFromCopy(copy, pt[0]);
+                if (!got.IsEmpty())
+                {
+                    if (!main.IsEmpty()) give.Add(main);
+                    main = got;
+                }
+            }
+            bool onCursor = ToPlayer(player, copy, main, toBackpack);
+            if (give.Count > 0) ScItemTx.GiveToLocal(player, give);
+            return onCursor;
+        }
+
+        /// <summary>
+        /// One stack to this player: (toBackpack) the backpack first; the rest on the cursor while the panel still shows this
+        /// copy and the cursor is empty, else the bag and toolbelt, else at their feet (ScItemTx.GiveToLocal). True: on the cursor.
+        /// </summary>
+        private bool ToPlayer(EntityPlayerLocal player, TEFeatureStorage copy, ItemStack st, bool toBackpack)
+        {
+            if (st == null || st.IsEmpty()) return false;
+            if (toBackpack) ScMemberEquip.ToBackpack(player, ref st);
+            if (st == null || st.IsEmpty()) return false;
+            if (StillShows(copy) && xui.DragAndDropWindow.CurrentStack.IsEmpty())
+            {
+                xui.DragAndDropWindow.SetCurrentStack(st);
+                xui.DragAndDropWindow.PickUpType = XUiC_ItemStack.StackLocationTypes.LootContainer;
+                return true;
+            }
+            ScItemTx.GiveToLocal(player, new List<ItemStack> { st });
+            return false;
+        }
+
+        /// <summary>A refusal: as a slot shows one while the panel is open, else a tooltip.</summary>
+        private void Deny(XUiC_ScGearSlot slot, TEFeatureStorage copy, EntityPlayerLocal player, string why)
+        {
+            if (string.IsNullOrEmpty(why)) return;
+            if (StillShows(copy)) slot.Denied(why);
+            else ScCommunity.Tell(player, why, "ui_denied");
+        }
+
+        /// <summary>A client's tool drop: into its own copy of her pack, as a drag into the pack grid (ScMemberEquip.CopyDropTool).</summary>
+        private void CopyToolDrop(XUiC_ScGearSlot slot, ItemStack cursor)
+        {
             ItemStack back;
-            string why = ScMemberEquip.Drop(xui.playerUI.entityPlayer, npc, te, slot.Kind, slot.Index, cursor, out back);
+            string why = ScMemberEquip.CopyDropTool(xui.playerUI.entityPlayer, npc, te, slot.Index, cursor, out back);
             if (why != null) { slot.Denied(why); return; }
-            // the cursor first (the review's fix 2): the dropped stack is spent - she has it now - whatever the sound does
             xui.DragAndDropWindow.SetCurrentStack(back ?? ItemStack.Empty.Clone());
             xui.DragAndDropWindow.PickUpType = XUiC_ItemStack.StackLocationTypes.LootContainer;
             try { slot.PlayPlaceSound(cursor); }
@@ -542,15 +780,11 @@ namespace SurvivorCommunity
             Refresh(true);
         }
 
-        /// <summary>
-        /// An equipment slot's item taken with an empty cursor: onto the cursor, or (toBackpack, shift-click) into the player's
-        /// backpack - what the backpack had no room for lands on the cursor instead.
-        /// </summary>
-        internal void SlotTake(XUiC_ScGearSlot slot, bool toBackpack)
+        /// <summary>A client's tool take: out of its own copy of her pack (ScMemberEquip.CopyTakeTool).</summary>
+        private void CopyToolTake(XUiC_ScGearSlot slot, bool toBackpack)
         {
-            if (slot == null || npc == null || te == null || !xui.DragAndDropWindow.CurrentStack.IsEmpty()) return;
             ItemStack taken;
-            string why = ScMemberEquip.Take(xui.playerUI.entityPlayer, npc, te, slot.Kind, slot.Index, toBackpack, out taken);
+            string why = ScMemberEquip.CopyTakeTool(xui.playerUI.entityPlayer, npc, te, slot.Index, toBackpack, out taken);
             if (why != null) { slot.Denied(why); return; }
             if (taken != null && !taken.IsEmpty())
             {
@@ -559,29 +793,6 @@ namespace SurvivorCommunity
             }
             else if (toBackpack) slot.PlayPlaceSound();
             Refresh(true);
-        }
-
-        /// <summary>
-        /// Round U1: the ammo line clicked - step 1 the next type she has rounds of, -1 the one before (ScAmmoChoice.Cycle); a
-        /// refusal shows as a slot's does.
-        /// </summary>
-        private void Ammo(int step)
-        {
-            if (npc == null || te == null) return;
-            try
-            {
-                string note;
-                string why = ScAmmoChoice.Cycle(xui.playerUI.entityPlayer, npc, step, out note);
-                if (!string.IsNullOrEmpty(why))
-                    GameManager.ShowTooltip(xui.playerUI.entityPlayer, why.Replace("{", "{{").Replace("}", "}}"), string.Empty, "ui_denied");
-                else if (!string.IsNullOrEmpty(note))     // done, but she can load it only once a magazine is empty (L&L)
-                    GameManager.ShowTooltip(xui.playerUI.entityPlayer, note.Replace("{", "{{").Replace("}", "}}"), string.Empty, "");
-                Refresh(true);
-            }
-            catch (Exception e)
-            {
-                ScLog.Once("memberinv-ammo", e);
-            }
         }
 
         /// <summary>Everything in a grid into the player's inventory: vanilla's take-all (XUiC_ContainerStandardControls.MoveAll).</summary>

@@ -2283,6 +2283,53 @@ Round MP0 is the groundwork:
   - A client sees a band line's tokens raw for one round trip; two tooltips when a client's request fails at once; a
     controller's cursor jumps to the first row when facts land (members NIT 3-5).
 
+- **Round MP3 (part G), the member panel's gear and station crafting** (`ScActionsGear`, `ScMemberEquip`, `ScAmmoChoice`,
+  `XUiC_ScMemberInv`, `ScCraftStation`, `Patches_Craft`):
+  - **Ops** (ints unless marked s:; `npc` = the member's entity id; `kind` = `ScMemberEquip.GearKind`, 1 weapon, 2 armor,
+    3 tool): `member.geardrop` (npc, kind, index; s: the stack, `ScItemTx.Encode`), `member.geartake` (npc, kind, index,
+    toBackpack 0/1), `member.ammo` (npc, step 1/-1: `ScAmmoChoice.Cycle`), `member.ammoline` (npc: a read, hints `show`,
+    `key`, `ammo`, `n` - the client formats the line in its own language). The panel asks on every machine; the host's own
+    request works on its cursor and container in place (no encoding), exactly as before. A remote player's reply carries
+    hints `cur` (the stack for their cursor), `give` (stacks for their bag) and `pt` (one item their machine takes out of
+    its own copy of her pack), each `ScItemTx.StacksToHint`.
+  - **Her pack is the opener's for the session.** SCore sends a remote opener a copy and merges it back on close by what
+    they changed (`HarvestManager.EndRemoteSession`): a server-side ADDITION to the pack during the session survives the
+    merge, a server-side REMOVAL would not show in their grid and could leave twice. So while a remote player has her
+    panel open the server only adds to her pack (a stale stored piece; it shows at the next open), never takes from it:
+    the job tool slots on a client move the tool in its own copy (`ScMemberEquip.CopyDropTool` / `CopyTakeTool`, no
+    request, exactly a drag in the grid), and the Wardrobe pick's real piece in her pack comes back as `pt` (the client's
+    `TakeFromCopy`, matched by SCore's `EntitySyncUtils.ItemKey`). Her bag, her pair, her look and her record are the
+    server's alone and change there. The client's pack grid needs no refresh: everything it shows changed in it.
+  - **Take first:** a client's dropped stack leaves its cursor when the request goes; a refusal (or a server that cannot
+    answer) gives it back, to the cursor while the panel is open and empty, else the bag (`ScItemTx.GiveToLocal`). One
+    gear request at a time (10 s); a late answer still settles its own items. A reply's stack too large to encode drops at
+    the player's feet on the server.
+  - **`ScMemberEquip.Gate`** takes an `EntityPlayer`. The requesting player's own open copy is no obstacle
+    (`ScAmmo.IsRemoteOpenByOther`), anyone else's still refuses, and a remote player needs SCore's session of their own
+    (`OwnsCopy`; `scInvRefuseReopen` otherwise). With `ScMemberEquip.BeginRemote` set (the handler, around one call) the
+    backpack room test and the backpack put are the client's, and `GiveToPlayer` with no local player collects into the
+    reply instead of dropping at her feet.
+  - **The bag stays the host's** (the panel's note). The game never sends an NPC's bag; it changes on the server with every
+    reload, magazine fill and resupply while the panel is open, so a client view would need a server compare per cell:
+    risk and size out of proportion to what is in it (rounds and magazines SC manages itself).
+  - **Voice Control's ammo pick** already writes the server's record: Voice Control runs `MutateSetAmmo` only on the server
+    (`ExecuteAuthoritative`), so `Patch_VcSetAmmo` fires there for every player.
+  - **Station crafting (c2 for clients):** a client's station window makes the queue on its own copy of the station (it
+    holds the lock; the copy is written back on every change and on close). `ScCraftStation.MemberStack` and `KeepApart`
+    read `ScRegistry.Ready` (the client's copy of the registry; `Loaded` on the server, so the host is unchanged): her
+    item goes into the station's output, never the client's inventory, listed under her id, with no CraftedItem (and no
+    Survivor Origins XP) for the client. C1e never sweeps on a client; the server sweeps instead when a REMOTE player
+    releases the station (`Patch_StationSweepRemote`, a postfix on `TileEntity.OnUnlockedServer` for workstations: the
+    close's last write-back is in by then, on the same ordered channel). 0-XNPCCore's own pay (C1d) waits while a station is
+    locked (`SdcsStations.IsFree`), so nothing is paid twice. The host's own unlock is left to its C1e at the next open.
+  - **Merge items:** `ModApi.ExpectedTargets` should list `TileEntity::OnUnlockedServer` (`Patches_Craft.UnlockedTarget()`);
+    until then the startup log warns "patched an unlisted method". `ScArms.PanelWeapon` still takes `EntityPlayerLocal`
+    (`ScMemberEquip` passes `player as EntityPlayerLocal`; its one use goes through `GiveToPlayer`).
+  - **Known gaps:** a request whose answer never comes (a dropped connection) loses the stack in flight. A client that
+    disconnects with her panel open keeps what it took from her pack and loses what it put in (SCore's session ends with
+    the server's contents: its own behavior for every grid move). The server trusts the stack a client sends (the item and
+    its data, as every MP3 take). A stale piece the server added shows only at the next open.
+
 ## How it hangs together (for modders)
 
 - NPCs are 0-XNPCCore's `EntityAliveSDXV4` survivors (SCore's legacy `EntityAliveSDX` still works for pack NPCs). A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars

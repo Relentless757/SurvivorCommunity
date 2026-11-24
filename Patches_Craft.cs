@@ -427,26 +427,9 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    List<CraftCompleteData> list = __instance != null ? __instance.CraftCompleteList : null;
-                    if (list == null || list.Count == 0 || !ScCommunity.IsHost || !ScRegistry.Loaded) return;
-                    bool changed = false;
-                    for (int i = list.Count - 1; i >= 0; i--)
-                    {
-                        CraftCompleteData d = list[i];
-                        Member m = d != null ? ScRegistry.GetMember(d.CrafterEntityID) : null;
-                        if (m == null) continue;
-                        int items;
-                        int crafts = CraftsOf(d, out items);
-                        ScCraft.OnCrafted(m, ScCommunity.FindNpc(m.Id), d.RecipeName, crafts, "sweep");
-                        // on a shift her order still moves the station's output into her window (once the player closes it):
-                        // owed to the crates then (round 33a: expected until it arrives, ScWork.NoteMadeAtStation)
-                        if (d.CraftedItemStack != null && d.CraftedItemStack.itemValue != null) ScWork.NoteMadeAtStation(m.Id, d.CraftedItemStack.itemValue.type, items);
-                        list.RemoveAt(i);
-                        changed = true;
-                        Count("c1e-station-list-swept");
-                        ScLog.Out("a station's list held " + items + " x " + d.RecipeName + " made by " + m.Name + " - paid to her now");
-                    }
-                    if (changed) __instance.SetModified();
+                    // round MP3: a client's window has its own copy of the list (written back to the server): the server sweeps it
+                    // when the client lets the station go (Patch_StationSweepRemote), so a client's open does nothing here
+                    SweepMembers(__instance, "c1e-station-list-swept", "");
                 }
                 catch (Exception e)
                 {
@@ -454,6 +437,84 @@ namespace SurvivorCommunity
                 }
             }
         }
+
+        /// <summary>
+        /// C1e's sweep (round MP3: shared with the remote sweep): every entry of the station's list under a member's id is paid
+        /// to her (ScCraft.OnCrafted, "sweep") and taken off. The server only (the registry's side).
+        /// </summary>
+        internal static void SweepMembers(TileEntityWorkstation te, string counter, string why)
+        {
+            List<CraftCompleteData> list = te != null ? te.CraftCompleteList : null;
+            if (list == null || list.Count == 0 || !ScCommunity.IsHost || !ScRegistry.Loaded) return;
+            bool changed = false;
+            for (int i = list.Count - 1; i >= 0; i--)
+            {
+                CraftCompleteData d = list[i];
+                Member m = d != null ? ScRegistry.GetMember(d.CrafterEntityID) : null;
+                if (m == null) continue;
+                int items;
+                int crafts = CraftsOf(d, out items);
+                ScCraft.OnCrafted(m, ScCommunity.FindNpc(m.Id), d.RecipeName, crafts, "sweep");
+                // on a shift her order still moves the station's output into her window (once the player closes it):
+                // owed to the crates then (round 33a: expected until it arrives, ScWork.NoteMadeAtStation)
+                if (d.CraftedItemStack != null && d.CraftedItemStack.itemValue != null) ScWork.NoteMadeAtStation(m.Id, d.CraftedItemStack.itemValue.type, items);
+                list.RemoveAt(i);
+                changed = true;
+                Count(counter);
+                ScLog.Out("a station's list held " + items + " x " + d.RecipeName + " made by " + m.Name + " - paid to her now" + why);
+            }
+            if (changed) te.SetModified();
+        }
+
+#if SC_V34
+        /// <summary>
+        /// Round MP3 (part G): vanilla's TileEntity.OnUnlockedServer(int unlocking player, ushort channel) - TileEntityWorkstation
+        /// declares none, so this is the base's.
+        /// </summary>
+        public static MethodBase UnlockedTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(TileEntity), "OnUnlockedServer", new[] { typeof(int), typeof(ushort) });
+        }
+
+        /// <summary>
+        /// C1e for a remote player (round MP3, part G; B section 22). A client's station window makes the queue on its own copy
+        /// of the station and lists her crafts there (ScCraftStation), written back to the server on every change and on close;
+        /// C1e never sweeps on a client (no registry). So when a REMOTE player lets a station go (LockManager.UnlockRequestServer:
+        /// their close - its last write-back is already in, the same ordered channel - or their disconnect), the server sweeps
+        /// ITS copy: her entries paid and taken off, the change sent to the players near it. Nobody holds the station then, so
+        /// nothing overwrites it; 0-XNPCCore's own pay (C1d) waits while a station is locked (SdcsStations.IsFree), so it never
+        /// pays the same entry. The host's own lock is left to the host's C1e at its next open, as before (single player
+        /// unchanged). Any other tile entity: one type test.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_StationSweepRemote
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(UnlockedTarget, "TileEntity.OnUnlockedServer(int, ushort)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return UnlockedTarget(); }
+
+            /// <summary>__0 the unlocking player's entity id (by position: vanilla's parameter names are not part of the contract).</summary>
+            [HarmonyPostfix]
+            public static void Postfix(TileEntity __instance, int __0)
+            {
+                try
+                {
+                    TileEntityWorkstation ws = __instance as TileEntityWorkstation;
+                    if (ws == null || !ScCommunity.IsHost || !ScRegistry.Loaded) return;
+                    if (ScPlayers.ByEntity(__0) is EntityPlayerLocal) return;      // the host's own: its C1e swept at the open
+                    World w = ScCommunity.World;
+                    if (w != null && w.GetPrimaryPlayerId() == __0) return;
+                    SweepMembers(ws, "c1e-station-list-swept-remote", " (player " + __0 + " closed the station)");
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-sweep-remote", e);
+                }
+            }
+        }
+#endif
 
         // ------------------------------------------------------------------ C2a-C2c (round c2): her station crafts stay hers ----
 

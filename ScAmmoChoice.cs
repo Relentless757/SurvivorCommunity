@@ -40,6 +40,9 @@ namespace SurvivorCommunity
     /// reloads - 0-XNPCCore's own switch to a type she has (SdcsTrySwitchAmmoType) must stand, or vanilla's reload reads
     /// the chosen type, finds none and loads nothing, again and again, and she never fails over to melee.
     ///
+    /// Round MP3: a multiplayer client's panel shows the server's line (member.ammoline) and its click is a request
+    /// (member.ammo, ScActionsGear); the choice is made and kept on the server as before.
+    ///
     /// Members only (her record), on the host, while MemberInventoryPanel is on (with it off 0-XNPCCore's own window chooses,
     /// and SC leaves the gun's index alone). A choice applies only while her pair's gun is the one it was made for: another
     /// gun starts from its own default, and the old choice comes back with that gun. Voice Control's own ammo pick (the order
@@ -229,12 +232,38 @@ namespace SurvivorCommunity
         /// <summary>
         /// The panel's ammo line for her: "9mm HP Ammo · 45" (her rounds of it she can load: with L&amp;L the ones in her
         /// magazines; "· 30 loose" when she has that type only as loose rounds, which wait for an empty magazine) - false (no
-        /// line) on a multiplayer client (her bag is the host's), for anyone but a member, and for a gun with only one ammo
-        /// type (a bow with stone arrows only, most mod guns). A read.
+        /// line) for anyone but a member, and for a gun with only one ammo type (a bow with stone arrows only, most mod guns).
+        /// A read. Round MP3: on a multiplayer client (her bag and her record's choice are the server's) the line is the
+        /// server's, asked for while the panel shows it (ClientLine, the op member.ammoline).
         /// </summary>
         internal static bool Line(EntityAlive npc, out string text)
         {
             text = "";
+            if (!ScCommunity.IsHost) return ClientLine(npc, out text);
+            string key, ammo;
+            int n;
+            if (!LineParts(npc, out key, out ammo, out n)) return false;
+            try
+            {
+                text = string.Format(Localization.Get(key), Label(ammo), n);
+                return true;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("ammo-choice-line", e);
+                text = "";
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Round MP3 (split out of Line): the line's parts on the server - its localization key (scInvAmmoLine or
+        /// scInvAmmoLineLoose), the ammo item and the count - so a client formats them in its own language. False: no line.
+        /// </summary>
+        internal static bool LineParts(EntityAlive npc, out string key, out string ammo, out int n)
+        {
+            key = ammo = "";
+            n = 0;
             try
             {
                 if (!ScCommunity.IsHost || npc == null || npc.inventory == null) return false;
@@ -245,8 +274,10 @@ namespace SurvivorCommunity
                 int cur = Current(npc, m, gun, r);
                 List<ScMags.Entry> mags = Entries(npc, gun);
                 int can = Loadable(npc, gun, r, cur, mags), all = RoundsOf(npc, gun, r, cur, mags);
-                text = can > 0 || all <= 0 ? string.Format(Localization.Get("scInvAmmoLine"), Label(r.MagazineItemNames[cur]), can)
-                                           : string.Format(Localization.Get("scInvAmmoLineLoose"), Label(r.MagazineItemNames[cur]), all);
+                bool loaded = can > 0 || all <= 0;
+                key = loaded ? "scInvAmmoLine" : "scInvAmmoLineLoose";
+                ammo = r.MagazineItemNames[cur] ?? "";
+                n = loaded ? can : all;
                 return true;
             }
             catch (Exception e)
@@ -256,14 +287,84 @@ namespace SurvivorCommunity
             }
         }
 
+        // ------------------------------------------------------------------ round MP3: a client's line ----
+
+        /// <summary>A client asks the server for the line at most this often (real seconds) while the panel shows it.</summary>
+        private const float ClientLineSeconds = 2f;
+        /// <summary>An unanswered ask is given up after this long (the server never answered: asked again).</summary>
+        private const float ClientLineWaitSeconds = 10f;
+
+        /// <summary>The line a client last got from the server, for one member at a time (the one panel there is).</summary>
+        private static int lineNpc = -1;
+        private static bool lineShow, lineAsking;
+        private static string lineText = "";
+        private static float lineAskedAt = -100f;
+
+        /// <summary>
+        /// Round MP3, a client: the server's line for her (member.ammoline), asked for at most every ClientLineSeconds while the
+        /// panel shows it; until the first answer, no line. The answer's parts are formatted here, in this machine's language.
+        /// </summary>
+        private static bool ClientLine(EntityAlive npc, out string text)
+        {
+            text = "";
+            try
+            {
+                if (npc == null) return false;
+                if (lineNpc != npc.entityId)
+                {
+                    lineNpc = npc.entityId;
+                    lineShow = lineAsking = false;
+                    lineText = "";
+                    lineAskedAt = -100f;
+                }
+                float now = UnityEngine.Time.unscaledTime;
+                if (lineAsking && now - lineAskedAt > ClientLineWaitSeconds) lineAsking = false;
+                if (!lineAsking && now - lineAskedAt >= ClientLineSeconds)
+                {
+                    lineAsking = true;
+                    lineAskedAt = now;
+                    int id = npc.entityId;
+                    ScActions.Request(ScActionsGear.OpAmmoLine, reply =>
+                    {
+                        if (lineNpc != id) return;
+                        lineAsking = false;
+                        lineShow = reply.Ok && reply.HintInt(ScActionsGear.HintAmmoShow, 0) > 0;
+                        lineText = "";
+                        if (!lineShow) return;
+                        try
+                        {
+                            lineText = string.Format(Localization.Get(reply.HintStr(ScActionsGear.HintAmmoKey, "scInvAmmoLine")),
+                                                     Label(reply.HintStr(ScActionsGear.HintAmmoItem)), reply.HintInt(ScActionsGear.HintAmmoCount, 0));
+                        }
+                        catch (FormatException) { lineText = Label(reply.HintStr(ScActionsGear.HintAmmoItem)); }
+                    }, id);
+                }
+                text = lineText;
+                return lineShow;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("ammo-choice-client-line", e);
+                return false;
+            }
+        }
+
+        /// <summary>Round MP3, a client: the line changed (a choice was made): ask again at the panel's next refresh.</summary>
+        internal static void ClientLineStale()
+        {
+            lineAskedAt = -100f;
+            lineAsking = false;
+        }
+
         /// <summary>
         /// The line clicked: step +1 (the next type) or -1 (the one before) to the nearest type she has rounds of (loose ones
         /// count: the choice stands for when she can load them), which she then uses (Choose). Null when done; else the
         /// refusal for the player ("" for nothing to do). note: done, but with L&amp;L she has that type only as loose rounds -
         /// her gun keeps its type until one of her magazines is empty and takes them (the panel shows it, without the refusal's
-        /// sound). Host only (ScMemberEquip.Gate, as the panel's slots).
+        /// sound). On the server (ScMemberEquip.Gate, as the panel's slots); round MP3: the panel asks through the op
+        /// member.ammo on every machine (ScActionsGear), so a client's click runs here for its player.
         /// </summary>
-        internal static string Cycle(EntityPlayerLocal player, EntityAlive npc, int step, out string note)
+        internal static string Cycle(EntityPlayer player, EntityAlive npc, int step, out string note)
         {
             note = null;
             try
@@ -431,6 +532,8 @@ namespace SurvivorCommunity
         /// After Voice Control's own ammo pick CHANGED her gun's type (ScEquipRedirect.Patch_VcSetAmmo: the index before and
         /// after differ - a refused pick, "none" or "same", changes nothing and is not taken): the type her pair's gun now uses
         /// becomes her choice, so Tick never switches her back from what you just told her. Members only, the panel on, the host.
+        /// Round MP3: this already is the server's record for every player's pick - Voice Control runs the pick only on the
+        /// server (VCCommandRouter.Execute sends a client's as NetPackageVCCommand; MutateSetAmmo runs in ExecuteAuthoritative).
         /// </summary>
         internal static void Noted(EntityAlive e)
         {

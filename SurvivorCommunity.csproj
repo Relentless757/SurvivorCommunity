@@ -412,6 +412,8 @@
     <Compile Include="ScMemberGear.cs" />
     <!-- round n12: the equipment slots usable (the changes) and the exact items a member was handed (her record's store) -->
     <Compile Include="ScMemberEquip.cs" />
+    <!-- round MP3 (part G): the member panel's gear slots and ammo line as requests (a multiplayer client's too) -->
+    <Compile Include="ScActionsGear.cs" />
     <Compile Include="ScHanded.cs" />
     <Compile Include="Patches_MemberInv.cs" />
     <!-- round n11 (t40): SC's movable windows (the talk card, the member inventory panel) and where they were put -->

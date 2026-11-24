@@ -37,6 +37,63 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP3 (part: member gear and station crafting) (2026-11-24): clients change a member's gear and ammo, and craft beside her
+
+Why: on a client the member panel's RANGED, MELEE, armor and tool slots and the ammo line answered "host only", and a
+client's station window gave a member's crafts to the client (the old c2 bug: a full output put her items in the client's
+inventory, and the client got her crafting XP). The weapon and armor slots and the ammo click are now requests the server
+answers (`member.geardrop`, `member.geartake`, `member.ammo`; the line itself is `member.ammoline`); the tool slots move
+the tool in the client's own copy of her pack (SCore merges it back on close); a client's station window knows the
+members from its copy of the registry, and the server pays her crafts when the client closes the station. The bag stays
+the host's. Build `sc34_mp3g`, **not deployed**, untested in game. With `DebugLogging` on the server logs an `action
+member.geardrop by <player>` line per request (and `member.ammoline` every 2 s while a client's panel is open).
+
+**Single player: nothing may change**
+- [ ] Open a member's panel. Drop a gun on RANGED: she carries it, her old gun is on your cursor. Drop a melee weapon on
+      MELEE: the same. A two-item stack on RANGED is refused ("Hand over one item at a time."), the stack stays on your cursor.
+- [ ] Take RANGED off (drag): the gun is on your cursor and she is melee-only. Shift-click it: into your backpack; with a full
+      backpack it is refused and stays on her.
+- [ ] Drop a helmet on the head slot: she wears it, her old one is on your cursor. Take the chest piece off: the slot goes bare.
+      A piece the Wardrobe dressed her in from her pack comes back as that real piece (it leaves her pack).
+- [ ] Drop an axe on the Chop slot: it goes into her pack (the pack grid shows it). Take it back from the slot: it leaves the
+      pack. A work-kit tool is refused ("The work kit stays with the member.").
+- [ ] The ammo line under RANGED: click and right-click cycle the types she has rounds of; the line updates at once.
+- [ ] A station: a member crafting at a campfire while you have it open - her items go into the output, never your inventory;
+      with the output full they wait. Your own craft counters do not move for her items (`sc craft station`).
+- [ ] Log: no SC errors, no `patched an unlisted method` other than `TileEntity::OnUnlockedServer` (listed by the merge).
+
+**A client on a dedicated server (or a listen host)**
+- [ ] Open a member's panel. Drop a gun on RANGED: your cursor empties at once, a moment later her old gun is on your cursor
+      and the slot shows the new gun (when her loadout syncs). The server's log says `... now carries ... (member panel)`.
+- [ ] A refused drop (a melee weapon on RANGED, a helmet on the chest slot): the item comes back to your cursor and the reason
+      shows; nothing is lost or doubled.
+- [ ] Take RANGED off by drag and by shift-click (backpack): the gun lands on your cursor / in your backpack. With a full
+      backpack shift-click is refused before anything is asked.
+- [ ] Armor: drop and take each slot; her look changes on your screen and on the server's. A piece the Wardrobe dressed her in
+      from her pack: taking it off puts that real piece on your cursor and it leaves the pack grid at once.
+- [ ] Tools: drop an axe on Chop - it shows in the pack grid at once; take it back. Close and reopen the panel: the pack holds
+      exactly what you left (no axe twice, none missing). Tools in her BAG do not show on a client.
+- [ ] Ammo: the line under RANGED shows within about 2 s; a click cycles the type (the server's log says `uses ... (the member
+      panel, round U1)`), and the line follows within about 2 s.
+- [ ] Voice Control's own ammo pick on a member (the order wheel's ammo page): the server's log says `uses ... (Voice
+      Control's ammo pick, round U1)`; SC never switches her back.
+- [ ] The bag: the panel shows the note that the bag is the host's; nothing else changes.
+- [ ] Close the panel with a weapon you just took still on your cursor: it goes to your backpack (the game's own rule).
+- [ ] A station while she crafts there: open it on the client. Her crafts go into the output; with the output full they wait
+      in the queue (a tooltip says so) and never go into your inventory. Your Survivor Origins crafting XP does not move for
+      her items. Close the station: the server's log says `a station's list held ... made by <her> - paid to her now (player
+      <id> closed the station)`.
+- [ ] Your own craft at the same station while she has hers queued: you get your XP at your next open (vanilla), she gets hers
+      at the close (`sc craft` on the server: `c1e-station-list-swept-remote`).
+- [ ] Logs: no SC errors on either side.
+
+**Two players pressing the same thing**
+- [ ] Player A has a member's panel open; player B asks her for her inventory: SCore refuses B (the game's "in use" tooltip).
+- [ ] The host has her panel open; a client asks: refused the same way. And the other way round.
+- [ ] A client drops a gun on RANGED and immediately closes the panel: the old gun lands in the client's backpack (or at their
+      feet); she carries the new one; reopen - the pack is as left.
+- [ ] Two clients at the same station: only one can open it (vanilla's lock); the member's crafts are paid once, at the close.
+
 ## Round MP2 (review fixes) (2026-11-23): toggles carry their intent, and the review's smaller fixes
 
 Why: the MP2 reviews found that a toggle or a two-purpose button (Repair / Upgrade, Call to work / End work, a crafting
