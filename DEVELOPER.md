@@ -2373,7 +2373,9 @@ Round MP0 is the groundwork:
   - **Known gaps:** a request whose answer never comes (a dropped connection) loses the stack in flight. A client that
     disconnects with her panel open keeps what it took from her pack and loses what it put in (SCore's session ends with
     the server's contents: its own behavior for every grid move). The server trusts the stack a client sends (the item and
-    its data, as every MP3 take). A stale piece the server added shows only at the next open.
+    its data, as every MP3 take). A stale piece the server added shows only at the next open. A member's station crafting XP
+    can be paid twice in one narrow case: a client's late write-back to a station lands while ANOTHER player already holds it
+    open after a forced unlock (the trim of the remote sweep then skips it). XP only - no item is copied or cut.
 
 - **Round MP3 (part L), linked storage** (`ScStorageServer`, `NetPackageScStorage`, `ScStorage`, `ScLinkedContainer34`,
   `ScHomeLink`, `Patches_LinkedStorage`): the server owns the boxes; every player's view, the host's own included, goes

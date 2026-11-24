@@ -286,6 +286,20 @@ namespace SurvivorCommunity
         /// while boxHeld (this machine still has that box open); the rest (all of them when it does not) into the player's
         /// bag, then at their feet (ScItemTx.GiveToLocal). Returns how many bundles did not go back into the box.
         /// </summary>
+        /// <summary>Round MP3 (re-check F1): how many of this item (by type) the box holds now.</summary>
+        private static int CountOf(TEFeatureStorage st, ItemValue iv)
+        {
+            try
+            {
+                ItemStack[] items = st != null && st.ItemGrid != null ? st.ItemGrid.items : null;
+                if (items == null || iv == null) return 0;
+                int n = 0;
+                foreach (ItemStack x in items) if (x != null && !x.IsEmpty() && x.itemValue != null && x.itemValue.type == iv.type) n += x.count;
+                return n;
+            }
+            catch (Exception) { return 0; }
+        }
+
         public static int PutBack(TEFeatureStorage st, List<KeyValuePair<int, ItemStack>> taken, EntityPlayerLocal player, bool boxHeld)
         {
             if (taken == null || taken.Count == 0) return 0;
@@ -298,7 +312,8 @@ namespace SurvivorCommunity
                 {
                     ItemStack s = kv.Value;
                     if (s == null || s.IsEmpty()) continue;
-                    try        // round MP3 (review m3): a try per stack - one slot that throws goes to the player, the rest still go back
+                    int before = items != null ? CountOf(st, s.itemValue) : 0;
+                    try        // round MP3 (review m3): a try per stack - one slot that throws does not stop the rest going back
                     {
                         if (items != null && kv.Key >= 0 && kv.Key < items.Length && (items[kv.Key] == null || items[kv.Key].IsEmpty()))
                         {
@@ -311,6 +326,12 @@ namespace SurvivorCommunity
                     catch (Exception e)
                     {
                         ScLog.Once("deposit-putback-slot", e);
+                        // round MP3 (re-check F1): the write has usually landed before a listener threw - only what the box did NOT
+                        // take goes to the player, never a bundle the box holds too
+                        changed = true;
+                        int landed = Math.Max(0, CountOf(st, s.itemValue) - before);
+                        if (landed >= s.count) continue;
+                        if (landed > 0) { ItemStack r2 = s.Clone(); r2.count = s.count - landed; rest.Add(r2); continue; }
                     }
                     rest.Add(s);
                 }

@@ -791,12 +791,14 @@ namespace SurvivorCommunity
                 try
                 {
                     kv.Value.St.UpdateSlot(kv.Key.Index, kv.Value.Stack.Clone());
-                    kv.Value.St.SetModified();
                 }
                 catch (Exception ex)
                 {
                     ScLog.Once("storage-commit", ex);
                 }
+                // round MP3 (re-check F2): marked modified even when a listener threw - the slot was set before it ran
+                try { kv.Value.St.SetModified(); }
+                catch (Exception ex) { ScLog.Once("storage-commit-modified", ex); }
                 Invalidate(kv.Key.Pos);
                 touched.Add(kv.Key);
             }
