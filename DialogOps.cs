@@ -534,28 +534,16 @@ public class DialogActionScTakeFavourItems : BaseDialogAction
         ScTalkContext.EndHandOver(npcId, false);
     }
 
-    /// <summary>Round MP2 (review): the core's own refusals, answered before any handler ran (ScActions.Request / Dispatch).</summary>
-    private static bool RefusedBeforeHandler(ScActionReply r)
-    {
-        switch (r.Message)
-        {
-            case "scActionDead": case "scActionDenied": case "scActionNotReady": case "scActionUnknown":
-            case "scActionNoPlayer": case "scActionNoServer": case "scNetMismatch":
-                return true;
-            default:
-                return false;
-        }
-    }
-
     /// <summary>The server's answer to the hand-over: done (the quest closes here), or refused (the items go back).</summary>
     private static void Step2(EntityPlayerLocal lp, int npcId, List<ItemStack> removed, ScActionReply r)
     {
         ScTalkContext.ApplyQuestHint(lp, r);
         if (!r.Ok)
         {
-            // round MP2 (review): the handler's own refusal says refund=1; a refusal from ScActions.Dispatch before the handler
-            // ran (dead, denied, not ready, unknown, no player, a version mismatch) kept nothing either - the items go back too
-            if (r.HasHint(ScActionsMembers.HintRefund) || RefusedBeforeHandler(r)) ScTalkContext.Refund(lp, removed);
+            // round MP2 (review): every refusal at step 2 means the server kept nothing - the handler's own (refund=1), the core's
+            // before any handler ran (dead, denied, not ready ...), or a handler that threw before it marked the favour done -
+            // so the items always go back
+            ScTalkContext.Refund(lp, removed);
             ScTalkContext.Tell(lp, r, false);
             ScTalkContext.EndHandOver(npcId, false);
             return;
