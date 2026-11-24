@@ -17,7 +17,7 @@ namespace SurvivorCommunity
         /// <summary>ScCommunity.CanRecruit for the talking player, and its reason key when not.</summary>
         public bool Recruit;
         public string RecruitWhy = "";
-        /// <summary>ScZone.EnsureHome for the talking player: a home whose land claim stands.</summary>
+        /// <summary>A home whose land claim stands (ScZone.EnsureHomeFor the talking player: a read for a remote one).</summary>
         public bool HasHome;
         /// <summary>The prospect (FavourKind, 0: none) and what the favour rows show and need.</summary>
         public int Favour;
@@ -224,6 +224,9 @@ namespace SurvivorCommunity
                 if (!ScNpc.IsFramework(npc) || ScTrust.IsTrader(npc)) return;
                 if (!ScNet.IsClient || ScNet.Cm == null || !ScNet.ServerMatches || !ScNet.ServerKnows<NetPackageScTalkContext>()) return;
                 bool journalDone = ScQuests.FavourQuestDone(lp, npc.entityId);
+                // round MP2 (review members MINOR 8): an earlier talk's facts never drive this one's rows (a favour done and rolled
+                // again, a recruit verdict that changed) - the rows wait for this talk's answer, as on a first talk
+                facts.Remove(npc.entityId);
                 ScNet.Cm.SendToServer(NetPackageManager.GetPackage<NetPackageScTalkContext>().SetupOpen(npc.entityId, journalDone));
                 sent++;
             }
@@ -460,7 +463,9 @@ namespace SurvivorCommunity
             string why;
             f.Recruit = ScCommunity.CanRecruit(npc, p, out why);
             f.RecruitWhy = why ?? "";
-            f.HasHome = ScZone.EnsureHome(p);                             // AutoHomeFirstClaim may adopt this player's claim (saved below)
+            // round MP2 (review members MINOR 3): read, never adopted - a remote player's talk must not make their claim the home and
+            // them the owner (with SharedOwnerOnly that would bypass home.set's Owner access). The host's own player never sends one
+            f.HasHome = ScZone.EnsureHomeFor(p);
             bool changed = hadHome != ScRegistry.Community.HasHome;
             Prospect pr = ScRegistry.GetProspect(npc.entityId);
             if (pr == null && f.Recruit && f.HasHome) pr = ScFavours.Ensure(npc, p);     // E4: the roll is the server's (it saves)

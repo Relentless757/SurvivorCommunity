@@ -653,7 +653,7 @@ namespace SurvivorCommunity
                 return;
             }
             if (!ScConfig.Enclaves || !ScEnclaves.Ready) { into.Add("enclaves are off in the config, or the world is still starting"); return; }
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            EntityPlayerLocal pl = ScCommunity.LocalPlayer;     // MP5: the radio for clients (round MP2, review radials MINOR 3: the host's own player until then)
             if (c.EncRefills.Count == 0)
             {
                 // none owed: one anyway (testing), never queued - the sentinel POI excludes nothing

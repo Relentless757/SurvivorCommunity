@@ -201,7 +201,9 @@ namespace SurvivorCommunity
                 }
                 // round MP2: the server upgrades it (facility.upgrade; inline on the host and in single player) and the answer is
                 // told here, as before: the line, and the denied sound when it was refused
-                ScActions.Request("facility.upgrade", r => ScCommunity.Tell(player, r.Text, r.Sound), parent.x, parent.y, parent.z);
+                // round MP2 (review core/window M1): the level this machine shows goes last - a second press after the first one's
+                // upgrade is refused (scActionChanged), never a second level
+                ScActions.Request("facility.upgrade", r => ScCommunity.Tell(player, r.Text, r.Sound), parent.x, parent.y, parent.z, LevelAt(parent, bv));
             }
             catch (Exception e)
             {
@@ -234,7 +236,8 @@ namespace SurvivorCommunity
             int level = LevelAt(parent, bv), top = MaxLevel(bv.type);
             string name = NameOf(bv);
             // round MP2: a client with the server's copy reads the whole line (it can upgrade now); without one, the short line
-            if (!ScRegistry.Ready || !ScActionsWindow.CanRequest) return string.Format(Localization.Get("scFacInfoClient"), name, level, top);
+            // round MP2 (review core/window n2): a client only - the host before its registry loads keeps the "outside" line it had
+            if (!ScCommunity.IsHost && (!ScRegistry.Ready || !ScActionsWindow.CanRequest)) return string.Format(Localization.Get("scFacInfoClient"), name, level, top);
             if (!InHome(parent)) return string.Format(Localization.Get("scFacInfoOutside"), name, level, top);
             string s = string.Format(Localization.Get("scFacInfo"), name, level, top, WaterAt(parent, bv));
             if (level >= top) return s + " " + Localization.Get("scFacInfoTop");

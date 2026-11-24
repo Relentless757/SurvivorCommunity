@@ -200,9 +200,11 @@ namespace SurvivorCommunity
                 {
                     bool atOutpost = ScOutposts.AtClaim(_blockPos) != null;
                     if (atOutpost && ScCommunity.IsHost) { ScHomeLink.Request(_player, _blockPos); return true; }
-                    if (!atOutpost && !ScZone.HasHome && ScConfig.AutoHomeFirstClaim) ScActionsClaim.RequestHome(_blockPos, ScActionsClaim.HomeAdoptStorage, _player);
-                    // round MP2: linked storage (and the outpost's home link) stays the host's own until MP3 (item transactions)
+                    // round MP2: linked storage (and the outpost's home link) stays the host's own until MP3 (item transactions).
+                    // Round MP2 (review radials MINOR 1): refused BEFORE the AutoHomeFirstClaim adoption - a refused action must
+                    // not make the client's claim the home
                     if (!ScCommunity.IsHost) { ScCommunity.Tell(_player, Localization.Get("scHostOnly"), "ui_denied"); return true; }
+                    if (!atOutpost && !ScZone.HasHome && ScConfig.AutoHomeFirstClaim) ScActionsClaim.RequestHome(_blockPos, ScActionsClaim.HomeAdoptStorage, _player);
                     ScStorage.OpenWindow(_player);
                     return true;
                 }

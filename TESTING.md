@@ -37,6 +37,45 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP2 (review fixes) (2026-11-23): toggles carry their intent, and the review's smaller fixes
+
+Why: the MP2 reviews found that a toggle or a two-purpose button (Repair / Upgrade, Call to work / End work, a crafting
+role, an outpost's Mode, a well's Upgrade) did whatever the server's state said, so a second press from a client a push
+behind did the OPPOSITE of what its button showed. Each now sends what it meant, and a press that no longer fits is answered
+"That changed in the meantime. Look again and try once more." Also: a talk never makes a client the community's owner, the
+talk's orders and favours need the player beside the survivor, and a few smaller fixes (below). Build `sc34_mp2`, not
+deployed, untested in game.
+
+**Single player (and the host's own play): nothing may change**
+- [ ] Outposts tab: Repair a damaged outpost, then Upgrade; Mode cycles normal, quiet, push. Members tab: Call to work,
+      End work, each role on and off. A well's Upgrade (radial and the Facilities tab). Facilities tab: Call to work on a
+      resident, then on the same one again (ends her shift), Assign guard. All as before, never "That changed...".
+- [ ] A resident on a work shift and one called by a talk: her Craft rows and "That's all for now." as before.
+- [ ] A hired companion joins while you stand in the home: stationed, and gone from your party as before.
+- [ ] `sc lightsout on`, `sc lightsout off`: the same lines and tooltip as before.
+
+**A client on a dedicated server (or a listen host)**
+- [ ] Double-click Repair on a damaged outpost: one repair; the second press says "That changed..." and buys no level.
+      Double-click Upgrade: one level. Double-click Mode: one step. Double-click a role: it stays on (or off).
+- [ ] Double-click a well's Upgrade on its radial (or the Facilities tab): one level.
+- [ ] Call a resident to work: her talk's Craft rows show at once; End work: they go (the `Owner` link reaches the client).
+- [ ] With `AutoHomeFirstClaim` on and no home: talking to a survivor, handing over supplies or a band's join never makes
+      the client's claim the home (the rows say there is no home); the radial's Community entry still does.
+- [ ] Assign a resident to an outpost, then leave the pick (another tab) before the answer: the window does not jump.
+- [ ] The listen host's map: a client upgrades or repairs an outpost - the host's marker shows the new yield.
+- [ ] A client's paid companion joins while the client stands in the home: the client's party drops them (`sc party`).
+- [ ] "Mark it" asked again for a POI favour whose quest is already in the journal: a refusal keeps the quest.
+- [ ] Known (a later round): when a client drops a POI favour quest, that POI's trader clear quests for clients are not
+      re-armed until the favour is done.
+
+**Two players pressing the same thing**
+- [ ] Both press Repair on the same damaged outpost: one repair; the other is told "That changed..." (no level bought).
+- [ ] Both press Call to work on the same resident (Members tab, or the Facilities tab's pick): she is called once; the
+      other is told "That changed...", and her shift does not end.
+- [ ] Both press the same role, or Mode, or a well's Upgrade: one change; the other "That changed...".
+- [ ] One assigns a guard from the Facilities tab while the other mans that post from the radial: the first is told
+      "That changed...", and no guard goes to another post.
+
 ## Round MP2 (part: window) (2026-11-23): clients use the community window, its Facilities tab and the radials
 
 Why: a client saw the server's community (MP1) but every button said "host only". Now every button of the community
@@ -115,7 +154,7 @@ the new `scl` command runs `ui`, `portrait` and `voice play/stop/rescan` in the 
 - [ ] An Outpost Claim Block the client places in a cleared POI establishes itself; the tooltip reaches the client.
 - [ ] Disband outpost: one press only arms it (the confirm tooltip); a second within 5 s disbands it.
 - [ ] Linked storage and Outpost storage: "The community is managed by the host in this version." (denied sound),
-      nothing opens.
+      nothing opens. With `AutoHomeFirstClaim` and no home yet, Linked storage does NOT make the claim the home either.
 - [ ] `SharedOwnerOnly` true and a client that is neither the owner nor an admin: Set as community home and the second
       Disband press say "Only the community's owner or an admin can do that on this server."; Establish still works.
 - [ ] Console, an admin client: `sc home set` makes the claim the client stands in the home (owner: the client);
@@ -125,8 +164,15 @@ the new `scl` command runs `ui`, `portrait` and `voice play/stop/rescan` in the 
       nothing. `scl ui`, `scl portrait all` and `scl voice play <line>` act in the client's own game, also for a
       client that is no admin (vanilla answers `sc` with "denied" for them).
 - [ ] Telnet on the dedicated server: `sc spawn` says `no world / player`; `scl ui` says scl acts on a player's own game.
-- [ ] After the MP2 merge only (their verbs still take the host's own player here): `sc recruit`, `sc restore`,
-      `sc barter`, `sc scout`, `sc watch assign`, `sc infest add`, `sc outpost upgrade|repair|pay|refuse` act for the client.
+- [ ] `sc recruit`, `sc restore`, `sc watch assign`, `sc outpost upgrade|repair` and `sc lightsout on|off` act for the
+      client (the client is told, the server log names them).
+- [ ] NOT for the client yet (expected, a later round): `sc barter`, `sc scout`, `sc infest add`, `sc outpost pay|refuse`
+      and `sc enclave refill now` work on the community but run with no player for a client (refill: the host's own, none
+      on a dedicated server): nobody is told or attacked, and `sc infest add` needs `x z` ("no local player: give x z").
+- [ ] An admin client that has no player in the world yet: `sc` first says "(you have no player in the world yet ...)".
+- [ ] `scl ui foo` and `scl portrait` print their usage as `scl ...`, not `sc ...`.
+- [ ] Edit serveradmin.xml on the running dedicated server, then type `scl ui` as a non-admin client: it should still run
+      (unverified: a reload might make it admin-only until a restart).
 
 **A client on a listen host**
 - [ ] The host's own radial and console behave exactly as in single player.

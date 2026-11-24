@@ -175,6 +175,36 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// Round MP2 (review members MINOR 3): EnsureHome's answer without its adoption - the community has a home whose land
+        /// claim still stands. Never changes anything.
+        /// </summary>
+        public static bool HomeStands()
+        {
+            try
+            {
+                Community c = ScRegistry.Community;
+                var pp = GameManager.Instance != null ? GameManager.Instance.persistentPlayers : null;
+                if (pp == null) return c.HasHome;
+                return c.HasHome && pp.m_lpBlockMap != null && pp.m_lpBlockMap.ContainsKey(c.Home);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("zone-homestands", e);
+                return ScRegistry.Community.HasHome;
+            }
+        }
+
+        /// <summary>
+        /// Round MP2 (review members MINOR 3): EnsureHome for the host's own player (single player and the host: unchanged, the
+        /// AutoHomeFirstClaim adoption included), HomeStands for a remote one - a talk, a favour or a join never adopts a
+        /// client's claim as the home and makes them the owner (home.set, an Owner op, is the way: the radial's entries).
+        /// </summary>
+        public static bool EnsureHomeFor(EntityPlayer player)
+        {
+            return player is EntityPlayerLocal ? EnsureHome(player) : HomeStands();
+        }
+
         /// <summary>The owner's first land claim that still stands and is not an outpost's (EnsureHome's old pick; `sc home set`'s fallback).</summary>
         public static bool FirstOwnClaim(EntityPlayer owner, out Vector3i claim)
         {

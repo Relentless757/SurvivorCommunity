@@ -38,6 +38,12 @@ namespace SurvivorCommunity
         public Func<string> WhyNot;
         /// <summary>Round MP2: who may use it in Shared mode (rationing: Owner) - facility.do checks it on the server.</summary>
         public ScActionAccess Access = ScActionAccess.Community;
+        /// <summary>
+        /// Round MP2 (review core/window M1): for a pick whose Pick does one of two things by the member's state (Call to work:
+        /// 1 call, 0 end her shift), that state on this machine. The client sends it with the pick and facility.do refuses one
+        /// that changed since (scActionChanged) instead of doing the opposite. Null: no check.
+        /// </summary>
+        public Func<Member, int> PickState;
 
         /// <summary>Round MP2: what facility.do matches the action by (Id, else the Label).</summary>
         public string MatchKey { get { return !string.IsNullOrEmpty(Id) ? Id : Label ?? ""; } }
@@ -440,7 +446,9 @@ namespace SurvivorCommunity
                 e.Actions.Add(new FacilityAction
                 {
                     Label = L("scUiFacUpgrade"),
-                    Id = "scUiFacUpgrade",
+                    // round MP2 (review core/window M1): the level shown is part of the id, so facility.do's match refuses a
+                    // second press after the first one's level (two presses never buy two levels)
+                    Id = "scUiFacUpgrade@" + level.ToString(CultureInfo.InvariantCulture),
                     Ready = !maxed && c.Get(Resource.Materials) >= cost,     // round MP2: lit on a client too (it was IsHost && ...)
                     Run = (EntityPlayer p, out string msg) => UpgradeSite(at, p, out msg),
                 });
@@ -510,6 +518,9 @@ namespace SurvivorCommunity
                 WhyNot = () => WorkWhyNot(viewer),
                 PickHint = L("scUiFacPickWork"),
                 Pick = CallToWork,
+                // round MP2 (review core/window M1): Call to work ends the shift of one already on it (CallOrEnd) - the state
+                // seen goes with the pick, so two players picking the same resident never start and end her shift
+                PickState = m => ScWork.OnWorkShiftView(m) ? 0 : 1,
             });
             into.Add(e);
         }
@@ -805,7 +816,10 @@ namespace SurvivorCommunity
             var assign = new FacilityAction
             {
                 Label = L("scUiFacAssignGuard"),
-                Id = "scUiFacAssignGuard",
+                // round MP2 (review core/window m1): the post the pick names is part of the id - the server's first empty post
+                // being another one (this one manned or gone meanwhile) answers scActionChanged, never a guard at another post
+                Id = "scUiFacAssignGuard@" + post.x.ToString(CultureInfo.InvariantCulture) + "," + post.y.ToString(CultureInfo.InvariantCulture)
+                     + "," + post.z.ToString(CultureInfo.InvariantCulture),
                 Ready = whyNot() == null,
                 WhyNot = whyNot,
                 PickHint = post != Vector3i.zero ? Fmt("scUiWatchPick", ScWatch.Label(post)) : "",

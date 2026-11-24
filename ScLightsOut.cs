@@ -326,8 +326,12 @@ namespace SurvivorCommunity
             return string.Format(Localization.Get(ScConfig.LightsOutGenerators ? "scLightsOutAbout" : "scLightsOutAboutNoGens"), pct, FromText(w));
         }
 
-        /// <summary>sc lightsout [on|off]: the state; on orders it (any hour), off ends it now.</summary>
-        public static void ConsoleCmd(List<string> p, Action<string> output)
+        /// <summary>
+        /// sc lightsout [on|off]: the state; on orders it (any hour), off ends it now. Round MP2 (review radials MINOR 3): player is
+        /// the one who typed it (ConsoleCmdSc.Me: a client's own, the host's, null on a dedicated server's own console) - told
+        /// the order's line as the Facilities tab's button tells it.
+        /// </summary>
+        public static void ConsoleCmd(List<string> p, Action<string> output, EntityPlayer player)
         {
             World w = ScCommunity.World;
             string sub = p.Count > 1 ? p[1].ToLowerInvariant() : "";
@@ -337,13 +341,13 @@ namespace SurvivorCommunity
                 float was = ScConfig.LightsOutBeforeDuskHours;
                 ScConfig.LightsOutBeforeDuskHours = 24f;              // the console orders it at any hour
                 string msg;
-                try { output("[SC] " + (Order(ScCommunity.LocalPlayer, out msg) ? "" : "refused: ") + msg); }
+                try { output("[SC] " + (Order(player, out msg) ? "" : "refused: ") + msg); }     // round MP2 (review radials MINOR 3): the sender
                 finally { ScConfig.LightsOutBeforeDuskHours = was; }
             }
             else if (sub == "off")
             {
                 string msg;
-                output("[SC] " + (CancelByOrder(ScCommunity.LocalPlayer, out msg) ? "" : "refused: ") + msg);
+                output("[SC] " + (CancelByOrder(player, out msg) ? "" : "refused: ") + msg);     // round MP2 (review radials MINOR 3): the sender
             }
             Community c = ScRegistry.Community;
             string why = WhyNot(w);

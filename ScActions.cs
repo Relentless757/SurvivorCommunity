@@ -144,6 +144,8 @@ namespace SurvivorCommunity
     ///   client's copy can be a push behind) - a stale button only costs a refusal.
     /// - Requests are processed on the main thread one after the other (the game's package queue), so two players pressing
     ///   the same button get two answers in order, and the second is judged against the state the first left.
+    /// - The request id only pairs an answer with its callback: the server does not dedupe by it (the reliable channel delivers
+    ///   each request once). A toggle carries its intent instead (round MP2, review core/window n3 and M1: ScActionsWindow).
     /// - After a handler changes the registry it saves (SaveAtomic), which marks the mirror dirty: every client's copy follows
     ///   within about a second (ScMirror).
     /// Handlers: static methods marked [ScAction("op")], found by reflection at first use (each file registers its own).

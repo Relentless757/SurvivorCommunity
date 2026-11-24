@@ -168,7 +168,9 @@ namespace SurvivorCommunity
                 if (!ScRegistry.Loaded) { error = "scHostOnly"; return false; }      // round MP2 (E10): never on a client's copy
                 string why;
                 if (!CanRecruit(npc, player, out why)) { error = why; return false; }
-                if (!ScZone.EnsureHome(player)) { error = ScZone.NeedHomeKey(); return false; }
+                // round MP2 (review members MINOR 3): a remote player's join never adopts their claim as the home (and them as the
+                // owner); the host's own player keeps EnsureHome's AutoHomeFirstClaim adoption
+                if (!ScZone.EnsureHomeFor(player)) { error = ScZone.NeedHomeKey(); return false; }
                 ScConfig.EnsureParsed();
                 return Admit(MemberFromBody(npc, ScRegistry.Community.Morale), npc, player, out error);
             }
@@ -227,7 +229,9 @@ namespace SurvivorCommunity
                 ApplyAiPackage(npc);
 
                 bool home = ScZone.Contains(player.GetBlockPosition()) && ScZone.HomeLoaded;
-                if (home) Station(m, npc);
+                // round MP2 (review members MINOR 4): detached from the JOINER - a client's paid companion joining at home loses
+                // their hired_ mark and Companions entry, not the host's (single player: the joiner is the local player, as before)
+                if (home) Station(m, npc, true, player);
                 else FollowInternal(m, npc, player, MemberStatus.PendingStation);
 
                 ScRegistry.SaveAtomic();
@@ -288,7 +292,9 @@ namespace SurvivorCommunity
             return false;
         }
 
-        public static void Station(Member m, EntityAlive npc, bool teleport = true)
+        // round MP2 (review members MINOR 4): detachFrom - whose party she leaves when the caller knows it better than her record
+        // (Admit: the joiner, whose paid hire ends; a fresh member has no LeaderId). Null: her leader, else the host's own player.
+        public static void Station(Member m, EntityAlive npc, bool teleport = true, EntityPlayer detachFrom = null)
         {
             if (m == null || npc == null) return;
             if (!ScRegistry.Loaded) return;           // round MP2 (E10): never on a client's copy (its record or the body's copy)
@@ -297,8 +303,9 @@ namespace SurvivorCommunity
 #if SC_V34
                 if (ScDowned.DefersStation(m, npc)) return;   // round U2 (risks 1, 2): never on a downed body - her link, her bleed-out, no teleported ragdoll
 #endif
-                // round MP2: out of her own leader's party (a client's follower sent home), else the host's own player as before
-                EntityPlayer player = ScPlayers.ById(m.LeaderId) ?? LocalPlayer;
+                // round MP2: out of her own leader's party (a client's follower sent home), else the host's own player as before.
+                // Round MP2 (review members MINOR 4): the caller's player first (Admit: the joiner)
+                EntityPlayer player = detachFrom ?? ScPlayers.ById(m.LeaderId) ?? LocalPlayer;
                 World w = World;
 
                 Detach(npc, player);
@@ -396,7 +403,11 @@ namespace SurvivorCommunity
 
             // detach from the party without SCore ever re-stamping it back
             npc.Buffs.RemoveCustomVar("Leader");
-            npc.Buffs.RemoveCustomVar("Owner");
+            // round MP2 (review core/window m5): the Owner link (a work shift's, a talk hold's, a follower's) - clients get a 0
+            // (a removal never reaches them), then it is removed here as before, so SCore's leader logic on the server sees exactly
+            // what it did. A 0 is what SCore's own Dismiss and FarmHere leave, and every SCore / 0-XNPCCore reader tests > 0
+            // (GetOwner, DialogRequirementHiredSDX, SdcsNpcRelation), so a client reads it as no owner
+            ClearSynced(npc, "Owner");
             SphereCache.LeaderCache.Remove(npc.entityId);
             if (player != null)
             {

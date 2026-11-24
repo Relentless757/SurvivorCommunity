@@ -759,6 +759,7 @@ namespace SurvivorCommunity
             c.Add(Resource.Materials, -mats);
             o.DamagedUntil = -1;
             ScRegistry.SaveAtomic();
+            ScOutposts.HostMarkersFollow(player);   // round MP2 (review core/window m7): a remote player's repair - the listen host's map follows (nothing for the host's own)
             message = string.Format(Localization.Get("scRiskRepaired"), o.Name, mats);
             return true;
         }

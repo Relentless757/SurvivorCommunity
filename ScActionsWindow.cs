@@ -14,18 +14,26 @@ namespace SurvivorCommunity
     ///
     /// Ops (whole numbers unless marked s:; member = Member.Id, the body's entity id):
     ///   member.run           member, kind (Resource; -1 for a mining run), job (RunJob; -1 for a supply run)
-    ///   member.work          member                         Call to work / End work (ScWork.CallOrEnd)
+    ///   member.work          member, intent                 Call to work / End work (ScWork.CallOrEnd)
     ///   member.workend       member                         "That's all for now." (silent when she is not on a shift)
-    ///   member.role          member, role (0..3)            a crafting role on or off (ScCraft.ToggleRole)
+    ///   member.role          member, role (0..3), want      a crafting role on or off (ScCraft.ToggleRole)
     ///   member.post          member, outpost id             posted (ScGarrison.Post); answers the hint outpost=&lt;id&gt;
     ///   member.watch         member, x, y, z                takes the watch at that post (ScWatch.Assign)
     ///   member.recallposted  member                         a staff row's Recall (ScGarrison.Recall)
     ///   outpost.disband      outpost id, forget (0/1)       Owner. Disband a held outpost, or forget a lost one's record
-    ///   outpost.upgrade      outpost id                     repairs a damaged outpost, else buys its next level
-    ///   outpost.mode         outpost id                     normal -> quiet -> push
-    ///   facility.do          slot, member (-1: none); s: entry key, s: action id   the Facilities tab's action (see FacilityDo)
-    ///   facility.upgrade     x, y, z                        the well / dew collector radial's Upgrade (the parent block)
+    ///   outpost.upgrade      outpost id, seen               repairs a damaged outpost, else buys its next level
+    ///   outpost.mode         outpost id, seen               normal -> quiet -> push
+    ///   facility.do          slot, member (-1: none), pick state; s: entry key, s: action id   the Facilities tab's action (see FacilityDo)
+    ///   facility.upgrade     x, y, z, seen                  the well / dew collector radial's Upgrade (the parent block)
     ///   watch.relieve        x, y, z                        the Watch post radial's Relieve guard
+    /// Round MP2 (review core/window M1): the toggles and the dual-purpose buttons carry what the button meant as their LAST
+    /// int (absent or -1: no check, the old behavior), and a state that no longer matches answers scActionChanged - two
+    /// players (or one double click on a client a push behind) pressing the same button get one action and a refusal, never
+    /// the opposite action. member.work: 1 Call to work, 0 End work. member.role: 1 turn it on, 0 off. outpost.upgrade: 0
+    /// Repair, else the level the Upgrade was pressed at. outpost.mode: the mode shown (0..2). facility.upgrade: the level
+    /// shown. facility.do: a pick's state (FacilityAction.PickState: Call to work's 1 call / 0 end); its Upgrade and Assign
+    /// guard carry their level and post in the action's id (ScFacilityTab), which the slot-and-id match checks. The host
+    /// computes the intent from the state the handler reads in the same frame, so the check always passes there.
     /// </summary>
     public static class ScActionsWindow
     {
@@ -101,6 +109,10 @@ namespace SurvivorCommunity
         {
             Member m = MemberArg(args, 0, reply);
             if (m == null) return;
+            // round MP2 (review core/window M1): 1 Call to work, 0 End work - a press on a shift that started or ended since is
+            // refused, not turned into the opposite (two players calling the same resident must not end her shift)
+            int intent = args.Int(1, -1);
+            if (intent >= 0 && (intent == 0) != ScWork.OnWorkShift(m.Id)) { reply.Fail("scActionChanged"); return; }
             string msg;
             bool ok;
             ScWork.CallOrEnd(m, sender, out msg, out ok);
@@ -130,8 +142,20 @@ namespace SurvivorCommunity
         {
             Member m = MemberArg(args, 0, reply);
             if (m == null) return;
+            int role = args.Int(1, -1), want = args.Int(2, -1);
+            // round MP2 (review core/window M1): the state wanted (1 on, 0 off) - a role already so is refused, not toggled back.
+            // Only on a loaded body (ToggleRole's own test): without one ToggleRole answers scNotLoaded as before
+            if (want >= 0 && role >= 0 && role < ScCraft.RoleCvars.Length)
+            {
+                EntityAlive npc = ScCommunity.FindNpc(m.Id);
+                if (npc != null && !npc.IsDead() && npc.Buffs != null && ((ScCraft.ReadMask(npc) & (1 << role)) != 0) == (want != 0))
+                {
+                    reply.Fail("scActionChanged");
+                    return;
+                }
+            }
             string msg;
-            Answer(reply, ScCraft.ToggleRole(m, args.Int(1, -1), out msg), msg);
+            Answer(reply, ScCraft.ToggleRole(m, role, out msg), msg);
         }
 
         /// <summary>The Outposts tab's Assign, the member picked (TryAssign): she sets off. Hint outpost=&lt;id&gt;: the window goes there.</summary>
@@ -204,9 +228,32 @@ namespace SurvivorCommunity
         {
             Outpost o = OutpostArg(args, 0, reply);
             if (o == null) return;
+            // round MP2 (review core/window M1): what the button was - 0 Repair, else Upgrade at the level shown. A second Repair
+            // on an outpost repaired since must not buy the next level, a second Upgrade not the level after
+            int seen = args.Int(1, -1);
+            if (seen >= 0)
+            {
+                bool damaged = ScOutpostRisk.DamagedNow(o);
+                if (seen == 0 ? !damaged : (damaged || SeenLevel(o) != seen)) { reply.Fail("scActionChanged"); return; }
+            }
             string msg;
             bool ok = ScOutpostRisk.DamagedNow(o) ? ScOutpostRisk.Repair(o, sender, out msg) : ScOutpostPerks.Upgrade(o, sender, out msg);
             Answer(reply, ok, msg);
+        }
+
+        /// <summary>Round MP2 (review core/window M1): outpost.upgrade's intent as the window sends it - 0 Repair, else the level (1..3).</summary>
+        public static int UpgradeIntent(Outpost o)
+        {
+            if (o == null) return -1;
+            return ScOutpostRisk.DamagedNow(o) ? 0 : SeenLevel(o);
+        }
+
+        private static int SeenLevel(Outpost o) { return Math.Max(1, o.Level); }
+
+        /// <summary>Round MP2 (review core/window M1): outpost.mode's intent - the mode the button shows (0..2).</summary>
+        public static int ModeIntent(Outpost o)
+        {
+            return o != null ? Math.Max(0, Math.Min(2, o.Mode)) : -1;
         }
 
         /// <summary>Mode: normal -> quiet -> push (a held outpost; the window shows the button for those only).</summary>
@@ -216,6 +263,9 @@ namespace SurvivorCommunity
             Outpost o = OutpostArg(args, 0, reply);
             if (o == null) return;
             if (!o.Holding) { reply.Fail("scOpPostLost"); return; }
+            // round MP2 (review core/window M1): the mode the button showed - two presses must not skip a mode
+            int seen = args.Int(1, -1);
+            if (seen >= 0 && ModeIntent(o) != seen) { reply.Fail("scActionChanged"); return; }
             ScOutpostPerks.CycleMode(o);
             ScRegistry.SaveAtomic();
             reply.Done(string.Format(Localization.Get("scOpModeSet"), o.Name, ScOutpostPerks.ModeLabel(o)));
@@ -251,6 +301,10 @@ namespace SurvivorCommunity
                 if (a.Pick == null) { reply.Fail("scActionChanged"); return; }
                 Member m = ScRegistry.GetMember(memberId);
                 if (m == null) { reply.Fail("scActionMemberGone"); return; }
+                // round MP2 (review core/window M1): the pick's state the client saw (Call to work: 1 call, 0 end) - one that
+                // changed since is refused, not turned into the opposite
+                int seen = args.Int(2, -1);
+                if (seen >= 0 && a.PickState != null && a.PickState(m) != seen) { reply.Fail("scActionChanged"); return; }
                 try { ok = a.Pick(m, sender, out msg); }
                 catch (Exception ex) { ScLog.Once("community-facility-pick", ex); msg = Localization.Get("scInternal"); ok = false; }
             }
@@ -275,6 +329,9 @@ namespace SurvivorCommunity
             BlockValue bv = w.GetBlock(pos);
             pos = ScFacilities.ParentOf(w, pos, ref bv);
             if (!ScFacilities.IsFacility(bv.type)) { reply.Fail("scUiFacSiteGone"); return; }
+            // round MP2 (review core/window M1): the level the radial showed - two presses must not buy two levels
+            int seen = args.Int(3, -1);
+            if (seen >= 0 && ScFacilities.LevelAt(pos, bv) != seen) { reply.Fail("scActionChanged"); return; }
             string msg;
             Answer(reply, ScFacilities.TryUpgrade(w, pos, bv, sender, out msg), msg);
         }

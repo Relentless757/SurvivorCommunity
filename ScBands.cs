@@ -2065,7 +2065,9 @@ namespace SurvivorCommunity
             if (b.Trouble == 2) return "they are fighting";
             int coming = Coming(b), room = ScEncJoin.RoomLeft();
             if (coming <= 0) return "nobody of theirs is alive";
-            if (player != null ? !ScZone.EnsureHome(player) : !ScZone.HasHome) return "you have no home";
+            // round MP2 (review members MINOR 3): a remote player's band line (the talk context's facts) or join never adopts their
+            // claim as the home - EnsureHomeFor reads it for them; the host's own player keeps EnsureHome
+            if (player != null ? !ScZone.EnsureHomeFor(player) : !ScZone.HasHome) return "you have no home";
             if (coming > room) return "your community has room for " + room + " more, they are " + coming + " (MaxMembers " + ScConfig.MaxMembers + ")";
             return null;
         }

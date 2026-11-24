@@ -13,8 +13,11 @@ How to use the console
 - Multiplayer: "sc" runs on the server, whoever types it, and only admins may use it (vanilla's permission level 0). It
   acts for the player who typed it: "sc spawn" spawns in front of you, "sc poi" describes the POI you stand in,
   "sc home set" makes your claim the home. Typed on a dedicated server's own console (telnet, the web console) it has no
-  player, and the subcommands that need one say so. A few subcommands act on your own game rather than the server: on a
-  client, use "scl" for them (section 16).
+  player, and the subcommands that need one say so. Not yet for a client (a later round): "sc barter", "sc scout",
+  "sc infest add", "sc outpost pay|refuse" and "sc enclave refill now" work on the community but not for the client who
+  typed them - they run with no player ("sc enclave refill now": with the host's own, none on a dedicated server), so
+  nobody is told or attacked, and "sc infest add" needs "x z". A few subcommands act on your own game rather than the
+  server: on a client, use "scl" for them (section 16).
 - SC has one command, "sc" (long name "survivorcommunity"). Type "sc" alone for the same output as "sc status". An
   unknown subcommand prints the full one-line syntax list.
 - Every "sc" answer is also written to the log, each line starting "[SC console]", with a "> sc <what you typed> (time)"
@@ -1095,7 +1098,8 @@ Other voice subcommands:
 - "sc voice play <line> [id|name]": a survivor (that one, or the nearest with a voice within 20 m) says a clip now.
 - "sc voice stop", "sc voice rescan" (re-reads the voice folder without a restart), "sc voice gate" [READ].
 - On a client in multiplayer, "play", "stop" and "rescan" are "scl voice ..." (section 16): they are your own game's
-  sound.
+  sound. "sayline", "greet", "chatter" and "taunt" typed by a client still play on the server's machine (nothing on a
+  dedicated server) until SC's voices reach clients.
 - "sc voice sayline [line] [seconds]": the nearest survivor is given a say-line through Voice Control after a delay
   (default "ammo.dry", 5 s). A line with an argument works too ("book.recipe:forgedIron",
   "basekeep.need:resourceForgedIron").

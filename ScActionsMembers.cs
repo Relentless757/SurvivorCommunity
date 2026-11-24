@@ -66,11 +66,27 @@ namespace SurvivorCommunity
         private static EntityAlive TalkNpc(EntityPlayer sender, int npcId)
         {
             World w = ScCommunity.World;
-            EntityAlive npc = w != null && npcId > 0 ? ScNpc.As(w.GetEntity(npcId)) : null;
+            // round MP2 (review members NIT 1): ScNpc.Loaded, as ScCommunity.FindNpc - a body still being built is not forced
+            EntityAlive npc = w != null && npcId > 0 ? ScNpc.As(ScNpc.Loaded(w, npcId)) : null;
+            return InTalkReach(sender, npc);
+        }
+
+        /// <summary>
+        /// Round MP2 (review members MINOR 5): npc when the sender can be talking to it - always for the host's own player (no
+        /// new test), for a remote player its live body within ScTalkContext.TalkRange. Null otherwise.
+        /// </summary>
+        private static EntityAlive InTalkReach(EntityPlayer sender, EntityAlive npc)
+        {
             if (npc == null) return null;
             if (sender is EntityPlayerLocal) return npc;
-            if (npc.IsDead() || (npc.position - sender.position).sqrMagnitude > ScTalkContext.TalkRange * ScTalkContext.TalkRange) return null;
+            if (sender == null || npc.IsDead() || (npc.position - sender.position).sqrMagnitude > ScTalkContext.TalkRange * ScTalkContext.TalkRange) return null;
             return npc;
+        }
+
+        /// <summary>Round MP2 (review members MINOR 5): a favour op's NPC is in talking reach of a remote sender (the host's own player: always).</summary>
+        private static bool FavourInReach(EntityPlayer sender, int npcId)
+        {
+            return sender is EntityPlayerLocal || TalkNpc(sender, npcId) != null;
         }
 
         // ------------------------------------------------------------------ member orders ----
@@ -82,8 +98,10 @@ namespace SurvivorCommunity
             Member m = ScRegistry.GetMember(args.Int(0, -1));
             if (m == null) { reply.Fail(mode == ModeWindow ? "scMemberGone" : ""); return; }
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
-            if (mode == ModeTalk) { TalkFollow(sender, m, npc, reply); return; }
-            if (mode == ModeTalkRecall) { TalkRecall(sender, m, npc, reply); return; }
+            // round MP2 (review members MINOR 5): the talk's modes are in person - a remote sender beyond talking reach is answered
+            // as a body that is not there (silent); mode 2 needs no radio only because of it
+            if (mode == ModeTalk) { TalkFollow(sender, m, InTalkReach(sender, npc), reply); return; }
+            if (mode == ModeTalkRecall) { TalkRecall(sender, m, InTalkReach(sender, npc), reply); return; }
 
             // the window's branch (XUiC_ScCommunity.OnFollow until round MP2), decided here on the record as it is NOW
             if (m.Status == MemberStatus.Arriving)
@@ -194,7 +212,8 @@ namespace SurvivorCommunity
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             if (mode != ModeWindow)
             {
-                // the talk's "Go home" (DialogActionScGoHome until round MP2)
+                // the talk's "Go home" (DialogActionScGoHome until round MP2). Round MP2 (review members MINOR 5): in person
+                npc = InTalkReach(sender, npc);
                 if (npc == null) { reply.Fail(""); return; }
                 string error;
                 if (ScCommunity.ReturnHome(m, npc, sender, out error)) reply.Done(Fmt("scStationed", m.Name));
@@ -269,6 +288,7 @@ namespace SurvivorCommunity
             Prospect p = ScRegistry.GetProspect(args.Int(0, -1));
             int kind = args.Int(1, 0);
             if (p == null || (int)p.Favour != kind || (p.Favour == FavourKind.Supplies && p.Done)) { reply.Fail("scFavourGone"); return; }
+            if (!FavourInReach(sender, args.Int(0, -1))) { reply.Fail(""); return; }       // round MP2 (review members MINOR 5)
             ScFavourStart.Mark(p);
             if (p.Favour == FavourKind.Poi)
             {
@@ -284,6 +304,7 @@ namespace SurvivorCommunity
             int npcId = args.Int(0, -1);
             Prospect p = ScRegistry.GetProspect(npcId);
             if (p == null || p.Favour != FavourKind.Poi) { reply.Fail(""); return; }
+            if (!FavourInReach(sender, npcId)) { reply.Fail(""); return; }                  // round MP2 (review members MINOR 5)
             if (!p.Done)
             {
                 string why;
@@ -309,8 +330,9 @@ namespace SurvivorCommunity
             if (p == null || p.Favour != FavourKind.Supplies || p.Done) { silent = true; return "scFavourGone"; }
             // value="any": handed over in the talk that named them, before taking the favour on (ScHasFavourItems "any")
             if (!p.Started && !any) { silent = true; return "scFavourGone"; }
-            // never take the goods when the join that follows would be refused
-            if (!ScZone.EnsureHome(sender)) return ScZone.NeedHomeKey();
+            // never take the goods when the join that follows would be refused. Round MP2 (review members MINOR 3): a remote
+            // sender's hand-over never adopts their claim as the home (EnsureHomeFor: a read for them, EnsureHome for the host's)
+            if (!ScZone.EnsureHomeFor(sender)) return ScZone.NeedHomeKey();
             if (ScRegistry.Members.Count >= ScConfig.MaxMembers) return "scRosterFull";
             return null;
         }
@@ -322,6 +344,7 @@ namespace SurvivorCommunity
             bool silent;
             string why = HandOverRefusal(sender, p, args.Int(1, 0) != 0, out silent);
             if (why != null) { reply.Fail(silent ? "" : why); return; }      // the old action said nothing for a favour not open
+            if (!FavourInReach(sender, args.Int(0, -1))) { reply.Fail(""); return; }       // round MP2 (review members MINOR 5)
             reply.Done().SetHint(HintResource, (int)p.ItemCategory).SetHint(HintCount, p.ItemCount);
         }
 
@@ -334,6 +357,7 @@ namespace SurvivorCommunity
             // checked again: another player may have done this favour, or filled the roster, since step 1 - the items go back
             string why = HandOverRefusal(sender, p, args.Int(1, 0) != 0, out silent);
             if (why != null) { reply.Fail(why).SetHint(HintRefund, 1); return; }
+            if (!FavourInReach(sender, npcId)) { reply.Fail("").SetHint(HintRefund, 1); return; }     // round MP2 (review members MINOR 5): the items go back
             ScFavours.MarkDone(ScCommunity.FindNpc(npcId), p);
             ScRegistry.SaveAtomic();
             CloseFavourFor(sender, p.Id, true, reply);

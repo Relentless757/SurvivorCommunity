@@ -226,7 +226,10 @@ namespace SurvivorCommunity
             }
             try
             {
-                npc.Buffs.SetCustomVar("Owner", player.entityId);
+                // round MP2 (review core/window m5): force-sent - the clients' dialog rows read the link (SCore's Leader requirement,
+                // 0-XNPCCore's Craft rows); a plain server write reaches them only through the slow bulk sync. The server's value
+                // is the same as before. Its end sends a 0 (ScCommunity.Detach)
+                npc.Buffs.SetCustomVar("Owner", player.entityId, true, CVarOperation.set, true);
                 player.Buffs.SetCustomVar("EntityID", player.entityId);
                 SphereCache.LeaderCache.Remove(npc.entityId);
                 SetShiftCvar(npc, true);                    // round MP2: sent to the clients (their "That's all for now." row)
@@ -291,7 +294,7 @@ namespace SurvivorCommunity
             }
             try
             {
-                npc.Buffs.SetCustomVar("Owner", player.entityId);
+                npc.Buffs.SetCustomVar("Owner", player.entityId, true, CVarOperation.set, true);    // round MP2 (review core/window m5): force-sent, as Start
                 player.Buffs.SetCustomVar("EntityID", player.entityId);
                 SphereCache.LeaderCache.Remove(npc.entityId);
                 ScCommunity.ApplyPost(npc, EntityUtilities.CenterPosition(npc.position));

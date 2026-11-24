@@ -46,6 +46,8 @@ namespace SurvivorCommunity
         private static EntityPlayer sender;
         /// <summary>Round MP2: sc came from a remote client (its machine-local subcommands answer "use scl ...").</summary>
         private static bool senderRemote;
+        /// <summary>Round MP2 (review radials NIT 4): the command the shared subcommands' usage lines name - "scl" while scl runs them.</summary>
+        private static string cmdName = "sc";
 
         /// <summary>Round MP2: the sender (see sender).</summary>
         private static EntityPlayer Me { get { return sender; } }
@@ -91,6 +93,8 @@ namespace SurvivorCommunity
             // round MP2: resolved once - the player who typed it (see sender)
             sender = ResolveSender(_senderInfo, out senderRemote);
             if (senderRemote) ToLog("  (from " + (sender != null ? sender.PlayerDisplayName + ", entity " + sender.entityId : "a remote client with no player in the world") + ")");
+            // round MP2 (review radials NIT 5): said to the admin too - the subcommands that need a player answer as on a server's own console
+            if (senderRemote && sender == null) Output("[SC] (you have no player in the world yet: subcommands that act for a player answer as on the server's own console)");
             try
             {
                 string sub = _params.Count > 0 ? _params[0].ToLowerInvariant() : "status";
@@ -183,7 +187,7 @@ namespace SurvivorCommunity
                     case "defense": DefenceCmd(_params); break;
                     case "siege": SiegeCmd(_params); break;
                     case "watch": WatchCmd(_params); break;
-                    case "lightsout": ScLightsOut.ConsoleCmd(_params, Output); break;   // round m1f (BD1): lightsout [on|off]
+                    case "lightsout": ScLightsOut.ConsoleCmd(_params, Output, Me); break;   // round m1f (BD1): lightsout [on|off]; round MP2 (review radials MINOR 3): for the sender
                     case "tower": TowerCmd(_params); break;
                     case "relink": Relink(); break;
                     case "repost": RepostCmd(_params); break;
@@ -233,8 +237,10 @@ namespace SurvivorCommunity
         {
             EntityPlayer was = sender;
             bool wasRemote = senderRemote;
+            string wasCmd = cmdName;
             sender = ScCommunity.LocalPlayer;
             senderRemote = false;
+            cmdName = "scl";                // round MP2 (review radials NIT 4): the usage lines name the command typed
             try
             {
                 string sub = p != null && p.Count > 0 ? p[0].ToLowerInvariant() : "";
@@ -258,6 +264,7 @@ namespace SurvivorCommunity
             {
                 sender = was;
                 senderRemote = wasRemote;
+                cmdName = wasCmd;
             }
         }
 
@@ -271,7 +278,7 @@ namespace SurvivorCommunity
         private static void UiCmd(List<string> p)
         {
             bool reset = p.Count > 1 && p[1].Equals("reset", StringComparison.OrdinalIgnoreCase);
-            if (p.Count > 1 && !reset) { Output("[SC] usage: sc ui [reset]"); return; }
+            if (p.Count > 1 && !reset) { Output("[SC] usage: " + cmdName + " ui [reset]"); return; }     // round MP2 (review radials NIT 4)
             XUiC_ScMemberInv open = XUiC_ScMemberInvGroup.OpenPanel();
             XUiC_ScSnapshot talk = XUiC_ScSnapshot.TalkCard();
             if (reset)
@@ -1702,7 +1709,7 @@ namespace SurvivorCommunity
                        + ", eyelift " + ScPortraits.EyeLift + ", aimlift " + ScPortraits.AimLift + " (this session; 'sc portrait all' re-shoots)");
                 return;
             }
-            if (p.Count < 2) { Output("[SC] usage: sc portrait <id|name|all> | sc portrait frame [fov dist yaw eyelift aimlift]"); return; }
+            if (p.Count < 2) { Output("[SC] usage: " + cmdName + " portrait <id|name|all> | " + cmdName + " portrait frame [fov dist yaw eyelift aimlift]"); return; }   // round MP2 (review radials NIT 4)
             if (p[1].Equals("all", StringComparison.OrdinalIgnoreCase))
             {
                 var ids = new List<int>(ScRegistry.Members.Keys);

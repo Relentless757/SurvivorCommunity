@@ -172,7 +172,9 @@ namespace SurvivorCommunity
         {
             FacilityAction a = facPick;
             if (a == null || a.Pick == null) { facPick = null; return false; }
-            ScActions.Request("facility.do", new[] { facPickSlot, m.Id }, new[] { facPickKey, a.MatchKey }, r =>
+            // round MP2 (review core/window M1): the pick's state as this machine sees it (Call to work: 1 call, 0 end; -1 none)
+            int seen = a.PickState != null ? a.PickState(m) : -1;
+            ScActions.Request("facility.do", new[] { facPickSlot, m.Id, seen }, new[] { facPickKey, a.MatchKey }, r =>
             {
                 if (!r.Ok)
                 {

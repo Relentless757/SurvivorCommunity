@@ -402,12 +402,20 @@ public class DialogActionScStartPoiQuest : BaseDialogAction
                 }
                 return;
             }
+            // round MP2 (review members MINOR 6): a refusal removes the quest only when THIS action put it in the journal - one
+            // that was there already (asked again) stays. A refusal at once (no server to ask) adds none at all
+            bool had = ScQuests.FindFavour(lp, pid) != null, refused = false;
             ScActions.Request("favour.start", r =>
             {
                 if (r.Ok) ScTalkContext.Note(npcId, true, false);
-                else ScQuests.CloseFavour(lp, pid, false);                     // the server said no: the quest goes again
+                else
+                {
+                    refused = true;
+                    if (!had) ScQuests.CloseFavour(lp, pid, false);            // the server said no: the quest this action added goes again
+                }
                 ScTalkContext.Tell(player, r, false);
             }, npcId, (int)FavourKind.Poi);
+            if (refused) return;
             if (!ScQuests.Start(lp, p, out error) && error != "scQuestAlready") ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
         }
         catch (Exception e) { ScLog.Once("act-startquest", e); }

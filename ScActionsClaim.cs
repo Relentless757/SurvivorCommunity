@@ -90,7 +90,8 @@ namespace SurvivorCommunity
                 if (te == null || te.Owner == null) return null;
                 PersistentPlayerList pp = GameManager.Instance != null ? GameManager.Instance.persistentPlayers : null;
                 EntityPlayer p = pp != null ? pp.GetEntityPlayerFromUserId(te.Owner) : null;
-                return p != null && ScPlayers.InCommunity(p) ? p : null;
+                // round MP2 (review radials NIT 3): a client whose SC does not match the server's acts in nothing else either
+                return p != null && ScPlayers.InCommunity(p) && (p is EntityPlayerLocal || ScNet.ClientMatches(p)) ? p : null;
             }
             catch (Exception e)
             {
@@ -124,6 +125,7 @@ namespace SurvivorCommunity
                 // the client's copy said "no home yet", but someone started one meanwhile: a start must not move it
                 if (mode == HomeStart) { reply.Fail("scHomeAlreadyStarted"); return; }
                 if (adopt) { reply.Done(); return; }                        // nothing to adopt any more
+                if (ScZone.Home == claim) { reply.Done(); return; }        // round MP2 (review radials NIT 1): already the home - nothing to set
             }
             ScZone.SetHome(claim, sender);
             ScRegistry.SaveAtomic();

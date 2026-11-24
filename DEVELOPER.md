@@ -2163,24 +2163,33 @@ Round MP0 is the groundwork:
   with the verbs' own tests.
   - **Ops** (whole numbers unless marked s:):
     - `member.run` (member, kind, job): a supply run (kind = `Resource`, job -1) or a mining run (kind -1, job = `RunJob`);
-    - `member.work` (member): Call to work / End work;
+    - `member.work` (member, intent: 1 Call to work, 0 End work): Call to work / End work;
     - `member.workend` (member): "That's all for now.", silent when she is on no shift;
-    - `member.role` (member, role 0-3): a crafting role on or off;
+    - `member.role` (member, role 0-3, want: 1 on, 0 off): a crafting role on or off;
     - `member.post` (member, outpost id): answers the hint `outpost=<id>`;
     - `member.watch` (member, x, y, z): the guard for that Watch post;
     - `member.recallposted` (member): a staff row's Recall;
     - `outpost.disband` (outpost id, forget 0/1), Owner access: disband a held outpost, or forget a lost one's record;
-    - `outpost.upgrade` (outpost id): repairs a damaged outpost, else buys its next level;
-    - `outpost.mode` (outpost id);
-    - `facility.do` (slot, member or -1; s: entry key, s: action id): one action of the Facilities tab;
-    - `facility.upgrade` (x, y, z): the well or dew collector radial's Upgrade;
+    - `outpost.upgrade` (outpost id, seen: 0 Repair, else the level the Upgrade was pressed at): repairs a damaged
+      outpost, else buys its next level;
+    - `outpost.mode` (outpost id, seen: the mode shown, 0-2);
+    - `facility.do` (slot, member or -1, pick state or -1; s: entry key, s: action id): one action of the Facilities tab;
+    - `facility.upgrade` (x, y, z, seen: the level shown): the well or dew collector radial's Upgrade;
     - `watch.relieve` (x, y, z): the Watch post radial's Relieve guard.
+  - **Intent (the review's M1):** a toggle or a two-purpose button sends what it meant as its LAST int (absent or -1: no
+    check). When the server's state no longer matches it answers `scActionChanged` instead of doing the opposite (a second
+    Repair buying a level, a second Call to work ending the shift). The window computes the intent from the same state the
+    handler reads (`ScActionsWindow.UpgradeIntent`, `ModeIntent`, `ScWork.OnWorkShiftView`), so on the host it always
+    matches. A new toggle op should do the same.
   - **The Facilities tab:** `ScFacilityTab.Build(viewer)` builds the entries for a player (a provider is
     `(List<FacilityEntry> into, EntityPlayer viewer)`), so a client builds its tab from its copy with its own player and the
     server rebuilds the entry for the player who pressed. `FacilityAction.Run` and `Pick` take an `EntityPlayer`. Give every
     action an `Id` (its label's localization key): `facility.do` matches a pressed button by its slot and that id, so a
-    list that changed in between, or a client in another language, cannot fire the wrong action. An action that needs more
-    than Community access sets `Access` (rationing: `Owner`). `Ready` and `WhyNot` on a client are hints from its copy.
+    list that changed in between, or a client in another language, cannot fire the wrong action. An action whose meaning
+    depends on state puts that state in its id (`scUiFacUpgrade@<level>`, `scUiFacAssignGuard@x,y,z`), so the match
+    refuses a stale press; a pick that does one of two things by the member's state sets `PickState` (Call to work: 1 call,
+    0 end), which the client sends with the pick. An action that needs more than Community access sets `Access`
+    (rationing: `Owner`). `Ready` and `WhyNot` on a client are hints from its copy.
   - **Reads and writes:** the checks the window, the tab and the radials read for display (`ScRuns.CanSend`,
     `ScWork.CanStart`, `ScOutpostPerks.CanUpgrade`, `ScActivities.WhyNot*`, `ScLightsOut.WhyNot`) answer from a client's copy
     (`ScRegistry.Ready`). The verbs that write (`Send`, `Start`, `CallOrEnd`, `Upgrade`, `Repair`, `PourDrinks`,
@@ -2188,7 +2197,9 @@ Round MP0 is the groundwork:
     `ScActionsWindow.CanRequest` says whether this machine can ask the server at all (the radials show their SC commands
     by it).
   - **`sc_shift`** (a member on a work shift) is sent to the clients and set to 0 when the shift ends, no longer removed:
-    the dialog rows read it there, and a removal never reaches a client. Test it with `> 0`.
+    the dialog rows read it there, and a removal never reaches a client. Test it with `> 0`. The shift's `Owner` link is
+    force-sent too, and `ScCommunity.Detach` clears `Owner` with `ClearSynced` (clients get a 0; the server removes it as
+    before). SCore and 0-XNPCCore treat `Owner` 0 as no owner (their own Dismiss writes 0).
 
 - **Round MP2, the land claim radial and the console** (`ScActionsClaim`, `TEFeatureSCCommunity`, `ConsoleCmdSc`,
   `ConsoleCmdScl`):
@@ -2211,8 +2222,10 @@ Round MP0 is the groundwork:
   - **`sc`** is no client command, so a client's `sc` runs on the server. It acts for the player who typed it:
     `ConsoleCmdSc.Me`, the client's entity from `CommandSenderInfo.RemoteClientInfo`, else the local player, else null
     (telnet, the web console, a dedicated server's own console: the old "no player" answers). Code in `ConsoleCmdSc` uses
-    `Me`, never `ScCommunity.LocalPlayer`. Several handlers it hands a subcommand to still read `LocalPlayer` themselves
-    (the enclave, band, lights-out and refill commands, among others) and answer for the host until they are converted.
+    `Me`, never `ScCommunity.LocalPlayer`. `sc lightsout on|off` acts for `Me` too. Not for a client until a later round
+    (MP5: the radio and the world): `sc barter`, `sc scout`, `sc infest add` and `sc outpost pay|refuse` pass
+    `Me as EntityPlayerLocal` (no player for a client), `sc enclave refill now` and the enclave and band commands' own
+    handlers read the host's own player.
   - **`scl`** (`ConsoleCmdScl`, long name `survivorcommunitylocal`) is a client command (`IsExecuteOnClient`, permission
     level 1000: any player). It runs `ui [reset]`, `portrait ...` and `voice [play|stop|rescan]` in the typing player's own
     game through the same code (`ConsoleCmdSc.ExecuteClientLocal`), reading only that machine's copy. The game runs a
@@ -2251,6 +2264,24 @@ Round MP0 is the groundwork:
     `ScCommunity.SetSynced` (force-sent, only on a change) and clear them with `ScCommunity.ClearSynced` (clients get a 0,
     then the server removes it, so every server-side reader and the save see what they always did). Code that runs on a
     client tests the value (`> 0`), never `HasCustomVar`.
+  - **No home by talking:** for a remote player the talk context, the hand-over, `member.join` and a band's line read
+    whether the home stands (`ScZone.EnsureHomeFor`: `HomeStands`), never adopt a claim with AutoHomeFirstClaim; only the
+    host's own player keeps `EnsureHome`. A client's home comes from the radial (`home.set`, an Owner op).
+  - **In person:** the talk modes of `member.follow` / `member.home`, `member.join`, `band.join` and the `favour.*` ops
+    need a remote sender within `ScTalkContext.TalkRange` (20 m) of the live body; out of reach is answered as no body
+    (silent; a hand-over's items go back).
+  - **A new talk drops the old facts:** `ScTalkContext.OnTalkOpened` forgets the facts of an earlier talk with that NPC
+    before it asks again, so the rows wait for this talk's answer.
+- **Known gaps after the MP2 review (later rounds):**
+  - A supplies hand-over whose answer never comes (a dropped connection) is not refunded, and its row's `ScJoin` waits 30 s
+    (members MINOR 2, NIT 2): MP3's item transactions.
+  - E6: `Prospect.Started` never goes back when a remote player drops the favour quest, so that POI's vanilla clear
+    quests are not re-armed for remote players until the favour is done (members MINOR 7): MP4's journal report.
+  - The window's Home / Leave keep a `done` fallback text that is never used (core n5); one helper for the `sc_shift` 0
+    and `ClearSynced` (core n1).
+  - No per-player request budget; no range check on the three claim ops (only the sender's own claim passes) (radials NIT 2).
+  - A client sees a band line's tokens raw for one round trip; two tooltips when a client's request fails at once; a
+    controller's cursor jumps to the first row when facts land (members NIT 3-5).
 
 ## How it hangs together (for modders)
 

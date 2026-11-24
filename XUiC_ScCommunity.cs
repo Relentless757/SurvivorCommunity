@@ -489,12 +489,13 @@ namespace SurvivorCommunity
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null || !WorkOpen) return;
+            int intent = ScWork.OnWorkShiftView(m) ? 0 : 1;     // round MP2 (review core/window M1): what the button says - 1 Call, 0 End
             ScActions.Request("member.work", r =>
             {
                 ShowReply(r, false);
                 workPickingId = -1;                  // the message shows where the row was
                 AfterReply();
-            }, m.Id);
+            }, m.Id, intent);
 #endif
         }
 
@@ -508,11 +509,15 @@ namespace SurvivorCommunity
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null || !WorkOpen) return;
+            // round MP2 (review core/window M1): the state wanted - the opposite of what the button shows (ScWork.UiValue's roleNcolor)
+            EntityAlive npc = ScCommunity.FindNpc(m.Id);
+            int mask = npc != null ? ScCraft.ReadMask(npc) : m.CraftRoles;
+            bool on = mask >= 0 && role >= 0 && role < ScCraft.RoleCvars.Length && (mask & (1 << role)) != 0;
             ScActions.Request("member.role", r =>
             {
                 ShowReply(r, false);
                 RefreshBindingsSelfAndChildren();
-            }, m.Id, role);
+            }, m.Id, role, on ? 0 : 1);
 #endif
         }
 
@@ -693,7 +698,7 @@ namespace SurvivorCommunity
             {
                 ShowReply(r, true);
                 AfterReply();
-            }, o.Id);
+            }, o.Id, ScActionsWindow.ModeIntent(o));     // round MP2 (review core/window M1): the mode shown
         }
 
         /// <summary>Assign: switch to the members with a "pick someone" hint; pressed again (or any tab) cancels.</summary>
@@ -731,6 +736,16 @@ namespace SurvivorCommunity
                 {
                     ShowReply(r, false);             // the reason in the pick's line; the pick stays open
                     RefreshBindingsSelfAndChildren();
+                    return;
+                }
+                // round MP2 (review core/window m6): a client's late answer after the pick was left (another tab, another pick,
+                // the window closed) drives no tab switch - the line only, as TryAssignWatch and TryFacilityPick do. The host
+                // answers inline, with the pick still open: unchanged there
+                if (assignOutpostId != outpostId || (!ScCommunity.IsHost && !IsOpen()))
+                {
+                    if (assignOutpostId == outpostId) { assignOutpostId = -1; filter = Filter.All; filterDirty = true; message = ""; }
+                    opMessage = r.Text;
+                    AfterReply();
                     return;
                 }
                 assignOutpostId = -1;
@@ -781,7 +796,7 @@ namespace SurvivorCommunity
             {
                 ShowReply(r, true);
                 AfterReply();
-            }, o.Id);
+            }, o.Id, ScActionsWindow.UpgradeIntent(o));  // round MP2 (review core/window M1): Repair (0) or Upgrade at the level shown
         }
 
         /// <summary>R2: a runner the window cannot turn round for want of a radio (grayed; the click says why).</summary>
