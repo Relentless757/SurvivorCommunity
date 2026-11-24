@@ -46,6 +46,25 @@ behind did the OPPOSITE of what its button showed. Each now sends what it meant,
 talk's orders and favours need the player beside the survivor, and a few smaller fixes (below). Build `sc34_mp2`,
 **deployed to 3.4 on 2026-11-24** (port-3.4 9470e8f7, DLL 5710eca8, protocol 3; the dedicated server loads the same folder), untested in game.
 
+Self-tested 2026-11-24 (my run: the dedicated test server on a copy of a test save, the 3.4 client joined through DevLink,
+the window's buttons clicked through DevLink):
+- [x] Join: both logs say protocol 3; the client got the community (2 members, 3 outposts, 2659 bytes); the server logged
+      `actions: 25 op(s) registered`.
+- [x] Members tab, Call to work pressed twice at once: `member.work by Elisk: done (Lena is coming to work ...)`, then
+      `refused (scActionChanged)` - the client showed "That changed in the meantime. Look again and try once more." The row
+      then read End work, and End work sent her back to her post.
+- [x] A role (Cook) on; Send on supply run (Food): she left, and the client's window showed "Supply run - back day 6" with
+      the run button dimmed.
+- [x] Follow me on Hank: he follows the client's player; Home: "Hank is home and settling in."
+- [x] Outposts tab, Mode pressed twice at once: one change, the second `scActionChanged`. Upgrade on an idle outpost: refused
+      with its reason both times.
+- [x] Facilities tab on the client (built from the server's data): Watch posts, Assign guard, Hank - the pick reached the
+      server and was refused for a real reason (he is injured); with no ammo in the stockpile the button was dimmed with
+      the stockpile line.
+- [x] `scl ui reset` on the client. The server's log has no SC error.
+- [ ] Not covered by that run: `sc` through the real F1 console as a client (DevLink runs console commands on the client
+      itself), the land claim, watch post and well radials, the talks (favours, joining, talk orders), two real players.
+
 **Single player (and the host's own play): nothing may change**
 - [ ] Outposts tab: Repair a damaged outpost, then Upgrade; Mode cycles normal, quiet, push. Members tab: Call to work,
       End work, each role on and off. A well's Upgrade (radial and the Facilities tab). Facilities tab: Call to work on a
