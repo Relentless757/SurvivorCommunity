@@ -37,6 +37,60 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP2 (part: members and dialogs) (2026-11-23): clients give member orders, recruit and join bands
+
+Why: on a client the talk's member rows did nothing and the recruit rows never showed (their requirements ran on the client,
+where the community is a read-only copy). Member orders, joining, the recruit favours and a band's join are now requests the
+server answers (`member.follow`, `member.home`, `member.leave`, `member.join`, `favour.*`, `band.join`), and the server tells
+a client what the recruit rows need when a talk opens (`NetPackageScTalkContext`). Build `sc34_mp2m` (part M only; the
+window's buttons are part W), not deployed, untested in game. With `DebugLogging` on, the client logs a
+`talk context for <id>` line per talk and the server an `action <op> by <player>` line per request.
+
+**Single player: nothing may change**
+- [ ] Recruit a survivor with a POI favour: "I could use someone like you..." shows, "Mark it" puts the quest in the journal,
+      clearing the POI and returning lets them join. The POI's sleepers are not re-armed when the quest starts.
+- [ ] A POI that already reads clear: "Mark it", then "Actually, I've already cleared that." closes the quest as completed,
+      and the join row follows.
+- [ ] A supplies favour: "Sure, I'll see what I can find." (journal quest), then "Here, I've got what you asked for." takes
+      the items and they join in the same click. With too few items: "You are not carrying enough..."; with no home or a full
+      roster the items stay in your bag and the tooltip says why.
+- [ ] No community home yet: the row answers "start a community first" with the tooltip.
+- [ ] Talk to a member: Follow me, Go home, Head home (to a runner met outside), the runs and Ask to leave work and say what
+      they said before (Follow me with a full party: the refusal, and she says so).
+- [ ] A band you helped: "Come to our place." and "Welcome to the community." - they set off for home.
+- [ ] Hit a prospect: they turn hostile and the favour quest closes as failed.
+- [ ] Log: no SC errors; no `talk context` line (single player never sends one).
+
+**A client on a dedicated server (or a listen host)**
+- [ ] Talk to a wild survivor near the base: the recruit row shows a moment after the talk opens (POI or supplies, as the
+      server rolled it). The talk card shows their traits. The server's log says `<name> asks for a favour`.
+- [ ] POI favour: "Mark it" puts the quest in the CLIENT's journal; the server's log says `... is not clear yet`. Walk in:
+      the sleepers are there as for any clear quest, and they are not re-armed (with `DebugLogging` the server logs
+      `suppressed the quest POI re-arm ... (favour quest)`).
+- [ ] Clear it, return: the join row shows, the quest closes as completed, and they join (following until home, or stationed
+      when you are home). The window's member list shows them within about a second.
+- [ ] "Actually, I've already cleared that." on a clear POI: the quest closes as completed and the join row follows.
+- [ ] Supplies favour, carried in the same talk: the items leave the client's bag, they join, the quest closes.
+- [ ] Supplies favour while the roster is full (MaxMembers): the refusal says so and the items stay in your bag.
+- [ ] Talk to a member: Follow me makes her follow THIS player (she teleports after the client, not the host); Go home sends
+      her back; Ask to leave removes her (the whole community is told); Run sends her (part W's `member.run`).
+- [ ] Talk to a runner met outside: "Head home" turns her round.
+- [ ] Member rows after a change: dismiss a member, talk to her again - she shows the stranger rows, not "Go home"
+      (`sc_member` and `sc_following` reach the client as 0).
+- [ ] A band you helped: its greeting shows (it may first show the stranger page for a moment), "Come to our place." and
+      "Welcome to the community." work. The lines with `{bandwhere}` / `{bandjoinfacts}` still show the raw token until the
+      merge routes `ScEncDialog.Fill` (known).
+- [ ] Logs: no SC errors on either side.
+
+**Two players pressing the same thing**
+- [ ] Both take the same survivor's POI favour: each gets the quest. One clears and joins them: the other's quest is removed
+      (`favour quest of <id> closed (removed)` in their log).
+- [ ] Both stand at a supplies survivor and hand over at once: one hand-over goes through; the other is refused ("That favor
+      is no longer open.") and their items come back.
+- [ ] Both tell the same member "Follow me" at once (or press Follow in the window): she follows the first; the second is told
+      "<name> is following someone else." and she is not sent home.
+- [ ] One player hits a prospect both took a favour from: both quests close (failed).
+
 ## Round MP1 (part: looks) (2026-11-23): every player sees the same survivors
 
 Why: each client used to roll its own random look for every SC body (members, prospects, enclave people, bands, wild

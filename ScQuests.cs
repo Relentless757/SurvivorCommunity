@@ -149,6 +149,52 @@ namespace SurvivorCommunity
             return null;
         }
 
+        /// <summary>
+        /// Round MP2 (E6): IsOurPoi for the SleeperEventData prefix (Patches_Quest), which knows who subscribed to the POI. The
+        /// local journals answer first, as before. When a REMOTE player subscribed too, the server cannot see that player's
+        /// journal (it is on their machine), so it answers from its own records: a POI favour taken on and not done yet
+        /// (Prospect: Favour Poi, Started, not Done) at this POI, or an accepted enclave request's place. With only local
+        /// subscribers (single player, the host's own quests) the answer is exactly the old one.
+        /// </summary>
+        public static bool IsOurPoi(Vector3 poiPosition, List<int> subscribers)
+        {
+            if (IsOurPoi(poiPosition)) return true;
+            try
+            {
+                if (!ScRegistry.Loaded || !AnyRemote(subscribers)) return false;
+                Vector3i key = World.worldToBlockPos(poiPosition);
+                foreach (Prospect p in ScRegistry.Prospects.Values)
+                    if (p.Favour == FavourKind.Poi && p.Started && !p.Done && p.PoiPos == key) return true;
+                foreach (EnclaveRequest r in ScRegistry.EncRequests)
+                {
+                    if (r == null || !r.IsAccepted) continue;
+                    Enclave e = ScEnclaves.ById(r.EnclaveId);
+                    if (e == null) continue;
+                    Vector3i at, size;
+                    string name;
+                    ScEncRequests.RequestPlace(r, e, out at, out size, out name);
+                    if (at == key) return true;
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("quest-isourpoi-server", e);
+            }
+            return false;
+        }
+
+        /// <summary>Round MP2: is any of these entity ids a player on another machine (a client's quest subscribed)?</summary>
+        private static bool AnyRemote(List<int> ids)
+        {
+            if (ids == null) return false;
+            for (int i = 0; i < ids.Count; i++)
+            {
+                EntityPlayer pl = ScPlayers.ByEntity(ids[i]);
+                if (pl != null && !(pl is EntityPlayerLocal)) return true;
+            }
+            return false;
+        }
+
         /// <summary>Is this POI position the target of one of our live quests? (SleeperEventData prefix.)</summary>
         public static bool IsOurPoi(Vector3 poiPosition)
         {
@@ -1073,7 +1119,7 @@ namespace SurvivorCommunity
                     ScLeadership.Count(ScLeadership.FavourEvent);
                     // the quest stays open: its phase 2 ("return to <name>") completes when the player talks to them
                     EntityAlive npc = ScCommunity.FindNpc(p.Id);
-                    if (npc != null) npc.Buffs.SetCustomVar("sc_favourDone", 1f);
+                    if (npc != null) ScCommunity.SetSynced(npc, "sc_favourDone", 1f);      // round MP2 (E9): force-sent
                     ScCommunity.Tell(lp, string.Format(Localization.Get("scFavourPoiDone"), p.PoiName, p.Name), "");
                     ScLog.Out("favour done: " + p.PoiName + " is clear - return to " + p.Name + " and they will join");
                 }

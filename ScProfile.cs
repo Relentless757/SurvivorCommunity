@@ -15,7 +15,8 @@ namespace SurvivorCommunity
     /// %sc_pf_known (a former member: their traits show by name). A member who leaves takes their record as it is then
     /// (Store). The body is only kept while something pins it (a favour asked about, a grudge, membership): a survivor
     /// the player only talked to goes with the chunk like any wild survivor, profile and all.
-    /// The '%' makes them reach clients. Rolled on the host only.
+    /// The '%' makes them reach clients. Rolled on the host only - round MP2: for a client's talk the server rolls it when the
+    /// talk opens (ScTalkContext.Build), so the client's talk card reads it a moment later.
     /// </summary>
     public static class ScProfile
     {

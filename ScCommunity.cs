@@ -5,7 +5,8 @@ using UnityEngine;
 namespace SurvivorCommunity
 {
     /// <summary>
-    /// The community verbs. Host / single player only: every mutator refuses on a client.
+    /// The community verbs. Host / single player only: every mutator refuses on a client. Round MP2: a client asks the server
+    /// through ScActions (ScActionsMembers: member.follow / home / leave / join); the verbs take any EntityPlayer, the sender.
     ///
     /// Membership is layered on SCore's hire machinery rather than replacing it:
     ///   - a FOLLOWING member is a normal SCore hire (Leader/Owner cvars, hired_* on the player, Follow order). The player
@@ -154,13 +155,17 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>The recruit is done with their favour: make them a member (no dukes, ever).</summary>
-        public static bool Join(EntityAlive npc, EntityPlayerLocal player, out string error)
+        /// <summary>
+        /// The recruit is done with their favour: make them a member (no dukes, ever). Round MP2: any player (the member.join
+        /// request's sender, ScActionsMembers) - the server's verb.
+        /// </summary>
+        public static bool Join(EntityAlive npc, EntityPlayer player, out string error)
         {
             error = null;
             try
             {
                 if (npc == null || player == null) { error = "scInternal"; return false; }
+                if (!ScRegistry.Loaded) { error = "scHostOnly"; return false; }      // round MP2 (E10): never on a client's copy
                 string why;
                 if (!CanRecruit(npc, player, out why)) { error = why; return false; }
                 if (!ScZone.EnsureHome(player)) { error = ScZone.NeedHomeKey(); return false; }
@@ -180,10 +185,13 @@ namespace SurvivorCommunity
         /// (ScEnclaveDeals.Recruit: the same face, skills and traits) - becomes a member on this body: the roster, a favour's
         /// quest closed, a paid hire ended, the cvars, traits and AI package, then stationed at home or following until home.
         /// tell: false - no "joined" tooltip (E12: a whole enclave joining has one tell for all of them, ScEncJoin).
+        /// Round MP2: any player. A remote player's favour quest is on their own machine: member.join's reply closes it there
+        /// (ScActionsMembers); every other player's copy of that favour quest is removed (ScTalkContext.CloseFavourForOthers).
         /// </summary>
-        public static bool Admit(Member m, EntityAlive npc, EntityPlayerLocal player, out string error, bool tell = true)
+        public static bool Admit(Member m, EntityAlive npc, EntityPlayer player, out string error, bool tell = true)
         {
             error = null;
+            if (!ScRegistry.Loaded) { error = "scHostOnly"; return false; }      // round MP2 (E10): never on a client's copy
             try
             {
                 m.JoinDay = Today;
@@ -192,7 +200,13 @@ namespace SurvivorCommunity
                 // their favour quest ends with the join: one still open is waiting on "return to <name>" (completed),
                 // or the favour was skipped (`sc recruit`, removed)
                 Prospect pr = ScRegistry.GetProspect(m.Id);
-                if (pr != null) ScQuests.CloseFavour(player, pr.Id, pr.Done);
+                if (pr != null)
+                {
+                    // round MP2: the journal is the acting player's own machine's - the host's here, a client's through the reply
+                    if (player is EntityPlayerLocal) ScQuests.CloseFavour(player, pr.Id, pr.Done);
+                    // round MP2 (the E 4.4 decision): the favour was shared - anyone else who took it on loses their copy
+                    ScTalkContext.CloseFavourForOthers(pr.Id, false, player);
+                }
                 ScRegistry.Prospects.Remove(m.Id);
 
                 // D9: a companion the player hired the vanilla way joins on the same terms as anyone - the paid hire ends
@@ -206,8 +220,8 @@ namespace SurvivorCommunity
                     ScLog.Out(m.Name + " was your hired companion - joining ends the paid hire (Voice Control contract " + (hadContract ? "removed" : "none") + ")");
 
                 npc.Buffs.SetCustomVar("Persist", 1f);
-                npc.Buffs.RemoveCustomVar("sc_favour");
-                npc.Buffs.RemoveCustomVar("sc_favourDone");
+                ClearSynced(npc, "sc_favour");          // round MP2 (E9): clients get the 0
+                ClearSynced(npc, "sc_favourDone");
                 StampCvars(m, npc, player);
                 ScTraits.ApplyBuffs(m, npc);
                 ApplyAiPackage(npc);
@@ -277,12 +291,14 @@ namespace SurvivorCommunity
         public static void Station(Member m, EntityAlive npc, bool teleport = true)
         {
             if (m == null || npc == null) return;
+            if (!ScRegistry.Loaded) return;           // round MP2 (E10): never on a client's copy (its record or the body's copy)
             try
             {
 #if SC_V34
                 if (ScDowned.DefersStation(m, npc)) return;   // round U2 (risks 1, 2): never on a downed body - her link, her bleed-out, no teleported ragdoll
 #endif
-                EntityPlayerLocal player = LocalPlayer;
+                // round MP2: out of her own leader's party (a client's follower sent home), else the host's own player as before
+                EntityPlayer player = ScPlayers.ById(m.LeaderId) ?? LocalPlayer;
                 World w = World;
 
                 Detach(npc, player);
@@ -1150,7 +1166,8 @@ namespace SurvivorCommunity
 
         // ---- following ----
 
-        public static bool Follow(Member m, EntityAlive npc, EntityPlayerLocal player, out string error)
+        /// <summary>Round MP2: any player (member.follow's sender) - the leader is the player who asked.</summary>
+        public static bool Follow(Member m, EntityAlive npc, EntityPlayer player, out string error)
         {
             error = null;
             if (!IsHost) { error = "scHostOnly"; return false; }
@@ -1167,7 +1184,8 @@ namespace SurvivorCommunity
             if (ScRegistry.FollowerCount + ScEnclaveDeals.EnlistedCount() >= ScConfig.MaxFollowers) { error = "scFollowersFull"; return false; }
 #if SC_V34
             // round U6 (D12): 0-XNPCCore's party cap, shared with paid hires; MaxFollowers above stays SC's own lower cap (ScPartyCap)
-            if (ScPartyCap.Refuses(m, npc, player, out error)) return false;
+            // MP2 merge: ScPartyCap.Refuses takes EntityPlayerLocal (a remote player's party cap is not checked until then)
+            if (ScPartyCap.Refuses(m, npc, player as EntityPlayerLocal, out error)) return false;
 #endif
             if (ScConfig.RefusesForMood(m)) { error = "scRefuseMood"; return false; }   // P2: never by default
 #if SC_V34
@@ -1178,10 +1196,14 @@ namespace SurvivorCommunity
             return true;
         }
 
-        private static void FollowInternal(Member m, EntityAlive npc, EntityPlayerLocal player, MemberStatus status)
+        private static void FollowInternal(Member m, EntityAlive npc, EntityPlayer player, MemberStatus status)
         {
             ScNpc.SetLeaderAndOwner(npc.entityId, player.entityId);   // Follow order, hired_*, cache, StaticSpawner, Owner
             npc.Buffs.SetCustomVar("Persist", 1f);
+            // round MP2: her leader's platform id from the start (the ticker's NoteLeader would write the same a second later), so
+            // a client's follower whose link drops before that is never handed to whoever hosts (ScTicker.LeaderToRestore)
+            string leaderId = ScPlayers.IdOf(player);
+            if (leaderId.Length > 0) m.LeaderId = leaderId;
             m.Status = status;
             ScStuck.ResetGain(m);              // round 29 review L5: no held move back outlives the status
             // SCore's Follow lands a tick later (buffOrderFollow): until the ticker sees it, a Guard still on the NPC is the
@@ -1210,7 +1232,8 @@ namespace SurvivorCommunity
             return "?";
         }
 
-        public static bool ReturnHome(Member m, EntityAlive npc, EntityPlayerLocal player, out string error)
+        /// <summary>Round MP2: any player (member.home's sender): "inside the base" is that player's position.</summary>
+        public static bool ReturnHome(Member m, EntityAlive npc, EntityPlayer player, out string error)
         {
             error = null;
             if (!IsHost) { error = "scHostOnly"; return false; }
@@ -1254,8 +1277,9 @@ namespace SurvivorCommunity
         {
             ScLog.Out("Leave requested for " + (m != null ? m.Name : "?") + " (" + (reasonKey ?? "-") + ") from " + Caller());
             if (m == null) return;
-            // round MP1: only the real registry - a client's copy (ScMirror) is never changed (its callers say scHostOnly first)
-            if (!ScRegistry.Loaded) return;
+            // round MP1: only the real registry - a client's copy (ScMirror) is never changed. Round MP2 (E10): a client asks with
+            // member.leave (ScActionsMembers); this refusal stays as the verb's own defense
+            if (!ScRegistry.Loaded || !IsHost) return;
 #if SC_V34
             // round U2: a downed member does not leave - Leave detaches her, 0-XNPCCore would find no leader and her bleed-out would
             // stop for good (an invulnerable stranger); asked again once she is up
@@ -1300,10 +1324,13 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Does this entity carry the mod's marks at all? (The cleanup queue must never strip an innocent NPC that inherited a purged id.)</summary>
+        /// <summary>
+        /// Does this entity carry the mod's marks at all? (The cleanup queue must never strip an innocent NPC that inherited a purged
+        /// id.) Round MP2: a mark of 0 is none (E9: a client's copy keeps the 0 a clear sent it; the server never holds a 0).
+        /// </summary>
         public static bool CarriesOurMarks(EntityAlive npc)
         {
-            return npc != null && npc.Buffs != null && (npc.Buffs.HasCustomVar("sc_member") || npc.Buffs.HasCustomVar("sc_favour"));
+            return npc != null && npc.Buffs != null && (npc.Buffs.GetCustomVar("sc_member") > 0f || npc.Buffs.GetCustomVar("sc_favour") > 0f);
         }
 
         /// <summary>
@@ -1320,8 +1347,8 @@ namespace SurvivorCommunity
                 ClearCvars(npc);
                 ScSkills.ClearCvars(npc);
                 ScTraits.RemoveAllBuffs(npc);
-                npc.Buffs.RemoveCustomVar("sc_favour");
-                npc.Buffs.RemoveCustomVar("sc_favourDone");
+                ClearSynced(npc, "sc_favour");             // round MP2 (E9): clients get the 0
+                ClearSynced(npc, "sc_favourDone");
                 if (npc.AIPackages != null) npc.AIPackages.Remove(ResidentPackage);
                 ScDoors.Enable(npc, false);                // a former member no longer opens the player's doors
                 npc.Buffs.RemoveCustomVar("Persist");
@@ -1361,6 +1388,8 @@ namespace SurvivorCommunity
                     // their favour quest would otherwise linger in the journal: failed while clearing or gathering,
                     // completed once the POI was secured and only "return to <name>" was left
                     if (LocalPlayer != null) ScQuests.CloseFavour(LocalPlayer, p.Id, p.Done);
+                    // round MP2: the same for every client that took it on (the favour is shared: the E 4.4 decision)
+                    ScTalkContext.CloseFavourForOthers(p.Id, p.Done, LocalPlayer);
                     ScRegistry.Prospects.Remove(npc.entityId);
                     ScRegistry.SaveAtomic();
                 }
@@ -1382,7 +1411,7 @@ namespace SurvivorCommunity
         /// <summary>Registry side of a death (SetDead or a supply run): roster, deaths list, morale penalty, tooltip.</summary>
         public static void RecordDeath(Member m, EntityPlayer player, string tooltipKey)     // round MP0: any player
         {
-            if (m == null) return;
+            if (m == null || !ScRegistry.Loaded) return;      // round MP2 (E10): never on a client's copy
             if (m.Status == MemberStatus.Garrison) ScGarrison.RemoveStandIn(m);
             if (m.Status == MemberStatus.OnRun)
             {
@@ -1417,7 +1446,7 @@ namespace SurvivorCommunity
         public static void StampCvars(Member m, EntityAlive npc, EntityPlayer owner)
         {
             if (m == null || npc == null || npc.Buffs == null) return;
-            npc.Buffs.SetCustomVar("sc_member", 1f);
+            SetSynced(npc, "sc_member", 1f);            // round MP2 (E9): the talk's member rows read it on every client
             if (owner != null) npc.Buffs.SetCustomVar("sc_owner", owner.entityId);
             Patches_VoiceControl.StripContract(npc);   // hired and billed before joining: members are never billed
             if (ScXnpc.HasXnpcLevels(npc)) ScXnpc.StripLevels(npc);   // D8: SC's skills only (Patches_Xnpc X3 keeps them off)
@@ -1430,19 +1459,46 @@ namespace SurvivorCommunity
         {
             if (m == null || npc == null || npc.Buffs == null) return;
             bool with = m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation;
-            if (with) npc.Buffs.SetCustomVar("sc_following", 1f);
-            else if (npc.Buffs.HasCustomVar("sc_following")) npc.Buffs.RemoveCustomVar("sc_following");
-            if (ScRunners.IsPhysical(m)) npc.Buffs.SetCustomVar(ScRunners.OnRunCvar, 1f);
-            else if (npc.Buffs.HasCustomVar(ScRunners.OnRunCvar)) npc.Buffs.RemoveCustomVar(ScRunners.OnRunCvar);
+            // round MP2 (E9): the talk's rows (Follow me / Go home / Run / Head home) read these on every client - force-sent on a
+            // change, a 0 instead of a removal (SetSynced and ClearSynced send nothing while the value stays: this runs every second)
+            if (with) SetSynced(npc, "sc_following", 1f);
+            else ClearSynced(npc, "sc_following");
+            if (ScRunners.IsPhysical(m)) SetSynced(npc, ScRunners.OnRunCvar, 1f);
+            else ClearSynced(npc, ScRunners.OnRunCvar);
         }
 
         public static void ClearCvars(EntityAlive npc)
         {
             if (npc == null || npc.Buffs == null) return;
-            npc.Buffs.RemoveCustomVar("sc_member");
+            ClearSynced(npc, "sc_member");              // round MP2 (E9): clients get the 0
             npc.Buffs.RemoveCustomVar("sc_owner");
-            npc.Buffs.RemoveCustomVar("sc_following");
-            npc.Buffs.RemoveCustomVar(ScRunners.OnRunCvar);
+            ClearSynced(npc, "sc_following");
+            ClearSynced(npc, ScRunners.OnRunCvar);
+        }
+
+        /// <summary>
+        /// Round MP2 (E9, the brief's rule 5): a gating cvar the talk's rows read on every client (sc_member, sc_following,
+        /// sc_onrun, sc_favour, sc_favourDone). Force-sent, and only when it changes - a plain server write reaches a client
+        /// only through the slow bulk sync, if at all. Server only (a write on a client's copy would go to the server).
+        /// </summary>
+        public static void SetSynced(EntityAlive npc, string name, float value)
+        {
+            if (npc == null || npc.Buffs == null || string.IsNullOrEmpty(name)) return;
+            if (npc.Buffs.HasCustomVar(name) && npc.Buffs.GetCustomVar(name) == value) return;     // unchanged: nothing to send
+            npc.Buffs.SetCustomVar(name, value, true, CVarOperation.set, true);
+        }
+
+        /// <summary>
+        /// Round MP2 (E9): clears a gating cvar. Clients are sent a 0 (a removal never reaches them: EntityBuffs.RemoveCustomVar is
+        /// local, and the bulk sync carries no removals), and the cvar is then removed HERE, as before - so every reader on the
+        /// server and the save see exactly what they always did (a 0 is never saved either). Readers that run on a client test
+        /// the value (&gt; 0), as SCore's NPCHasCVarSDX operator="not" and value="1" already do. Nothing sent when there is none.
+        /// </summary>
+        public static void ClearSynced(EntityAlive npc, string name)
+        {
+            if (npc == null || npc.Buffs == null || string.IsNullOrEmpty(name) || !npc.Buffs.HasCustomVar(name)) return;
+            npc.Buffs.SetCustomVar(name, 0f, true, CVarOperation.set, true);
+            npc.Buffs.RemoveCustomVar(name);
         }
 
         /// <summary>Adds the resident AI package at runtime (the list is rebuilt from the class on every load).</summary>

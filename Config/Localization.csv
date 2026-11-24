@@ -398,6 +398,9 @@ scRoleCraftsmanship,UI,Menu,,,,"Craftsman"
 scRoleConstruction,UI,Menu,,,,Builder
 scRoleLogistics,UI,Menu,,,,Quartermaster
 scRoleBartering,UI,Menu,,,,Trader
+scMemberGone,UI,Tooltip,,,,They are no longer in the community.
+scFavourGone,UI,Tooltip,,,,That favor is no longer open.
+scFollowingOther,UI,Tooltip,,,,{0} is following someone else.
 scRoleRecon,UI,Menu,,,,Scout
 scRoleFitness,UI,Menu,,,,Trainer
 scRoleFirearmsInstructor,UI,Menu,,,,Instructor

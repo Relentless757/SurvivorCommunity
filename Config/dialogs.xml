@@ -185,7 +185,12 @@
 			<action type="ScJoin, SurvivorCommunity" />
 		</response>
 
-		<!-- members: open the roster, and the three orders (the vanilla hire / dismiss entries are hidden on them) -->
+		<!-- members: open the roster, and the three orders (the vanilla hire / dismiss entries are hidden on them). Round MP2: the
+		     server force-sends sc_member, sc_following and sc_onrun to every client and sends a 0 where it used to remove one (a
+		     removal never reaches a client), so value="1" and operator="not" (absent or 0) read right on every machine; each order
+		     is a request to the server (ScActionsMembers). -->
+		<!-- (the recruit and favour rows above: a client's requirements read what the server said when the talk opened,
+		     ScTalkContext - the rows show a moment after the talk opens there) -->
 		<response id="scCommunity" text="scCommunity">
 			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" value="1" />
 			<action type="ScOpenCommunity, SurvivorCommunity" />
