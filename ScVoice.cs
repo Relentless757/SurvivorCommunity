@@ -61,6 +61,10 @@ namespace SurvivorCommunity
     /// NPC outside the talk's one-line slot - it never stops the talk's line, and the gate does not hold Voice Control for
     /// it. A survivor's bark goes through Voice Control's player when there is one (lip sync), a raider's always from SC's
     /// own source on a child. Holds(npc) - the talk open on them, or SC's talk line still playing on them - keeps barks off them.
+    ///
+    /// Round MP4 (multiplayer): the server says SC's lines and sends each to the players in earshot, or to the one it is for,
+    /// with the voice it picked (NetPackageScVoice; "SC's lines on every machine" below). A talk's lines stay the talking
+    /// player's own, as before.
     /// </summary>
     public static class ScVoice
     {
@@ -403,8 +407,10 @@ namespace SurvivorCommunity
         private static string RaceSeed(EntityAlive npc, bool raider, string seed)
         {
             if (raider || npc == null) return seed;
-            // round MP1: the real registry only - a client keeps choosing a voice as before until the voices travel (round MP4)
-            Member m = ScRegistry.Loaded ? ScRegistry.GetMember(npc.entityId) : null;
+            // round MP1: the real registry only - a client keeps choosing a voice as before until the voices travel (round MP4).
+            // Round MP4: a client's copy too (ScRegistry.Ready), so the voice its own lines pick (a say-line SC says in Voice
+            // Control's place there, its own talk) is the server's - the lines the server sends name their voice anyway
+            Member m = ScRegistry.Ready ? ScRegistry.GetMember(npc.entityId) : null;
             return m != null && !string.IsNullOrEmpty(m.Name) ? m.Name : seed;
         }
 
@@ -865,6 +871,7 @@ namespace SurvivorCommunity
             barkUntil.Clear();
             barkOnVc.Clear();                // round m1w
             pendingDone.Clear();
+            netSent = netHeard = netNoBody = netHeld = netNoClip = 0;   // round MP4
             ScBarks.Reset();
             ScGreetings.Reset();
             ScTaunts.Reset();
@@ -1322,6 +1329,234 @@ namespace SurvivorCommunity
             yield return new WaitForSeconds(seconds);
             try { then(); }
             catch (Exception e) { ScLog.Once("voice-bark-after", e); }
+        }
+
+        // ------------------------------------------------------------------ round MP4: SC's lines on every machine ----
+        //
+        // Every SC line used to play on the host's own machine only (D_npc 4.9): its own AudioSource or Voice Control's player
+        // are local, and the triggers asked for the host's own player. Now the server decides that a line is said, which one
+        // and in which voice, and NetPackageScVoice carries the clip's key and the voice folder's name to every matched player
+        // in earshot (EarshotRange of the speaker), or to the one player it is for (a greeting, a talk's line, a radio line).
+        // The client plays it here with that voice (OnNetLine) - so every machine hears the same voice, whatever its own chain
+        // would pick - and shows the caption in its own language where the caption is a key. The host's own player is never
+        // sent one: the host plays its lines exactly as before. A dedicated server plays nothing itself (PlaysHere): it sends,
+        // and counts the speaker busy for about the line's length (NoteBusy), so the next bark on them waits as on the host.
+
+        /// <summary>Round MP4: a remote player within this many meters (3D) of the speaker hears SC's line - where its 3D voice fades out (OwnMaxDistance, Voice Control's default).</summary>
+        public const float EarshotRange = OwnMaxDistance;
+        /// <summary>Round MP4: Voice Control's own voice relay reaches the players this close to the NPC (NetPackageVCVoiceRelay.RelayFanoutDistance).</summary>
+        public const float VcRelayRange = 32f;
+
+        private static int netSent, netHeard, netNoBody, netHeld, netNoClip;
+
+        /// <summary>Round MP4: this machine plays SC's voices itself (not a dedicated server: no listener, no audio).</summary>
+        internal static bool PlaysHere { get { return !GameManager.IsDedicatedServer; } }
+
+        /// <summary>
+        /// Round MP4, server: the line to one remote player who speaks SC's protocol. False for the host's own player (it plays
+        /// its lines itself), a player without SC, nobody, or on a client.
+        /// </summary>
+        internal static bool SendTo(EntityPlayer p, NetPackageScVoice.Line line)
+        {
+            try
+            {
+                if (p == null || line == null || p is EntityPlayerLocal || !ScCommunity.IsHost || !ScNet.ClientMatches(p)) return false;
+                NetPackageScVoice.Line l = line.Copy();
+                bool ok = ScNet.ToPlayer(p, () => NetPackageManager.GetPackage<NetPackageScVoice>().Setup(l), null);
+                if (ok)
+                {
+                    netSent++;
+                    if (ScConfig.Verbose) ScLog.Verbose("voice: sent " + l + " to " + p.PlayerDisplayName);
+                }
+                return ok;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("voice-net-send", e);
+                return false;
+            }
+        }
+
+        /// <summary>Round MP4, server: the line to every remote player within range meters (3D) of at, dead or alive (a dying player hears the raider who killed them). Returns how many got it.</summary>
+        internal static int SendNear(Vector3 at, NetPackageScVoice.Line line, float range)
+        {
+            if (line == null || !ScCommunity.IsHost) return 0;
+            List<EntityPlayer> all = ScPlayers.All;
+            float sq = range * range;
+            line.Range = range;
+            int n = 0;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p == null || p is EntityPlayerLocal || (p.position - at).sqrMagnitude > sq) continue;
+                if (SendTo(p, line)) n++;
+            }
+            return n;
+        }
+
+        /// <summary>Round MP4, server: the line to every remote player of the community (Stage 1: everyone online) - a radio line, whose hearing each client decides. Returns how many got it.</summary>
+        internal static int SendCommunity(NetPackageScVoice.Line line)
+        {
+            if (line == null || !ScCommunity.IsHost) return 0;
+            EntityPlayer[] to = ScPlayers.Community().ToArray();     // copied: Community() reuses its list
+            int n = 0;
+            for (int i = 0; i < to.Length; i++) if (SendTo(to[i], line)) n++;
+            return n;
+        }
+
+        /// <summary>Round MP4, server: a line said on other machines only - this NPC counts as speaking that long here too (Busy), as after a bark played here.</summary>
+        internal static void NoteBusy(EntityAlive npc, float seconds)
+        {
+            if ((object)npc == null) return;
+            float until = Time.unscaledTime + Mathf.Max(0.5f, seconds);
+            float cur;
+            if (!barkUntil.TryGetValue(npc.entityId, out cur) || cur < until) barkUntil[npc.entityId] = until;
+        }
+
+        /// <summary>Round MP4: about how long these words take to say (where the clip is not played, its length is not known).</summary>
+        internal static float WordsSeconds(string words)
+        {
+            return Mathf.Clamp(1f + 0.07f * (words ?? "").Length, 1.5f, 10f);
+        }
+
+        /// <summary>Round MP4: this machine's clip of key in the voice named voice (its folder); null when this copy of the mod has none.</summary>
+        internal static string PathIn(string voice, string key)
+        {
+            if (string.IsNullOrEmpty(voice) || string.IsNullOrEmpty(key)) return null;
+            foreach (Voice v in Voices())
+            {
+                if (!string.Equals(v.Name, voice, StringComparison.OrdinalIgnoreCase)) continue;
+                string path;
+                return v.Lines.TryGetValue(key, out path) ? path : null;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Round MP4, server: a line said as a talk closes (SayAfterTalk) for the player who had the talk. The host's own player
+        /// (or nobody named) here, exactly as before; a remote player on their own machine only - a talk's lines stay the
+        /// talking player's (DEVELOPER.md) - in the voice the server picks, played there as their own talk's parting line. True
+        /// when it plays here or was sent.
+        /// </summary>
+        public static bool SayAfterTalkFor(EntityPlayer player, EntityAlive npc, string key)
+        {
+            if (player == null || player is EntityPlayerLocal) return SayAfterTalk(npc, key);
+            if (npc == null || string.IsNullOrEmpty(key) || !ScConfig.VoiceLines) return false;
+            var found = new List<string>();
+            Voice v = FirstWith(TalkChain(npc), new[] { key }, found);
+            if (v == null || !v.Lines.ContainsKey(key)) return false;
+            return SendTo(player, new NetPackageScVoice.Line
+            {
+                Kind = NetPackageScVoice.KindTalk, Npc = npc.entityId, Key = key, Voice = v.Name, Name = ScCommunity.DisplayName(npc)
+            });
+        }
+
+        /// <summary>
+        /// Round MP4, client: the server's talk line, in the server's voice, as SayAfterTalk says it (the repeat rule; the talk's
+        /// close leaves it be). In this machine's own talk voice when its copy has no such clip in that voice.
+        /// </summary>
+        internal static bool SayAfterTalkIn(EntityAlive npc, string key, string voice)
+        {
+            if (npc == null || string.IsNullOrEmpty(key) || !ScConfig.VoiceLines) return false;
+            string path = PathIn(voice, key);
+            if (path == null) return SayAfterTalk(npc, key);
+            string tag = npc.entityId + "|" + key;
+            float at;
+            if (recent.TryGetValue(tag, out at) && Time.unscaledTime - at < RepeatSeconds) return false;
+            Play(npc, tag, path);
+            parting = true;   // after Play: its Stop clears the flag
+            return true;
+        }
+
+        /// <summary>Round MP4, client: a line's caption in this machine's language (NetPackageScVoice's caption modes), or null.</summary>
+        internal static string CaptionOf(NetPackageScVoice.Line d)
+        {
+            if (d == null) return null;
+            try
+            {
+                switch (d.Caption)
+                {
+                    case NetPackageScVoice.CaptionWords:
+                        return ScBarks.WordsOf(string.IsNullOrEmpty(d.CaptionKey) ? d.Key : d.CaptionKey);
+                    case NetPackageScVoice.CaptionText:
+                        return string.IsNullOrEmpty(d.CaptionKey) ? null : d.CaptionKey;
+                    case NetPackageScVoice.CaptionLoc:
+                    {
+                        string k = d.CaptionKey;
+                        if (string.IsNullOrEmpty(k)) return null;
+                        string s = Localization.Get(k);
+                        if (string.IsNullOrEmpty(s) || s == k) return null;
+                        if (d.Args != null && d.Args.Length > 0)
+                        {
+                            try { s = string.Format(s, d.Args); }
+                            catch (FormatException) { }   // a row without the tokens: its words as they are
+                        }
+                        return s;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("voice-net-caption", e);
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Round MP4, client: a line the server sent (NetPackageScVoice), main thread. Radio lines go to this machine's own radio
+        /// queue (ScRadioTalk.OnRemote: its own hearing rule); a talk's line plays as this talk's parting line; the rest on the
+        /// speaker's body as the host plays them (PlayBark: through Voice Control's player with lip sync where there is one and it
+        /// is not speaking, else SC's own source), in the server's voice, with the caption. Kept off a speaker this player's own
+        /// talk is open on (Holds), as every SC bark; a greeting waits for no talk at all (as on the host). A speaker beyond this
+        /// machine's 80 m, or a voice this copy of the mod has no clip of (its caption shows alone), is counted (sc voice barks).
+        /// </summary>
+        internal static void OnNetLine(NetPackageScVoice.Line d)
+        {
+            try
+            {
+                if (d == null || ScCommunity.IsHost) return;
+                netHeard++;
+                if (ScConfig.Verbose) ScLog.Verbose("voice: from the server: " + d);
+                if (d.Kind == NetPackageScVoice.KindRadio || d.Kind == NetPackageScVoice.KindHorde)
+                {
+#if SC_V34
+                    ScRadioTalk.OnRemote(d);
+#endif
+                    return;
+                }
+                World w = ScCommunity.World;
+                EntityAlive npc = w != null && d.Npc >= 0 ? w.GetEntity(d.Npc) as EntityAlive : null;
+                if (npc == null) { netNoBody++; return; }
+                if (d.Kind == NetPackageScVoice.KindTalk)
+                {
+                    if (!SayAfterTalkIn(npc, d.Key, d.Voice)) netNoClip++;
+                    return;
+                }
+                if (Holds(npc) || (d.Kind == NetPackageScVoice.KindGreeting && TalkOpen)) { netHeld++; return; }
+                string words = CaptionOf(d);
+                string name = string.IsNullOrEmpty(d.Name) ? ScCommunity.DisplayName(npc) : d.Name;
+                bool vc = d.Kind == NetPackageScVoice.KindVc;
+                string path = PathIn(d.Voice, d.Key);
+                if (path == null)
+                {
+                    if (!string.IsNullOrEmpty(d.Voice)) netNoClip++;
+                    if (words != null) ScBarks.RemoteCaption(npc, name, words, WordsSeconds(words) + 1f, vc);
+                    return;
+                }
+                bool lip = d.Has(NetPackageScVoice.FlagLipSync) && !VcBusy(npc);   // never over Voice Control's own speech on this machine
+                PlayBark(npc, path, lip, d.Has(NetPackageScVoice.FlagAllowDead), clip => ScBarks.RemoteCaption(npc, name, words, clip.length + 1f, vc), null);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("voice-net-line", e);
+            }
+        }
+
+        /// <summary>Round MP4, sc voice barks: the lines sent to other machines (server) and heard from the server (client) this session.</summary>
+        public static string NetStatus()
+        {
+            return "network (round MP4): " + netSent + " line(s) sent to other players, " + netHeard + " heard from the server ("
+                   + netNoBody + " with the speaker beyond this machine, " + netHeld + " held by a talk, " + netNoClip + " with no clip in that voice here)";
         }
 
         // ------------------------------------------------------------------ console ----

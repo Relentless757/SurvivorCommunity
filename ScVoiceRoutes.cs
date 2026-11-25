@@ -46,6 +46,9 @@ namespace SurvivorCommunity
     ///
     /// P1 (say-line ids), P3 (SC's own lines indexed), P5 (punctuation-blind words) and P6 (one line per NPC) are ScBarks';
     /// P4 (greetings) is ScGreetings'. VoiceWheelAcks and VoiceSpokenRefusals switch P2 and P7 off. Main thread only.
+    /// Round MP4 (multiplayer): a refusal (P7) is said when any player is within 30 m, and heard by everyone in earshot
+    /// (ScBarks.SayOwn); with a remote player's talk open on her it is that talk's line, on their machine. The wheel (P2) is
+    /// the wheel's own machine's: a client's labels are matched there, as the host's here.
     /// </summary>
     public static class ScVoiceRoutes
     {
@@ -639,8 +642,10 @@ namespace SurvivorCommunity
                     refusalsQuiet++;                                // review fix 3: as SC's other barks, not a word
                     return;
                 }
-                EntityPlayerLocal lp = ScCommunity.LocalPlayer;
-                if (lp == null || (npc.position - lp.position).sqrMagnitude > SpokenRange * SpokenRange)
+                // round MP4: any player within 30 m (was the host's own) - the line is heard by everyone in earshot (ScBarks.SayOwn
+                // sends it to the remote ones), and she turns to the nearest
+                EntityPlayer lp = NearestListener(npc.position, SpokenRange);
+                if (lp == null)
                 {
                     refusalsFar++;
                     return;
@@ -650,6 +655,15 @@ namespace SurvivorCommunity
                     // the talk is open on her (the dialog's "Come with me.", its weapon pick): a talk line, which its close leaves be
                     ScVoice.SayAfterTalk(npc, key);
                     refusalsInTalk++;
+                    return;
+                }
+                // round MP4: a remote player's talk is open on her (their CurrentNPC, within talk range): a line of that talk, said on
+                // their machine as its parting line - a talk's lines stay the talking player's, as the host's own just above
+                EntityPlayer talker = RemoteTalker(npc);
+                if (talker != null)
+                {
+                    if (ScVoice.SayAfterTalkFor(talker, npc, key)) refusalsInTalk++;
+                    else refusalsUnrecorded++;
                     return;
                 }
                 if (ScVoice.VcBusy(npc))
@@ -664,6 +678,44 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("voice-routes-refusal", e);
             }
+        }
+
+        /// <summary>
+        /// Round MP4: the nearest player within range meters (3D) of pos who hears SC's lines - the host's own, dead or alive (the
+        /// old test), or a remote one with SC's protocol - or null.
+        /// </summary>
+        private static EntityPlayer NearestListener(Vector3 pos, float range)
+        {
+            EntityPlayer best = null;
+            float bestSq = range * range;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p == null || !(p is EntityPlayerLocal || ScNet.ClientMatches(p))) continue;
+                float sq = (p.position - pos).sqrMagnitude;
+                if (sq <= bestSq) { bestSq = sq; best = p; }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Round MP4: a remote player (with SC's protocol) whose talk is with this NPC - SCore's CurrentNPC cvar on them, and they
+        /// stand within ScTalkContext.TalkRange of her (a stale cvar from an old talk does not count) - or null.
+        /// </summary>
+        private static EntityPlayer RemoteTalker(EntityAlive npc)
+        {
+            if (npc == null || !ScCommunity.IsHost) return null;
+            float sq = ScTalkContext.TalkRange * ScTalkContext.TalkRange;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p == null || p is EntityPlayerLocal || p.IsDead() || !ScNet.ClientMatches(p) || p.Buffs == null) continue;
+                if (!p.Buffs.HasCustomVar("CurrentNPC") || (int)p.Buffs.GetCustomVar("CurrentNPC") != npc.entityId) continue;
+                if ((p.position - npc.position).sqrMagnitude <= sq) return p;
+            }
+            return null;
         }
 
         /// <summary>P7: a Follow refusal for want of room - SC's MaxFollowers (scFollowersFull) or 0-XNPCCore's party cap (ScPartyCap's text).</summary>

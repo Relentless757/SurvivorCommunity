@@ -52,6 +52,11 @@ namespace SurvivorCommunity
     ///    it says on its own. Voice Control counts as busy only for its own speech, not for SC's clip on its player
     ///    (ScVoice.VcBusy).
     /// Main thread only. Host / single player (SC is single-player).
+    /// Round MP4 (multiplayer): SC's own lines (Say, SayOwn) are said on the server and sent to every remote player in earshot,
+    /// a greeting to the player greeted only (Relay); a Voice Control line SC says in its place on the server goes to the
+    /// players Voice Control's own relay would have reached (RelayVc) - except a say-line, which Voice Control sends to the
+    /// clients itself. On a client the substitution of its own Voice Control lines works as before, in the server's voice
+    /// for members (ScVoice.RaceSeed reads the copy of the registry).
     /// </summary>
     public static class ScBarks
     {
@@ -118,6 +123,73 @@ namespace SurvivorCommunity
             ScGreetings.Tick();
             ScTaunts.Tick();
             ScClipCache.Tick();     // round m1p: the clip cache's idle sweep and memory bound (works every 30 s)
+#if SC_V34
+            if (ScNet.IsClient) ScRadioTalk.ClientTick();   // round MP4: a client's own radio queue (the server's ticker plays the host's)
+#endif
+        }
+
+        // ------------------------------------------------------------------ round MP4: to the other machines ----
+
+        /// <summary>
+        /// Round MP4: inside Voice Control's SubtitleManager.SayToEarshot (Patches_VoiceControl.Patch_ScSayLineScope) - a say-line
+        /// Voice Control sends to the clients in earshot itself (NetPackageVCSayLine: each runs AcknowledgeCommand, and SC's
+        /// Patch_ScAck there), so a line SC says in its place here is not relayed again.
+        /// </summary>
+        internal static int SayLineDepth;
+
+        /// <summary>Round MP4: the package's kind of one of SC's own families.</summary>
+        private static byte KindOf(string family)
+        {
+            if (family != null && family.StartsWith("greet.", StringComparison.Ordinal)) return NetPackageScVoice.KindGreeting;
+            if (family != null && family.StartsWith("taunt.", StringComparison.Ordinal)) return NetPackageScVoice.KindTaunt;
+            return NetPackageScVoice.KindBark;
+        }
+
+        /// <summary>
+        /// Round MP4, server: SC's own line on this NPC to the other machines - to one player (a greeting is for the player
+        /// greeted) or, to null, to every remote player in earshot (ScVoice.EarshotRange). The line and the voice are the ones
+        /// picked here; each client shows SC's words for the key under its own caption rule.
+        /// </summary>
+        private static void Relay(EntityAlive npc, string family, Pick p, bool lipSync, bool allowDead, EntityPlayer to)
+        {
+            if (npc == null || p == null || !ScCommunity.IsHost) return;
+            var line = new NetPackageScVoice.Line
+            {
+                Kind = KindOf(family), Npc = npc.entityId, Key = p.Key ?? "", Voice = p.Path != null ? p.Voice ?? "" : "",
+                Caption = NetPackageScVoice.CaptionWords, Name = ScCommunity.DisplayName(npc),
+                Flags = (byte)((lipSync ? NetPackageScVoice.FlagLipSync : 0) | (allowDead ? NetPackageScVoice.FlagAllowDead : 0))
+            };
+            if (to != null) ScVoice.SendTo(to, line);
+            else ScVoice.SendNear(npc.position, line, ScVoice.EarshotRange);
+        }
+
+        /// <summary>
+        /// Round MP4 (D_npc 4.9 point 5), server: a line of Voice Control's SC just said in its place here. Voice Control would
+        /// have synthesized it and relayed the sound to the players within 32 m (NetPackageVCVoiceRelay, from OnWavBytesReady);
+        /// SC's clip skipped that, so SC sends its own line to the same players. Not inside a say-line (SayLineDepth): Voice
+        /// Control sent that to the clients in earshot itself. caption: the words shown here (Voice Control's relay shows none;
+        /// the client shows them under Voice Control's subtitle rule for that NPC).
+        /// </summary>
+        private static void RelayVc(EntityAlive npc, Pick p, string caption)
+        {
+            if (npc == null || p == null || p.Path == null || SayLineDepth > 0 || !ScCommunity.IsHost) return;
+            ScVoice.SendNear(npc.position, new NetPackageScVoice.Line
+            {
+                Kind = NetPackageScVoice.KindVc, Npc = npc.entityId, Key = p.Key ?? "", Voice = p.Voice ?? "",
+                Caption = string.IsNullOrEmpty(caption) ? NetPackageScVoice.CaptionNone : NetPackageScVoice.CaptionText, CaptionKey = caption ?? "",
+                Name = npc.EntityName ?? "", Flags = NetPackageScVoice.FlagLipSync
+            }, ScVoice.VcRelayRange);
+        }
+
+        /// <summary>
+        /// Round MP4, client: a caption of a line the server sent - SC's own lines under SC's rule (Caption: VoiceBarkSubtitles,
+        /// and Voice Control's subtitle mode for that NPC); a Voice Control line SC said in its place under Voice Control's rule.
+        /// </summary>
+        internal static void RemoteCaption(EntityAlive npc, string name, string words, float seconds, bool vcLine)
+        {
+            if (npc == null || string.IsNullOrEmpty(words)) return;
+            if (!vcLine) { Caption(npc, name, words, seconds); return; }
+            if (ShowsText(npc)) Subtitle(name, words, seconds);
         }
 
         // ------------------------------------------------------------------ the lines ----
@@ -342,6 +414,17 @@ namespace SurvivorCommunity
         /// </summary>
         internal static bool SayFrom(EntityAlive npc, string family, IList<string> keys, string why, bool lipSync, bool allowDead, Entity faceTo)
         {
+            return SayFrom(npc, family, keys, why, lipSync, allowDead, faceTo, null);
+        }
+
+        /// <summary>
+        /// Round MP4: SayFrom for one player - to: the player a greeting is for (the host's own hears it here, as always; a remote
+        /// one on their own machine only) - or, to null, for everyone: played here and sent to every remote player in earshot
+        /// (Relay). The line and the voice are picked here, once. A dedicated server plays nothing itself (ScVoice.PlaysHere) and
+        /// counts the NPC busy for about the line instead (ScVoice.NoteBusy).
+        /// </summary>
+        internal static bool SayFrom(EntityAlive npc, string family, IList<string> keys, string why, bool lipSync, bool allowDead, Entity faceTo, EntityPlayer to)
+        {
 #if SC_V34
             // Round n06: no talking in her sleep. Every family that reaches here is speech - chatter, a greeting, a
             // taunt - and none of them belongs in a bed. 0-XNPCCore wakes her for a real reason (an enemy inside
@@ -353,13 +436,15 @@ namespace SurvivorCommunity
             Pick p = Resolve(npc, keys);
             if (p == null) return false;
             string who = ScCommunity.DisplayName(npc) + " (" + npc.entityId + ")";
+            bool here = ScVoice.PlaysHere && (to == null || to is EntityPlayerLocal);   // round MP4: a remote player's greeting is theirs alone
             if (p.Path == null)
             {
                 Count("silent " + family);
                 if (!ScConfig.VoiceBarkDebug) return false;
                 lastKey[family] = p.Key;
                 ScLog.Out("voice bark (silent, no recording): " + who + " " + why + ": " + p.Key + " in " + (p.Voice ?? "no voice") + ": \"" + p.Words + "\"");
-                Caption(npc, ScCommunity.DisplayName(npc), p.Words, 2f + 0.06f * (p.Words ?? "").Length);
+                if (here) Caption(npc, ScCommunity.DisplayName(npc), p.Words, 2f + 0.06f * (p.Words ?? "").Length);
+                Relay(npc, family, p, lipSync, allowDead, to);     // round MP4: the debug caption on the other machines too
                 if (faceTo != null) Face(npc, faceTo);
                 return true;
             }
@@ -370,7 +455,9 @@ namespace SurvivorCommunity
                 ScLog.Out("voice bark: " + who + " " + why + ": " + p.Key + " in " + p.Voice + (p.Fallback ? " (borrowed: their own voice has none)" : ""));
             if (faceTo != null) Face(npc, faceTo);
             string name = ScCommunity.DisplayName(npc);
-            ScVoice.PlayBark(npc, p.Path, lipSync, allowDead, clip => Caption(npc, name, words, clip.length + 1f), null);
+            if (here) ScVoice.PlayBark(npc, p.Path, lipSync, allowDead, clip => Caption(npc, name, words, clip.length + 1f), null);
+            else ScVoice.NoteBusy(npc, ScVoice.WordsSeconds(words));    // round MP4: said on another machine only - she is speaking all the same
+            Relay(npc, family, p, lipSync, allowDead, to);              // round MP4: the players in earshot, or the one it is for
             return true;
         }
 
@@ -397,9 +484,11 @@ namespace SurvivorCommunity
                 ScLog.Out("voice refusal: " + who + " " + why + ": " + p.Key + " in " + p.Voice + (p.Fallback ? " (borrowed: their own voice has none)" : ""));
             if (faceTo != null) Face(npc, faceTo);
             string name = ScCommunity.DisplayName(npc), words = p.Words;
-            ScVoice.PlayBark(npc, p.Path, true, false, clip => Caption(npc, name, words, clip.length + 1f), null);
+            if (ScVoice.PlaysHere) ScVoice.PlayBark(npc, p.Path, true, false, clip => Caption(npc, name, words, clip.length + 1f), null);
+            else ScVoice.NoteBusy(npc, ScVoice.WordsSeconds(words));    // round MP4: a dedicated server only sends it
             lastKey[FamilyOf(p.Key)] = p.Key;
             MarkSaid(npc, name, ScConfig.VoiceBarkSubtitles ? words : null);
+            Relay(npc, FamilyOf(p.Key), p, true, false, null);          // round MP4: SC's refusal is heard by everyone in earshot
             return true;
         }
 
@@ -576,6 +665,7 @@ namespace SurvivorCommunity
             string caption = AckCaption(trigger != null || wheel, argLine, p.Words, fallbackText, localizedSubtitle);
             bool shown = ShowsText(npc);
             if (shown) Subtitle(npc.EntityName, caption, 8f);
+            RelayVc(npc, p, caption);                               // round MP4: the players Voice Control's own relay would have reached
             lastKey[FamilyOf(p.Key)] = p.Key;
             MarkSaid(npc, npc.EntityName, shown ? caption : null);  // round m1w (P6)
             Count("vc swapped " + Group(p.Key));
@@ -663,6 +753,7 @@ namespace SurvivorCommunity
             // the caller showed its own words already; a generic ack says other words
             bool shown = ShowsText(npc);
             if (generic && shown) Subtitle(npc.EntityName, p.Words, 8f);
+            RelayVc(npc, p, generic ? p.Words : text);              // round MP4 (D_npc 4.9 point 5): Voice Control's relay, restored
             lastKey[FamilyOf(p.Key)] = p.Key;
             MarkSaid(npc, npc.EntityName, shown ? (generic ? p.Words : text) : null);    // round m1w (P6)
             Count("vc swapped " + Group(p.Key));

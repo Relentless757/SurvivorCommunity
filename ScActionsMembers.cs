@@ -147,7 +147,7 @@ namespace SurvivorCommunity
                 {
                     reply.Done(Fmt("scRunRecalled", m.Name));
 #if SC_V34
-                    if (byRadio) { ScRadioTalk.OnRecalled(m, sender); ScRegistry.SaveAtomic(); }      // R2: "Copy that." on the radio (heard by the host's own player only until MP4)
+                    if (byRadio) { ScRadioTalk.OnRecalled(m, sender); ScRegistry.SaveAtomic(); }      // R2: "Copy that." on the radio (round MP4: to the player who recalled)
 #endif
                 }
                 else reply.Fail(rerr ?? "scInternal");

@@ -27,6 +27,11 @@ namespace SurvivorCommunity
     /// Only within RaiderTauntRange of the local player. Pacing: one raider at most every RaiderTauntCooldown (dying,
     /// killed and retreat pass it), any two taunts RaiderTauntGlobalCooldown apart (dying passes it), never over a line of
     /// theirs still playing (dying aside), so a band doesn't all shout at once. Main thread, host.
+    /// Round MP4 (multiplayer): only the server taunts (a client's own hooks - its player's death, a body dying on its screen -
+    /// say nothing: the server's line reaches it), within RaiderTauntRange of any player, and every remote player in earshot
+    /// hears it (ScBarks.Say, NetPackageScVoice). A remote player's death is never awarded on the server (EntityAlive
+    /// .OnEntityDeath calls AwardKill on the player's own machine only), so "killed" comes from the raider whose target they
+    /// were as it lets go of them (OnTargetChanged) - the killer when the server knows it.
     /// </summary>
     public static class ScTaunts
     {
@@ -92,7 +97,13 @@ namespace SurvivorCommunity
             }
             // the old target a dead player: no lost line for them (the killer's taunt comes from AwardKill, OnKilledPlayer)
             EntityPlayer wp = was as EntityPlayer;
-            if (wp != null && wp.IsDead()) s.Engaged = false;
+            if (wp != null && wp.IsDead())
+            {
+                // round MP4: a remote player's AwardKill runs on their own machine, never here - the raider that was fighting them
+                // says it as it lets go (the killer, when the server knows it; the global cooldown keeps a band to one line)
+                if (s.Engaged && !(wp is EntityPlayerLocal) && (wp.entityThatKilledMe == null || wp.entityThatKilledMe == self)) OnKilledPlayer(self, wp);
+                s.Engaged = false;
+            }
         }
 
         /// <summary>EntityAlive.AwardKill's postfix on the dying local player: their killer, a raider, taunts.</summary>
@@ -162,16 +173,15 @@ namespace SurvivorCommunity
             {
                 if (!ScCommunity.IsHost) return;
                 World w = ScCommunity.World;
-                EntityPlayerLocal lp = ScCommunity.LocalPlayer;
-                if (w == null || lp == null) return;
+                // round MP4: any player who hears SC's lines (was the host's own player)
+                if (w == null || !AnyListener()) return;
                 if (now >= nextPrune) Prune(w, now);
-                float r2 = ScConfig.RaiderTauntRange * ScConfig.RaiderTauntRange;
                 near.Clear();
                 List<Entity> list = w.Entities.list;
                 for (int i = 0; i < list.Count; i++)
                 {
                     EntityAlive e = list[i] as EntityAliveSDXV4;
-                    if (e == null || (e.position - lp.position).sqrMagnitude > r2 || e.IsDead() || !ScXnpc.IsRaider(e)) continue;
+                    if (e == null || !PlayerNear(e.position, true) || e.IsDead() || !ScXnpc.IsRaider(e)) continue;
                     State s = Get(e);
                     EntityAlive t = e.GetAttackTarget();
                     if (t is EntityPlayer && !t.IsDead())
@@ -183,7 +193,7 @@ namespace SurvivorCommunity
                     if (s.Engaged && now - s.LastHadPlayer >= LostAfterSeconds)
                     {
                         s.Engaged = false;
-                        if (!lp.IsDead()) Fire(e, Lost, s, false, false);
+                        if (PlayerNear(e.position, false)) Fire(e, Lost, s, false, false);   // round MP4: a living player near (was: you alive)
                         continue;
                     }
                     if (!s.Engaged && t == null && e.GetRevengeTarget() == null) near.Add(e);
@@ -192,7 +202,9 @@ namespace SurvivorCommunity
                 else if (now >= nextIdle)
                 {
                     nextIdle = now + IdleGap();
-                    if (near.Count > 0 && !lp.IsDead())
+                    // round MP4: a raider with a living player near mutters (was: one near you, while you live)
+                    for (int i = near.Count - 1; i >= 0; i--) if (!PlayerNear(near[i].position, false)) near.RemoveAt(i);
+                    if (near.Count > 0)
                     {
                         EntityAlive e = near[rnd.Next(near.Count)];
                         Fire(e, Idle, Get(e), false, false);
@@ -203,6 +215,33 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("voice-taunts", e);
             }
+        }
+
+        /// <summary>Round MP4: a player who hears SC's lines - the host's own, or a remote one with SC's protocol; living ones only unless alsoDead.</summary>
+        private static bool Listens(EntityPlayer p, bool alsoDead)
+        {
+            return p != null && (alsoDead || !p.IsDead()) && (p is EntityPlayerLocal || ScNet.ClientMatches(p));
+        }
+
+        /// <summary>Round MP4: such a player is on the server, dead or alive (the old test: the host's own player exists).</summary>
+        private static bool AnyListener()
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++) if (Listens(all[i], true)) return true;
+            return false;
+        }
+
+        /// <summary>Round MP4: such a player within RaiderTauntRange (3D) of pos - the old test was the host's own player's, dead or alive (alsoDead).</summary>
+        private static bool PlayerNear(Vector3 pos, bool alsoDead)
+        {
+            float r2 = ScConfig.RaiderTauntRange * ScConfig.RaiderTauntRange;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (Listens(p, alsoDead) && (pos - p.position).sqrMagnitude <= r2) return true;
+            }
+            return false;
         }
 
         private static float IdleGap()
@@ -224,14 +263,16 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ saying ----
 
-        /// <summary>A taunt on this raider when it is near you and its pacing allows; true when something was said.</summary>
+        /// <summary>
+        /// A taunt on this raider when it is near you and its pacing allows; true when something was said. Round MP4: the server
+        /// only (a client's hooks stay quiet: the server's line reaches it), near any player; heard by everyone in earshot.
+        /// </summary>
         private static bool Fire(EntityAlive raider, string ev, State s, bool passOwn, bool passGlobal)
         {
             try
             {
-                EntityPlayerLocal lp = ScCommunity.LocalPlayer;
-                if (lp == null || raider == null) return false;
-                if ((raider.position - lp.position).sqrMagnitude > ScConfig.RaiderTauntRange * ScConfig.RaiderTauntRange) return false;
+                if (!ScCommunity.IsHost || raider == null) return false;
+                if (!PlayerNear(raider.position, true)) return false;
                 float now = Time.unscaledTime;
                 if (!passOwn && now < s.Next) return false;
                 if (!passGlobal && now < globalNext) return false;

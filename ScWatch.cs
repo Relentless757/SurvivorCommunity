@@ -876,7 +876,7 @@ namespace SurvivorCommunity
                         TellHome(string.Format(Localization.Get("scWatchGathering"), m.Name, ScBaseAttack.Side(c.AttackBearing)), "ui_denied");
                         ScLog.Out(m.Name + " on watch calls out the horde gathering to the " + ScBaseAttack.Side(c.AttackBearing));
 #if SC_V34
-                        if (lp != null) ScHordeVoice.SayAtHome(HordeMoment.Gather, m, GuardBody(m), ScBaseAttack.Side(c.AttackBearing), lp, false);   // vo4: and says it
+                        if (player != null) ScHordeVoice.SayAtHome(HordeMoment.Gather, m, GuardBody(m), ScBaseAttack.Side(c.AttackBearing), player, false);   // vo4: and says it (round MP4 merge: any player - remote ones near the guard hear it)
 #endif
                         break;
                     }
@@ -896,7 +896,7 @@ namespace SurvivorCommunity
                         ScLog.Out(m.Name + " on watch spotted the horde to the " + side + " (" + z.EntityName + " #" + z.entityId + ", "
                                   + (int)Vector3.Distance(npc.position, z.position) + " m out)");
 #if SC_V34
-                        if (lp != null) ScHordeVoice.SayAtHome(HordeMoment.Spotted, m, npc, side, lp, false);   // vo4: and says it ("center" has no line)
+                        if (player != null) ScHordeVoice.SayAtHome(HordeMoment.Spotted, m, npc, side, player, false);   // vo4: and says it ("center" has no line; round MP4 merge: any player)
 #endif
                         break;
                     }

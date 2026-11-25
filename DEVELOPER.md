@@ -2487,6 +2487,47 @@ Round MP0 is the groundwork:
     keeps the box's item grid when the sender holds no lock on it (three patches and a per-package sender), so it is left.
     An NPC write into a box's EMPTY slot shows in a view only at its next open or Refresh (a push updates the cells a view
     already shows).
+- **Round MP4 (part V), voices (`NetPackageScVoice`; `ScVoice`, "SC's lines on every machine"):** every player in earshot
+  hears SC's lines, in the same voice.
+  - **The server decides** that a line is said, which one (the clip's key) and in which voice (the voice folder's name), and
+    sends it. No path travels: each client finds the file in its own copy (`ScVoice.PathIn`). Recipients:
+    - barks, chatter, taunts, small talk and spoken refusals go to every matched remote player within 40 m of the speaker
+      (`ScVoice.EarshotRange`, `SendNear`);
+    - a greeting, a talk's parting line and a forced console line go to one player (`SendTo`);
+    - a radio line goes to every community player (`SendCommunity`); each client judges whether it hears it.
+  - **The host's own player is never sent one:** single player and the host play exactly as before. A dedicated server plays
+    nothing itself (`ScVoice.PlaysHere`) and counts the speaker busy for about the line (`NoteBusy`), so the next bark waits.
+  - The package layout is in `NetPackageScVoice.cs`. Its kinds are bark, talk, small talk, greeting, taunt, horde, radio and
+    vc. The caption is SC's words for the key, a Localization key localized on the client, or Voice Control's text.
+  - **Greetings** run per player on the server (`ScGreetings`: each player's own memory of who met them today, one at a
+    time per player). A remote player's greeting is said on their machine only. On a client, `OwnsGreeting` (Voice
+    Control's walk-up greeting skipped) answers from server-synced facts: the copy of the registry for members and
+    prospects, and the synced cvars for enclave people and hostility. It answers false when the server runs no SC. So a
+    client gets SC's greeting or Voice Control's, never neither.
+  - **Taunts** are the server's only (`ScTaunts.Fire`), for raiders near any player. A remote player's death never reaches
+    the server's `AwardKill`, so their "killed" comes from the raider that was fighting them, as it lets go of them.
+  - **Voice Control's relay, restored:** a line SC says in Voice Control's place on the server (`ScBarks.SubstituteAck`,
+    `SubstituteSpeech`) goes to the players within 32 m (`ScVoice.VcRelayRange`), as Voice Control's own TTS relay would
+    have. A say-line is the exception (`SubtitleManager.SayToEarshot`, scoped by `Patch_ScSayLineScope`): Voice Control
+    sends it to the clients itself, and each substitutes it there.
+  - **Radio** (C_world 15): runners' moments (`ScRadioTalk.Say`) and speakers' lines (`ScRadioSpeaker.Say`) are picked once
+    on the server and sent to every community player. Each client runs its own queue (`ScRadioTalk.OnRemote`, `ClientTick`)
+    with the host's rules: its own handheld radio, a powered station near it, a body beside it. A recall's answer goes to
+    the player who recalled.
+  - **Horde warnings** in person go to the players within 30 m of the guard. The radio's warnings (`SayAway`, and
+    `SayAtHome` beyond 30 m) stay the host's own player's until MP5 (marked `MP5:`).
+  - **Talk lines stay local to the talking player** (decided): a dialog's line plays on the machine that has the talk open,
+    as before. A client's members now speak in the server's voice there, since `ScVoice.RaceSeed` reads the copy.
+  - A line said as a remote player's talk closes goes to that player only (`ScVoice.SayAfterTalkFor`). This covers "That's
+    all for now.", "Let me think about it.", a P7 refusal while their talk is open, and an enclave or band answer.
+  - Console: `sc voice greet` greets the sender and `sc voice chatter` picks a resident near them. `sc voice barks` and
+    `scl voice` end with the network counters.
+  - **Known gaps:**
+    - a Voice Control line a client speaks itself (its own push-to-talk orders) and that SC substitutes there is heard only
+      on that client. Relaying it needs a client-to-server package;
+    - `ScWatch` asks `SayAtHome` only with the host's own player, so a dedicated server voices no warning at home until the
+      merge passes the anchor;
+    - SC's config is each machine's own, so different voice switches on a client can make it disagree with the server.
 
 - **Round MP4 (part K), map markers** (`ScMarkers`, `NetPackageScMarkers`, a `CollectMarkers` beside each subsystem's
   `AddMarker`):

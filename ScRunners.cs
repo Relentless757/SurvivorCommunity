@@ -1196,20 +1196,29 @@ namespace SurvivorCommunity
         internal static bool TurnHomeHurt(World w, EntityPlayer player, Member m, EntityAlive npc, ulong now, bool capturing, bool despawnNow)
         {
             bool distress = m.RunDistress && !m.RunSafe;
-            // round MP0: the rescue quest lives in the local player's journal (ScRadio, another slice's file) - with no local player
-            // (a dedicated server) it cannot be closed, as before with none. MP4: quests to the right player
-            EntityPlayerLocal lp = player as EntityPlayerLocal;
-            if (distress && lp == null)
-            {
-                ScLog.Once("runner-hurt-pinned-noplayer-" + m.Id, m.Name + " is too hurt for the job, but their distress call cannot be closed with no local player - they stay pinned");
-                return false;
-            }
+            // round MP4 (merge): the rescue quest is every community player's copy now (ScQuestNet), closed by ScRadio.Rescued /
+            // EndDistress for all of them - no local player is needed any more, so a dedicated server no longer pins her
             int hp = npc != null ? npc.Health : 0, max = npc != null ? npc.GetMaxHealth() : 0;
             Vector3 at = npc != null ? npc.position : Where(m);
             RunLeg was = m.RunLeg;
             Session s = S(m.Id);
             s.HurtSince = -1f;
-            bool youThere = player != null && !player.IsDead() && XZ(player.position, C(m.RunSpawn)) <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(m.RunSpawn);
+            // round MP4 (merge): any community player there fighting beside her counts (the first one found), not only the anchor
+            EntityPlayer rescuer = null;
+            if (ScZone.IsLoaded(m.RunSpawn))
+            {
+                if (player != null && !player.IsDead() && XZ(player.position, C(m.RunSpawn)) <= ScConfig.RescueTriggerRange) rescuer = player;
+                else
+                {
+                    List<EntityPlayer> all = ScPlayers.All;
+                    for (int i = 0; i < all.Count && rescuer == null; i++)
+                    {
+                        EntityPlayer q = all[i];
+                        if (q != null && !q.IsDead() && ScPlayers.InCommunity(q) && XZ(q.position, C(m.RunSpawn)) <= ScConfig.RescueTriggerRange) rescuer = q;
+                    }
+                }
+            }
+            bool youThere = rescuer != null;
             bool rescue = distress && m.EventSpawned && !capturing && w != null && youThere;
             try
             {
@@ -1221,11 +1230,11 @@ namespace SurvivorCommunity
                 // no haul line and no "heading home" line: the hurt line below says it (and, turned on the way out, no "I'm here")
                 ScRadioTalk.Mark(m, RadioTalk.Found | RadioTalk.Empty | RadioTalk.Home | (was == RunLeg.Outbound ? RadioTalk.Out | RadioTalk.Arrived : RadioTalk.None));
 #endif
-                if (rescue) ScRadio.Rescued(w, lp, m);                                          // the quest completes; LeaveSite turns her home
+                if (rescue) ScRadio.Rescued(w, rescuer, m);                                     // the quest completes (every copy); LeaveSite turns her home
                 else if (distress)
                 {
                     if (capturing && w != null) ScRadio.OnRunnerOffline(w, m, despawnNow);      // a live event resets as she leaves the world
-                    ScRadio.EndDistress(w, lp, m);                                              // the call ends unanswered: its quest fails
+                    ScRadio.EndDistress(w, player, m);                                          // the call ends unanswered: its quest fails (every copy)
                 }
                 if (m.RunLeg == RunLeg.Outbound)
                 {

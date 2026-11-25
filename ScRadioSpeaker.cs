@@ -210,6 +210,9 @@ namespace SurvivorCommunity
     /// A key with no recording in the speaker's voices is not said: the text alone (the siege call and the request offer
     /// until round V-b records them). The caller shows its text first; no line here has a caption of its own.
     /// Host only, main thread.
+    /// Round MP4 (multiplayer, C_world 15): the server picks the line and the voice and sends it to every remote player of the
+    /// community, who hears it by this same rule on their own machine (ScRadioTalk.OnRemote); a line said as a remote player's
+    /// talk closes is theirs alone. The host's own player is judged here, as before.
     /// </summary>
     public static class ScRadioSpeaker
     {
@@ -304,8 +307,32 @@ namespace SurvivorCommunity
                     string what = keys.Count == 1 ? keys[0] : keys[0] + " .. " + keys[keys.Count - 1];
                     return ScConfig.VoiceLines ? "no recording of " + what + " in " + s.Name + "'s voices yet: the text alone" : "VoiceLines is off: the text alone";
                 }
+                // round MP4: a line said as a talk closes is the talking player's own (a talk's lines stay theirs) - a remote
+                // talker's on their machine, not the host's; farther from them than in person, it is a radio line like any other
+                if (afterTalk && player != null && !(player is EntityPlayerLocal))
+                {
+                    EntityAlive b = s.Body();
+                    if (b != null && !b.IsDead() && Vector3.Distance(b.position, player.position) <= ScRadioTalk.InPersonRange)
+                    {
+                        if (ScDowned.IsDown(b)) { ScHandheld.Count(tag + " unsaid: they are down"); return s.Name + " is down: the text alone"; }
+                        if (!ScVoice.SayAfterTalkFor(player, b, key))
+                        {
+                            ScHandheld.Count(tag + " unsaid: in person, as the talk closes");
+                            return "not said: " + key + " has no recording in their talk voice, or " + player.PlayerDisplayName + " plays no SC - the text alone";
+                        }
+                        ScHandheld.Count(tag + " said: in person, as the talk closes (sent)");
+                        Note(s, key, voice, "in person, as " + player.PlayerDisplayName + "'s talk closes (on their machine)");
+                        return "sent " + key + " in " + voice + " to " + player.PlayerDisplayName + ", in person as the talk closes";
+                    }
+                    afterTalk = false;
+                }
+                // round MP4 (C_world 15): every remote player of the community gets the line and judges on their own machine
+                // whether they hear it (in person, or their own radio: ScRadioTalk.OnRemote); a forced one (the console) only
+                // whoever typed it. Not a line said as the host's talk closes: that is the host's own
+                if (!afterTalk) SendRemote(s, key, voice, prio, tag, player, force);
+                if (force && player != null && !(player is EntityPlayerLocal)) return "sent " + key + " in " + voice + " to " + player.PlayerDisplayName + " (forced)";
                 // round MP0: heard and played for this machine's own player only (none on a dedicated server: unheard, the text
-                // alone - ScRadioTalk.PlayNext plays nothing there either). MP4: voices to clients
+                // alone - ScRadioTalk.PlayNext plays nothing there either). Round MP4: the remote players got theirs just above
                 EntityPlayerLocal local = player as EntityPlayerLocal ?? ScCommunity.LocalPlayer;
                 EntityAlive body = s.Body();
                 // the m1v review's fix 1: 3D - a bark is 3D audio cut off at 40 m (ScVoice's OwnMaxDistance), so a body far above or
@@ -373,6 +400,25 @@ namespace SurvivorCommunity
         private static void Note(RadioSpeaker s, string key, string voice, string how)
         {
             ScLog.Out(s.Name + " (" + s.Role + ") says " + key + " in " + voice + ", " + how);
+        }
+
+        /// <summary>
+        /// Round MP4 (C_world 15), server: a speaker's line to the remote players - every community player online (Stage 1:
+        /// everyone), each judging on their own machine: in person when the speaker's body stands near them, else their own radio
+        /// (ScRadioTalk.OnRemote); forced (the console): only the player who typed it, the hearing rule skipped. Returns how many
+        /// got it.
+        /// </summary>
+        private static int SendRemote(RadioSpeaker s, string key, string voice, RadioPriority prio, string tag, EntityPlayer player, bool force)
+        {
+            EntityAlive body = s.Body();
+            var line = new NetPackageScVoice.Line
+            {
+                Kind = NetPackageScVoice.KindRadio, Npc = body != null && !body.IsDead() ? body.entityId : -1, Key = key, Voice = voice ?? "",
+                Name = s.Name, Priority = (byte)prio, Tag = tag ?? "",
+                Flags = (byte)(NetPackageScVoice.FlagInPerson | (force ? NetPackageScVoice.FlagForced : 0))
+            };
+            if (force) return ScVoice.SendTo(player, line) ? 1 : 0;
+            return ScVoice.SendCommunity(line);
         }
     }
 }

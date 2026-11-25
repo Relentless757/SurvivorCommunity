@@ -1740,7 +1740,7 @@ namespace SurvivorCommunity
             string key = LineKey("scEncThink", r.Kind, ScEnclaves.StandingKey(e));
             string line = Loc(key);
             ScCommunity.Tell(player, string.Format(Loc("scEncReqThinkTell"), leader != null ? leader.Name : e.Name, line, r.LapseDay), "");
-            ScVoice.SayAfterTalk(ScFavours.CurrentNpc(player), key);
+            ScVoice.SayAfterTalkFor(player, ScFavours.CurrentNpc(player), key);   // round MP4: on the talker's machine (a remote one's on theirs)
             ScLog.Verbose("enclave request #" + r.Id + ": the player will think about it (the offer stands to the end of day " + r.LapseDay + ")");
         }
 

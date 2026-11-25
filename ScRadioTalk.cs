@@ -58,6 +58,11 @@ namespace SurvivorCommunity
     /// same way (QueueSpoken: ScRadioSpeaker.Say, ScEncRadio), and the queue keeps an order (RadioPriority): a siege call, then
     /// the horde warnings, then a runner's moments, then every other enclave line - the highest waiting plays first (the
     /// oldest of them first), and a full queue (QueueMax) drops its lowest, or the new line when every waiting one is higher.
+    ///
+    /// Round MP4 (multiplayer, C_world 15): the server decides that a line is said, which one and in which voice, and sends it
+    /// to the players it is for (NetPackageScVoice); each client runs this same queue for its own player (OnRemote, ClientTick)
+    /// with its own hearing rule - its own bag's handheld radio, the stations near it, the body beside it. The host's own
+    /// player hears its lines here, exactly as before.
     /// </summary>
     public static class ScRadioTalk
     {
@@ -120,6 +125,12 @@ namespace SurvivorCommunity
             public string Tag = "horde";
             /// <summary>The m1v review's fix 7: who says it (QueueSpoken), so a line that waited is skipped once they are gone; null for vo4's and R2's.</summary>
             public RadioSpeaker Speaker;
+            /// <summary>
+            /// Round MP4: a line the server sent to this client (OnRemote) - its body by entity id alone (a client has no records
+            /// and no birth times to check), and a horde warning that is out of earshot by play time is dropped, not moved to the
+            /// radio (the guard's radio is the server's to judge: MP5).
+            /// </summary>
+            public bool Remote;
         }
 
         /// <summary>Round m1v: a list, so the next line is picked by priority (Enqueue, Next); never more than QueueMax.</summary>
@@ -152,6 +163,7 @@ namespace SurvivorCommunity
             queue.Clear();
             busyUntil = 0f;
             holdUntil = 0f;                                            // the m1v review's fix 3
+            nextClientTick = 0f;                                       // round MP4
             try
             {
                 if (source != null) source.Stop();
@@ -216,17 +228,9 @@ namespace SurvivorCommunity
                 {
                     if (!ScConfig.RunnerRadioTalk) { ScHandheld.Count("talk off"); return "RunnerRadioTalk is off"; }
                     if (!m.RunRadio) { ScHandheld.Count("talk unsaid: runner has no radio"); return m.Name + " carries no radio"; }
-                    // round MP0: the queue plays on this machine for its own player - a remote player (a dedicated server's anchor)
-                    // does not hear it, and the moment is spent as unheard. MP4: voices to clients
-                    EntityPlayerLocal lp = player as EntityPlayerLocal;
-                    if (lp == null || lp.IsDead() || (ev != RadioTalk.RecallAck && !ScHandheld.Carries(lp)))
-                    {
-                        ScHandheld.Count("talk unheard: you carry no radio");
-                        ScLog.Verbose(m.Name + "'s radio moment " + ev + " went unheard (you carry no handheld radio)");
-                        return "unheard: you carry no handheld radio";
-                    }
-                    if (InPerson(m, lp)) { ScHandheld.Count("talk unsaid: in person"); return m.Name + " is right here"; }
                 }
+                // round MP4: the line and the voice are picked once, here, so every player hears the same one; the remote players
+                // get it first (each client judges its own radio: OnRemote), then the host's own player as before
                 string[] keys;
                 Dictionary<RadioTalk, string[]> own = !ScMining.IsDig(m) ? null : m.RunJob == RunJob.Clay ? ClayKeys : MineKeys;   // round 33c
                 if ((own == null || !own.TryGetValue(ev, out keys)) && !Keys.TryGetValue(ev, out keys)) return "no line for " + ev;
@@ -234,6 +238,23 @@ namespace SurvivorCommunity
                 string key = keys[keys.Length == 1 ? 0 : rnd.Next(keys.Length)];
                 string voice;
                 string path = ScVoice.MemberClip(m, key, out voice);
+                int sent = SendRunner(m, ev, key, path != null ? voice : null, player, force);
+                string also = sent > 0 ? " (sent to " + sent + " other player(s))" : "";
+                // round MP4: a forced line (the console) is for whoever typed it - a remote one's plays on their machine only
+                if (force && player != null && !(player is EntityPlayerLocal)) return "sent " + key + " to " + player.PlayerDisplayName + also;
+                if (!force)
+                {
+                    // round MP0: the queue plays on this machine for its own player - a remote player (a dedicated server's anchor)
+                    // does not hear it here, and the moment is spent as unheard here. Round MP4: they heard it on their own machine
+                    EntityPlayerLocal lp = player as EntityPlayerLocal;
+                    if (lp == null || lp.IsDead() || (ev != RadioTalk.RecallAck && !ScHandheld.Carries(lp)))
+                    {
+                        ScHandheld.Count("talk unheard: you carry no radio");
+                        ScLog.Verbose(m.Name + "'s radio moment " + ev + " went unheard (you carry no handheld radio)" + also);
+                        return "unheard: you carry no handheld radio" + also;
+                    }
+                    if (InPerson(m, lp)) { ScHandheld.Count("talk unsaid: in person"); return m.Name + " is right here" + also; }
+                }
                 string words = Localization.Get(key + "Said");
                 if (string.IsNullOrEmpty(words) || words == key + "Said") words = key;
                 // round m1v: at a runner's priority; a full queue drops its lowest line (the oldest of them), this one when it is the lowest
@@ -247,6 +268,25 @@ namespace SurvivorCommunity
                 ScLog.Once("radio-talk-say", e);
                 return "error";
             }
+        }
+
+        /// <summary>
+        /// Round MP4 (C_world 15), server: a runner's moment to the remote players - every community player online, each judging
+        /// on their own machine whether they hear it (their own handheld radio; the runner's body beside them: in person, unsaid);
+        /// a recall's answer to the player who recalled them only (heard on the radio that sent it), a forced line (the console)
+        /// to whoever typed it. voice null: no recording - the caption alone. Returns how many got it.
+        /// </summary>
+        private static int SendRunner(Member m, RadioTalk ev, string key, string voice, EntityPlayer player, bool force)
+        {
+            EntityAlive body = ScRunners.IsPhysical(m) && !m.Offline ? ScCommunity.FindNpc(m.Id) : null;
+            var line = new NetPackageScVoice.Line
+            {
+                Kind = NetPackageScVoice.KindRadio, Npc = body != null ? body.entityId : -1, Key = key, Voice = voice ?? "",
+                Caption = NetPackageScVoice.CaptionLoc, CaptionKey = key + "Said", Name = m.Name ?? "", Priority = (byte)RadioPriority.Runner,
+                Flags = (byte)(NetPackageScVoice.FlagRunner | (ev == RadioTalk.RecallAck ? NetPackageScVoice.FlagNoHandheld : 0) | (force ? NetPackageScVoice.FlagForced : 0))
+            };
+            if (ev == RadioTalk.RecallAck || force) return ScVoice.SendTo(player, line) ? 1 : 0;
+            return ScVoice.SendCommunity(line);
         }
 
         /// <summary>A physical runner's body within InPersonRange of the player: they would just talk (and the community window
@@ -295,6 +335,96 @@ namespace SurvivorCommunity
             return true;
         }
 
+        // ------------------------------------------------------------------ round MP4: a client's own radio ----
+
+        /// <summary>Round MP4: when a client's queue next looks for a line (ClientTick).</summary>
+        private static float nextClientTick;
+
+        /// <summary>
+        /// Round MP4 (C_world 15), client: a radio line the server sent (NetPackageScVoice, kinds radio and horde). The server
+        /// decided that it is said, which line and in which voice; this machine decides whether its own player hears it, by the
+        /// host's rules, and plays it in its own queue at its priority, as the host does:
+        ///  - a runner's moment: the player's own handheld radio (a recall's answer always), and not with the runner's body beside
+        ///    them (in person: unsaid); the caption "Mara on the radio: ..." in this machine's language, alone without a recording;
+        ///  - a speaker's line (an enclave's, a band's): in person when their body stands within InPersonRange of the player, else
+        ///    on the radio when ScRadioSpeaker.Hears (the player's handheld, or a powered SC station near them; a station's power
+        ///    on a client is what the client's world shows);
+        ///  - a guard's horde warning: in person (the server sent it to the players near the guard). MP5: on the radio.
+        /// A forced line (the console) skips the hearing rule. A voice this copy of the mod has no clip of is not said (a runner's
+        /// caption still shows).
+        /// </summary>
+        internal static void OnRemote(NetPackageScVoice.Line d)
+        {
+            try
+            {
+                EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+                if (d == null || lp == null) return;
+                bool forced = d.Has(NetPackageScVoice.FlagForced);
+                string path = ScVoice.PathIn(d.Voice, d.Key);
+                World w = ScCommunity.World;
+                EntityAlive body = w != null && d.Npc >= 0 ? w.GetEntity(d.Npc) as EntityAlive : null;
+                string name = string.IsNullOrEmpty(d.Name) ? "?" : d.Name;
+                var prio = (RadioPriority)d.Priority;
+                if (d.Kind == NetPackageScVoice.KindHorde)
+                {
+                    if (path == null) { ScHandheld.Count("horde unsaid: no recording here"); return; }
+                    if (Enqueue(new Line { Name = name, Key = d.Key, Words = d.Key, Path = path, Voice = d.Voice, Caption = false, InPerson = true, Priority = RadioPriority.Horde, Tag = "horde", EntityId = d.Npc, Remote = true }))
+                        PlayNext(lp);
+                    return;
+                }
+                if (d.Has(NetPackageScVoice.FlagRunner))
+                {
+                    if (!forced)
+                    {
+                        if (lp.IsDead() || (!d.Has(NetPackageScVoice.FlagNoHandheld) && !ScHandheld.Carries(lp)))
+                        {
+                            ScHandheld.Count("talk unheard: you carry no radio");
+                            ScLog.Verbose(name + "'s radio moment " + d.Key + " went unheard (you carry no handheld radio)");
+                            return;
+                        }
+                        if (body != null && ScRunners.XZ(body.position, lp.position) <= InPersonRange) { ScHandheld.Count("talk unsaid: in person"); return; }
+                    }
+                    string words = ScVoice.CaptionOf(d) ?? d.Key;
+                    // the next tick plays it, as the host's (ClientTick, like the server's Tick)
+                    Enqueue(new Line { Name = name, Key = d.Key, Words = words, Path = path, Voice = d.Voice, Priority = prio, Remote = true });
+                    return;
+                }
+                string tag = string.IsNullOrEmpty(d.Tag) ? "enc" : d.Tag;
+                if (path == null) { ScHandheld.Count(tag + " unsaid: no recording here"); return; }
+                if (d.Has(NetPackageScVoice.FlagInPerson) && body != null && !body.IsDead() && Vector3.Distance(body.position, lp.position) <= InPersonRange)
+                {
+                    if (ScDowned.IsDown(body)) { ScHandheld.Count(tag + " unsaid: they are down"); return; }
+                    if (Enqueue(new Line { Name = name, Key = d.Key, Words = d.Key, Path = path, Voice = d.Voice, Caption = false, InPerson = true, Priority = prio, Tag = tag, EntityId = d.Npc, Remote = true }))
+                        PlayNext(lp);
+                    return;
+                }
+                string how;
+                if (!ScRadioSpeaker.Hears(lp, out how) && !forced)
+                {
+                    ScHandheld.Count(tag + " unheard");
+                    ScLog.Verbose(name + " on the radio, " + d.Key + ", went unheard: " + how);
+                    return;
+                }
+                if (Enqueue(new Line { Name = name, Key = d.Key, Words = d.Key, Path = path, Voice = d.Voice, Caption = false, Priority = prio, Tag = tag, Remote = true }))
+                    PlayNext(lp);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("radio-talk-remote", e);
+            }
+        }
+
+        /// <summary>Round MP4, client (ScBarks.Tick, every frame; looks four times a second): the next line of this machine's own queue.</summary>
+        internal static void ClientTick()
+        {
+            if (queue.Count == 0) return;
+            float now = Time.unscaledTime;
+            if (now < nextClientTick) return;
+            nextClientTick = now + 0.25f;
+            EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+            if (lp != null) PlayNext(lp);
+        }
+
         /// <summary>
         /// Round m1v: a line into the queue. Full (QueueMax): the lowest waiting line goes - the oldest of them - or this one,
         /// when every waiting line is higher. False: this one was dropped.
@@ -330,6 +460,8 @@ namespace SurvivorCommunity
         private static EntityAlive BodyOf(Line line)
         {
             World w = ScCommunity.World;
+            // round MP4: a line from the server (Remote) by id alone - a client's copy has no birth time to check it by
+            if (line.Remote) return w != null && line.EntityId >= 0 ? w.GetEntity(line.EntityId) as EntityAlive : null;
             EntityAlive npc = w != null && line.EntityId >= 0 ? ScNpc.As(ScNpc.Loaded(w, line.EntityId)) : null;
             return npc != null && npc.WorldTimeBorn == line.EntityBorn ? npc : null;
         }
@@ -377,7 +509,7 @@ namespace SurvivorCommunity
                 }
                 if (changed) ScRegistry.SaveAtomic();
                 EntityPlayerLocal lp = player as EntityPlayerLocal;
-                if (lp != null) PlayNext(lp);         // round MP0: played on the host's own speakers only. MP4: voices to clients
+                if (lp != null) PlayNext(lp);         // round MP0: played on the host's own speakers only. Round MP4: a client plays its own (ClientTick)
             }
             catch (Exception e)
             {
@@ -407,7 +539,8 @@ namespace SurvivorCommunity
         private static void PlayNext(EntityPlayerLocal player)
         {
             // round MP0: the radio's source and the barks are this machine's own - nothing plays with no player of its own (a
-            // dedicated server: a horde warning or a forced line queued there waits unplayed). MP4: voices to clients
+            // dedicated server: a horde warning or a forced line queued there waits unplayed). Round MP4: the remote players got
+            // their copy from the server (OnRemote) and play it on their own machine
             if (player == null && ScCommunity.LocalPlayer == null) return;
             float now = Time.unscaledTime;
             if (queue.Count == 0 || now < busyUntil || now < holdUntil) return;   // m1v fix 3: a parting line in person holds it too
@@ -534,6 +667,9 @@ namespace SurvivorCommunity
         {
             if (line.Tag == "horde")
             {
+                // MP5: a guard's warning on the radio reaches another player's machine with round MP5's radio work (the server
+                // sent this one in person; whether the guard can send is the server's to judge)
+                if (line.Remote) { how = "a horde warning on the radio reaches a player's own machine from round MP5 on"; return false; }
                 if (!ScHandheld.Carries(p)) { how = "you carry no handheld radio"; return false; }
                 if (ScHandheld.NpcCarries(npc)) { how = "their handheld"; return true; }
                 if (ScDefence.Radio()) { how = "the home station"; return true; }

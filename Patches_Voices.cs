@@ -74,7 +74,11 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Killed: the local player's own death names its killer.</summary>
+        /// <summary>
+        /// Killed: the local player's own death names its killer. Round MP4: on the host (or in single player) only - on a client
+        /// its own player's death runs here too, but the server says every taunt (ScTaunts.Fire): a remote player's killer taunts
+        /// from the server as it lets go of them (ScTaunts.OnTargetChanged), and the line reaches that client.
+        /// </summary>
         [HarmonyPatch]
         public static class Patch_TauntKill
         {
