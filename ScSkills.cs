@@ -288,13 +288,44 @@ namespace SurvivorCommunity
             try
             {
                 if (npc == null || npc.inventory == null) return false;
-                ItemValue iv = npc.inventory.holdingItemItemValue;
-                if (iv == null || iv.IsEmpty() || iv.ItemClass == null) return false;
-                ItemClass ic = iv.ItemClass;
-                if (ic.HasAnyTags(FastTags<TagGroup.Global>.Parse("ranged"))) return true;
-                if (ic.HasAnyTags(FastTags<TagGroup.Global>.Parse("melee"))) return false;
-                return ic.Actions != null && ic.Actions.Length > 0 && ic.Actions[0] is ItemActionRanged;
+                return IsRangedValue(npc.inventory.holdingItemItemValue);     // round mt1 (review fix G-M1): the test shared with HoldsRangedOrStowed
             }
+            catch (Exception) { return false; }
+        }
+
+        /// <summary>Round mt1 (review fix G-M1): HoldsRanged's test of one item (the ranged / melee tags first, then its first action).</summary>
+        private static bool IsRangedValue(ItemValue iv)
+        {
+            if (iv == null || iv.IsEmpty() || iv.ItemClass == null) return false;
+            ItemClass ic = iv.ItemClass;
+            if (ic.HasAnyTags(FastTags<TagGroup.Global>.Parse("ranged"))) return true;
+            if (ic.HasAnyTags(FastTags<TagGroup.Global>.Parse("melee"))) return false;
+            return ic.Actions != null && ic.Actions.Length > 0 && ic.Actions[0] is ItemActionRanged;
+        }
+
+        /// <summary>
+        /// Round mt1 (review fix G-M1): the item in her hand - or, while the hand is holstered (Hand in Bare mode: Voice Control's
+        /// chat stow during a talk and, since round mt1's hold, the whole member panel; 0-XNPCCore's own stow), the item in her
+        /// selected toolbelt slot, which is what she draws again. holdingItemItemValue is the bare hand while she is stowed, so a
+        /// pair change made on the panel read "she holds melee", armed her melee weapon and told 0-XNPCCore the bare hand was
+        /// ordered. Null for none (also a stowed hand over an empty slot).
+        /// </summary>
+        public static ItemValue HeldOrStowed(EntityAlive npc)
+        {
+            if (npc == null || npc.inventory == null) return null;
+            Hand hand = npc.Hand;
+            if (hand != null && hand.IsHolstered)
+            {
+                ItemStack s = npc.inventory.GetItem(npc.inventory.holdingItemIdx);
+                return s != null && !s.IsEmpty() ? s.itemValue : null;
+            }
+            return npc.inventory.holdingItemItemValue;
+        }
+
+        /// <summary>Round mt1 (review fix G-M1): HoldsRanged by HeldOrStowed - the kind she holds, or draws again once she is no longer stowed.</summary>
+        public static bool HoldsRangedOrStowed(EntityAlive npc)
+        {
+            try { return IsRangedValue(HeldOrStowed(npc)); }
             catch (Exception) { return false; }
         }
 

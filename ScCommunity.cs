@@ -1213,6 +1213,12 @@ namespace SurvivorCommunity
         private static void FollowInternal(Member m, EntityAlive npc, EntityPlayer player, MemberStatus status)
         {
             ScNpc.SetLeaderAndOwner(npc.entityId, player.entityId);   // Follow order, hired_*, cache, StaticSpawner, Owner
+            // round mt1 (review fix H-m2): SCore writes Leader and Owner plainly (the slow bulk buff sync), while a talk hold's or
+            // shift's end just before (EndFor -> Detach) force-sent Owner = 0: a client saw the 0 for seconds, and its hire-mark
+            // sweep took the follow's fresh mark off. Both are force-sent now, so the clients read them in the same frame as the 0.
+            // (SetSynced would skip them: the value is already set.) Single player: sent to nobody
+            if (npc.Buffs.HasCustomVar("Leader")) npc.Buffs.SetCustomVar("Leader", npc.Buffs.GetCustomVar("Leader"), true, CVarOperation.set, true);
+            if (npc.Buffs.HasCustomVar("Owner")) npc.Buffs.SetCustomVar("Owner", npc.Buffs.GetCustomVar("Owner"), true, CVarOperation.set, true);
             npc.Buffs.SetCustomVar("Persist", 1f);
             // round MP2: her leader's platform id from the start (the ticker's NoteLeader would write the same a second later), so
             // a client's follower whose link drops before that is never handed to whoever hosts (ScTicker.LeaderToRestore)

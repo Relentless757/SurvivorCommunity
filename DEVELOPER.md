@@ -2423,11 +2423,27 @@ Round MP0 is the groundwork:
     `scInvClosedAway` ("{0} had to go."). The hit, downed, death and 32 m closes stay.
   - **Items:** nothing here moves an item. The view is display only, the gear requests are round MP3's, and a late view after
     the close is dropped while a late gear reply still settles its items (`Settle`).
-  - **Known gaps:** Voice Control stows her weapon while the panel holds her and for 20 s after (as in any talk); a swap
-    made then arms by the kind she holds, and the bare hand reads as melee, so she may draw her melee weapon until 0-XNPCCore
-    picks the gun for a target. H2 (a server-side backup of the hold from SCore's session marks) is not built: the client's
-    own component carries the hold. The kit is still missing from a client's copy of her body (its 3D hand while she
-    works); only the panel shows the server's.
+  - **Known gaps:** Voice Control stows her weapon while the panel holds her and for 20 s after (as in any talk). The kit is
+    still missing from a client's copy of her body (its 3D hand while she works); only the panel shows the server's.
+  - **Review fixes:** while her hand is holstered (`Hand.IsHolstered`: Bare mode) `holdingItemItemValue` is the bare hand, so
+    `ScSkills.HeldOrStowed` / `HoldsRangedOrStowed` read the selected slot's item instead (`inventory.GetItem(holdingItemIdx)`):
+    `ScLoadout.Set` re-arms the kind she will draw, the panel's "hand" step and `ScArms.NoteOrdered` name that item, and over
+    an empty slot nothing is noted - a swap made while she is stowed no longer flips a gun holder to melee or tells
+    0-XNPCCore the bare hand was ordered (single player and the host get their pre-mt1 behavior back). `ScPanelHold` (H2,
+    the server): from the 1 Hz ticker, for each of SCore's session marks (`ScAmmo.RemoteMarks`) on a member whose remote
+    player is alive within 10 m, Voice Control's public `ChatComponentManager.GetOrCreate(npc).SetRemoteChatActive(player,
+    true)` (reflection, bound once, one error line and off when missing) at once, 3 s later (the client's own "false" from its
+    dialog's close can land after the first) and then every 20 s; `false` on `RemoteClosed`, a stale mark, distance, death
+    and disconnect (`sc xnpc` reports it). Voice Control keeps one window per player and NPC, so that `false` also ends the
+    client's own window while its dialog with her is open (its keepalive restores it within 20 s). `member.gearview` answers
+    only a sender with her inventory open (`ScAmmo.IsRemoteOpenBy`) or within 10 m, else a quiet refusal; the view carries
+    `vn` (her entity id, checked by `ReadView`), and `ReadView` splits the hint once into a table. A weapon whose stack was too
+    large for the view (its slot shows the name over an empty slot) can be taken: `XUiC_ScGearSlot.HasItem` asks the panel's
+    view (`ViewNamesItem`). Voice Control's equipment window NPC is read through a `StaticFieldRefAccess` field ref (no
+    boxing per NPC per frame). `scInvRefuseBagClient` no longer names a host's screen. Left as they are: two view polls can be
+    in flight for a moment after the 10 s give-up (harmless); until the first view RANGED, MELEE and the armor take nothing
+    (one round trip); and single player's display-only changes (the imprinted hand copy, seed-0 last-resort items, the info
+    line built from numbers) are intended.
 
 - **Round MP3 (part L), linked storage** (`ScStorageServer`, `NetPackageScStorage`, `ScStorage`, `ScLinkedContainer34`,
   `ScHomeLink`, `Patches_LinkedStorage`): the server owns the boxes; every player's view, the host's own included, goes
@@ -2784,14 +2800,34 @@ Round MP0 is the groundwork:
     marker for her go.
   - **Two players: the first holder keeps her.** A second talker (a client, or the host's own player) gets no link and a
     tell (`scTalkBusyWith`); another player's Call to work is refused while someone else's talk holds her
-    (`scWorkHeldOther`). SC's own verbs (Follow me, Head home, a run, "That's all for now.") stay community orders, as before.
+    (`scWorkHeldOther`). Since the review fixes, SC's own verbs are refused the same way, and an idle hold yields (below).
   - **`Leader` reaches clients when it ends:** `ScCommunity.Detach`, `CleanupStale` and `ScRunners.ApplyTravelOrder` clear
     `Leader` (and `Owner`) through `ScCommunity.ClearSynced`, so a client no longer keeps the player who last led her as her
     leader after she is sent home (its rows showed, and every request was refused). Any code that ends a link must do the same.
   - **Known gaps:** a client's leftover `hired_<id>` may already have reached the server's copy of that player through the
-    player's own cvar sync before the client drops it (SCore's `CheckForDanglingHires` prunes it at the next check). At the
-    600 s cap a client's craft window stays open without the link (its orders are refused) - the server touches no remote
-    window. The craft window's Cancel on a client still ends the whole shift (C1n needs the server's shift table).
+    player's own cvar sync before the client drops it (SCore's `CheckForDanglingHires` prunes it at the next check). A late,
+    unreliable bulk buff sync built before a `ClearSynced` could in theory bring the old `Leader` / `Owner` back on a client
+    (needs the network to reorder packages; not settled by reading); a new talk with her corrects `Owner`.
+  - **Review fixes:** **the craft window's Cancel on a client** (`Patches_Craft` C1n `ClientCancel`): for a resident whose copy
+    shows her linked to this player (`Owner`) or on a shift (`sc_shift`), it sends `member.canceljob` (member; Community; the
+    server checks a loaded member, the sender within 40 m and that her hold or shift is theirs, `ScWork.OwnedBy`, then runs
+    `ScWork.CancelJobOnShift`; hint `dropped`), relists on the answer and skips the original's `VCCommand.Stay` - her shift
+    and link survive as on the host. **When the server ends a client's link** (`ScTalkContext.HeldTick`, her `Owner` no
+    longer names it), the client closes its windows on her - `ScWork.CloseTalkWindows(npc)`, the list the host's cap branch
+    closes, factored out - and, while the dialog with her is still open, sends one `Open` (at most every 10 s per member) so
+    the server links her again if she is free. **A follow** force-sends `Leader` and `Owner` right after
+    `ScNpc.SetLeaderAndOwner` (`FollowInternal`), so a client reads the follow in the same frame as the shift's `Owner` 0.
+    **The client's hire-mark sweep** takes the mark off at once when her copy is no longer loaded (not a follower's), takes
+    members whose facts say "not linked", and scans the mirror's residents every 2 s for an `Owner` naming the local player
+    (Call to work, a shift) without `Leader`. **Two players** (`ScWork.HandOverSeconds` = 90 s): the first holder keeps her
+    until her talk hold has stood that long with no order (still a Talk phase; a work shift never yields). Until then a second
+    talker gets `scTalkBusyWith`, and another player's Call to work and SC's own verbs - `member.follow`, `member.home`,
+    `member.leave`, `member.run`, `member.post`, `member.watch` - are refused with `scWorkHeldOther` (`ScWork.RefuseHeldByOther`).
+    After it, a second player's talk (`HandOver`: the host's own through the talk-hold postfix too) or one of those verbs ends
+    the idle hold (`YieldIdleTalk`: no walk back, the host's own windows on her closed), tells its player `scTalkHandedOver`
+    ("{0} is with {1} now."), and goes on; that player's quiet re-ask within 15 s gets no "busy" line. `member.workend` never
+    ends another player's talk hold (`ScWork.TalkHeldByOther`). **A player who leaves while she is down** marks the kept hold
+    or shift (`Shift.OwnerGone`), and `Tick` ends it once she is up.
 
 ## How it hangs together (for modders)
 

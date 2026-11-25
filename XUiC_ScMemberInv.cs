@@ -863,9 +863,14 @@ namespace SurvivorCommunity
         /// </summary>
         private void ClientTake(XUiC_ScGearSlot slot, bool toBackpack)
         {
-            if (GearBusy || slot.ItemStack == null || slot.ItemStack.IsEmpty()) return;
+            if (GearBusy) return;
+            bool shown = slot.ItemStack != null && !slot.ItemStack.IsEmpty();
+            // round mt1 (review fix G-m4): a weapon whose stack was too large for the server's view shows its name and line over an
+            // empty slot - the view says an item is there (KindItem), so the take is asked all the same (the server acts on its own
+            // state; a stack too large for the reply drops at the player's feet; XUiC_ScGearSlot.HasItem lets the gesture through)
+            if (!shown && !ViewNamesItem(slot)) return;
             EntityPlayerLocal player = xui.playerUI.entityPlayer;
-            if (toBackpack && !ScMemberEquip.BackpackRoom(player, slot.ItemStack)) { slot.Denied(ScMemberEquip.Text("scInvRefuseBackpackFull")); return; }
+            if (toBackpack && shown && !ScMemberEquip.BackpackRoom(player, slot.ItemStack)) { slot.Denied(ScMemberEquip.Text("scInvRefuseBackpackFull")); return; }
             TEFeatureStorage copy = te;
             int token = BeginGear();
             ScActions.Request(ScActionsGear.OpTake, new[] { npc.entityId, (int)slot.Kind, slot.Index, toBackpack ? 1 : 0 }, null, reply =>
@@ -888,6 +893,17 @@ namespace SurvivorCommunity
                 }
                 catch (Exception e) { ScLog.Once("memberinv-client-take", e); }
             });
+        }
+
+        /// <summary>
+        /// Round mt1 (review fix G-m4), a client: the server's view names an item on this weapon slot (RANGED, MELEE) whose stack it
+        /// could not send, so the slot shows none. Armor needs no such case: a piece too large leaves all four to this machine's
+        /// copy of her look, which shows them. Always false on the host (no view).
+        /// </summary>
+        internal bool ViewNamesItem(XUiC_ScGearSlot slot)
+        {
+            return view != null && slot != null && slot.Kind == ScMemberEquip.GearKind.Weapon && slot.Index >= 0 && slot.Index < view.Weapons.Length
+                   && view.Weapons[slot.Index] != null && view.Weapons[slot.Index].Kind == ScMemberGear.KindItem && !ScCommunity.IsHost;
         }
 
         /// <summary>

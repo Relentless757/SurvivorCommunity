@@ -83,6 +83,10 @@ only ever started on the host, for the host's own player. Now the server starts 
 keeps it alive while its talk is open, and the end of a follow (`Leader`) reaches the clients. Untested in game; protocol
 unchanged in this branch (the merge sets it). `sc craft <name>` on the server's console shows her hold or shift in its
 "shift:" line; `sc craft` shows the counts.
+Review fixes (build `sc34_mt1`, untested): a client's craft window Cancel drops only the job (`member.canceljob`); a client
+closes its windows on her when the server ends its link and asks once to be linked again; a follow's `Leader` and `Owner`
+reach clients at once; the client sweeps leftover hire marks from Call to work too; and the rule for two players: the first
+holder keeps her for 90 s without an order, then another player's talk or verb takes her over and the first is told.
 
 **Single player (nothing may change)**
 - [ ] Talk to a resident at home: Craft..., Jobs and gear and Show me your inventory show as before. While the talk is open
@@ -92,6 +96,9 @@ unchanged in this branch (the merge sets it). `sc craft <name>` on the server's 
       reaches the home crates.
 - [ ] Make her follow you, then send her home, then talk to her again: her rows are exactly as before.
 - [ ] Send a member on a supply run and post one to an outpost: nothing different.
+- [ ] (review fixes, regression) Talk to a resident, Craft..., order an item, press Cancel: the log says "<name>: the craft
+      window's Cancel ends her job, not her work shift", she stays at her spot and the window relists - as before. "Follow me"
+      from her talk, Head home, a run, a posting, a watch, Ask to leave and "That's all for now." all work as before.
 
 **A client on a dedicated server**
 - [ ] Talk to a resident at home who has never followed: within a second Craft..., Jobs and gear, Pay / Gift... and
@@ -109,6 +116,21 @@ unchanged in this branch (the merge sets it). `sc craft <name>` on the server's 
       craft window fills, and no `ListCraftable rejected` line appears (before, your machine kept you as her leader).
 - [ ] Quit the game while talking to her (or while she works for you after a job order): the server's log says her talk
       hold or work shift ended ("the player left the game") and she walks back to her post.
+- [ ] (review fix H-M1) Talk, Craft..., order an item (the server logs "starts a work shift (from the talk)"), press Cancel:
+      the server logs "<name>: the craft window's Cancel ends her job, not her work shift", the ingredients come back, she stays
+      at her spot, `sc craft <name>` still shows her shift (Idle), and the window relists - a new order works. No "work shift
+      ends (given the order Stay)" line.
+- [ ] (review fix H-m1) Talk, open Craft... from it, then close only the talk window and wait past the 600 s cap: the craft
+      window closes by itself as she walks back to her post (it used to stay open, refusing everything). With the talk window
+      still open when the server ends the link (lag, a hand-over below), her hired rows hide and come back within a second if
+      she is free again (the client asks once: verbose "the server is asked to link her again").
+- [ ] (review fix H-m2) "Follow me" from a linked talk: her companion marker and SCore's companion list keep her the whole time
+      (no gap of a few seconds).
+- [ ] (review fix H-m3) Call her to work from the Community tab, then End work (or let the shift idle out): within a few
+      seconds she is no longer your companion on this machine (no `hired_<id>` left on your player). Same when you walk out of
+      view range while she works for you and the shift then ends.
+- [ ] (review fix H-n1) She is down while on your work shift and you quit: once she is revived, the server logs her shift
+      ended ("the player left the game") and she walks back to her post.
 
 **Two players** (two clients on the dedicated server, or a listen host and a client)
 - [ ] A talks to her. B talks to her while A's talk is open: B reads "<name> is busy with <A> right now. Ask again once they
@@ -118,6 +140,16 @@ unchanged in this branch (the merge sets it). `sc craft <name>` on the server's 
       now..."; A keeps her.
 - [ ] Listen host: the client holds her and the host talks to her: the host reads the busy line. The client's hold ends (it
       closes its windows, or walks away): none of the host's windows close.
+- [ ] (review fix H-m5) A talks to her and gives no order for more than 90 s (stays in her dialog). B talks to her: B is
+      linked (her hired rows show for B), A reads "<name> is with <B> now.", A's craft window or member panel on her closes,
+      A's hired rows hide, and A gets no "busy" line on top. The server logs "<name>'s talk hold with <A> stood idle for N s -
+      handed over to <B>". Under 90 s B still reads the busy line.
+- [ ] (review fix H-m4) While A's talk (under 90 s) holds her, B picks Follow me, Head home, a supply or mining run, a posting,
+      a watch post or Ask to leave: refused with "They're talking with someone else right now..."; A keeps her. After 90 s
+      with no order the same verb works for B and A is told "<name> is with <B> now.". B's "That's all for now." (a crafted
+      request) never ends A's talk hold, however old.
+- [ ] (review fix H-m5) A gives her an order (a work shift), then idles: B's talk never takes her over (a work shift does not
+      yield); B reads the busy line.
 ## Round mt1 (part: G) (2026-11-25): a member's gear shows as she carries it, and she stays while you manage it
 
 Why: on a client the member panel's RANGED and MELEE showed items the client made itself (a new quality 1 copy every half
@@ -126,6 +158,10 @@ second, or its own roll), so a take or swap looked like a re-roll; her copies ne
 slots showed no work kit. Now a client's panel shows the server's view (`member.gearview`), every copy carries the handed
 item's stats, the panel holds her through Voice Control's hold, and it closes with "<name> had to go." when she leaves for a
 fight or an investigation. Build `sc34_mt1g`, **not deployed**, untested in game.
+Review fixes (build `sc34_mt1`, untested): a swap made while she is stowed keeps the kind she draws (the slot's item, not the
+bare hand) and never tells 0-XNPCCore the bare hand was ordered; the server backs the panel's hold itself; `member.gearview`
+answers only a player at her panel; a weapon too large for the view can still be taken; the bag line no longer mentions a
+host's screen.
 
 **Single player**
 - [ ] Hand her a looted or traded gun on RANGED (hover it first and note its stat numbers). Hover RANGED: the same quality and
@@ -136,8 +172,12 @@ fight or an investigation. Build `sc34_mt1g`, **not deployed**, untested in game
       within a second and says "<name> had to go.". A hit still closes it with "took a hit"; a knock-down too.
 - [ ] Open the panel by voice from farther than 6 m: it stays open until she walks farther away.
 - [ ] Close the panel within 20 s of the talk: no weapon of hers changes quality (`sc loadout <name>` the same before and after).
-- [ ] Swap RANGED while she is stowed, close the panel, wait about 20 s: note which weapon she draws (a known gap: possibly her
-      melee weapon, until a target needs the gun).
+- [ ] (review fix G-M1) She holds her pistol. Open her panel (she puts it away), drop a rifle on RANGED, close, wait about 20 s:
+      she draws the rifle (before the fix: her melee weapon). `sc loadout <name>` shows the rifle in her pair.
+- [ ] (review fix G-M1) She holds her gun. Open the panel, drop another club on MELEE, close, wait about 20 s: she draws her gun
+      again, not the club.
+- [ ] (review fix G-m1) Take RANGED off while she is stowed, close, wait about 20 s: she draws her melee weapon. Save, quit and
+      load the world near her: she still holds the melee weapon, never stands bare-handed.
 - [ ] Log: no SC errors, no MISSING PATCH for `NPCChatComponent::LocalHarvestWindowOpenOn`.
 
 **A client on a dedicated server**
@@ -147,16 +187,24 @@ fight or an investigation. Build `sc34_mt1g`, **not deployed**, untested in game
       cursor is exactly the one you handed (the server's log: `... now carries ... (member panel)`).
 - [ ] The job tool slots show her work kit: the stone axe on Chop, Mine and Repair, the shovel on Dig, the knife on Butcher.
       Taking a kit tool is refused ("The work kit stays with the member."); an axe you drop on Chop goes into her pack and can
-      be taken back. A tool in her bag shows, and a take says only the host's screen can take from her bag.
+      be taken back. A tool in her bag shows, and a take says "That tool is in <name>'s bag and can't be taken from here."
+      (review fix G-n2).
 - [ ] The armor slots show the pieces you handed exactly (wear, mods); the ammo line shows within about 1.5 s and follows a click.
 - [ ] She stays put while your panel is open; when she leaves for a fight the panel closes with "<name> had to go.".
+- [ ] (review fix G-m2) While your panel is open, the server's `sc xnpc` "ammo (D3)" line ends with "member panel holds (server
+      backup): 1 now"; a few seconds after you close it, "0 now" (and "1 ended"). With verbose logging the server says "the
+      server holds <name> for <you> while their panel is open". She stays put for the whole panel, also when you opened it from
+      the hold-E ring without a talk.
+- [ ] (review fix G-M1) The single player steps above for a swap while she is stowed: the same weapon kind is drawn after the
+      grace.
 - [ ] Close the panel: her gun keeps its quality (no weapon swap for her in the server's log).
 - [ ] Logs: no SC errors on either side.
 
 **Two players**
 - [ ] Player A has her panel open while player B talks to her: she stays; A closes it: she still stays while B's dialog is open.
 - [ ] A's panel on one member, B's on another: each holds only their own.
-- [ ] A client with her panel open drops its connection: she is free to walk again within 45 s (Voice Control's limit).
+- [ ] A client with her panel open drops its connection: she is free to walk again within 45 s (Voice Control's limit); the
+      server's backup ends at once (`sc xnpc`: "0 now").
 
 ## Round MP4 results so far (2026-11-25): one client on the dedicated server
 

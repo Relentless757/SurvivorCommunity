@@ -1912,7 +1912,8 @@ namespace SurvivorCommunity
             if (changed && old != null) PanelStep("table", () => ScAmmo.ReleaseXnpcTable(npc, ItemClass.GetItemClass(old, true), "member panel"));
             PanelStep("hand", () =>
             {
-                ItemValue h = npc.inventory != null ? npc.inventory.holdingItemItemValue : null;
+                // round mt1 (review fix G-M1): the slot's item while her hand is holstered (the panel holds her stowed now)
+                ItemValue h = ScSkills.HeldOrStowed(npc);
                 string heldName = h != null && !h.IsEmpty() && h.ItemClass != null ? h.ItemClass.GetItemName() : null;
                 if (handed == null)
                 {
@@ -1988,7 +1989,11 @@ namespace SurvivorCommunity
                 // the player handed over a firearm, and 0-XNPCCore restores whatever it is told here (its close-range melee
                 // exit, its dry-gun failover and its world-entry re-arm all read sdcsHeldWeaponRemembered). Naming the club
                 // while she holds the handed AK would make it put the club back at the next one of those.
-                ItemValue iv = npc != null && npc.inventory != null ? npc.inventory.holdingItemItemValue : null;
+                // Round mt1 (review fix G-m1): while her hand is holstered (Voice Control's stow, which the member panel now holds
+                // up) the held item is the bare hand, and naming it told 0-XNPCCore the bare hand was ordered (its world-entry re-arm
+                // then kept her unarmed): the selected slot's item is noted instead - what she draws again - and nothing over an
+                // empty slot
+                ItemValue iv = ScSkills.HeldOrStowed(npc);
                 string held = iv != null && !iv.IsEmpty() && iv.ItemClass != null ? iv.ItemClass.GetItemName() : null;
                 if (!string.IsNullOrEmpty(held) && !ScLoadout.IsKitOnly(npc, held) && !ScXnpc.IsLightTool(iv.ItemClass))
                     AnyWeaponBridge.AnyWeaponNoteEquipped(npc, held);

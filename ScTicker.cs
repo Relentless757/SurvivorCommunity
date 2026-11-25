@@ -112,6 +112,7 @@ namespace SurvivorCommunity
                 ScAmmo.Tick(w);                       // every 5 s: each member's ammo into the record; resupply in the base / at an outpost
 #if SC_V34
                 ScWork.Sweep(player);                 // C1: work shifts whose member left, moved on or unloaded are dropped
+                ScPanelHold.Tick(w);                  // round mt1 (review fix G-m2): the server's backup of a remote player's member panel hold
 #endif
                 ScDoors.Tick(w, player);              // shut the doors members opened once they are through
 #if SC_V34

@@ -97,6 +97,9 @@ namespace SurvivorCommunity
             int mode = args.Int(1, ModeWindow);
             Member m = ScRegistry.GetMember(args.Int(0, -1));
             if (m == null) { reply.Fail(mode == ModeWindow ? "scMemberGone" : ""); return; }
+#if SC_V34
+            if (ScWork.RefuseHeldByOther(m, sender, reply)) return;      // round mt1 (review fix H-m4): another player's talk keeps her
+#endif
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             // round MP2 (review members MINOR 5): the talk's modes are in person - a remote sender beyond talking reach is answered
             // as a body that is not there (silent); mode 2 needs no radio only because of it
@@ -209,6 +212,9 @@ namespace SurvivorCommunity
             int mode = args.Int(1, ModeWindow);
             Member m = ScRegistry.GetMember(args.Int(0, -1));
             if (m == null) { reply.Fail(mode == ModeWindow ? "scMemberGone" : ""); return; }
+#if SC_V34
+            if (ScWork.RefuseHeldByOther(m, sender, reply)) return;      // round mt1 (review fix H-m4): another player's talk keeps her
+#endif
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             if (mode != ModeWindow)
             {
@@ -239,6 +245,9 @@ namespace SurvivorCommunity
             int mode = args.Int(1, ModeWindow);
             Member m = ScRegistry.GetMember(args.Int(0, -1));
             if (m == null) { reply.Fail(mode == ModeWindow ? "scMemberGone" : ""); return; }
+#if SC_V34
+            if (ScWork.RefuseHeldByOther(m, sender, reply)) return;      // round mt1 (review fix H-m4): another player's talk keeps her
+#endif
             if (mode == ModeWindow)
             {
 #if SC_V34

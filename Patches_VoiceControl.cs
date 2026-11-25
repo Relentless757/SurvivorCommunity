@@ -2044,8 +2044,12 @@ namespace SurvivorCommunity
         [HarmonyPatch]
         public static class Patch_PanelHold
         {
-            /// <summary>Voice Control's own equipment window (XUiC_NpcEquipWindow): its NPC (static s_npcId) and window group name; null without it.</summary>
-            private static FieldInfo equipNpc;
+            /// <summary>
+            /// Voice Control's own equipment window (XUiC_NpcEquipWindow): its NPC (static s_npcId) and window group name; null without it.
+            /// Round mt1 (review fix G-m5): a field ref bound once - FieldInfo.GetValue boxed an int for every NPC with a chat
+            /// component, every frame, on every machine.
+            /// </summary>
+            private static AccessTools.FieldRef<int> equipNpc;
             private const string EquipGroup = "NpcEquipGroup";
 
             [HarmonyPrepare]
@@ -2062,7 +2066,9 @@ namespace SurvivorCommunity
                     // optional: without it only SC's panel counts
                     Type w = ScEquipRedirect.WindowType;      // Voice Control's own assembly only
                     FieldInfo f = w != null ? AccessTools.Field(w, "s_npcId") : null;
-                    equipNpc = f != null && f.IsStatic && f.FieldType == typeof(int) ? f : null;
+                    equipNpc = null;
+                    try { if (f != null && f.IsStatic && f.FieldType == typeof(int)) equipNpc = AccessTools.StaticFieldRefAccess<int>(f); }   // round mt1 (review fix G-m5)
+                    catch (Exception e) { ScLog.Once("vc-bind-panelhold-equip", e); }
                     return true;
                 }
                 catch (Exception e) { ScLog.Once("vc-bind-panelhold", e); }
@@ -2084,7 +2090,7 @@ namespace SurvivorCommunity
                         __result = true;
                         return;
                     }
-                    if (equipNpc != null && (int)equipNpc.GetValue(null) == id && id > 0)
+                    if (equipNpc != null && id > 0 && equipNpc() == id)     // round mt1 (review fix G-m5): no boxing
                     {
                         LocalPlayerUI ui = LocalPlayerUI.GetUIForPrimaryPlayer();
                         if (ui != null && ui.windowManager != null && ui.windowManager.IsWindowOpen(EquipGroup)) __result = true;

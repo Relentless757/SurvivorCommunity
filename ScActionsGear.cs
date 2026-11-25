@@ -35,6 +35,8 @@ namespace SurvivorCommunity
     ///                                                      ammo line's parts, the job tools of her bag and toolbelt), hints v*
     ///                                                      (ScMemberGear.PutView). A remote geardrop / geartake reply carries
     ///                                                      the same view after its own hints, when it fits (MaxReplyChars).
+    ///                                                      Round mt1 (review fix G-m3): only for a player with her inventory
+    ///                                                      open (ScAmmo's mark) or within ViewReach; else a quiet refusal.
     /// </summary>
     public static class ScActionsGear
     {
@@ -49,6 +51,9 @@ namespace SurvivorCommunity
         /// game's connection buffers take a package of up to about 2 MB; a typical view is 2-4 thousand characters.
         /// </summary>
         private const int MaxViewChars = 16000, MaxReplyChars = 24000;
+
+        /// <summary>Round mt1 (review fix G-m3): member.gearview answers a player within this many meters of her without an open session (the panel closes at about 6 m).</summary>
+        private const float ViewReach = 10f;
 
         /// <summary>The stack for the player's cursor (ScItemTx.StacksToHint, one stack), items for their bag, her real piece to take out of their copy.</summary>
         public const string HintCursor = "cur", HintGive = "give", HintPackTake = "pt";
@@ -248,6 +253,15 @@ namespace SurvivorCommunity
             World w = ScCommunity.World;
             EntityAlive npc = w != null && npcId > 0 ? w.GetEntity(npcId) as EntityAlive : null;
             if (npc == null || npc.IsDead() || ScRegistry.GetMember(npcId) == null) { reply.Fail("", ""); return; }
+            // round mt1 (review fix G-m3): only for a player at her panel - one who has her inventory open (the server's mark of
+            // SCore's session: every open panel has one) or stands within ViewReach of her; anyone else is refused quietly, before
+            // anything is built (a distance, then a table lookup)
+            if (sender == null || (!(sender is EntityPlayerLocal) && (npc.position - sender.position).sqrMagnitude > ViewReach * ViewReach
+                                   && !ScAmmo.IsRemoteOpenBy(npcId, sender.entityId)))
+            {
+                reply.Fail("", "");
+                return;
+            }
             reply.Done("", "");
             if (!ScMemberGear.PutView(reply, ScMemberGear.BuildView(npc), MaxViewChars)) reply.Fail("", "");
         }

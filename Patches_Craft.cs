@@ -1170,6 +1170,7 @@ namespace SurvivorCommunity
                     World w = GameManager.Instance != null ? GameManager.Instance.World : null;
                     EntityAlive npc = w != null && id > 0 ? w.GetEntity(id) as EntityAlive : null;
                     Member m = MemberOf(npc);
+                    if (!ScCommunity.IsHost) return ClientCancel(__instance, m, npc);     // round mt1 (review fix H-M1)
                     bool dropped;
                     if (m == null || !ScWork.CancelJobOnShift(m, npc, out dropped)) return true;
                     if (!dropped) return false;                // on a shift with no job: nothing to cancel, nothing counted
@@ -1183,6 +1184,37 @@ namespace SurvivorCommunity
                     ScLog.Once("craft-window-cancel", e);
                     return true;
                 }
+            }
+
+            /// <summary>
+            /// Round mt1 (review fix H-M1), a multiplayer client. Shifts live in the server's table, so CancelJobOnShift found none
+            /// here and the original sent Voice Control's Stay: the server ended her whole shift (any order but Guard), she walked
+            /// back to her post, the Owner link went, and this window waited on "..." for good (every request refused). For a
+            /// resident whose copy shows her linked to this player (Owner: a talk hold or a shift of theirs) or on a shift
+            /// (sc_shift), the server is asked to drop the job alone (member.canceljob: CancelJobOnShift there, as on the host),
+            /// the window relists on the answer, and the original - its Stay - is skipped. Anyone else (a follower, a hire, a
+            /// server without SC's protocol): the original, as before.
+            /// </summary>
+            private static bool ClientCancel(XUiController window, Member m, EntityAlive npc)
+            {
+                if (m == null || npc == null || npc.Buffs == null || m.Status != MemberStatus.Resident || !ScActionsWindow.CanRequest) return true;
+                EntityPlayerLocal player = window != null && window.xui != null && window.xui.playerUI != null ? window.xui.playerUI.entityPlayer : null;
+                if (player == null) return true;
+                bool linked = (int)npc.Buffs.GetCustomVar("Owner") == player.entityId || npc.Buffs.GetCustomVar(ScWork.ShiftCvar) > 0f;
+                if (!linked) return true;
+                int id = npc.entityId;
+                ScActions.Request(ScActionsWindow.OpCancelJob, reply =>
+                {
+                    try
+                    {
+                        if (reply.Ok && reply.HintInt(ScActionsWindow.HintDropped, 0) > 0) Count("c1n-window-cancel-kept-shift-client");
+                        World w = GameManager.Instance != null ? GameManager.Instance.World : null;
+                        EntityAlive cur = w != null ? w.GetEntity(id) as EntityAlive : null;
+                        if (mRelist != null && cur != null && window.IsOpen && (int)fNpcId.GetValue(null) == id) mRelist.Invoke(window, new object[] { player, cur });
+                    }
+                    catch (Exception e) { ScLog.Once("craft-window-cancel-client", e); }
+                }, id);
+                return false;
             }
         }
 
@@ -1222,6 +1254,7 @@ namespace SurvivorCommunity
                     Member m = MemberOf(npc);
                     if (m == null || player == null) return;
                     if (ScWork.StartTalk(m, npc, player)) Count("x3a-talk-hold-started");
+                    else if (ScWork.HandOver(m, npc, player)) Count("x3a-talk-hold-handed-over");   // round mt1 (review fix H-m5): another player's idle hold
                     else ScWork.TellIfHeldByOther(m, player);   // round mt1 (part H): another player's hold or shift has her (never in single player)
                 }
                 catch (Exception e)

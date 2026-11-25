@@ -225,7 +225,7 @@ namespace SurvivorCommunity
                 bool submit = gui.Submit.WasReleased, half = gui.HalfStack.WasReleased;
                 if (cursor.IsEmpty())
                 {
-                    if (ItemStack.IsEmpty()) return;
+                    if (!HasItem) return;                   // round mt1 (review fix G-m4): was ItemStack.IsEmpty()
                     if (submit) Panel.SlotTake(this, false);
                     else if (half) Denied(Localization.Get("scInvRefuseHalf"));
                     else if (gui.RightStick.WasReleased) Panel.SlotTake(this, true);
@@ -255,11 +255,11 @@ namespace SurvivorCommunity
                 {
                     bool once = !handledThisPress;
                     pressed = handledThisPress = false;
-                    if (once && cursor.IsEmpty() && !ItemStack.IsEmpty()) Panel.SlotTake(this, true);
+                    if (once && cursor.IsEmpty() && HasItem) Panel.SlotTake(this, true);       // round mt1 (review fix G-m4): HasItem
                 }
                 return;
             }
-            if (held && pressed && !handledThisPress && cursor.IsEmpty() && !ItemStack.IsEmpty()
+            if (held && pressed && !handledThisPress && cursor.IsEmpty() && HasItem     // round mt1 (review fix G-m4): HasItem
                 && (cc.GetScreenPosition() - pressPos).magnitude > PickupSnapDistance)
             {
                 handledThisPress = true;                // a refused take is not asked again until the next press
@@ -273,6 +273,12 @@ namespace SurvivorCommunity
                 if (!took && !cursor.IsEmpty()) Panel.SlotDrop(this, cursor);   // a click on the slot, or a drag let go on it
             }
         }
+
+        /// <summary>
+        /// Round mt1 (review fix G-m4): something to take - the item shown, or (a multiplayer client) a weapon the server's view
+        /// names whose stack was too large to send (XUiC_ScMemberInv.ViewNamesItem): the take is asked, the server acts on its own.
+        /// </summary>
+        private bool HasItem { get { return !ItemStack.IsEmpty() || (Panel != null && Panel.ViewNamesItem(this)); } }
 
         /// <summary>A refusal: the denied sound and the reason as a tooltip (at most every 0.4 s, so one gesture shows one).</summary>
         internal void Denied(string why)

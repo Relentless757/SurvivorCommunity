@@ -123,6 +123,9 @@ namespace SurvivorCommunity
             savedGuns.Clear();
             deferredLoose.Clear();
             remoteOpen.Clear();
+#if SC_V34
+            ScPanelHold.Reset();          // round mt1 (review fix G-m2): the server's backup of the hold lives on these marks
+#endif
             PendingKnown = false;
             PendingRecord = null;
             PendingMags = null;
@@ -1123,11 +1126,41 @@ namespace SurvivorCommunity
         public static void RemoteClosed(int npc, int player)
         {
             Patches_Xnpc.Count("window-remote-close");
+#if SC_V34
+            ScPanelHold.Release(npc, player, "the inventory closed");      // round mt1 (review fix G-m2): the server's backup of the hold ends with it
+#endif
             Dictionary<int, float> by;
             if (!remoteOpen.TryGetValue(npc, out by)) return;
             if (player < 0) by.Clear();
             else by.Remove(player);
             if (by.Count == 0) remoteOpen.Remove(npc);
+        }
+
+        /// <summary>
+        /// Round mt1 (review fix G-m3): does this remote player have this NPC's inventory open (their own mark; stale marks are
+        /// dropped first, as IsRemoteOpen)? Always false on a client, in single player and for the host's own player.
+        /// </summary>
+        public static bool IsRemoteOpenBy(int npc, int player)
+        {
+            if (remoteOpen.Count == 0 || !IsRemoteOpen(npc)) return false;
+            Dictionary<int, float> by;
+            return remoteOpen.TryGetValue(npc, out by) && by.ContainsKey(player);
+        }
+
+        /// <summary>
+        /// Round mt1 (review fix G-m2): every remote open as (NPC entity id, player entity id), stale marks dropped first, into
+        /// a list the caller owns (cleared here). Nothing on a client or in single player.
+        /// </summary>
+        internal static void RemoteMarks(List<KeyValuePair<int, int>> into)
+        {
+            into.Clear();
+            if (remoteOpen.Count == 0) return;
+            foreach (int npc in new List<int>(remoteOpen.Keys))
+            {
+                Dictionary<int, float> by;
+                if (!IsRemoteOpen(npc) || !remoteOpen.TryGetValue(npc, out by)) continue;
+                foreach (int player in by.Keys) into.Add(new KeyValuePair<int, int>(npc, player));
+            }
         }
 
         /// <summary>
@@ -1215,6 +1248,9 @@ namespace SurvivorCommunity
         /// </summary>
         public static void ForgetPlayer(int player)
         {
+#if SC_V34
+            ScPanelHold.ForgetPlayer(player);      // round mt1 (review fix G-m2): their backups of the hold end now
+#endif
             if (remoteOpen.Count == 0) return;
             var lost = new List<int>();
             foreach (var kv in remoteOpen)
@@ -1710,7 +1746,11 @@ namespace SurvivorCommunity
                    + "; guns put away gave back " + swapRounds + " round(s) in " + swapReturns + " swap(s), dead NPCs' guns " + deathRounds
                    + "; held guns saved " + gunsSaved + " time(s) (unloaded " + gunsSavedUnloaded + "), back in the hand on load " + gunsRestored + ", given back loose " + gunsLoose + " round(s)"
                    + "; inventory windows open by remote players now " + RemoteOpenCount()
-                   + ", dead NPCs' windows waiting for them to close " + Patches_Npc.Patch_SetDead.HeldCount;
+                   + ", dead NPCs' windows waiting for them to close " + Patches_Npc.Patch_SetDead.HeldCount
+#if SC_V34
+                   + "; " + ScPanelHold.Report()      // round mt1 (review fix G-m2)
+#endif
+                   ;
         }
 
         /// <summary>One NPC's ammo as the resupply sees it, for sc xnpc &lt;id&gt;.</summary>

@@ -531,6 +531,7 @@ namespace SurvivorCommunity
         private const string VArmor = "va";                              // the ArmorState; va0..va3 the pieces
         private const string VTool = "vt";                               // vt<job> "store,slot"; vt<job>s the stack
         private const string VLine = "vl";                               // 0/1; vlk the key, vla the ammo item, vln the count
+        private const string VNpc = "vn";                                // round mt1 (review fix G-n3): the NPC's entity id
 
         /// <summary>Round mt1 (part G), the server: her equipment column now (main thread).</summary>
         internal static GearView BuildView(EntityAlive npc)
@@ -570,6 +571,7 @@ namespace SurvivorCommunity
             {
                 var core = new ScActionReply();
                 core.SetHint(VKey, VVersion);
+                core.SetHint(VNpc, v.NpcId);           // round mt1 (review fix G-n3): whose view it is (ReadView checks it)
                 for (int w = 0; w < 2; w++) PutWeapon(core, VWeapon[w], v.Weapons[w]);
                 if (v.AmmoShow && Safe(v.AmmoKey) && Safe(v.AmmoItem))
                     core.SetHint(VLine, 1).SetHint(VLine + "k", v.AmmoKey).SetHint(VLine + "a", v.AmmoItem).SetHint(VLine + "n", v.AmmoCount);
@@ -635,32 +637,39 @@ namespace SurvivorCommunity
         /// </summary>
         internal static GearView ReadView(ScActionReply reply, int npcId)
         {
-            if (reply == null || !reply.Ok || reply.HintStr(VKey, null) != VVersion) return null;
+            if (reply == null || !reply.Ok || string.IsNullOrEmpty(reply.Hint)) return null;
             try
             {
+                // round mt1 (review fix G-n1): the hint is split once into a table - ScActionReply.HintStr splits the whole hint on
+                // every call, and a view asks for about 35 keys (a few hundred KB of garbage per answer, every 1.5 s per open panel)
+                Dictionary<string, string> h = ParseHint(reply.Hint);
+                if (HStr(h, VKey, null) != VVersion) return null;
+                // round mt1 (review fix G-n3): a view of another NPC (it says whose since this fix) is not this panel's
+                int whose = HInt(h, VNpc, npcId);
+                if (whose != npcId) return null;
                 var v = new GearView { NpcId = npcId };
-                for (int w = 0; w < 2; w++) v.Weapons[w] = ReadWeapon(reply, VWeapon[w]);
-                v.ArmorState = reply.HintInt(VArmor, GearView.ArmorLeftOut);
+                for (int w = 0; w < 2; w++) v.Weapons[w] = ReadWeapon(h, VWeapon[w]);
+                v.ArmorState = HInt(h, VArmor, GearView.ArmorLeftOut);
                 if (v.ArmorState == GearView.ArmorSent)
-                    for (int i = 0; i < v.Armor.Length; i++) v.Armor[i] = FirstStack(reply.HintStr(VArmor + i.ToString(CultureInfo.InvariantCulture)));
+                    for (int i = 0; i < v.Armor.Length; i++) v.Armor[i] = FirstStack(HStr(h, VArmor + i.ToString(CultureInfo.InvariantCulture), ""));
                 for (int j = 0; j < JobCount; j++)
                 {
                     string k = VTool + j.ToString(CultureInfo.InvariantCulture);
-                    string at = reply.HintStr(k, null);
+                    string at = HStr(h, k, null);
                     if (at == null) continue;
                     string[] p = at.Split(',');
                     int store, slot;
                     if (p.Length != 2 || !int.TryParse(p[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out store)
                         || !int.TryParse(p[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out slot) || store == StoreWindow) continue;
-                    ItemStack st = FirstStack(reply.HintStr(k + "s"));
+                    ItemStack st = FirstStack(HStr(h, k + "s", ""));
                     if (!st.IsEmpty()) v.Tools[j] = new ToolPick { Stack = st, Store = store, Slot = slot };
                 }
-                v.AmmoShow = reply.HintInt(VLine, 0) > 0;
+                v.AmmoShow = HInt(h, VLine, 0) > 0;
                 if (v.AmmoShow)
                 {
-                    v.AmmoKey = reply.HintStr(VLine + "k", "scInvAmmoLine");
-                    v.AmmoItem = reply.HintStr(VLine + "a");
-                    v.AmmoCount = reply.HintInt(VLine + "n", 0);
+                    v.AmmoKey = HStr(h, VLine + "k", "scInvAmmoLine");
+                    v.AmmoItem = HStr(h, VLine + "a", "");
+                    v.AmmoCount = HInt(h, VLine + "n", 0);
                 }
                 return v;
             }
@@ -671,9 +680,9 @@ namespace SurvivorCommunity
             }
         }
 
-        private static WeaponView ReadWeapon(ScActionReply reply, string p)
+        private static WeaponView ReadWeapon(Dictionary<string, string> h, string p)
         {
-            var w = new WeaponView { Kind = reply.HintInt(p + "k", KindNone), Item = reply.HintStr(p + "i") };
+            var w = new WeaponView { Kind = HInt(h, p + "k", KindNone), Item = HStr(h, p + "i", "") };
             switch (w.Kind)
             {
                 case KindNoRanged:
@@ -683,12 +692,12 @@ namespace SurvivorCommunity
                     w.Name = w.Item;
                     break;
                 case KindItem:
-                    ItemStack s = FirstStack(reply.HintStr(p + "s"));
+                    ItemStack s = FirstStack(HStr(h, p + "s", ""));
                     ItemClass ic = ItemClass.GetItemClass(w.Item, true);
                     if (ic == null && !s.IsEmpty()) ic = s.itemValue.ItemClass;
                     w.Name = ic != null ? ic.GetLocalizedItemName() : w.Item;
                     w.Stack = s;                       // empty when it was too large to send: the name and the line alone
-                    w.Parts = InfoParts.Decode(reply.HintStr(p + "p"));
+                    w.Parts = InfoParts.Decode(HStr(h, p + "p", ""));
                     w.Info = FormatInfo(w.Parts);
                     break;
                 default:
@@ -697,6 +706,37 @@ namespace SurvivorCommunity
                     break;
             }
             return w;
+        }
+
+        /// <summary>
+        /// Round mt1 (review fix G-n1): "key=value;key=value" into a table, once - ScActionReply.HintStr's own reading (the first
+        /// part with that exact key wins, a part without '=' or with an empty key is skipped).
+        /// </summary>
+        private static Dictionary<string, string> ParseHint(string hint)
+        {
+            var d = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (string.IsNullOrEmpty(hint)) return d;
+            foreach (string part in hint.Split(';'))
+            {
+                int eq = part.IndexOf('=');
+                if (eq <= 0) continue;
+                string k = part.Substring(0, eq);
+                if (!d.ContainsKey(k)) d[k] = part.Substring(eq + 1);
+            }
+            return d;
+        }
+
+        private static string HStr(Dictionary<string, string> h, string key, string def)
+        {
+            string v;
+            return h.TryGetValue(key, out v) ? v : def;
+        }
+
+        private static int HInt(Dictionary<string, string> h, string key, int def)
+        {
+            int n;
+            string v;
+            return h.TryGetValue(key, out v) && int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out n) ? n : def;
         }
 
         /// <summary>One stack for a hint: "" for none, null when it is too large to send (ScItemTx.MaxEncoded).</summary>

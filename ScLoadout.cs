@@ -1295,8 +1295,10 @@ namespace SurvivorCommunity
                 l.Lead = Loadout.LeadMelee;
             }
             List<Weapon> order = XnpcOrder(l);
-            // a new lead is put in the hand at once (a test from the console); otherwise the same kind as before
-            bool heldRanged = l.HasRanged && (raider && change.Lead != Loadout.LeadNone ? change.Lead == Loadout.LeadRanged : ScSkills.HoldsRanged(e));
+            // a new lead is put in the hand at once (a test from the console); otherwise the same kind as before. Round mt1 (review
+            // fix G-M1): the kind in her selected slot while her hand is holstered (Voice Control's stow holds for the whole member
+            // panel now) - the bare hand there read as melee, and a panel swap flipped a gun holder to her melee weapon
+            bool heldRanged = l.HasRanged && (raider && change.Lead != Loadout.LeadNone ? change.Lead == Loadout.LeadRanged : ScSkills.HoldsRangedOrStowed(e));
             int before = e.itemsOnEnterGame.Count;
             WriteCvars(e, l);
             Remember(e, l);

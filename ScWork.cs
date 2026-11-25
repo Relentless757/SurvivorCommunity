@@ -118,7 +118,24 @@ namespace SurvivorCommunity
             /// word: TalkSeen is the last heartbeat (RemoteBeat), ClientClosed their client's close (RemoteClosed).
             /// </summary>
             public bool Remote, ClientClosed;
+            /// <summary>
+            /// Round mt1 (review fix H-n1): her player left the game while she was down (End keeps a downed member's shift) - Tick
+            /// ends it once she is up, instead of at its idle end with Owner naming a player who is gone.
+            /// </summary>
+            public bool OwnerGone;
         }
+
+        /// <summary>
+        /// Round mt1 (review fixes H-m4, H-m5): the rule for two players. Another player's talk hold keeps her - a second talker gets
+        /// no link (TellBusy), another player's Call to work and SC's own verbs (Follow me, Go home, a run, a posting, a watch, Ask
+        /// to leave) are refused with scWorkHeldOther - until it has lasted this many real seconds with no order given (still a
+        /// Talk phase: her first order makes it a work shift, which never yields). Then a second player who talks to her or picks
+        /// one of those verbs takes her over: the hold ends, its player is told (scTalkHandedOver) and their windows on her close
+        /// (KeptByOtherTalk, HandOver). "That's all for now." never ends another player's talk hold.
+        /// </summary>
+        internal const float HandOverSeconds = 90f;
+        /// <summary>Round mt1 (review fix H-m5): a handed-over player's own talk with her right after is not told "busy" again (it was told who took her).</summary>
+        private const float HandedQuietSeconds = 15f;
 
         private static readonly Dictionary<int, Shift> shifts = new Dictionary<int, Shift>();
         private static readonly List<int> scratch = new List<int>();
@@ -126,6 +143,9 @@ namespace SurvivorCommunity
         private static int talkStarts, talkPromoted, talkEnds, talkSkipped;
         /// <summary>Round mt1 (part H): holds started for a remote talker, and talks that found her held by another player.</summary>
         private static int remoteTalkStarts, busyRefused;
+        /// <summary>Round mt1 (review fix H-m5): idle talk holds handed to another player; member id -> (the player who lost her, when).</summary>
+        private static int handOvers;
+        private static readonly Dictionary<int, KeyValuePair<int, float>> handedFrom = new Dictionary<int, KeyValuePair<int, float>>();
         private static int gatheredTotal, packResumes, packEnds, fieldJobsTaken, dutiesStarted, dutyIdleEnds;
         /// <summary>Round 29 review L4: ledger items no longer in her window (TrimLedger), and its scratch tables.</summary>
         private static int ledgerTrimmed;
@@ -144,6 +164,8 @@ namespace SurvivorCommunity
             starts = ends = staleCleared = depositedTotal = jobsDropped = windowCancels = 0;
             talkStarts = talkPromoted = talkEnds = talkSkipped = 0;
             remoteTalkStarts = busyRefused = 0;                 // round mt1 (part H)
+            handOvers = 0;                                      // round mt1 (review fix H-m5)
+            handedFrom.Clear();
             gatheredTotal = packResumes = packEnds = fieldJobsTaken = dutiesStarted = dutyIdleEnds = 0;
             ledgerTrimmed = 0;
             pendingNoted = pendingArrived = pendingExpired = 0;
@@ -252,9 +274,9 @@ namespace SurvivorCommunity
             if (!CanStart(m, npc, player, out error)) return false;
             if (!ScCommunity.IsHost || !ScRegistry.Loaded) { error = "scHostOnly"; return false; }     // round MP2: never a client's copy (E10)
             // round mt1 (part H): the first holder keeps her - another player's call to work never takes a talk hold over (it waits
-            // until that talk is over). Single player: the hold is always the caller's own
-            Shift held;
-            if (shifts.TryGetValue(m.Id, out held) && held.Phase == Phase.Talk && held.OwnerId > 0 && held.OwnerId != player.entityId)
+            // until that talk is over). Single player: the hold is always the caller's own. Round mt1 (review fix H-m5): unless the
+            // hold has stood idle for HandOverSeconds - then it is ended for this caller (KeptByOtherTalk)
+            if (KeptByOtherTalk(m, player))
             {
                 busyRefused++;
                 error = "scWorkHeldOther";
@@ -396,10 +418,121 @@ namespace SurvivorCommunity
                     }
                     return true;
                 }
+                // round mt1 (review fix H-m5): another player's hold that stood idle for HandOverSeconds is handed to this talker
+                if (HandOver(m, npc, player)) return true;
+                if (!shifts.ContainsKey(m.Id)) return false;       // handed over, but this talker could not be linked (CanHold): nothing to tell
                 TellBusy(m, player, s);
                 return false;
             }
             return StartTalk(m, npc, player);
+        }
+
+        // ------------------------------------------------------------------ round mt1 (review fixes H-m4, H-m5): two players ----
+
+        /// <summary>Round mt1 (review fix H-m4): another player's talk hold has her (a Talk phase whose player is not this one).</summary>
+        public static bool TalkHeldByOther(Member m, EntityPlayer player)
+        {
+            Shift s;
+            return m != null && player != null && shifts.TryGetValue(m.Id, out s) && s.Phase == Phase.Talk && s.OwnerId > 0 && s.OwnerId != player.entityId;
+        }
+
+        /// <summary>
+        /// Round mt1 (review fixes H-m4, H-m5): does another player's talk hold keep her from this player now? True: refuse (the
+        /// callers answer scWorkHeldOther). A hold that has stood for HandOverSeconds with no order given is ended for this player
+        /// first (YieldIdleTalk: its player is told) and false is returned - the caller's verb then moves her on itself. Never in
+        /// single player (every hold there is the one player's).
+        /// </summary>
+        public static bool KeptByOtherTalk(Member m, EntityPlayer player)
+        {
+            if (!TalkHeldByOther(m, player)) return false;
+            return !YieldIdleTalk(m, ScCommunity.FindNpc(m.Id), player);
+        }
+
+        /// <summary>
+        /// Round mt1 (review fix H-m4): a verb's handler (ScActionsMembers, ScActionsWindow) - true, with the reply refused, while
+        /// another player's talk hold keeps her (KeptByOtherTalk).
+        /// </summary>
+        public static bool RefuseHeldByOther(Member m, EntityPlayer sender, ScActionReply reply)
+        {
+            if (!KeptByOtherTalk(m, sender)) return false;
+            busyRefused++;
+            if (reply != null) reply.Fail("scWorkHeldOther");
+            return true;
+        }
+
+        /// <summary>
+        /// Round mt1 (review fix H-m5): the hand-over. Another player's talk hold that has lasted HandOverSeconds with no order
+        /// given (still a Talk phase) ends for this player: no walk back to her post (the caller moves her on: a new talk hold
+        /// where she stands, a verb), the other player is told who took her (scTalkHandedOver) and loses the link - their client
+        /// closes its windows on her when it sees her Owner change (ScTalkContext.HeldTick), the host's own windows close here.
+        /// False when the hold is younger, she is down (End keeps it), or this player stands outside the home zone (a new talk
+        /// hold could not link them: the first one keeps her).
+        /// </summary>
+        private static bool YieldIdleTalk(Member m, EntityAlive npc, EntityPlayer player)
+        {
+            Shift s;
+            if (m == null || player == null || !shifts.TryGetValue(m.Id, out s) || s.Phase != Phase.Talk || s.OwnerId <= 0 || s.OwnerId == player.entityId) return false;
+            float real = Time.unscaledTime;
+            if (real - s.TalkSince < HandOverSeconds) return false;
+            if (!ScZone.HasHome || !ScZone.Contains(player.GetBlockPosition())) return false;
+            EntityPlayer first = ScPlayers.ByEntity(s.OwnerId);
+            int firstId = s.OwnerId;
+            bool localFirst = !s.Remote;
+            End(m, npc, "handed over to " + player.PlayerDisplayName + " (idle " + (int)(real - s.TalkSince) + " s)", false, false);
+            if (shifts.ContainsKey(m.Id)) return false;                  // kept: she is down
+            handOvers++;
+            handedFrom[m.Id] = new KeyValuePair<int, float>(firstId, real);
+            if (localFirst && npc != null) CloseTalkWindows(npc);        // the host's own player held her: its windows are this machine's
+            if (first != null) ScCommunity.TellKey(first, "scTalkHandedOver", "", m.Name, player.PlayerDisplayName);
+            ScLog.Out(m.Name + "'s talk hold with " + (first != null ? first.PlayerDisplayName : "player " + firstId) + " stood idle for "
+                      + (int)(real - s.TalkSince) + " s - handed over to " + player.PlayerDisplayName);
+            return true;
+        }
+
+        /// <summary>
+        /// Round mt1 (review fix H-m5): a second talker - a remote one (HoldForRemote) or the host's own (Patches_Craft's talk-hold
+        /// postfix) - takes over another player's idle talk hold (YieldIdleTalk) and is linked for their own talk (StartTalk).
+        /// False when the other hold keeps her, or when it was handed over but this talker could not be linked.
+        /// </summary>
+        public static bool HandOver(Member m, EntityAlive npc, EntityPlayer player)
+        {
+            if (!TalkHeldByOther(m, player) || !YieldIdleTalk(m, npc, player)) return false;
+            return StartTalk(m, npc, player);
+        }
+
+        /// <summary>Round mt1 (review fix H-M1): her hold or shift is this player's (the server's table; false on a client).</summary>
+        public static bool OwnedBy(int memberId, int playerId)
+        {
+            Shift s;
+            return playerId > 0 && shifts.TryGetValue(memberId, out s) && s.OwnerId == playerId;
+        }
+
+        /// <summary>
+        /// Round mt1 (review fix H-m1): her windows on this machine's screen close - the craft window and the order wheel while
+        /// the local player's CurrentNPC is her, the looting window while it shows her inventory, SC's member panel on her. The
+        /// host's cap branch (TalkTick) closes these as her hold ends under them (review L1, round 29a LOW B); a client closes
+        /// them when the server ended its link (ScTalkContext.HeldTick); the host's own when another player took her over.
+        /// The talk window itself stays (its rows follow her cvars).
+        /// </summary>
+        internal static void CloseTalkWindows(EntityAlive npc)
+        {
+            try
+            {
+                if (npc == null) return;
+                EntityPlayerLocal player = ScCommunity.LocalPlayer;
+                LocalPlayerUI ui = player != null ? player.PlayerUI : null;
+                GUIWindowManager wm = ui != null ? ui.windowManager : null;
+                if (wm == null) return;
+                bool hers = player.Buffs != null && (int)player.Buffs.GetCustomVar("CurrentNPC") == npc.entityId;
+                if (hers && wm.IsWindowOpen(CraftGroup)) wm.Close(CraftGroup);
+                if (hers && wm.IsWindowOpen(WheelGroup)) wm.Close(WheelGroup);
+                if (wm.IsWindowOpen(LootGroup) && LootBoundTo(wm, npc)) wm.Close(LootGroup);
+                XUiC_ScMemberInvGroup.CloseFor(npc.entityId);                        // round n10: her inventory on SC's member panel
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("work-talk-close-windows", e);
+            }
         }
 
         /// <summary>
@@ -445,6 +578,14 @@ namespace SurvivorCommunity
             busyRefused++;
             EntityPlayer other = ScPlayers.ByEntity(s.OwnerId);
             string name = other != null ? other.PlayerDisplayName : null;
+            // round mt1 (review fix H-m5): the player whose idle hold was just handed over was told who took her
+            // (scTalkHandedOver); their client's quiet re-ask for her (ScTalkContext.Relink) is not answered "busy" on top
+            KeyValuePair<int, float> hf;
+            if (handedFrom.TryGetValue(m.Id, out hf) && hf.Key == player.entityId && Time.unscaledTime - hf.Value < HandedQuietSeconds)
+            {
+                ScLog.Verbose(m.Name + ": no talk hold for " + player.PlayerDisplayName + " - handed over to " + (name ?? "player " + s.OwnerId) + " just now");
+                return;
+            }
             ScLog.Verbose(m.Name + ": no talk hold for " + player.PlayerDisplayName + " - " + (s.Phase == Phase.Talk ? "in a talk with " : "on a work shift for ")
                           + (name ?? "player " + s.OwnerId) + " (the first holder keeps her)");
             if (!string.IsNullOrEmpty(name)) ScCommunity.TellKey(player, "scTalkBusyWith", "", m.Name, name);
@@ -467,6 +608,9 @@ namespace SurvivorCommunity
                 Member m = ScRegistry.GetMember(id);
                 if (m == null) { shifts.Remove(id); continue; }      // Sweep's case: no member, nothing to station
                 End(m, ScCommunity.FindNpc(id), "the player left the game", true, false);
+                // round mt1 (review fix H-n1): kept because she is down - Tick ends it once she is up
+                Shift kept;
+                if (shifts.TryGetValue(id, out kept)) kept.OwnerGone = true;
             }
         }
 
@@ -586,15 +730,8 @@ namespace SurvivorCommunity
             if (DialogWithHer(ui, wm, npc)) { s.CapSince = real; return; }
             // review L1: a craft window, wheel or her inventory still open on her would be left without the link. Round 29a (LOW B):
             // only her windows - the craft window and the wheel while the player's CurrentNPC is her, the looting window while it
-            // shows her inventory
-            if (wm != null)
-            {
-                bool hers = player != null && player.Buffs != null && (int)player.Buffs.GetCustomVar("CurrentNPC") == npc.entityId;
-                if (hers && wm.IsWindowOpen(CraftGroup)) wm.Close(CraftGroup);
-                if (hers && wm.IsWindowOpen(WheelGroup)) wm.Close(WheelGroup);
-                if (wm.IsWindowOpen(LootGroup) && LootBoundTo(wm, npc)) wm.Close(LootGroup);
-                XUiC_ScMemberInvGroup.CloseFor(npc.entityId);                        // round n10: her inventory on SC's member panel
-            }
+            // shows her inventory. Round mt1 (review fix H-m1): the same list, factored out for a client whose link the server ended
+            if (wm != null) CloseTalkWindows(npc);
             End(m, npc, "the talk hold's " + (int)TalkCapSeconds + " s cap", true, false);
         }
 
@@ -744,6 +881,7 @@ namespace SurvivorCommunity
             // shift's own rules take her again once she is up, and Sweep drops it with her death
             if (ScDowned.HoldsShift(m, npc)) return;
             float now = Time.time;
+            if (s.OwnerGone) { End(m, npc, "the player left the game", true, false); return; }    // round mt1 (review fix H-n1): she is up now
             if (npc.Buffs.GetCustomVar("Owner") <= 0f) { End(m, npc, "the owner link is gone", true); return; }
             if (ScWatch.OnWatch(m)) { End(m, npc, "posted on watch", true); return; }
             int mode = SdcsLootMode.Mode(npc);
@@ -1389,6 +1527,7 @@ namespace SurvivorCommunity
                    + ", window cancels kept on the shift " + windowCancels + "; talk holds: " + talkStarts + " started, " + talkPromoted + " became a work shift, "
                    + talkEnds + " ended, " + talkSkipped + " not started (a resident who could not be held)"
                    + ", " + remoteTalkStarts + " for a remote talker, " + busyRefused + " refused as held by another player"     // round mt1 (part H)
+                   + ", " + handOvers + " idle hold(s) handed to another player"                                                // round mt1 (review fix H-m5)
                    + "; home jobs (round 29a): gathered " + gatheredTotal + ", pack emptied and back to work " + packResumes + ", pack full and ended " + packEnds
                    + ", field jobs taken back " + fieldJobsTaken + ", repair duties " + dutiesStarted + " started, " + dutyIdleEnds + " ended with nothing to repair"
                    + ", ledger items no longer in a window " + ledgerTrimmed

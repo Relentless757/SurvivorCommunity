@@ -116,6 +116,14 @@ namespace SurvivorCommunity
         /// <summary>Round mt1 (part H): the client's heartbeat interval, how long the rows wait for the Owner cvar, the tick's pace.</summary>
         private const float BeatSeconds = 1f, OwnerWaitSeconds = 3f, HeldTickSeconds = 0.2f;
         private static int beatsSent, closedSent, ownerRefreshes;
+        /// <summary>
+        /// Round mt1 (review fixes H-m1, H-m3), client: one re-ask per member at most this often (Relink), and the owner-link scan's
+        /// pace (ScanOwnerLinks); member id -> when she was last re-asked for; the next scan.
+        /// </summary>
+        private const float RelinkSeconds = 10f, MarkScanSeconds = 2f;
+        private static readonly Dictionary<int, float> relinkAt = new Dictionary<int, float>();
+        private static float nextMarkScan;
+        private static int relinks;
 
         /// <summary>Every machine, at world start and shutdown.</summary>
         public static void Reset()
@@ -132,6 +140,9 @@ namespace SurvivorCommunity
             hireSweeps.Clear();
             nextHeldTick = 0f;
             beatsSent = closedSent = ownerRefreshes = 0;
+            relinkAt.Clear();                 // round mt1 (review fixes H-m1, H-m3)
+            nextMarkScan = 0f;
+            relinks = 0;
             if (!heldHooked)
             {
                 heldHooked = true;
@@ -358,7 +369,8 @@ namespace SurvivorCommunity
         {
             if (!f.Linked)
             {
-                held.Remove(f.Npc);
+                // round mt1 (review fix H-m3): a link this machine kept for her is over - its leftovers are swept, as at a close
+                if (held.Remove(f.Npc)) hireSweeps.Add(f.Npc);
                 return;
             }
             float now = Time.realtimeSinceStartup;
@@ -399,8 +411,10 @@ namespace SurvivorCommunity
         {
             try
             {
-                if (held.Count == 0 && hireSweeps.Count == 0) return;
-                if (ScCommunity.IsHost) { held.Clear(); hireSweeps.Clear(); return; }
+                // round mt1 (review fix H-m3): the owner-link scan (ScanOwnerLinks) runs on its own clock, so its time is a third
+                // reason to go on; on the host (single player too) that clock only brings it back here every few seconds
+                if (held.Count == 0 && hireSweeps.Count == 0 && Time.realtimeSinceStartup < nextMarkScan) return;
+                if (ScCommunity.IsHost) { held.Clear(); hireSweeps.Clear(); nextMarkScan = Time.realtimeSinceStartup + 5f; return; }
                 float now = Time.realtimeSinceStartup;
                 if (now < nextHeldTick) return;
                 nextHeldTick = now + HeldTickSeconds;
@@ -413,6 +427,11 @@ namespace SurvivorCommunity
                     return;
                 }
 #if SC_V34
+                if (now >= nextMarkScan)
+                {
+                    nextMarkScan = now + MarkScanSeconds;
+                    ScanOwnerLinks(w, lp);
+                }
                 bool send = ScNet.IsClient && ScNet.Cm != null && ScNet.ServerMatches && ScNet.ServerKnows<NetPackageScTalkContext>();
                 heldScratch.Clear();
                 heldScratch.AddRange(held.Keys);
@@ -438,6 +457,13 @@ namespace SurvivorCommunity
                         hireSweeps.Add(id);
                         ScLog.Verbose("talk context: the server ended " + id + "'s talk link to you");
                         SphereCache.LeaderCache.Remove(id);
+                        if (npc != null)
+                        {
+                            // round mt1 (review fix H-m1): her windows here close, as the host's do at its own cap (with no link every
+                            // request of theirs is refused); with the talk itself still open, the server is asked once to link her again
+                            ScWork.CloseTalkWindows(npc);
+                            Relink(npc, lp, now, send);
+                        }
                         Refresh(id);                       // a talk still open with her shows her rows as they now are
                         continue;
                     }
@@ -478,7 +504,8 @@ namespace SurvivorCommunity
         /// only the server's side, so once her copy names this player neither as owner nor as leader (the 0 has landed), this
         /// machine's leader cache, hire mark and marker for her go. While she still names us (the 0 on its way, a work shift her
         /// first order made, a follow) she is looked at again each tick; a copy this machine no longer has is dropped. Local only:
-        /// nothing is sent.
+        /// nothing is sent. Round mt1 (review fix H-m3): a copy this machine no longer has takes its mark with it at once (but a
+        /// follower's), and members linked to us by Call to work join the sweep too (ScanOwnerLinks).
         /// </summary>
         private static void SweepHireMarks(World w, EntityPlayerLocal lp)
         {
@@ -490,19 +517,74 @@ namespace SurvivorCommunity
                 EntityAlive npc = w.GetEntity(id) as EntityAlive;
                 if (npc == null || npc.Buffs == null)
                 {
+                    // round mt1 (review fix H-m3): her copy is gone from this machine (out of view), so nothing here will ever show her
+                    // link end: the mark goes now (SCore's leader component stamps it again if she loads still linked to us). A
+                    // follower keeps hers - her follow's own end takes it
+                    Member fm = ScRegistry.GetMember(id);
+                    if (fm == null || (fm.Status != MemberStatus.Following && fm.Status != MemberStatus.PendingStation))
+                    {
+                        SphereCache.LeaderCache.Remove(id);
+                        RemoveHireMark(lp, id);
+                    }
                     hireSweeps.Remove(id);
                     continue;
                 }
                 if ((int)npc.Buffs.GetCustomVar("Owner") == lp.entityId || (int)npc.Buffs.GetCustomVar("Leader") == lp.entityId) continue;
                 SphereCache.LeaderCache.Remove(id);
-                string mark = "hired_" + id;
-                if (lp.Buffs != null && lp.Buffs.HasCustomVar(mark)) lp.Buffs.RemoveCustomVar(mark);
+                RemoveHireMark(lp, id);
 #if SC_V34
                 ScWork.DropMarker(npc);
 #endif
                 hireSweeps.Remove(id);
             }
         }
+
+        /// <summary>Round mt1 (part H): this machine's hire mark for her on the local player (SCore's hired_&lt;id&gt;), if there is one.</summary>
+        private static void RemoveHireMark(EntityPlayerLocal lp, int id)
+        {
+            string mark = "hired_" + id;
+            if (lp != null && lp.Buffs != null && lp.Buffs.HasCustomVar(mark)) lp.Buffs.RemoveCustomVar(mark);
+        }
+
+        /// <summary>
+        /// Round mt1 (review fix H-m3), client, every MarkScanSeconds: a resident whose copy names this player as her owner (not
+        /// as her leader: a follower's mark is her follow's) is linked to us by some path - a talk (also kept in held), Call to
+        /// work on the Community tab (ScWork.Start), a shift her talk became - so she joins the sweep, which takes this machine's
+        /// hire mark off once she names us no more. Before, only members linked through a talk were swept, and a Call to work's
+        /// mark stayed (and went back to the server's copy of this player with its own cvar sync).
+        /// </summary>
+        private static void ScanOwnerLinks(World w, EntityPlayerLocal lp)
+        {
+            foreach (Member mm in ScRegistry.Members.Values)
+            {
+                if (mm == null || mm.Status != MemberStatus.Resident || held.ContainsKey(mm.Id) || hireSweeps.Contains(mm.Id)) continue;
+                EntityAlive npc = w.GetEntity(mm.Id) as EntityAlive;
+                if (npc == null || npc.Buffs == null) continue;
+                if ((int)npc.Buffs.GetCustomVar("Owner") == lp.entityId && (int)npc.Buffs.GetCustomVar("Leader") != lp.entityId) hireSweeps.Add(mm.Id);
+            }
+        }
+
+#if SC_V34
+        /// <summary>
+        /// Round mt1 (review fix H-m1), client: the server ended our link to her while the talk with her is still open here (its
+        /// cap, a lag stall past its grace, another player took her over, a verb) - one Open, at most every RelinkSeconds per
+        /// member, so the server can link her again if she is free (OnTalkOpen -> ScWork.HoldForRemote: CanHold's rules; held by
+        /// someone else: no link, and no "busy" tell right after a hand-over). The rows follow the facts it answers with.
+        /// </summary>
+        private static void Relink(EntityAlive npc, EntityPlayerLocal lp, float now, bool send)
+        {
+            bool dialog;
+            if (!send || npc == null || lp == null || !ScWork.TalkOpen(npc, out dialog) || !dialog) return;
+            float last;
+            if (relinkAt.TryGetValue(npc.entityId, out last) && now - last < RelinkSeconds) return;
+            relinkAt[npc.entityId] = now;
+            bool journalDone = ScQuests.FavourQuestDone(lp, npc.entityId);
+            ScNet.Cm.SendToServer(NetPackageManager.GetPackage<NetPackageScTalkContext>().SetupOpen(npc.entityId, journalDone));
+            sent++;
+            relinks++;
+            ScLog.Verbose("talk context: the talk with " + npc.entityId + " is still open - the server is asked to link her again");
+        }
+#endif
 
         // ---- the dialog actions' answers (every machine: on the host the callbacks run inline) ----
 
@@ -800,7 +882,8 @@ namespace SurvivorCommunity
         public static string Report()
         {
             return "talk context: " + sent + " sent, " + answered + " answered, " + facts.Count + " NPC(s) known, " + closes + " favour quest(s) closed by the server"
-                   + "; talk links held here " + held.Count + ", beats sent " + beatsSent + ", closes sent " + closedSent + ", rows re-evaluated for a late link " + ownerRefreshes;   // round mt1 (part H)
+                   + "; talk links held here " + held.Count + ", beats sent " + beatsSent + ", closes sent " + closedSent + ", rows re-evaluated for a late link " + ownerRefreshes   // round mt1 (part H)
+                   + ", re-asked after the server ended a link " + relinks + ", hire marks to sweep " + hireSweeps.Count;      // round mt1 (review fixes H-m1, H-m3)
         }
 
         // ------------------------------------------------------------------ the hook ----

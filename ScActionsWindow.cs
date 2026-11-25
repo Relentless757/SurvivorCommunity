@@ -15,7 +15,10 @@ namespace SurvivorCommunity
     /// Ops (whole numbers unless marked s:; member = Member.Id, the body's entity id):
     ///   member.run           member, kind (Resource; -1 for a mining run), job (RunJob; -1 for a supply run)
     ///   member.work          member, intent                 Call to work / End work (ScWork.CallOrEnd)
-    ///   member.workend       member                         "That's all for now." (silent when she is not on a shift)
+    ///   member.workend       member                         "That's all for now." (silent when she is not on a shift; round mt1
+    ///                                                       review fix H-m4: refused while another player's talk holds her)
+    ///   member.canceljob     member                         round mt1 (review fix H-M1): a client's craft window Cancel - the job
+    ///                                                       only (ScWork.CancelJobOnShift), for her hold's or shift's player; hint dropped
     ///   member.role          member, role (0..3), want      a crafting role on or off (ScCraft.ToggleRole)
     ///   member.post          member, outpost id             posted (ScGarrison.Post); answers the hint outpost=&lt;id&gt;
     ///   member.watch         member, x, y, z                takes the watch at that post (ScWatch.Assign)
@@ -85,6 +88,7 @@ namespace SurvivorCommunity
         {
             Member m = MemberArg(args, 0, reply);
             if (m == null) return;
+            if (ScWork.RefuseHeldByOther(m, sender, reply)) return;     // round mt1 (review fix H-m4): another player's talk keeps her
             int kind = args.Int(1, -1), job = args.Int(2, -1);
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             string err;
@@ -129,12 +133,39 @@ namespace SurvivorCommunity
         {
             Member m = ScRegistry.GetMember(args.Int(0, -1));
             if (m == null || !ScWork.OnShift(m.Id)) { reply.Fail("", ""); return; }
+            // round mt1 (review fix H-m4): never another player's talk hold (the row shows only on a work shift; a crafted request
+            // could end it) - not even an idle one: a talk of the asker's own takes that over (ScWork.HandOver)
+            if (ScWork.TalkHeldByOther(m, sender)) { reply.Fail("scWorkHeldOther"); return; }
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             ScWork.End(m, npc, "That's all for now.", true, false);
             // her voice plays on the talker's machine: the host's own player's here; round MP4: a remote talker's on theirs (the
             // server picks the voice, NetPackageScVoice)
             if (sender != null) ScVoice.SayAfterTalkFor(sender, npc, "scWorkEndSaid");
             reply.Done(string.Format(Localization.Get("scEncCallSays"), m.Name, Localization.Get("scWorkEndSaid")));
+        }
+
+        /// <summary>Round mt1 (review fix H-M1): the craft window's Cancel on a client (Patches_Craft C1n's ClientCancel); hint dropped=1 when a job went.</summary>
+        public const string OpCancelJob = "member.canceljob", HintDropped = "dropped";
+        /// <summary>Round mt1 (review fix H-M1): Voice Control's default hired chat range, where its craft window closes.</summary>
+        private const float CancelReach = 40f;
+
+        /// <summary>
+        /// Round mt1 (review fix H-M1): the craft window's Cancel asked by a client - her job goes and her shift stays, exactly as
+        /// C1n does on the host (ScWork.CancelJobOnShift: the order dropped and refunded, the job mode cleared, her Guard spot
+        /// kept). Only the player her hold or shift is linked to, within CancelReach of her (the host's own player: as near as
+        /// its window allows); anything else is refused quietly and changes nothing - no Stay is ever sent for it.
+        /// </summary>
+        [ScAction(OpCancelJob, ScActionAccess.Community)]
+        private static void MemberCancelJob(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
+        {
+            Member m = ScRegistry.GetMember(args.Int(0, -1));
+            EntityAlive npc = m != null ? ScCommunity.FindNpc(m.Id) : null;
+            if (m == null || npc == null || npc.IsDead() || sender == null) { reply.Fail("", ""); return; }
+            if (!(sender is EntityPlayerLocal) && (npc.position - sender.position).sqrMagnitude > CancelReach * CancelReach) { reply.Fail("", ""); return; }
+            if (!ScWork.OwnedBy(m.Id, sender.entityId)) { reply.Fail("", ""); return; }
+            bool dropped;
+            if (!ScWork.CancelJobOnShift(m, npc, out dropped)) { reply.Fail("", ""); return; }
+            reply.Done("", "").SetHint(HintDropped, dropped ? 1 : 0);
         }
 
         /// <summary>A crafting role button (OnRole).</summary>
@@ -167,6 +198,7 @@ namespace SurvivorCommunity
             if (m == null) return;
             Outpost o = OutpostArg(args, 1, reply);
             if (o == null) return;
+            if (ScWork.RefuseHeldByOther(m, sender, reply)) return;     // round mt1 (review fix H-m4): another player's talk keeps her
             string err;
             if (!ScGarrison.Post(m, ScCommunity.FindNpc(m.Id), o, sender, out err)) { reply.Fail(err ?? "scInternal"); return; }
             reply.Done(string.Format(Localization.Get("scOpSetsOff"), m.Name, o.Name, ScGarrison.EtaHours(m))).SetHint("outpost", o.Id);   // round op1: on foot, about N h
@@ -178,6 +210,7 @@ namespace SurvivorCommunity
         {
             Member m = MemberArg(args, 0, reply);
             if (m == null) return;
+            if (ScWork.RefuseHeldByOther(m, sender, reply)) return;     // round mt1 (review fix H-m4): another player's talk keeps her
             Vector3i post = args.Pos(1);
             string err;
             if (!ScWatch.Assign(post, m, sender, out err)) { reply.Fail(ScWatch.ErrorText(err, m, post)); return; }

@@ -379,6 +379,8 @@
     <Compile Include="ScJobs.cs" />
     <!-- round c2: a member's station crafts never become the player's (her item in his open window, a station's list) -->
     <Compile Include="ScCraftStation.cs" />
+    <!-- round mt1 (review fix G-m2): the server's backup of Voice Control's hold while a remote player has a member's panel open -->
+    <Compile Include="ScPanelHold.cs" />
   </ItemGroup>
 
   <!-- W2 (round 23): SC's wild raiders when another mod turns the game's enemy biome spawns off - 3.4 only -->
