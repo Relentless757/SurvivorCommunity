@@ -1443,6 +1443,7 @@ namespace SurvivorCommunity
         public static void Reset()
         {
             parsed = false;
+            DropHeldStartDone();              // round mt1 (part C): a client's held game-start steps are per world
             MaxMembers = 12;
             MaxFollowers = 2;
             MemberFoodPerDay = 1;                  // round ie1: whole numbers (ScEconomy)
@@ -1915,12 +1916,84 @@ namespace SurvivorCommunity
             Defaults();
         }
 
-        /// <summary>Parses the config block. Safe to call repeatedly; only the first call per world does work.</summary>
+        // ---- round mt1 (part C): a client reads the config, and runs SC's game-start steps, once the server's tables are in ----
+
+        /// <summary>
+        /// Round mt1 (part C): whether this machine's block and item tables are this world's. A server (single player, a listen
+        /// host, a dedicated server) loads its own before GameStartDone: always true there. A client gets the server's configs
+        /// (blocks, items, dialogs...) only AFTER its GameStartDone: StartAsClient starts WorldStaticData's received-configs
+        /// coroutine and AllConfigsReceivedAndLoaded stays false until every one is loaded - the same test vanilla's worldInfoCo
+        /// waits on before it creates the world. The world is asked too: at the main menu the test answers true from the last
+        /// session, while the world is null until createWorld, which comes after the configs.
+        /// </summary>
+        public static bool TablesReady
+        {
+            get
+            {
+                if (!ScNet.IsClient) return true;
+                return WorldStaticData.AllConfigsReceivedAndLoaded() && ScCommunity.World != null;
+            }
+        }
+
+        /// <summary>Round mt1 (part C): a client's GameStartDone steps wait for StartDoneDue (per world; see HoldStartDone).</summary>
+        private static bool startDoneHeld;
+        private static float startDoneNextCheck;
+
+        /// <summary>
+        /// Round mt1 (part C), ModEvents.GameStartDone: false = run SC's game-start steps now (single player, a listen host, a
+        /// dedicated server: nothing new, no log line); true = held, a client whose tables are not in yet (the GameUpdate
+        /// handler runs them once StartDoneDue says so).
+        /// </summary>
+        public static bool HoldStartDone()
+        {
+            startDoneHeld = false;
+            startDoneNextCheck = 0f;
+            if (TablesReady) return false;
+            startDoneHeld = true;
+            ScLog.Out("game start: this client waits for the server's blocks and items - SC's game-start steps run once they are in");
+            return true;
+        }
+
+        /// <summary>
+        /// Round mt1 (part C), ModEvents.GameUpdate: true once per world, on the first update (tested at most once a second) on
+        /// which a held client's tables are in. A bool test and nothing else while nothing is held (always, on a server).
+        /// </summary>
+        public static bool StartDoneDue()
+        {
+            if (!startDoneHeld) return false;
+            float now = UnityEngine.Time.unscaledTime;
+            if (now < startDoneNextCheck) return false;
+            startDoneNextCheck = now + 1f;
+            if (!TablesReady) return false;
+            startDoneHeld = false;
+            ScLog.Out("game start: the server's blocks and items are in - SC's game-start steps run now");
+            return true;
+        }
+
+        /// <summary>Round mt1 (part C): no held game-start steps carry into another world (GameStarting via Reset, and world end).</summary>
+        public static void DropHeldStartDone()
+        {
+            startDoneHeld = false;
+            startDoneNextCheck = 0f;
+        }
+
+        /// <summary>
+        /// Parses the config block. Safe to call repeatedly; only the first call per world does work. Round mt1 (part C): on a
+        /// client whose tables are not in yet (TablesReady) it returns without parsing and without latching the defaults, so a
+        /// later call parses the server's block; once they are in, a missing block latches the defaults as before.
+        /// </summary>
         public static void EnsureParsed()
         {
             if (parsed) return;
             try
             {
+                // round mt1 (part C): a client's GameStartDone (and anything else before the server's configs are loaded) used to
+                // find no block here and latch the defaults for the whole session
+                if (!TablesReady)
+                {
+                    ScLog.OnceOut("config-waiting", "config: " + BlockName + " is read once the server's blocks are in (this client has not got them yet)");
+                    return;
+                }
                 Block b = Block.GetBlockByName(BlockName, true);
                 if (b == null || b.Properties == null)
                 {

@@ -37,6 +37,44 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round mt1 (part: C) (2026-11-25): a client reads SC's config once the server's blocks and items are in
+
+Why: a client's game-start event comes before the server's blocks, items and dialogs arrive, so a client read SC's config
+too early, kept the built-in defaults all session (DebugLogging off, every tuned value) and ran SC's game-start steps
+against empty tables: no recruit dialog found, the Watch Post's shapes "not found", every bundle pool "no such item", the
+well kit not limited to Level 1, and later "config has no XnpcWeapons block". Now a client holds those steps until the
+server's configs are loaded and runs them once, about when its player spawns. Single player, a listen host and a dedicated
+server run them at the game's start as before. Build `sc34_mt1c`, not deployed yet.
+
+**Single player (nothing may change)**
+- [ ] The log at world load is as before, in the same order and before `StartGame done`: the `config: MaxMembers=...`
+      line, `recruit dialog injected into N dialog(s)`, the watch post's description line, `bundle opening: ...`,
+      `medical restock: ...`, `NPC magazines: ...`, the Vanity Vault line. No line starting `game start:` and no
+      `... is read once the server's blocks are in`.
+- [ ] Open a Food bundle from the bag: it opens as before. The well kit (with the wells mod) still places Level 1 only.
+- [ ] A listen host's own log is the same as single player's.
+
+**A client on a dedicated server** (compare the client's log with the server's)
+- [ ] Just before `StartGame done`: `game start: this client waits for the server's blocks and items ...`. Gone from
+      there: `block ConfigSurvivorCommunity not found`, `recruit dialog injected into 0 dialog(s)`, `watch post:
+      scWatchPostShapes:VariantHelper not found`, every `... is skipped - no such item` and `medical restock: ... NOTHING`.
+- [ ] After the `Loaded (received): ...` lines, about when the player spawns: `game start: the server's blocks and items
+      are in - SC's game-start steps run now`, once, then the config line with the server's numbers, `recruit dialog
+      injected into N dialog(s)` (the same N as single player), the watch post's line, `bundle opening: on ... pool items:
+      food N, meds N, ...` (numbers, not "closed"), `medical restock: on - 1 Meds tops a member up to <items>`.
+- [ ] A survivor comes into view: no `config has no XnpcWeapons block` warning.
+- [ ] Set `DebugLogging` true in the server's config and join again: the client's log now lists the `patched ...` lines
+      and SC's debug lines (before, a client never had DebugLogging).
+- [ ] On the client: open a Food bundle from the bag (it opens), read the Watch Post's description (the server's numbers:
+      change `WatchMaxPosts` on the server to see it), place the well kit with the wells mod (Level 1 only).
+- [ ] Quit to the menu and join again in the same game session: the two `game start:` lines once each again, nothing twice.
+- [ ] No SC error in the client's log (`gamestartdone-hold`, `gamestartdone-late`).
+
+**Two players**
+- [ ] Two clients on the dedicated server: each client's log has the two `game start:` lines once. A listen host with a
+      client: the host's log as single player's, the client's as above.
+- [ ] Leave the server and start single player in the same game session: single player's log has no `game start:` line.
+
 ## Round MP4 results so far (2026-11-25): one client on the dedicated server
 
 Self-test with one client (Elisk) on the dedicated server, protocol 5, build `sc34_mp4fix` (DLL 1efe55e7). No SC exception
