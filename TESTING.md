@@ -37,6 +37,25 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP4 results so far (2026-11-25): one client on the dedicated server
+
+Self-test with one client (Elisk) on the dedicated server, protocol 5, build `sc34_mp4fix` (DLL 1efe55e7). No SC exception
+on either side; the server logged no SC warning.
+
+- Passed: the hello (protocol 5 both ways); the map markers (the server's whole set of 4, all 4 on the client's map); a
+  survivor's greeting sent to the client and played there (`scl voice`: 1 heard from the server); a rescue quest from a
+  forced call reaching the client's journal ("Quest started: Help Hank"); the client answering it alone - the event spawned
+  on arrival, the rescue counted once the zombies were down, and the client's copy closed as completed; a client sending a
+  member on a run from the window (and the server refusing an injured one); a tell formatted on the client ("Lena is back
+  with 3 Food bundle(s).").
+- Seen once: the first forced call counted as rescued a second after its event spawned, before any zombie was killed. The
+  client had been teleported straight into the site and the server spawned the event while that area was still loading. The
+  second call, reached after the area had loaded, played normally. A player walking in does not meet this; a teleport can.
+- Found (not MP4): on a client SC reads its config when the game starts, before the server's blocks and items have arrived,
+  so the client runs on SC's built-in defaults all session ("block ConfigSurvivorCommunity not found - using defaults",
+  "... is skipped - no such item"). Not fixed yet.
+- Still yours: everything needing two players, a listen host, another language, a crate in the base, or listening by ear.
+
 ## Round MP4 (review fixes) (2026-11-25): rescues for every player, refusals to the right player, Craft from Storage skips open boxes
 
 Fixes from the three reviews of round MP4 and their re-check. Build `sc34_mp4fix`, **deployed to 3.4 on 2026-11-25** (port-3.4 af329af9, DLL 1efe55e7, protocol 5, with the review fixes; the dedicated server loads the same folder), untested in game. Single player should look
