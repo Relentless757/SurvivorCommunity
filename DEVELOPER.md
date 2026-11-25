@@ -2611,6 +2611,16 @@ Round MP0 is the groundwork:
     drops it first (their POI may then be re-armed once). A request accepted by a player whose platform id changed is no
     longer theirs.
 
+- **Round cfs1, Craft from Storage in the base** (`ScCraftFromBase`, `Patch_CraftFromBase`): a postfix on 0-SCore's
+  `RemoteCraftingUtils.GetTileEntities(EntityAlive)` - the one-argument overload that only its crafting paths call, for the
+  ingredient counts (`SearchNearbyContainers`) and the taking (`ConsumeItem`) alike - adds, while the player stands inside the
+  home zone, every box linked storage links there (`ScStorage.Linkable`, minus boxes locked against the player), ignoring
+  0-SCore's Distance and broadcast list. 0-SCore's enemy rule and its open-by-another-player skip still apply. Repairs, block
+  upgrades and the drop box use the three-argument overload and keep 0-SCore's range (hooking that one would let a repair
+  count base boxes it does not take from). On a client the zone comes from the mirror and the boxes are the client's loaded
+  copies; 0-SCore's taking on a client writes the whole box back to the server (its own multiplayer model, unchanged here).
+  `CraftFromBaseStorage` (default true) turns it off.
+
 ## How it hangs together (for modders)
 
 - NPCs are 0-XNPCCore's `EntityAliveSDXV4` survivors (SCore's legacy `EntityAliveSDX` still works for pack NPCs). A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars

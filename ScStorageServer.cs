@@ -623,7 +623,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>storage.keep session active: the view is still open (active 1: its window was used since the last keep).</summary>
-        [ScAction(OpKeep, ScActionAccess.Community)]
+        [ScAction(OpKeep, ScActionAccess.Community, Quiet = true)]      // round cfs1: the view's keep-alive (every few seconds) stays out of the DebugLogging log
         private static void KeepAction(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
         {
             Session s = SessionOf(sender, args.Int(0, -1));

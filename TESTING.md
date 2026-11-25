@@ -206,6 +206,27 @@ with a radio; the client has the same SurvivorCommunity and Voice Control)
 - [ ] The host far away, the client at the base: horde warnings in person and chatter still reach the client.
 - [ ] The client with a talk open on a resident: no greeting or chatter of hers plays over the talk on the client.
 
+## Round cfs1 (2026-11-25): Craft from Storage finds every linked storage box in the base
+
+Why (the user): "Every crafting resource in linked storage should be detected while inside the base." 0-SCore's Craft from
+Storage looks only at containers within its Distance (10 m as 0-SCore ships it) - and, while its broadcast manager runs, only at boxes switched
+to broadcast. Now, while you stand inside the community's home zone, crafting also finds ingredients in every box linked
+storage links (player-placed storage in the base; never the packing station or the land claim block's own storage),
+wherever it stands in the base. Setting: `CraftFromBaseStorage` (on by default). Build `sc34_cfs1`, not deployed.
+
+**Single player** (0-SCore's Craft from Storage on, a base with crates farther apart than its Distance)
+- [ ] Put an ingredient (e.g. wood) only in a crate at the far end of the base, empty your bag of it, and stand inside the
+      base at the other end: a workbench or backpack recipe that needs it counts it and crafts; the crate loses exactly
+      that much.
+- [ ] Step outside the home zone: the far crate is no longer counted (0-SCore's own range only).
+- [ ] A crate locked with a password you don't know: its contents are not counted.
+- [ ] With an enemy near (if 0-SCore's BlockOnNearbyEnemies is on): no container counts, as before.
+- [ ] Block upgrade or repair with the far crate's materials only: refused as before (repairs keep 0-SCore's range).
+- [ ] `CraftFromBaseStorage` false in Config/blocks.xml: the far crate is not counted.
+
+**A client on a dedicated server**
+- [ ] Inside the base, the client crafts from a far crate; the crate loses that much on the server (open it afterwards).
+
 ## Round MP3 (review fixes) (2026-11-24): linked storage keeps RE Inventory's footprint, claims block nothing, nothing deleted
 
 Why: the MP3 reviews found that with RE Inventory a swap or a batch of deposits skipped the footprint test (a box could go
@@ -216,6 +237,15 @@ deposit with no room comes back alone, a box opened by hand leaves the views ins
 boxes a view shows and the view follows, an idle view closes after 5 minutes (with other players in the game), and the
 overflow drops in a bag. Also: a forced station unlock no longer pays a member's crafts twice, and an AutoEquip armor piece
 given back to a full bag is no longer worn and doubled. Build `sc34_mp3`, **deployed to 3.4 on 2026-11-24** (port-3.4 b975a10c, DLL 0cc844a4, protocol 4; the dedicated server loads the same folder), untested in game.
+
+**Results so far (2026-11-25)**
+- [x] The user: single-player checks of the packing stations, linked storage and the member panel's gear slots.
+- [x] My run on the dedicated test server (the 3.4 client joined through DevLink): both logs say protocol 4. The window's Open
+      storage made `linked storage: session 1 for Elisk claims 0 box(es)` on the server, and the client's view opened beside
+      its inventory with the RE Inventory grid note; closing it ended the session (`session 1 ended (closed), 0 claim(s)
+      released`). The test save has no storage boxes in its base and the test character carries nothing, so no item moved.
+- [ ] Still to check on a server: items moved both ways in linked storage, the packing station, a member's gear, a station
+      craft with a member, two players at once.
 
 **Single player (RE Inventory with `zzzz_GridInv_SurvivorCommunity`)**
 - [ ] A crate with exactly one free spot a rifle fits, everything else full. Hold a rifle, click a bandage in linked storage
