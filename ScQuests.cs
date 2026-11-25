@@ -165,6 +165,9 @@ namespace SurvivorCommunity
                 Vector3i key = World.worldToBlockPos(poiPosition);
                 foreach (Prospect p in ScRegistry.Prospects.Values)
                     if (p.Favour == FavourKind.Poi && p.Started && !p.Done && p.PoiPos == key) return true;
+                // round MP4: a remote subscriber whose last journal report holds a POI favour quest for this building (Started can
+                // be reset once nobody else holds it - ScQuestNet, E6)
+                if (ScQuestNet.ReportedFavourPoi(subscribers, key)) return true;
                 foreach (EnclaveRequest r in ScRegistry.EncRequests)
                 {
                     if (r == null || !r.IsAccepted) continue;
@@ -371,7 +374,8 @@ namespace SurvivorCommunity
             try
             {
                 // round MP0: the journal and its markers are the local player's (the host's own; a dedicated server skips it).
-                // MP4: quests to the right player
+                // Round MP4: a client runs this for its own journal every second too (ScQuestNet's client tick), from its copy's
+                // prospect positions (ProspectFor and GiverPosition read the copy there)
                 EntityPlayerLocal lp = player as EntityPlayerLocal;
                 if (lp == null) return;
                 QuestJournal j = Journal(lp);
@@ -495,8 +499,67 @@ namespace SurvivorCommunity
         }
 #endif
 
-        /// <summary>A runner came back under a new entity id: their rescue quest follows them.</summary>
+        /// <summary>StartRescueData's error while this machine's player record is not in yet (ScQuestNet tries again).</summary>
+        public const string RescueJournalNotReady = "the player's journal is not ready";
+
+        /// <summary>
+        /// Round MP4: a client's rescue quest, from the server's quest op (ScQuestNet) - the quest StartRescue and StartRescueAt
+        /// make, from data: the runner's member id and name, the place's name, the marker's box (corner a, size s). The title is
+        /// made in this machine's language. True when it is in the journal (or was already).
+        /// </summary>
+        public static bool StartRescueData(EntityPlayerLocal player, int memberId, string name, string poiName, Vector3i a, Vector3i s, out string error)
+        {
+            error = null;
+            try
+            {
+                if (player == null || memberId == 0) { error = "scInternal"; return false; }
+                if (QuestClass.s_Quests == null || !QuestClass.s_Quests.ContainsKey(RescueQuestId)) { error = "scQuestUnavailable"; return false; }
+                if (FindRescue(player, memberId) != null) return true;
+                QuestJournal j = Journal(player);
+                GameManager gm = GameManager.Instance;
+                // AddQuest writes the quest's places into the player's record: without it in, the quest would be half added
+                if (j == null || gm == null || gm.persistentPlayers == null || gm.persistentPlayers.GetPlayerDataFromEntityID(player.entityId) == null)
+                {
+                    error = RescueJournalNotReady;
+                    return false;
+                }
+                Quest q = QuestClass.CreateQuest(RescueQuestId);
+                if (q == null) { error = "scQuestUnavailable"; return false; }
+                q.SetPositionData(Quest.PositionDataTypes.POIPosition, new Vector3(a.x, a.y, a.z));
+                q.SetPositionData(Quest.PositionDataTypes.POISize, new Vector3(s.x, 1f, s.z));
+                q.DataVariables[PoiNameVar] = SafeName(poiName ?? "");
+                q.DataVariables[ObjectiveScTalkToSurvivor.NameVar] = SafeName(name ?? "");
+                q.DataVariables[TitleVar] = string.Format(Localization.Get("scQuestRescueNameFmt"), SafeName(name ?? ""));
+                q.DataVariables[MemberVar] = memberId.ToString();
+#if SC_V34
+                j.AddQuest(q, Quest.QuestSource.QuestSystem);
+#else
+                j.AddQuest(q);
+#endif
+                return true;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("quest-startrescue-data", e);
+                error = "scQuestFailed";
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// A runner came back under a new entity id: their rescue quest follows them. Round MP4: on the server every copy follows -
+        /// the host's own journal here (the player passed when it is the host's own, as before), every client's through the
+        /// quest op (ScQuestNet).
+        /// </summary>
         public static void RekeyRescue(EntityPlayer player, int oldId, int newId)
+        {
+            if (!ScCommunity.IsHost) { RekeyRescueIn(player, oldId, newId); return; }
+            RekeyRescueIn(player is EntityPlayerLocal ? player : ScCommunity.LocalPlayer, oldId, newId);
+            ScQuestNet.RekeyRescueRemote(oldId, newId);
+        }
+
+        /// <summary>Round MP4: the rescue quest of oldId in this one journal follows newId (the host's, or a client's own from the op).</summary>
+        internal static void RekeyRescueIn(EntityPlayer player, int oldId, int newId)
         {
             try
             {
@@ -522,10 +585,17 @@ namespace SurvivorCommunity
         /// </summary>
         public static void CloseRescue(EntityPlayer player, Member m, bool completed)
         {
+            if (m == null) return;
+            CloseRescueById(player, m.Id, completed);
+        }
+
+        /// <summary>Round MP4: CloseRescue by the runner's member id (a client's op: the member can be gone from its copy).</summary>
+        public static void CloseRescueById(EntityPlayer player, int memberId, bool completed)
+        {
             try
             {
-                if (player == null || m == null) return;
-                Quest q = FindRescue(player, m.Id);
+                if (player == null) return;
+                Quest q = FindRescue(player, memberId);
                 if (q == null) return;
                 QuestJournal j = Journal(player);
                 if (j == null) return;
@@ -648,8 +718,64 @@ namespace SurvivorCommunity
             try
             {
                 if (player == null || e == null || r == null) { error = "no player, enclave or request"; return null; }
-                string id = RequestQuestIdFor(r);
-                if (QuestClass.s_Quests == null || !QuestClass.s_Quests.ContainsKey(id))
+                // round MP4: made from the request's data (RequestQuestData) - the same steps a client takes for a quest op
+                return StartRequestData(player, RequestQuestData.Of(e, r, what), out error);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("quest-startrequest", ex);
+                error = "the journal threw (see the log)";
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Round MP4: what an enclave request's journal quest is made of, taken on the server (RequestQuestData.Of) - the host's own
+        /// StartRequest / ShapeRequest use it, and a client's quest op carries it (NetPackageScQuestOp), so both build the same
+        /// quest. Names are as the record has them (SafeName is applied where the quest is made); the titles are made on the
+        /// machine whose journal it is, in its language.
+        /// </summary>
+        public sealed class RequestQuestData
+        {
+            public int Id;
+            public string Kind = "", QuestClassId = "";
+            public Vector3i At, Size;
+            /// <summary>The place's name, what is wanted (the server's words), the enclave's name, the person's name, the target's name, the stage word.</summary>
+            public string Place = "", What = "", EnclaveName = "", Who = "", Target = "", Stage = "";
+            public int Due;
+            /// <summary>One of E5's kinds (the person's name and the stage word are set); a search back from the remains (its "return" phase).</summary>
+            public bool E5, Returning;
+
+            public static RequestQuestData Of(Enclave e, EnclaveRequest r, string what)
+            {
+                var d = new RequestQuestData { Id = r.Id, Kind = r.Kind ?? "", QuestClassId = RequestQuestIdFor(r), What = what ?? "", EnclaveName = e.Name ?? "", Due = r.DueDay };
+                Vector3i at, size;
+                string place;
+                ScEncRequests.RequestPlace(r, e, out at, out size, out place);
+                d.At = at;
+                d.Size = size;
+                d.Place = place ?? "";
+                d.Who = ScEncSearch.PersonName(r) ?? "";
+                d.Target = r.TargetName ?? "";
+                d.Stage = ScEncRequests.StageWord(r) ?? "";
+                d.E5 = r.IsE5;
+                d.Returning = r.Kind == EnclaveRequest.KindMissing && r.Stage == ScEncSearch.StageSearched;
+                return d;
+            }
+        }
+
+        /// <summary>
+        /// Round MP4: StartRequest's body, from data - the host's own path (StartRequest) and a client's quest op (ScQuestNet) alike.
+        /// Null (and why) when it cannot start.
+        /// </summary>
+        public static Quest StartRequestData(EntityPlayerLocal player, RequestQuestData d, out string error)
+        {
+            error = null;
+            try
+            {
+                if (player == null || d == null) { error = "no player, enclave or request"; return null; }
+                string id = d.QuestClassId;
+                if (string.IsNullOrEmpty(id) || QuestClass.s_Quests == null || !QuestClass.s_Quests.ContainsKey(id))
                 {
                     error = "quest class " + id + " is not loaded";
                     ScLog.Once("no-request-quest-" + id, "quest class " + id + " is not loaded - Config/quests.xml did not apply (requests work without the journal)");
@@ -664,26 +790,23 @@ namespace SurvivorCommunity
                 }
                 Quest q = QuestClass.CreateQuest(id);
                 if (q == null) { error = "quest class " + id + " made no quest"; return null; }
-                Vector3i at, size;
-                string place;
-                ScEncRequests.RequestPlace(r, e, out at, out size, out place);
-                q.SetPositionData(Quest.PositionDataTypes.POIPosition, new Vector3(at.x, at.y, at.z));
-                q.SetPositionData(Quest.PositionDataTypes.POISize, new Vector3(Math.Max(1, size.x), 1f, Math.Max(1, size.z)));
-                string name = SafeName(e.Name ?? "");
-                q.DataVariables[PoiNameVar] = SafeName(place ?? "");
-                q.DataVariables[TitleVar] = TitleOf(r, name);
-                q.DataVariables[RequestVar] = r.Id.ToString();
-                q.DataVariables[RequestWhatVar] = SafeName(what ?? "");
+                q.SetPositionData(Quest.PositionDataTypes.POIPosition, new Vector3(d.At.x, d.At.y, d.At.z));
+                q.SetPositionData(Quest.PositionDataTypes.POISize, new Vector3(Math.Max(1, d.Size.x), 1f, Math.Max(1, d.Size.z)));
+                string name = SafeName(d.EnclaveName ?? "");
+                q.DataVariables[PoiNameVar] = SafeName(d.Place ?? "");
+                q.DataVariables[TitleVar] = TitleOf(d.Kind, name, d.Who, d.Target);
+                q.DataVariables[RequestVar] = d.Id.ToString();
+                q.DataVariables[RequestWhatVar] = SafeName(d.What ?? "");
                 q.DataVariables[RequestNameVar] = name;
-                q.DataVariables[RequestDueVar] = r.DueDay.ToString();
-                if (r.IsE5)
+                q.DataVariables[RequestDueVar] = d.Due.ToString();
+                if (d.E5)
                 {
-                    q.DataVariables[RequestWhoVar] = SafeName(ScEncSearch.PersonName(r));
-                    q.DataVariables[RequestStageVar] = ScEncRequests.StageWord(r);
+                    q.DataVariables[RequestWhoVar] = SafeName(d.Who ?? "");
+                    q.DataVariables[RequestStageVar] = d.Stage ?? "";
                 }
                 // a code of our own for every request quest (SetupQuestCode keeps a non-zero one): vanilla's hashes the frame time,
                 // the quest id and a giver of -1, so two requests added in one frame would share it (the E4 review's L1)
-                string uid = "scEncRequest_" + r.Id + "_" + r.Kind + "_" + player.entityId + "_"
+                string uid = "scEncRequest_" + d.Id + "_" + d.Kind + "_" + player.entityId + "_"
                              + DateTime.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture) + "_"
                              + Time.unscaledTime.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
                 int code = uid.GetHashCode();
@@ -699,8 +822,8 @@ namespace SurvivorCommunity
 #else
                 j.AddQuest(q);
 #endif
-                if (r.Kind == EnclaveRequest.KindMissing && r.Stage == ScEncSearch.StageSearched) AdvanceRequest(q);
-                if (r.Kind == EnclaveRequest.KindSiege) j.TrackedQuest = q;          // the besieged enclave's marker on screen at once
+                if (d.Returning) AdvanceRequest(q);
+                if (d.Kind == EnclaveRequest.KindSiege) j.TrackedQuest = q;          // the besieged enclave's marker on screen at once
                 return q;
             }
             catch (Exception ex)
@@ -770,13 +893,16 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>E4's title "Help &lt;enclave&gt;"; E5's "Find &lt;person&gt;", "Clear &lt;POI&gt;", "Siege at &lt;enclave&gt;".</summary>
-        private static string TitleOf(EnclaveRequest r, string enclave)
+        /// <summary>
+        /// E4's title "Help &lt;enclave&gt;"; E5's "Find &lt;person&gt;", "Clear &lt;POI&gt;", "Siege at &lt;enclave&gt;". Round MP4: from
+        /// the request's kind and names (RequestQuestData), in this machine's language.
+        /// </summary>
+        private static string TitleOf(string kind, string enclave, string who, string target)
         {
-            switch (r.Kind)
+            switch (kind)
             {
-                case EnclaveRequest.KindMissing: return string.Format(Localization.Get("scQuestEncSearchNameFmt"), SafeName(ScEncSearch.PersonName(r)));
-                case EnclaveRequest.KindInfestation: return string.Format(Localization.Get("scQuestEncInfestNameFmt"), SafeName(r.TargetName ?? ""));
+                case EnclaveRequest.KindMissing: return string.Format(Localization.Get("scQuestEncSearchNameFmt"), SafeName(who ?? ""));
+                case EnclaveRequest.KindInfestation: return string.Format(Localization.Get("scQuestEncInfestNameFmt"), SafeName(target ?? ""));
                 case EnclaveRequest.KindSiege: return string.Format(Localization.Get("scQuestEncSiegeNameFmt"), enclave);
                 default: return string.Format(Localization.Get("scQuestEncReqNameFmt"), enclave);
             }
@@ -793,20 +919,58 @@ namespace SurvivorCommunity
             try
             {
                 if (q == null || r == null || e == null || q.CurrentState != Quest.QuestState.InProgress) return;
-                Vector3i at, size;
-                string place;
-                ScEncRequests.RequestPlace(r, e, out at, out size, out place);
-                MoveRequestMarker(q, at, size, place);
-                q.DataVariables[RequestWhoVar] = SafeName(ScEncSearch.PersonName(r));
-                q.DataVariables[RequestStageVar] = ScEncRequests.StageWord(r);
-                q.DataVariables[RequestDueVar] = r.DueDay.ToString();
-                if (r.Kind == EnclaveRequest.KindMissing && r.Stage == ScEncSearch.StageSearched) AdvanceRequest(q);
+                // round MP4: from the request's data, as a client's quest op does it (ShapeRequestData)
+                ShapeRequestData(q, RequestQuestData.Of(e, r, null));
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("quest-shaperequest", ex);
+            }
+        }
+
+        /// <summary>
+        /// Round MP4: ShapeRequest's body, from data - the host's own path and a client's quest op alike. The person's name and
+        /// the stage word only for E5's kinds (ShapeRequest is only ever asked for those; a client's journal pass shapes E4's too).
+        /// </summary>
+        public static void ShapeRequestData(Quest q, RequestQuestData d)
+        {
+            try
+            {
+                if (q == null || d == null || q.CurrentState != Quest.QuestState.InProgress) return;
+                MoveRequestMarker(q, d.At, d.Size, d.Place);
+                if (d.E5)
+                {
+                    q.DataVariables[RequestWhoVar] = SafeName(d.Who ?? "");
+                    q.DataVariables[RequestStageVar] = d.Stage ?? "";
+                }
+                q.DataVariables[RequestDueVar] = d.Due.ToString();
+                if (d.Returning) AdvanceRequest(q);
                 Redraw(q);
             }
             catch (Exception ex)
             {
                 ScLog.Once("quest-shaperequest", ex);
             }
+        }
+
+        /// <summary>Round MP4: the request quest (any kind) in progress in this journal that carries this request id, or null.</summary>
+        public static Quest FindRequest(EntityPlayer player, int requestId)
+        {
+            try
+            {
+                QuestJournal j = Journal(player);
+                if (j == null || j.quests == null || requestId == 0) return null;
+                for (int i = 0; i < j.quests.Count; i++)
+                {
+                    Quest q = j.quests[i];
+                    if (q != null && q.CurrentState == Quest.QuestState.InProgress && IsRequestQuest(q) && RequestIdOf(q) == requestId) return q;
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("quest-findrequest", e);
+            }
+            return null;
         }
 
         /// <summary>The quest's place (POIPosition/POISize, the name its objective reads) and its marker moved there; nothing when it is there already.</summary>
@@ -1024,8 +1188,9 @@ namespace SurvivorCommunity
                 if (Is(q, SuppliesQuestId))
                 {
                     // no building: the survivor (TickMarkers keeps it on them; retried there until the registry is in)
-                    // round MP1: not from a client's copy - the marker is the server's to keep (TickMarkers), markers travel in MP4
-                    Prospect p = ScRegistry.Loaded ? ProspectFor(q) : null;
+                    // round MP4: a client's from its copy of the registry too (Ready) - its own journal's marker, kept on the survivor
+                    // by its own TickMarkers (ScQuestNet's client tick); MP1 had left the supplies marker off on a client
+                    Prospect p = ScRegistry.Ready ? ProspectFor(q) : null;
                     if (p == null) return;
                     at = GiverPosition(p) + new Vector3(0f, 0.25f, 0f);
                 }
@@ -1102,7 +1267,8 @@ namespace SurvivorCommunity
             try
             {
                 // round MP0: the journal (and the open dialog) are the local player's - the host's own; a dedicated server skips it.
-                // MP4: quests to the right player
+                // Round MP4: a remote player's journal reports itself (NetPackageScJournalReport) and ScQuestNet.OnReport runs this
+                // same test on it
                 EntityPlayerLocal lp = player as EntityPlayerLocal;
                 if (lp == null || ScRegistry.Prospects.Count == 0) return;
                 int talking = TalkingTo(lp);

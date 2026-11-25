@@ -34,6 +34,11 @@ namespace SurvivorCommunity
         public int Units;
         /// <summary>The journal quest that mirrors an accepted request (Quest.QuestCode; 0: none).</summary>
         public int QuestCode;
+        /// <summary>
+        /// Round MP4: the platform id (ScPlayers.IdOf) of the player who accepted it - whose journal holds its quest
+        /// (ScQuestNet). "" for a save from before MP4, and read as the host's own player. Saved as acceptedby= (never to a client).
+        /// </summary>
+        public string AcceptedBy = "";
 
         // ---- E5: a target POI, an infestation, a person, a world-time deadline ----
         public bool HasTarget;
@@ -756,9 +761,12 @@ namespace SurvivorCommunity
             r.DueDay = now + Math.Max(1, due) - 1;
             if (r.Kind == EnclaveRequest.KindInfestation) ScEncInfest.MakeKnown(r, player);     // E5: the leader told the player where
             string error = null;
-            Quest q = player != null ? ScQuests.StartRequest(player, e, r, WhatText(r), out error) : null;
+            // round MP4: the quest is the accepting player's (AcceptedBy) - the host's own journal as before (enclave dialogs are
+            // the host's until MP5), a client's through the quest op (ScQuestNet.StartRequestFor)
+            r.AcceptedBy = ScPlayers.IdOf(player);
+            Quest q = player != null ? ScQuestNet.StartRequestFor(player, e, r, WhatText(r), out error) : null;
             r.QuestCode = q != null ? q.QuestCode : 0;
-            if (q == null) ScLog.Warn("enclave request #" + r.Id + ": no journal quest (" + (error ?? "no player") + ") - accepted all the same");
+            if (q == null && error != ScQuestNet.SentToClient) ScLog.Warn("enclave request #" + r.Id + ": no journal quest (" + (error ?? "no player") + ") - accepted all the same");
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': request #" + r.Id + " (" + Describe(r) + ") accepted on day " + now + ", due by the end of day " + r.DueDay
                       + " (" + why + ")" + (q != null ? ", journal quest " + q.QuestCode : ""));
             ScRegistry.SaveAtomic();
@@ -795,6 +803,7 @@ namespace SurvivorCommunity
             }
             // the journal mirror first, while the record still names it
             if (pl != null) CloseQuest(pl, r, outcome == Done || outcome == HeldOut);
+            ScQuestNet.CloseRequestRemote(r, outcome == Done || outcome == HeldOut);     // round MP4: a client acceptor's own journal (the quest op)
             All.Remove(r);
             if (pick != null && pick.RequestId == r.Id) pick = null;
             int moved = 0;
@@ -965,6 +974,7 @@ namespace SurvivorCommunity
             Enclave e = r != null ? ScEnclaves.ById(r.EnclaveId) : null;
             Quest q = pl != null && e != null ? QuestOf(pl, r) : null;
             if (q != null) ScQuests.ShapeRequest(q, r, e);
+            ScQuestNet.ShapeRequestRemote(r);         // round MP4: a client acceptor's own journal (the quest op)
         }
 
         /// <summary>
@@ -977,7 +987,8 @@ namespace SurvivorCommunity
             try
             {
                 // done, or tried a few seconds running while the player's record was not there to add a quest to.
-                // Round MP0: the host's own journal only. MP4: quests to the right player
+                // Round MP0: the host's own journal only. Round MP4: a client's journal is squared with the records on its own
+                // reports (ScQuestNet.OnReport), each request with the player who accepted it
                 EntityPlayerLocal lp = player as EntityPlayerLocal;
                 if (!synced && ScEnclaves.Ready && lp != null && lp.QuestJournal != null && ScRegistry.Loaded)
                     synced = SyncJournal(lp) || ++syncTries >= MaxSyncTries;
@@ -1028,7 +1039,8 @@ namespace SurvivorCommunity
                 Enclave e = r != null ? ScEnclaves.ById(r.EnclaveId) : null;
                 // E5: a quest of another kind's class than its request's (a hand-edited save) is made again as its own
                 bool ownClass = r != null && string.Equals(q.ID, ScQuests.RequestQuestIdFor(r), StringComparison.OrdinalIgnoreCase);
-                if (r == null || !r.IsAccepted || e == null || !ownClass || !mirrored.Add(r.Id)) { gone.Add(q); continue; }
+                // round MP4: one another player accepted is theirs (AcceptedBy; ScQuestNet) - never the host's journal's
+                if (r == null || !r.IsAccepted || e == null || !ownClass || !ScQuestNet.HostAccepted(r) || !mirrored.Add(r.Id)) { gone.Add(q); continue; }
                 kept++;
                 if (r.QuestCode != q.QuestCode) { r.QuestCode = q.QuestCode; changed = true; }
                 if (r.IsE5) ScQuests.ShapeRequest(q, r, e);         // E5: its place, stage, phase and due day as the record has them
@@ -1044,6 +1056,7 @@ namespace SurvivorCommunity
                 foreach (EnclaveRequest r in All)
                 {
                     if (!r.IsAccepted || mirrored.Contains(r.Id)) continue;
+                    if (!ScQuestNet.HostAccepted(r)) continue;            // round MP4: another player's - added again on their own report
                     Enclave e = ScEnclaves.ById(r.EnclaveId);
                     if (e == null || e.Lost || e.IsHostile) continue;     // no building this load / withdrawn at the next day's pass
                     string error;

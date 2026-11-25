@@ -56,7 +56,8 @@ namespace SurvivorCommunity
     ///                escort=player:body siege=size:spawned:killed:started (each written when set), with [enclave] thanks=kind,
     ///                [encperson] state=missing and [community] encsiegeat=worldtime encremains=x,y,z;.. A request whose
     ///                enclave is missing is dropped (a degraded load); one of a kind this build does not know is dropped at
-    ///                OnRegistryChanged.
+    ///                OnRegistryChanged. Round MP4: acceptedby=platform id (whose journal holds its quest; absent: the host's own,
+    ///                as every save from before MP4; never in a client's copy).
     ///   E6 (ScEncAllies; keys an older build ignores): [enclave] benefit=harvest (the group's benefit) allyreveal=N (the
     ///                request-clock day an ally may next tell of another); [community] encloss=F (the Enclave lost morale
     ///                part) encrefill=day:x,y,z:name;.. (the refills owed: the request-clock day, the lost group's POI and name).
@@ -713,6 +714,7 @@ namespace SurvivorCommunity
                     break;
                 }
                 case "quest": r.QuestCode = I(val); break;
+                case "acceptedby": r.AcceptedBy = val.Trim(); break;       // round MP4: whose journal holds its quest (absent: the host's)
                 case "target": { Vector3i v; if (TryVec(val, out v)) { r.Target = v; r.HasTarget = true; } break; }
                 case "infest": r.InfestationId = I(val); break;
                 case "person": r.PersonId = I(val); break;
@@ -1778,6 +1780,8 @@ namespace SurvivorCommunity
                     sb.AppendLine("due=" + rq.DueDay.ToString(CultureInfo.InvariantCulture));
                     if (rq.Units > 0) sb.AppendLine("res=" + ScNames.Key(rq.Res) + ":" + rq.Units);
                     if (rq.QuestCode != 0) sb.AppendLine("quest=" + rq.QuestCode.ToString(CultureInfo.InvariantCulture));
+                    // round MP4: the accepting player's platform id (ScQuestNet) - never to a client, as ownerid= and leader=
+                    if (!forClients && !string.IsNullOrEmpty(rq.AcceptedBy)) sb.AppendLine("acceptedby=" + Clean(rq.AcceptedBy));
                     if (rq.HasTarget) sb.AppendLine("target=" + Vec(rq.Target));
                     if (rq.InfestationId >= 0) sb.AppendLine("infest=" + rq.InfestationId.ToString(CultureInfo.InvariantCulture));
                     if (rq.PersonId >= 0) sb.AppendLine("person=" + rq.PersonId.ToString(CultureInfo.InvariantCulture));

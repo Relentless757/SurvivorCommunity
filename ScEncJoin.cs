@@ -255,6 +255,8 @@ namespace SurvivorCommunity
             Prospect pr = ScEnclaveDeals.ProspectByPerson(p.Id);
             if (pr == null) return;
             if (player != null) ScQuests.CloseFavour(player, pr.Id, pr.Done);
+            // round MP4: every other player who took that favour on loses their copy (the quest op), as a join does (ScCommunity.Admit)
+            ScTalkContext.CloseFavourForOthers(pr.Id, false, player);
             ScRegistry.Prospects.Remove(pr.Id);
         }
 

@@ -549,7 +549,10 @@ namespace SurvivorCommunity
             try
             {
                 if (m == null || m.Status != MemberStatus.OnRun) return false;
-                EntityPlayerLocal lp = player as EntityPlayerLocal;        // round MP0: the rescue quest goes to the host's own journal. MP4: quests to the right player
+                // round MP4: the rescue quest goes to EVERY community player online (the user, 2026-11-25) - the host's own journal
+                // here (whoever the caller reasons from: in single player and on a listen host that was always the host's own),
+                // every client's through the quest op (ScQuestNet.RescueStarted, below)
+                EntityPlayerLocal lp = ScCommunity.LocalPlayer;
                 if (ScRunners.IsPhysical(m))
                 {
                     // a physical runner calls from the site they are searching - only once they are there
@@ -569,6 +572,7 @@ namespace SurvivorCommunity
                     // round 33c (M33): a mining runner calls from a natural spot - the rescue quest marks the ground around it
                     else if (ScMining.IsDig(m)) { if (lp != null) ScQuests.StartRescueAt(lp, m, new Vector3i(m.RunSite.x - 8, m.RunSite.y, m.RunSite.z - 8), new Vector3i(16, 1, 16), out perr); }
 #endif
+                    ScQuestNet.RescueStarted(m);          // round MP4: every client's own copy (the same place: ScQuestNet.RescueBox)
                     ScPlayers.TellCommunity(string.Format(Localization.Get("scRadioDistress"), m.Name, m.RunPoiName, Dist(ScRunners.C(m.RunSite))), "ui_denied");   // round MP0: the community's radio news
                     ScLog.Out(m.Name + " radios for help from " + m.RunPoiName + " " + m.RunSite + " (on a physical run)" + (perr != null ? " (quest: " + perr + ")" : ""));
 #if SC_V34
@@ -597,6 +601,7 @@ namespace SurvivorCommunity
                 m.RunSpawn = new Vector3i((int)centre.x, (int)w.GetHeightAt(centre.x, centre.z) + 1, (int)centre.z);
                 string err = null;
                 if (lp != null) ScQuests.StartRescue(lp, m, pi, out err);
+                ScQuestNet.RescueStarted(m);              // round MP4: every client's own copy
                 ScPlayers.TellCommunity(string.Format(Localization.Get("scRadioDistress"), m.Name, m.RunPoiName, Dist(centre)), "ui_denied");   // round MP0: the community's radio news
                 ScLog.Out(m.Name + " radios for help from " + m.RunPoiName + " " + m.RunPoi + (err != null ? " (quest: " + err + ")" : ""));
 #if SC_V34
@@ -719,7 +724,7 @@ namespace SurvivorCommunity
             m.EventZombies.Clear();
             RemoveStandIn(w, m);
             EntityPlayerLocal lp = player as EntityPlayerLocal;
-            if (lp != null) ScQuests.CloseRescue(lp, m, true);    // round MP0: the host's own journal. MP4: quests to the right player
+            ScQuestNet.CloseRescueAll(m, true);       // round MP4: the first to complete it closes it for everyone - the host's own, every client's
             ScCommunity.Tell(player, string.Format(Localization.Get("scRescued"), m.Name), "");
             ScLog.Out(m.Name + " rescued at " + m.RunPoiName + " - the run comes home safe");
             ScSkills.AddXp(m, Skill.Wits, ScConfig.RunWitsXp);
@@ -796,7 +801,7 @@ namespace SurvivorCommunity
             {
                 int id = (int)standIn.Buffs.GetCustomVar(StandInCvar);
                 Member m = ScRegistry.GetMember(id);
-                EntityPlayer player = ScPlayers.Anchor();      // round MP0: any server (the rescue quest below stays the host's - MP4)
+                EntityPlayer player = ScPlayers.Anchor();      // round MP0: any server (round MP4: the rescue quest below closes for every player)
                 if (m == null) return;
                 if (m.StandInId != standIn.entityId)
                 {
@@ -806,7 +811,7 @@ namespace SurvivorCommunity
                 // fell holding an outpost - or (round op1 review, M1) in the seconds a recalled member's stand-in waits for their body
                 if (m.Status == MemberStatus.Garrison || m.Status == MemberStatus.Transit) { ScGarrison.OnStandInDied(m, player); return; }
                 m.StandInId = -1;
-                ScQuests.CloseRescue(player as EntityPlayerLocal, m, false);
+                ScQuestNet.CloseRescueAll(m, false);      // round MP4: every player's copy fails - the host's own, every client's
                 World w = ScCommunity.World;
                 EntityAlive real = ScCommunity.FindNpc(m.Id);
                 if (real != null) ScRuns.RemoveEntity(real); else ScRegistry.Doomed.Add(m.Id);
@@ -822,8 +827,8 @@ namespace SurvivorCommunity
         public static void EndDistress(World w, EntityPlayer player, Member m)         // round MP0: any player (runs, deaths)
         {
             RemoveStandIn(w, m);
-            EntityPlayerLocal lp = player as EntityPlayerLocal;
-            if (lp != null) ScQuests.CloseRescue(lp, m, m.RunSafe);   // round MP0: the host's own journal. MP4: quests to the right player
+            // round MP4: every player's copy closes - the host's own (whichever player the caller passed), every client's
+            ScQuestNet.CloseRescueAll(m, m.RunSafe);
             m.RunDistress = false;
             m.EventSpawned = false;
             m.EventZombies.Clear();

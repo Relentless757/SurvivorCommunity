@@ -371,8 +371,11 @@ namespace SurvivorCommunity
             sessionReady = false;
             settledSince = -1f;
             string error = null;
-            EntityPlayerLocal lp = player as EntityPlayerLocal;       // round MP0: the quest goes to the host's own journal. MP4: quests to the right player
-            Quest q = lp != null ? ScQuests.StartRequest(lp, e, r, ScEncRequests.WhatText(r), out error) : null;
+            EntityPlayerLocal lp = player as EntityPlayerLocal;
+            // round MP4: the siege's quest is the player it was called for (the request's AcceptedBy) - the host's own journal as
+            // before, a client's through the quest op (ScQuestNet.StartRequestFor)
+            r.AcceptedBy = ScPlayers.IdOf(player);
+            Quest q = player != null ? ScQuestNet.StartRequestFor(player, e, r, ScEncRequests.WhatText(r), out error) : null;
             r.QuestCode = q != null ? q.QuestCode : 0;
             ScPlayers.TellCommunity(string.Format(Loc("scEncSiegeCall"), e.Name), "ui_denied");     // round MP0: the community's radio news
             if (player != null) ScEncRadio.Say(e, EncCall.Siege, player);       // round m1v: ahead of every radio line (text only until round V-b records it)

@@ -93,6 +93,9 @@
     <Compile Include="ScCategories.cs" />
     <Compile Include="ScSecurity.cs" />
     <Compile Include="ScQuests.cs" />
+    <Compile Include="ScQuestNet.cs" />                 <!-- round MP4 (part Q): quests reach the right player's journal -->
+    <Compile Include="NetPackageScQuestOp.cs" />        <!-- round MP4 (part Q) -->
+    <Compile Include="NetPackageScJournalReport.cs" />  <!-- round MP4 (part Q) -->
     <Compile Include="ScQuestGiverApi.cs" />
     <Compile Include="Patches_Persistence.cs" />
     <Compile Include="Patches_Npc.cs" />
