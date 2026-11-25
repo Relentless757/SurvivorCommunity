@@ -44,7 +44,7 @@ too early, kept the built-in defaults all session (DebugLogging off, every tuned
 against empty tables: no recruit dialog found, the Watch Post's shapes "not found", every bundle pool "no such item", the
 well kit not limited to Level 1, and later "config has no XnpcWeapons block". Now a client holds those steps until the
 server's configs are loaded and runs them once, about when its player spawns. Single player, a listen host and a dedicated
-server run them at the game's start as before. Build `sc34_mt1c`, not deployed yet.
+server run them at the game's start as before. Build `sc34_mt1`, **deployed to 3.4 on 2026-11-25** (port-3.4 4ad490c8, DLL 9fc58153, protocol 6, with the review fixes; the dedicated server loads the same folder), untested in game.
 
 **Single player (nothing may change)**
 - [ ] The log at world load is as before, in the same order and before `StartGame done`: the `config: MaxMembers=...`
@@ -80,8 +80,9 @@ Why: on a dedicated server a client could not use a resident's 0-XNPCCore rows (
 Jobs and gear), her craft window listed nothing and Voice Control's server refused every order ("Command Loot rejected:
 player N is not the leader of ..."), so "gather wood" left her standing. The talk hold that links her to the talking player
 only ever started on the host, for the host's own player. Now the server starts it when a client's talk opens, the client
-keeps it alive while its talk is open, and the end of a follow (`Leader`) reaches the clients. Untested in game; protocol
-unchanged in this branch (the merge sets it). `sc craft <name>` on the server's console shows her hold or shift in its
+keeps it alive while its talk is open, and the end of a follow (`Leader`) reaches the clients. Build `sc34_mt1`,
+**deployed to 3.4 on 2026-11-25** (port-3.4 4ad490c8, DLL 9fc58153, protocol 6, with the review fixes; the dedicated server
+loads the same folder), untested in game. `sc craft <name>` on the server's console shows her hold or shift in its
 "shift:" line; `sc craft` shows the counts.
 Review fixes (build `sc34_mt1`, untested): a client's craft window Cancel drops only the job (`member.canceljob`); a client
 closes its windows on her when the server ends its link and asks once to be linked again; a follow's `Leader` and `Owner`
@@ -159,7 +160,7 @@ second, or its own roll), so a take or swap looked like a re-roll; her copies ne
 (every mode); the panel stayed open while she walked off, because Voice Control's hold ignored it; and a client's job tool
 slots showed no work kit. Now a client's panel shows the server's view (`member.gearview`), every copy carries the handed
 item's stats, the panel holds her through Voice Control's hold, and it closes with "<name> had to go." when she leaves for a
-fight or an investigation. Build `sc34_mt1g`, **not deployed**, untested in game.
+fight or an investigation. Build `sc34_mt1`, **deployed to 3.4 on 2026-11-25** (port-3.4 4ad490c8, DLL 9fc58153, protocol 6, with the review fixes; the dedicated server loads the same folder), untested in game.
 Review fixes (build `sc34_mt1`, untested): a swap made while she is stowed keeps the kind she draws (the slot's item, not the
 bare hand) and never tells 0-XNPCCore the bare hand was ordered; the server backs the panel's hold itself; `member.gearview`
 answers only a player at her panel; a weapon too large for the view can still be taken; the bag line no longer mentions a
