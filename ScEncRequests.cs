@@ -706,7 +706,8 @@ namespace SurvivorCommunity
             bool heard = ScRadio.Online();
             if (heard)
             {
-                ScPlayers.TellCommunity(string.Format(Loc("scEncReqHeard"), e.Name), "");      // round MP0: the community's radio news
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                ScPlayers.TellCommunityKey("scEncReqHeard", "", e.Name);      // round MP0: the community's radio news
                 if (player != null) ScEncRadio.Say(e, EncCall.Offer, player, kind);   // round m1v: the leader's voice (text only until round V-b records it)
                 ScOutposts.NoteLedger(string.Format(Loc("scEncReqLedgerAsk"), e.Name));
             }
@@ -819,9 +820,9 @@ namespace SurvivorCommunity
                 bandChanged = ScEnclaves.StandingKey(e) != before;
                 ScOutposts.NoteLedger(LedgerLine(e, r, outcome, moved, bandChanged, what));
                 // round MP0: news for the whole community (the host alone in single player)
-                if (outcome == Lapsed) ScPlayers.TellCommunity(string.Format(Loc("scEncReqLapsedTell"), e.Name), "");
-                else if (outcome == Expired) ScPlayers.TellCommunity(string.Format(Loc("scEncReqExpiredTell"), e.Name), "ui_denied");
-                if (bandChanged && !e.IsHostile) ScPlayers.TellCommunity(string.Format(Loc("scEncReqBandTell"), e.Name, ScEnclaves.StandingWord(e)), "");
+                if (outcome == Lapsed) ScPlayers.TellCommunityKey("scEncReqLapsedTell", "", e.Name);
+                else if (outcome == Expired) ScPlayers.TellCommunityKey("scEncReqExpiredTell", "ui_denied", e.Name);
+                if (bandChanged && !e.IsHostile) ScPlayers.TellCommunityKey("scEncReqBandTell", "", e.Name, ScEnclaves.StandingWord(e));
             }
             if (outcome == Done) ScLeadership.Count(ev ?? ScLeadership.FavourEvent);
             KindClosed(r, outcome);
@@ -1738,8 +1739,7 @@ namespace SurvivorCommunity
             if (!Acting(player, out e, out r) || r == null || !r.IsOffered) return;
             EncPerson leader = ScEnclavePeople.LeaderOf(e);
             string key = LineKey("scEncThink", r.Kind, ScEnclaves.StandingKey(e));
-            string line = Loc(key);
-            ScCommunity.Tell(player, string.Format(Loc("scEncReqThinkTell"), leader != null ? leader.Name : e.Name, line, r.LapseDay), "");
+            ScCommunity.TellKey(player, "scEncReqThinkTell", "", leader != null ? leader.Name : e.Name, ScCommunity.LocArg(key), r.LapseDay);   // the word: a key
             ScVoice.SayAfterTalkFor(player, ScFavours.CurrentNpc(player), key);   // round MP4: on the talker's machine (a remote one's on theirs)
             ScLog.Verbose("enclave request #" + r.Id + ": the player will think about it (the offer stands to the end of day " + r.LapseDay + ")");
         }

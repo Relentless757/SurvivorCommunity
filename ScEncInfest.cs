@@ -156,7 +156,8 @@ namespace SurvivorCommunity
                     if (e != null)
                     {
                         e.Thanks = EnclaveRequest.KindInfestation;
-                        ScPlayers.TellCommunity(string.Format(Loc("scEncReqClearedTell"), e.Name, r.TargetName), "");    // round MP0: news for the whole community
+                        // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                        ScPlayers.TellCommunityKey("scEncReqClearedTell", "", e.Name, r.TargetName);    // round MP0: news for the whole community
                         ScRegistry.SaveAtomic();
                     }
                 }

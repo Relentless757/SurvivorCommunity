@@ -195,7 +195,8 @@ namespace SurvivorCommunity
             map[_idx] = null;
             try { NotifyListeners(); } catch (Exception e) { ScLog.Once("linked-notify", e); }
             EntityPlayerLocal p = ScCommunity.LocalPlayer;
-            if (p != null) ScCommunity.Tell(p, Localization.Get(why), "ui_denied");
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            if (p != null) ScCommunity.TellKey(p, why, "ui_denied");
         }
 
         private static bool StillOnCursor(ItemStack v)
@@ -287,7 +288,7 @@ namespace SurvivorCommunity
                 if (at < 0)
                 {
                     EntityPlayerLocal p = ScCommunity.LocalPlayer;
-                    if (p != null) ScCommunity.Tell(p, Localization.Get(ScStorage.FreeFor(GridDrawn) > 0 ? "scStorageViewFull" : "scStorageFull"), "ui_denied");
+                    if (p != null) ScCommunity.TellKey(p, ScStorage.FreeFor(GridDrawn) > 0 ? "scStorageViewFull" : "scStorageFull", "ui_denied");
                     return false;
                 }
                 ScStorage.Slot placed;

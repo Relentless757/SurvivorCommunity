@@ -1818,7 +1818,8 @@ namespace SurvivorCommunity
             ScLog.Out(name + " keeps the " + token + " (" + route + ") in place of the " + (old ?? "-") + (where != null ? ", returned to " + where : "")
                       + " - loadout now " + (now != null ? now.ToString() : "-"));
             if (player != null && old != null)
-                ScCommunity.Tell(player, string.Format(Localization.Get("scSwapKept"), name, ItemLabel(token), ItemLabel(old), Localization.Get(WhereKey(where))), "");
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                ScCommunity.TellKey(player, "scSwapKept", "", name, ItemLabel(token), ItemLabel(old), ScCommunity.LocArg(WhereKey(where)));
             if (ScRegistry.GetMember(npc.entityId) != null || ScRegistry.GetProspect(npc.entityId) != null) ScRegistry.SaveAtomic();
             return true;
         }

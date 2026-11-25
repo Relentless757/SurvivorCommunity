@@ -2611,6 +2611,33 @@ Round MP0 is the groundwork:
     drops it first (their POI may then be re-armed once). A request accepted by a player whose platform id changed is no
     longer theirs.
 
+- **Round MP4 (part: tells), tells in each player's language** (`ScCommunity.TellKey`, `ScPlayers.TellCommunityKey`,
+  `NetPackageScTell`): a tell used to reach a remote player as the server's finished words (`GameManager.ShowTooltipMP`:
+  the server's language, and vanilla's toolbelt package drops the sound). A tell made from a localization row now goes by
+  its key: `ScCommunity.TellKey(player, "scRunBack", sound, m.Name, yield, ScCommunity.LocArg(ScNames.LocKey(kind)))`, or
+  `ScPlayers.TellCommunityKey(key, sound, args)` for every community player online.
+  - **The arguments** are the row's, exactly as `string.Format(Localization.Get(key), args)` took them; one that is itself
+    a localization key (a resource name, a status word) goes as `ScCommunity.LocArg(key)` and is localized where the tell
+    shows. Names and a helper's words (`Hours`, `Side`, `Dist`, a place's "where", a standing word) are still the server's
+    text: only the row and the `LocArg`s change language.
+  - **The host's own player** (single player too) gets `Tell(player, ScCommunity.TellText(key, args), sound)`: the same text
+    the old call site made, byte for byte. A row with no arguments is shown as it is, not run through `string.Format`.
+  - **A remote player whose SC said hello with this protocol** (`ScNet.ClientMatches`) gets a `NetPackageScTell` through
+    `ScNet.ToPlayer`, and their machine formats the row with its own `Localization` (`ScCommunity.ShowTellKey`; a row its
+    language formats badly shows as it is) and plays the sound. A vanilla client, another SC protocol, or a tell with more
+    than `NetPackageScTell.MaxArgs` (8) arguments gets the server's words, as before.
+  - **`NetPackageScTell`** (server to one client): byte version, string key, string sound, byte argc, then per argument a
+    byte kind (0 text, 1 localization key, 2 int32, 3 int64, 4 float, 5 double) and the value. Numbers travel as numbers so
+    the client's `string.Format` applies the row's own format (`{1:0.0}`) as the host's does; every machine runs the game's
+    one invariant culture (`Utils.InitStatic`), so they format alike. Anything else travels as `string.Format("{0}", x)`.
+  - **New tells:** use `TellKey` / `TellCommunityKey` whenever the text is one localization row. Keep `Tell(player, text,
+    sound)` for text built otherwise: two rows joined (a radio "says" line plus its news), a helper's text (`ErrorText`,
+    `InfoText`, `DropWhy`), a verb's finished refusal, and an `ScActionReply`'s text (a reply already carries a key the
+    client localizes, `ScActionReply.Text`). The file-local broadcasters have key twins: `ScBaseAttack.TellInFightKey`,
+    `ScBands.TellNearKey`, `ScEnclavePeople.TellNearKey`, `ScWatch.TellHomeKey`, `ScDowned.TellAboutKey`.
+  - **Not tells:** MP4 part V's captions (`NetPackageScVoice`) and the quest titles (part Q) were already localized on the
+    client; marker names (part K) are still the server's words.
+
 - **Round cfs1, Craft from Storage in the base** (`ScCraftFromBase`, `Patch_CraftFromBase`): a postfix on 0-SCore's
   `RemoteCraftingUtils.GetTileEntities(EntityAlive)` - the one-argument overload that only its crafting paths call, for the
   ingredient counts (`SearchNearbyContainers`) and the taking (`ConsumeItem`) alike - adds, while the player stands inside the

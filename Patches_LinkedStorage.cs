@@ -142,7 +142,8 @@ namespace SurvivorCommunity
                     {
                         nextTell = now + 2f;
                         EntityPlayerLocal p = ScCommunity.LocalPlayer;
-                        if (p != null) ScCommunity.Tell(p, Localization.Get("scStorageBusy"), "ui_denied");
+                        // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                        if (p != null) ScCommunity.TellKey(p, "scStorageBusy", "ui_denied");
                     }
                     return false;
                 }

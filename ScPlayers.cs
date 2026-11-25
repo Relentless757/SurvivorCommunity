@@ -225,5 +225,17 @@ namespace SurvivorCommunity
             EntityPlayer[] to = mine.ToArray();
             for (int i = 0; i < to.Length; i++) ScCommunity.Tell(to[i], text, sound);
         }
+
+        /// <summary>
+        /// Round MP4 (part: tells): TellCommunity by localization key - each community player online reads it in their own
+        /// language (ScCommunity.TellKey: the host's own player formatted here as before, a matched client on its machine).
+        /// </summary>
+        public static void TellCommunityKey(string key, string sound, params object[] args)
+        {
+            List<EntityPlayer> mine = Community(SharedCommunity);
+            // copied: a tell can re-enter code that reuses the scratch list
+            EntityPlayer[] to = mine.ToArray();
+            for (int i = 0; i < to.Length; i++) ScCommunity.TellKey(to[i], key, sound, args);
+        }
     }
 }

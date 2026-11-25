@@ -869,11 +869,12 @@ namespace SurvivorCommunity
                 ScRegistry.Community.Add(m.RunKind, m.RunCarry);
                 ScSkills.AddXp(m, Skill.Wits, ScConfig.RunWitsXp);
                 if (ScRuns.SpecialtyFor(m.RunKind) == m.Specialty) ScSkills.AddSpecialtyXp(m, 3f);
-                string res = Localization.Get(ScNames.LocKey(m.RunKind));
                 // round MP0: a runner's homecoming is the community's news (every community player; single player: the player)
-                if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get(m.Injured ? "scRunHurt" : "scRunBack"), m.Name, m.RunCarry, res), m.Injured ? "ui_denied" : "");
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                if (player != null) ScPlayers.TellCommunityKey(m.Injured ? "scRunHurt" : "scRunBack", m.Injured ? "ui_denied" : "", m.Name, m.RunCarry,
+                                                               ScCommunity.LocArg(ScNames.LocKey(m.RunKind)));   // the resource's word: a key
             }
-            else if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scRunBackEmpty"), m.Name, m.RunDestName), "");
+            else if (player != null) ScPlayers.TellCommunityKey("scRunBackEmpty", "", m.Name, m.RunDestName);
             ScLog.Out(m.Name + " is back from " + m.RunDestName + (visited ? " with " + m.RunCarry + " " + Carried(m) : " empty-handed (turned back early)") + (m.Injured ? " (injured)" : ""));
             m.RunCarry = 0;
             m.RollPending = false;                                                              // an escorted runner reaching home was never rolled
@@ -1284,7 +1285,7 @@ namespace SurvivorCommunity
             if (lp != null && ScRadioTalk.InPerson(m, lp))
             {
                 ScRadioTalk.Mark(m, RadioTalk.HurtHome);
-                ScCommunity.Tell(lp, string.Format(Localization.Get("scRunHurtHome"), m.Name), "ui_denied");
+                ScCommunity.TellKey(lp, "scRunHurtHome", "ui_denied", m.Name);
                 return;
             }
             ScRadioTalk.Say(m, RadioTalk.HurtHome, lp, false);

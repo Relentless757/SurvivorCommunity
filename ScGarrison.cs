@@ -962,7 +962,8 @@ namespace SurvivorCommunity
         {
             if (player == null || string.IsNullOrEmpty(key) || m == null) return;
             // round MP0: a posted member's news is the community's (every community player; single player: the player)
-            ScPlayers.TellCommunity(string.Format(Localization.Get(key), m.Name, outpost ?? "?", EtaHours(m)), "");
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            ScPlayers.TellCommunityKey(key, "", m.Name, outpost ?? "?", EtaHours(m));
         }
 
         /// <summary>
@@ -1278,7 +1279,7 @@ namespace SurvivorCommunity
                     if (ct2 == null) continue;
                     if (summary.Length > 0) summary.Append(' ');
                     summary.Append(string.Format(Localization.Get("scOpWalkIn"), ct2.Label, o.Name));
-                    if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scOpWalkInTip"), ct2.Label, o.Name), "");   // round MP0: community news
+                    if (player != null) ScPlayers.TellCommunityKey("scOpWalkInTip", "", ct2.Label, o.Name);   // round MP0: community news
                     ScLog.Out("walk-in: " + ct2.Class + " turned up at outpost " + o.Id + " (" + o.Name + ")");
                 }
             }

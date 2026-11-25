@@ -198,7 +198,8 @@ namespace SurvivorCommunity
         {
             EntityPlayerLocal p = ScCommunity.LocalPlayer;
             if (p == null || m == null) return;
-            ScCommunity.Tell(p, string.Format(Localization.Get("scEncCallSays"), m.Name, FieldJobLine(mode)), "ui_denied");
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            ScCommunity.TellKey(p, "scEncCallSays", "ui_denied", m.Name, FieldJobLine(mode));
             // round m1w (P7); re-check fix 5: order false (ScWork's take-back) - no order behind it to mark as refused
             ScVoiceRoutes.SayRefusal(npc, FieldJobKey(mode), "a field job refused (" + ModeName(mode) + ")", order);
         }
@@ -1504,7 +1505,7 @@ namespace SurvivorCommunity
                 Count("runner-window-lost");
                 string list = string.Join(", ", lost.ToArray());
                 ScLog.Out(m.Name + " died on the road - what their inventory window held is lost with them: " + list);
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRunWindowLost"), m.Name, list), "");
+                if (player != null) ScCommunity.TellKey(player, "scRunWindowLost", "", m.Name, list);
             }
             catch (Exception ex) { ScLog.Once("runner-harvest", ex); }
         }

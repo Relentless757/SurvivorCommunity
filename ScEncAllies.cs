@@ -427,7 +427,8 @@ namespace SurvivorCommunity
             ScEnclaves.SetKnown(best, true, player);
             Vector3 from;
             string where = From(player, out from) ? ScEnclaves.Where(from, best.Centre) : "";
-            ScPlayers.TellCommunity(string.Format(Loc("scEncAllyReveal"), ally.Name, best.Name, best.PoiName, where), best.IsHostile ? "ui_denied" : "");   // round MP0: the whole community's news
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            ScPlayers.TellCommunityKey("scEncAllyReveal", best.IsHostile ? "ui_denied" : "", ally.Name, best.Name, best.PoiName, where);   // round MP0: the whole community's news
             ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerReveal"), ally.Name, best.Name, best.PoiName));
             ScLog.Out("enclave " + best.Id + " '" + best.Name + "' told of by the ally " + ally.Id + " '" + ally.Name + "', " + Mathf.RoundToInt(Mathf.Sqrt(bestD))
                       + " m from them" + (best.IsHostile ? " (hostile)" : "") + "; their next word from day " + ally.AllyRevealDay);
@@ -458,7 +459,7 @@ namespace SurvivorCommunity
                 {
                     if (shown)
                     {
-                        ScPlayers.TellCommunity(string.Format(Loc("scEncAllyGained"), e.Name, Name(e.Benefit), Describe(e.Benefit)), "");    // round MP0: the whole community's news
+                        ScPlayers.TellCommunityKey("scEncAllyGained", "", e.Name, Name(e.Benefit), Describe(e.Benefit));    // round MP0: the whole community's news
                         ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerGained"), e.Name, Name(e.Benefit)));
                     }
                     int day = ScEncRequests.Now;
@@ -470,7 +471,7 @@ namespace SurvivorCommunity
                 {
                     if (shown)
                     {
-                        ScPlayers.TellCommunity(string.Format(Loc("scEncAllyLost"), e.Name, Name(e.Benefit)), "ui_denied");     // round MP0: the whole community's news
+                        ScPlayers.TellCommunityKey("scEncAllyLost", "ui_denied", e.Name, Name(e.Benefit));     // round MP0: the whole community's news
                         ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerLost"), e.Name, Name(e.Benefit)));
                     }
                     ScLog.Out("enclave " + e.Id + " '" + e.Name + "' is no ally now (" + after + ")" + (has ? " - " + e.Benefit + " off" : ""));
@@ -504,8 +505,8 @@ namespace SurvivorCommunity
                     c.EnclaveLoss = Math.Min(MaxLoss, c.EnclaveLoss + loss);
                     bool benefit = band == "allied" && e.Benefit.Length > 0;
                     // round MP0: the whole community's news (the host alone in single player)
-                    ScPlayers.TellCommunity(benefit ? string.Format(Loc("scEncAllyFallen"), e.Name, loss, Name(e.Benefit))
-                                                    : string.Format(Loc("scEncFriendFallen"), e.Name, loss), "ui_denied");
+                    if (benefit) ScPlayers.TellCommunityKey("scEncAllyFallen", "ui_denied", e.Name, loss, Name(e.Benefit));
+                    else ScPlayers.TellCommunityKey("scEncFriendFallen", "ui_denied", e.Name, loss);
                     if (benefit) ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerLost"), e.Name, Name(e.Benefit)));
                 }
                 int day = ScEncRequests.Now + Math.Max(0, ScConfig.EnclaveRefillDays);
@@ -574,7 +575,7 @@ namespace SurvivorCommunity
             {
                 Vector3 from;
                 string where = From(player, out from) ? ScEnclaves.Where(from, en.Centre) : "";
-                ScPlayers.TellCommunity(string.Format(Loc("scEncRefillRadio"), en.PoiName, where), "");     // round MP0: the community's radio news
+                ScPlayers.TellCommunityKey("scEncRefillRadio", "", en.PoiName, where);     // round MP0: the community's radio news
                 ScOutposts.NoteLedger(string.Format(Loc("scEncRefillLedger"), en.PoiName));
             }
             return 1;

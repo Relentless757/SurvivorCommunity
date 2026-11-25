@@ -998,7 +998,8 @@ namespace SurvivorCommunity
                         // still no room anywhere: said once (round 33 glance L5: the gate line said nothing about room when
                         // that attempt only waited for the home's chunks or a closed window)
                         if (!noRoomTold.Add(m.Id)) continue;
-                        if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scMineNoRoomYet"), m.Name, left), "");   // round MP0: community news
+                        // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                        if (player != null) ScPlayers.TellCommunityKey("scMineNoRoomYet", "", m.Name, left);   // round MP0: community news
                         ScLog.Out(m.Name + "'s haul that waited (" + before + ") has no room in the home crates or their inventory window - tried again in 2 min");
                         continue;
                     }

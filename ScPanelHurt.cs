@@ -47,7 +47,8 @@ namespace SurvivorCommunity
         internal static void Tell(EntityPlayer player, EntityAlive member)
         {
             string name = member != null ? ScCommunity.DisplayName(member) : "";
-            ScCommunity.Tell(player, string.Format(Localization.Get("scInvClosedHit"), name), "ui_denied");
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            ScCommunity.TellKey(player, "scInvClosedHit", "ui_denied", name);
             ScLog.Verbose("member inventory: closed - " + name + " (id " + (member != null ? member.entityId : -1) + ") took a hit (round m1p; "
                           + closedByHit + " this session)");
         }

@@ -224,6 +224,7 @@
     <Compile Include="XUiC_ScSnapshot.cs" />
     <Compile Include="ScVoice.cs" />
     <Compile Include="NetPackageScVoice.cs" />  <!-- round MP4 (part V): SC's lines to every player in earshot, in the server's voice -->
+    <Compile Include="NetPackageScTell.cs" />   <!-- round MP4 (part: tells): SC's tells by key, localized on the receiving client -->
     <Compile Include="ScVoiceLines.cs" />
     <Compile Include="ScClipCache.cs" />
     <Compile Include="ScBarks.cs" />

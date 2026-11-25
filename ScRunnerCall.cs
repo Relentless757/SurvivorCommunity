@@ -137,7 +137,8 @@ namespace SurvivorCommunity
             float dx = at.x - home.x, dz = at.z - home.z;
             int dist = Mathf.RoundToInt(Mathf.Sqrt(dx * dx + dz * dz));
             string dir = Localization.Get(DirKey(dx, dz));
-            ScCommunity.Tell(player, string.Format(Localization.Get("scRunnerAttacked"), m.Name, where, dist, dir), "ui_denied");
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            ScCommunity.TellKey(player, "scRunnerAttacked", "ui_denied", m.Name, where, dist, ScCommunity.LocArg(DirKey(dx, dz)));   // the direction: a key
             var c = new Call { M = m, BodyId = body.entityId, Attacker = Describe(attacker), Since = Time.unscaledTime, LastHit = Time.unscaledTime };
             c.MarkerName = string.Format(Localization.Get("scRunnerAttackedMarker"), m.Name);
             AddMarker(c, at, player);

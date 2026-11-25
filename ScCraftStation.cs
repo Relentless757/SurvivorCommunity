@@ -367,7 +367,8 @@ namespace SurvivorCommunity
             ScLog.Out("a station's output is full: " + m.Name + "'s " + rs.recipeCount + " x " + h.Recipe + " wait in its queue while your window is open"
                       + " - they carry on when there is room (nothing goes to your inventory)");
             EntityPlayerLocal p = rs.xui != null && rs.xui.playerUI != null ? rs.xui.playerUI.entityPlayer : null;
-            ScCommunity.Tell(p, string.Format(Localization.Get("scCraftOutputHeld"), m.Name), "ui_denied");
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            ScCommunity.TellKey(p, "scCraftOutputHeld", "ui_denied", m.Name);
         }
 
         /// <summary>A hold is over without its item placed: a kept item's craft is still in the queue (never counted off or listed).</summary>

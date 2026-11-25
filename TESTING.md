@@ -37,6 +37,42 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP4 (part: tells) (2026-11-25): each player reads SC's tells in their own language
+
+Why: a tell (the tooltip SC shows for news: a run back, a member down, a daily summary, a radio call) reached a remote
+player as the server's finished words, in the server's language, and without its sound. 180 of the 225 tells now go by
+their localization key (`ScCommunity.TellKey`, `ScPlayers.TellCommunityKey`); a client formats the row in its own language
+and plays the sound (`NetPackageScTell`). Names, and words a helper builds (hours, a side, a distance, "where", a standing
+word), stay the server's. Tells built from two rows, a helper's text or a reply are unchanged. In single player and for the
+host's own player nothing changes. Build `sc34_mp4`, **not deployed**.
+
+SC ships English only, so to see a difference give a few rows a second language on the SERVER (its localization goes to
+every client at join): in the server's `Mods/SurvivorCommunity/Config/Localization.csv` add `,german` to the header line and
+a German text (or any text marked `DE:`) at the end of the rows `scDaily`, `scRunSent`, `scRunBack`, `scDownedIsDown` and
+`scBandSeenDrifters`, keeping their `{0}`-style tokens. Take the column out again after the test.
+
+**Single player (and a host with no one else on): nothing may change**
+- [ ] `sc day`: the daily summary tooltip reads as before, with its sound when the community is hungry or thirsty.
+- [ ] Send a member on a run from the community window: "<name> sets off ..." reads as before; when she is back, "<name>
+      is back with ... <resource>" names the resource as before.
+- [ ] `sc band spawn drifters` and meet them: the "drifters seen" tooltip as before. A member going down: the "is down"
+      line as before (with the medic's name when one is sent).
+- [ ] The log has no `tell-key` error.
+
+**A client on a dedicated server, its game language German** (the column above in the server's copy; the server English)
+- [ ] `sc day` on the server's console: the client's tooltip is the German row, with the community's numbers, and plays
+      `ui_denied` when the community is hungry or thirsty (before, a remote player heard no tell sound).
+- [ ] The client sends a member on a run: the client reads the German "sets off" row. When she comes back, the German
+      "is back" row with the resource's name.
+- [ ] A row with no German text (any other tell, e.g. `sc band spawn drifters` once the column has no `scBandSeen...`
+      entry): the client reads the English row, as before.
+- [ ] The server's and the client's logs have no SC error (`net-tell`, `tell-key`).
+
+**Two players, two languages** (a listen host in English, a client in German)
+- [ ] `sc day` on the host: the host reads the English summary, the client the German one, at the same moment.
+- [ ] A member who follows the client goes down: the client reads the German "is down" line; a resident at home going
+      down tells both players, each in their own language.
+
 ## Round MP4 (part: markers) (2026-11-25): every community player sees the community's map markers
 
 Why: every SC map marker was a map object on the machine that ran the code, owned by the host's own player, so a client saw

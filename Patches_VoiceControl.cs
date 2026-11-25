@@ -400,12 +400,13 @@ namespace SurvivorCommunity
                     string error = "scVoiceStays";
                     if (m != null && sdx != null && lp != null && ScCommunity.ReturnHome(m, sdx, lp, out error))
                     {
-                        ScCommunity.Tell(lp, string.Format(Localization.Get("scStationed"), m.Name), "");
+                        // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                        ScCommunity.TellKey(lp, "scStationed", "", m.Name);
                         __result = Localization.Get("scVoiceGoingHome");
                     }
                     else
                     {
-                        if (lp != null && error != null && error != "scVoiceStays") ScCommunity.Tell(lp, Localization.Get(error), "ui_denied");
+                        if (lp != null && error != null && error != "scVoiceStays") ScCommunity.TellKey(lp, error, "ui_denied");
                         __result = Localization.Get("scVoiceStays");
                     }
                     SetActionSubtitle(__instance, __result);   // round m1p: SC's answer is the subtitle too
@@ -484,7 +485,7 @@ namespace SurvivorCommunity
                     if (m == null)
                     {
                         Count("companion-dismiss-refused");
-                        if (lp != null) ScCommunity.Tell(lp, ScCommunity.IsHost ? Localization.Get("scVoiceStays") : Localization.Get("scHostOnly"), "ui_denied");
+                        if (lp != null) ScCommunity.TellKey(lp, ScCommunity.IsHost ? "scVoiceStays" : "scHostOnly", "ui_denied");
                         return false;
                     }
                     StripContract(npc);
@@ -492,13 +493,13 @@ namespace SurvivorCommunity
                     if (lp != null && ScCommunity.ReturnHome(m, ScNpc.As(npc) ?? npc, lp, out error))
                     {
                         Count("companion-dismiss-to-home");
-                        ScCommunity.Tell(lp, string.Format(Localization.Get("scStationed"), m.Name), "");
+                        ScCommunity.TellKey(lp, "scStationed", "", m.Name);
                         if (__instance.ViewComponent != null) __instance.ViewComponent.IsVisible = false;    // as SCore's own button hides the row
                     }
                     else
                     {
                         Count("companion-dismiss-refused");
-                        if (lp != null) ScCommunity.Tell(lp, Localization.Get(error ?? "scInternal"), "ui_denied");
+                        if (lp != null) ScCommunity.TellKey(lp, error ?? "scInternal", "ui_denied");
                     }
                     return false;
                 }
@@ -676,7 +677,7 @@ namespace SurvivorCommunity
             if (lp == null) return 0;
             if (!ScCommunity.Follow(m, npc, lp, out error)) return 2;
             Count("voice-follow-member");
-            ScCommunity.Tell(player, string.Format(Localization.Get("scWinNowFollowing"), m.Name), "");
+            ScCommunity.TellKey(player, "scWinNowFollowing", "", m.Name);
             return 1;
         }
 
@@ -771,7 +772,7 @@ namespace SurvivorCommunity
                         return true;
                     }
                     Count("voice-follow-refused");
-                    ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+                    ScCommunity.TellKey(player, error ?? "scInternal", "ui_denied");
                     // round m1w: no room in the party says so, as the talk's "Come with me." does (scFollowFullSaid)
                     audioResponse = Localization.Get(ScVoiceRoutes.IsFollowFull(error) ? "scFollowFullSaid" : "scVoiceCantFollow");
                     subtitleResponse = audioResponse;
@@ -813,7 +814,7 @@ namespace SurvivorCommunity
         private static void TellPickupRefused(EntityPlayer player, EntityAlive npc, string key)
         {
             if (player == null || npc == null) return;
-            ScCommunity.Tell(player, string.Format(Localization.Get("scEncCallSays"), ScCommunity.DisplayName(npc), Localization.Get(key)), "ui_denied");
+            ScCommunity.TellKey(player, "scEncCallSays", "ui_denied", ScCommunity.DisplayName(npc), ScCommunity.LocArg(key));
         }
 
         /// <summary>The hold-E ring's pick-up entry (HoldERingTable.Entries: "vcpickup", gate Pack).</summary>

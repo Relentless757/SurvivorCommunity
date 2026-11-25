@@ -121,7 +121,8 @@ namespace SurvivorCommunity
                 // round MP0: ScRadio takes the local player (another slice's file) - null on a dedicated server: no distress roll there
                 bool distress = ScRadio.RollDistress(m, player as EntityPlayerLocal, rw != null ? rw.GetGameRandom() : null);
                 ScRegistry.SaveAtomic();
-                if (player != null && !distress) ScCommunity.Tell(player, string.Format(Localization.Get("scRunSent"), m.Name, What(m), m.RunEndDay), "");
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                if (player != null && !distress) ScCommunity.TellKey(player, "scRunSent", "", m.Name, What(m), m.RunEndDay);
                 ScLog.Out(m.Name + " left on a supply run for " + WhatLog(m) + ", back on day " + m.RunEndDay);
                 return true;
             }
@@ -194,7 +195,7 @@ namespace SurvivorCommunity
                 m.Snap = snap;
                 ScRunners.OnSent(m, npc);
                 ScRegistry.SaveAtomic();
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRunDeparts"), m.Name, m.RunDestName, dist, What(m), m.RunEndDay), "");
+                if (player != null) ScCommunity.TellKey(player, "scRunDeparts", "", m.Name, m.RunDestName, dist, What(m), m.RunEndDay);
                 ScLog.Out(m.Name + " set off on foot for " + m.RunDestName + " " + m.RunDest + " (" + dist + " m) to look for " + WhatLog(m) + ", back around day " + m.RunEndDay);
                 return true;
             }
@@ -389,13 +390,13 @@ namespace SurvivorCommunity
                     {
                         // round 33c: the haul by name; the crates line follows from ScMining.Tick
                         summary.Append(' ').Append(string.Format(Localization.Get(bad ? "scDailyMineHurt" : "scDailyMineBack"), m.Name, got));
-                        if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get(bad ? "scMineHurt" : "scMineBack"), m.Name, got), bad ? "ui_denied" : "");   // round MP0: community news
+                        if (player != null) ScPlayers.TellCommunityKey(bad ? "scMineHurt" : "scMineBack", bad ? "ui_denied" : "", m.Name, got);   // round MP0: community news
                         ScLog.Out(m.Name + " is back from the hidden mining run (risk " + risk.ToString("0.00") + ")");
                     }
                     else
                     {
                         summary.Append(' ').Append(string.Format(Localization.Get(bad ? "scDailyRunHurt" : "scDailyRunBack"), m.Name, yield, Localization.Get(ScNames.LocKey(kind))));
-                        if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get(bad ? "scRunHurt" : "scRunBack"), m.Name, yield, Localization.Get(ScNames.LocKey(kind))), bad ? "ui_denied" : "");   // round MP0: community news
+                        if (player != null) ScPlayers.TellCommunityKey(bad ? "scRunHurt" : "scRunBack", bad ? "ui_denied" : "", m.Name, yield, ScCommunity.LocArg(ScNames.LocKey(kind)));   // round MP0: community news
                         ScLog.Out(m.Name + " is back from the supply run: " + yield + " " + kind + (bad ? " (injured)" : "") + " (risk " + risk.ToString("0.00") + ")");
                     }
                 }

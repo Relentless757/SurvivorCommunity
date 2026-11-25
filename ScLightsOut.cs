@@ -298,7 +298,8 @@ namespace SurvivorCommunity
                 List<EntityPlayer> all = ScPlayers.All;
                 for (int i = 0; i < all.Count; i++)
                     if (all[i] != null && ScPlayers.InCommunity(all[i]) && ScBaseAttack.PlayerHome(all[i]))
-                        ScCommunity.Tell(all[i], string.Format(Localization.Get("scLightsOutDawn"), on), "");
+                        // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                        ScCommunity.TellKey(all[i], "scLightsOutDawn", "", on);
             }
             catch (Exception e)
             {

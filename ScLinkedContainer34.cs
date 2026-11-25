@@ -334,7 +334,8 @@ namespace SurvivorCommunity
         private static void Tell(string key, string sound = "ui_denied")
         {
             EntityPlayerLocal p = ScCommunity.LocalPlayer;
-            if (p != null && !string.IsNullOrEmpty(key)) ScCommunity.Tell(p, ScActions.Localize(key), sound);
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            if (p != null && !string.IsNullOrEmpty(key)) ScCommunity.TellKey(p, key, sound);
         }
 
         /// <summary>The view shows this container in the loot window (vanilla's looting window or SC's own).</summary>

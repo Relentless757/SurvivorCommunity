@@ -375,7 +375,8 @@ namespace SurvivorCommunity
                                             + string.Format(Loc("scEncMoveTold"), oldName, e.PoiName, where), "");
                     ScEncRadio.Say(e, ScEncRadio.MoveCall(SaidKey(reason)), player);   // round m1v: their words aloud
                 }
-                else if (wasKnown) ScPlayers.TellCommunity(string.Format(Loc("scEncMoveLeft"), e.Name, oldName), "");    // round MP0: the whole community's news
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                else if (wasKnown) ScPlayers.TellCommunityKey("scEncMoveLeft", "", e.Name, oldName);    // round MP0: the whole community's news
             }
             if (told) ScOutposts.NoteLedger(string.Format(Loc("scEncMoveLedger"), e.Name, oldName, e.PoiName));
             else if (wasKnown) ScOutposts.NoteLedger(string.Format(Loc("scEncMoveLedgerLeft"), e.Name, oldName));

@@ -395,7 +395,8 @@ namespace SurvivorCommunity
                 {
                     c.DrinksLeft = 0f;
                     ended = true;
-                    ScPlayers.TellCommunity(Localization.Get("scActDrinksOver"), "");     // round MP0: the community's news
+                    // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                    ScPlayers.TellCommunityKey("scActDrinksOver", "");     // round MP0: the community's news
                     ScLog.Out("activity: the round of drinks has worn off (morale " + c.Morale + ")");
                 }
             }
@@ -406,7 +407,7 @@ namespace SurvivorCommunity
                 {
                     c.FeastLeft = 0f;
                     ended = true;
-                    ScPlayers.TellCommunity(Localization.Get("scActFeastOver"), "");      // round MP0: the community's news
+                    ScPlayers.TellCommunityKey("scActFeastOver", "");      // round MP0: the community's news
                     ScLog.Out("activity: the feast has worn off (morale " + c.Morale + ")");
                 }
             }
@@ -417,7 +418,7 @@ namespace SurvivorCommunity
                 {
                     c.RationLeft = 0f;
                     ended = true;
-                    ScPlayers.TellCommunity(Localization.Get("scActRationOver"), "");     // round MP0: the community's news
+                    ScPlayers.TellCommunityKey("scActRationOver", "");     // round MP0: the community's news
                     ScLog.Out("activity: rationing's penalty has worn off (morale " + c.Morale + ")");
                 }
             }

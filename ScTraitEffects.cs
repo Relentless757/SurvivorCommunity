@@ -325,7 +325,8 @@ namespace SurvivorCommunity
                 if (ReferenceEquals(ScRegistry.GetMember(npc.entityId), m) && toldMedicRole.Add(npc.entityId))
                 {
                     EntityPlayerLocal player = ScCommunity.LocalPlayer;
-                    if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scSqueamishNoMedic"), m.Name), "ui_denied");
+                    // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                    if (player != null) ScCommunity.TellKey(player, "scSqueamishNoMedic", "ui_denied", m.Name);
                 }
             }
         }
@@ -354,7 +355,7 @@ namespace SurvivorCommunity
             ScLog.Out("sleep: " + name + " (" + (npc != null ? npc.entityId : -1) + ") is a light sleeper - up for the horde on the base");
             if (npc == null || !toldWoken.Add(npc.entityId)) return;      // once per attack: cleared only when no attack is open
             EntityPlayerLocal player = ScCommunity.LocalPlayer;
-            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scLightSleeperUp"), name), "");
+            if (player != null) ScCommunity.TellKey(player, "scLightSleeperUp", "", name);
         }
 
         /// <summary>sc traits: the counters.</summary>

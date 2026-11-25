@@ -424,7 +424,8 @@ namespace SurvivorCommunity
                             )
                         {
                             ScCommunity.Station(m, npc);
-                            ScCommunity.Tell(leader, string.Format(Localization.Get("scStationed"), m.Name), "");
+                            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                            ScCommunity.TellKey(leader, "scStationed", "", m.Name);
                             ScRegistry.SaveAtomic();
                         }
                         break;
@@ -579,7 +580,7 @@ namespace SurvivorCommunity
                 ScLog.Out("daily tick " + line);
                 // round MP0: the day's summary is the whole community's news (in single player: the one player)
                 if (ScRegistry.Members.Count > 0)
-                    ScPlayers.TellCommunity(string.Format(Localization.Get("scDaily"), ScRegistry.Members.Count, summary), c.Hungry || c.Thirsty ? "ui_denied" : "");
+                    ScPlayers.TellCommunityKey("scDaily", c.Hungry || c.Thirsty ? "ui_denied" : "", ScRegistry.Members.Count, summary);
                 ScRegistry.SaveAtomic();
             }
             catch (Exception e)

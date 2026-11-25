@@ -205,7 +205,8 @@ namespace SurvivorCommunity
                     // must not make the client's claim the home. The adoption goes first, so the server (which takes requests
                     // in order) has the home when the open arrives.
                     string refusal = ScActionsWindow.RequestRefusal();
-                    if (refusal != null) { ScCommunity.Tell(_player, ScActions.Localize(refusal), "ui_denied"); return true; }
+                    // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                    if (refusal != null) { ScCommunity.TellKey(_player, refusal, "ui_denied"); return true; }
                     if (atOutpost) { ScStorage.RequestOpen(_player, ScStorage.KindHomeLink, _blockPos); return true; }
                     if (!ScZone.HasHome && ScConfig.AutoHomeFirstClaim) ScActionsClaim.RequestHome(_blockPos, ScActionsClaim.HomeAdoptStorage, _player);
                     ScStorage.RequestOpen(_player, ScStorage.KindHome, _blockPos);

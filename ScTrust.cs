@@ -135,7 +135,8 @@ namespace SurvivorCommunity
                 ScCommunity.ClearSynced(npc, "sc_favourDone");
                 ScRegistry.SaveAtomic();
             }
-            ScCommunity.Tell(player, string.Format(Localization.Get("scTrustHostile"), name), "");
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            ScCommunity.TellKey(player, "scTrustHostile", "", name);
             ScLog.Out(name + " (" + npc.entityId + ") is hostile to " + player.EntityName + " for good" + (p != null ? " - their favour is off" : ""));
         }
 

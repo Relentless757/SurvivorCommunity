@@ -147,17 +147,18 @@ namespace SurvivorCommunity
             {
                 World w = ScCommunity.World;
                 AIDirectorAirDropComponent comp = (w != null && w.aiDirector != null) ? w.aiDirector.GetComponent<AIDirectorAirDropComponent>() : null;
-                if (comp == null) { if (player != null) ScCommunity.Tell(player, Localization.Get("scRadioDropsOff"), "ui_denied"); return false; }
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                if (comp == null) { if (player != null) ScCommunity.TellKey(player, "scRadioDropsOff", "ui_denied"); return false; }
                 bool ok;
                 DropRequested = true;
                 try { ok = comp.SpawnAirDrop(); }
                 finally { DropRequested = false; }
-                if (!ok) { if (player != null) ScCommunity.Tell(player, Localization.Get("scRadioDropBusy"), "ui_denied"); return false; }
+                if (!ok) { if (player != null) ScCommunity.TellKey(player, "scRadioDropBusy", "ui_denied"); return false; }
                 GameRandom rnd = w.GetGameRandom();
                 int days = Math.Max(1, rnd != null ? rnd.RandomRange(DropMinDays(), DropMaxDays() + 1) : DropMaxDays());
                 ScRegistry.Community.RadioNextDrop = w.worldTime + (ulong)days * 24000UL;
                 ScRegistry.SaveAtomic();
-                if (player != null) ScCommunity.Tell(player, Localization.Get("scRadioDropSent"), "");
+                if (player != null) ScCommunity.TellKey(player, "scRadioDropSent", "");
                 ScLog.Out("air drop requested over the radio; next in " + days + " day(s)");
                 return true;
             }
@@ -268,11 +269,11 @@ namespace SurvivorCommunity
                 World w = ScCommunity.World;
                 GameRandom rnd = w.GetGameRandom();
                 string cls = NewContactClass(player, rnd);
-                if (cls == null) { ScCommunity.Tell(player, Localization.Get("scRadioNobody"), "ui_denied"); return false; }
+                if (cls == null) { ScCommunity.TellKey(player, "scRadioNobody", "ui_denied"); return false; }
                 var taken = new HashSet<Vector3i>();
                 foreach (var ct in ScRegistry.Contacts) taken.Add(ct.PoiKey);
                 PrefabInstance pi = PickPoi(ScConfig.RadioContactMinDist, ScConfig.RadioContactMaxDist, taken, rnd);
-                if (pi == null) { ScCommunity.Tell(player, Localization.Get("scRadioNoPoi"), "ui_denied"); return false; }
+                if (pi == null) { ScCommunity.TellKey(player, "scRadioNoPoi", "ui_denied"); return false; }
                 Community c = ScRegistry.Community;
                 Vector3 centre = Centre(pi);
                 int y = (int)w.GetHeightAt(centre.x, centre.z) + 1;      // static heightmap: refined with live blocks at spawn time
@@ -293,7 +294,7 @@ namespace SurvivorCommunity
                 c.RadioNextCallDay = ScCommunity.Today + Math.Max(0, ScConfig.RadioCallDays);
                 AddMarker(contact, player);
                 ScRegistry.SaveAtomic();
-                ScCommunity.Tell(player, string.Format(Localization.Get("scRadioContact"), contact.Label, contact.PoiName, Dist(centre)), "");
+                ScCommunity.TellKey(player, "scRadioContact", "", contact.Label, contact.PoiName, Dist(centre));
                 ScLog.Out("radio contact: " + cls + (pair != null ? " (" + pair + ")" : "") + " at " + contact.PoiName + " " + contact.PoiKey + " (fades day " + contact.ExpireDay + ")");
                 return true;
             }
@@ -463,7 +464,7 @@ namespace SurvivorCommunity
                 Contact ct = scratch[i];
                 if (today >= ct.ExpireDay)
                 {
-                    ScPlayers.TellCommunity(string.Format(Localization.Get("scRadioFaded"), ct.Label, ct.PoiName), "");    // round MP0: the community's radio news
+                    ScPlayers.TellCommunityKey("scRadioFaded", "", ct.Label, ct.PoiName);    // round MP0: the community's radio news
                     ScLog.Out("radio contact at " + ct.PoiName + " faded");
                 }
                 RemoveMarker(ct);
@@ -503,7 +504,7 @@ namespace SurvivorCommunity
                 npc.Buffs.SetCustomVar("Persist", 1f);
                 Prospect p = ScFavours.Ensure(npc, player);       // favour, guard order, sc_favour cvar, position record
                 // round MP0: told to the player whose coming loaded the spot (the nearest), the anchor when none is alive
-                ScCommunity.Tell(ScPlayers.Nearest(pos) ?? player, string.Format(Localization.Get("scRadioFound"), ScCommunity.DisplayName(npc), ct.PoiName), "");
+                ScCommunity.TellKey(ScPlayers.Nearest(pos) ?? player, "scRadioFound", "", ScCommunity.DisplayName(npc), ct.PoiName);
                 ScLog.Out("radio contact spawned: " + ScCommunity.DisplayName(npc) + " (" + ct.Class + ", id " + npc.entityId + ") at " + ct.PoiName + (p != null ? ", favour " + p.Favour : ""));
                 return true;
             }
@@ -584,7 +585,7 @@ namespace SurvivorCommunity
                     else if (ScMining.IsDig(m)) { if (lp != null) ScQuests.StartRescueAt(lp, m, new Vector3i(m.RunSite.x - 8, m.RunSite.y, m.RunSite.z - 8), new Vector3i(16, 1, 16), out perr); }
 #endif
                     ScQuestNet.RescueStarted(m);          // round MP4: every client's own copy (the same place: ScQuestNet.RescueBox)
-                    ScPlayers.TellCommunity(string.Format(Localization.Get("scRadioDistress"), m.Name, m.RunPoiName, Dist(ScRunners.C(m.RunSite))), "ui_denied");   // round MP0: the community's radio news
+                    ScPlayers.TellCommunityKey("scRadioDistress", "ui_denied", m.Name, m.RunPoiName, Dist(ScRunners.C(m.RunSite)));   // round MP0: the community's radio news
                     ScLog.Out(m.Name + " radios for help from " + m.RunPoiName + " " + m.RunSite + " (on a physical run)" + (perr != null ? " (quest: " + perr + ")" : ""));
 #if SC_V34
                     ScRadioTalk.Say(m, RadioTalk.Trouble, player, false);                     // R2: their own words on the radio
@@ -613,7 +614,7 @@ namespace SurvivorCommunity
                 string err = null;
                 if (lp != null) ScQuests.StartRescue(lp, m, pi, out err);
                 ScQuestNet.RescueStarted(m);              // round MP4: every client's own copy
-                ScPlayers.TellCommunity(string.Format(Localization.Get("scRadioDistress"), m.Name, m.RunPoiName, Dist(centre)), "ui_denied");   // round MP0: the community's radio news
+                ScPlayers.TellCommunityKey("scRadioDistress", "ui_denied", m.Name, m.RunPoiName, Dist(centre));   // round MP0: the community's radio news
                 ScLog.Out(m.Name + " radios for help from " + m.RunPoiName + " " + m.RunPoi + (err != null ? " (quest: " + err + ")" : ""));
 #if SC_V34
                 ScRadioTalk.Say(m, RadioTalk.Trouble, player, false);                         // R2: their own words on the radio
@@ -713,7 +714,7 @@ namespace SurvivorCommunity
                     m.EventZombies.Add(z.entityId);
                 }
                 m.EventSpawned = true;
-                ScCommunity.Tell(player, string.Format(Localization.Get("scRescueEvent"), m.Name, m.EventZombies.Count), "ui_denied");
+                ScCommunity.TellKey(player, "scRescueEvent", "ui_denied", m.Name, m.EventZombies.Count);
                 ScLog.Out("rescue event for " + m.Name + " at " + m.RunPoiName + ": " + m.EventZombies.Count + " zombie(s), stand-in " + m.StandInId);
             }
             catch (Exception e)
@@ -736,7 +737,7 @@ namespace SurvivorCommunity
             RemoveStandIn(w, m);
             EntityPlayerLocal lp = player as EntityPlayerLocal;
             ScQuestNet.CloseRescueAll(m, true);       // round MP4: the first to complete it closes it for everyone - the host's own, every client's
-            ScCommunity.Tell(player, string.Format(Localization.Get("scRescued"), m.Name), "");
+            ScCommunity.TellKey(player, "scRescued", "", m.Name);
             ScLog.Out(m.Name + " rescued at " + m.RunPoiName + " - the run comes home safe");
             ScSkills.AddXp(m, Skill.Wits, ScConfig.RunWitsXp);
             if (ScRunners.IsPhysical(m) && m.RunLeg == RunLeg.AtSite)
@@ -869,12 +870,12 @@ namespace SurvivorCommunity
             try
             {
                 if (player == null || player.PlayerUI == null || player.PlayerUI.windowManager == null) return;
-                if (!ScCommunity.IsHost) { ScCommunity.Tell(player, Localization.Get("scHostOnly"), "ui_denied"); return; }
+                if (!ScCommunity.IsHost) { ScCommunity.TellKey(player, "scHostOnly", "ui_denied"); return; }
                 NoteRadio(pos);
                 CurrentRadio = pos;
-                if (!IsPoweredAt(w, pos)) { ScCommunity.Tell(player, Localization.Get("scRadioNoPower"), "ui_denied"); return; }
+                if (!IsPoweredAt(w, pos)) { ScCommunity.TellKey(player, "scRadioNoPower", "ui_denied"); return; }
                 GUIWindow win;
-                if (!player.PlayerUI.windowManager.TryGetWindow(WindowGroup, out win)) { ScCommunity.Tell(player, Localization.Get("scNoWindow"), "ui_denied"); return; }
+                if (!player.PlayerUI.windowManager.TryGetWindow(WindowGroup, out win)) { ScCommunity.TellKey(player, "scNoWindow", "ui_denied"); return; }
 #if SC_V34
                 // R2: the window reads this in its OnOpen (an open is synchronous): at the station, not over a handheld radio
                 OpeningAtBlock = true;

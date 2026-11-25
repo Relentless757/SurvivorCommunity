@@ -1551,9 +1551,9 @@ namespace SurvivorCommunity
             if (raid) ScEncRaids.OnDied(e, p);         // E10: before a fall below can end the raid
             if (!raid) ScOutposts.NoteLedger(string.Format(Localization.Get(wasEnlisted ? "scEncLedgerEnlistedDied" : "scEncLedgerDied"), p.Name, e.Name));
             // round MP0: one who was out with the community is everyone's news; else every community player near the enclave
-            string diedText = string.Format(Localization.Get("scEncDied"), p.Name, e.Name);
-            if (wasEnlisted || wasMissing) ScPlayers.TellCommunity(diedText, "");
-            else TellNear(e, diedText);
+            // round MP4: by key (each player reads it in their own language)
+            if (wasEnlisted || wasMissing) ScPlayers.TellCommunityKey("scEncDied", "", p.Name, e.Name);
+            else TellNearKey(e, "scEncDied", p.Name, e.Name);
             if (wasEnlisted && ScConfig.EnclaveEnlistDeathPenalty > 0) ScEnclaves.AddStanding(e, -ScConfig.EnclaveEnlistDeathPenalty, p.Name + " died while enlisted with the player");
             ScEnclaveDeals.DropFavour(p, "they died");
             EntityPlayer by = KillerPlayer(killer);
@@ -1623,7 +1623,7 @@ namespace SurvivorCommunity
                 }
             }
             ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerLeader"), next.Name, e.Name));
-            TellNear(e, string.Format(Localization.Get("scEncNewLeader"), next.Name, e.Name));     // round MP0: every community player near them
+            TellNearKey(e, "scEncNewLeader", next.Name, e.Name);     // round MP0: every community player near them
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + next.Name + " (p" + next.Id + ") leads them now");
         }
 
@@ -1643,12 +1643,15 @@ namespace SurvivorCommunity
             return pl != null && e.DistanceXZ(pl.position.x, pl.position.z) <= ScConfig.EnclaveSpawnRange + ScConfig.EnclaveDespawnMargin;
         }
 
-        /// <summary>Round MP0: a tell to every community player Near the enclave (the host alone in single player, as before).</summary>
-        private static void TellNear(Enclave e, string text)
+        /// <summary>
+        /// Round MP0: a tell to every community player Near the enclave (the host alone in single player, as before). Round MP4
+        /// (part: tells): by localization key (ScCommunity.TellKey: each player's own language).
+        /// </summary>
+        private static void TellNearKey(Enclave e, string key, params object[] args)
         {
             List<EntityPlayer> all = ScPlayers.All;
             for (int i = 0; i < all.Count; i++)
-                if (ScPlayers.InCommunity(all[i]) && Near(e, all[i])) ScCommunity.Tell(all[i], text, "");
+                if (ScPlayers.InCommunity(all[i]) && Near(e, all[i])) ScCommunity.TellKey(all[i], key, "", args);
         }
 
         /// <summary>
@@ -1904,7 +1907,7 @@ namespace SurvivorCommunity
                 return true;
             }
             e.WarnedAt = t;
-            ScCommunity.Tell(player, string.Format(Localization.Get("scEncWarn"), p.Name), "ui_denied");
+            ScCommunity.TellKey(player, "scEncWarn", "ui_denied", p.Name);
             ScEnclaves.AddStanding(e, -ScConfig.EnclaveWarnPenalty, player.EntityName + " hit " + p.Name + " (a warning)");
             return true;
         }

@@ -483,7 +483,8 @@ namespace SurvivorCommunity
                 endReasons[reason ?? "?"] = n + 1;
                 ScLog.Out(m.Name + "'s work shift ends (" + reason + ")" + (s != null ? " after " + (int)(Time.time - s.Started) + " s, " + s.Jobs + " job(s), "
                           + s.Crafts + " item(s) made, " + s.Deposited + " put in the crates" : ""));
-                if (station && tell && npc != null) ScCommunity.Tell(OwnerOf(s), string.Format(Localization.Get("scWorkBack"), m.Name), "");   // round MP2: the shift's player
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                if (station && tell && npc != null) ScCommunity.TellKey(OwnerOf(s), "scWorkBack", "", m.Name);   // round MP2: the shift's player
             }
             catch (Exception e)
             {
@@ -1009,7 +1010,7 @@ namespace SurvivorCommunity
             if (full && !s.SaidFull)
             {
                 s.SaidFull = true;
-                ScCommunity.Tell(ScCommunity.LocalPlayer, string.Format(Localization.Get("scWorkCratesFull"), m.Name), "");
+                ScCommunity.TellKey(ScCommunity.LocalPlayer, "scWorkCratesFull", "", m.Name);
             }
         }
 
@@ -1076,7 +1077,7 @@ namespace SurvivorCommunity
                 if (!s.SaidPackFull)
                 {
                     s.SaidPackFull = true;
-                    ScCommunity.Tell(ScCommunity.LocalPlayer, string.Format(Localization.Get("scWorkPackFull"), m.Name), "");
+                    ScCommunity.TellKey(ScCommunity.LocalPlayer, "scWorkPackFull", "", m.Name);
                 }
                 return false;
             }
@@ -1111,7 +1112,7 @@ namespace SurvivorCommunity
             string err;
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             if (!Start(m, npc, player, true, out err)) { message = Localization.Get(err ?? "scInternal"); return; }
-            ScCommunity.Tell(player, string.Format(Localization.Get("scEncCallSays"), m.Name, Localization.Get("scWorkCallSaid")), "");
+            ScCommunity.TellKey(player, "scEncCallSays", "", m.Name, ScCommunity.LocArg("scWorkCallSaid"));
             message = string.Format(Localization.Get("scWorkComing"), m.Name);
             ok = true;
         }

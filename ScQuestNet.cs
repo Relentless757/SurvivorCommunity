@@ -766,7 +766,8 @@ namespace SurvivorCommunity
                 if (!pr.Done) continue;
                 changed = true;
                 // the quest stays open: its phase 2 ("return to <name>") completes when the player talks to them
-                ScCommunity.Tell(p, string.Format(Localization.Get("scFavourPoiDone"), pr.PoiName, pr.Name), "");
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                ScCommunity.TellKey(p, "scFavourPoiDone", "", pr.PoiName, pr.Name);
                 ScLog.Out("favour done: " + pr.PoiName + " is clear - " + p.PlayerDisplayName + " returns to " + pr.Name + " and they will join (their journal's report)");
             }
             return changed;

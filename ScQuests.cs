@@ -1286,7 +1286,8 @@ namespace SurvivorCommunity
                     // the quest stays open: its phase 2 ("return to <name>") completes when the player talks to them
                     EntityAlive npc = ScCommunity.FindNpc(p.Id);
                     if (npc != null) ScCommunity.SetSynced(npc, "sc_favourDone", 1f);      // round MP2 (E9): force-sent
-                    ScCommunity.Tell(lp, string.Format(Localization.Get("scFavourPoiDone"), p.PoiName, p.Name), "");
+                    // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                    ScCommunity.TellKey(lp, "scFavourPoiDone", "", p.PoiName, p.Name);
                     ScLog.Out("favour done: " + p.PoiName + " is clear - return to " + p.Name + " and they will join");
                 }
                 if (doneScratch.Count > 0) ScRegistry.SaveAtomic();

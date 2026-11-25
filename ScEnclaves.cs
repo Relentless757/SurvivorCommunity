@@ -1327,7 +1327,8 @@ namespace SurvivorCommunity
                     e.Known = true;
                     e.KnownDay = ScCommunity.Today;
                     AddMarker(e, player);
-                    ScCommunity.Tell(player, string.Format(Localization.Get("scEnclaveFound"), e.Name, e.PoiName, StandingWord(e)), e.IsHostile ? "ui_denied" : "");
+                    // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                    ScCommunity.TellKey(player, "scEnclaveFound", e.IsHostile ? "ui_denied" : "", e.Name, e.PoiName, StandingWord(e));
                     ScOutposts.NoteLedger(string.Format(Localization.Get("scEnclaveLedgerFound"), e.Name, e.PoiName));
                     ScLog.Out("enclave " + e.Id + " '" + e.Name + "' found at " + e.PoiName + (e.IsHostile ? " (hostile)" : ""));
                     ScRegistry.SaveAtomic();
@@ -1371,7 +1372,7 @@ namespace SurvivorCommunity
                 best.KnownDay = day;
                 if (player != null) AddMarker(best, player);              // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 string where = Where(from, best.Centre);
-                ScPlayers.TellCommunity(string.Format(Localization.Get("scEnclaveRadio"), best.Name, best.PoiName, where), "");   // round MP0: the community's radio news
+                ScPlayers.TellCommunityKey("scEnclaveRadio", "", best.Name, best.PoiName, where);   // round MP0: the community's radio news
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scEnclaveLedgerRadio"), best.Name, best.PoiName));
                 ScLog.Out("enclave " + best.Id + " '" + best.Name + "' heard on the radio: " + best.PoiName + ", " + where + " from " + (ScZone.HasHome ? "home" : "you")
                           + "; the next reveal from day " + c.EnclaveRadioDay);
@@ -1561,7 +1562,7 @@ namespace SurvivorCommunity
             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
             if (e.Known && pl != null) AddMarker(e, pl);
             ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerHostile"), e.Name));
-            ScPlayers.TellCommunity(string.Format(Localization.Get("scEncTurnedHostile"), e.Name), "ui_denied");    // round MP0: news for the whole community
+            ScPlayers.TellCommunityKey("scEncTurnedHostile", "ui_denied", e.Name);    // round MP0: news for the whole community
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "' turned hostile for good (" + cause + ")" + (grace > 0f ? ", " + grace.ToString("0.#", CultureInfo.InvariantCulture) + " s grace" : ""));
             ScEncAllies.OnBandChanged(e, before, StandingKey(e));      // E6: an ally's benefit stops
             ScRegistry.SaveAtomic();
@@ -1586,7 +1587,7 @@ namespace SurvivorCommunity
             int released = Release(PoiOf(e), w);
             All.Remove(e);
             Rebuild();
-            ScPlayers.TellCommunity(string.Format(Localization.Get(e.Hostile ? "scEncWipedOut" : "scEncGone"), e.Name), "");   // round MP0: news for the whole community
+            ScPlayers.TellCommunityKey(e.Hostile ? "scEncWipedOut" : "scEncGone", "", e.Name);   // round MP0: news for the whole community
             ScOutposts.NoteLedger(string.Format(Localization.Get(e.Hostile ? "scEncLedgerWipedOut" : "scEncLedgerGone"), e.Name, e.PoiName));
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "' at " + e.PoiName + " is gone (" + cause + ")"
                       + (released > 0 ? " - " + released + " sleeper area(s) respawn after the loot respawn wait" : ""));

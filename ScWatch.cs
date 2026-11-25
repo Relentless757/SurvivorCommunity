@@ -509,7 +509,8 @@ namespace SurvivorCommunity
                     Boost(npc);
                 }
                 ScRegistry.SaveAtomic();
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scWatchAssigned"), m.Name, ScConfig.WatchShiftHours, bundles, Label(post)), "");
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                if (player != null) ScCommunity.TellKey(player, "scWatchAssigned", "", m.Name, ScConfig.WatchShiftHours, bundles, Label(post));
                 ScLog.Out(m.Name + " is on watch at " + Label(post) + " " + post + " for " + ScConfig.WatchShiftHours + " h (" + bundles + " ammo bundle(s) from the stockpile, "
                           + c.Get(Resource.Ammo) + " left; " + m.WatchPrepaid + " point(s) prepaid); back to " + m.WatchHome + " after");
                 return true;
@@ -590,16 +591,19 @@ namespace SurvivorCommunity
                       + "; " + left + " prepaid point(s) unspent; back to the post " + m.Post + "; " + sight);
             // round MP0: told to every community player at the base (any of them, not only the host's own player)
             if (tellKey != null && player != null && ScBaseAttack.AnyHome())
-                TellHome(string.Format(Localization.Get(tellKey), m.Name, ScConfig.WatchRestHours, "", label), "");
+                TellHomeKey(tellKey, "", m.Name, ScConfig.WatchRestHours, "", label);
             saveDue = true;
         }
 
-        /// <summary>Round MP0: a tell to every community player at the base (ScBaseAttack.PlayerHome) - in single player the player.</summary>
-        private static void TellHome(string text, string sound)
+        /// <summary>
+        /// Round MP0: a tell to every community player at the base (ScBaseAttack.PlayerHome) - in single player the player. Round MP4
+        /// (part: tells): by localization key (ScCommunity.TellKey: each player's own language).
+        /// </summary>
+        private static void TellHomeKey(string key, string sound, params object[] args)
         {
             List<EntityPlayer> all = ScPlayers.All;
             for (int i = 0; i < all.Count; i++)
-                if (ScPlayers.InCommunity(all[i]) && ScBaseAttack.PlayerHome(all[i])) ScCommunity.Tell(all[i], text, sound);
+                if (ScPlayers.InCommunity(all[i]) && ScBaseAttack.PlayerHome(all[i])) ScCommunity.TellKey(all[i], key, sound, args);
         }
 
         /// <summary>
@@ -873,7 +877,7 @@ namespace SurvivorCommunity
                         if (!OnWatch(m) || GuardBody(m) == null) continue;
                         c.AttackWarned = 1;
                         saveDue = true;
-                        TellHome(string.Format(Localization.Get("scWatchGathering"), m.Name, ScBaseAttack.Side(c.AttackBearing)), "ui_denied");
+                        TellHomeKey("scWatchGathering", "ui_denied", m.Name, ScBaseAttack.Side(c.AttackBearing));
                         ScLog.Out(m.Name + " on watch calls out the horde gathering to the " + ScBaseAttack.Side(c.AttackBearing));
 #if SC_V34
                         if (player != null) ScHordeVoice.SayAtHome(HordeMoment.Gather, m, GuardBody(m), ScBaseAttack.Side(c.AttackBearing), player, false);   // vo4: and says it (round MP4 merge: any player - remote ones near the guard hear it)
@@ -892,7 +896,7 @@ namespace SurvivorCommunity
                         c.AttackWarned = 2;
                         saveDue = true;
                         string side = SideOf(z.position);
-                        TellHome(string.Format(Localization.Get("scWatchSpotted"), m.Name, side), "ui_denied");
+                        TellHomeKey("scWatchSpotted", "ui_denied", m.Name, side);
                         ScLog.Out(m.Name + " on watch spotted the horde to the " + side + " (" + z.EntityName + " #" + z.entityId + ", "
                                   + (int)Vector3.Distance(npc.position, z.position) + " m out)");
 #if SC_V34
@@ -928,7 +932,7 @@ namespace SurvivorCommunity
                     if (!OnWatch(m)) continue;
                     EntityAlive npc = GuardBody(m);
                     if (npc == null) continue;
-                    TellHome(string.Format(Localization.Get("scWatchClear"), m.Name), "");
+                    TellHomeKey("scWatchClear", "", m.Name);
                     ScLog.Out(m.Name + " on watch calls the all clear");
 #if SC_V34
                     EntityPlayerLocal lp = player as EntityPlayerLocal;

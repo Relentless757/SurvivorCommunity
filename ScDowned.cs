@@ -166,8 +166,8 @@ namespace SurvivorCommunity
                 if (d.LeaveTold) return true;
                 d.LeaveTold = true;
             }
-            // round MP0: to her leader, else the community's players (TellAbout), no longer the host alone
-            TellAbout(ScCommunity.FindNpc(m.Id), string.Format(Localization.Get("scDownedNoLeave"), m.Name), "ui_denied");
+            // round MP0: to her leader, else the community's players (TellAboutKey), no longer the host alone
+            TellAboutKey(ScCommunity.FindNpc(m.Id), "scDownedNoLeave", "ui_denied", m.Name);     // round MP4: by key (each player's language)
             ScLog.Out(m.Name + " is down - not leaving now (" + (reasonKey ?? "-") + "); asked again once she is up");
             return true;
         }
@@ -336,16 +336,26 @@ namespace SurvivorCommunity
             d.TellPending = false;
             if (!ScConfig.DownedTell) return;
             int s = Mathf.Max(1, Mathf.CeilToInt(d.Bleed));
-            string text;
+            // round MP4: the row's key and arguments (TellAboutKey: each player reads it in their own language)
+            string key;
+            object[] args;
             if (d.MedicId >= 0)
             {
-                text = string.Format(Localization.Get("scDownedIsDownMedic"), d.Name, s, d.MedicName);
+                key = "scDownedIsDownMedic";
+                args = new object[] { d.Name, s, d.MedicName };
                 d.ToldMedics.Add(d.MedicId);
             }
             else if (d.Home && ScConfig.ResidentMedicsRevive && d.NoMedicReason != null)
-                text = string.Format(Localization.Get("scDownedIsDownNoMedic"), d.Name, s, d.NoMedicReason);
-            else text = string.Format(Localization.Get("scDownedIsDown"), d.Name, s);
-            TellAbout(d.Body, text, "ui_denied");      // round MP0: to her leader (the MP0 plan's cheap fix), else the community
+            {
+                key = "scDownedIsDownNoMedic";
+                args = new object[] { d.Name, s, d.NoMedicReason };
+            }
+            else
+            {
+                key = "scDownedIsDown";
+                args = new object[] { d.Name, s };
+            }
+            TellAboutKey(d.Body, key, "ui_denied", args);      // round MP0: to her leader (the MP0 plan's cheap fix), else the community
         }
 
         /// <summary>0-XNPCCore's own warning text ("will bleed out in 30 s") to the player, for one with no leader to tell (at home).</summary>
@@ -353,25 +363,26 @@ namespace SurvivorCommunity
         {
             if (npc == null) return;
             // round MP0: the community's players (she has no player leader here), no longer the host alone
-            TellAbout(npc, string.Format(Localization.Get(key), Localization.Get(npc.EntityName), seconds), "");
+            TellAboutKey(npc, key, "", ScCommunity.LocArg(npc.EntityName), seconds);     // round MP4: by key
         }
 
-        /// <summary>Round MP0: body - who it is about (TellAbout picks who hears it).</summary>
+        /// <summary>Round MP0: body - who it is about (TellAboutKey picks who hears it).</summary>
         private static void Tell(EntityAlive body, string key, params object[] args)
         {
             if (!ScConfig.DownedTell) return;
-            TellAbout(body, string.Format(Localization.Get(key), args), "");
+            TellAboutKey(body, key, "", args);     // round MP4: by key
         }
 
         /// <summary>
         /// Round MP0 (D 4.6): who hears about her - her leader or owner when that is a player (a follower; the one whose shift or
         /// talk holds her), else every community player online (a resident at home is everyone's news). Single player: you.
+        /// Round MP4 (part: tells): by localization key (ScCommunity.TellKey), so each player reads it in their own language.
         /// </summary>
-        private static void TellAbout(EntityAlive body, string text, string sound)
+        private static void TellAboutKey(EntityAlive body, string key, string sound, params object[] args)
         {
             EntityPlayer leader = body != null ? EntityUtilities.GetLeaderOrOwner(body.entityId) as EntityPlayer : null;
-            if (leader != null) ScCommunity.Tell(leader, text, sound);
-            else ScPlayers.TellCommunity(text, sound);
+            if (leader != null) ScCommunity.TellKey(leader, key, sound, args);
+            else ScPlayers.TellCommunityKey(key, sound, args);
         }
 
         // ------------------------------------------------------------------ the ticker ----

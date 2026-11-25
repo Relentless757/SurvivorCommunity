@@ -241,7 +241,8 @@ namespace SurvivorCommunity
                             o.DemandAmmo = ScConfig.OutpostDemandAmmo;
                             o.DemandFood = ScConfig.OutpostDemandFood;
                             ScEncRaids.Unstamp(o);
-                            if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scRiskDemand"), o.DemandAmmo, o.DemandFood, o.Name), "ui_denied");   // round MP0: community news
+                            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                            if (player != null) ScPlayers.TellCommunityKey("scRiskDemand", "ui_denied", o.DemandAmmo, o.DemandFood, o.Name);   // round MP0: community news
                             if (summary.Length > 0) summary.Append(' ');
                             summary.Append(string.Format(Localization.Get("scRiskDemandLine"), o.Name));
                             ScLog.Out("raiders demand " + o.DemandAmmo + " ammo + " + o.DemandFood + " food for outpost " + o.Id + " (" + o.Name + ")");
@@ -283,8 +284,10 @@ namespace SurvivorCommunity
             if (radio) AddMarker(o, player);
             Enclave by = raiders ? ScEncRaids.EnclaveOf(o) : null;
             if (player != null && radio)        // round MP0: the radio's call to every community player
-                ScPlayers.TellCommunity(by != null ? string.Format(Localization.Get("scEncRaidCall"), o.Name, ScConfig.OutpostAttackHours, by.Name)
-                                                   : string.Format(Localization.Get(raiders ? "scRiskRaidCall" : "scRiskAttackCall"), o.Name, ScConfig.OutpostAttackHours), "ui_denied");
+            {
+                if (by != null) ScPlayers.TellCommunityKey("scEncRaidCall", "ui_denied", o.Name, ScConfig.OutpostAttackHours, by.Name);
+                else ScPlayers.TellCommunityKey(raiders ? "scRiskRaidCall" : "scRiskAttackCall", "ui_denied", o.Name, ScConfig.OutpostAttackHours);
+            }
             ScLog.Out((raiders ? "raiders attack" : "attack on") + " outpost " + o.Id + " (" + o.Name + ")" + (by != null ? " - enclave " + by.Id + " '" + by.Name + "'" : "")
                       + ", security " + Security(o) + (radio ? "" : " - the radio is silent, nobody heard"));
             ScRegistry.SaveAtomic();
@@ -313,7 +316,7 @@ namespace SurvivorCommunity
                 Resource r = (!o.Scavenge && Roll(rnd) < 0.6f) ? o.Primary : (Resource)(rnd != null ? rnd.RandomRange(0, ScNames.ClassicCount) : 0);   // the five classic ones: no luxury caches
                 o.Stash[(int)r]++;
             }
-            if (player != null && radio) ScPlayers.TellCommunity(string.Format(Localization.Get("scRiskGoodNews"), o.Name, n), "");   // round MP0: community news
+            if (player != null && radio) ScPlayers.TellCommunityKey("scRiskGoodNews", "", o.Name, n);   // round MP0: community news
             if (summary.Length > 0) summary.Append(' ');
             summary.Append(string.Format(Localization.Get("scRiskGoodNewsLine"), o.Name, n));
             ScLog.Out("good news: a cache of " + n + " bundle(s) at outpost " + o.Id + " (" + o.Name + ")");
@@ -334,7 +337,7 @@ namespace SurvivorCommunity
             o.NeglectDay = ScCommunity.Today;         // the next one waits another OutpostNeglectDays
             o.State = OutpostState.Contested;
             ScOutposts.Rebuild();
-            if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scRiskNeglect"), o.Name), "ui_denied");   // round MP0: community news
+            if (player != null) ScPlayers.TellCommunityKey("scRiskNeglect", "ui_denied", o.Name);   // round MP0: community news
             if (summary.Length > 0) summary.Append(' ');
             summary.Append(string.Format(Localization.Get("scRiskNeglectLine"), o.Name));
             ScLog.Out("neglect: a sleeper area of outpost " + o.Id + " (" + o.Name + ") re-armed");
@@ -503,7 +506,7 @@ namespace SurvivorCommunity
                         ScRegistry.SaveAtomic();
                         return;
                     }
-                    ScCommunity.Tell(here, string.Format(Localization.Get("scEncRaidHere"), o.Name, came, by.Name), "ui_denied");
+                    ScCommunity.TellKey(here, "scEncRaidHere", "ui_denied", o.Name, came, by.Name);
                     ScLog.Out("attack at outpost " + o.Id + " (" + o.Name + "): " + came + " of enclave " + by.Id + " '" + by.Name + "'");
                     return;
                 }
@@ -533,7 +536,7 @@ namespace SurvivorCommunity
                     Settle(o, player, true, "no attackers");
                     return;
                 }
-                ScCommunity.Tell(here, string.Format(Localization.Get(o.AttackRaiders ? "scRiskRaidHere" : "scRiskAttackHere"), o.Name, l.Ids.Count), "ui_denied");
+                ScCommunity.TellKey(here, o.AttackRaiders ? "scRiskRaidHere" : "scRiskAttackHere", "ui_denied", o.Name, l.Ids.Count);
                 ScLog.Out("attack at outpost " + o.Id + " (" + o.Name + "): " + l.Ids.Count + " " + (o.AttackRaiders ? "raider(s)" : "zombie(s)") + " from " + group);
             }
             catch (Exception e)
@@ -552,7 +555,7 @@ namespace SurvivorCommunity
             o.SecBonus = Math.Min(ScConfig.OutpostSecBonusMax, o.SecBonus + ScConfig.OutpostSecWinBonus);
             ScRegistry.Community.OutpostTriumph = Math.Min(10f, ScRegistry.Community.OutpostTriumph + ScConfig.OutpostWinMorale);
             ScLeadership.Count(ScLeadership.RescueEvent);
-            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskHeld"), o.Name), "");
+            if (player != null) ScCommunity.TellKey(player, "scRiskHeld", "", o.Name);
             ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerHeld"), o.Name));
             ScLog.Out("outpost " + o.Id + " (" + o.Name + ") held against the attack");
             if (o.AttackRaiders) ScEncRaids.End(o, player, true, "won");       // E10: an enclave's raid - their losses, the rest home
@@ -588,7 +591,7 @@ namespace SurvivorCommunity
         private static string Guarded(Outpost o, EntityPlayer player, string why)
         {
             o.SecBonus = Math.Min(ScConfig.OutpostSecBonusMax, o.SecBonus + ScConfig.OutpostSecWinBonus * 0.5f);
-            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskHeld"), o.Name), "");
+            if (player != null) ScCommunity.TellKey(player, "scRiskHeld", "", o.Name);
             ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerHeld"), o.Name));
             ScLog.Out("outpost " + o.Id + " (" + o.Name + ") held (" + why + ")");
             ScRegistry.SaveAtomic();
@@ -611,7 +614,7 @@ namespace SurvivorCommunity
                 {
                     // round MP0: told to the community player who stood there (any of them), else the anchor
                     EntityPlayer stood = ScPlayers.ByEntity(by);
-                    if (player != null) ScCommunity.Tell(stood != null ? stood : player, string.Format(Localization.Get("scRiskSiegeHeldByYou"), o.Name), "");
+                    if (player != null) ScCommunity.TellKey(stood != null ? stood : player, "scRiskSiegeHeldByYou", "", o.Name);
                     continue;
                 }
                 Outcome(o, player, -ScConfig.OutpostSiegePenalty, false, "blood moon");
@@ -630,7 +633,7 @@ namespace SurvivorCommunity
             {
                 result = HeldResult;
                 o.SecBonus = Math.Min(ScConfig.OutpostSecBonusMax, o.SecBonus + ScConfig.OutpostSecWinBonus * 0.5f);
-                if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scRiskHeldAlone"), o.Name), "");   // round MP0: community news
+                if (player != null) ScPlayers.TellCommunityKey("scRiskHeldAlone", "", o.Name);   // round MP0: community news
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerHeld"), o.Name));
                 ScLog.Out("outpost " + o.Id + " (" + o.Name + ") held on its own (" + why + ", roll " + roll + " < security " + sec + ")");
             }
@@ -638,7 +641,7 @@ namespace SurvivorCommunity
             {
                 result = DamagedResult;
                 o.DamagedUntil = ScCommunity.Today + Math.Max(1, ScConfig.OutpostDamagedDays);   // that many rollovers yield nothing
-                if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scRiskDamaged"), o.Name, ScConfig.OutpostDamagedDays, ScOutpostPerks.Salvaged(ScConfig.OutpostRepairMats)), "ui_denied");   // round ie1: the salvage yard's price, as Repair charges; round MP0: community news
+                if (player != null) ScPlayers.TellCommunityKey("scRiskDamaged", "ui_denied", o.Name, ScConfig.OutpostDamagedDays, ScOutpostPerks.Salvaged(ScConfig.OutpostRepairMats));   // round ie1: the salvage yard's price, as Repair charges; round MP0: community news
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerDamaged"), o.Name));
                 ScLog.Out("outpost " + o.Id + " (" + o.Name + ") damaged (" + why + ", roll " + roll + ", security " + sec + ")");
             }
@@ -703,7 +706,7 @@ namespace SurvivorCommunity
             for (int i = 0; i < ScNames.ResourceCount; i++) { o.Pending[i] = 0; o.Stash[i] = 0; }
             ScRegistry.Community.OutpostLoss += ScConfig.OutpostLostPenalty * 0.5f;
             ScOutposts.Rebuild();
-            if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scRiskOverrun"), o.Name), "ui_denied");   // round MP0: community news
+            if (player != null) ScPlayers.TellCommunityKey("scRiskOverrun", "ui_denied", o.Name);   // round MP0: community news
             ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerOverrun"), o.Name));
         }
 

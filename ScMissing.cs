@@ -62,7 +62,8 @@ namespace SurvivorCommunity
                     if (now - since < GraceSeconds || !missing.Add(m.Id)) continue;
                     ScLog.Warn(m.Name + " (id " + m.Id + ") is a resident but no such entity exists with their post loaded for "
                                + GraceSeconds + " s - marked missing (Community window: Call back)");
-                    if (told.Add(m.Id)) ScPlayers.TellCommunity(string.Format(Localization.Get("scMissingTip"), m.Name), "ui_denied");   // round MP0: the community's news
+                    // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                    if (told.Add(m.Id)) ScPlayers.TellCommunityKey("scMissingTip", "ui_denied", m.Name);   // round MP0: the community's news
                 }
             }
             catch (Exception e)
@@ -136,7 +137,7 @@ namespace SurvivorCommunity
                 ScCommunity.ApplyAiPackage(npc);
                 ScCommunity.Station(m, npc);
                 ScRegistry.SaveAtomic();
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scMissingRestored"), m.Name), "");
+                if (player != null) ScCommunity.TellKey(player, "scMissingRestored", "", m.Name);
                 ScLog.Out(m.Name + " called back: respawned at the post " + m.Post + " as entity " + m.Id + " (was " + oldId + ", now on the doomed list)");
                 return true;
             }

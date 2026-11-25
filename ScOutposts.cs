@@ -169,7 +169,8 @@ namespace SurvivorCommunity
                 // round MP0: told to the player who placed it (the claim's owner, while online), else the anchor - in single player
                 // and on a listen host the host's own player, as before
                 EntityPlayer placer = ClaimOwner(pp, claim) ?? player;
-                if (!active) { ScCommunity.Tell(placer, Localization.Get("scFlagNotActive"), "ui_denied"); continue; }
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                if (!active) { ScCommunity.TellKey(placer, "scFlagNotActive", "ui_denied"); continue; }
                 string msg;
                 Outpost o = Establish(claim, placer, false, out msg);
                 if (o != null) HostMarkersFollow(placer);     // round MP2: a client's flag (TEFeatureSCCommunity.OnAdded) on a listen host
@@ -613,7 +614,7 @@ namespace SurvivorCommunity
             ScRegistry.Outposts.Remove(o);
             Rebuild();
             Note(string.Format(Localization.Get("scOpLedgerDisband"), o.Name));
-            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpDisbanded"), o.Name), "");
+            if (player != null) ScCommunity.TellKey(player, "scOpDisbanded", "", o.Name);
             ScLog.Out("outpost " + o.Id + " at " + o.Name + " disbanded");
             ScRegistry.SaveAtomic();
             return true;
@@ -638,7 +639,7 @@ namespace SurvivorCommunity
             }
             disbandArmed = claim;
             disbandUntil = now + 5f;
-            ScCommunity.Tell(player, string.Format(Localization.Get("scOpDisbandConfirm"), o.Name), "ui_denied");
+            ScCommunity.TellKey(player, "scOpDisbandConfirm", "ui_denied", o.Name);
         }
 
         /// <summary>
@@ -663,7 +664,7 @@ namespace SurvivorCommunity
             RemoveMarker(o);
             Rebuild();
             Note(string.Format(Localization.Get("scOpLedgerLost"), o.Name));
-            if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get(key), o.Name), "ui_denied");   // round MP0: community news
+            if (player != null) ScPlayers.TellCommunityKey(key, "ui_denied", o.Name);   // round MP0: community news
             ScLog.Warn("outpost " + o.Id + " at " + o.Name + " lost (" + key + ")");
         }
 
@@ -743,9 +744,9 @@ namespace SurvivorCommunity
                 if (player != null)
                 {
                     // round MP0: community news (every community player; single player: the player)
-                    if (c.OutpostRunDown && !wasRunDown) ScPlayers.TellCommunity(Localization.Get("scOpRunDown"), "ui_denied");
-                    else if (!c.OutpostRunDown && wasRunDown) ScPlayers.TellCommunity(Localization.Get("scOpRecovered"), "");
-                    if (c.OutpostOnFoot && !wasOnFoot) ScPlayers.TellCommunity(Localization.Get("scOpOnFoot"), "ui_denied");
+                    if (c.OutpostRunDown && !wasRunDown) ScPlayers.TellCommunityKey("scOpRunDown", "ui_denied");
+                    else if (!c.OutpostRunDown && wasRunDown) ScPlayers.TellCommunityKey("scOpRecovered", "");
+                    if (c.OutpostOnFoot && !wasOnFoot) ScPlayers.TellCommunityKey("scOpOnFoot", "ui_denied");
                 }
 
                 // the ledger / rollover tooltip
@@ -1036,14 +1037,14 @@ namespace SurvivorCommunity
                     ScLog.Out("outpost " + o.Id + " at " + o.Name + " works again: " + HeldCount() + " held, " + slots + " slot(s)");
                 }
             }
-            if (nowIdle > 0 && player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scOpIdle"), nowIdle, slots), "ui_denied");   // round MP0: community news
+            if (nowIdle > 0 && player != null) ScPlayers.TellCommunityKey("scOpIdle", "ui_denied", nowIdle, slots);   // round MP0: community news
             if (back != null)
             {
                 foreach (Outpost o in back)
                 {
                     ContestCheck(o, w, player);    // sleepers came back while it idled: contested at once, with its own message
                     // the review's L2: coming back is told too, as going idle is
-                    if (o.State == OutpostState.Active && player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scOpWorking"), o.Name, slots), "");   // round MP0: community news
+                    if (o.State == OutpostState.Active && player != null) ScPlayers.TellCommunityKey("scOpWorking", "", o.Name, slots);   // round MP0: community news
                 }
             }
             return changed;
@@ -1063,7 +1064,7 @@ namespace SurvivorCommunity
             if (!cleared && o.State == OutpostState.Active)
             {
                 o.State = OutpostState.Contested;
-                if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scOpContested"), o.Name, why), "ui_denied");   // round MP0: community news
+                if (player != null) ScPlayers.TellCommunityKey("scOpContested", "ui_denied", o.Name, why);   // round MP0: community news
                 ScLog.Out("outpost " + o.Id + " at " + o.Name + " is contested: " + why);
             }
             else if (cleared && o.State == OutpostState.Contested) Retake(o, pi, player);
@@ -1123,7 +1124,7 @@ namespace SurvivorCommunity
         {
             o.State = OutpostState.Active;
             if (pi.sleeperVolumes != null && pi.sleeperVolumes.Count > 0) ScLeadership.Count(ScLeadership.OutpostRetakenEvent);
-            if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scOpRetaken"), o.Name), "");   // round MP0: community news
+            if (player != null) ScPlayers.TellCommunityKey("scOpRetaken", "", o.Name);   // round MP0: community news
             NoteLedger(string.Format(Localization.Get("scOpRetaken"), o.Name));
             ScLog.Out("outpost " + o.Id + " at " + o.Name + " is ours again");
         }

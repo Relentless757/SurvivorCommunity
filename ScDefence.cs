@@ -266,7 +266,8 @@ namespace SurvivorCommunity
                     if (!radio && !atHome) continue;
                     told = true;
                     if (atHome) toldHome = true;
-                    ScCommunity.Tell(to[i], string.Format(Localization.Get(atHome ? "scDefNow" : "scDefRadio"), Text(news)), result == Held ? "" : "ui_denied");
+                    // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                    ScCommunity.TellKey(to[i], atHome ? "scDefNow" : "scDefRadio", result == Held ? "" : "ui_denied", Text(news));
 #if SC_V34
                     // vo4: the radio's result spoken too (the guard on watch, else someone at home), while you carry a handheld.
                     // MP4: voices to clients (the host's own player only until then)
@@ -365,7 +366,7 @@ namespace SurvivorCommunity
             c.AwayNews.RemoveAt(0);
             EntityPlayer[] to = ScPlayers.Community().ToArray();     // copied: Tell may re-enter code that reuses the list
             for (int i = 0; i < to.Length; i++)
-                if (ScBaseAttack.PlayerHome(to[i])) ScCommunity.Tell(to[i], string.Format(Localization.Get("scDefAway"), Text(news)), "ui_denied");
+                if (ScBaseAttack.PlayerHome(to[i])) ScCommunity.TellKey(to[i], "scDefAway", "ui_denied", Text(news));
             ScLog.Out("told on the return: " + Text(news));
             ScRegistry.SaveAtomic();
         }

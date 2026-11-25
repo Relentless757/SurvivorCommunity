@@ -133,7 +133,8 @@ namespace SurvivorCommunity
                         {
                             nextRefusalTip = Time.unscaledTime + 1f;
                             Enclave en = ScEnclaves.FirstIn(min, max);
-                            ScCommunity.Tell(placingPlayer, string.Format(Localization.Get("scEnclaveClaim"), en != null ? en.Name : "?", en != null ? en.PoiName : "?"), "ui_denied");
+                            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                            ScCommunity.TellKey(placingPlayer, "scEnclaveClaim", "ui_denied", en != null ? en.Name : "?", en != null ? en.PoiName : "?");
                             placingFrame = -1;
                         }
                         return;
@@ -149,7 +150,7 @@ namespace SurvivorCommunity
                     if (placingFrame == Time.frameCount && placingPlayer != null && Time.unscaledTime >= nextRefusalTip)
                     {
                         nextRefusalTip = Time.unscaledTime + 1f;
-                        ScCommunity.Tell(placingPlayer, string.Format(Localization.Get("scOpClaimLimit"), limit, ScOutposts.HeldCount()), "ui_denied");
+                        ScCommunity.TellKey(placingPlayer, "scOpClaimLimit", "ui_denied", limit, ScOutposts.HeldCount());
                         placingFrame = -1;
                     }
                 }

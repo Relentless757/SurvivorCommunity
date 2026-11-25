@@ -377,7 +377,8 @@ namespace SurvivorCommunity
             r.AcceptedBy = ScPlayers.IdOf(player);
             Quest q = player != null ? ScQuestNet.StartRequestFor(player, e, r, ScEncRequests.WhatText(r), out error) : null;
             r.QuestCode = q != null ? q.QuestCode : 0;
-            ScPlayers.TellCommunity(string.Format(Loc("scEncSiegeCall"), e.Name), "ui_denied");     // round MP0: the community's radio news
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            ScPlayers.TellCommunityKey("scEncSiegeCall", "ui_denied", e.Name);     // round MP0: the community's radio news
             if (player != null) ScEncRadio.Say(e, EncCall.Siege, player);       // round m1v: ahead of every radio line (text only until round V-b records it)
             ScOutposts.NoteLedger(string.Format(Loc("scEncSiegeLedgerCall"), e.Name));
             ScLog.Out("siege called (" + why + "): " + e.Name + " (enclave " + e.Id + ") - " + r.SiegeSize + " zombie(s), " + (secs / 60UL) + " min to come within "
@@ -502,7 +503,7 @@ namespace SurvivorCommunity
                 }
                 if (!past || !nobodyThere) return;
                 hurryDone = r.Id;
-                ScPlayers.TellCommunity(string.Format(Loc("scEncCallRadio"), e.Name, Loc(ScEncRadio.HurryKey)), "ui_denied");   // round MP0: the community's radio news
+                ScPlayers.TellCommunityKey("scEncCallRadio", "ui_denied", e.Name, ScCommunity.LocArg(ScEncRadio.HurryKey));   // round MP0: the community's radio news
                 string said = player != null ? ScEncRadio.Say(e, EncCall.SiegeHurry, player) : "no player";
                 ScLog.Out("siege at " + e.Name + ": half the time to answer is gone and nobody has come - they call again, " + Mmss(SecondsLeft(r, w)) + " left (voice: " + said + ")");
             }
@@ -523,7 +524,7 @@ namespace SurvivorCommunity
             if (r.SiegeSize <= 0) r.SiegeSize = Size(e, by);
             StartSession(w, e, by, 0f);
             peopleOut = true;
-            if (by != null) ScCommunity.Tell(by, string.Format(Loc("scEncSiegeArrived"), e.Name, Math.Max(0, r.SiegeSize - r.SiegeKilled)), "ui_denied");
+            if (by != null) ScCommunity.TellKey(by, "scEncSiegeArrived", "ui_denied", e.Name, Math.Max(0, r.SiegeSize - r.SiegeKilled));
             ScEncRequests.Reshape(r);
             ScLog.Out("siege at " + e.Name + " is live: " + (r.SiegeSize - r.SiegeKilled) + " zombie(s) from the " + ScBaseAttack.Side(Mathf.RoundToInt(bearing))
                       + "; " + Math.Max(0, made) + " of their people built for it, " + ScEnclavePeople.Living(e).Count + " alive");
@@ -852,7 +853,7 @@ namespace SurvivorCommunity
             ScLog.Out("siege at " + e.Name + " WON: " + killed + " killed" + (dispersed ? ", " + left + " straggler(s) let go after " + ScConfig.EnclaveSiegeMaxHours + " h" : ""));
             ScEncRequests.Close(r, ScEncRequests.Done, dispersed ? "the rest of the horde scattered" : "every attacker is dead", ScEncRequests.GainFor(r), null, ScEncRequests.EventFor(r));
             e.Thanks = EnclaveRequest.KindSiege;
-            if (player != null) ScCommunity.Tell(player, string.Format(Loc("scEncSiegeWonTell"), e.Name, killed), "");
+            if (player != null) ScCommunity.TellKey(player, "scEncSiegeWonTell", "", e.Name, killed);
             ScRegistry.SaveAtomic();
         }
 
@@ -880,7 +881,7 @@ namespace SurvivorCommunity
                       + (held ? "they held" : "they fell"));
             if (held)
             {
-                ScPlayers.TellCommunity(string.Format(Loc("scEncSiegeHeldTell"), e.Name), "");    // round MP0: the whole community's news
+                ScPlayers.TellCommunityKey("scEncSiegeHeldTell", "", e.Name);    // round MP0: the whole community's news
                 HeldOut(w, e, r, "the player left; they held out (" + Pct(chance) + ")");
                 return;
             }

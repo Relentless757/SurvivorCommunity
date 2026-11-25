@@ -286,7 +286,8 @@ namespace SurvivorCommunity
             if (why == null) return true;
             Unstamp(o);
             Rest(e);
-            if (tell != null && e != null) ScPlayers.TellCommunity(string.Format(Loc(tell), e.Name, o.Name), "");     // round MP0: the whole community's news
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            if (tell != null && e != null) ScPlayers.TellCommunityKey(tell, "", e.Name, o.Name);     // round MP0: the whole community's news
             ScLog.Out("the demand on outpost " + o.Id + " (" + o.Name + ") ran out, but no raid comes: " + why);
             return false;
         }
@@ -389,7 +390,7 @@ namespace SurvivorCommunity
             if (raid) ScOutpostRisk.CallOff(o);
             Unstamp(o);
             Rest(e);
-            if (tellKey != null && name.Length > 0) ScPlayers.TellCommunity(string.Format(Loc(tellKey), name, o.Name), "");     // round MP0: the whole community's news
+            if (tellKey != null && name.Length > 0) ScPlayers.TellCommunityKey(tellKey, "", name, o.Name);     // round MP0: the whole community's news
             TellLosses(name, lost, o);
             ScLog.Out("enclave raid on outpost " + o.Id + " (" + o.Name + ") by '" + name + "' is off: " + why + (demand ? " - the demand is dropped" : "")
                       + (raid ? " - the raid call is off" : "") + (party != null ? " - the party goes home" : "") + (lost > 0 ? " - " + lost + " of theirs lost in it" : ""));
@@ -588,7 +589,7 @@ namespace SurvivorCommunity
             }
             if (n > 0)
             {
-                ScPlayers.TellCommunity(string.Format(Loc("scEncRaidHere"), o.Name, n, e.Name), "ui_denied");    // round MP0: the whole community's news
+                ScPlayers.TellCommunityKey("scEncRaidHere", "ui_denied", o.Name, n, e.Name);    // round MP0: the whole community's news
                 ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + n + " of the party raiding outpost " + o.Id + " (" + o.Name + ") are back round it");
             }
             return n;
@@ -736,7 +737,7 @@ namespace SurvivorCommunity
                     bool demand = ScOutpostRisk.HasDemand(o), raid = ScOutpostRisk.UnderAttack(o) && o.AttackRaiders;
                     if (demand) o.DemandUntil = -1;
                     if (raid) ScOutpostRisk.CallOff(o);
-                    if (demand || raid) ScPlayers.TellCommunity(string.Format(Loc("scEncRaidGone"), e.Name, o.Name), "");     // round MP0: the whole community's news
+                    if (demand || raid) ScPlayers.TellCommunityKey("scEncRaidGone", "", e.Name, o.Name);     // round MP0: the whole community's news
                     if (raid) TellLosses(e.Name, o.RaidLost, o);           // a raid fought before a reload
                     ScLog.Out("enclave " + e.Id + " '" + e.Name + "' is gone - " + (raid ? "its raid call on " : demand ? "its demand on " : "its stamp on ") + "outpost " + o.Id + " (" + o.Name + ") is off"
                               + (o.RaidLost > 0 ? " (" + o.RaidLost + " of theirs lost in it)" : ""));
@@ -831,7 +832,7 @@ namespace SurvivorCommunity
         private static void TellLosses(string name, int lost, Outpost o)
         {
             if (lost <= 0 || string.IsNullOrEmpty(name)) return;
-            ScPlayers.TellCommunity(string.Format(Loc("scEncRaidLosses"), name, lost, o.Name), "");
+            ScPlayers.TellCommunityKey("scEncRaidLosses", "", name, lost, o.Name);
             ScOutposts.NoteLedger(string.Format(Loc("scEncRaidLedgerLosses"), name, lost, o.Name));
         }
 

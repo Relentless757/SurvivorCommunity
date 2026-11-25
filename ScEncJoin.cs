@@ -648,7 +648,8 @@ namespace SurvivorCommunity
             bool last = true;
             foreach (Member o in ScRegistry.Members.Values)
                 if (o.Status == MemberStatus.Arriving && o.ArriveEnclave == fromId) { last = false; break; }
-            ScCommunity.Tell(player, string.Format(Loc("scEncJoinArrived"), m.Name, from), "");
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            ScCommunity.TellKey(player, "scEncJoinArrived", "", m.Name, from);
             if (last) ScOutposts.NoteLedger(string.Format(Loc("scEncJoinLedgerArrived"), from));
             ScLog.Out(m.Name + " (from " + from + ") turned up at home at " + World.worldToBlockPos(spot) + ", " + Mathf.RoundToInt(ScRunners.XZ(spot, home))
                       + " m from the claim, as entity " + m.Id + " (was key " + key + ") - stationed, their post " + m.Post + (last ? "; the last of " + from : ""));

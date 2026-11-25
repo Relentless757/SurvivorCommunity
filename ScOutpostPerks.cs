@@ -146,7 +146,8 @@ namespace SurvivorCommunity
             }
             if (moved > 0)
             {
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpUnstashed"), moved, o.Name), "");
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                if (player != null) ScCommunity.TellKey(player, "scOpUnstashed", "", moved, o.Name);
                 ScLog.Out("stash and haul: " + moved + " bundle(s) put in the claim box at " + o.Name + (o.StashTotal > 0 ? ", " + o.StashTotal + " still stashed (box full)" : ""));
             }
             return moved;

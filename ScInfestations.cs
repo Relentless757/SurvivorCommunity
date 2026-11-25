@@ -431,7 +431,8 @@ namespace SurvivorCommunity
             inf.Known = true;
             inf.KnownDay = day;
             where = ScEnclaves.Where(new Vector3(h.x, h.y, h.z), inf.Centre, m);
-            ScPlayers.TellCommunity(string.Format(Localization.Get("scInfestNearHome"), inf.PoiName, where), "ui_denied");   // round MP0: news for the whole community
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            ScPlayers.TellCommunityKey("scInfestNearHome", "ui_denied", inf.PoiName, where);   // round MP0: news for the whole community
             ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerNearHome"), inf.PoiName));
             return true;
         }
@@ -695,7 +696,7 @@ namespace SurvivorCommunity
                 inf.Known = true;
                 inf.KnownDay = day;
                 heard = ", known (an enclave lost to a siege)";
-                ScPlayers.TellCommunity(string.Format(Localization.Get("scInfestSiegeTell"), inf.PoiName), "ui_denied");     // round MP0: news for the whole community
+                ScPlayers.TellCommunityKey("scInfestSiegeTell", "ui_denied", inf.PoiName);     // round MP0: news for the whole community
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerSiege"), inf.PoiName));
             }
             else if (from != null && from.Known)
@@ -703,7 +704,7 @@ namespace SurvivorCommunity
                 inf.Known = true;
                 inf.KnownDay = day;
                 heard = ", known (spread from a known one)";
-                ScPlayers.TellCommunity(string.Format(Localization.Get("scInfestSpread"), from.PoiName, inf.PoiName), "");     // round MP0: news for the whole community
+                ScPlayers.TellCommunityKey("scInfestSpread", "", from.PoiName, inf.PoiName);     // round MP0: news for the whole community
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerSpread"), from.PoiName, inf.PoiName));
             }
             else if (SpotNearHome(inf, day, player, out spotted))
@@ -722,7 +723,7 @@ namespace SurvivorCommunity
                         inf.KnownDay = day;
                         string where = ScEnclaves.Where(at, cen);
                         heard = ", heard on the radio (" + where + " from " + (ScZone.HasHome ? "home" : "you") + ")";
-                        ScPlayers.TellCommunity(string.Format(Localization.Get("scInfestRadio"), inf.PoiName, where), "");    // round MP0: the community's radio news
+                        ScPlayers.TellCommunityKey("scInfestRadio", "", inf.PoiName, where);    // round MP0: the community's radio news
                         ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerRadio"), inf.PoiName));
                     }
                 }
@@ -863,14 +864,14 @@ namespace SurvivorCommunity
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerCleared"), inf.PoiName));
                 // round MP0: a known one is the whole community's news; else every community player near it hears (the host alone
                 // in single player, as before)
-                string text = string.Format(Localization.Get("scInfestCleared"), inf.PoiName);
-                if (inf.Known) ScPlayers.TellCommunity(text, "");
+                // round MP4: by key (each player reads it in their own language)
+                if (inf.Known) ScPlayers.TellCommunityKey("scInfestCleared", "", inf.PoiName);
                 else
                 {
                     List<EntityPlayer> all = ScPlayers.All;
                     for (int i = 0; i < all.Count; i++)
                         if (all[i] != null && ScPlayers.InCommunity(all[i]) && inf.DistanceXZ(all[i].position.x, all[i].position.z) <= ScConfig.InfestDiscoverRange)
-                            ScCommunity.Tell(all[i], text, "");
+                            ScCommunity.TellKey(all[i], "scInfestCleared", "", inf.PoiName);
                 }
             }
             ScLog.Out("infestation #" + inf.Id + " at " + inf.PoiName + " ended (" + how + ") after " + Math.Max(0, ScCommunity.Today - inf.StartDay) + " day(s)"
@@ -1342,7 +1343,7 @@ namespace SurvivorCommunity
                     inf.Known = true;
                     inf.KnownDay = ScCommunity.Today;
                     AddMarker(inf, player);
-                    ScCommunity.Tell(player, string.Format(Localization.Get("scInfestFound"), inf.PoiName), "ui_denied");
+                    ScCommunity.TellKey(player, "scInfestFound", "ui_denied", inf.PoiName);
                     ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerFound"), inf.PoiName));
                     ScLog.Out("infestation #" + inf.Id + " found at " + inf.PoiName);
                     ScRegistry.SaveAtomic();

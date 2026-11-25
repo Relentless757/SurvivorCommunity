@@ -637,7 +637,8 @@ namespace SurvivorCommunity
             r.EscortBy = player.entityId;
             r.EscortBody = npc.entityId;
             ScCommunity.ResetStill(p.Who);
-            ScCommunity.Tell(player, string.Format(Loc("scEncSearchFollowTell"), p.Name, e.Name), "");
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            ScCommunity.TellKey(player, "scEncSearchFollowTell", "", p.Name, e.Name);
             ScEncRequests.Reshape(r);
             ScRegistry.SaveAtomic();
             ScLog.Out(p.Name + " (p" + p.Id + ", entity " + npc.entityId + ") of " + e.Name + " follows " + player.EntityName + " home");
@@ -681,7 +682,7 @@ namespace SurvivorCommunity
             r.EscortBy = r.EscortBody = -1;
             p.State = EncPerson.StateHome;
             ScEnclavePeople.Rehome(e, p, npc);
-            if (pl != null) ScCommunity.Tell(pl, string.Format(Loc("scEncSearchHomeTell"), p.Name, e.Name), "");
+            if (pl != null) ScCommunity.TellKey(pl, "scEncSearchHomeTell", "", p.Name, e.Name);
             ScLog.Out(p.Name + " (p" + p.Id + ") is home at " + e.Name + " - brought back by " + (pl != null ? pl.EntityName : "the player"));
             ScEncRequests.Close(r, ScEncRequests.Done, p.Name + " is home", ScEncRequests.GainFor(r), p.Name, ScEncRequests.EventFor(r));
             e.Thanks = EnclaveRequest.KindMissing;      // the leader thanks the player at the next talk
@@ -703,7 +704,7 @@ namespace SurvivorCommunity
                 Mark(r, npc);
                 ScEnclavePeople.GuardAt(npc, SpotCentre(r), LookPoint(r));
             }
-            if (tellKey != null && pl != null) ScCommunity.Tell(pl, string.Format(Loc(tellKey), p.Name), "");
+            if (tellKey != null && pl != null) ScCommunity.TellKey(pl, tellKey, "", p.Name);
             ScEncRequests.Reshape(r);
             ScLog.Out(p.Name + " (p" + p.Id + ") stopped following (" + why + ") - they wait at " + r.Spot);
         }
@@ -792,7 +793,7 @@ namespace SurvivorCommunity
             string name = p != null ? p.Name : PersonName(r), enc = e != null ? e.Name : "";
             r.Stage = StageSearched;
             if (p != null && p.State != EncPerson.StateDead) MarkDead(p);
-            ScPlayers.TellCommunity(string.Format(Loc("scEncRemainsFound"), name, enc), "");     // round MP0: the whole community's news
+            ScPlayers.TellCommunityKey("scEncRemainsFound", "", name, enc);     // round MP0: the whole community's news
             ScOutposts.NoteLedger(string.Format(Loc("scEncSearchLedgerFound"), name, enc, r.TargetName));
             ScEncRequests.Reshape(r);
             ScLog.Out("enclave request #" + r.Id + ": " + name + " was found dead - with no remains block they count as searched; tell " + enc);
@@ -840,7 +841,7 @@ namespace SurvivorCommunity
             if (r == null)
             {
                 if (w != null && IsRemains(w.GetBlock(pos))) w.SetBlockRPC(pos, BlockValue.Air);
-                if (player != null) ScCommunity.Tell(player, Loc("scEncRemainsNothing"), "");
+                if (player != null) ScCommunity.TellKey(player, "scEncRemainsNothing", "");
                 ScLog.Out("remains at " + pos + " belong to no open search - taken away");
                 return;
             }
@@ -849,12 +850,12 @@ namespace SurvivorCommunity
             string name = p != null ? p.Name : PersonName(r), enc = e != null ? e.Name : "";
             if (r.Stage == StageSearched)
             {
-                if (player != null) ScCommunity.Tell(player, string.Format(Loc("scEncRemainsSearched"), name, enc), "");
+                if (player != null) ScCommunity.TellKey(player, "scEncRemainsSearched", "", name, enc);
                 return;
             }
             r.Stage = StageSearched;
             if (p != null && p.State != EncPerson.StateDead) MarkDead(p);
-            if (player != null) ScCommunity.Tell(player, string.Format(Loc("scEncRemainsFound"), name, enc), "");
+            if (player != null) ScCommunity.TellKey(player, "scEncRemainsFound", "", name, enc);
             ScOutposts.NoteLedger(string.Format(Loc("scEncSearchLedgerFound"), name, enc, r.TargetName));
             ScEncRequests.Reshape(r);
             ScRegistry.SaveAtomic();

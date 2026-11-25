@@ -17,7 +17,7 @@ namespace SurvivorCommunity
     public static class ScNet
     {
         /// <summary>Bump on any change to a NetPackageSc* layout or meaning.</summary>
-        public const int Protocol = 5;      // 1: MP0 (hello). 2: MP1 (NetPackageScState, NetPackageScLook, NetPackageScLookRequest). 3: MP2 (NetPackageScAction, NetPackageScResult, NetPackageScTalkContext). 4: MP3 (item stacks in actions, linked storage). 5: MP4 (NetPackageScMarkers, NetPackageScQuestOp, NetPackageScJournalReport, NetPackageScVoice)
+        public const int Protocol = 5;      // 1: MP0 (hello). 2: MP1 (NetPackageScState, NetPackageScLook, NetPackageScLookRequest). 3: MP2 (NetPackageScAction, NetPackageScResult, NetPackageScTalkContext). 4: MP3 (item stacks in actions, linked storage). 5: MP4 (NetPackageScMarkers, NetPackageScQuestOp, NetPackageScJournalReport, NetPackageScVoice, NetPackageScTell)
 
         /// <summary>This build's id (the assembly's module version id, short) - logged beside a protocol mismatch.</summary>
         public static readonly string Build = MakeBuild();
@@ -123,7 +123,8 @@ namespace SurvivorCommunity
                 ScLog.Warn("player " + sender.playerName + " runs SurvivorCommunity protocol " + protocol + " (build " + build
                            + "), this server runs protocol " + Protocol + " (build " + Build + "): install the same SurvivorCommunity version on both");
                 EntityPlayer p = ScPlayers.ByEntity(sender.entityId);
-                if (p != null) ScCommunity.Tell(p, Localization.Get("scNetMismatch"), "ui_denied");
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                if (p != null) ScCommunity.TellKey(p, "scNetMismatch", "ui_denied");
             }
             else ScLog.Verbose("player " + sender.playerName + " runs SurvivorCommunity protocol " + protocol + " (build " + build + ")");
             sender.SendPackage(NetPackageManager.GetPackage<NetPackageScHello>().Setup(Protocol, Build, true));

@@ -275,7 +275,8 @@ namespace SurvivorCommunity
             string kind = e.CallKind;
             Clear(e);
             e.CallDay = 0;
-            if (player != null) ScCommunity.Tell(player, string.Format(Loc("scEncCallCancelled"), e.Name), "ui_denied");
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            if (player != null) ScCommunity.TellKey(player, "scEncCallCancelled", "ui_denied", e.Name);
             ScLog.Out("radio call to enclave " + e.Id + " '" + e.Name + "' (" + kind + ") is off: " + why + " - the cooldown is refunded");
         }
 
@@ -435,7 +436,7 @@ namespace SurvivorCommunity
             s.Greeted = resume;
             s.SearchSince = -1f;
             string where = ScEnclaves.Where(player.position, npc.position);
-            ScCommunity.Tell(player, string.Format(Loc(resume ? "scEncCallReturned" : "scEncCallArrived"), p.Name, e.Name, where), "");
+            ScCommunity.TellKey(player, resume ? "scEncCallReturned" : "scEncCallArrived", "", p.Name, e.Name, where);
             if (!resume) ScOutposts.NoteLedger(string.Format(Loc("scEncCallLedgerFighter"), e.Name, p.Name));
             ScLog.Out("radio call to enclave " + e.Id + " '" + e.Name + "': " + p.Name + " (p" + p.Id + ", entity " + npc.entityId + ") " + (resume ? "is back with " : "came to ")
                       + player.EntityName + " - " + how + "; with them until " + ClockText(until));
@@ -450,7 +451,7 @@ namespace SurvivorCommunity
         {
             EncPerson p = PersonById(e.CallPid);
             Clear(e);
-            if (lost && player != null && p != null) ScCommunity.Tell(player, string.Format(Loc("scEncCallLost"), p.Name, e.Name), "");
+            if (lost && player != null && p != null) ScCommunity.TellKey(player, "scEncCallLost", "", p.Name, e.Name);
             ScLog.Out("radio call to enclave " + e.Id + " '" + e.Name + "' is over: " + (p != null ? p.Name + " - " : "") + why);
         }
 
@@ -477,7 +478,7 @@ namespace SurvivorCommunity
                     else if (ScRunners.XZ(npc.position, player.position) <= GreetRange && Mathf.Abs(npc.position.y - player.position.y) < 4f)
                     {
                         s.Greeted = true;
-                        ScCommunity.Tell(player, string.Format(Loc("scEncCallSays"), p.Name, Loc("scEncCallHello")), "");
+                        ScCommunity.TellKey(player, "scEncCallSays", "", p.Name, ScCommunity.LocArg("scEncCallHello"));
                         ScEncRadio.Say(p, e, EncCall.Hello, player);   // round m1v: the fighter's own voice, in person (found inside: never throws)
                     }
                 }
@@ -538,7 +539,7 @@ namespace SurvivorCommunity
             }
             else ScLog.Once("enccalls-noairdrops", "radio calls: the world has no air drop director - the crate is not registered with it (breaking it may warn)");
             Clear(e);
-            ScCommunity.Tell(player, string.Format(Loc("scEncCallDropFalling"), e.Name), "");
+            ScCommunity.TellKey(player, "scEncCallDropFalling", "", e.Name);
             ScOutposts.NoteLedger(string.Format(Loc("scEncCallLedgerDrop"), e.Name));
             ScLog.Out("radio call to enclave " + e.Id + " '" + e.Name + "': a supply crate (" + cls + ", entity " + crate.entityId + ") falls from " + Mathf.RoundToInt(at.y)
                       + " onto " + World.worldToBlockPos(ground) + ", " + Mathf.RoundToInt(ScRunners.XZ(ground, player.position)) + " m from " + player.EntityName);

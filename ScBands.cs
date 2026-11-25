@@ -1633,7 +1633,8 @@ namespace SurvivorCommunity
             b.Known = true;
             b.KnownDay = ScCommunity.Today;
             AddMarker(b, player);                     // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
-            ScCommunity.Tell(player, string.Format(Loc(b.IsRaiders ? "scBandSeenRaiders" : "scBandSeenDrifters"), DestText(b)), b.IsRaiders ? "ui_denied" : "");
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            ScCommunity.TellKey(player, b.IsRaiders ? "scBandSeenRaiders" : "scBandSeenDrifters", b.IsRaiders ? "ui_denied" : "", DestText(b));
             ScOutposts.NoteLedger(string.Format(Loc(b.IsRaiders ? "scBandLedgerRaiders" : "scBandLedgerDrifters"), DestText(b)));
             ScLog.Out("band " + b.Id + " (" + b.Kind + ", " + DisplayName(b) + ") met on the road at " + World.worldToBlockPos(Where(b)) + ", heading for " + DestText(b));
         }
@@ -1672,7 +1673,7 @@ namespace SurvivorCommunity
                 Grudge(npc, player);
                 n++;
             }
-            if (n > 0 && player != null) ScCommunity.Tell(player, Loc("scBandTurned"), "ui_denied");
+            if (n > 0 && player != null) ScCommunity.TellKey(player, "scBandTurned", "ui_denied");
             ScLog.Out("band " + b.Id + " (drifters, " + DisplayName(b) + ") turned on " + (player != null ? player.EntityName : "the player") + " (" + cause + ")");
         }
 
@@ -1826,6 +1827,21 @@ namespace SurvivorCommunity
             return any;
         }
 
+        /// <summary>Round MP4 (part: tells): TellNear by localization key (ScCommunity.TellKey: each player's own language).</summary>
+        private static bool TellNearKey(Vector3 at, float range, string key, string sound, params object[] args)
+        {
+            bool any = false;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p == null || !ScPlayers.InCommunity(p) || ScRunners.XZ(at, p.position) > range) continue;
+                ScCommunity.TellKey(p, key, sound, args);
+                any = true;
+            }
+            return any;
+        }
+
         /// <summary>The player behind a kill: the player, or the player a companion follows (its Leader / Owner cvar).</summary>
         private static EntityPlayer KillerPlayer(EntityAlive killer)
         {
@@ -1892,7 +1908,7 @@ namespace SurvivorCommunity
             }
             if (!b.IsRaiders)
             {
-                TellNear(Where(b), ScConfig.BandDespawnRange, string.Format(Loc("scBandDied"), p.Name), "");      // round MP0: every community player near
+                TellNearKey(Where(b), ScConfig.BandDespawnRange, "scBandDied", "", p.Name);      // round MP0: every community player near
                 if (by != null && b.Trust >= 0) TurnOn(b, by, "a kill");
             }
             ScRegistry.SaveAtomic();
@@ -1906,7 +1922,7 @@ namespace SurvivorCommunity
         /// </summary>
         private static void Destroyed(Band b, EntityPlayer by)
         {
-            bool near = TellNear(Where(b), ScConfig.BandDespawnRange, string.Format(Loc("scBandGone"), KindWord(b), DestText(b)), "");   // round MP0: every community player near
+            bool near = TellNearKey(Where(b), ScConfig.BandDespawnRange, "scBandGone", "", KindWord(b), DestText(b));   // round MP0: every community player near
             if (b.Known || near) ScOutposts.NoteLedger(string.Format(Loc("scBandLedgerGone"), KindWord(b), DestText(b)));
             End(b, "destroyed" + (by != null ? " (the last killed by " + by.EntityName + ")" : ""), false);
         }

@@ -163,26 +163,27 @@ namespace SurvivorCommunity
                         if (p.AttachedToEntity != null || Distance(p, l.Claim) > 28f)
                         {
                             Drop(l);
-                            ScCommunity.Tell(p, Localization.Get("scOpDoorCancelled"), "ui_denied");
+                            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                            ScCommunity.TellKey(p, "scOpDoorCancelled", "ui_denied");
                             continue;
                         }
                         string why = OpenFor(l, p);
                         if (why != null)
                         {
                             Drop(l);
-                            ScCommunity.Tell(p, ScActions.Localize(why), "ui_denied");
+                            ScCommunity.TellKey(p, why, "ui_denied");
                         }
                     }
                     else if (now > l.Deadline)
                     {
                         Drop(l);
-                        ScCommunity.Tell(p, Localization.Get("scOpDoorNoAnswer"), "ui_denied");
+                        ScCommunity.TellKey(p, "scOpDoorNoAnswer", "ui_denied");
                         ScLog.Warn("home link: the home zone did not load in " + TimeoutSeconds + " s - gave up");
                     }
                     else if (now >= l.NextNote)
                     {
                         l.NextNote = now + 6f;
-                        ScCommunity.Tell(p, Localization.Get("scOpDoorCalling"), "");
+                        ScCommunity.TellKey(p, "scOpDoorCalling", "");
                     }
                 }
             }

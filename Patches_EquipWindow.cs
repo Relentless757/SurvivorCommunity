@@ -184,7 +184,8 @@ namespace SurvivorCommunity
                     if (Away(__1))
                     {
                         Patches_Xnpc.Count("equip-window-refused-away");
-                        ScCommunity.Tell(__0, string.Format(Localization.Get("scEncCallSays"), ScCommunity.DisplayName(__1), Localization.Get("scVoiceNoPackNow")), "ui_denied");
+                        // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                        ScCommunity.TellKey(__0, "scEncCallSays", "ui_denied", ScCommunity.DisplayName(__1), ScCommunity.LocArg("scVoiceNoPackNow"));
                         return false;
                     }
                     if (!Redirects(__1)) return true;
@@ -268,7 +269,7 @@ namespace SurvivorCommunity
                     if (npc == null && __instance != null && __instance.OwnerDialog != null) npc = __instance.OwnerDialog.CurrentOwner as EntityAlive;
                     if (npc == null || Patches_VoiceControl.PickupRefusal(npc) == null) return true;
                     Patches_Xnpc.Count("admin-remove-refused");
-                    ScCommunity.Tell(__0, string.Format(Localization.Get("scAdminRemoveRefused"), ScCommunity.DisplayName(npc)), "ui_denied");
+                    ScCommunity.TellKey(__0, "scAdminRemoveRefused", "ui_denied", ScCommunity.DisplayName(npc));
                     ScLog.Out("debug Remove refused: " + ScCommunity.DisplayName(npc) + " (id " + npc.entityId + ") is one of SC's people - removing the body"
                               + " without a death would leave SC's record with no body (round U1)");
                     return false;

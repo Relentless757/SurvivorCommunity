@@ -318,7 +318,8 @@ namespace SurvivorCommunity
 #endif
                     Enclave e = ScEnclavePeople.ContainerOwner(_blockPos);
                     if (e == null) return true;
-                    ScCommunity.Tell(_player, string.Format(Localization.Get("scEncContainer"), e.Name), "ui_denied");
+                    // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                    ScCommunity.TellKey(_player, "scEncContainer", "ui_denied", e.Name);
                     __result = false;
                     return false;
                 }

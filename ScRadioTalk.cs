@@ -682,7 +682,8 @@ namespace SurvivorCommunity
         private static void Caption(EntityPlayerLocal player, Line line)
         {
             if (player == null) return;
-            ScCommunity.Tell(player, string.Format(Localization.Get("scRadioRunTalk"), line.Name, line.Words), "");
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            ScCommunity.TellKey(player, "scRadioRunTalk", "", line.Name, line.Words);
         }
 
         /// <summary>

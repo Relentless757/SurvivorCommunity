@@ -232,6 +232,14 @@ namespace SurvivorCommunity
                 if (ScPlayers.InCommunity(all[i]) && OutsideZone(all[i].position) <= ScConfig.BaseAttackLeaveRange) ScCommunity.Tell(all[i], text, sound);
         }
 
+        /// <summary>Round MP4 (part: tells): TellInFight by localization key (ScCommunity.TellKey: each player's own language).</summary>
+        internal static void TellInFightKey(string key, string sound, params object[] args)
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+                if (ScPlayers.InCommunity(all[i]) && OutsideZone(all[i].position) <= ScConfig.BaseAttackLeaveRange) ScCommunity.TellKey(all[i], key, sound, args);
+        }
+
         /// <summary>A horde may come while the player is away (D4): switched on, and this absence's one fight not yet had.</summary>
         private static bool AwayAllowed(Community c)
         {
@@ -472,8 +480,9 @@ namespace SurvivorCommunity
             {
                 radio = true;
                 c.AttackHeard |= 1;
-                ScPlayers.TellCommunity(string.Format(Localization.Get("scDefRadioCall"), c.AttackSize, Side(c.AttackBearing),
-                                                      Hours(c.AttackArrive > w.worldTime ? c.AttackArrive - w.worldTime : 0UL)), "ui_denied");
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                ScPlayers.TellCommunityKey("scDefRadioCall", "ui_denied", c.AttackSize, Side(c.AttackBearing),
+                                           Hours(c.AttackArrive > w.worldTime ? c.AttackArrive - w.worldTime : 0UL));
 #if SC_V34
                 // MP4: voices to clients (the host's own player only until then)
                 EntityPlayerLocal lp = player as EntityPlayerLocal;
@@ -538,14 +547,14 @@ namespace SurvivorCommunity
             if (handoff)
             {
                 // round MP0: 'player' is the one who left the fight (Suspend)
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scBaseLeftAway"), left, Hours(span)), "ui_denied");
+                if (player != null) ScCommunity.TellKey(player, "scBaseLeftAway", "ui_denied", left, Hours(span));
             }
             else if (ScDefence.Radio())
             {
                 radio = true;
                 c.AttackHeard |= 2;
                 // round MP0: the radio's news to every community player
-                if (player != null) ScPlayers.TellCommunity(string.Format(Localization.Get("scDefRadioArrived"), left, Side(c.AttackBearing), Hours(span)), "ui_denied");
+                if (player != null) ScPlayers.TellCommunityKey("scDefRadioArrived", "ui_denied", left, Side(c.AttackBearing), Hours(span));
 #if SC_V34
                 // MP4: voices to clients (the host's own player only until then)
                 EntityPlayerLocal lp = player as EntityPlayerLocal;
@@ -601,7 +610,7 @@ namespace SurvivorCommunity
             ScLog.Out("base attack joined: the player is back - the defenders dealt with " + part + " (" + took + " ammo bundle(s)), " + left + " come live");
             c.AttackAwaySince = c.AttackAwayEnd = 0UL;
             c.AttackAwayBase = 0;
-            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scDefJoin"), part, left, took), "ui_denied");
+            if (player != null) ScCommunity.TellKey(player, "scDefJoin", "ui_denied", part, left, took);
             GoLive(w, c);
         }
 
@@ -697,7 +706,7 @@ namespace SurvivorCommunity
             if (!arrivalTold && attackers.Count > 0 && (AnyAtTheWalls(w) || now - firstSpawnAt >= 60f))
             {
                 arrivalTold = true;
-                TellInFight(string.Format(Localization.Get("scBaseArrived"), c.AttackSize - c.AttackKilled), "ui_denied");   // round MP0: everyone at the fight
+                TellInFightKey("scBaseArrived", "ui_denied", c.AttackSize - c.AttackKilled);   // round MP0: everyone at the fight
             }
             KeepGrid(w, c);
             if (changed && now >= nextSave) { nextSave = now + 10f; ScRegistry.SaveAtomic(); }
@@ -1024,7 +1033,7 @@ namespace SurvivorCommunity
             c.Attention = 0f;
             c.AttackNotBefore = w.worldTime + (ulong)(Math.Max(0f, ScConfig.BaseAttackGapDays) * TicksPerDay);
             ScLeadership.Count(DefendEvent);
-            if (player != null) TellInFight(string.Format(Localization.Get("scBaseHeld"), killed, ammo), "");   // round MP0: everyone at the fight
+            if (player != null) TellInFightKey("scBaseHeld", "", killed, ammo);   // round MP0: everyone at the fight
             // vo4: the guard on watch calls the all clear (its own tooltip, and their voice) - not when a timeout let stragglers go
             if (!(dispersed && left > 0)) ScWatch.CalloutClear(player);
             ScOutposts.NoteLedger(string.Format(Localization.Get("scBaseLedgerHeld"), killed, ammo));
@@ -1065,7 +1074,7 @@ namespace SurvivorCommunity
             c.AttackState = StateCalled;
             c.AttackArrive = 0UL;
             int left = c.AttackSize - c.AttackKilled;
-            if (player != null && arrivalTold) ScCommunity.Tell(player, string.Format(Localization.Get("scBaseLeft"), left), "");   // round MP0: the one who left (TickLive)
+            if (player != null && arrivalTold) ScCommunity.TellKey(player, "scBaseLeft", "", left);   // round MP0: the one who left (TickLive)
             ScLog.Out("base attack: the player left the fight (" + (int)OutsideZone(player.position) + " m out) - " + gone + " attacker(s) despawned; "
                       + left + " come back the lead time after the player returns");
             ScRegistry.SaveAtomic();

@@ -391,7 +391,8 @@ namespace SurvivorCommunity
             int days = Math.Max(1, ScConfig.EnclaveEnlistDays);
             EnlistBody(p, npc, player, w.worldTime + (ulong)days * 24000UL);
             ScRegistry.SaveAtomic();
-            ScCommunity.Tell(player, string.Format(Loc("scEncEnlistedTell"), p.Name, days), "");
+            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+            ScCommunity.TellKey(player, "scEncEnlistedTell", "", p.Name, days);
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + p.Name + " (p" + p.Id + ", entity " + npc.entityId + ") enlisted with " + player.EntityName + " for "
                       + days + " day(s), " + cost + " dukes (" + ScEnclaves.StandingKey(e) + ") - home on day " + GameUtils.WorldTimeToDays(p.EnlistedUntil));
             return true;
@@ -432,7 +433,7 @@ namespace SurvivorCommunity
             p.EnlistedUntil = 0;
             Enclave e = ScEnclavePeople.EnclaveOf(p);
             if (lead) ScEnclavePeople.EnsureLeader(e);
-            if (tellKey != null && pl != null) ScCommunity.Tell(pl, string.Format(Loc(tellKey), p.Name, e != null ? e.Name : ""), "");
+            if (tellKey != null && pl != null) ScCommunity.TellKey(pl, tellKey, "", p.Name, e != null ? e.Name : "");
             ScLog.Out(p.Name + (e != null ? " of " + e.Name : "") + " is no longer with " + (pl != null ? pl.EntityName : "the player") + " (" + why + ")");
         }
 

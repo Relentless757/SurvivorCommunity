@@ -396,7 +396,8 @@ public class DialogActionScStartPoiQuest : BaseDialogAction
                     ScActions.Request("favour.start", r => ScTalkContext.Tell(player, r, false), npcId, (int)FavourKind.Poi);   // marks and logs the POI's state
                 else
                 {
-                    ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+                    // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                    ScCommunity.TellKey(player, error ?? "scInternal", "ui_denied");
                     string why;
                     ScLog.Out(p.PoiName + " for " + p.Name + (ScFavours.PoiReadsCleared(p, out why) ? " already reads clear" : " is not clear yet: " + why));
                 }
@@ -416,7 +417,7 @@ public class DialogActionScStartPoiQuest : BaseDialogAction
                 ScTalkContext.Tell(player, r, false);
             }, npcId, (int)FavourKind.Poi);
             if (refused) return;
-            if (!ScQuests.Start(lp, p, out error) && error != "scQuestAlready") ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+            if (!ScQuests.Start(lp, p, out error) && error != "scQuestAlready") ScCommunity.TellKey(player, error ?? "scInternal", "ui_denied");
         }
         catch (Exception e) { ScLog.Once("act-startquest", e); }
     }
@@ -439,7 +440,7 @@ public class DialogActionScStartSuppliesQuest : BaseDialogAction
             string error;
             if (!ScQuests.StartSupplies(lp, p, out error) && error != "scQuestAlready")
             {
-                ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+                ScCommunity.TellKey(player, error ?? "scInternal", "ui_denied");
                 return;
             }
             bool added = error == null;
@@ -525,7 +526,7 @@ public class DialogActionScTakeFavourItems : BaseDialogAction
         int count = r.HintInt(ScActionsMembers.HintCount);
         if (ScCategories.CountInPlayer(lp, res) < count)
         {
-            ScCommunity.Tell(lp, Localization.Get("scFavourNotEnough"), "ui_denied");
+            ScCommunity.TellKey(lp, "scFavourNotEnough", "ui_denied");
             ScTalkContext.EndHandOver(npcId, false);
             return;
         }
@@ -594,7 +595,7 @@ public class DialogActionScNeedHomeTip : BaseDialogAction
     {
         try
         {
-            if (player is EntityPlayerLocal && (ScCommunity.IsHost || ScRegistry.Mirrored)) ScCommunity.Tell(player, Localization.Get(ScZone.NeedHomeKey()), "ui_denied");
+            if (player is EntityPlayerLocal && (ScCommunity.IsHost || ScRegistry.Mirrored)) ScCommunity.TellKey(player, ScZone.NeedHomeKey(), "ui_denied");
         }
         catch (Exception e) { ScLog.Once("act-needhometip", e); }
     }

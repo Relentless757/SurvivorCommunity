@@ -622,7 +622,8 @@ namespace SurvivorCommunity
             {
                 if (player == null) return;
                 string why = ScActionsWindow.RequestRefusal();
-                if (why != null) { ScCommunity.Tell(player, ScActions.Localize(why), "ui_denied"); return; }
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                if (why != null) { ScCommunity.TellKey(player, why, "ui_denied"); return; }
                 EnsurePump();
                 if (Busy())
                 {
@@ -705,7 +706,7 @@ namespace SurvivorCommunity
             Chunk chunk = w != null ? w.GetChunkSync(World.toChunkXZ(at.x), World.toChunkXZ(at.z)) as Chunk : null;
             if (chunk == null)
             {
-                ScCommunity.Tell(player, Localization.Get("scNotLoaded"), "ui_denied");
+                ScCommunity.TellKey(player, "scNotLoaded", "ui_denied");
                 SendClose(v.Session);
                 return;
             }
@@ -818,7 +819,7 @@ namespace SurvivorCommunity
                             if (r.Ok || pendingView == null || pendingView.Session != psid) return;
                             pendingView = null;
                             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
-                            if (pl != null) ScCommunity.Tell(pl, ScActions.Localize("scStorageSessionEnded"), "ui_denied");
+                            if (pl != null) ScCommunity.TellKey(pl, "scStorageSessionEnded", "ui_denied");
                         }, psid, 1);
                     }
                 }
@@ -870,7 +871,7 @@ namespace SurvivorCommunity
             {
                 pendingView = null;
                 SendClose(v.Session);
-                ScCommunity.Tell(p, Localization.Get("scOpDoorCancelled"), "ui_denied");
+                ScCommunity.TellKey(p, "scOpDoorCancelled", "ui_denied");
                 return;
             }
             if (p.PlayerUI.windowManager.IsModalWindowOpen()) return;
@@ -928,7 +929,7 @@ namespace SurvivorCommunity
                 if (!wasPending && (Current == null || Current.Session != session)) return;
                 if (!wasPending) CloseWindow();
                 EntityPlayerLocal p = ScCommunity.LocalPlayer;
-                if (p != null && !string.IsNullOrEmpty(reason)) ScCommunity.Tell(p, ScActions.Localize(reason), "ui_denied");
+                if (p != null && !string.IsNullOrEmpty(reason)) ScCommunity.TellKey(p, reason, "ui_denied");
             }
             catch (Exception e)
             {

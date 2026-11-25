@@ -178,7 +178,8 @@ namespace SurvivorCommunity
                     if (t != null)
                     {
                         // round MP0: the community's news, to every community player online, no longer the host alone
-                        ScPlayers.TellCommunity(string.Format(Localization.Get("scThreatCalmed"), t.Name), "");
+                        // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                        ScPlayers.TellCommunityKey("scThreatCalmed", "", t.Name);
                         ScLog.Out(t.Name + " withdrew the threat to leave (morale " + c.Morale + ")");
                     }
                     ScRegistry.SaveAtomic();
@@ -256,7 +257,7 @@ namespace SurvivorCommunity
                 {
                     c.ThreatMemberId = -1;
                     summary.Append(' ').Append(string.Format(Localization.Get("scDailyStays"), t.Name));
-                    ScPlayers.TellCommunity(string.Format(Localization.Get("scThreatCalmed"), t.Name), "");     // round MP0: the community's news
+                    ScPlayers.TellCommunityKey("scThreatCalmed", "", t.Name);     // round MP0: the community's news
                 }
                 else
                 {
@@ -282,7 +283,7 @@ namespace SurvivorCommunity
                 {
                     c.ThreatMemberId = worst.Id;
                     summary.Append(' ').Append(string.Format(Localization.Get("scDailyThreat"), worst.Name));
-                    ScPlayers.TellCommunity(string.Format(Localization.Get("scThreatens"), worst.Name), "ui_denied");     // round MP0: the community's news
+                    ScPlayers.TellCommunityKey("scThreatens", "ui_denied", worst.Name);     // round MP0: the community's news
                     ScLog.Out(worst.Name + " threatens to leave (morale " + morale + " for " + c.LowMoraleDays + " days)");
                 }
             }

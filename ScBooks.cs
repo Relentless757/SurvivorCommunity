@@ -208,16 +208,14 @@ namespace SurvivorCommunity
             }
             if (r.Stars > 0 && r.Npc != null && !r.Npc.IsDead()) ScSkills.StampCvars(m, r.Npc);   // the new star's levels at once
             ScRegistry.SaveAtomic();
-            string spec = Localization.Get(ScNames.LocKey(m.Specialty));
             ScLog.Out(m.Name + " read " + r.Magazines + " crafting magazine(s) as training (" + (r.All ? "read all" : "one book") + "): +" + r.Xp + " "
                       + m.Specialty + " XP, now " + m.SpecXp + " (" + m.SpecLevel + " stars" + (r.Stars > 0 ? ", " + r.Stars + " gained" : "") + ")");
             EntityPlayer to = EntityUtilities.GetLeaderOrOwner(r.Npc.entityId) as EntityPlayer;
             if (to == null) to = ScCommunity.LocalPlayer;
-            string text = r.Stars > 0
-                ? string.Format(Localization.Get("scBookStar"), m.Name, spec, m.SpecLevel)
-                : string.Format(Localization.Get("scBookTrained"), m.Name, r.Magazines, r.Xp, spec, m.SpecXp,
-                                m.SpecLevel < Member.MaxStars ? ScSkills.NeededFor(m.SpecLevel + 1).ToString(CultureInfo.InvariantCulture) : "-");
-            ScCommunity.Tell(to, text, "");
+            // round MP4: by key (each player reads it in their own language; the specialty is a key too)
+            if (r.Stars > 0) ScCommunity.TellKey(to, "scBookStar", "", m.Name, ScCommunity.LocArg(ScNames.LocKey(m.Specialty)), m.SpecLevel);
+            else ScCommunity.TellKey(to, "scBookTrained", "", m.Name, r.Magazines, r.Xp, ScCommunity.LocArg(ScNames.LocKey(m.Specialty)), m.SpecXp,
+                                     m.SpecLevel < Member.MaxStars ? ScSkills.NeededFor(m.SpecLevel + 1).ToString(CultureInfo.InvariantCulture) : "-");
         }
 
         // ------------------------------------------------------------------ C1k: the payment ----

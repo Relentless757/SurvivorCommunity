@@ -237,7 +237,8 @@ namespace SurvivorCommunity
                 ScRegistry.SaveAtomic();
                 ScLog.Out(m.Name + " (" + m.Class + ", id " + m.Id + ") joined the community: traits [" + string.Join(",", m.Traits.ToArray())
                           + "] specialty " + m.Specialty + (home ? " - stationed" : " - following until home"));
-                if (tell) Tell(player, string.Format(Localization.Get(home ? "scJoined" : "scJoinedFollow"), m.Name), "");
+                // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                if (tell) TellKey(player, home ? "scJoined" : "scJoinedFollow", "", m.Name);
                 return true;
             }
             catch (Exception e)
@@ -1319,7 +1320,7 @@ namespace SurvivorCommunity
                     EntityUtilities.CheckForDanglingHires(player.entityId);
                 }
                 // round MP0 (the review, S3): a departure is the whole community's news (single player: the one player, as before)
-                ScPlayers.TellCommunity(string.Format(Localization.Get(reasonKey ?? "scLeft"), m.Name), "ui_denied");
+                ScPlayers.TellCommunityKey(reasonKey ?? "scLeft", "ui_denied", m.Name);
 #if SC_V34
                 ScHanded.OnRecordGone(m, npc, "left the community");   // round n12 review: her handed items into her pack (or logged lost)
 #endif
@@ -1445,7 +1446,7 @@ namespace SurvivorCommunity
                 // round MP0 (the review, N3): the hire mark comes off the member's own leader when known
                 (ScPlayers.ById(m.LeaderId) ?? player).Buffs.RemoveCustomVar("hired_" + m.Id);
                 // round MP0: a member's death is the whole community's news (a caller passing no player keeps its own news)
-                ScPlayers.TellCommunity(string.Format(Localization.Get(tooltipKey ?? "scDied"), m.Name), "ui_denied");
+                ScPlayers.TellCommunityKey(tooltipKey ?? "scDied", "ui_denied", m.Name);
             }
             ScLog.Out(m.Name + " died - community morale now " + c.Morale);
             ScRegistry.SaveAtomic();
@@ -1541,6 +1542,73 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// Round MP4 (part: tells): a tell by its localization key, so each player reads it in their own language. args are the
+        /// row's arguments exactly as the old string.Format(Localization.Get(key), args) took them (numbers as numbers); one that
+        /// is itself a localization key (a resource name, a status word) goes as LocArg(key).
+        /// - The host's own player (single player too): formatted and shown here - Tell(player, TellText(key, args), sound), the
+        ///   same text the old call site showed, byte for byte.
+        /// - A remote player whose SC speaks this protocol (ScNet.ClientMatches): a NetPackageScTell, formatted on that machine.
+        /// - Anyone else (a vanilla client, another SC protocol, more than NetPackageScTell.MaxArgs arguments, no client info):
+        ///   this machine's words through Tell, as before.
+        /// </summary>
+        public static void TellKey(EntityPlayer player, string key, string sound, params object[] args)
+        {
+            if (player == null || string.IsNullOrEmpty(key)) return;
+            try
+            {
+                if (!(player is EntityPlayerLocal) && ScNet.ClientMatches(player) && NetPackageScTell.Fits(args)
+                    && ScNet.ToPlayer(player, () => NetPackageManager.GetPackage<NetPackageScTell>().Setup(key, sound, args), null))
+                    return;
+                Tell(player, TellText(key, args), sound);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("tell-key", e);
+            }
+        }
+
+        /// <summary>Round MP4 (part: tells): a TellKey argument that is itself a localization key, localized where the tell shows.</summary>
+        public static NetPackageScTell.LocKey LocArg(string key)
+        {
+            return new NetPackageScTell.LocKey(key);
+        }
+
+        /// <summary>
+        /// Round MP4 (part: tells): a tell's words in this machine's language - the old call sites' own
+        /// string.Format(Localization.Get(key), args), each LocArg localized here first; with no arguments the row as it is (as
+        /// Tell(player, Localization.Get(key), sound) showed it: no Format, so a row's "{{" stays as written).
+        /// </summary>
+        internal static string TellText(string key, object[] args)
+        {
+            string row = Localization.Get(key);
+            if (args == null || args.Length == 0) return row;
+            object[] a = new object[args.Length];
+            for (int i = 0; i < args.Length; i++)
+            {
+                NetPackageScTell.LocKey k = args[i] as NetPackageScTell.LocKey;
+                a[i] = k != null ? (object)Localization.Get(k.Key) : args[i];
+            }
+            return string.Format(row, a);
+        }
+
+        /// <summary>
+        /// Round MP4 (part: tells), client: a NetPackageScTell from the server, shown as Tell shows one, in this machine's language. A
+        /// row this language formats badly (its tokens differ) shows as it is rather than not at all.
+        /// </summary>
+        internal static void ShowTellKey(EntityPlayerLocal player, string key, string sound, object[] args)
+        {
+            if (player == null || string.IsNullOrEmpty(key)) return;
+            string text;
+            try { text = TellText(key, args); }
+            catch (FormatException e)
+            {
+                ScLog.Once("tell-key-format-" + key, e);
+                text = Localization.Get(key);
+            }
+            Tell(player, text, sound);
+        }
+
         /// <summary>The community window on its Outposts tab, with one outpost selected (id &gt; 0) or none.</summary>
         public static void OpenOutposts(EntityPlayerLocal player, int outpostId)
         {
@@ -1566,7 +1634,7 @@ namespace SurvivorCommunity
                 GUIWindow win;
                 if (!wm.TryGetWindow(WindowGroup, out win))
                 {
-                    Tell(player, Localization.Get("scNoWindow"), "ui_denied");
+                    TellKey(player, "scNoWindow", "ui_denied");
                     return;
                 }
                 if (player.IsDead() || wm.IsWindowOpen(WindowGroup))
