@@ -254,7 +254,7 @@ namespace SurvivorCommunity
             ScOutposts.NoteLedger(string.Format(Loc("scEncGiftLedger"), e.Name, what, delta));
             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
             // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
-            if (bandChanged && pl != null && !e.IsHostile) ScCommunity.TellKey(pl, "scEncReqBandTell", "", e.Name, ScEnclaves.StandingWord(e));
+            if (bandChanged && pl != null && !e.IsHostile) ScCommunity.TellKey(pl, "scEncReqBandTell", "", e.Name, ScCommunity.LocArg(ScEnclaves.StandingWordKey(e)));   // review tells m4
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': a gift (" + what + ", " + why + ") - standing " + old + " -> " + e.Standing + " ("
                       + ScEnclaves.StandingKey(e) + (gain < Math.Max(0, ScConfig.EnclaveGiftStanding) ? ", capped at " + ScConfig.EnclaveGiftCap : "")
                       + "); the next gift from day " + e.GiftDay + " (request clock day " + ScEncRequests.Now + ")");

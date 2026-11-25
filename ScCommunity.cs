@@ -1560,7 +1560,15 @@ namespace SurvivorCommunity
                 if (!(player is EntityPlayerLocal) && ScNet.ClientMatches(player) && NetPackageScTell.Fits(args)
                     && ScNet.ToPlayer(player, () => NetPackageManager.GetPackage<NetPackageScTell>().Setup(key, sound, args), null))
                     return;
-                Tell(player, TellText(key, args), sound);
+                string text;
+                try { text = TellText(key, args); }
+                catch (FormatException fe)
+                {
+                    // review tells n1: a row whose tokens do not fit shows as it is (as on a client), logged once per key
+                    ScLog.Once("tell-key-format-" + key, fe);
+                    text = Localization.Get(key);
+                }
+                Tell(player, text, sound);
             }
             catch (Exception e)
             {

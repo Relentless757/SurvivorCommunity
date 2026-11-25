@@ -191,7 +191,7 @@ namespace SurvivorCommunity
             if (ScCommunity.Follow(m, npc, sender, out error)) { reply.Done(Fmt("scWinNowFollowing", m.Name)); return; }
             reply.Fail(error ?? "scInternal");
             // round m1w (P7): no room in the party - she says so too, once that line is recorded
-            if (ScVoiceRoutes.IsFollowFull(error)) ScVoiceRoutes.SayRefusal(npc, "scFollowFullSaid", "the talk's Come with me: no room in the party");
+            if (ScVoiceRoutes.IsFollowFull(error)) ScVoiceRoutes.SayRefusal(npc, "scFollowFullSaid", "the talk's Come with me: no room in the party", true, sender);   // round MP4 review M1: the talker
         }
 
         /// <summary>The talk's "Head home" to a runner met out in the world (DialogActionScRecall until round MP2): ScRunners.Recall.</summary>

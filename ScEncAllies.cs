@@ -165,6 +165,12 @@ namespace SurvivorCommunity
             return string.IsNullOrEmpty(benefit) ? "" : Loc("scEncBenefit_" + benefit);
         }
 
+        /// <summary>Round MP4 (review tells m4): Name as a tell argument - the benefit's key, localized where the tell shows.</summary>
+        private static object NameArg(string benefit)
+        {
+            return string.IsNullOrEmpty(benefit) ? (object)"" : ScCommunity.LocArg("scEncBenefit_" + benefit);
+        }
+
         /// <summary>"+1 food a day", "your survivors' Fighting XP x2": what the benefit does at the config's numbers.</summary>
         public static string Describe(string benefit)
         {
@@ -459,7 +465,7 @@ namespace SurvivorCommunity
                 {
                     if (shown)
                     {
-                        ScPlayers.TellCommunityKey("scEncAllyGained", "", e.Name, Name(e.Benefit), Describe(e.Benefit));    // round MP0: the whole community's news
+                        ScPlayers.TellCommunityKey("scEncAllyGained", "", e.Name, NameArg(e.Benefit), Describe(e.Benefit));    // round MP0: the whole community's news
                         ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerGained"), e.Name, Name(e.Benefit)));
                     }
                     int day = ScEncRequests.Now;
@@ -471,7 +477,7 @@ namespace SurvivorCommunity
                 {
                     if (shown)
                     {
-                        ScPlayers.TellCommunityKey("scEncAllyLost", "ui_denied", e.Name, Name(e.Benefit));     // round MP0: the whole community's news
+                        ScPlayers.TellCommunityKey("scEncAllyLost", "ui_denied", e.Name, NameArg(e.Benefit));     // round MP0: the whole community's news
                         ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerLost"), e.Name, Name(e.Benefit)));
                     }
                     ScLog.Out("enclave " + e.Id + " '" + e.Name + "' is no ally now (" + after + ")" + (has ? " - " + e.Benefit + " off" : ""));
@@ -505,7 +511,7 @@ namespace SurvivorCommunity
                     c.EnclaveLoss = Math.Min(MaxLoss, c.EnclaveLoss + loss);
                     bool benefit = band == "allied" && e.Benefit.Length > 0;
                     // round MP0: the whole community's news (the host alone in single player)
-                    if (benefit) ScPlayers.TellCommunityKey("scEncAllyFallen", "ui_denied", e.Name, loss, Name(e.Benefit));
+                    if (benefit) ScPlayers.TellCommunityKey("scEncAllyFallen", "ui_denied", e.Name, loss, NameArg(e.Benefit));
                     else ScPlayers.TellCommunityKey("scEncFriendFallen", "ui_denied", e.Name, loss);
                     if (benefit) ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerLost"), e.Name, Name(e.Benefit)));
                 }

@@ -195,7 +195,7 @@ namespace SurvivorCommunity
                 // report what actually left the inventory, not what was asked for (vanilla skips the last
                 // toolbelt slot when removing and silently no-ops when a stack is missing)
                 int before = CountInPlayer(player, r);
-                inv.RemoveItems(take);
+                ScCraftFromBase.SuppressContainers(() => inv.RemoveItems(take));   // round MP4 (review cfs1 m5): the bag and toolbelt alone
                 int after = CountInPlayer(player, r);
                 removed = Math.Max(0, before - after);
             }

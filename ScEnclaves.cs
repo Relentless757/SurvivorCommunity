@@ -405,12 +405,18 @@ namespace SurvivorCommunity
         /// <summary>Neutral below 30, Friendly 30-69, Allied 70+; Hostile whatever the points (Localization).</summary>
         public static string StandingWord(Enclave e)
         {
+            return Localization.Get(StandingWordKey(e));
+        }
+
+        /// <summary>Round MP4 (review tells m4): StandingWord's localization key, for a tell argument (ScCommunity.LocArg).</summary>
+        public static string StandingWordKey(Enclave e)
+        {
             switch (StandingKey(e))
             {
-                case "hostile": return Localization.Get("scEnclaveHostile");
-                case "allied": return Localization.Get("scEnclaveAllied");
-                case "friendly": return Localization.Get("scEnclaveFriendly");
-                default: return Localization.Get("scEnclaveNeutral");
+                case "hostile": return "scEnclaveHostile";
+                case "allied": return "scEnclaveAllied";
+                case "friendly": return "scEnclaveFriendly";
+                default: return "scEnclaveNeutral";
             }
         }
 
@@ -1328,7 +1334,7 @@ namespace SurvivorCommunity
                     e.KnownDay = ScCommunity.Today;
                     AddMarker(e, player);
                     // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
-                    ScCommunity.TellKey(player, "scEnclaveFound", e.IsHostile ? "ui_denied" : "", e.Name, e.PoiName, StandingWord(e));
+                    ScCommunity.TellKey(player, "scEnclaveFound", e.IsHostile ? "ui_denied" : "", e.Name, e.PoiName, ScCommunity.LocArg(StandingWordKey(e)));   // review tells m4
                     ScOutposts.NoteLedger(string.Format(Localization.Get("scEnclaveLedgerFound"), e.Name, e.PoiName));
                     ScLog.Out("enclave " + e.Id + " '" + e.Name + "' found at " + e.PoiName + (e.IsHostile ? " (hostile)" : ""));
                     ScRegistry.SaveAtomic();

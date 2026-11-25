@@ -205,7 +205,7 @@ namespace SurvivorCommunity
                 }
                 if (take.Count == 0) return 0;
                 var got = new List<ItemStack>();
-                inv.RemoveItems(take, 1, got);
+                ScCraftFromBase.SuppressContainers(() => inv.RemoveItems(take, 1, got));   // round MP4 (review cfs1 m5): the bag and toolbelt alone
                 int n = 0;
                 foreach (ItemStack g in got) if (g != null && !g.IsEmpty()) { n += g.count; if (removed != null) removed.Add(g.Clone()); }
                 return n;

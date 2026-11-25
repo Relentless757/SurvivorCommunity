@@ -764,7 +764,8 @@ namespace SurvivorCommunity
             string error = null;
             // round MP4: the quest is the accepting player's (AcceptedBy) - the host's own journal as before (enclave dialogs are
             // the host's until MP5), a client's through the quest op (ScQuestNet.StartRequestFor)
-            r.AcceptedBy = ScPlayers.IdOf(player);
+            // review m2: nothing for the host's own (empty reads as the host's) - a save loaded under another platform id keeps its quest
+            r.AcceptedBy = player is EntityPlayerLocal ? "" : ScPlayers.IdOf(player);
             Quest q = player != null ? ScQuestNet.StartRequestFor(player, e, r, WhatText(r), out error) : null;
             r.QuestCode = q != null ? q.QuestCode : 0;
             if (q == null && error != ScQuestNet.SentToClient) ScLog.Warn("enclave request #" + r.Id + ": no journal quest (" + (error ?? "no player") + ") - accepted all the same");
@@ -822,7 +823,7 @@ namespace SurvivorCommunity
                 // round MP0: news for the whole community (the host alone in single player)
                 if (outcome == Lapsed) ScPlayers.TellCommunityKey("scEncReqLapsedTell", "", e.Name);
                 else if (outcome == Expired) ScPlayers.TellCommunityKey("scEncReqExpiredTell", "ui_denied", e.Name);
-                if (bandChanged && !e.IsHostile) ScPlayers.TellCommunityKey("scEncReqBandTell", "", e.Name, ScEnclaves.StandingWord(e));
+                if (bandChanged && !e.IsHostile) ScPlayers.TellCommunityKey("scEncReqBandTell", "", e.Name, ScCommunity.LocArg(ScEnclaves.StandingWordKey(e)));   // review tells m4
             }
             if (outcome == Done) ScLeadership.Count(ev ?? ScLeadership.FavourEvent);
             KindClosed(r, outcome);

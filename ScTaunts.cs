@@ -87,22 +87,24 @@ namespace SurvivorCommunity
             State s = Get(self);
             float t = Time.unscaledTime;
             EntityPlayer np = now as EntityPlayer;
-            if (np != null && !np.IsDead())
+            bool npAlive = np != null && !np.IsDead();
+            // the old target a dead player: no lost line for them (the killer's taunt comes from AwardKill, OnKilledPlayer)
+            EntityPlayer wp = was as EntityPlayer;
+            if (wp != null && wp.IsDead())
+            {
+                // round MP4: a remote player's AwardKill runs on their own machine, never here - the raider that was fighting them
+                // says it as it lets go (the killer, when the server knows it; the global cooldown keeps a band to one line).
+                // Review m7: tested before the new target, so a raider turning straight to another living player says it too
+                if (s.Engaged && !(wp is EntityPlayerLocal) && (wp.entityThatKilledMe == null || wp.entityThatKilledMe == self)) OnKilledPlayer(self, wp);
+                if (!npAlive) s.Engaged = false;
+            }
+            if (npAlive)
             {
                 bool fresh = t - s.LastHadPlayer > SpotForgetSeconds;    // L1: no player target for 20 s, lost line or not
                 s.Engaged = true;
                 s.LastHadPlayer = t;
                 if (fresh) Fire(self, Spot, s, false, false);
                 return;
-            }
-            // the old target a dead player: no lost line for them (the killer's taunt comes from AwardKill, OnKilledPlayer)
-            EntityPlayer wp = was as EntityPlayer;
-            if (wp != null && wp.IsDead())
-            {
-                // round MP4: a remote player's AwardKill runs on their own machine, never here - the raider that was fighting them
-                // says it as it lets go (the killer, when the server knows it; the global cooldown keeps a band to one line)
-                if (s.Engaged && !(wp is EntityPlayerLocal) && (wp.entityThatKilledMe == null || wp.entityThatKilledMe == self)) OnKilledPlayer(self, wp);
-                s.Engaged = false;
             }
         }
 

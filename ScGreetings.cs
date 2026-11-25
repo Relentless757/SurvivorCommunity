@@ -101,7 +101,8 @@ namespace SurvivorCommunity
                         TickGreetings(w, p, now);
                     }
                 }
-                if (ScConfig.ScChatter && !ScVoice.TalkOpen) TickChatter(w, now);
+                // review m2: the host's own open talk keeps chatter away from the host only (was: from every player)
+                if (ScConfig.ScChatter) TickChatter(w, now, ScVoice.TalkOpen);
             }
             catch (Exception e)
             {
@@ -408,9 +409,11 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ chatter ----
 
-        private static void TickChatter(World w, float now)        // round MP4: near any player (was the host's own)
+        private static void TickChatter(World w, float now, bool hostTalk)   // round MP4: near any player (was the host's own)
         {
-            if (!AnyListener()) return;                             // round MP4: nobody alive to hear it (the old early return)
+            // round MP4: nobody alive to hear it (the old early return). Review m2: hostTalk - the host's own talk is open: only
+            // remote players count, and nobody near the host speaks (single player: no listener, so no tick, as before)
+            if (!AnyListener(hostTalk)) return;
             if (nextChatter < 0f)
             {
                 nextChatter = now + ScConfig.ScChatterSeconds * (0.5f + (float)rnd.NextDouble() * 0.5f);   // not right at load
@@ -420,38 +423,41 @@ namespace SurvivorCommunity
             nextChatter = now + ScConfig.ScChatterSeconds * (0.75f + (float)rnd.NextDouble() * 0.5f);
             if (rnd.NextDouble() > ScConfig.ScChatterChance) return;
             if (now - lastSpoke < Math.Max(4f, ScConfig.ScGreetGapSeconds)) return;   // one speaker at a time
-            Candidates(w, null);
+            Candidates(w, null, hostTalk);
             if (pool.Count == 0) return;
             EntityAlive npc = pool[rnd.Next(pool.Count)];
             Chatter(npc);
         }
 
         /// <summary>Round MP4: a living player who hears SC's lines is on the server (the host's own, or a remote one with SC).</summary>
-        private static bool AnyListener()
+        private static bool AnyListener(bool remoteOnly)
         {
             List<EntityPlayer> all = ScPlayers.All;
-            for (int i = 0; i < all.Count; i++) if (Listens(all[i])) return true;
+            for (int i = 0; i < all.Count; i++) if (Listens(all[i]) && !(remoteOnly && all[i] is EntityPlayerLocal)) return true;
             return false;
         }
 
         /// <summary>Round MP4: within ScChatterRange (squared: r2) of near, or with near null of any living player who hears SC's lines.</summary>
-        private static bool Near(Vector3 pos, EntityPlayer near, float r2)
+        private static bool Near(Vector3 pos, EntityPlayer near, float r2, bool hostTalk = false)
         {
             if (near != null) return (pos - near.position).sqrMagnitude <= r2;
             List<EntityPlayer> all = ScPlayers.All;
+            bool any = false;
             for (int i = 0; i < all.Count; i++)
             {
                 EntityPlayer p = all[i];
-                if (Listens(p) && (pos - p.position).sqrMagnitude <= r2) return true;
+                if (!Listens(p) || (pos - p.position).sqrMagnitude > r2) continue;
+                if (hostTalk && p is EntityPlayerLocal) return false;     // review m2: not within earshot of the host's open talk
+                any = true;
             }
-            return false;
+            return any;
         }
 
         /// <summary>
         /// Residents at home within ScChatterRange of the player who could say a chatter line now. Round MP4: lp null - of any
         /// living player (the line is heard by everyone in earshot); else of that one (the console's sender).
         /// </summary>
-        private static void Candidates(World w, EntityPlayer lp)
+        private static void Candidates(World w, EntityPlayer lp, bool hostTalk = false)
         {
             pool.Clear();
             float r2 = ScConfig.ScChatterRange * ScConfig.ScChatterRange;
@@ -459,7 +465,7 @@ namespace SurvivorCommunity
             {
                 if (m.Status != MemberStatus.Resident) continue;
                 EntityAlive npc = ScCommunity.FindNpc(m.Id);
-                if (npc == null || npc.IsDead() || !Near(npc.position, lp, r2) || !ScXnpc.IsSurvivorBody(npc)) continue;
+                if (npc == null || npc.IsDead() || !Near(npc.position, lp, r2, hostTalk) || !ScXnpc.IsSurvivorBody(npc)) continue;
 #if SC_V34
                 if (ScDowned.IsDown(npc)) continue;     // round U2: no chatter from a downed member
 #endif

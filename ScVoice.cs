@@ -1533,6 +1533,10 @@ namespace SurvivorCommunity
                     return;
                 }
                 if (Holds(npc) || (d.Kind == NetPackageScVoice.KindGreeting && TalkOpen)) { netHeld++; return; }
+                // review m3: this machine's own Voice Control is speaking on her (its answer, its own ack) - the server could not know;
+                // a bark, small talk, greeting or relayed Voice Control line waits for nothing and is dropped, as the host drops it
+                // (Busy / VcBusy there). Taunts stay: the host plays those over anything
+                if (d.Kind != NetPackageScVoice.KindTaunt && VcBusy(npc)) { netHeld++; return; }
                 string words = CaptionOf(d);
                 string name = string.IsNullOrEmpty(d.Name) ? ScCommunity.DisplayName(npc) : d.Name;
                 bool vc = d.Kind == NetPackageScVoice.KindVc;

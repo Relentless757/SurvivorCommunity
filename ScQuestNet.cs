@@ -568,6 +568,9 @@ namespace SurvivorCommunity
         {
             if (r == null) return false;
             if (string.IsNullOrEmpty(r.AcceptedBy)) return true;
+            // review m2: single player has no one else to hold it (a save from MP4's first build may name the host's id of then)
+            try { if (SingletonMonoBehaviour<ConnectionManager>.Instance != null && SingletonMonoBehaviour<ConnectionManager>.Instance.IsSinglePlayer) return true; }
+            catch (Exception) { }
             EntityPlayerLocal lp = ScCommunity.LocalPlayer;
             if (lp == null) return false;
             if (string.Equals(r.AcceptedBy, ScPlayers.IdOf(lp), StringComparison.Ordinal)) return true;
@@ -850,9 +853,26 @@ namespace SurvivorCommunity
                 Member m = ScRegistry.GetMember(cur);
                 if (IsOpenRescue(m))
                 {
+                    // review m1: a copy this player was not sent this session is an older call's (they were away while it ended and
+                    // the runner called again, or the server restarted): it is replaced - removed, then the open call's copy starts
+                    // (its place and marker are this call's). After a restart every holder gets one harmless close and start
+                    if (!sent.Contains(cur))
+                    {
+                        Vector3i ra, rs;
+                        if (!RescueBox(m, out ra, out rs)) { held.Add(cur); continue; }
+                        Member rm = m;
+                        int oldId = id;
+                        Send(p, () => NetPackageManager.GetPackage<NetPackageScQuestOp>().Setup(NetPackageScQuestOp.KindRescueClose, oldId, 0, false, null, null));
+                        if (Send(p, () => RescueStartOp(rm, ra, rs)))
+                        {
+                            sent.Add(cur);
+                            ScLog.Out("rescue quest for " + m.Name + " renewed for " + p.PlayerDisplayName + " (their copy was from an earlier call or session)");
+                        }
+                        held.Add(cur);
+                        continue;
+                    }
                     if (cur != id) Send(p, () => NetPackageManager.GetPackage<NetPackageScQuestOp>().Setup(NetPackageScQuestOp.KindRescueRekey, id, cur, false, null, null));
                     held.Add(cur);
-                    sent.Add(cur);
                     continue;
                 }
                 bool done;

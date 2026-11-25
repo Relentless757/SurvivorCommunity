@@ -255,9 +255,10 @@ namespace SurvivorCommunity
             {
                 PowerManager pm = PowerManager.HasInstance ? PowerManager.Instance : null;
                 World w = ScCommunity.World;
-                bool home = ScRegistry.Loaded && ScZone.HasHome;
-                List<Vector3i> relays = ScRegistry.Loaded ? ScRegistry.Community.Relays : null;
-                if (ScRegistry.Loaded)
+                // round MP4 review m5: a client's copy of the registry too (ScRegistry.Ready), so a client hears the base's stations
+                bool home = ScRegistry.Ready && ScZone.HasHome;
+                List<Vector3i> relays = ScRegistry.Ready ? ScRegistry.Community.Relays : null;
+                if (ScRegistry.Ready)
                 {
                     Consider(ScRegistry.Community.Radios, pos, pm, w, home, relays, ref at, ref dist);
                     Consider(relays, pos, pm, w, home, relays, ref at, ref dist);

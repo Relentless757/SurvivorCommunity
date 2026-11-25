@@ -1718,9 +1718,10 @@ namespace SurvivorCommunity
             public static MethodBase TargetMethod() { return SayToEarshotTarget(); }
 
             [HarmonyPrefix]
-            public static void Prefix()
+            public static void Prefix(EntityAlive __0)
             {
                 ScBarks.SayLineDepth++;
+                try { ScBarks.NoteSayLine(__0); } catch (Exception) { }   // review m8: and when, on whom
             }
 
             [HarmonyFinalizer]

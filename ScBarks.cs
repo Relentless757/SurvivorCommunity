@@ -137,6 +137,29 @@ namespace SurvivorCommunity
         /// </summary>
         internal static int SayLineDepth;
 
+        /// <summary>
+        /// Round MP4 review m8: when each NPC's last say-line began (unscaled time). Should Voice Control queue the host's own speech
+        /// of a say-line and speak it after SayToEarshot returned, SC's substitution then still belongs to that say-line, which the
+        /// clients already have: a Voice Control line SC says in its place on that NPC within SayLineWindow is not relayed.
+        /// </summary>
+        private static readonly Dictionary<int, float> sayLineAt = new Dictionary<int, float>();
+        private const float SayLineWindow = 3f;
+
+        /// <summary>Round MP4 review m8: Patch_ScSayLineScope's prefix - a say-line begins on this NPC.</summary>
+        internal static void NoteSayLine(EntityAlive npc)
+        {
+            if (npc == null || !ScCommunity.IsHost) return;
+            if (sayLineAt.Count > 64) sayLineAt.Clear();
+            sayLineAt[npc.entityId] = Time.unscaledTime;
+        }
+
+        private static bool InSayLine(EntityAlive npc)
+        {
+            if (SayLineDepth > 0) return true;
+            float at;
+            return npc != null && sayLineAt.TryGetValue(npc.entityId, out at) && Time.unscaledTime - at < SayLineWindow;
+        }
+
         /// <summary>Round MP4: the package's kind of one of SC's own families.</summary>
         private static byte KindOf(string family)
         {
@@ -172,7 +195,13 @@ namespace SurvivorCommunity
         /// </summary>
         private static void RelayVc(EntityAlive npc, Pick p, string caption)
         {
-            if (npc == null || p == null || p.Path == null || SayLineDepth > 0 || !ScCommunity.IsHost) return;
+            if (npc == null || p == null || p.Path == null || !ScCommunity.IsHost) return;
+            if (InSayLine(npc))
+            {
+                if (ScConfig.Verbose) ScLog.Verbose("voice: " + ScCommunity.DisplayName(npc) + "'s Voice Control line '" + p.Key + "' is part of a say-line (depth "
+                                                    + SayLineDepth + "): the clients have it from Voice Control, not relayed");
+                return;
+            }
             ScVoice.SendNear(npc.position, new NetPackageScVoice.Line
             {
                 Kind = NetPackageScVoice.KindVc, Npc = npc.entityId, Key = p.Key ?? "", Voice = p.Voice ?? "",

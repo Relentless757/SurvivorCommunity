@@ -62,6 +62,7 @@ namespace SurvivorCommunity
                     ScMirror.Reset();                // round MP1: no client copy or push state carries into a new world
                     ScActions.Reset();               // round MP2: no unanswered request carries into a new world
                     ScTalkContext.Reset();           // round MP2 (part M): no talk context or hand-over carries into a new world
+                    ScCraftFromBase.Reset();         // round MP4 (review cfs1 M1): no open-box set or base list carries into a new world
 #if SC_V34
                     ScSleep.Reset();                 // round n06: no night lease carries into a new world
                     ScSocial.Reset();                // round U3: no exchange, walk-over or gathering carries into a new world

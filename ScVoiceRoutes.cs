@@ -622,7 +622,7 @@ namespace SurvivorCommunity
         /// false for a refusal with no order behind it (a work shift taking a field job back), which must not make the next
         /// reply on her look refused.
         /// </summary>
-        internal static void SayRefusal(EntityAlive npc, string key, string why, bool markOrder = true)
+        internal static void SayRefusal(EntityAlive npc, string key, string why, bool markOrder = true, EntityPlayer talker = null)
         {
             try
             {
@@ -657,10 +657,11 @@ namespace SurvivorCommunity
                     refusalsInTalk++;
                     return;
                 }
-                // round MP4: a remote player's talk is open on her (their CurrentNPC, within talk range): a line of that talk, said on
-                // their machine as its parting line - a talk's lines stay the talking player's, as the host's own just above
-                EntityPlayer talker = RemoteTalker(npc);
-                if (talker != null)
+                // round MP4: the order came from a remote player's talk with her (talker: passed by the call sites that know it - the
+                // talk's Come with me, a dialog's weapon pick): a line of that talk, said on their machine as its parting line - a talk's
+                // lines stay the talking player's, as the host's own just above. Review M1: never guessed from SCore's CurrentNPC cvar
+                // (it stays set after the talk closes)
+                if (talker != null && !(talker is EntityPlayerLocal) && ScNet.ClientMatches(talker))
                 {
                     if (ScVoice.SayAfterTalkFor(talker, npc, key)) refusalsInTalk++;
                     else refusalsUnrecorded++;
@@ -697,25 +698,6 @@ namespace SurvivorCommunity
                 if (sq <= bestSq) { bestSq = sq; best = p; }
             }
             return best;
-        }
-
-        /// <summary>
-        /// Round MP4: a remote player (with SC's protocol) whose talk is with this NPC - SCore's CurrentNPC cvar on them, and they
-        /// stand within ScTalkContext.TalkRange of her (a stale cvar from an old talk does not count) - or null.
-        /// </summary>
-        private static EntityPlayer RemoteTalker(EntityAlive npc)
-        {
-            if (npc == null || !ScCommunity.IsHost) return null;
-            float sq = ScTalkContext.TalkRange * ScTalkContext.TalkRange;
-            List<EntityPlayer> all = ScPlayers.All;
-            for (int i = 0; i < all.Count; i++)
-            {
-                EntityPlayer p = all[i];
-                if (p == null || p is EntityPlayerLocal || p.IsDead() || !ScNet.ClientMatches(p) || p.Buffs == null) continue;
-                if (!p.Buffs.HasCustomVar("CurrentNPC") || (int)p.Buffs.GetCustomVar("CurrentNPC") != npc.entityId) continue;
-                if ((p.position - npc.position).sqrMagnitude <= sq) return p;
-            }
-            return null;
         }
 
         /// <summary>P7: a Follow refusal for want of room - SC's MaxFollowers (scFollowersFull) or 0-XNPCCore's party cap (ScPartyCap's text).</summary>

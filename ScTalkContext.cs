@@ -394,7 +394,7 @@ namespace SurvivorCommunity
                 }
                 if (take.Count == 0) return 0;
                 int before = ScCategories.CountInPlayer(player, r);
-                inv.RemoveItems(take, 1, removed);
+                ScCraftFromBase.SuppressContainers(() => inv.RemoveItems(take, 1, removed));   // round MP4 (review cfs1 m5): the bag and toolbelt alone
                 return Math.Max(0, before - ScCategories.CountInPlayer(player, r));
             }
             catch (Exception e)

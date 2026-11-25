@@ -63,6 +63,9 @@ namespace SurvivorCommunity
                 ScMirror.ServerTick();
                 // round MP4 (part K): the community's map markers to remote clients (its own try; nothing is built with none)
                 ScMarkers.ServerTick();
+                // round MP4 (review cfs1 M1): the base's open boxes to remote clients, so their Craft from Storage leaves them out (its
+                // own try; nothing is built with none)
+                ScCraftFromBase.ServerTick();
                 // round MP0: no longer the local player - a dedicated server has none. With nobody online there is nothing
                 // to tick (a dedicated server's world time stands still with no players)
                 EntityPlayer player = ScPlayers.Anchor();

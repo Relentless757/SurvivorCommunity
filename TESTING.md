@@ -37,6 +37,50 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP4 (review fixes) (2026-11-25): rescues for every player, refusals to the right player, Craft from Storage skips open boxes
+
+Fixes from the three reviews of round MP4. Single player should look and sound exactly as before; most steps need a
+client (a second machine, or the dedicated server). With DebugLogging the log names each step.
+
+**Rescues**
+
+- [ ] On the dedicated server, a runner's distress call now happens in normal play (before, only `sc distress` started one).
+- [ ] A client goes alone to the site of a call: the zombies spawn when they arrive. Once the client clears them, the
+      rescue counts and every player's copy of the quest closes as completed.
+- [ ] A client is offline while a call ends. The same runner calls again from another place, then the client logs on:
+      their quest and marker point at the new place, not the old one (log: "rescue quest for <name> renewed for ...").
+
+**Voices**
+
+- [ ] Listen host with a client: the host gives an order she refuses (Follow with a full party) while the client, who
+      talked to her earlier, stands near. The host hears the refusal; the client does not get it as a talk line.
+- [ ] A client's own talk "Come with me" is refused for want of room: the client hears her say so as the talk closes, and
+      the host does not hear a second copy.
+- [ ] Dedicated server, a horde held off: a player near the guard hears the "all clear" in person.
+- [ ] Listen host: while the host has a dialog open, a client far from the host still hears a resident's chatter.
+      Nobody near the host speaks chatter during the host's talk.
+- [ ] A client stands near a powered radio station at home without having pressed it this session and has no handheld:
+      they hear a speaker's radio line through it, as the host does.
+- [ ] A raider fighting a remote player kills them and turns straight to another player: the raider still says the
+      "killed" taunt.
+- [ ] `sc voice barks` on a client: lines its own Voice Control was speaking over count as "held by a talk", not played
+      twice. Near a say-line (Voice Control's own line on a survivor), a client hears it once, not twice.
+
+**Craft from Storage (client)**
+
+- [ ] Player B opens crate X by hand and keeps it open. Client A, elsewhere in the base, opens a recipe whose ingredient
+      only X holds: it shows as missing. B closes X: within a second A's recipe counts it. Nothing is duplicated after A
+      crafts.
+- [ ] At a packing station, a deposit that is short of bundles in the bag never takes them from a crate (log has no
+      0-SCore container take).
+
+**Quests and tells**
+
+- [ ] Single player: accept an enclave request, save, quit and load again: the request quest is still in the journal.
+- [ ] Dedicated server: a siege whose quest reaches no journal says so in the log ("siege request #...: no journal quest").
+- [ ] A client in another game language: "Enclave found ... (friendly)", "... now friendly", an ally's benefit name and
+      "the raiders are gone" show the standing, benefit and band words in the client's language.
+
 ## Round MP4 (part: tells) (2026-11-25): each player reads SC's tells in their own language
 
 Why: a tell (the tooltip SC shows for news: a run back, a member down, a daily summary, a radio call) reached a remote

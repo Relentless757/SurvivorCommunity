@@ -2604,8 +2604,8 @@ Round MP0 is the groundwork:
   - **Markers on a client:** the client tick runs `ScQuests.TickMarkers` on its own journal every second, from its copy's
     prospect positions (a POI favour's marker follows the survivor from phase 2, a lost request marker is placed again), and
     `EnsureMapObject` places the supplies favour's marker from the copy (MP1 had left both off on a client).
-  - **Known gaps:** the distress call itself stays off on a dedicated server (`ScRadio.RollDistress`; `sc distress` works)
-    and its trigger and judging are the anchor's position until MP5. The session tables (who got which rescue, how calls
+  - **Known gaps:** (the distress call on a dedicated server and its trigger and judging by any community player: round MP4
+    review fixes, below.) The session tables (who got which rescue, how calls
     and requests ended, who held which favour) are not saved: after a server restart a copy that ended meanwhile closes as
     removed, and a favour held only by a player who has not reported since the restart can lose `Started` if another holder
     drops it first (their POI may then be re-armed once). A request accepted by a player whose platform id changed is no
@@ -2646,7 +2646,44 @@ Round MP0 is the groundwork:
   upgrades and the drop box use the three-argument overload and keep 0-SCore's range (hooking that one would let a repair
   count base boxes it does not take from). On a client the zone comes from the mirror and the boxes are the client's loaded
   copies; 0-SCore's taking on a client writes the whole box back to the server (its own multiplayer model, unchanged here).
-  `CraftFromBaseStorage` (default true) turns it off.
+  `CraftFromBaseStorage` (default true) turns it off. (A client's open-box skip and range: round MP4 review fixes, below.)
+
+- **Round MP4 (review fixes)** (the round's three code reviews):
+  - **Rescues for every player** (markers/quests M1, M2): `ScRadio.RollDistress` no longer needs a local player, and
+    `TickDistress` spawns and judges a call by `RescuerNear` (the anchor first, as before, else the first living community
+    player within range), so any player's copy can be the one completed. A client's copy from an earlier call or session
+    (not in `rescueSent`) is closed and started again for the open call (m1). A rescue quest has its own `QuestCode` and
+    `QuestUniqueId` (m4).
+  - **Request quests:** `AcceptedBy` stays empty for the host's own player (m2) and `HostAccepted` is always true in single
+    player, so a save loaded under another platform id keeps its quest. A siege quest that reached no journal is logged (m5).
+  - **Voices:** `ScVoiceRoutes.SayRefusal` takes the talker from its call sites (`TalkFollow`'s sender, a dialog's weapon
+    pick) instead of guessing it from SCore's sticky `CurrentNPC` cvar (voices M1). The "all clear" goes to the tick's player
+    (m6). The host's open talk keeps chatter away from the host only (m2). A client drops a server line (not a taunt) while
+    its own Voice Control speaks on that NPC (m3). A client hears the base's stations from its copy of the registry (m5). A
+    raider's "killed" taunt is tested before a new living target (m7). A Voice Control line SC says in its place within 3 s of
+    a say-line on that NPC is not relayed (`ScBarks.NoteSayLine`, m8). A dedicated server does not count a horde line as
+    "unheard" (tells n5).
+  - **Craft from Storage:** the server sends its clients the home zone's open boxes (`NetPackageScOpenBoxes`: int32
+    community, int32 n, n x int32 x, y, z; the whole set when it changes, at most once a second, and to a client that lacks
+    it) and a client's crafting leaves them out, 0-SCore's own near ones too (cfs1 M1). A client adds no base box beyond
+    150 m (m1). SC's own takes from the bag (`ScItemTx.TakeFromLocal`, `ScCategories`, `ScTalkContext`) run inside
+    `ScCraftFromBase.SuppressContainers`, so 0-SCore's `ConsumeItem` sees no container there (m5). The base's box list is
+    worked out once a frame per player (n8).
+  - **Tells:** an enclave's standing word, an ally's benefit name and a band's kind word go as `LocArg` (m4). The host's
+    own tell shows a badly formatted row as it is, as a client does (n1). `NetPackageScTell.read` keeps at most 8 arguments (n7).
+  - **Known gaps (left on purpose):**
+    - Craft from Storage on a client: an open the client has not heard of yet (up to a second), and a server-side write to
+      a box in the same instant as a client's craft (an NPC deposit, another player's linked storage commit), can still be
+      overwritten by the client's whole-box write. A server-side take (a request with compare-and-set, as linked storage
+      does) would close it: a round of its own. A linked storage view is not told of a craft's take until its next change
+      to that slot is refused and resyncs (cfs1 m2).
+    - A greeting a client drops (its own talk open) is still spent on the server (voices m1). The greeting switches are
+      each machine's own, so server off and client on gives no greeting at all (m4). A non-member's say-lines and talk
+      lines on a client can be in another voice than the one the server names (m9). The greeting memory is not pruned
+      within a session (n4).
+    - A forged journal report can mark a POI favour done or taken on (quests m3): the same trust the game gives a client's
+      journal. A siege's quest is the anchor's alone until MP5 (m5). Marker labels, place names and a helper's words in a
+      tell (`Where`, `DestText`, `Describe`, a reason) stay in the server's language (m6, tells m4).
 
 ## How it hangs together (for modders)
 

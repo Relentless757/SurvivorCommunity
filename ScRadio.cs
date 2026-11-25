@@ -544,9 +544,8 @@ namespace SurvivorCommunity
             // powered station at home (ScHandheld.DistressAllowed; DistressNeedsRadio=false: the rule above's old one).
             // Round MP0: the handheld is the host's own (a remote bag is not readable here) - else the station alone
             if (m == null || !ScHandheld.DistressAllowed(m, player as EntityPlayerLocal)) return false;
-            // round MP0: a dedicated server has no local player to take the rescue quest or see the marker, and none reaches a
-            // client before MP4: a runner pinned at a site nobody can find would only wait out the hours - no distress there yet
-            if (ScCommunity.LocalPlayer == null) return false;
+            // round MP0 kept distress off a dedicated server (no local player to take the quest). Round MP4 review M2: every
+            // community player online gets the rescue quest and its marker (ScQuestNet), and any of them answers it (TickDistress)
 #else
             if (m == null || !Online()) return false;
 #endif
@@ -637,27 +636,45 @@ namespace SurvivorCommunity
                 if (!m.EventSpawned)
                 {
                     if (physical && (m.Offline || ScCommunity.FindNpc(m.Id) == null)) continue;   // they come back into the world first
-                    // round MP0: the trigger and the judging below are the anchor's position (the host's own player on a host). MP5: per player
+                    // round MP4 review M1: the trigger and the judging below are any community player's position - the anchor first (the
+                    // host's own player on a host: single player as before), else the first living community player there - so every
+                    // player's rescue copy can be the one completed (was the anchor's alone)
                     Vector3 centre = new Vector3(m.RunSpawn.x + 0.5f, m.RunSpawn.y, m.RunSpawn.z + 0.5f);
-                    float d = Vector3.Distance(new Vector3(player.position.x, 0f, player.position.z), new Vector3(centre.x, 0f, centre.z));
-                    if (d <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(m.RunSpawn)) SpawnEvent(w, player, m);
+                    EntityPlayer arrived = RescuerNear(player, centre, ScConfig.RescueTriggerRange);
+                    if (arrived != null && ScZone.IsLoaded(m.RunSpawn)) SpawnEvent(w, arrived, m);
                     continue;
                 }
-                // the event is live: rescued once every spawned zombie is down - judged only while the player is
+                // the event is live: rescued once every spawned zombie is down - judged only while a player is
                 // there and the spot is loaded (walking off until they unload is not a rescue)
-                {
-                    Vector3 c2 = new Vector3(m.RunSpawn.x + 0.5f, m.RunSpawn.y, m.RunSpawn.z + 0.5f);
-                    float d2 = Vector3.Distance(new Vector3(player.position.x, 0f, player.position.z), new Vector3(c2.x, 0f, c2.z));
-                    if (d2 > ScConfig.RescueTriggerRange * (physical ? 1f : 2f) || !ScZone.IsLoaded(m.RunSpawn)) continue;
-                }
+                Vector3 c2 = new Vector3(m.RunSpawn.x + 0.5f, m.RunSpawn.y, m.RunSpawn.z + 0.5f);
+                EntityPlayer there = RescuerNear(player, c2, ScConfig.RescueTriggerRange * (physical ? 1f : 2f));
+                if (there == null || !ScZone.IsLoaded(m.RunSpawn)) continue;
                 bool anyAlive = false;
                 for (int i = 0; i < m.EventZombies.Count; i++)
                 {
                     EntityAlive z = w.GetEntity(m.EventZombies[i]) as EntityAlive;
                     if (z != null && !z.IsDead()) { anyAlive = true; break; }
                 }
-                if (!anyAlive) Rescued(w, player, m);
+                if (!anyAlive) Rescued(w, there, m);
             }
+        }
+
+        /// <summary>
+        /// Round MP4 review M1: who is at a rescue (XZ distance within range of centre): the anchor first, as before (the host's own
+        /// player on a host, dead or alive - the old test), else the first living community player there; or null.
+        /// </summary>
+        private static EntityPlayer RescuerNear(EntityPlayer anchor, Vector3 centre, float range)
+        {
+            Vector2 c = new Vector2(centre.x, centre.z);
+            if (anchor != null && Vector2.Distance(new Vector2(anchor.position.x, anchor.position.z), c) <= range) return anchor;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer q = all[i];
+                if (q == null || ReferenceEquals(q, anchor) || q.IsDead() || !ScPlayers.InCommunity(q)) continue;
+                if (Vector2.Distance(new Vector2(q.position.x, q.position.z), c) <= range) return q;
+            }
+            return null;
         }
 
         public static int ZombieCount(Member m, EntityPlayer player)   // round MP0: any player's gamestage. MP5: gamestage of the players involved

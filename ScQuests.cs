@@ -531,7 +531,15 @@ namespace SurvivorCommunity
                 q.DataVariables[ObjectiveScTalkToSurvivor.NameVar] = SafeName(name ?? "");
                 q.DataVariables[TitleVar] = string.Format(Localization.Get("scQuestRescueNameFmt"), SafeName(name ?? ""));
                 q.DataVariables[MemberVar] = memberId.ToString();
+                // review m4: a code (and unique id) of its own, as a request quest's - a late joiner gets every open rescue in one
+                // frame, and vanilla's code (frame time, quest id, owner, giver) would be the same for all of them
+                string uid = "scRescue_" + memberId + "_" + player.entityId + "_"
+                             + DateTime.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture) + "_"
+                             + Time.unscaledTime.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+                int code = uid.GetHashCode();
+                q.QuestCode = code != 0 ? code : 1;
 #if SC_V34
+                q.QuestUniqueId = uid;
                 j.AddQuest(q, Quest.QuestSource.QuestSystem);
 #else
                 j.AddQuest(q);

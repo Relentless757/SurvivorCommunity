@@ -96,20 +96,24 @@ namespace SurvivorCommunity
             key = r.ReadString();
             sound = r.ReadString();
             int n = r.ReadByte();
-            kinds = new byte[n];
-            values = new object[n];
+            int keep = Math.Min(n, MaxArgs);                 // review tells n7: the stream is read through, at most MaxArgs kept
+            kinds = new byte[keep];
+            values = new object[keep];
             for (int i = 0; i < n; i++)
             {
                 byte k = r.ReadByte();
-                kinds[i] = k;
+                object v;
                 switch (k)
                 {
-                    case ArgInt: values[i] = r.ReadInt32(); break;
-                    case ArgLong: values[i] = r.ReadInt64(); break;
-                    case ArgFloat: values[i] = r.ReadSingle(); break;
-                    case ArgDouble: values[i] = r.ReadDouble(); break;
-                    default: values[i] = r.ReadString(); break;      // ArgText, ArgKey
+                    case ArgInt: v = r.ReadInt32(); break;
+                    case ArgLong: v = r.ReadInt64(); break;
+                    case ArgFloat: v = r.ReadSingle(); break;
+                    case ArgDouble: v = r.ReadDouble(); break;
+                    default: v = r.ReadString(); break;      // ArgText, ArgKey
                 }
+                if (i >= keep) continue;
+                kinds[i] = k;
+                values[i] = v;
             }
         }
 

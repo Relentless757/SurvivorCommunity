@@ -935,8 +935,8 @@ namespace SurvivorCommunity
                     TellHomeKey("scWatchClear", "", m.Name);
                     ScLog.Out(m.Name + " on watch calls the all clear");
 #if SC_V34
-                    EntityPlayerLocal lp = player as EntityPlayerLocal;
-                    if (lp != null) ScHordeVoice.SayAtHome(HordeMoment.Clear, m, npc, null, lp, false);
+                    // round MP4 review m6: the tick's player, as Gather and Spotted (was the host's own only)
+                    ScHordeVoice.SayAtHome(HordeMoment.Clear, m, npc, null, player, false);
 #endif
                     return;
                 }

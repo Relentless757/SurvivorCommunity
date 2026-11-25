@@ -644,7 +644,7 @@ namespace SurvivorCommunity
                 {
                     ScCommunity.Tell(player, string.Format(Localization.Get("scEncCallSays"), m.Name, string.Format(Localization.Get("scKitToolNotWeapon"), ItemLabel(tool))), "ui_denied");
                     // round m1w (P7): said aloud too (the line without the tool's name), once recorded; the swap's own reply is then swallowed
-                    ScVoiceRoutes.SayRefusal(npc, "scKitToolNotWeaponSaid", "told to fight with the work kit's " + tool + " (" + route + ")");
+                    ScVoiceRoutes.SayRefusal(npc, "scKitToolNotWeaponSaid", "told to fight with the work kit's " + tool + " (" + route + ")", true, route == "dialog" ? player : null);   // round MP4 review M1: a dialog's pick is a talk
                 }
             }
             catch (Exception e) { ScLog.Once("jobs-kit-refused", e); }

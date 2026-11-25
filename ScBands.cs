@@ -352,7 +352,10 @@ namespace SurvivorCommunity
             return b.Name.Length > 0 ? b.Name : KindWord(b);
         }
 
-        public static string KindWord(Band b) { return Loc(b.IsRaiders ? "scBandKindRaiders" : "scBandKindDrifters"); }
+        public static string KindWord(Band b) { return Loc(KindWordKey(b)); }
+
+        /// <summary>Round MP4 (review tells m4): KindWord's localization key, for a tell argument (ScCommunity.LocArg).</summary>
+        public static string KindWordKey(Band b) { return b.IsRaiders ? "scBandKindRaiders" : "scBandKindDrifters"; }
 
         /// <summary>Where they head: the building's name, an enclave's ("The Holdouts at Miller Farmhouse") when one holds it.</summary>
         public static string DestText(Band b)
@@ -1922,7 +1925,7 @@ namespace SurvivorCommunity
         /// </summary>
         private static void Destroyed(Band b, EntityPlayer by)
         {
-            bool near = TellNearKey(Where(b), ScConfig.BandDespawnRange, "scBandGone", "", KindWord(b), DestText(b));   // round MP0: every community player near
+            bool near = TellNearKey(Where(b), ScConfig.BandDespawnRange, "scBandGone", "", ScCommunity.LocArg(KindWordKey(b)), DestText(b));   // review tells m4: the kind word as a key   // round MP0: every community player near
             if (b.Known || near) ScOutposts.NoteLedger(string.Format(Loc("scBandLedgerGone"), KindWord(b), DestText(b)));
             End(b, "destroyed" + (by != null ? " (the last killed by " + by.EntityName + ")" : ""), false);
         }
