@@ -418,6 +418,7 @@ namespace SurvivorCommunity
             Add(t, "XUiC_QuestObjectivesWindow::GetBindingValueInternal", AccessTools.Method(typeof(XUiC_QuestObjectivesWindow), "GetBindingValueInternal", binding));
 #if SC_V34
             Add(t, "TileEntity::OnUnlockedServer", Patches_Craft.UnlockedTarget());   // round MP3 (part G): a client's station craft with a member
+            Add(t, "RemoteCraftingUtils::GetTileEntities(EntityAlive)", Patch_CraftFromBase.Target());   // round cfs1: Craft from Storage in the base
             // round MP3 (review packing/gear m2): a client's late station write-back after a forced unlock is not paid twice
             Add(t, "TileEntityWorkstation::read", Patches_Craft.WorkstationReadTarget());
             // round MP3 (part L): a box opened by hand leaves the views that show it, and no throw while a change is in flight

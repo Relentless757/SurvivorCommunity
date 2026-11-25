@@ -37,6 +37,27 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round cfs1 (2026-11-25): Craft from Storage finds every linked storage box in the base
+
+Why (the user): "Every crafting resource in linked storage should be detected while inside the base." 0-SCore's Craft from
+Storage looks only at containers within its Distance (30 m) - and, while its broadcast manager runs, only at boxes switched
+to broadcast. Now, while you stand inside the community's home zone, crafting also finds ingredients in every box linked
+storage links (player-placed storage in the base; never the packing station or the land claim block's own storage),
+wherever it stands in the base. Setting: `CraftFromBaseStorage` (on by default). Build `sc34_cfs1`, not deployed.
+
+**Single player** (0-SCore's Craft from Storage on, a base with crates more than 30 m apart)
+- [ ] Put an ingredient (e.g. wood) only in a crate at the far end of the base, empty your bag of it, and stand inside the
+      base at the other end: a workbench or backpack recipe that needs it counts it and crafts; the crate loses exactly
+      that much.
+- [ ] Step outside the home zone: the far crate is no longer counted (0-SCore's own range only).
+- [ ] A crate locked with a password you don't know: its contents are not counted.
+- [ ] With an enemy near (if 0-SCore's BlockOnNearbyEnemies is on): no container counts, as before.
+- [ ] Block upgrade or repair with the far crate's materials only: refused as before (repairs keep 0-SCore's range).
+- [ ] `CraftFromBaseStorage` false in Config/blocks.xml: the far crate is not counted.
+
+**A client on a dedicated server**
+- [ ] Inside the base, the client crafts from a far crate; the crate loses that much on the server (open it afterwards).
+
 ## Round MP3 (review fixes) (2026-11-24): linked storage keeps RE Inventory's footprint, claims block nothing, nothing deleted
 
 Why: the MP3 reviews found that with RE Inventory a swap or a batch of deposits skipped the footprint test (a box could go

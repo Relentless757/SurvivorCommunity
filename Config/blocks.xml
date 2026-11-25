@@ -1502,6 +1502,13 @@
 			     server's admins may dismiss members, disband outposts, move the home and order rationing. false: every
 			     player on the server may. Single player is unaffected. -->
 			<property name="SharedOwnerOnly" value="false" />
+			<!-- CraftFromBaseStorage (with 0-SCore's Craft from Storage on): true = while you stand inside the community's
+			     home zone, crafting also finds ingredients in every box linked storage links (player-placed storage in the
+			     base, never the packing station or the land claim block's own storage), wherever it stands in the base and
+			     whether or not it broadcasts. Boxes locked against you stay out; with an enemy near, 0-SCore's own rule
+			     (no crafting from storage) still holds. Block upgrades and repairs keep 0-SCore's own range. false: 0-SCore's
+			     own range only. -->
+			<property name="CraftFromBaseStorage" value="true" />
 
 			<!-- Traits, rolled by weight at recruit. Keys: weight, morale (community offset), mood (own offset),
 			     skill=Name:stars (starting bonus), spec=Specialty (preferred), xp (skill XP multiplier), timid=1 (flees).

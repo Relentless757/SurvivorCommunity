@@ -1428,6 +1428,11 @@ namespace SurvivorCommunity
         /// disband outposts, move the home and order rationing (ScActionAccess.Owner); false (default) = every player may.
         /// </summary>
         public static bool SharedOwnerOnly = false;
+        /// <summary>
+        /// Round cfs1 (the user, 2026-11-25): inside the home zone, 0-SCore's Craft from Storage also finds ingredients in every
+        /// box linked storage links (ScCraftFromBase), wherever it stands in the base. false: 0-SCore's own range only.
+        /// </summary>
+        public static bool CraftFromBaseStorage = true;
         public static readonly List<TraitDef> Traits = new List<TraitDef>();
 
         private static bool parsed;
@@ -1491,6 +1496,7 @@ namespace SurvivorCommunity
             TraitsPerRecruit = 2;
             Verbose = false;
             SharedOwnerOnly = false;          // round MP2
+            CraftFromBaseStorage = true;      // round cfs1
             Traits.Clear();
             SurvivorLookChance = 0.5f;
             SurvivorGearSets.Clear();
@@ -2831,6 +2837,9 @@ namespace SurvivorCommunity
                 bool ownerOnly = SharedOwnerOnly;     // round MP2
                 if (p.Values.ContainsKey("SharedOwnerOnly")) p.ParseBool("SharedOwnerOnly", ref ownerOnly);
                 SharedOwnerOnly = ownerOnly;
+                bool craftBase = CraftFromBaseStorage;     // round cfs1
+                if (p.Values.ContainsKey("CraftFromBaseStorage")) p.ParseBool("CraftFromBaseStorage", ref craftBase);
+                CraftFromBaseStorage = craftBase;
 
                 string s;
                 if (p.Values.TryGetValue("BedBlocks", out s) && !string.IsNullOrEmpty(s)) { BedBlocks.Clear(); BedBlocks.AddRange(SplitList(s)); }
