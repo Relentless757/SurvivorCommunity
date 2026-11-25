@@ -148,7 +148,7 @@ moves her on.
 - [ ] (review fix H-m4) While A's talk (under 90 s) holds her, B picks Follow me, Head home, a supply or mining run, a posting,
       a watch post or Ask to leave (or a guard pick on the Facilities tab): refused with "They're talking with someone else
       right now..."; A keeps her. After 90 s with no order the same verb works for B (A's windows on her close; no "is with"
-      line for a verb). A verb B cannot do anyway (a full party) still leaves A's hold alone. B's "That's all for now." (a
+      line for a verb) - except Head home: she is already home, so it only answers "stationed" and A keeps the talk. A verb B cannot do anyway (a full party) still leaves A's hold alone. B's "That's all for now." (a
       crafted request) never ends A's talk hold, however old.
 - [ ] (review fix H-m5) A gives her an order (a work shift), then idles: B's talk never takes her over (a work shift does not
       yield); B reads the busy line.

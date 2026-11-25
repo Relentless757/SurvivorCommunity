@@ -44,6 +44,8 @@ namespace SurvivorCommunity
         private static readonly Dictionary<long, Hold> held = new Dictionary<long, Hold>();
         private static readonly List<KeyValuePair<int, int>> marks = new List<KeyValuePair<int, int>>();
         private static readonly HashSet<long> seen = new HashSet<long>();
+        // round mt1 (final check M2): backups that lapsed (distance, a stale mark) without a "false" - the panel's close still sends it
+        private static readonly HashSet<long> lapsed = new HashSet<long>();
         private static readonly List<long> scratch = new List<long>();
         private static bool bindTried;
         private static MethodInfo getOrCreate, setActive;
@@ -53,6 +55,7 @@ namespace SurvivorCommunity
         public static void Reset()
         {
             held.Clear();
+            lapsed.Clear();             // round mt1 (final check M2)
             marks.Clear();
             seen.Clear();
             started = calls = released = 0;
@@ -135,6 +138,7 @@ namespace SurvivorCommunity
                     {
                         h = new Hold { Next = now };
                         held[key] = h;
+                        lapsed.Remove(key);     // round mt1 (final check M2): held again
                         started++;
                         ScLog.Verbose("member panel: the server holds " + ScCommunity.DisplayName(npc) + " for " + p.PlayerDisplayName
                                       + " while their panel is open (a backup of Voice Control's hold)");
@@ -148,7 +152,12 @@ namespace SurvivorCommunity
                 // a mark that went stale, a player out of reach, dead or gone, a body gone: the backup ends
                 scratch.Clear();
                 foreach (long key in held.Keys) if (!seen.Contains(key)) scratch.Add(key);
-                foreach (long key in scratch) End(w, key, "no longer at her panel", false);   // re-check F3: let it lapse (Voice Control's 45 s)
+                foreach (long key in scratch)
+                {
+                    End(w, key, "no longer at her panel", false);   // re-check F3: let it lapse (Voice Control's 45 s)
+                    if (lapsed.Count > 256) lapsed.Clear();
+                    lapsed.Add(key);                                 // final check M2: the panel's close still sends "false"
+                }
             }
             catch (Exception e)
             {
@@ -174,10 +183,24 @@ namespace SurvivorCommunity
         /// <summary>ScAmmo.RemoteClosed, the server: that player's (player &lt; 0: every player's) backup on this NPC ends now.</summary>
         public static void Release(int npc, int player, string why)
         {
-            if (held.Count == 0) return;
+            if (held.Count == 0 && lapsed.Count == 0) return;
             try
             {
                 World w = ScCommunity.World;
+                // round mt1 (final check M2): a backup that lapsed earlier still ends with "false" at the panel's close
+                if (lapsed.Count > 0)
+                {
+                    scratch.Clear();
+                    foreach (long key in lapsed)
+                        if (NpcOf(key) == npc && (player < 0 || PlayerOf(key) == player)) scratch.Add(key);
+                    foreach (long key in scratch)
+                    {
+                        lapsed.Remove(key);
+                        if (held.ContainsKey(key)) continue;                 // held again since: End below sends it
+                        EntityAlive body = w != null ? w.GetEntity(NpcOf(key)) as EntityAlive : null;
+                        if (body != null) Set(body, PlayerOf(key), false);
+                    }
+                }
                 scratch.Clear();
                 foreach (long key in held.Keys)
                     if (NpcOf(key) == npc && (player < 0 || PlayerOf(key) == player)) scratch.Add(key);

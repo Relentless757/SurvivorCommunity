@@ -838,7 +838,13 @@ namespace SurvivorCommunity
         public static void EndFor(Member m, string verb)
         {
             if (m == null || !OnShift(m.Id)) return;
-            End(m, ScCommunity.FindNpc(m.Id), verb, false, false);
+            EntityAlive npc = ScCommunity.FindNpc(m.Id);
+            // round mt1 (final check M1): with another player online, the host's own talk hold ending here (another player's verb on
+            // an idle hold) closes the host's windows on her, as YieldIdleTalk does - never in single player
+            Shift s;
+            bool hostHold = shifts.TryGetValue(m.Id, out s) && s.Phase == Phase.Talk && !s.Remote && ScPlayers.All.Count > 1;
+            End(m, npc, verb, false, false);
+            if (hostHold && npc != null && !shifts.ContainsKey(m.Id)) CloseTalkWindows(npc);
         }
 
         /// <summary>ScCommunity.Station (any stationing path) and CleanupStale: the shift's state goes, with no further step.</summary>
