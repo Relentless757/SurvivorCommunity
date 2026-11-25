@@ -37,6 +37,51 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round mt1 (part: H) (2026-11-25): a client's talk links a resident on the server, and sending a follower home reaches every client
+
+Why: on a dedicated server a client could not use a resident's 0-XNPCCore rows (Craft..., Pay / Gift..., Equipment...,
+Jobs and gear), her craft window listed nothing and Voice Control's server refused every order ("Command Loot rejected:
+player N is not the leader of ..."), so "gather wood" left her standing. The talk hold that links her to the talking player
+only ever started on the host, for the host's own player. Now the server starts it when a client's talk opens, the client
+keeps it alive while its talk is open, and the end of a follow (`Leader`) reaches the clients. Untested in game; protocol
+unchanged in this branch (the merge sets it). `sc craft <name>` on the server's console shows her hold or shift in its
+"shift:" line; `sc craft` shows the counts.
+
+**Single player (nothing may change)**
+- [ ] Talk to a resident at home: Craft..., Jobs and gear and Show me your inventory show as before. While the talk is open
+      `sc craft <name>` says "shift: Talk (round 28's talk hold) ... a talk window last seen open 0 s ago".
+- [ ] Close the talk without an order: about 2 s later she walks back to her post, and `sc craft <name>` says "shift: none".
+- [ ] Talk, Jobs and gear, Chop wood: the log says "<name> starts a work shift (from the talk)"; she chops and the wood
+      reaches the home crates.
+- [ ] Make her follow you, then send her home, then talk to her again: her rows are exactly as before.
+- [ ] Send a member on a supply run and post one to an outpost: nothing different.
+
+**A client on a dedicated server**
+- [ ] Talk to a resident at home who has never followed: within a second Craft..., Jobs and gear, Pay / Gift... and
+      0-XNPCCore's Equipment... show. On the server's console `sc craft <name>` says "Talk ... held by <you> (a remote
+      player), their client's last word 0 s ago" (1 s at most while the talk stays open).
+- [ ] Craft... lists recipes instead of waiting on "..." for ever; a role on the ring's Roles page toggles. The server log
+      has no `[VC-NET] ... rejected: player N is not the leader of <name>` line.
+- [ ] Jobs and gear, Chop wood: the server logs "<name> starts a work shift (from the talk)", she chops, and `sc craft
+      <name>` counts wood "in the crates".
+- [ ] Close every window without an order: 2-4 s later she walks back to her post and `sc craft <name>` says "shift: none
+      (... Owner=0 ...)". Your next talk links her again.
+- [ ] Open the craft window from the talk and leave it open: she stays linked (the client's heartbeat), and the talk
+      dialog's close does not end the hold while the craft window is open.
+- [ ] Make her follow you, send her home, talk again: Craft... and the other hired rows show only through the talk link, the
+      craft window fills, and no `ListCraftable rejected` line appears (before, your machine kept you as her leader).
+- [ ] Quit the game while talking to her (or while she works for you after a job order): the server's log says her talk
+      hold or work shift ended ("the player left the game") and she walks back to her post.
+
+**Two players** (two clients on the dedicated server, or a listen host and a client)
+- [ ] A talks to her. B talks to her while A's talk is open: B reads "<name> is busy with <A> right now. Ask again once they
+      are done.", B's hired rows stay hidden, and nothing changes for A. Once A closes the talk, B's next talk links her.
+- [ ] Same while she works for A (A gave her a job): B gets the same line; her shift stays A's.
+- [ ] B presses Call to work in the Community tab while A talks to her: refused with "They're talking with someone else right
+      now..."; A keeps her.
+- [ ] Listen host: the client holds her and the host talks to her: the host reads the busy line. The client's hold ends (it
+      closes its windows, or walks away): none of the host's windows close.
+
 ## Round MP4 results so far (2026-11-25): one client on the dedicated server
 
 Self-test with one client (Elisk) on the dedicated server, protocol 5, build `sc34_mp4fix` (DLL 1efe55e7). No SC exception

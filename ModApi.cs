@@ -213,6 +213,11 @@ namespace SurvivorCommunity
                     {
                         if (_d.ClientInfo != null) ScAmmo.ForgetPlayer(_d.ClientInfo.entityId);
                         if (_d.ClientInfo != null) ScNet.ForgetClient(_d.ClientInfo.entityId);   // round MP0
+#if SC_V34
+                        // round mt1 (part H): their talk holds and work shifts end now (she walks back to her post), not at the
+                        // heartbeat's grace; nothing at a shutdown (shifts live in memory, the resident rule stations her at the next load)
+                        if (_d.ClientInfo != null && !_d.GameShuttingDown) ScWork.ForgetPlayer(_d.ClientInfo.entityId);
+#endif
                     }
                     catch (Exception e) { ScLog.Once("player-disconnected", e); }
                 });

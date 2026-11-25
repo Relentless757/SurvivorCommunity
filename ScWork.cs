@@ -43,6 +43,15 @@ namespace SurvivorCommunity
     ///    RepairDutyIdleMinutes with nothing she can repair (Base repair at once at night; Combat repair never at night and not
     ///    while a foe is near - review M1), and the residents' stuck rescue may act on her meanwhile (AllowsWatchdog, round 29b's
     ///    hook).
+    ///  - Round mt1 (part H): a remote talker's hold. The postfix above runs on the machine whose dialog opens, so a client's
+    ///    talk never linked her and Voice Control's server-side router refused every order ("not the leader"). The server now
+    ///    starts the hold itself when the client's talk context Open arrives (ScTalkContext.OnTalkOpen -> HoldForRemote), before
+    ///    it answers with the facts. TalkOpen reads only this machine's windows, so the client runs it and sends a heartbeat about
+    ///    once a second while it holds (RemoteBeat), then a close (RemoteClosed); TalkTick keeps a remote hold on those
+    ///    (RemoteGraceSeconds without a word ends it) and never reads or closes the host's windows for it. The first holder
+    ///    keeps her: another player's talk gets no link and a tell (TellBusy), and another player's call to work waits. A
+    ///    player who leaves the game ends their holds and shifts (ForgetPlayer). The rest - her first order promoting the hold,
+    ///    what she gathers going to the crates - is unchanged: it all runs on the server.
     /// </summary>
     public static class ScWork
     {
@@ -54,8 +63,14 @@ namespace SurvivorCommunity
 
         private enum Phase { Called, Working, Idle, Talk }
 
-        /// <summary>Round 28: a talk hold ends this many real seconds after the last talk window closed (the ring's close-and-reopen hop fits).</summary>
-        private const float TalkGraceSeconds = 2f;
+        /// <summary>Round 28: a talk hold ends this many real seconds after the last talk window closed (the ring's close-and-reopen hop fits).
+        /// Round mt1 (part H): internal - a client applies the same grace before it sends its close (ScTalkContext).</summary>
+        internal const float TalkGraceSeconds = 2f;
+        /// <summary>
+        /// Round mt1 (part H): a remote talker's hold ends this many real seconds after their client's last heartbeat (it beats
+        /// about once a second while its talk is open, and through its own TalkGraceSeconds) - lag, a client that went quiet.
+        /// </summary>
+        private const float RemoteGraceSeconds = 5f;
         /// <summary>Round 28: whatever TalkOpen says, a talk hold ends after this many real seconds (a window group another mod renamed).</summary>
         private const float TalkCapSeconds = 600f;
         /// <summary>
@@ -98,12 +113,19 @@ namespace SurvivorCommunity
             public string DutyState = "";
             /// <summary>Round MP2: the entity id of the player she is linked to (the one who called her or talked to her).</summary>
             public int OwnerId;
+            /// <summary>
+            /// Round mt1 (part H): OwnerId is a remote player (not this machine's own). A Talk phase then lives on their client's
+            /// word: TalkSeen is the last heartbeat (RemoteBeat), ClientClosed their client's close (RemoteClosed).
+            /// </summary>
+            public bool Remote, ClientClosed;
         }
 
         private static readonly Dictionary<int, Shift> shifts = new Dictionary<int, Shift>();
         private static readonly List<int> scratch = new List<int>();
         private static int starts, ends, staleCleared, depositedTotal, jobsDropped, windowCancels;
         private static int talkStarts, talkPromoted, talkEnds, talkSkipped;
+        /// <summary>Round mt1 (part H): holds started for a remote talker, and talks that found her held by another player.</summary>
+        private static int remoteTalkStarts, busyRefused;
         private static int gatheredTotal, packResumes, packEnds, fieldJobsTaken, dutiesStarted, dutyIdleEnds;
         /// <summary>Round 29 review L4: ledger items no longer in her window (TrimLedger), and its scratch tables.</summary>
         private static int ledgerTrimmed;
@@ -121,6 +143,7 @@ namespace SurvivorCommunity
             shifts.Clear();
             starts = ends = staleCleared = depositedTotal = jobsDropped = windowCancels = 0;
             talkStarts = talkPromoted = talkEnds = talkSkipped = 0;
+            remoteTalkStarts = busyRefused = 0;                 // round mt1 (part H)
             gatheredTotal = packResumes = packEnds = fieldJobsTaken = dutiesStarted = dutyIdleEnds = 0;
             ledgerTrimmed = 0;
             pendingNoted = pendingArrived = pendingExpired = 0;
@@ -174,6 +197,17 @@ namespace SurvivorCommunity
             return p ?? ScCommunity.LocalPlayer;
         }
 
+        /// <summary>
+        /// Round mt1 (part H): the shift's player when that is a remote player still in the world, else null - End hands it to
+        /// ScCommunity.Station as the party she leaves, so a remote owner loses the link (their hire mark) while the host's own
+        /// shifts and single player keep Station's own pick exactly as before.
+        /// </summary>
+        private static EntityPlayer RemoteOwner(Shift s)
+        {
+            EntityPlayer p = s != null && s.OwnerId > 0 ? ScPlayers.ByEntity(s.OwnerId) : null;
+            return p != null && !(p is EntityPlayerLocal) ? p : null;
+        }
+
         public static int Count { get { return shifts.Count; } }
 
         // ------------------------------------------------------------------ start ----
@@ -217,6 +251,15 @@ namespace SurvivorCommunity
         {
             if (!CanStart(m, npc, player, out error)) return false;
             if (!ScCommunity.IsHost || !ScRegistry.Loaded) { error = "scHostOnly"; return false; }     // round MP2: never a client's copy (E10)
+            // round mt1 (part H): the first holder keeps her - another player's call to work never takes a talk hold over (it waits
+            // until that talk is over). Single player: the hold is always the caller's own
+            Shift held;
+            if (shifts.TryGetValue(m.Id, out held) && held.Phase == Phase.Talk && held.OwnerId > 0 && held.OwnerId != player.entityId)
+            {
+                busyRefused++;
+                error = "scWorkHeldOther";
+                return false;
+            }
             // round 28: a talk hold (the Community tab opened from her talk) gives way to the call - the link is written again below
             if (InTalk(m.Id))
             {
@@ -237,7 +280,7 @@ namespace SurvivorCommunity
                 if (call) ScCommunity.DropPath(npc);
                 float now = Time.time;
                 shifts[m.Id] = new Shift { Started = now, PhaseSince = now, NextDeposit = now + DepositSeconds, Phase = Phase.Called, Called = call,
-                                           OwnerId = player.entityId };
+                                           OwnerId = player.entityId, Remote = !(player is EntityPlayerLocal) };     // round mt1 (part H): Remote
                 starts++;
                 ScLog.Out(m.Name + " starts a work shift (" + (call ? "called from the Community tab" : "talked to") + ") at " + npc.GetBlockPosition()
                           + " - " + m.Specialty + " " + m.SpecLevel + " stars, roles " + ScCraft.MaskText(ScCraft.ReadMask(npc)));
@@ -279,8 +322,11 @@ namespace SurvivorCommunity
         /// member opens (her rows are filled on the list's next Update, so they see the link). The cvars Start writes - Owner,
         /// the player's EntityID, SCore's leader cache dropped - and a Guard spot where she stands (SC's roam and leash stand
         /// down on a shift: she stays while you talk), but no sc_shift. No log line but a verbose one: it is every talk.
+        /// Round mt1 (part H): any player - the host's own from that postfix as before, a remote talker from the server's talk
+        /// context (HoldForRemote), whose hold then lives on their client's heartbeat (Shift.Remote, TalkTick). The window-group
+        /// check (LogTalkGroupsOnce) reads this machine's own UI, so only the host's own talk runs it.
         /// </summary>
-        public static bool StartTalk(Member m, EntityAlive npc, EntityPlayerLocal player)
+        public static bool StartTalk(Member m, EntityAlive npc, EntityPlayer player)
         {
             string why;
             if (!CanHold(m, npc, player, out why))
@@ -299,10 +345,20 @@ namespace SurvivorCommunity
                 SphereCache.LeaderCache.Remove(npc.entityId);
                 ScCommunity.ApplyPost(npc, EntityUtilities.CenterPosition(npc.position));
                 float now = Time.time, real = Time.unscaledTime;
+                EntityPlayerLocal local = player as EntityPlayerLocal;     // round mt1 (part H): null for a remote talker
                 shifts[m.Id] = new Shift { Started = now, PhaseSince = now, NextDeposit = now + DepositSeconds, Phase = Phase.Talk, TalkSince = real, TalkSeen = real, CapSince = real,
-                                           OwnerId = player.entityId };     // round MP2
+                                           OwnerId = player.entityId,      // round MP2
+                                           Remote = local == null };       // round mt1 (part H)
                 talkStarts++;
-                LogTalkGroupsOnce(player);
+                if (local == null)
+                {
+                    // round mt1 (part H): a remote talker - no window of theirs is readable here (their client's heartbeat keeps it)
+                    remoteTalkStarts++;
+                    ScLog.Verbose(m.Name + ": talk hold - linked to " + player.PlayerDisplayName + " (a remote player: kept while their client says the talk is open) at "
+                                  + npc.GetBlockPosition());
+                    return true;
+                }
+                LogTalkGroupsOnce(local);
                 ScLog.Verbose(m.Name + ": talk hold - linked to you while the talk and its windows are open (at " + npc.GetBlockPosition() + ")");
                 return true;
             }
@@ -310,6 +366,107 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("work-talk-start", e);
                 return false;
+            }
+        }
+
+        // ------------------------------------------------------------------ round mt1 (part H): a remote talker's hold ----
+
+        /// <summary>
+        /// Round mt1 (part H), server: a remote player opened a talk with this member (ScTalkContext.OnTalkOpen, before the facts
+        /// are built and sent, so the force-sent Owner cvar reaches their client first). True when she is linked to them for it:
+        /// a new talk hold (StartTalk: CanHold's rules), or their own hold or shift already - a hold of theirs is kept alive (the
+        /// hold-E ring's jump back into her dialog opens the talk again). The rule for two players: the first holder keeps her.
+        /// While another player's hold or work shift has her, this talker gets no link (her hired rows stay hidden for them,
+        /// Voice Control refuses their orders) and is told so (TellBusy).
+        /// </summary>
+        public static bool HoldForRemote(Member m, EntityAlive npc, EntityPlayer player)
+        {
+            if (m == null || npc == null || player == null || player is EntityPlayerLocal) return false;
+            Shift s;
+            if (shifts.TryGetValue(m.Id, out s))
+            {
+                if (s.OwnerId == player.entityId)
+                {
+                    if (s.Phase == Phase.Talk)
+                    {
+                        float real = Time.unscaledTime;
+                        s.TalkSeen = real;
+                        s.CapSince = real;          // the talk is open again: the cap's own clock restarts, as for the host's
+                        s.ClientClosed = false;
+                    }
+                    return true;
+                }
+                TellBusy(m, player, s);
+                return false;
+            }
+            return StartTalk(m, npc, player);
+        }
+
+        /// <summary>
+        /// Round mt1 (part H), server: the heartbeat of a remote talker's hold (NetPackageScTalkContext's Held, about once a second
+        /// while their client's TalkOpen holds, and through its own grace). dialog: the talk window with her is open - the cap's
+        /// clock restarts on it, as TalkTick does for the host's own. Only the hold's own player keeps it; anything else is ignored.
+        /// </summary>
+        public static void RemoteBeat(Member m, EntityPlayer player, bool dialog)
+        {
+            Shift s;
+            if (m == null || player == null || !shifts.TryGetValue(m.Id, out s) || !s.Remote || s.Phase != Phase.Talk || s.OwnerId != player.entityId) return;
+            float real = Time.unscaledTime;
+            s.TalkSeen = real;
+            if (dialog) s.CapSince = real;
+        }
+
+        /// <summary>
+        /// Round mt1 (part H), server: the remote talker's client says its talk with her is over (its own TalkGraceSeconds after
+        /// the last window closed). TalkTick ends the hold on its next tick. A work shift (her first order promoted the hold)
+        /// keeps its own end rules.
+        /// </summary>
+        public static void RemoteClosed(Member m, EntityPlayer player)
+        {
+            Shift s;
+            if (m == null || player == null || !shifts.TryGetValue(m.Id, out s) || !s.Remote || s.Phase != Phase.Talk || s.OwnerId != player.entityId) return;
+            s.ClientClosed = true;
+        }
+
+        /// <summary>
+        /// Round mt1 (part H): the host's own talk (Patches_Craft's postfix) found her held by another player - told, as a remote
+        /// talker is (HoldForRemote). Never in single player: every hold and shift there is the one player's.
+        /// </summary>
+        public static void TellIfHeldByOther(Member m, EntityPlayer player)
+        {
+            Shift s;
+            if (m == null || player == null || !shifts.TryGetValue(m.Id, out s) || s.OwnerId <= 0 || s.OwnerId == player.entityId) return;
+            TellBusy(m, player, s);
+        }
+
+        /// <summary>Round mt1 (part H): "{0} is busy with {1}" to a second talker (the first holder keeps her).</summary>
+        private static void TellBusy(Member m, EntityPlayer player, Shift s)
+        {
+            busyRefused++;
+            EntityPlayer other = ScPlayers.ByEntity(s.OwnerId);
+            string name = other != null ? other.PlayerDisplayName : null;
+            ScLog.Verbose(m.Name + ": no talk hold for " + player.PlayerDisplayName + " - " + (s.Phase == Phase.Talk ? "in a talk with " : "on a work shift for ")
+                          + (name ?? "player " + s.OwnerId) + " (the first holder keeps her)");
+            if (!string.IsNullOrEmpty(name)) ScCommunity.TellKey(player, "scTalkBusyWith", "", m.Name, name);
+            else ScCommunity.TellKey(player, "scTalkBusy", "", m.Name);
+        }
+
+        /// <summary>
+        /// Round mt1 (part H), server (ModApi's PlayerDisconnected): a player left the game - their talk holds and work shifts end
+        /// now and she walks back to her post, instead of at the heartbeat's grace or the shift's idle end (the Owner link would
+        /// point at nobody). Not at a shutdown: shifts live in memory, and the resident rule stations her at the next load.
+        /// </summary>
+        public static void ForgetPlayer(int entityId)
+        {
+            if (entityId <= 0 || shifts.Count == 0 || !ScCommunity.IsHost || !ScRegistry.Loaded) return;
+            var theirs = new List<int>();
+            foreach (var kv in shifts)
+                if (kv.Value.OwnerId == entityId) theirs.Add(kv.Key);
+            foreach (int id in theirs)
+            {
+                Member m = ScRegistry.GetMember(id);
+                if (m == null) { shifts.Remove(id); continue; }      // Sweep's case: no member, nothing to station
+                End(m, ScCommunity.FindNpc(id), "the player left the game", true, false);
             }
         }
 
@@ -349,13 +506,24 @@ namespace SurvivorCommunity
         /// </summary>
         private static bool TalkOpen(EntityAlive npc)
         {
+            bool dialog;
+            return TalkOpen(npc, out dialog);
+        }
+
+        /// <summary>
+        /// Round mt1 (part H): TalkOpen, also on a client - it reads only this machine's own player and windows, so a remote
+        /// talker's client runs it for the heartbeat of its hold (ScTalkContext). dialog: the talk window with her is open.
+        /// </summary>
+        internal static bool TalkOpen(EntityAlive npc, out bool dialog)
+        {
+            dialog = false;
             try
             {
                 EntityPlayerLocal player = ScCommunity.LocalPlayer;
                 LocalPlayerUI ui = player != null ? player.PlayerUI : null;
                 GUIWindowManager wm = ui != null ? ui.windowManager : null;
                 if (wm == null || npc == null) return false;
-                if (DialogWithHer(ui, wm, npc)) return true;
+                if (DialogWithHer(ui, wm, npc)) { dialog = true; return true; }
                 if (player.Buffs == null || (int)player.Buffs.GetCustomVar("CurrentNPC") != npc.entityId) return false;
                 if (wm.IsWindowOpen(CraftGroup) || wm.IsWindowOpen(WheelGroup) || wm.IsWindowOpen(EquipGroup) || wm.IsWindowOpen(GiftGroup)) return true;
                 if (XUiC_ScMemberInvGroup.ShowsNpc(npc.entityId)) return true;     // round n10: her inventory on SC's member panel
@@ -399,6 +567,9 @@ namespace SurvivorCommunity
         private static void TalkTick(Member m, EntityAlive npc, Shift s)
         {
             float real = Time.unscaledTime;
+            // round mt1 (part H): a remote talker's hold - their client's word instead of this machine's windows (which, on a
+            // listen host, are the HOST's: never read or closed for it)
+            if (s.Remote) { RemoteTalkTick(m, npc, s, real); return; }
             if (TalkOpen(npc)) s.TalkSeen = real;
             else if (real - s.TalkSeen >= TalkGraceSeconds)
             {
@@ -425,6 +596,24 @@ namespace SurvivorCommunity
                 XUiC_ScMemberInvGroup.CloseFor(npc.entityId);                        // round n10: her inventory on SC's member panel
             }
             End(m, npc, "the talk hold's " + (int)TalkCapSeconds + " s cap", true, false);
+        }
+
+        /// <summary>
+        /// Round mt1 (part H): TalkTick for a remote talker's hold. It ends - quietly, she walks back to her post - when their
+        /// client said the talk is over (RemoteClosed), after RemoteGraceSeconds without a heartbeat, when the player is gone or
+        /// farther than ScTalkContext.TalkRange from her (a talk is a few meters), or at TalkCapSeconds since the dialog with her
+        /// was last open. No window is touched here: their client sees her Owner link go (a 0) and stops its heartbeat.
+        /// </summary>
+        private static void RemoteTalkTick(Member m, EntityAlive npc, Shift s, float real)
+        {
+            EntityPlayer owner = ScPlayers.ByEntity(s.OwnerId);
+            string over = null;
+            if (owner == null) over = "the player is gone";
+            else if (s.ClientClosed) over = "the talk is over";
+            else if (real - s.TalkSeen >= RemoteGraceSeconds) over = "no word from the player's talk for " + (int)RemoteGraceSeconds + " s";
+            else if ((owner.position - npc.position).sqrMagnitude > ScTalkContext.TalkRange * ScTalkContext.TalkRange) over = "the player walked away";
+            else if (real - s.CapSince >= TalkCapSeconds) over = "the talk hold's " + (int)TalkCapSeconds + " s cap";
+            if (over != null) End(m, npc, over, true, false);
         }
 
         /// <summary>Round 28: her first craft order or job of a talk hold makes it a work shift (from here on today's rules).</summary>
@@ -464,7 +653,9 @@ namespace SurvivorCommunity
                 {
                     if (s != null) Deposit(m, npc, s, true);
                     SetShiftCvar(npc, false);                       // round MP2: 0, sent to the clients (was a removal)
-                    if (station) ScCommunity.Station(m, npc, !talk);   // Detach drops her craft order first (DropJob); review L6: no teleport after a talk
+                    // Detach drops her craft order first (DropJob); review L6: no teleport after a talk. Round mt1 (part H): a remote
+                    // owner's party is the one she leaves (their hire mark goes); null - the host's own, single player - as before
+                    if (station) ScCommunity.Station(m, npc, !talk, RemoteOwner(s));
                     else ScCommunity.Detach(npc, OwnerOf(s));       // round MP2: the shift's own player (it was the host's own)
                     DropMarker(npc);                                // SCore drew a hire marker for the owner link: it goes with it
                 }
@@ -1010,7 +1201,7 @@ namespace SurvivorCommunity
             if (full && !s.SaidFull)
             {
                 s.SaidFull = true;
-                ScCommunity.TellKey(ScCommunity.LocalPlayer, "scWorkCratesFull", "", m.Name);
+                ScCommunity.TellKey(OwnerOf(s), "scWorkCratesFull", "", m.Name);     // round mt1 (part H): the shift's player (the host's own as before; nobody heard it on a dedicated server)
             }
         }
 
@@ -1077,7 +1268,7 @@ namespace SurvivorCommunity
                 if (!s.SaidPackFull)
                 {
                     s.SaidPackFull = true;
-                    ScCommunity.TellKey(ScCommunity.LocalPlayer, "scWorkPackFull", "", m.Name);
+                    ScCommunity.TellKey(OwnerOf(s), "scWorkPackFull", "", m.Name);     // round mt1 (part H): the shift's player (as above)
                 }
                 return false;
             }
@@ -1171,6 +1362,12 @@ namespace SurvivorCommunity
                 ItemClass ic = ItemClass.GetForId(kv.Key);
                 coming.Append(coming.Length > 0 ? ", " : "").Append(ic != null ? ic.GetItemName() : kv.Key.ToString()).Append(" x").Append(kv.Value);
             }
+            if (s.Phase == Phase.Talk && s.Remote)     // round mt1 (part H): a remote talker's hold
+            {
+                EntityPlayer o = ScPlayers.ByEntity(s.OwnerId);
+                return "Talk (round 28's talk hold) for " + (int)(Time.unscaledTime - s.TalkSince) + " s, held by " + (o != null ? o.PlayerDisplayName : "player " + s.OwnerId)
+                       + " (a remote player), their client's last word " + (int)(Time.unscaledTime - s.TalkSeen) + " s ago" + (s.ClientClosed ? " (talk closed)" : "") + cvar;
+            }
             if (s.Phase == Phase.Talk)
                 return "Talk (round 28's talk hold) for " + (int)(Time.unscaledTime - s.TalkSince) + " s, a talk window last seen open " + (int)(Time.unscaledTime - s.TalkSeen)
                        + " s ago" + cvar;
@@ -1191,6 +1388,7 @@ namespace SurvivorCommunity
                    + staleCleared + ", items put in the crates " + depositedTotal + ", craft orders dropped " + jobsDropped
                    + ", window cancels kept on the shift " + windowCancels + "; talk holds: " + talkStarts + " started, " + talkPromoted + " became a work shift, "
                    + talkEnds + " ended, " + talkSkipped + " not started (a resident who could not be held)"
+                   + ", " + remoteTalkStarts + " for a remote talker, " + busyRefused + " refused as held by another player"     // round mt1 (part H)
                    + "; home jobs (round 29a): gathered " + gatheredTotal + ", pack emptied and back to work " + packResumes + ", pack full and ended " + packEnds
                    + ", field jobs taken back " + fieldJobsTaken + ", repair duties " + dutiesStarted + " started, " + dutyIdleEnds + " ended with nothing to repair"
                    + ", ledger items no longer in a window " + ledgerTrimmed
