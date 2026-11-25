@@ -2007,5 +2007,95 @@ namespace SurvivorCommunity
                 }
             }
         }
+#if SC_V34
+
+        // ------------------------------------------------------------------ round mt1 (part G, H1): the panel holds her ----
+        //
+        // The user (2026-11-25): "the equipment menu stays up when the NPC walks away. They shouldn't walk away when you are
+        // managing equipment unless they go to investigate or engage enemies." Voice Control's interaction hold - the one every
+        // talk uses - is what keeps an NPC in place: NPCChatComponent.UpdateChatPauseState (every frame, on every machine with
+        // a component for her) holds her while the dialog with her, the trade window or the vanilla "looting" window bound to
+        // her container is open on that machine (LocalHarvestWindowOpenOn). SC's member panel is its own window group and
+        // closes the dialog as it opens, so the hold dropped the moment the panel came up: Guard walked her back to her post,
+        // Wander, RoutineWalk, the jobs and SC's roam and small-talk took her (bug_gear_equip_window.md 2.1-2.2).
+        // A postfix on LocalHarvestWindowOpenOn counts SC's panel (and Voice Control's own equipment window, NpcEquipGroup, for
+        // its NPC - non-members, or everyone with MemberInventoryPanel off) as that window. From the Voice Control 3.4 decompile:
+        //  - The hold only scores NoActiveChat 0 (UAIConsiderationNoActiveChat), which 0-XNPCCore puts on Guard, Stay, Wander,
+        //    the follows, patrols, RoutineWalk, the medic walk and the jobs, and SC on ScAtPost, ScRoam, ScNightIdle, ScChat and
+        //    ScGather. Every attack, approach, back-off, cover, throw, flee and LeaveArea, SC's base defense and its investigate
+        //    walk carry no such gate: she still leaves to fight or investigate (the user's exception), and the panel then closes
+        //    at a person's reach (XUiC_ScMemberInv.WalkedOff, round mt1's H3).
+        //  - On a client its own component sees its own panel and tells the server (VCChatStateNotifier.Notify ->
+        //    NetPackageVCChatState -> SetRemoteChatActive(player, true) for 45 s, refreshed every 20 s; the close sends false;
+        //    ChatStateAuthorityRules takes it within the chat range, 15 m, 40 m for a hired NPC). On the host and in single
+        //    player the host's component holds her and turns her to the player (hold reason "inventory").
+        //  - Side effect, as in any talk: Voice Control stows her weapon while the hold is up and for ChatWeaponGraceSeconds
+        //    (20 s) after; the panel's close no longer re-arms a member by name (XUiC_ScMemberInvGroup.ReArm, round mt1's F3).
+        // Bound by name (a private static bool), off with one error line when Voice Control renamed it; listed in ModApi's
+        // ExpectedTargets.
+
+        /// <summary>Round mt1 (part G, H1): NPCChatComponent.LocalHarvestWindowOpenOn(EntityAlive), private static bool.</summary>
+        public static MethodBase HarvestWindowTarget()
+        {
+            Type t = ChatType;
+            return t != null ? Returning(AccessTools.DeclaredMethod(t, "LocalHarvestWindowOpenOn", new[] { typeof(EntityAlive) }), typeof(bool), true) : null;
+        }
+
+        [HarmonyPatch]
+        public static class Patch_PanelHold
+        {
+            /// <summary>Voice Control's own equipment window (XUiC_NpcEquipWindow): its NPC (static s_npcId) and window group name; null without it.</summary>
+            private static FieldInfo equipNpc;
+            private const string EquipGroup = "NpcEquipGroup";
+
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (HarvestWindowTarget() == null)
+                    {
+                        if (ChatType != null)
+                            ScLog.Err("NPCChatComponent.LocalHarvestWindowOpenOn(EntityAlive) not found (Voice Control update?) - a member walks off while her inventory panel is open");
+                        return false;
+                    }
+                    // optional: without it only SC's panel counts
+                    Type w = ScEquipRedirect.WindowType;      // Voice Control's own assembly only
+                    FieldInfo f = w != null ? AccessTools.Field(w, "s_npcId") : null;
+                    equipNpc = f != null && f.IsStatic && f.FieldType == typeof(int) ? f : null;
+                    return true;
+                }
+                catch (Exception e) { ScLog.Once("vc-bind-panelhold", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return HarvestWindowTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive __0, ref bool __result)
+            {
+                try
+                {
+                    if (__result || __0 == null) return;
+                    int id = __0.entityId;
+                    if (XUiC_ScMemberInvGroup.HoldsNpc(id))
+                    {
+                        __result = true;
+                        return;
+                    }
+                    if (equipNpc != null && (int)equipNpc.GetValue(null) == id && id > 0)
+                    {
+                        LocalPlayerUI ui = LocalPlayerUI.GetUIForPrimaryPlayer();
+                        if (ui != null && ui.windowManager != null && ui.windowManager.IsWindowOpen(EquipGroup)) __result = true;
+                    }
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-panelhold", e);
+                }
+            }
+        }
+#endif
     }
 }

@@ -35,6 +35,8 @@ namespace SurvivorCommunity
     /// before players.xml, so before the registry, loads), and an item that is gone or renamed is dropped with one warning. A
     /// save from before n12 has no such line (nothing stored: today's behavior); an older build ignores the key and drops it at
     /// its next save. Host only: a multiplayer client has no registry (its panel only shows what it has, see ScMemberGear).
+    /// Round mt1 (part G): a client's panel shows the server's exact items through the server's gear view (member.gearview,
+    /// ScMemberGear.GearView); the handed lines are still never mirrored.
     /// </summary>
     public static class ScHanded
     {
@@ -169,10 +171,10 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ copies ----
 
         /// <summary>
-        /// Makes a copy of a handed item carry its identity: quality, wear, seed, mods and cosmetic mods - never its Meta (a
-        /// gun's rounds) or its metadata (Locked &amp; Loaded's magazine state, which belongs to the copy). True when what a model
-        /// is built from changed (quality, seed, mods: ItemInventoryData.NeedsRebuild ignores wear and Meta), so a held copy
-        /// needs its model rebuilt.
+        /// Makes a copy of a handed item carry its identity: quality, wear, seed, mods, cosmetic mods and (round mt1) its rolled
+        /// stats - never its Meta (a gun's rounds) or its metadata (Locked &amp; Loaded's magazine state, which belongs to the
+        /// copy). True when what a model is built from changed (quality, seed, mods, stats: ItemInventoryData.NeedsRebuild
+        /// ignores only wear and Meta), so a held copy needs its model rebuilt.
         /// </summary>
         public static bool Imprint(ItemValue copy, ItemValue exact)
         {
@@ -182,8 +184,22 @@ namespace SurvivorCommunity
             if (copy.Seed != exact.Seed) { copy.Seed = exact.Seed; rebuild = true; }
             if (!ItemValue.Equals(copy.modifications, exact.modifications)) { copy.modifications = exact.modifications.CloneItemValueArray(); rebuild = true; }
             if (!ItemValue.Equals(copy.cosmeticMods, exact.cosmeticMods)) { copy.cosmeticMods = exact.cosmeticMods.CloneItemValueArray(); rebuild = true; }
+            // round mt1 (part G, F1): 3.4's per-item stat rolls (ItemValue.Stats: Base_Random_Roll and its boosts, which scale
+            // damage, attack speed, stamina and durability) - a copy built from the item's name has none, so a handed gun
+            // fought without its rolled bonuses and the panel's numbers changed with the copy on show. Stat is a struct: the
+            // array copy is deep.
+            if (!ItemValue.Equals(copy.Stats, exact.Stats)) { copy.Stats = CloneStats(exact.Stats); rebuild = true; }
             if (copy.UseTimes != exact.UseTimes) copy.UseTimes = exact.UseTimes;
             return rebuild;
+        }
+
+        /// <summary>Round mt1 (part G, F1): a copy of an item's rolled stats (null stays null).</summary>
+        private static ItemValue.Stat[] CloneStats(ItemValue.Stat[] stats)
+        {
+            if (stats == null) return null;
+            var c = new ItemValue.Stat[stats.Length];
+            Array.Copy(stats, c, stats.Length);
+            return c;
         }
 
         /// <summary>
@@ -232,12 +248,13 @@ namespace SurvivorCommunity
             if (ScRegistry.Loaded) ScRegistry.SaveAtomic();
         }
 
-        /// <summary>The same item as far as a model and its stats go: type, quality, seed, mods and cosmetic mods (wear and Meta aside).</summary>
+        /// <summary>The same item as far as a model and its stats go: type, quality, seed, mods, cosmetic mods and (round mt1) rolled stats (wear and Meta aside).</summary>
         public static bool SameBuild(ItemValue a, ItemValue b)
         {
             if (a == null || b == null || a.IsEmpty() || b.IsEmpty()) return false;
             return a.type == b.type && a.Quality == b.Quality && a.Seed == b.Seed
-                   && ItemValue.Equals(a.modifications, b.modifications) && ItemValue.Equals(a.cosmeticMods, b.cosmeticMods);
+                   && ItemValue.Equals(a.modifications, b.modifications) && ItemValue.Equals(a.cosmeticMods, b.cosmeticMods)
+                   && ItemValue.Equals(a.Stats, b.Stats);       // round mt1 (part G, F1)
         }
 
         /// <summary>A short key of an item's build (ScMemberGear.ArmorKey: a changed stored piece shows at once).</summary>
@@ -248,6 +265,9 @@ namespace SurvivorCommunity
             sb.Append(iv.type).Append('.').Append(iv.Quality).Append('.').Append(iv.Seed).Append('.').Append(iv.UseTimes.ToString("0.#", CultureInfo.InvariantCulture));
             for (int i = 0; i < iv.ModificationCount; i++) { ItemValue mod = iv.GetModification(i); sb.Append('.').Append(mod != null ? mod.type : 0); }
             for (int i = 0; i < iv.CosmeticModCount; i++) { ItemValue mod = iv.GetCosmeticMod(i); sb.Append('c').Append(mod != null ? mod.type : 0); }
+            // round mt1 (part G, F1): the rolled stats too - the same piece handed again with other rolls shows at once
+            if (iv.Stats != null)
+                foreach (ItemValue.Stat s in iv.Stats) sb.Append('s').Append((int)s.type).Append(s.isBoosted ? 'b' : ':').Append(s.value);
             return sb.ToString();
         }
 
@@ -437,13 +457,14 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ diagnostics ----
 
-        /// <summary>"gunX Q6, wear 12/300, mods [modA, modB], cosmetic [dye]".</summary>
+        /// <summary>"gunX Q6, wear 12/300, stats 3, mods [modA, modB], cosmetic [dye]" (round mt1: "stats n", her rolled stats, when it has any).</summary>
         public static string ItemText(ItemValue iv)
         {
             if (iv == null || iv.IsEmpty()) return "-";
             var sb = new StringBuilder(NameOf(iv) ?? ("type " + iv.type));
             if (iv.HasQuality) sb.Append(" Q").Append(iv.Quality);
             if (iv.MaxUseTimes > 0) sb.Append(", wear ").Append(iv.UseTimes.ToString("0.#", CultureInfo.InvariantCulture)).Append('/').Append(iv.MaxUseTimes);
+            if (iv.Stats != null && iv.Stats.Length > 0) sb.Append(", stats ").Append(iv.Stats.Length);     // round mt1 (part G, F1)
             sb.Append(", mods ").Append(ModList(iv.modifications));
             if (iv.CosmeticModCount > 0) sb.Append(", cosmetic ").Append(ModList(iv.cosmeticMods));
             if (iv.Metadata != null && iv.Metadata.Count > 0) sb.Append(", metadata ").Append(string.Join(",", new List<string>(iv.Metadata.Keys).ToArray()));

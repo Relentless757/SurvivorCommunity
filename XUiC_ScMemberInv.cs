@@ -17,7 +17,8 @@ namespace SurvivorCommunity
     ///
     /// Modeled on vanilla's XUiC_LootWindowGroup.openContainer / OnClose, with SCore's two loot-window hooks folded in (they
     /// are patches on XUiC_LootWindowGroup and never see this group): on close, an NPC the player talked to last (the
-    /// CurrentNPC cvar) re-reads its weapons (SCore's Harmony.Dialog.XUiC_LootWindowGroupOnClose), and a multiplayer client
+    /// CurrentNPC cvar) re-reads its weapons (SCore's Harmony.Dialog.XUiC_LootWindowGroupOnClose; round mt1: never a member,
+    /// see ReArm), and a multiplayer client
     /// sends its copy of the container back to the server (SCore's XUiC_LootWindowGroup_OnClose). Vanilla's SetModified on
     /// close is left out: it only runs for a container that is the world's tile entity at its position, which SCore's never
     /// is (its parent is a composite with no block), so vanilla never ran it for this container either.
@@ -131,6 +132,7 @@ namespace SurvivorCommunity
             {
                 Te = te;
                 NpcId = npc.entityId;
+                ShownNpcId = npc.entityId;       // round mt1 (part G, H1): Voice Control's hold asks every frame (HoldsNpc)
                 te.SetUserAccessing(true);
                 panel.SetTarget(te, npc);
                 wm.Open(windowGroup, _bModal: true);
@@ -157,8 +159,24 @@ namespace SurvivorCommunity
                 finally { abandoning = false; }
                 Te = null;
                 NpcId = -1;
+                ShownNpcId = -1;                 // round mt1 (part G, H1)
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Round mt1 (part G, H1): the member the panel shows on this machine, -1 while closed - set with NpcId, cleared on close,
+        /// so Voice Control's hold (Patches_VoiceControl.Patch_PanelHold asks for every NPC every frame) costs one compare.
+        /// </summary>
+        internal static int ShownNpcId { get; private set; } = -1;
+
+        /// <summary>
+        /// Round mt1 (part G, H1): does the panel show this NPC right now? The cheap test first (ShownNpcId), then the window
+        /// itself (ShowsNpc), so a group that went away without its close never holds her.
+        /// </summary>
+        internal static bool HoldsNpc(int entityId)
+        {
+            return entityId >= 0 && entityId == ShownNpcId && ShowsNpc(entityId);
         }
 
         /// <summary>Set while a failed Show closes the group again (SCore's screen takes over the client's copy).</summary>
@@ -189,18 +207,31 @@ namespace SurvivorCommunity
             {
                 Te = null;
                 NpcId = -1;
+                ShownNpcId = -1;             // round mt1 (part G, H1): Voice Control's hold on her ends with the panel
             }
             if (id >= 0) ScLog.Verbose("member inventory: closed for id " + id);
             ScEquipRedirect.PanelClosed();   // round U1 (B4): Voice Control's equipment window reopen, armed only by its Show backpack
         }
 
-        /// <summary>SCore's close hook for its talk NPC: the NPC re-reads its weapons from what it now carries (a client sends it).</summary>
+        /// <summary>
+        /// SCore's close hook for its talk NPC: the NPC re-reads its weapons from what it now carries (a client sends it).
+        /// Round mt1 (part G, F3; bug_gear_equip_window.md 1.4): never for a member. That re-read re-equips SCore's remembered
+        /// weapon BY NAME - on the host UpdateWeapon(), on a client NetPackageWeaponSwap and SendSyncData, which the server answers
+        /// with ItemClass.GetItem(name) - so the gun she was handed came back at a random quality with no mods and no stats on
+        /// every close (always within Voice Control's 20 s chat stow, which round mt1's hold keeps up for the whole panel). Every
+        /// change the panel makes already armed her with the exact, imprinted copy (ScLoadout.Set / Arm, ScArms.PanelWeapon), and
+        /// her window is not where a member's pair comes from; a client sends nothing - the server's state is current. Another
+        /// NPC the player talked to last (CurrentNPC is sticky) keeps SCore's re-read, as before.
+        /// </summary>
         private void ReArm()
         {
             EntityPlayerLocal p = xui.playerUI.entityPlayer;
             if (p == null || p.Buffs == null || !p.Buffs.HasCustomVar("CurrentNPC")) return;
-            IEntityAliveSDX sdx = p.world.GetEntity((int)p.Buffs.GetCustomVar("CurrentNPC")) as IEntityAliveSDX;
+            int cur = (int)p.Buffs.GetCustomVar("CurrentNPC");
+            Entity e = p.world.GetEntity(cur);
+            IEntityAliveSDX sdx = e as IEntityAliveSDX;
             if (sdx == null) return;
+            if (cur == NpcId || IsMember(e as EntityAlive)) return;      // round mt1 (part G, F3): no by-name re-arm for a member
             sdx.UpdateWeapon();
             if (!ScCommunity.IsHost) sdx.SendSyncData(1);
         }
@@ -281,6 +312,11 @@ namespace SurvivorCommunity
     /// XUiC_LootContainer so drag and drop, shift-click and take-all are the game's) and the BAG (npc.bag, XUiC_ScBagGrid;
     /// shown on the host only: a multiplayer client has no copy of an NPC's bag).
     ///
+    /// Round mt1 (part G): on a multiplayer client the equipment column is the server's view of it (member.gearview, polled
+    /// while open and carried by every gear reply: AskView, TakeView), never items of the client's own making; on every machine
+    /// the panel holds her in place through Voice Control's interaction hold (Patches_VoiceControl.Patch_PanelHold) and closes
+    /// when she walks out of a person's reach (WalkedOff, the tell scInvClosedAway).
+    ///
     /// The window is anchored at the screen's top-left (not a stack panel), so the layout never moves it: by default it sits
     /// where windowScMemberInvSpace was laid out (the looting window's place, left of the backpack), and once dragged where
     /// the player left it - remembered in ScUiLayout (%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt) across closing,
@@ -319,6 +355,30 @@ namespace SurvivorCommunity
         private float gearWaitUntil;
         private const float GearWaitSeconds = 10f;
         private string armorKey;
+
+        /// <summary>
+        /// Round mt1 (part G, F2), a client: the server's view of her equipment column (member.gearview; null until its first
+        /// answer for this opening - the weapon slots show names only until then, never a placeholder), asked every ViewSeconds
+        /// while the panel is open, one request at a time (ViewWaitSeconds: given up on an answer that never comes), and taken
+        /// from every gear reply that carries it. viewToken changes with every opening and close, so an answer of an earlier one
+        /// is dropped; viewAgain asks once more after an answer already on its way when something changed meanwhile.
+        /// </summary>
+        private ScMemberGear.GearView view;
+        private int viewToken;
+        private bool viewAsking, viewAgain;
+        private float viewAskedAt = -100f;
+        private const float ViewSeconds = 1.5f, ViewWaitSeconds = 10f;
+        /// <summary>Round mt1 (part G): the job tool slots' picks as last shown (CopyToolTake: a pick of the server's stores is not this machine's to take).</summary>
+        private ScMemberGear.ToolPick[] shownTools;
+
+        /// <summary>
+        /// Round mt1 (part G, H3; bug_gear_equip_window.md 2.3): the panel closes when she is more than AwayMeters away
+        /// horizontally, or AwayHeight vertically, for AwaySeconds - a person's reach, not vanilla's 32 m for a crate. The limits
+        /// grow to where she stood at the open (plus a step) when that was farther (a voice order from across the yard), and
+        /// shrink with her as she comes closer. awaySince: when she was first seen beyond them (-1: she is not).
+        /// </summary>
+        private const float AwayMeters = 6f, AwayHeight = 3f, AwaySeconds = 1f;
+        private float nearH = float.MaxValue, nearV = float.MaxValue, awaySince = -1f;
         private ScWindowMover mover;     // the title bar drags the window (ScWindowMover.cs)
         private bool wasReleased, activeKeyDown;
 
@@ -389,6 +449,9 @@ namespace SurvivorCommunity
             npc = member;
             armorKey = null;
             gearRequest = 0;                 // round MP3: a request of an earlier opening settles its own items when it answers
+            ResetView();                     // round mt1 (part G, F2): a new opening waits for its own view
+            nearH = nearV = float.MaxValue;  // round mt1 (part G, H3)
+            awaySince = -1f;
             Pack.SetSlots(storage);
             // SetSlots lays the grid out in the container's own columns (8); the panel's are wider
             if (packGrid != null) { packGrid.Columns = packCols; packGrid.Rows = (storage.ItemGrid.Length + packCols - 1) / packCols; }
@@ -419,6 +482,7 @@ namespace SurvivorCommunity
             if (card != null) card.Target = null;
             if (mover != null) mover.EndDrag();
             ScPanelHurt.Watch(null);         // round m1p
+            ResetView();                     // round mt1 (part G, F2): a late answer finds no panel to fill
             te = null;
             npc = null;
         }
@@ -454,6 +518,17 @@ namespace SurvivorCommunity
                     return;
                 }
                 float now = Time.unscaledTime;
+                // round mt1 (part G, H3; the user: "the equipment menu stays up when the NPC walks away"): she walked off - a fight,
+                // an investigation or a flight, the only things Voice Control's hold (round mt1's H1) still lets her leave for -
+                // so the panel goes once she is out of a person's reach for AwaySeconds, and says why
+                if (npc != null && WalkedOff(now))
+                {
+                    EntityAlive gone = npc;                  // OnClose clears npc
+                    xui.playerUI.windowManager.Close(windowGroup);
+                    ScCommunity.TellKey(xui.playerUI.entityPlayer, "scInvClosedAway", "", ScCommunity.DisplayName(gone));
+                    ScLog.Verbose("member inventory: closed - " + ScCommunity.DisplayName(gone) + " (id " + gone.entityId + ") walked off (round mt1)");
+                    return;
+                }
                 if (now < nextRefresh) return;
                 nextRefresh = now + RefreshSeconds;
                 // ms/m1all: knocked down (round U2) - 0-XNPCCore catches the hit that would have killed her, so ScPanelHurt never
@@ -465,7 +540,8 @@ namespace SurvivorCommunity
                     ScPanelHurt.Tell(xui.playerUI.entityPlayer, downed);
                     return;
                 }
-                // she died, was unloaded or walked off: the panel goes, as vanilla's loot window goes at a distance
+                // she died, was unloaded or walked off: the panel goes, as vanilla's loot window goes at a distance (round mt1: the
+                // walk-off itself is WalkedOff's, above; 32 m stays as the last word)
                 if (npc == null || npc.IsDead() || xui.playerUI.entityPlayer == null
                     || (npc.position - xui.playerUI.entityPlayer.position).sqrMagnitude > (Constants.cCollectItemDistance + 30f) * (Constants.cCollectItemDistance + 30f))
                 {
@@ -492,24 +568,45 @@ namespace SurvivorCommunity
             changed |= Set(ref packCount, CountText(te.ItemGrid.items, te.ItemGrid.Length));
             changed |= Set(ref bagCount, bag != null && bag.Bound ? CountText(npc.bag.ItemGrid.items, bag.SlotCount) : "");
 
-            ScMemberGear.WeaponView r = ScMemberGear.Weapon(npc, true), w = ScMemberGear.Weapon(npc, false);
+            // round mt1 (part G, F2): the host (single player, a listen host) builds the column inline, as before; a client shows
+            // the server's view (her exact items, its numbers in this machine's language) and, until its first answer, the
+            // weapons' names alone - never an item of its own making
+            bool host = ScCommunity.IsHost;
+            if (!host) AskView(false);
+            ScMemberGear.GearView v = host ? null : view;
+            ScMemberGear.WeaponView r, w;
+            if (host) { r = ScMemberGear.Weapon(npc, true); w = ScMemberGear.Weapon(npc, false); }
+            else if (v != null) { r = v.Weapons[0]; w = v.Weapons[1]; }
+            else { r = ScMemberGear.WeaponName(npc, true); w = ScMemberGear.WeaponName(npc, false); }
             changed |= Set(ref rName, r.Name) | Set(ref rInfo, r.Info) | Set(ref mName, w.Name) | Set(ref mInfo, w.Info);
-            string line;
-            bool show = ScAmmoChoice.Line(npc, out line);
+            string line = "";
+            bool show;
+            if (host) show = ScAmmoChoice.Line(npc, out line);
+            else
+            {
+                show = v != null && v.AmmoShow;
+                if (show) line = ScAmmoChoice.FormatLine(v.AmmoKey, v.AmmoItem, v.AmmoCount);
+            }
             changed |= Set(ref ammoLine, line) | show != ammoVisible;
             ammoVisible = show;
             if (weaponSlots.Length > 0) weaponSlots[0].Show(r.Stack);
             if (weaponSlots.Length > 1) weaponSlots[1].Show(w.Stack);
 
-            string key = ScMemberGear.ArmorKey(npc);
+            // round mt1 (part G, F2): a client's armor is the server's (her handed pieces exactly); a view whose armor did not fit
+            // its reply leaves the client's own copy of her look, as before; no view yet: bare slots
+            bool ownArmor = host || (v != null && v.ArmorState == ScMemberGear.GearView.ArmorLeftOut);
+            string key = ownArmor ? ScMemberGear.ArmorKey(npc) : v != null ? v.ArmorKey() : "-";
             if (key != armorKey)
             {
                 armorKey = key;
-                ItemStack[] a = ScMemberGear.Armor(npc);
+                ItemStack[] a = ownArmor ? ScMemberGear.Armor(npc) : v != null && v.ArmorState == ScMemberGear.GearView.ArmorSent ? v.Armor : null;
                 for (int i = 0; i < armorSlots.Length; i++) armorSlots[i].Show(a != null && i < a.Length ? a[i] : ItemStack.Empty);
             }
 
-            ScMemberGear.ToolPick[] tools = ScMemberGear.Tools(npc, te.ItemGrid.items);
+            // round mt1 (part G; bug_toolset_wood_job.md section 2): a client's job slots are its copy of her pack plus the
+            // server's picks from her bag and toolbelt - the work kit shows, as on the host
+            ScMemberGear.ToolPick[] tools = ScMemberGear.Tools(npc, te.ItemGrid.items, v != null ? v.Tools : null);
+            shownTools = tools;
             for (int i = 0; i < toolSlots.Length && i < tools.Length; i++)
             {
                 ScMemberGear.ToolPick t = tools[i];
@@ -518,6 +615,84 @@ namespace SurvivorCommunity
                 changed |= Set(ref toolNotes[i], note);
             }
             if (changed) RefreshBindings();
+        }
+
+        // ------------------------------------------------------------------ round mt1 (part G): a client's gear view ----
+
+        /// <summary>Round mt1 (part G, F2): forgets the view (a new opening, the close); an answer still on its way is dropped (viewToken).</summary>
+        private void ResetView()
+        {
+            view = null;
+            viewToken++;
+            viewAsking = viewAgain = false;
+            viewAskedAt = -100f;
+            shownTools = null;
+        }
+
+        /// <summary>
+        /// Round mt1 (part G, F2), a client: asks the server for her equipment column (member.gearview) - every ViewSeconds, or
+        /// now (a choice was made, a gear reply came without it); one request at a time (a "now" while one is on its way asks
+        /// again after it). The host never asks (it builds the column inline).
+        /// </summary>
+        private void AskView(bool now)
+        {
+            if (ScCommunity.IsHost || npc == null) return;
+            float t = Time.unscaledTime;
+            if (viewAsking && t - viewAskedAt > ViewWaitSeconds) viewAsking = false;     // never answered: ask again
+            if (viewAsking)
+            {
+                if (now) viewAgain = true;
+                return;
+            }
+            if (!now && t - viewAskedAt < ViewSeconds) return;
+            viewAsking = true;
+            viewAgain = false;
+            viewAskedAt = t;
+            int token = viewToken, id = npc.entityId;
+            ScActions.Request(ScActionsGear.OpGearView, reply =>
+            {
+                try
+                {
+                    if (token != viewToken) return;              // an earlier opening's answer
+                    viewAsking = false;
+                    if (npc == null || npc.entityId != id || windowGroup == null || !windowGroup.isShowing) return;
+                    if (TakeView(reply)) Refresh(false);          // what changed shows (the bindings and armor key compare)
+                    if (viewAgain) AskView(true);
+                }
+                catch (Exception e) { ScLog.Once("memberinv-view-reply", e); }
+            }, id);
+        }
+
+        /// <summary>
+        /// Round mt1 (part G, F2), a client: the view a reply carries (member.gearview, or a gear reply's), for the member on
+        /// show; true when there was one. The next poll waits a full ViewSeconds from here.
+        /// </summary>
+        private bool TakeView(ScActionReply reply)
+        {
+            if (npc == null) return false;
+            ScMemberGear.GearView v = ScMemberGear.ReadView(reply, npc.entityId);
+            if (v == null) return false;
+            view = v;
+            if (!viewAsking) viewAskedAt = Time.unscaledTime;
+            return true;
+        }
+
+        /// <summary>
+        /// Round mt1 (part G, H3): has she been out of a person's reach of the player for AwaySeconds? Horizontal and vertical
+        /// apart (a step up or a floor below is not a walk-off); the limits follow the nearest she has been since the open.
+        /// </summary>
+        private bool WalkedOff(float now)
+        {
+            EntityPlayerLocal p = xui.playerUI.entityPlayer;
+            if (p == null || npc == null) return false;
+            Vector3 d = npc.position - p.position;
+            float h = Mathf.Sqrt(d.x * d.x + d.z * d.z), vert = Mathf.Abs(d.y);
+            if (h < nearH) nearH = h;
+            if (vert < nearV) nearV = vert;
+            bool away = h > Mathf.Max(AwayMeters, nearH + 2f) || vert > Mathf.Max(AwayHeight, nearV + 1.5f);
+            if (!away) { awaySince = -1f; return false; }
+            if (awaySince < 0f) { awaySince = now; return false; }
+            return now - awaySince >= AwaySeconds;
         }
 
         /// <summary>"Member · At base · T2" (a client, without her record: "Member · T2").</summary>
@@ -608,7 +783,7 @@ namespace SurvivorCommunity
                         }
                         else if (!string.IsNullOrEmpty(text))     // done, but she can load it only once a magazine is empty (L&L)
                             GameManager.ShowTooltip(player, text.Replace("{", "{{").Replace("}", "}}"), string.Empty, "");
-                        if (!ScCommunity.IsHost) ScAmmoChoice.ClientLineStale();
+                        if (!ScCommunity.IsHost) AskView(true);     // round mt1 (part G): the line comes with the gear view now
                         if (npc != null) Refresh(true);
                     }
                     catch (Exception e) { ScLog.Once("memberinv-ammo-reply", e); }
@@ -674,6 +849,7 @@ namespace SurvivorCommunity
                     {
                         try { slot.PlayPlaceSound(sent); }
                         catch (Exception e) { ScLog.Once("memberinv-place-sound", e); }
+                        if (!TakeView(reply)) AskView(true);         // round mt1 (part G, F2): the server's column after the change
                         Refresh(true);
                     }
                 }
@@ -706,6 +882,7 @@ namespace SurvivorCommunity
                             try { slot.PlayPlaceSound(); }
                             catch (Exception e) { ScLog.Once("memberinv-place-sound", e); }
                         }
+                        if (!TakeView(reply)) AskView(true);         // round mt1 (part G, F2): the server's column after the change
                         Refresh(true);
                     }
                 }
@@ -780,9 +957,25 @@ namespace SurvivorCommunity
             Refresh(true);
         }
 
-        /// <summary>A client's tool take: out of its own copy of her pack (ScMemberEquip.CopyTakeTool).</summary>
+        /// <summary>
+        /// A client's tool take: out of its own copy of her pack (ScMemberEquip.CopyTakeTool). Round mt1 (part G): a slot showing
+        /// one of the server's picks (her toolbelt's work kit or pair weapon, or her bag: ScMemberGear.Tools) is refused here as
+        /// the host refuses the kit - CopyTakeTool would otherwise take the best tool of the client's copy of her pack, which is
+        /// not the one shown.
+        /// </summary>
         private void CopyToolTake(XUiC_ScGearSlot slot, bool toBackpack)
         {
+            ScMemberGear.ToolPick shown = shownTools != null && slot.Index >= 0 && slot.Index < shownTools.Length ? shownTools[slot.Index] : null;
+            if (shown != null && shown.Store != ScMemberGear.StoreWindow)
+            {
+                string who = ScCommunity.DisplayName(npc);
+                if (shown.Store == ScMemberGear.StoreBag) { slot.Denied(ScMemberEquip.Text("scInvRefuseBagClient", who)); return; }
+                string item = ScHanded.NameOf(shown.Stack != null ? shown.Stack.itemValue : null);
+                Loadout l = ScLoadout.Current(npc);
+                bool pair = l != null && item != null && (string.Equals(l.Melee, item, StringComparison.OrdinalIgnoreCase) || string.Equals(l.Ranged, item, StringComparison.OrdinalIgnoreCase));
+                slot.Denied(ScMemberEquip.Text(pair ? "scInvRefuseKitPair" : "scInvRefuseKit", who));
+                return;
+            }
             ItemStack taken;
             string why = ScMemberEquip.CopyTakeTool(xui.playerUI.entityPlayer, npc, te, slot.Index, toBackpack, out taken);
             if (why != null) { slot.Denied(why); return; }

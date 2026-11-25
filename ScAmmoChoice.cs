@@ -41,7 +41,8 @@ namespace SurvivorCommunity
     /// the chosen type, finds none and loads nothing, again and again, and she never fails over to melee.
     ///
     /// Round MP3: a multiplayer client's panel shows the server's line (member.ammoline) and its click is a request
-    /// (member.ammo, ScActionsGear); the choice is made and kept on the server as before.
+    /// (member.ammo, ScActionsGear); the choice is made and kept on the server as before. Round mt1 (part G): the line's parts
+    /// come with the panel's gear view (member.gearview) instead of a poll of their own.
     ///
     /// Members only (her record), on the host, while MemberInventoryPanel is on (with it off 0-XNPCCore's own window chooses,
     /// and SC leaves the gun's index alone). A choice applies only while her pair's gun is the one it was made for: another
@@ -234,12 +235,14 @@ namespace SurvivorCommunity
         /// magazines; "· 30 loose" when she has that type only as loose rounds, which wait for an empty magazine) - false (no
         /// line) for anyone but a member, and for a gun with only one ammo type (a bow with stone arrows only, most mod guns).
         /// A read. Round MP3: on a multiplayer client (her bag and her record's choice are the server's) the line is the
-        /// server's, asked for while the panel shows it (ClientLine, the op member.ammoline).
+        /// server's; round mt1 (part G): it comes with the panel's gear view, so here a client has none (false).
         /// </summary>
         internal static bool Line(EntityAlive npc, out string text)
         {
             text = "";
-            if (!ScCommunity.IsHost) return ClientLine(npc, out text);
+            // round mt1 (part G): a client's line comes with the panel's gear view (member.gearview, XUiC_ScMemberInv: FormatLine),
+            // one poll for the whole column - it no longer asks member.ammoline itself
+            if (!ScCommunity.IsHost) return false;
             string key, ammo;
             int n;
             if (!LineParts(npc, out key, out ammo, out n)) return false;
@@ -254,6 +257,16 @@ namespace SurvivorCommunity
                 text = "";
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Round mt1 (part G), a client: the line from the server's parts (LineParts, sent in the panel's gear view), formatted in
+        /// this machine's language; a translation with a broken placeholder shows the ammo's name alone.
+        /// </summary>
+        internal static string FormatLine(string key, string ammo, int n)
+        {
+            try { return string.Format(Localization.Get(string.IsNullOrEmpty(key) ? "scInvAmmoLine" : key), Label(ammo), n); }
+            catch (FormatException) { return Label(ammo); }
         }
 
         /// <summary>
@@ -287,74 +300,9 @@ namespace SurvivorCommunity
             }
         }
 
-        // ------------------------------------------------------------------ round MP3: a client's line ----
-
-        /// <summary>A client asks the server for the line at most this often (real seconds) while the panel shows it.</summary>
-        private const float ClientLineSeconds = 2f;
-        /// <summary>An unanswered ask is given up after this long (the server never answered: asked again).</summary>
-        private const float ClientLineWaitSeconds = 10f;
-
-        /// <summary>The line a client last got from the server, for one member at a time (the one panel there is).</summary>
-        private static int lineNpc = -1;
-        private static bool lineShow, lineAsking;
-        private static string lineText = "";
-        private static float lineAskedAt = -100f;
-
-        /// <summary>
-        /// Round MP3, a client: the server's line for her (member.ammoline), asked for at most every ClientLineSeconds while the
-        /// panel shows it; until the first answer, no line. The answer's parts are formatted here, in this machine's language.
-        /// </summary>
-        private static bool ClientLine(EntityAlive npc, out string text)
-        {
-            text = "";
-            try
-            {
-                if (npc == null) return false;
-                if (lineNpc != npc.entityId)
-                {
-                    lineNpc = npc.entityId;
-                    lineShow = lineAsking = false;
-                    lineText = "";
-                    lineAskedAt = -100f;
-                }
-                float now = UnityEngine.Time.unscaledTime;
-                if (lineAsking && now - lineAskedAt > ClientLineWaitSeconds) lineAsking = false;
-                if (!lineAsking && now - lineAskedAt >= ClientLineSeconds)
-                {
-                    lineAsking = true;
-                    lineAskedAt = now;
-                    int id = npc.entityId;
-                    ScActions.Request(ScActionsGear.OpAmmoLine, reply =>
-                    {
-                        if (lineNpc != id) return;
-                        lineAsking = false;
-                        lineShow = reply.Ok && reply.HintInt(ScActionsGear.HintAmmoShow, 0) > 0;
-                        lineText = "";
-                        if (!lineShow) return;
-                        try
-                        {
-                            lineText = string.Format(Localization.Get(reply.HintStr(ScActionsGear.HintAmmoKey, "scInvAmmoLine")),
-                                                     Label(reply.HintStr(ScActionsGear.HintAmmoItem)), reply.HintInt(ScActionsGear.HintAmmoCount, 0));
-                        }
-                        catch (FormatException) { lineText = Label(reply.HintStr(ScActionsGear.HintAmmoItem)); }
-                    }, id);
-                }
-                text = lineText;
-                return lineShow;
-            }
-            catch (Exception e)
-            {
-                ScLog.Once("ammo-choice-client-line", e);
-                return false;
-            }
-        }
-
-        /// <summary>Round MP3, a client: the line changed (a choice was made): ask again at the panel's next refresh.</summary>
-        internal static void ClientLineStale()
-        {
-            lineAskedAt = -100f;
-            lineAsking = false;
-        }
+        // round mt1 (part G): round MP3's client line (ClientLine, its own member.ammoline poll every 2 s, and ClientLineStale)
+        // is gone - the line's parts come with the panel's gear view (ScMemberGear.GearView, FormatLine above). The server's
+        // member.ammoline read stays (ScActionsGear).
 
         /// <summary>
         /// The line clicked: step +1 (the next type) or -1 (the one before) to the nearest type she has rounds of (loose ones

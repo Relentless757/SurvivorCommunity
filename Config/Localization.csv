@@ -2161,3 +2161,5 @@ scActionDead,UI,Tooltip,,,,You can't do that while dead.
 scTalkBusyWith,UI,Tooltip,,,,{0} is busy with {1} right now. Ask again once they are done.
 scTalkBusy,UI,Tooltip,,,,{0} is busy with someone else right now. Ask again in a moment.
 scWorkHeldOther,UI,Tooltip,,,,They're talking with someone else right now. Try again once that talk is over.
+scInvClosedAway,UI,Tooltip,,,,{0} had to go.
+scInvRefuseBagClient,UI,Menu,,,,"That tool is in {0}'s bag: only the host's screen can take from it."
