@@ -379,7 +379,7 @@ namespace SurvivorCommunity
         {
             try
             {
-                // round MP0: markers are this machine's own, for its own player - none on a dedicated server. MP4: per-player markers
+                // round MP0: markers are this machine's own, for its own player - none on a dedicated server. Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 if (!(owner is EntityPlayerLocal)) return;
                 NavObjectManager nav = NavObjectManager.Instance;
                 if (nav == null || owner == null || NavObjectClass.GetNavObjectClass(NavClass) == null) return;
@@ -410,6 +410,17 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// Round MP4 (part K): every radio contact's marker as AddMarker draws it, for ScMarkers - the set each remote community
+        /// player registers for themselves. Server side; registers nothing.
+        /// </summary>
+        internal static void CollectMarkers(List<ScMarkers.Entry> into)
+        {
+            foreach (Contact ct in ScRegistry.Contacts)
+                into.Add(new ScMarkers.Entry(ScMarkers.KindContact, ct.Id, NavClass, new Vector3(ct.Spawn.x + 0.5f, ct.Spawn.y, ct.Spawn.z + 0.5f),
+                                             string.Format(Localization.Get("scRadioMarker"), ct.Label, ct.PoiName)));
+        }
+
         // ------------------------------------------------------------------ ticker ----
 
         public static void Tick(World w, EntityPlayer player)          // round MP0: the ticker's anchor - any server, a dedicated one too
@@ -423,7 +434,7 @@ namespace SurvivorCommunity
                 if (!markersRestored)
                 {
                     markersRestored = true;
-                    foreach (var ct in ScRegistry.Contacts) AddMarker(ct, player);     // round MP0: the host's own only (AddMarker). MP4: per-player markers
+                    foreach (var ct in ScRegistry.Contacts) AddMarker(ct, player);     // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 }
                 DespawnLater(w);
                 TickContacts(w, player);

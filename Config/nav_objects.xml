@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <configs>
+	<!-- Round MP4 (part K): every class below stays IsOwner. A map object is local to one machine, so each machine registers
+	     its markers for its own player: the server's subsystems for the host's own player (none on a dedicated server), and
+	     ScMarkers for a remote client's, from the server's replicated set (NetPackageScMarkers). -->
 	<!-- Map marker for a survivor heard over the radio (ScRadio contacts): owner-only, map only. -->
 	<append xpath="/nav_object_classes">
 		<nav_object_class name="sc_radio_contact">

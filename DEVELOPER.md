@@ -2487,6 +2487,42 @@ Round MP0 is the groundwork:
     An NPC write into a box's EMPTY slot shows in a view only at its next open or Refresh (a push updates the cells a view
     already shows).
 
+- **Round MP4 (part K), map markers** (`ScMarkers`, `NetPackageScMarkers`, a `CollectMarkers` beside each subsystem's
+  `AddMarker`):
+  - A map object belongs to one machine: `NavObjectManager.RegisterNavObject` sends nothing, and every SC nav class is
+    `IsOwner` (shown only to the object's owner). So each subsystem still draws its markers for this machine's own player
+    only (`AddMarker`, owner = the host's own `EntityPlayerLocal`; nothing on a dedicated server), and the server keeps one
+    replicated set beside them.
+  - **The set:** each `CollectMarkers(List<ScMarkers.Entry>)` lists its markers from the server's state exactly as its
+    `AddMarker` draws them: kind, key, nav class, position, name. Kinds: `enclave` (known, not lost), `contact`, `infest`
+    (known), `band` (known, not arrived, where they are now), `outpost` (held; the name carries the yield), `opattack` (an
+    attack the radio heard), `scout`, `runner` (an open call for help, on her) and `watch` (the horde a guard called out).
+    A change to an `AddMarker`'s condition, class or name belongs in its `CollectMarkers` too, and a new marker needs its
+    own collector and a line in `ScMarkers.Collect`, or remote players never see it.
+  - **The server** (`ScMarkers.ServerTick`, from the ticker once a second, only while a remote client that said hello with
+    SC's protocol is on) collects and publishes: a new marker or a new class or name at once; a move once it is
+    `Entry.MoveMin` m from the published spot and `MoveEvery` s after it (bands 10 m and 5 s, as the host's own; a runner's
+    call 1.5 m and 1 s; the rest 0.5 m). Each client gets what changed for it through `ScNet.ToPlayer`: the whole set at the
+    first tick after its hello, then deltas. A collector that throws keeps its kind's last published markers.
+  - **Per viewer (Stage 1):** what the community knows goes to every community player (discovery stays shared until MP5).
+    The one viewer rule keeps its form per player: the watch marker (`Entry.NearBase`) goes to a player within
+    `BaseAttackLeaveRange` of the home zone.
+  - **The client** keeps the server's set and registers each marker in its own `NavObjectManager`, owned by its own
+    `EntityPlayerLocal`, so the `IsOwner` classes show it unchanged. `RegisterNavObject` hands back an existing object of
+    the same class, owner and spot; one held by a quest of the client's journal or by another marker is never taken over
+    (the marker goes 1 cm aside, `ScRunnerCall`'s rule). Every 10 s, and after a package that came before the local player
+    existed, the map is squared with the set again; a new world forgets it. Names are written on the server, in its
+    language.
+  - **The listen host's own map follows** (`ScMarkers.HostFollow`, at most every 3 s, only while remote clients are on):
+    when an outpost, enclave or infestation marker comes, goes or is renamed in the server's set, that subsystem's
+    `RefreshMarkers` runs for the host's own player. So a remote player's upgrade, repair, Mode or posting renames the host's
+    outpost marker, and a client's `sc enclave|infest reveal` shows on the host's map. `ScOutposts.HostMarkersFollow` stays
+    for the immediate redraw after the MP2 verbs.
+  - Not in the set: quest markers (their own round), and the markers the game makes from an entity on every machine
+    (SCore's companion marker, the raiders' clear-sleeper dots, `Patches_Xnpc` X11).
+  - **`NetPackageScMarkers`** (server to client): int community (0), bool full, int n, then n changes: byte op (0 put, 1
+    move, 2 drop), string kind, string key; a put adds string class and string name; a put or a move adds float x, y, z.
+
 ## How it hangs together (for modders)
 
 - NPCs are 0-XNPCCore's `EntityAliveSDXV4` survivors (SCore's legacy `EntityAliveSDX` still works for pack NPCs). A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars

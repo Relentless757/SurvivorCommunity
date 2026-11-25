@@ -37,6 +37,59 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP4 (part: markers) (2026-11-25): every community player sees the community's map markers
+
+Why: every SC map marker was a map object on the machine that ran the code, owned by the host's own player, so a client saw
+none and a dedicated server drew them for nobody. The server now keeps one shared set of markers (`ScMarkers`): each
+subsystem lists its markers as it draws them for the host, and every remote player gets the whole set within a second or
+two of joining (`NetPackageScMarkers`), then the changes (new, moved, gone, renamed). The client puts each one on its own
+map for its own player. Kinds: known enclaves, radio contacts, known infestations, bands on the road (moved every 5 s once
+they walked 10 m), outposts (the yield in the name) and outposts under an attack the radio heard, scouted sites, a runner's
+call for help, and the watch posts' horde marker (shown to a player within `BaseAttackLeaveRange` of the home zone, the
+host's own rule). The names are written on the server, in its language. While a remote player is on, the listen host's
+own map follows any player's change to an outpost, enclave or infestation marker (at most every 3 s). In single player and
+for a host alone nothing changes. Build `sc34_mp4k`, **not deployed** (protocol 5 comes with the MP4 merge). With
+`DebugLogging` on, the server logs `markers: the whole set (N) to <player>` and the client `map markers from the server:
+...` when markers come or go.
+
+**Single player (and a host with no one else on): nothing may change**
+- [ ] After a load: known enclaves (each standing's color, "<name> (<standing>)"), radio contacts, known infestations,
+      outposts with their yield and scouted sites are on the map as before.
+- [ ] `sc band spawn drifters`: once met, the band's marker shows and follows them as before; `sc band clear all` removes it.
+- [ ] `sc enclave reveal all` / `hide all` and `sc infest reveal all` / `hide all`: markers on and off as before.
+- [ ] Change an outpost's Mode, or post a member there: its marker's name changes when it did before (at the next
+      rollover); an upgrade renames it at once.
+- [ ] The log has no `map markers` line and no SC error.
+
+**A client on a dedicated server** (a save with a home, an outpost and some known enclaves and infestations)
+- [ ] Join: the client's log says `[SC] map markers from the server: N (...)` once. Its map shows every known enclave,
+      infestation, radio contact, outpost and scouted site with the icon, color and name the host's map would show;
+      allied and hostile enclaves and infestations also on the compass when close.
+- [ ] In the client's console, `sc enclave reveal all`: within a second or two every enclave is on the client's map; `sc
+      enclave hide all`: they go. The same with `sc infest reveal all` / `hide all`.
+- [ ] Establish an outpost from the land claim radial: its marker shows on the client's map within a second or two.
+      Upgrade it, change its Mode, post a member there: the name's yield follows within a second or two each time.
+      Disband it: the marker goes.
+- [ ] `sc attention 100` on the server's console (a horde is called) with a guard on watch while the client is at home:
+      the orange horde marker shows on the client's map and compass on the side it gathers, then on the horde once a
+      guard sees it; it goes when the attack ends. Walk more than `BaseAttackLeaveRange` (150 m) out of the zone: it goes
+      from the client's map, and comes back when the client returns.
+- [ ] Leave and join again: the markers come back once (`map markers from the server` again), none doubled.
+- [ ] The server's and the client's logs have no SC error.
+
+**A client on a listen host** (the host and the client both on the map)
+- [ ] The host types `sc band spawn drifters` and meets them: the band's marker is on both maps and moves on both.
+- [ ] The host scouts over the radio (`sc scout food`) and calls for survivors: the scouted sites and the contact are on
+      the client's map too, and go when they fade.
+- [ ] `sc radio attacked <name> force` on the host, for a runner out on a run: the orange quest marker "<name> - under
+      attack" is on the client's map and compass too and moves with her; it goes when the call ends.
+- [ ] The client upgrades an outpost, or changes its Mode: the HOST's marker shows the new yield within about 3 s.
+- [ ] The client types `sc enclave reveal all`: the enclaves show on the host's map too.
+
+**Two players (clients) at once**
+- [ ] Both see the same markers with the same names; one walks away from home during a horde: only that one loses the
+      horde marker.
+
 ## Round MP3 (review fixes) (2026-11-24): linked storage keeps RE Inventory's footprint, claims block nothing, nothing deleted
 
 Why: the MP3 reviews found that with RE Inventory a swap or a batch of deposits skipped the footprint test (a box could go

@@ -179,7 +179,7 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round MP2: an outpost a remote player established (radial, flag) gets its marker only on the establishing player's
-        /// own machine (AddMarker: the host's own player's; MP4: per-player markers), so the listen host's own map follows here.
+        /// own machine (AddMarker: the host's own player's; round MP4: remote players' through ScMarkers), so the listen host's own map follows here.
         /// Nothing for the host's own action (Establish marked it) or on a dedicated server.
         /// </summary>
         internal static void HostMarkersFollow(EntityPlayer actor)
@@ -1174,7 +1174,7 @@ namespace SurvivorCommunity
             try
             {
                 // round MP0: the marker is the host's own player's (a local map object) - none on a dedicated server.
-                // MP4: per-player markers
+                // round MP4: remote players' come from ScMarkers (CollectMarkers)
                 if (!(owner is EntityPlayerLocal)) return;
                 if (!o.Holding) return;
                 NavObjectManager nav = NavObjectManager.Instance;
@@ -1220,6 +1220,18 @@ namespace SurvivorCommunity
                 if (o.Holding) AddMarker(o, owner);
                 else RemoveMarker(o);
             }
+        }
+
+        /// <summary>
+        /// Round MP4 (part K): every held outpost's marker as AddMarker draws it (class by type, the name with its yield), for
+        /// ScMarkers - the set each remote community player registers for themselves. Server side; registers nothing.
+        /// </summary>
+        internal static void CollectMarkers(List<ScMarkers.Entry> into)
+        {
+            foreach (Outpost o in ScRegistry.Outposts)
+                if (o.Holding)
+                    into.Add(new ScMarkers.Entry(ScMarkers.KindOutpost, o.Id, NavClassFor(o), o.Centre,
+                                                 string.Format(Localization.Get("scOpMarker"), o.Name, YieldText(ShownYield(o)))));
         }
     }
 }

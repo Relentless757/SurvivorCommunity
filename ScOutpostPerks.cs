@@ -215,7 +215,7 @@ namespace SurvivorCommunity
             o.Level++;
             o.LevelDay = ScCommunity.Today;
             ScOutposts.NoteLedger(string.Format(Localization.Get("scOpLedgerLevel"), o.Name, o.Level));
-            ScOutposts.RefreshMarkers(player);      // round MP2: the host's own player's map only (MP4: markers for remote players)
+            ScOutposts.RefreshMarkers(player);      // round MP2: the host's own player's map only (round MP4: remote players' come from ScMarkers)
             ScOutposts.HostMarkersFollow(player);   // round MP2 (review core/window m7): a remote player's upgrade - the listen host's map follows (its name carries the yield)
             ScRegistry.SaveAtomic();
             message = string.Format(Localization.Get("scOpUpgraded"), o.Name, o.Level, ScOutposts.YieldText(ScOutposts.Estimate(o)));

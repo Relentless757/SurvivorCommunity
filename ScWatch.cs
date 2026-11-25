@@ -994,6 +994,23 @@ namespace SurvivorCommunity
             marker = null;
         }
 
+        /// <summary>
+        /// Round MP4 (part K): the horde marker of a called attack, where TickCallouts places the host's (the gathering side, then
+        /// the live attackers' centre once a guard saw one), for ScMarkers - the set each remote community player registers for
+        /// themselves. NearBase: each player sees it while within BaseAttackLeaveRange of the zone, the host's own rule. Server
+        /// side; registers nothing.
+        /// </summary>
+        internal static void CollectMarkers(List<ScMarkers.Entry> into)
+        {
+            if (!ScRegistry.Loaded || !ScBaseAttack.Open) return;
+            Community c = ScRegistry.Community;
+            if (c.AttackWarned <= 0) return;
+            Vector3 at;
+            if (!(c.AttackWarned >= 2 && ScBaseAttack.Live && ScBaseAttack.Centroid(ScCommunity.World, out at))) at = ScBaseAttack.ApproachPoint();
+            into.Add(new ScMarkers.Entry(ScMarkers.KindWatch, "base", NavClass, at + new Vector3(0f, 2f, 0f), Localization.Get("scWatchMarker"))
+                     { NearBase = true, MoveMin = 0.5f, MoveEvery = 1f });
+        }
+
         // ------------------------------------------------------------------ console ----
 
         /// <summary>A post by its number in the list (1-based) or by "x,y,z"; Vector3i.zero when neither.</summary>

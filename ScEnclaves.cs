@@ -1317,7 +1317,7 @@ namespace SurvivorCommunity
                 if (!markersRestored)
                 {
                     markersRestored = true;
-                    RefreshMarkers(player);           // round MP0: the host's own only (AddMarker). MP4: per-player markers
+                    RefreshMarkers(player);           // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 }
                 Vector3 at = player.position;         // round MP0: found from the anchor's position (the host's own on a host). MP5: per player
                 foreach (Enclave e in All)
@@ -1368,7 +1368,7 @@ namespace SurvivorCommunity
                 c.EnclaveRadioDay = day + Math.Max(1, ScConfig.EnclaveRadioRevealDays);
                 best.Known = true;
                 best.KnownDay = day;
-                if (player != null) AddMarker(best, player);              // round MP0: the host's own only (AddMarker). MP4: per-player markers
+                if (player != null) AddMarker(best, player);              // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 string where = Where(from, best.Centre);
                 ScPlayers.TellCommunity(string.Format(Localization.Get("scEnclaveRadio"), best.Name, best.PoiName, where), "");   // round MP0: the community's radio news
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scEnclaveLedgerRadio"), best.Name, best.PoiName));
@@ -1454,7 +1454,7 @@ namespace SurvivorCommunity
             try
             {
                 if (!e.Known || e.Lost) return;
-                // round MP0: markers are this machine's own, for its own player - none on a dedicated server. MP4: per-player markers
+                // round MP0: markers are this machine's own, for its own player - none on a dedicated server. Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 if (!(owner is EntityPlayerLocal)) return;
                 NavObjectManager nav = NavObjectManager.Instance;
                 string cls = NavClassFor(e);
@@ -1498,6 +1498,21 @@ namespace SurvivorCommunity
             {
                 if (e.Known && !e.Lost && ScConfig.Enclaves) AddMarker(e, owner);
                 else RemoveMarker(e);
+            }
+        }
+
+        /// <summary>
+        /// Round MP4 (part K): every known enclave's marker as AddMarker draws it (class by standing, spot, label) for ScMarkers -
+        /// the set each remote community player registers for themselves. Server side; registers nothing.
+        /// </summary>
+        internal static void CollectMarkers(List<ScMarkers.Entry> into)
+        {
+            if (!ready || !ScConfig.Enclaves) return;
+            foreach (Enclave e in All)
+            {
+                if (!e.Known || e.Lost) continue;
+                into.Add(new ScMarkers.Entry(ScMarkers.KindEnclave, e.Id, NavClassFor(e), MarkerSpot(e),
+                                             string.Format(Localization.Get("scEnclaveMarker"), e.Name, StandingWord(e))));
             }
         }
 
