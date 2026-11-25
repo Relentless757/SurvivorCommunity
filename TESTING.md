@@ -40,12 +40,12 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 ## Round cfs1 (2026-11-25): Craft from Storage finds every linked storage box in the base
 
 Why (the user): "Every crafting resource in linked storage should be detected while inside the base." 0-SCore's Craft from
-Storage looks only at containers within its Distance (30 m) - and, while its broadcast manager runs, only at boxes switched
+Storage looks only at containers within its Distance (10 m as 0-SCore ships it) - and, while its broadcast manager runs, only at boxes switched
 to broadcast. Now, while you stand inside the community's home zone, crafting also finds ingredients in every box linked
 storage links (player-placed storage in the base; never the packing station or the land claim block's own storage),
 wherever it stands in the base. Setting: `CraftFromBaseStorage` (on by default). Build `sc34_cfs1`, not deployed.
 
-**Single player** (0-SCore's Craft from Storage on, a base with crates more than 30 m apart)
+**Single player** (0-SCore's Craft from Storage on, a base with crates farther apart than its Distance)
 - [ ] Put an ingredient (e.g. wood) only in a crate at the far end of the base, empty your bag of it, and stand inside the
       base at the other end: a workbench or backpack recipe that needs it counts it and crafts; the crate loses exactly
       that much.
