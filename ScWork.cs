@@ -454,10 +454,20 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool RefuseHeldByOther(Member m, EntityPlayer sender, ScActionReply reply)
         {
-            if (!KeptByOtherTalk(m, sender)) return false;
+            // round mt1 (re-check F1, F4): a verb never ends the other player's hold here - its own checks may still refuse it after
+            // this, and the first player must not lose her to a refused verb. An idle hold (HandOverSeconds with no order given)
+            // simply stops keeping her, wherever this player stands; the verb's own success moves her on (EndFor ends the hold)
+            if (!TalkHeldByOther(m, sender) || IdleTalk(m)) return false;
             busyRefused++;
             if (reply != null) reply.Fail("scWorkHeldOther");
             return true;
+        }
+
+        /// <summary>Round mt1 (re-check F1): her talk hold has stood HandOverSeconds with no order given (still a Talk phase).</summary>
+        private static bool IdleTalk(Member m)
+        {
+            Shift s;
+            return m != null && shifts.TryGetValue(m.Id, out s) && s.Phase == Phase.Talk && Time.unscaledTime - s.TalkSince >= HandOverSeconds;
         }
 
         /// <summary>

@@ -343,6 +343,7 @@ namespace SurvivorCommunity
                 // changed since is refused, not turned into the opposite
                 int seen = args.Int(2, -1);
                 if (seen >= 0 && a.PickState != null && a.PickState(m) != seen) { reply.Fail("scActionChanged"); return; }
+                if (ScWork.RefuseHeldByOther(m, sender, reply)) return;     // round mt1 (re-check F2): another player's talk keeps her
                 try { ok = guardPick ? ScFacilityTab.AssignGuardAt(guardPost, m, sender, out msg) : a.Pick(m, sender, out msg); }   // re-check m1
                 catch (Exception ex) { ScLog.Once("community-facility-pick", ex); msg = Localization.Get("scInternal"); ok = false; }
             }

@@ -148,7 +148,7 @@ namespace SurvivorCommunity
                 // a mark that went stale, a player out of reach, dead or gone, a body gone: the backup ends
                 scratch.Clear();
                 foreach (long key in held.Keys) if (!seen.Contains(key)) scratch.Add(key);
-                foreach (long key in scratch) End(w, key, "no longer at her panel");
+                foreach (long key in scratch) End(w, key, "no longer at her panel", false);   // re-check F3: let it lapse (Voice Control's 45 s)
             }
             catch (Exception e)
             {
@@ -156,12 +156,17 @@ namespace SurvivorCommunity
             }
         }
 
-        private static void End(World w, long key, string why)
+        /// <summary>
+        /// One backup ends. sendFalse: tell Voice Control the hold is over (the panel's close, a disconnect). Round mt1 (re-check
+        /// F3): not when it lapses by distance or a stale mark - a "false" there would also cancel the client's own Voice Control
+        /// hold (a panel opened from farther away through its ring); Voice Control lets an unrefreshed remote hold lapse itself.
+        /// </summary>
+        private static void End(World w, long key, string why, bool sendFalse = true)
         {
             if (!held.Remove(key)) return;
             released++;
             EntityAlive npc = w != null ? w.GetEntity(NpcOf(key)) as EntityAlive : null;
-            if (npc != null) Set(npc, PlayerOf(key), false);      // an unloaded body: Voice Control dropped its component with it
+            if (npc != null && sendFalse) Set(npc, PlayerOf(key), false);      // an unloaded body: Voice Control dropped its component with it
             ScLog.Verbose("member panel: the server's hold of " + (npc != null ? ScCommunity.DisplayName(npc) : "NPC " + NpcOf(key)) + " for player "
                           + PlayerOf(key) + " ends (" + why + ")");
         }

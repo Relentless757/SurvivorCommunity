@@ -2823,9 +2823,11 @@ Round MP0 is the groundwork:
     until her talk hold has stood that long with no order (still a Talk phase; a work shift never yields). Until then a second
     talker gets `scTalkBusyWith`, and another player's Call to work and SC's own verbs - `member.follow`, `member.home`,
     `member.leave`, `member.run`, `member.post`, `member.watch` - are refused with `scWorkHeldOther` (`ScWork.RefuseHeldByOther`).
-    After it, a second player's talk (`HandOver`: the host's own through the talk-hold postfix too) or one of those verbs ends
+    After it, a second player's talk or Call to work (`HandOver`: the host's own through the talk-hold postfix too) ends
     the idle hold (`YieldIdleTalk`: no walk back, the host's own windows on her closed), tells its player `scTalkHandedOver`
-    ("{0} is with {1} now."), and goes on; that player's quiet re-ask within 15 s gets no "busy" line. `member.workend` never
+    ("{0} is with {1} now."), and goes on; one of those verbs (and the Facilities tab's member picks, and a listen host's
+    spoken "follow me") is simply no longer refused (`IdleTalk`): the verb's own success moves her on, so a verb its own
+    checks refuse never costs the first player the hold (re-check F1, F2, F4); that player's quiet re-ask within 15 s gets no "busy" line. `member.workend` never
     ends another player's talk hold (`ScWork.TalkHeldByOther`). **A player who leaves while she is down** marks the kept hold
     or shift (`Shift.OwnerGone`), and `Tick` ends it once she is up.
 

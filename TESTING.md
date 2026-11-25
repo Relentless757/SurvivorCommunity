@@ -86,7 +86,8 @@ unchanged in this branch (the merge sets it). `sc craft <name>` on the server's 
 Review fixes (build `sc34_mt1`, untested): a client's craft window Cancel drops only the job (`member.canceljob`); a client
 closes its windows on her when the server ends its link and asks once to be linked again; a follow's `Leader` and `Owner`
 reach clients at once; the client sweeps leftover hire marks from Call to work too; and the rule for two players: the first
-holder keeps her for 90 s without an order, then another player's talk or verb takes her over and the first is told.
+holder keeps her for 90 s without an order, then another player's talk takes her over (the first is told) or their verb
+moves her on.
 
 **Single player (nothing may change)**
 - [ ] Talk to a resident at home: Craft..., Jobs and gear and Show me your inventory show as before. While the talk is open
@@ -145,9 +146,10 @@ holder keeps her for 90 s without an order, then another player's talk or verb t
       A's hired rows hide, and A gets no "busy" line on top. The server logs "<name>'s talk hold with <A> stood idle for N s -
       handed over to <B>". Under 90 s B still reads the busy line.
 - [ ] (review fix H-m4) While A's talk (under 90 s) holds her, B picks Follow me, Head home, a supply or mining run, a posting,
-      a watch post or Ask to leave: refused with "They're talking with someone else right now..."; A keeps her. After 90 s
-      with no order the same verb works for B and A is told "<name> is with <B> now.". B's "That's all for now." (a crafted
-      request) never ends A's talk hold, however old.
+      a watch post or Ask to leave (or a guard pick on the Facilities tab): refused with "They're talking with someone else
+      right now..."; A keeps her. After 90 s with no order the same verb works for B (A's windows on her close; no "is with"
+      line for a verb). A verb B cannot do anyway (a full party) still leaves A's hold alone. B's "That's all for now." (a
+      crafted request) never ends A's talk hold, however old.
 - [ ] (review fix H-m5) A gives her an order (a work shift), then idles: B's talk never takes her over (a work shift does not
       yield); B reads the busy line.
 ## Round mt1 (part: G) (2026-11-25): a member's gear shows as she carries it, and she stays while you manage it

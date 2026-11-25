@@ -675,6 +675,7 @@ namespace SurvivorCommunity
             if (leader != null && leader.entityId == player.entityId) return 0;
             EntityPlayerLocal lp = player as EntityPlayerLocal;
             if (lp == null) return 0;
+            if (ScWork.RefuseHeldByOther(m, lp, null)) { error = "scWorkHeldOther"; return 2; }   // round mt1 (re-check F2): another player's talk keeps her
             if (!ScCommunity.Follow(m, npc, lp, out error)) return 2;
             Count("voice-follow-member");
             ScCommunity.TellKey(player, "scWinNowFollowing", "", m.Name);
