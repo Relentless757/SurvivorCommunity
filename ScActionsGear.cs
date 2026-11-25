@@ -30,10 +30,25 @@ namespace SurvivorCommunity
     ///                                                      it all went into the backpack - the place sound).
     ///   member.ammo       npc, step (1 / -1)               ScAmmoChoice.Cycle; the reply's text is the refusal, or a done note.
     ///   member.ammoline   npc                              a read: the ammo line's parts (hints show, key, ammo, n).
+    ///   member.gearview   npc                              round mt1 (part G, F2): a quiet read - the equipment column as the
+    ///                                                      server sees it (ScMemberGear.GearView: RANGED, MELEE, the armor, the
+    ///                                                      ammo line's parts, the job tools of her bag and toolbelt), hints v*
+    ///                                                      (ScMemberGear.PutView). A remote geardrop / geartake reply carries
+    ///                                                      the same view after its own hints, when it fits (MaxReplyChars).
     /// </summary>
     public static class ScActionsGear
     {
         public const string OpDrop = "member.geardrop", OpTake = "member.geartake", OpAmmo = "member.ammo", OpAmmoLine = "member.ammoline";
+        /// <summary>Round mt1 (part G, F2): the server's view of her equipment column (a quiet read; ScMemberGear.GearView).</summary>
+        public const string OpGearView = "member.gearview";
+
+        /// <summary>
+        /// Round mt1 (part G): the most characters a reply's hint gets from the gear view - a view alone (MaxViewChars), and a
+        /// whole remote gear reply with its own stacks (MaxReplyChars: the view is left out when the stacks leave no room for
+        /// it, and the client asks for it). NetPackageScResult writes the hint as one string with no cap of its own, and the
+        /// game's connection buffers take a package of up to about 2 MB; a typical view is 2-4 thousand characters.
+        /// </summary>
+        private const int MaxViewChars = 16000, MaxReplyChars = 24000;
 
         /// <summary>The stack for the player's cursor (ScItemTx.StacksToHint, one stack), items for their bag, her real piece to take out of their copy.</summary>
         public const string HintCursor = "cur", HintGive = "give", HintPackTake = "pt";
@@ -103,7 +118,7 @@ namespace SurvivorCommunity
                 ItemStack back;
                 string why = ScMemberEquip.Drop(sender, npc, pack, kind, index, cursor, out back);
                 if (why != null) { reply.Fail(why, ""); return; }
-                Answer(sender, reply, back, rg);
+                Answer(sender, reply, back, rg, npc);
             }
             finally { ScMemberEquip.EndRemote(); }
         }
@@ -142,7 +157,7 @@ namespace SurvivorCommunity
                 ItemStack taken;
                 string why = ScMemberEquip.Take(sender, npc, pack, kind, index, toBackpack, out taken);
                 if (why != null) { reply.Fail(why, ""); return; }
-                Answer(sender, reply, taken, rg);
+                Answer(sender, reply, taken, rg, npc);
             }
             finally { ScMemberEquip.EndRemote(); }
         }
@@ -150,14 +165,20 @@ namespace SurvivorCommunity
         /// <summary>
         /// A remote player's change is made: the reply carries what their machine adds. Never throws, and never loses an item:
         /// a stack too large for a reply (ScItemTx.MaxEncoded) drops at their feet instead.
+        /// Round mt1 (part G, F2): then her equipment column as it is now (ScMemberGear.GearView), so the client's slots show the
+        /// change with the server's own items at once - left out (the client asks) when the stacks above leave it no room. The
+        /// items are settled first: a view that throws or does not fit costs only a poll.
         /// </summary>
-        private static void Answer(EntityPlayer sender, ScActionReply reply, ItemStack cursor, ScMemberEquip.RemoteGear rg)
+        private static void Answer(EntityPlayer sender, ScActionReply reply, ItemStack cursor, ScMemberEquip.RemoteGear rg, EntityAlive npc)
         {
             reply.Done("", "");
             if (cursor != null && !cursor.IsEmpty()) Put(reply, HintCursor, new List<ItemStack> { cursor }, sender);
             if (rg.Give.Count > 0) Put(reply, HintGive, rg.Give, sender);
             // still in her pack if it cannot be named: nothing to drop, nothing lost
             if (rg.PackTake != null) Put(reply, HintPackTake, new List<ItemStack> { rg.PackTake }, null);
+            if (npc == null) return;
+            try { ScMemberGear.PutView(reply, ScMemberGear.BuildView(npc), Math.Min(MaxViewChars, MaxReplyChars - (reply.Hint ?? "").Length)); }
+            catch (Exception e) { ScLog.Once("gear-reply-view", e); }
         }
 
         private static void Put(ScActionReply reply, string key, List<ItemStack> stacks, EntityPlayer dropFor)
@@ -210,6 +231,25 @@ namespace SurvivorCommunity
                 return;
             }
             reply.SetHint(HintAmmoShow, 1).SetHint(HintAmmoKey, key).SetHint(HintAmmoItem, ammo).SetHint(HintAmmoCount, n);
+        }
+
+        // ------------------------------------------------------------------ round mt1 (part G): the gear view ----
+
+        /// <summary>
+        /// Round mt1 (part G, F2; bug_gear_equip_window.md 1.2): a read - her equipment column as the server sees it, for a
+        /// multiplayer client's panel (polled every 1.5 s while it is open, one request at a time; every remote gear reply
+        /// carries it too). A member only; anything else is refused silently. Nothing changes here. The host's own panel never
+        /// asks: it calls the same builders inline.
+        /// </summary>
+        [ScAction(OpGearView, ScActionAccess.Community, Quiet = true)]      // polled: not in the log
+        private static void ViewGear(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
+        {
+            int npcId = args.Int(0, -1);
+            World w = ScCommunity.World;
+            EntityAlive npc = w != null && npcId > 0 ? w.GetEntity(npcId) as EntityAlive : null;
+            if (npc == null || npc.IsDead() || ScRegistry.GetMember(npcId) == null) { reply.Fail("", ""); return; }
+            reply.Done("", "");
+            if (!ScMemberGear.PutView(reply, ScMemberGear.BuildView(npc), MaxViewChars)) reply.Fail("", "");
         }
     }
 }

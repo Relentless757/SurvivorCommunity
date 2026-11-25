@@ -2158,3 +2158,5 @@ scActionFailed,UI,Tooltip,,,,"That did not work. The server's log has the detail
 scActionNoPlayer,UI,Tooltip,,,,"There is no player to act for."
 scActionNotReady,UI,Tooltip,,,,"The community's data is not loaded yet. Try again in a moment."
 scActionDead,UI,Tooltip,,,,You can't do that while dead.
+scInvClosedAway,UI,Tooltip,,,,{0} had to go.
+scInvRefuseBagClient,UI,Menu,,,,"That tool is in {0}'s bag: only the host's screen can take from it."

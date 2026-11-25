@@ -674,6 +674,10 @@ namespace SurvivorCommunity
                 Add(t, "NPCChatComponent::PlayProactiveGreeting", Patches_VoiceControl.GreetingTarget());
                 Add(t, "SubtitleManager::AcknowledgeCommand", Patches_VoiceControl.AckTarget());
                 Add(t, "NPCChatComponent::ProcessPlayerMessage", Patches_VoiceControl.PlayerMessageTarget());
+#if SC_V34
+                // round mt1 (part G, H1): Voice Control's interaction hold counts SC's member panel (and its own equipment window)
+                Add(t, "NPCChatComponent::LocalHarvestWindowOpenOn", Patches_VoiceControl.HarvestWindowTarget());
+#endif
                 // Patches_VoiceControl.cs (V2) - SC greets its survivors itself where it has the clip; XNPCCore's say-lines and
                 // Voice Control's acks and fixed lines in SC's voices share the AcknowledgeCommand and SpeakStreaming entries above
                 Add(t, "NPCChatComponent::TriggerProactiveGreeting", Patches_VoiceControl.TriggerGreetingTarget());

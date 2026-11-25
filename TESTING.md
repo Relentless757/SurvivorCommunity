@@ -37,6 +37,46 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round mt1 (part: G) (2026-11-25): a member's gear shows as she carries it, and she stays while you manage it
+
+Why: on a client the member panel's RANGED and MELEE showed items the client made itself (a new quality 1 copy every half
+second, or its own roll), so a take or swap looked like a re-roll; her copies never carried a handed weapon's rolled stats
+(every mode); the panel stayed open while she walked off, because Voice Control's hold ignored it; and a client's job tool
+slots showed no work kit. Now a client's panel shows the server's view (`member.gearview`), every copy carries the handed
+item's stats, the panel holds her through Voice Control's hold, and it closes with "<name> had to go." when she leaves for a
+fight or an investigation. Build `sc34_mt1g`, **not deployed**, untested in game.
+
+**Single player**
+- [ ] Hand her a looted or traded gun on RANGED (hover it first and note its stat numbers). Hover RANGED: the same quality and
+      numbers, steady, whether she holds the gun or her melee weapon. `sc loadout <name>` lists the handed gun with "stats n".
+- [ ] Open her panel ("Equipment..." and the hold-E ring). She stops, turns to you and stays past a roam or small-talk cycle
+      (wait a minute). Her weapon is put away while it is open (Voice Control's stow, as in a talk).
+- [ ] Make her leave: a zombie in the base, or a noise she investigates. She goes; once she is about 6 m away the panel closes
+      within a second and says "<name> had to go.". A hit still closes it with "took a hit"; a knock-down too.
+- [ ] Open the panel by voice from farther than 6 m: it stays open until she walks farther away.
+- [ ] Close the panel within 20 s of the talk: no weapon of hers changes quality (`sc loadout <name>` the same before and after).
+- [ ] Swap RANGED while she is stowed, close the panel, wait about 20 s: note which weapon she draws (a known gap: possibly her
+      melee weapon, until a target needs the gun).
+- [ ] Log: no SC errors, no MISSING PATCH for `NPCChatComponent::LocalHarvestWindowOpenOn`.
+
+**A client on a dedicated server**
+- [ ] Open a member's panel: RANGED and MELEE show their names at once and the items within about a second. Hover each: the
+      quality and stats of what you handed, steady (no change every half second), whether she holds it or not.
+- [ ] Take RANGED off and drop it back; swap MELEE twice: each slot keeps its item's quality and stats, and the item on your
+      cursor is exactly the one you handed (the server's log: `... now carries ... (member panel)`).
+- [ ] The job tool slots show her work kit: the stone axe on Chop, Mine and Repair, the shovel on Dig, the knife on Butcher.
+      Taking a kit tool is refused ("The work kit stays with the member."); an axe you drop on Chop goes into her pack and can
+      be taken back. A tool in her bag shows, and a take says only the host's screen can take from her bag.
+- [ ] The armor slots show the pieces you handed exactly (wear, mods); the ammo line shows within about 1.5 s and follows a click.
+- [ ] She stays put while your panel is open; when she leaves for a fight the panel closes with "<name> had to go.".
+- [ ] Close the panel: her gun keeps its quality (no weapon swap for her in the server's log).
+- [ ] Logs: no SC errors on either side.
+
+**Two players**
+- [ ] Player A has her panel open while player B talks to her: she stays; A closes it: she still stays while B's dialog is open.
+- [ ] A's panel on one member, B's on another: each holds only their own.
+- [ ] A client with her panel open drops its connection: she is free to walk again within 45 s (Voice Control's limit).
+
 ## Round MP4 results so far (2026-11-25): one client on the dedicated server
 
 Self-test with one client (Elisk) on the dedicated server, protocol 5, build `sc34_mp4fix` (DLL 1efe55e7). No SC exception

@@ -2378,6 +2378,57 @@ Round MP0 is the groundwork:
     can be paid twice in one narrow case: a client's late write-back to a station lands while ANOTHER player already holds it
     open after a forced unlock (the trim of the remote sweep then skips it). XP only - no item is copied or cut.
 
+- **Round mt1 (part G), the member panel shows her real gear and holds her** (`ScMemberGear`, `ScActionsGear`,
+  `XUiC_ScMemberInv`, `ScHanded`, `ScAmmoChoice`, `Patches_VoiceControl.Patch_PanelHold`): fixes for the first two-player
+  test ("taking/swapping weapons re-rolls the quality/stats", "the equipment menu stays up when the NPC walks away", a
+  client's empty job tool slots).
+  - **Stats (every mode):** `ScHanded.Imprint` copies 3.4's rolled `ItemValue.Stats` (a deep array copy) besides quality,
+    seed, mods and wear, and `SameBuild`, `Fingerprint` and `ItemText` ("stats n") know them. Before, every copy of a handed
+    weapon fought without the handed item's rolls. `NeedsRebuild` sees the difference, so each handed weapon's held model is
+    rebuilt once after load. The panel's shown hand copy is imprinted the same way (a display clone, never her copy), and
+    its last-resort item is the same every refresh (`ScMemberGear.Placeholder`: seed 0), where a new seed each half second
+    made the slot's item and its seed-rolled numbers change.
+  - **`member.gearview` (npc; a quiet read, Community):** the equipment column as the server sees it (`ScMemberGear.GearView`,
+    built by the same `Weapon` / `Armor` / `ServerTools` / `ScAmmoChoice.LineParts` the host's panel calls inline). Hints
+    (`ScMemberGear.PutView` / `ReadView`): `v`=1; per weapon `vr*` / `vm*` - `k` kind (0 none, 1 no ranged, 2 item, 3 a pair
+    token that is no item), `i` the item name, `s` the stack (`ScItemTx.StacksToHint`), `p` the info line's numbers
+    "quality,gun,loaded,capacity,mags,spare,wear%"; `va` the armor state (0 no look, 1 sent, 2 left out) and `va0`..`va3`
+    the pieces; `vt<job>` "store,slot" and `vt<job>s` the stack of the server's best tool from her bag and toolbelt;
+    `vl` 0/1, `vlk`, `vla`, `vln` the ammo line's key, ammo and count. Every text is made on the client, in its language.
+    A remote `member.geardrop` / `geartake` reply carries the same view after its own `cur` / `give` / `pt`. Size: a view
+    is a few thousand characters; `PutView` keeps a view under 16 000 and a whole gear reply under 24 000 (what does not fit
+    is left out: the tools first, then the armor; `NetPackageScResult` has no cap of its own, and the game's connection takes
+    about 2 MB a package).
+  - **A client's panel** asks every 1.5 s while open, one request at a time, at once after an ammo click or a gear reply
+    without a view, and drops an answer of an earlier opening (`viewToken`). Until the first answer RANGED and MELEE show
+    their names only, the armor slots are bare, and the job slots show its own copy of her pack. The job slots merge that
+    copy (which the client edits itself, round MP3) with the server's bag and toolbelt picks (`ScMemberGear.Tools(npc,
+    window, server)`), so the work kit shows; a slot showing a server pick refuses a take as the host refuses the kit
+    (`scInvRefuseKit`, `scInvRefuseKitPair`, `scInvRefuseBagClient`). A client no longer scans its own toolbelt copy (a local
+    roll without the kit). `member.ammoline` stays on the server; SC's own panel no longer polls it. The host and single
+    player build the column inline, as before.
+  - **No by-name re-arm on close (F3):** `XUiC_ScMemberInvGroup.ReArm` skips SCore's `UpdateWeapon()` / `SendSyncData(1)`
+    when `CurrentNPC` is a member (it re-equipped her remembered weapon by NAME: a random quality without mods or stats on
+    every close). Every panel change already armed her with the exact copy. Another NPC keeps SCore's re-read.
+  - **The hold (H1, every mode):** a Harmony postfix on Voice Control's private static
+    `NPCChatComponent.LocalHarvestWindowOpenOn(EntityAlive)` (bound by name, ExpectedTargets
+    `NPCChatComponent::LocalHarvestWindowOpenOn`, one error line and off when it is missing) answers true while SC's panel
+    shows her (`XUiC_ScMemberInvGroup.HoldsNpc`, one compare per call) or Voice Control's own equipment window shows her
+    (`XUiC_NpcEquipWindow.s_npcId`, optional). Voice Control's hold only gates `NoActiveChat`: guard, stay, wander, the
+    follows, patrols, routine walks, the medic walk, the jobs and SC's post, roam, quiet night, chat and gathering. Fights,
+    cover, flee, LeaveArea, SC's base defense and investigate walk are ungated. On a client its own component tells the
+    server (`NetPackageVCChatState`: `SetRemoteChatActive` for 45 s, refreshed every 20 s, false on close).
+  - **Closing at a person's reach (H3, every mode):** the panel closes when she is more than 6 m away horizontally or 3 m
+    vertically for 1 s (the limits follow the nearest she has been since the open, plus 2 m / 1.5 m), with the tell
+    `scInvClosedAway` ("{0} had to go."). The hit, downed, death and 32 m closes stay.
+  - **Items:** nothing here moves an item. The view is display only, the gear requests are round MP3's, and a late view after
+    the close is dropped while a late gear reply still settles its items (`Settle`).
+  - **Known gaps:** Voice Control stows her weapon while the panel holds her and for 20 s after (as in any talk); a swap
+    made then arms by the kind she holds, and the bare hand reads as melee, so she may draw her melee weapon until 0-XNPCCore
+    picks the gun for a target. H2 (a server-side backup of the hold from SCore's session marks) is not built: the client's
+    own component carries the hold. The kit is still missing from a client's copy of her body (its 3D hand while she
+    works); only the panel shows the server's.
+
 - **Round MP3 (part L), linked storage** (`ScStorageServer`, `NetPackageScStorage`, `ScStorage`, `ScLinkedContainer34`,
   `ScHomeLink`, `Patches_LinkedStorage`): the server owns the boxes; every player's view, the host's own included, goes
   through the same claim and compare-and-set path.
