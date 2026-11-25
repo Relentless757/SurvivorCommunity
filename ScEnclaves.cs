@@ -556,6 +556,7 @@ namespace SurvivorCommunity
                         r.Taken.Add(World.worldToBlockPos(qpos));
                 }
             }
+            ScQuestNet.AddReportedPois(r.Taken);    // round MP4: the POIs the remote players' quests lead to (their journal reports)
             if (!ignoreExisting) foreach (Enclave e in All) r.Enclaves.Add(e.Poi);
             if (late)
             {

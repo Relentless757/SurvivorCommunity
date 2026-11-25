@@ -503,6 +503,7 @@ namespace SurvivorCommunity
                         r.Taken.Add(World.worldToBlockPos(qpos));
                 }
             }
+            ScQuestNet.AddReportedPois(r.Taken);    // round MP4: the POIs the remote players' quests lead to (their journal reports)
             ScEncAllies.WatchZones(r.Watch);        // E6: no new one near an ally keeping a Neighborhood Watch
             return r;
         }

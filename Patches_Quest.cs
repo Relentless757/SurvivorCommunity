@@ -13,6 +13,8 @@ namespace SurvivorCommunity
     /// quietly refill it with sleepers the first time the player walks in. Nor is an enclave's POI (E1): its rooms
     /// stay clear (Patches_Enclaves would only clear them again). Round MP2 (E6): a quest in a REMOTE player's journal is out
     /// of the server's sight, so with a remote subscriber the server answers from the registry as well (ScQuests.IsOurPoi).
+    /// Round MP4: and from that subscriber's last journal report (ScQuestNet); a POI favour nobody holds any more is no longer
+    /// "taken on", so the building's vanilla clear quests re-arm again for remote players.
     /// </summary>
     public static class Patches_Quest
     {

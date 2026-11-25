@@ -90,6 +90,66 @@ for a host alone nothing changes. Build `sc34_mp4k`, **not deployed** (protocol 
 - [ ] Both see the same markers with the same names; one walks away from home during a horde: only that one loses the
       horde marker.
 
+## Round MP4 (part: quests) (2026-11-25): quests reach the right player's journal
+
+Why: a journal belongs to its own machine, and until now only the host's got SC's server-made quests. A runner's rescue
+quest now goes to every community player online, each with their own copy (the first to finish it closes it for everyone,
+and a player who comes online while the call is open gets it then); an enclave request's quest goes to the player who
+accepted it (`acceptedby=` on the request; until MP5 that is always the host). A client reports its journal
+(`NetPackageScJournalReport`) and the server answers with quest ops (`NetPackageScQuestOp`): a POI favour past its clearing is
+marked done, stale favour, rescue and request quests close, and a POI favour nobody holds any more is no longer "taken on"
+(MP2's E6 gap). On a client the favour quest's marker now follows the survivor, and the supplies favour has a marker at all.
+Build `sc34_mp4q` (part Q only, not merged or deployed), untested in game. Logs: a client writes `rescue quest for <name> (<id>)
+started`, `... closed (completed|removed) - the server ended that ...`; the server writes `rescue quest for <name> sent to
+<player>`, `favour done: ... (their journal's report)` and `... no player holds its quest any more ... (E6)`.
+
+**Single player: nothing may change**
+- [ ] `sc distress <member>` on a member out on a run: the rescue quest "Help <name>" is in the journal with its marker on the
+      building; go there, kill the zombies: it completes. Again, and let the stand-in die: the quest goes (failed).
+- [ ] A mining runner's distress (`sc distress` once she is at the site): the quest marks the ground round her; it closes when
+      the run ends.
+- [ ] POI favour: "Mark it", clear the POI - the tooltip "... is clear - return to <name>" comes once, the marker moves to the
+      survivor; talk to them, they join, the quest completes.
+- [ ] Supplies favour: the quest's marker is on the survivor and follows them.
+- [ ] Accept an enclave request ("Leave it with me."): its quest is in the journal; hand it over - it completes. Quit and load:
+      the quest is still there (the journal pass keeps it). The save's `[encrequest]` has `acceptedby=`.
+- [ ] A siege call (`sc enclave siege <id> call`): its quest is in the journal, tracked.
+- [ ] Load a save from before this round with an accepted request: its quest stays (no `acceptedby=` reads as yours).
+- [ ] Log: no SC errors, no `quest net` / `sent to` lines.
+
+**A client on a listen host (the host is the anchor) or a dedicated server**
+- [ ] Listen host: the host types `sc distress <member>`: BOTH the host and the client get "Help <name>" with a marker on the
+      same building (the client's title in its own language). The client's log: `rescue quest for <name> (<id>) started`.
+- [ ] The host goes and wins the rescue: the client's quest completes too (`... closed (completed) - the server ended that
+      rescue`). Another call, the stand-in dies: both quests go (removed).
+- [ ] A call while the client is offline; the client joins while it is still open: the quest arrives within a few seconds of
+      joining (the server's log: `rescue quest for <name> sent to <player> (the call is still open)`). The client removes it
+      from the journal by hand: it does not come back this session.
+- [ ] A call that ends while the client is offline; the client joins: its stale copy closes on its own.
+- [ ] A physical runner on an open call re-created under a new id (she left the loaded area and came back, or a load): the
+      client's quest still closes when the rescue ends.
+- [ ] Client POI favour: clear the POI and walk away without talking - within a second or two the client gets "... is clear -
+      return to <name>" (the server marked it from the client's report), the quest's marker moves to the survivor (it used to
+      stay on the building on a client).
+- [ ] Client supplies favour: the quest has a marker on the survivor and it follows them (it had none on a client).
+- [ ] Client POI favour taken, then the quest removed by hand in the client's journal: the server logs `... no player holds its
+      quest any more ... (E6)`. A trader clear quest for the same building afterwards re-arms its sleepers for the client.
+- [ ] A favour whose survivor joins, dies or is hit while the client is offline: when the client joins, its copy of the quest
+      goes (removed).
+- [ ] An enclave person's favour on the client, the person re-created with a new body while the client is near (or away and
+      then joining): the quest still names them (phase 2's talk completes it).
+- [ ] Dedicated server: a siege the ticker calls while the client is near a known enclave puts the siege quest in the
+      CLIENT's journal (the server's log: `no journal quest (sent to the player's own journal)`); beat it: it completes.
+- [ ] Accept a request as the host on a listen host, quit, run the same save on the dedicated server and join as that
+      player: the request quest stays and follows the record (a search's stage, its marker).
+- [ ] Logs: no SC errors on either side.
+
+**Two players**
+- [ ] Both online, a call: each has their own rescue quest; one of them goes and wins it: both quests complete.
+- [ ] Both take the same survivor's POI favour; one drops it by hand: no E6 line (the other still holds it). The other drops it
+      too: the E6 line (within 30 s when the host's own player is the last to drop it: the next client report notices).
+- [ ] Both online, a POI favour: one clears the POI - the favour is done for both (`favour done` once in the server's log).
+
 ## Round MP3 (review fixes) (2026-11-24): linked storage keeps RE Inventory's footprint, claims block nothing, nothing deleted
 
 Why: the MP3 reviews found that with RE Inventory a swap or a batch of deposits skipped the footprint test (a box could go

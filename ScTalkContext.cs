@@ -58,7 +58,8 @@ namespace SurvivorCommunity
     /// - Every requirement in DialogOps / DialogOpsBands keeps its code on the server and has a client path that reads these
     ///   facts, the copy and the client's own journal and inventory. No requirement changes anything on a client.
     /// - Favour quests close on the journal's own machine: an action's reply carries it (ScActionsMembers' fclose hint), and
-    ///   Close (CloseFavourForOthers) reaches the other players who took the same favour.
+    ///   the quest op (CloseFavourForOthers; round MP4: NetPackageScQuestOp, ScQuestNet) reaches the other players who took the
+    ///   same favour. The package's own Close is still read (OnFavourClose), but no longer sent.
     /// Main thread only.
     /// </summary>
     public static class ScTalkContext
@@ -96,6 +97,9 @@ namespace SurvivorCommunity
             handOver.Clear();
             joinAfter.Clear();
             sent = answered = closes = 0;
+            // round MP4 (part Q): the quest ops' and journal reports' session state too (and their client tick, hooked once) -
+            // ModApi calls this at world start and shutdown, and ModApi.cs is not this part's file
+            ScQuestNet.Reset();
         }
 
         /// <summary>Client: the server's last answer for this NPC this session, or null.</summary>
@@ -503,7 +507,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// Server: the favour of this prospect is over - every player who holds its quest but 'except' (the one whose own close
         /// already happened, or comes with their reply) has it closed: the host's own player here, a matched client through
-        /// Close. Each client checks its own journal, so nobody needs to report which quests they hold. Single player: nobody.
+        /// the quest op (round MP4: NetPackageScQuestOp, which replaced the talk context's Close here). Each client checks its own
+        /// journal; one away closes it with its next journal report (ScQuestNet). Single player: nobody.
         /// </summary>
         public static void CloseFavourForOthers(int prospectId, bool completed, EntityPlayer except)
         {
@@ -523,7 +528,7 @@ namespace SurvivorCommunity
                         continue;
                     }
                     if (!ScNet.ClientMatches(pl)) continue;                       // a client without SC's protocol knows no such package
-                    ScNet.ToPlayer(pl, () => NetPackageManager.GetPackage<NetPackageScTalkContext>().SetupClose(prospectId, completed), null);
+                    ScQuestNet.CloseFavourFor(pl, prospectId, completed);         // round MP4: the quest op (every journal close goes through it)
                 }
             }
             catch (Exception e)

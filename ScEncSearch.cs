@@ -337,6 +337,7 @@ namespace SurvivorCommunity
                         t.Add(World.worldToBlockPos(qpos));
                 }
             }
+            ScQuestNet.AddReportedPois(t);          // round MP4: the POIs the remote players' quests lead to (their journal reports)
             return t;
         }
 

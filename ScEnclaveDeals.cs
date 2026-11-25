@@ -876,6 +876,7 @@ namespace SurvivorCommunity
             ScRegistry.Prospects[key] = pr;
             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
             if (pl != null) ScQuests.RekeyFavour(pl, old, key);
+            ScQuestNet.RekeyFavourRemote(old, key);       // round MP4: every client's copy (the quest op); one away follows on its next report
         }
 
         /// <summary>
@@ -905,6 +906,7 @@ namespace SurvivorCommunity
             if (pr == null) return;
             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
             if (pl != null) ScQuests.CloseFavour(pl, pr.Id, false);
+            ScTalkContext.CloseFavourForOthers(pr.Id, false, pl);     // round MP4: every client's copy too (the quest op)
             ScRegistry.Prospects.Remove(pr.Id);
             ScLog.Out("the favour of " + p.Name + " is off (" + why + ")");
         }

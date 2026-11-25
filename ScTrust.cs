@@ -125,7 +125,9 @@ namespace SurvivorCommunity
             if (p != null)
             {
                 // round MP2: the hitter's journal is on their own machine - the host's here as before; a client's (and every other
-                // player's who took the favour on: it is shared, the E 4.4 decision) through ScTalkContext's favour close
+                // player's who took the favour on: it is shared, the E 4.4 decision) through ScTalkContext's favour close. Round MP4:
+                // that close is the quest op (NetPackageScQuestOp); a remote hitter is not 'except' (null), so theirs closes too, and
+                // one away closes it with their next journal report (ScQuestNet)
                 if (player is EntityPlayerLocal) ScQuests.CloseFavour(player, p.Id, false);
                 ScTalkContext.CloseFavourForOthers(p.Id, false, player as EntityPlayerLocal);
                 ScRegistry.Prospects.Remove(p.Id);

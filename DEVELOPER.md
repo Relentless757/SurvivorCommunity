@@ -2280,7 +2280,8 @@ Round MP0 is the groundwork:
   - A supplies hand-over whose answer never comes (a dropped connection) is not refunded, and its row's `ScJoin` waits 30 s
     (members MINOR 2, NIT 2): MP3's item transactions.
   - E6: `Prospect.Started` never goes back when a remote player drops the favour quest, so that POI's vanilla clear
-    quests are not re-armed for remote players until the favour is done (members MINOR 7): MP4's journal report.
+    quests are not re-armed for remote players until the favour is done (members MINOR 7): MP4's journal report. (Closed in
+    round MP4, part Q: below.)
   - The window's Home / Leave keep a `done` fallback text that is never used (core n5); one helper for the `sc_shift` 0
     and `ClearSynced` (core n1).
   - No per-player request budget; no range check on the three claim ops (only the sender's own claim passes) (radials NIT 2).
@@ -2522,6 +2523,52 @@ Round MP0 is the groundwork:
     (SCore's companion marker, the raiders' clear-sleeper dots, `Patches_Xnpc` X11).
   - **`NetPackageScMarkers`** (server to client): int community (0), bool full, int n, then n changes: byte op (0 put, 1
     move, 2 drop), string kind, string key; a put adds string class and string name; a put or a move adds float x, y, z.
+
+- **Round MP4 (part Q), quests reach the right player's journal** (`ScQuestNet`, `NetPackageScQuestOp`,
+  `NetPackageScJournalReport`): a journal belongs to its own machine (`QuestJournal.AddQuest` is local), so the server never
+  touches a remote player's journal - it sends a quest op, and the client runs the same `ScQuests` function on its own
+  journal. The host's own player keeps its direct path (`ScQuests` on its own journal, as before); single player sends
+  nothing.
+  - **Who gets what:** a favour quest is the taker's (the dialog starts it on their machine); a favour that ends for
+    everyone (a join, a death, a grudge, an enclave person's end) closes every remote copy through
+    `ScTalkContext.CloseFavourForOthers`, which now sends the quest op (the talk context's own Close is still read, no
+    longer sent). A **rescue** quest goes to every community player online, each their own copy (`ScQuestNet.RescueStarted`
+    after `ScRadio.ForceDistress`'s own); `ScQuestNet.CloseRescueAll` closes every copy (the host's own included) whether
+    the call was won (the first to complete it completes it for everyone), lost or ended. An **enclave request's** quest is
+    the accepting player's: `EnclaveRequest.AcceptedBy` (the platform id, saved as `acceptedby=`, never in a client's copy;
+    empty - every save from before MP4 - is the host's own player). `ScQuestNet.StartRequestFor` starts it on the host's
+    journal or sends it; `ScEncRequests.Close` / `Reshape` reach a remote acceptor with `CloseRequestRemote` /
+    `ShapeRequestRemote`; the host's once-a-session `SyncJournal` keeps only the requests the host accepted
+    (`HostAccepted`). A siege's quest is the player it was called for. Until MP5 opens the enclave dialogs, every acceptance
+    is the host's.
+  - **The op** (server to one client): byte version, byte kind (0 favour close, 1 favour re-key, 2 rescue start, 3 rescue
+    close, 4 rescue re-key, 5 request start, 6 request shape, 7 request close), int id, int new id (re-keys), bool completed
+    (closes), then whole numbers and strings by kind - a rescue's box and names; a request's place, size, due day and flags,
+    and its quest class, kind and names (`ScQuests.RequestQuestData`, which the host's own `StartRequest` / `ShapeRequest`
+    are made from too, so both build the same quest). Titles are made on the receiving machine, in its language; a
+    request's "what" line is the server's words.
+  - **The report** (client to server, when it changed and every 30 s; `ScQuestNet`'s client tick, hooked into GameUpdate
+    from `ScTalkContext.Reset`): the NPC being talked to, then each SC quest (POI favour, supplies favour, rescue, request:
+    its id, an enclave person's id, in progress, past the clearing), then the POIs every quest in progress leads to. The
+    server keeps the last one per player for the session and answers: a POI favour past its clearing is done (what
+    `SyncCompleted` does for the host: `Done`, `sc_favourDone` force-sent, the tell - not while they talk to that survivor);
+    a favour quest whose prospect is gone closes, an enclave person's follows its new key; a rescue or request quest that
+    ended while they were away closes (the session's outcome, else removed); an open rescue their journal lacks starts (once
+    per player per call - one removed by hand stays removed), as does a request they accepted (once a session, and its
+    quest is shaped to the record once a session). E6: a POI favour a remote report held this session that no player holds
+    any more (no report, not the host's journal) has `Started` reset, so its building's vanilla clear quests re-arm for
+    remote players again; a report holding one marks it taken on again, and `ScQuests.IsOurPoi` also answers from a remote
+    subscriber's last report. The pickers that keep away from the player's quest POIs (enclaves, infestations, a missing
+    survivor's building) add the reported POIs (`ScQuestNet.AddReportedPois`).
+  - **Markers on a client:** the client tick runs `ScQuests.TickMarkers` on its own journal every second, from its copy's
+    prospect positions (a POI favour's marker follows the survivor from phase 2, a lost request marker is placed again), and
+    `EnsureMapObject` places the supplies favour's marker from the copy (MP1 had left both off on a client).
+  - **Known gaps:** the distress call itself stays off on a dedicated server (`ScRadio.RollDistress`; `sc distress` works)
+    and its trigger and judging are the anchor's position until MP5. The session tables (who got which rescue, how calls
+    and requests ended, who held which favour) are not saved: after a server restart a copy that ended meanwhile closes as
+    removed, and a favour held only by a player who has not reported since the restart can lose `Started` if another holder
+    drops it first (their POI may then be re-armed once). A request accepted by a player whose platform id changed is no
+    longer theirs.
 
 ## How it hangs together (for modders)
 
