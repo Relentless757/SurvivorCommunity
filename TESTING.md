@@ -37,6 +37,62 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP4 (part: voices) (2026-11-25): every player in earshot hears SC's lines, in the same voice
+
+Why: SC's voices played only on the host's machine, and only for lines the host's own player triggered: a client heard no
+greeting, chatter, taunt, small talk, horde warning or radio line, and lost even the Voice Control lines SC said in Voice
+Control's place (Voice Control relays its own speech; SC's clip skipped that). Now the server picks the line and the voice
+and sends it (`NetPackageScVoice`) to every player within 40 m of the speaker, or to the one player it is for (a greeting,
+a talk's parting line), or to every community player for a radio line (each client judges its own radio). The client plays
+it in that voice. On the host and in single player nothing should sound different. Build `sc34_mp4v`, **not deployed**,
+untested in game. With `DebugLogging` on, the server logs `voice: sent <kind> <key> in <voice> by <id> to <player>` and the
+client `voice: from the server: ...`. `sc voice barks` (server) and `scl voice` (a client's own game) end with a `network`
+line: lines sent, heard, and why some were not played.
+
+**Single player (and the host's own play): nothing may change**
+- [ ] Walk up to a resident, a recruit and a stranger: each greets you once (meet), again on a walk-up after 2 minutes;
+      a group of strangers greets once. `sc voice greet` and `sc voice chatter` work as before.
+- [ ] Chatter at home every minute or two; no chatter or greeting while a talk is open.
+- [ ] A raider band: spot, search, lost, hit, retreat, dying taunts as before; die to a raider: its "killed" taunt.
+- [ ] Small talk between residents (`sc chat <a> <b>`): voice, caption, gesture as before.
+- [ ] A horde at home with a guard on watch: the gathering / spotted / all-clear lines in person (near) or on the radio
+      (far, with a handheld). Away with a handheld and a powered station: the radio lines.
+- [ ] A runner with a radio: their moments on the radio while you carry a handheld; "Copy that." after a recall from the
+      Radio tab. An enclave's radio calls (`sc radio enc offer <id>`).
+- [ ] A work shift: "That's all for now." - she says it as the talk closes. "Let me think about it." to an enclave request.
+- [ ] Voice Control lines in SC's voices (`sc voice sayline ammo.dry`, order wheel labels, a refused job): as before.
+
+**A client on a dedicated server** (a save with a home, residents, a guard on watch, a recruit nearby, raiders, a runner
+with a radio; the client has the same SurvivorCommunity and Voice Control)
+- [ ] Walk up to a resident: she greets the client (in her voice, with her caption if subtitles show), once per day on a
+      meet, again on a walk-up. Voice Control does not greet her as well, and she is never silent where SC has a recording.
+- [ ] A recruit (a prospect) and a member greet the client as a recruit and a member, not as a stranger.
+- [ ] `sc voice greet` from the client: the nearest survivor greets the client on the client. `sc voice chatter`: a
+      resident near the client chats, heard by the client.
+- [ ] Chatter at home and small talk between residents are heard on the client, in the same voices the server log names,
+      captions in the client's language.
+- [ ] Raiders taunt the client (spot, hit, lost, idle, dying). Die to a raider: "killed" from the raider that was fighting
+      you (best effort: the server never learns a remote player's killer for sure). No taunt plays twice.
+- [ ] A guard on watch within 30 m of the client: the horde warning in person, in the guard's voice. Farther away: no
+      voice (the radio for clients comes with round MP5); the text still shows.
+- [ ] A runner with a radio: the client hears each moment while carrying a handheld radio, the caption "X on the radio:
+      ..." in the client's language; without a handheld, nothing. Recall from the Radio tab is round MP5 (the window).
+- [ ] An enclave's radio call: heard on the client with a handheld, or within 30 m of a powered station; in person when one
+      of theirs stands within 30 m.
+- [ ] A resident on a work shift: "That's all for now." from the client - she says it on the client as the talk closes.
+- [ ] `sc voice sayline ammo.dry` from the client (a survivor within 20 m): the client hears the line (Voice Control's own
+      say-line, or SC's clip in her voice where recorded).
+- [ ] The server's log has no SC error; `sc voice barks` shows lines sent; `scl voice` on the client shows them heard.
+
+**A listen host and a client**
+- [ ] The host uses the order wheel on a follower standing near the client: where SC says its recorded reply in Voice
+      Control's place, the client hears it too (the relay Voice Control would have sent). A say-line (`sc voice sayline` by
+      the host) is heard once on the client, not twice.
+- [ ] Both players near one resident: each is greeted for themselves (two greetings, a few seconds apart at most); chatter
+      and taunts are heard by both, in the same voice on both machines (`sc voice who <name>` on the server names it).
+- [ ] The host far away, the client at the base: horde warnings in person and chatter still reach the client.
+- [ ] The client with a talk open on a resident: no greeting or chatter of hers plays over the talk on the client.
+
 ## Round MP3 (review fixes) (2026-11-24): linked storage keeps RE Inventory's footprint, claims block nothing, nothing deleted
 
 Why: the MP3 reviews found that with RE Inventory a swap or a batch of deposits skipped the footprint test (a box could go

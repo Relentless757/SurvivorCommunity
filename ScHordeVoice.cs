@@ -49,6 +49,9 @@ namespace SurvivorCommunity
     /// Every line goes through ScRadioTalk's queue (QueueHorde: one line at a time with the runners', the radio's source,
     /// effect and volume - RunnerRadioEffect, RunnerRadioVolume), never touching a runner's RunTalk marks. HordeVoiceLines
     /// false: no voice at all; VoiceLines false: no clip (MemberClip), so no voice either. Host only, main thread.
+    /// Round MP4 (multiplayer): a guard's warning at home is heard in person by every remote player near the guard too (the
+    /// server sends it: NetPackageScVoice); a warning on the radio - farther away, or from home while away - stays the host's
+    /// own player's until round MP5's radio work.
     /// </summary>
     public static class ScHordeVoice
     {
@@ -149,8 +152,10 @@ namespace SurvivorCommunity
         /// ScRadioTalk.InPersonRange of the player, else on the radio when the player carries a handheld and the guard can send
         /// (their own handheld, or the home station with power). The caller has just shown the moment's text. force (the
         /// console): HordeVoiceLines and the radio rules ignored - in person in range, else on the radio. Returns what happened.
+        /// Round MP4: anyPlayer - the host's own player is judged here as before (any other: nobody here); every remote player
+        /// within InPersonRange of the guard hears it in person on their own machine (NetPackageScVoice), forced lines aside.
         /// </summary>
-        public static string SayAtHome(HordeMoment moment, Member m, EntityAlive body, string side, EntityPlayerLocal player, bool force)
+        public static string SayAtHome(HordeMoment moment, Member m, EntityAlive body, string side, EntityPlayer anyPlayer, bool force)   // round MP4: any player (the host's own decides here)
         {
             try
             {
@@ -161,12 +166,22 @@ namespace SurvivorCommunity
                 string voice;
                 string path = ScVoice.MemberClip(m, key, out voice);
                 if (path == null) return NoClip(m, key);
+                // round MP4: the remote players within InPersonRange of the guard hear it in person on their own machine (the same
+                // line, the guard's voice). MP5: one farther away hears it on the radio only with round MP5's radio work
+                int near = force ? 0 : ScVoice.SendNear(body.position, new NetPackageScVoice.Line
+                {
+                    Kind = NetPackageScVoice.KindHorde, Npc = body.entityId, Key = key, Voice = voice ?? "", Name = m.Name ?? "",
+                    Priority = (byte)RadioPriority.Horde, Tag = "horde", Flags = NetPackageScVoice.FlagLipSync
+                }, ScRadioTalk.InPersonRange);
+                if (near > 0) ScLog.Out(m.Name + " says " + key + " in " + voice + ", in person to " + near + " other player(s)");
+                EntityPlayerLocal player = anyPlayer as EntityPlayerLocal;   // round MP4: the host's own player hears it here, as before
                 // m1v re-check N1: 3D, as ScRadioTalk.PlayInPerson checks it (a bark is 3D audio cut off at 40 m) - a guard high up a
                 // tower is on the radio by the rule below, decided and logged here, not dropped at play time
                 bool inPerson = player != null && Vector3.Distance(body.position, player.position) <= ScRadioTalk.InPersonRange;
                 string how = "in person";
                 if (!inPerson)
                 {
+                    // MP5: on the radio for the host's own player only (a remote player's radio: round MP5)
                     bool own = ScHandheld.NpcCarries(body);
                     bool station = !own && ScDefence.Radio();
                     if (!force)
@@ -206,6 +221,8 @@ namespace SurvivorCommunity
         {
             try
             {
+                // MP5: the radio from home is heard by the host's own player only until round MP5's radio work (a remote player's
+                // handheld radio and the station's power, judged for them)
                 if (!force)
                 {
                     if (!ScConfig.HordeVoiceLines) { ScHandheld.Count("horde off"); return "HordeVoiceLines is off"; }

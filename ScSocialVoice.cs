@@ -22,6 +22,9 @@ namespace SurvivorCommunity
     ///  - SmallTalkTtsFallback: Voice Control's 220 pairs through 0-XNPCCore's hook slots (XNPCCore.SmallTalk to open,
     ///    XNPCCore.SayLine "smalltalk.reply" to answer): its text-to-speech, captions and gestures, as for its POI residents.
     /// Voice Control is bound by name (no compile reference), 0-XNPCCore by its public bridge.
+    /// Round MP4 (multiplayer): the server says each line and sends it to every player in earshot (NetPackageScVoice, kind small
+    /// talk), in the speaker's voice, its caption in each player's own language; the TTS fallback's lines reach them through
+    /// Voice Control's own say-line package.
     /// </summary>
     public static class ScSocialVoice
     {
@@ -196,18 +199,27 @@ namespace SurvivorCommunity
             Gesture(npc, lineId);
             float secs = SpeakSeconds(words);
             string name = ScCommunity.DisplayName(npc);
+            bool here = ScVoice.PlaysHere;                             // round MP4: a dedicated server only sends it
             if (path != null)
             {
-                ScVoice.PlayBark(npc, path, true, false, clip => Caption(npc, name, words, clip.length + 1f), null);
+                if (here) ScVoice.PlayBark(npc, path, true, false, clip => Caption(npc, name, words, clip.length + 1f), null);
+                else ScVoice.NoteBusy(npc, secs);
                 how = "recorded, " + voice;
                 Count("clip");
             }
             else
             {
-                Caption(npc, name, words, secs + 1.5f);
+                if (here) Caption(npc, name, words, secs + 1.5f);
                 how = "caption only (no recording yet)";
                 Count("caption");
             }
+            // round MP4: everyone in earshot hears it in the same voice, its caption (<key>Said) in their own language; the
+            // gesture rides 0-XNPCCore's own synced clip
+            ScVoice.SendNear(npc.position, new NetPackageScVoice.Line
+            {
+                Kind = NetPackageScVoice.KindSmallTalk, Npc = npc.entityId, Key = key, Voice = path != null ? voice ?? "" : "",
+                Caption = NetPackageScVoice.CaptionLoc, CaptionKey = key + "Said", Name = name, Flags = NetPackageScVoice.FlagLipSync
+            }, ScVoice.EarshotRange);
             return secs;
         }
 

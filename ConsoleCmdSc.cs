@@ -978,6 +978,10 @@ namespace SurvivorCommunity
                 EntityAlive near = lp != null ? ScVoice.Nearest(lp.position, 20f) : null;
                 if (near == null) { Output("[SC] voice: no survivor with a voice within 20 m"); return; }
                 Output("[SC] voice: " + ScVoice.SayLineLater(near, line, secs));
+                // round MP4: it is said on the server; Voice Control sends a say-line to the players within 32 m of her itself, and
+                // a line SC says in its place there without one reaches them too (ScBarks.RelayVc) - so the sender hears it on their
+                // own machine
+                if (senderRemote) Output("[SC] voice: said on the server - you hear it on your machine (Voice Control's say-line, or SC's clip in her voice); your own game's voice gate decides there");
                 return;
             }
             if (a == "context")
@@ -1010,7 +1014,13 @@ namespace SurvivorCommunity
         private static bool VoiceLocalCmd(List<string> p, bool scl)
         {
             string a = p.Count > 1 ? p[1].ToLowerInvariant() : "";
-            if (scl && a == "") { Output("[SC] voice: " + ScVoice.Status()); Output("[SC] voice gate: " + ScVoice.GateStatus()); return true; }
+            if (scl && a == "")
+            {
+                Output("[SC] voice: " + ScVoice.Status());
+                Output("[SC] voice gate: " + ScVoice.GateStatus());
+                Output("[SC] voice: " + ScVoice.NetStatus());                // round MP4: the lines this game heard from the server
+                return true;
+            }
             if (a == "stop") { ScVoice.Stop(); Output("[SC] voice: stopped"); return true; }
             if (a == "rescan") { Output("[SC] voice: " + ScVoice.Rescan()); return true; }
             if (a == "play" && p.Count > 2)
@@ -1053,14 +1063,14 @@ namespace SurvivorCommunity
                 {
                     EntityAlive npc = p.Count > 2 ? FindBodyNpc(p[2]) : lp != null ? ScVoice.Nearest(lp.position, 20f) : null;
                     if (npc == null) { Output("[SC] voice greet: " + (p.Count > 2 ? "no NPC matches " + p[2] : "no survivor with a voice within 20 m")); return true; }
-                    Output("[SC] voice greet: " + ScGreetings.GreetNow(npc, lp as EntityPlayerLocal));   // MP4 (voices): ScGreetings.GreetNow takes the host's own player
+                    Output("[SC] voice greet: " + ScGreetings.GreetNow(npc, lp));   // round MP4: the sender is greeted (a remote one on their machine)
                     return true;
                 }
                 case "chatter":
                 {
                     EntityAlive npc = p.Count > 2 ? FindBodyNpc(p[2]) : null;
                     if (p.Count > 2 && npc == null) { Output("[SC] voice chatter: no NPC matches " + p[2]); return true; }
-                    Output("[SC] voice chatter: " + ScGreetings.ChatterNow(npc));
+                    Output("[SC] voice chatter: " + ScGreetings.ChatterNow(npc, lp));   // round MP4: one near the sender; heard by everyone in earshot
                     return true;
                 }
                 case "taunt":
@@ -1078,6 +1088,7 @@ namespace SurvivorCommunity
                     Output("[SC] voice barks: said / matched this session: " + ScBarks.Counters());
                     Output("[SC] voice barks: " + ScVoiceRoutes.Status());       // round m1w
                     Output("[SC] voice barks: " + ScClipCache.Describe());
+                    Output("[SC] voice barks: " + ScVoice.NetStatus());          // round MP4: the server's sends (a client's own: scl voice)
                     return true;
                 case "line":
                 {

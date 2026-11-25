@@ -1616,6 +1616,11 @@ namespace SurvivorCommunity
         // that NPC: SpeakStreaming would stop its own queue first, which SC never does (REPORT 1.5). EnqueueSpeech is not
         // hooked: in Voice Control 3.4 it carries only the LLM's streamed chunks (NPCChatComponent.cs:131, :606), never a
         // fixed line.
+        // Round MP4 (multiplayer): Voice Control relays its text-to-speech to the players within 32 m (OnWavBytesReady); a line
+        // SC says in its place never reaches OnWavBytesReady, so on the server SC sends its own clip to the same players
+        // (ScBarks.RelayVc) - except inside SayToEarshot (Patch_ScSayLineScope), whose say-line Voice Control sends to the
+        // clients itself. TriggerProactiveGreeting runs on the greeted player's own machine; on a client OwnsGreeting answers
+        // from the server's facts (the copy of the registry, synced cvars), as the server greets that player by them.
 
         /// <summary>NPCChatComponent.TriggerProactiveGreeting(EntityPlayer player), public instance void.</summary>
         public static MethodBase TriggerGreetingTarget()
@@ -1682,6 +1687,45 @@ namespace SurvivorCommunity
                     ScLog.Once("vc-sc-ack", e);
                     return true;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Round MP4: SubtitleManager.SayToEarshot(EntityAlive npc, string text, string lineId), public static void - Voice
+        /// Control's say-line, sent to the clients in earshot by its own package (NetPackageVCSayLine).
+        /// </summary>
+        public static MethodBase SayToEarshotTarget()
+        {
+            Type t = ScTypes.Find("XNPCVoiceControl.UI.SubtitleManager");
+            if (t == null) return null;
+            return Returning(AccessTools.DeclaredMethod(t, "SayToEarshot", new[] { typeof(EntityAlive), typeof(string), typeof(string) }), typeof(void), true);
+        }
+
+        /// <summary>
+        /// Round MP4 (D_npc 4.9 point 5): while Voice Control's SayToEarshot runs (ScBarks.SayLineDepth). It sends the say-line to
+        /// the clients in earshot itself - each runs AcknowledgeCommand, and SC's Patch_ScAck there - so a line SC says in its
+        /// place inside it (Patch_ScAck, Patch_ScSpeech on the host) is not relayed again; any other line SC says in Voice
+        /// Control's place on the server goes to the players Voice Control's own voice relay would have reached (ScBarks.RelayVc).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_ScSayLineScope
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bindable(SayToEarshotTarget(), "SubtitleManager.SayToEarshot", null); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return SayToEarshotTarget(); }
+
+            [HarmonyPrefix]
+            public static void Prefix()
+            {
+                ScBarks.SayLineDepth++;
+            }
+
+            [HarmonyFinalizer]
+            public static void Finalizer()
+            {
+                if (ScBarks.SayLineDepth > 0) ScBarks.SayLineDepth--;
             }
         }
 

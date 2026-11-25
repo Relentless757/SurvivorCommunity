@@ -34,6 +34,13 @@ namespace SurvivorCommunity
     ///
     /// Chatter (ScChatter): every ScChatterSeconds (90 s, a quarter either way), with ScChatterChance (0.5), one resident at
     /// home within ScChatterRange (15 m) of you, not fighting, not talking, says a chatter line - only one with a clip.
+    ///
+    /// Round MP4 (multiplayer): the server greets every player for themselves - the same rules, each player's own memory of
+    /// who met them today and when (PlayerKey), one greeting at a time per player - and a remote player's greeting is said on
+    /// their machine only (ScBarks.SayFrom's to, NetPackageScVoice). Chatter comes from a resident near any player and is
+    /// heard by everyone in earshot. On a client, OwnsGreeting answers from server-synced facts (the copy of the registry,
+    /// the synced cvars), the same facts the server greets that player by - so a client hears SC's greeting or Voice
+    /// Control's, never neither.
     /// </summary>
     public static class ScGreetings
     {
@@ -43,9 +50,13 @@ namespace SurvivorCommunity
         private const float LookDot = 0.9f;
 
         private static float nextTick, nextChatter = -1f, lastSpoke = -999f;
-        /// <summary>The world day each survivor last greeted you on a "meet", by person (PersonKey).</summary>
+        /// <summary>Round MP4: when the last chatter line was said (real time) - a greeting keeps its gap after it, for every player.</summary>
+        private static float lastChatter = -999f;
+        /// <summary>Round MP4: when someone last greeted each player (real time), by entity id: one greeting at a time, per player.</summary>
+        private static readonly Dictionary<int, float> greetedPlayer = new Dictionary<int, float>();
+        /// <summary>The world day each survivor last greeted you on a "meet", by player and person (PlayerKey + PersonKey).</summary>
         private static readonly Dictionary<string, int> metDay = new Dictionary<string, int>(StringComparer.Ordinal);
-        /// <summary>When each survivor last greeted you (real time), by person (PersonKey).</summary>
+        /// <summary>When each survivor last greeted you (real time), by player and person (PlayerKey + PersonKey).</summary>
         private static readonly Dictionary<string, float> greetedAt = new Dictionary<string, float>(StringComparer.Ordinal);
         private static readonly System.Random rnd = new System.Random();
         private static readonly List<EntityAlive> pool = new List<EntityAlive>();
@@ -56,6 +67,8 @@ namespace SurvivorCommunity
             nextTick = 0f;
             nextChatter = -1f;
             lastSpoke = -999f;
+            lastChatter = -999f;                                       // round MP4
+            greetedPlayer.Clear();                                     // round MP4
             metDay.Clear();
             greetedAt.Clear();
 #if SC_V34
@@ -75,15 +88,37 @@ namespace SurvivorCommunity
             {
                 if (!ScCommunity.IsHost || !ScRegistry.Loaded) return;
                 World w = ScCommunity.World;
-                EntityPlayerLocal lp = ScCommunity.LocalPlayer;
-                if (w == null || lp == null || lp.IsDead() || ScVoice.TalkOpen) return;
-                if (ScConfig.ScGreetings) TickGreetings(w, lp, now);
-                if (ScConfig.ScChatter) TickChatter(w, lp, now);
+                if (w == null) return;
+                // round MP4: every player on the server is greeted for themselves (a remote one on their own machine); the talk
+                // gate is the host's own (a client drops a greeting that lands during its own talk: ScVoice.OnNetLine)
+                if (ScConfig.ScGreetings)
+                {
+                    List<EntityPlayer> all = ScPlayers.All;
+                    for (int i = 0; i < all.Count; i++)
+                    {
+                        EntityPlayer p = all[i];
+                        if (!Listens(p) || (p is EntityPlayerLocal && ScVoice.TalkOpen)) continue;
+                        TickGreetings(w, p, now);
+                    }
+                }
+                if (ScConfig.ScChatter && !ScVoice.TalkOpen) TickChatter(w, now);
             }
             catch (Exception e)
             {
                 ScLog.Once("voice-greetings", e);
             }
+        }
+
+        /// <summary>Round MP4: a living player who hears SC's lines - the host's own, or a remote one who speaks SC's protocol.</summary>
+        private static bool Listens(EntityPlayer p)
+        {
+            return p != null && !p.IsDead() && (p is EntityPlayerLocal || ScNet.ClientMatches(p));
+        }
+
+        /// <summary>Round MP4: a player's part of the greeting memory's keys (entity ids hold for the session the memory lives in).</summary>
+        private static string PlayerKey(EntityPlayer p)
+        {
+            return p != null ? p.entityId + "/" : "";
         }
 
         // ------------------------------------------------------------------ greetings ----
@@ -103,8 +138,10 @@ namespace SurvivorCommunity
             if (ScTrust.IsHostileTo(npc, player) || ScEnclavePeople.IsHostileBody(npc)) return null;
             if (npc.Buffs != null && npc.Buffs.HasCustomVar(ScRadio.StandInCvar)) return null;
             // round MP1: the real registry only - on a client (TriggerProactiveGreeting runs there) a copy's answer would change
-            // which of Voice Control's greetings plays, which stays as before until the voices travel (round MP4)
-            Member m = ScRegistry.Loaded ? ScRegistry.GetMember(npc.entityId) : null;
+            // which of Voice Control's greetings plays, which stays as before until the voices travel (round MP4).
+            // Round MP4: the client's copy too (ScRegistry.Ready) - the server now greets that client by these same facts, so
+            // the client's OwnsGreeting must answer from them (never "stranger" for a member)
+            Member m = ScRegistry.Ready ? ScRegistry.GetMember(npc.entityId) : null;
             if (m != null)
             {
                 if (m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) return "follower";
@@ -116,13 +153,16 @@ namespace SurvivorCommunity
             if (ScEnclavePeople.IsEnclaveNpc(npc))
             {
                 if (ScEnclaveDeals.IsEnlistedBody(npc)) return "follower";
+                // round MP4: a client has no enclave people (the copy leaves them out): one of theirs by the synced cvars - not
+                // hostile (above: IsHostileBody), not enlisted - as the server sees them (a missing person's body is not out)
+                if (!ScRegistry.Loaded) return "enclave";
                 EncPerson p = ScEnclavePeople.PersonOf(npc);
                 Enclave e = ScEnclavePeople.EnclaveOf(p);
                 if (p == null || e == null || e.IsHostile || p.Missing) return null;
                 return "enclave";
             }
             if (ScCommunity.HiredBy(npc) == player.entityId) return "follower";
-            if (ScRegistry.Loaded && ScRegistry.GetProspect(npc.entityId) != null) return "recruit";   // round MP1: as above
+            if (ScRegistry.Ready && ScRegistry.GetProspect(npc.entityId) != null) return "recruit";   // round MP1: as above (round MP4: the copy too)
             return "stranger";
         }
 
@@ -136,6 +176,9 @@ namespace SurvivorCommunity
         public static bool OwnsGreeting(EntityAlive npc, EntityPlayer player)
         {
             if (!ScConfig.ScGreetings || npc == null || !ScXnpc.IsSurvivorBody(npc)) return false;
+            // round MP4: on a client SC greets only through the server - a server without SC (or another protocol) never does,
+            // so Voice Control greets as before; with it, the server greets this player by the facts Relation reads here
+            if (ScNet.IsClient && (!ScNet.ServerMatches || !ScRegistry.Ready)) return false;
             string rel = Relation(npc, player);
             if (ScConfig.ScGreetingsOwnAll)
             {
@@ -197,9 +240,14 @@ namespace SurvivorCommunity
             return false;
         }
 
-        private static void TickGreetings(World w, EntityPlayerLocal lp, float now)
+        private static void TickGreetings(World w, EntityPlayer lp, float now)     // round MP4: any player (was the host's own)
         {
-            if (now - lastSpoke < ScConfig.ScGreetGapSeconds) return;
+            // round MP4: one greeting at a time per player, and the gap after a chatter line for everyone (the old shared
+            // lastSpoke: in single player the later of the two is the same moment)
+            float greeted;
+            if (!greetedPlayer.TryGetValue(lp.entityId, out greeted)) greeted = -999f;
+            if (now - Math.Max(greeted, lastChatter) < ScConfig.ScGreetGapSeconds) return;
+            string pk = PlayerKey(lp);
             int day = ScCommunity.Today;
             float meet2 = ScConfig.ScGreetMeetRange * ScConfig.ScGreetMeetRange;
             float walk2 = ScConfig.ScGreetWalkUpRange * ScConfig.ScGreetWalkUpRange;
@@ -219,7 +267,7 @@ namespace SurvivorCommunity
                 // the cheap tests first: a walk-up (close, looked at, not greeted lately) or a meet still due today
                 float at;
                 int d;
-                string who = PersonKey(npc);
+                string who = pk + PersonKey(npc);                    // round MP4: this player's memory
                 bool walkUp = sq <= walk2 && (!greetedAt.TryGetValue(who, out at) || now - at >= ScConfig.ScGreetWalkUpSeconds) && LooksAt(lp, npc);
                 bool meetDue = !walkUp && (!metDay.TryGetValue(who, out d) || d != day);
                 if (!walkUp && !meetDue) continue;
@@ -229,7 +277,7 @@ namespace SurvivorCommunity
                 string rel = Relation(npc, lp);
                 if (rel == null || ScVoice.Holds(npc) || ScVoice.Busy(npc) || ScCommunity.LiveFoe(npc, FightRange) != null) continue;
 #if SC_V34
-                if (!walkUp && rel == "stranger" && StrangerGroupQuiet(npc, now)) continue;   // round U3: one stranger greets a group
+                if (!walkUp && rel == "stranger" && StrangerGroupQuiet(npc, lp, now)) continue;   // round U3: one stranger greets a group
 #endif
                 if (!ScConfig.VoiceBarkDebug && !ScBarks.HasAnyClip(npc, GreetKeys(rel))) continue;
                 if (!Sees(w, lp, npc)) continue;                      // the raycast last (a walk-up too: N4, not through a wall)
@@ -242,7 +290,7 @@ namespace SurvivorCommunity
             if (best == null) return;
             if (Greet(best, lp, bestRel, bestHow))
             {
-                metDay[PersonKey(best)] = day;
+                metDay[pk + PersonKey(best)] = day;                  // round MP4: this player's memory
 #if SC_V34
                 if (bestRel == "stranger" && bestHow == "meet") MetWithGroup(w, best, lp, day, now);   // round U3
 #endif
@@ -252,47 +300,58 @@ namespace SurvivorCommunity
 #if SC_V34
         // ---- round U3: one stranger greets a group (Voice Control 3.4.06's "one greeting per group", for SC's own greetings) ----
 
-        /// <summary>Where and when a stranger last greeted you on a "meet" (real time): the group's quiet window.</summary>
-        private static readonly List<KeyValuePair<Vector3, float>> strangerGreets = new List<KeyValuePair<Vector3, float>>();
+        /// <summary>Round MP4: where and when a stranger last greeted a player on a "meet", and which player (entity id).</summary>
+        private struct StrangerGreet
+        {
+            public Vector3 At;
+            public float When;
+            public int Player;
+        }
+
+        /// <summary>Where and when a stranger last greeted you on a "meet" (real time): the group's quiet window. Round MP4: per player.</summary>
+        private static readonly List<StrangerGreet> strangerGreets = new List<StrangerGreet>();
         /// <summary>Voice Control's GreetGroupQuietSeconds: a stranger who comes along later greets once this has passed.</summary>
         private const float GroupQuietSeconds = 120f;
 
         /// <summary>
         /// A stranger's "meet" greeting is held while another stranger greeted you within ScGreetGroupRange of them in the last
-        /// GroupQuietSeconds (ScGreetOnePerGroup). A walk-up greeting (you look at them up close) is never held.
+        /// GroupQuietSeconds (ScGreetOnePerGroup). A walk-up greeting (you look at them up close) is never held. Round MP4: you -
+        /// the player this greeting would be for.
         /// </summary>
-        private static bool StrangerGroupQuiet(EntityAlive npc, float now)
+        private static bool StrangerGroupQuiet(EntityAlive npc, EntityPlayer lp, float now)
         {
             if (!ScConfig.ScGreetOnePerGroup || strangerGreets.Count == 0) return false;
             float r2 = ScConfig.ScGreetGroupRange * ScConfig.ScGreetGroupRange;
             for (int i = strangerGreets.Count - 1; i >= 0; i--)
             {
-                if (now - strangerGreets[i].Value >= GroupQuietSeconds) { strangerGreets.RemoveAt(i); continue; }
-                if ((strangerGreets[i].Key - npc.position).sqrMagnitude <= r2) return true;
+                if (now - strangerGreets[i].When >= GroupQuietSeconds) { strangerGreets.RemoveAt(i); continue; }
+                if (strangerGreets[i].Player == lp.entityId && (strangerGreets[i].At - npc.position).sqrMagnitude <= r2) return true;
             }
             return false;
         }
 
         /// <summary>
         /// A stranger greeted you on a "meet": every other stranger of the group (a survivor body within ScGreetGroupRange of
-        /// them, a stranger to you) counts as met today too, so they do not greet you one after another.
+        /// them, a stranger to you) counts as met today too, so they do not greet you one after another. Round MP4: you - the
+        /// player greeted (their own memory).
         /// </summary>
-        private static void MetWithGroup(World w, EntityAlive greeter, EntityPlayerLocal lp, int day, float now)
+        private static void MetWithGroup(World w, EntityAlive greeter, EntityPlayer lp, int day, float now)
         {
             if (!ScConfig.ScGreetOnePerGroup) return;
-            strangerGreets.Add(new KeyValuePair<Vector3, float>(greeter.position, now));
+            strangerGreets.Add(new StrangerGreet { At = greeter.position, When = now, Player = lp.entityId });
             float r2 = ScConfig.ScGreetGroupRange * ScConfig.ScGreetGroupRange;
             List<Entity> list = w.Entities.list;
+            string pk = PlayerKey(lp);
             int n = 0;
             for (int i = 0; i < list.Count; i++)
             {
                 EntityAlive e = list[i] as EntityAliveSDXV4;
                 if (e == null || e == greeter || e.IsDead() || (e.position - greeter.position).sqrMagnitude > r2 || !ScXnpc.IsSurvivorBody(e)) continue;
                 if (Relation(e, lp) != "stranger") continue;
-                metDay[PersonKey(e)] = day;
+                metDay[pk + PersonKey(e)] = day;
                 n++;
             }
-            if (n > 0) ScLog.Verbose("greetings: " + ScCommunity.DisplayName(greeter) + " greeted you for a group of " + (n + 1) + " strangers");
+            if (n > 0) ScLog.Verbose("greetings: " + ScCommunity.DisplayName(greeter) + " greeted " + (lp is EntityPlayerLocal ? "you" : lp.PlayerDisplayName) + " for a group of " + (n + 1) + " strangers");
         }
 #endif
 
@@ -312,19 +371,22 @@ namespace SurvivorCommunity
             return "e:" + npc.entityId;
         }
 
-        private static bool Greet(EntityAlive npc, EntityPlayerLocal lp, string rel, string how)
+        /// <summary>Round MP4: lp - the player greeted, any player; the line is said for them alone (a remote one's on their machine).</summary>
+        private static bool Greet(EntityAlive npc, EntityPlayer lp, string rel, string how)
         {
-            bool said = ScBarks.SayFrom(npc, GreetFamily(rel), GreetKeys(rel), how + " greeting (" + rel + ")", true, false, lp);
+            string why = how + " greeting (" + rel + ")" + (lp is EntityPlayerLocal ? "" : " to " + lp.PlayerDisplayName);
+            bool said = ScBarks.SayFrom(npc, GreetFamily(rel), GreetKeys(rel), why, true, false, lp, lp);
             if (!said) return false;
             float now = Time.unscaledTime;
-            greetedAt[PersonKey(npc)] = now;
+            greetedAt[PlayerKey(lp) + PersonKey(npc)] = now;             // round MP4: this player's memory
+            greetedPlayer[lp.entityId] = now;
             lastSpoke = now;
             greetings++;
             return true;
         }
 
-        /// <summary>The player looks at the survivor (about 25 degrees either way of their chest).</summary>
-        private static bool LooksAt(EntityPlayerLocal lp, EntityAlive npc)
+        /// <summary>The player looks at the survivor (about 25 degrees either way of their chest). Round MP4: any player (a remote one's look, as the server has it).</summary>
+        private static bool LooksAt(EntityPlayer lp, EntityAlive npc)
         {
             Vector3 to = npc.getChestPosition() - lp.getHeadPosition();
             if (to.sqrMagnitude < 0.01f) return true;
@@ -332,7 +394,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>A clear line between the player's head and the survivor's: no block in the way.</summary>
-        private static bool Sees(World w, EntityPlayerLocal lp, EntityAlive npc)
+        private static bool Sees(World w, EntityPlayer lp, EntityAlive npc)
         {
             Vector3 from = lp.getHeadPosition(), to = npc.getHeadPosition();
             Vector3 d = to - from;
@@ -346,8 +408,9 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ chatter ----
 
-        private static void TickChatter(World w, EntityPlayerLocal lp, float now)
+        private static void TickChatter(World w, float now)        // round MP4: near any player (was the host's own)
         {
+            if (!AnyListener()) return;                             // round MP4: nobody alive to hear it (the old early return)
             if (nextChatter < 0f)
             {
                 nextChatter = now + ScConfig.ScChatterSeconds * (0.5f + (float)rnd.NextDouble() * 0.5f);   // not right at load
@@ -357,14 +420,38 @@ namespace SurvivorCommunity
             nextChatter = now + ScConfig.ScChatterSeconds * (0.75f + (float)rnd.NextDouble() * 0.5f);
             if (rnd.NextDouble() > ScConfig.ScChatterChance) return;
             if (now - lastSpoke < Math.Max(4f, ScConfig.ScGreetGapSeconds)) return;   // one speaker at a time
-            Candidates(w, lp);
+            Candidates(w, null);
             if (pool.Count == 0) return;
             EntityAlive npc = pool[rnd.Next(pool.Count)];
             Chatter(npc);
         }
 
-        /// <summary>Residents at home within ScChatterRange of the player who could say a chatter line now.</summary>
-        private static void Candidates(World w, EntityPlayerLocal lp)
+        /// <summary>Round MP4: a living player who hears SC's lines is on the server (the host's own, or a remote one with SC).</summary>
+        private static bool AnyListener()
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++) if (Listens(all[i])) return true;
+            return false;
+        }
+
+        /// <summary>Round MP4: within ScChatterRange (squared: r2) of near, or with near null of any living player who hears SC's lines.</summary>
+        private static bool Near(Vector3 pos, EntityPlayer near, float r2)
+        {
+            if (near != null) return (pos - near.position).sqrMagnitude <= r2;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (Listens(p) && (pos - p.position).sqrMagnitude <= r2) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Residents at home within ScChatterRange of the player who could say a chatter line now. Round MP4: lp null - of any
+        /// living player (the line is heard by everyone in earshot); else of that one (the console's sender).
+        /// </summary>
+        private static void Candidates(World w, EntityPlayer lp)
         {
             pool.Clear();
             float r2 = ScConfig.ScChatterRange * ScConfig.ScChatterRange;
@@ -372,7 +459,7 @@ namespace SurvivorCommunity
             {
                 if (m.Status != MemberStatus.Resident) continue;
                 EntityAlive npc = ScCommunity.FindNpc(m.Id);
-                if (npc == null || npc.IsDead() || (npc.position - lp.position).sqrMagnitude > r2 || !ScXnpc.IsSurvivorBody(npc)) continue;
+                if (npc == null || npc.IsDead() || !Near(npc.position, lp, r2) || !ScXnpc.IsSurvivorBody(npc)) continue;
 #if SC_V34
                 if (ScDowned.IsDown(npc)) continue;     // round U2: no chatter from a downed member
 #endif
@@ -387,17 +474,21 @@ namespace SurvivorCommunity
 
         private static bool Chatter(EntityAlive npc)
         {
-            bool said = ScBarks.Say(npc, "chatter", "chatter at home", true, false, null);
+            bool said = ScBarks.Say(npc, "chatter", "chatter at home", true, false, null);   // round MP4: heard by everyone in earshot
             if (!said) return false;
             lastSpoke = Time.unscaledTime;
+            lastChatter = lastSpoke;                                   // round MP4: every player's greetings keep their gap after it
             chatters++;
             return true;
         }
 
         // ------------------------------------------------------------------ console ----
 
-        /// <summary>sc voice greet: this survivor greets the player now (no range, gap or cooldown); what was said, or why not.</summary>
-        public static string GreetNow(EntityAlive npc, EntityPlayerLocal lp)
+        /// <summary>
+        /// sc voice greet: this survivor greets the player now (no range, gap or cooldown); what was said, or why not. Round MP4:
+        /// lp - the console's sender, any player (a remote one hears it on their own machine).
+        /// </summary>
+        public static string GreetNow(EntityAlive npc, EntityPlayer lp)
         {
             if (npc == null || lp == null) return "no survivor";
             string who = ScCommunity.DisplayName(npc) + " (" + npc.entityId + ")";
@@ -415,13 +506,16 @@ namespace SurvivorCommunity
             return what + " says " + p.Key + (p.Path != null ? " in " + p.Voice : " (silent: no recording, VoiceBarkDebug)") + ": \"" + p.Words + "\"";
         }
 
-        /// <summary>sc voice chatter: this member (or one at home near you) says a chatter line now.</summary>
-        public static string ChatterNow(EntityAlive npc)
+        /// <summary>
+        /// sc voice chatter: this member (or one at home near you) says a chatter line now. Round MP4: near - the console's
+        /// sender (the host's own player when none is given); the line is heard by everyone in earshot.
+        /// </summary>
+        public static string ChatterNow(EntityAlive npc, EntityPlayer near = null)
         {
             if (npc == null)
             {
                 World w = ScCommunity.World;
-                EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+                EntityPlayer lp = near ?? ScCommunity.LocalPlayer;
                 if (w == null || lp == null) return "no world";
                 Candidates(w, lp);
                 if (pool.Count == 0) return "no resident at home within " + ScConfig.ScChatterRange + " m who could chat now (fighting, talking, or no chatter recording"

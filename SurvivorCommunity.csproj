@@ -217,6 +217,7 @@
     <Compile Include="ScInvestigate.cs" />
     <Compile Include="XUiC_ScSnapshot.cs" />
     <Compile Include="ScVoice.cs" />
+    <Compile Include="NetPackageScVoice.cs" />  <!-- round MP4 (part V): SC's lines to every player in earshot, in the server's voice -->
     <Compile Include="ScVoiceLines.cs" />
     <Compile Include="ScClipCache.cs" />
     <Compile Include="ScBarks.cs" />

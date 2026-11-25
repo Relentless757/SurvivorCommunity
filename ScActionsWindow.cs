@@ -131,8 +131,9 @@ namespace SurvivorCommunity
             if (m == null || !ScWork.OnShift(m.Id)) { reply.Fail("", ""); return; }
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             ScWork.End(m, npc, "That's all for now.", true, false);
-            // her voice plays on the talker's machine: the host's own player's here (MP4: SC's voices reach clients)
-            if (sender is EntityPlayerLocal) ScVoice.SayAfterTalk(npc, "scWorkEndSaid");
+            // her voice plays on the talker's machine: the host's own player's here; round MP4: a remote talker's on theirs (the
+            // server picks the voice, NetPackageScVoice)
+            if (sender != null) ScVoice.SayAfterTalkFor(sender, npc, "scWorkEndSaid");
             reply.Done(string.Format(Localization.Get("scEncCallSays"), m.Name, Localization.Get("scWorkEndSaid")));
         }
 

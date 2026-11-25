@@ -675,6 +675,8 @@ namespace SurvivorCommunity
                 // Patches_VoiceControl.cs (V2) - SC greets its survivors itself where it has the clip; XNPCCore's say-lines and
                 // Voice Control's acks and fixed lines in SC's voices share the AcknowledgeCommand and SpeakStreaming entries above
                 Add(t, "NPCChatComponent::TriggerProactiveGreeting", Patches_VoiceControl.TriggerGreetingTarget());
+                // round MP4: a say-line Voice Control sends to the clients itself is not relayed again by SC (ScBarks.RelayVc)
+                Add(t, "SubtitleManager::SayToEarshot", Patches_VoiceControl.SayToEarshotTarget());
                 // Patches_VoiceControl.cs (E8) - Voice Control's LLM chat knows the enclave; a hostile enclave's people refuse
                 // the spoken trade
                 Add(t, "LLMService::SendStreamingChatRequest", Patches_VoiceControl.ChatRequestTarget());
