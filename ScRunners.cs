@@ -802,7 +802,8 @@ namespace SurvivorCommunity
             m.EventSpawned = false;
             BeginLeg(m, RunLeg.AtSite, at, at, now);
             // distress is rolled on arrival - never with the player standing right there (that is an escort, not a radio call)
-            bool escorted = player != null && XZ(player.position, at) <= ScConfig.RescueTriggerRange;
+            bool escorted = (player != null && XZ(player.position, at) <= ScConfig.RescueTriggerRange)
+                            || ScPlayers.AnyWithin(at, ScConfig.RescueTriggerRange, true);   // round MP4 re-check F4: any player there (RescuerNear's rule)
             // round MP0: the anchor near the site (MP5: per player); ScRadio and ScRadioTalk take the local player (other slices'
             // files) - null on a dedicated server: no distress roll and no radio line there until they take any player
             if (!escorted && ScRadio.RollDistress(m, player as EntityPlayerLocal, w != null ? w.GetGameRandom() : null)) BeginLeg(m, RunLeg.AtSite, at, at, now);   // re-timed to RunDistressHours

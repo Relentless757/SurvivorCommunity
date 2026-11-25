@@ -568,9 +568,6 @@ namespace SurvivorCommunity
         {
             if (r == null) return false;
             if (string.IsNullOrEmpty(r.AcceptedBy)) return true;
-            // review m2: single player has no one else to hold it (a save from MP4's first build may name the host's id of then)
-            try { if (SingletonMonoBehaviour<ConnectionManager>.Instance != null && SingletonMonoBehaviour<ConnectionManager>.Instance.IsSinglePlayer) return true; }
-            catch (Exception) { }
             EntityPlayerLocal lp = ScCommunity.LocalPlayer;
             if (lp == null) return false;
             if (string.Equals(r.AcceptedBy, ScPlayers.IdOf(lp), StringComparison.Ordinal)) return true;

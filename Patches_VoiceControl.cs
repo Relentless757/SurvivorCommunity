@@ -1718,10 +1718,10 @@ namespace SurvivorCommunity
             public static MethodBase TargetMethod() { return SayToEarshotTarget(); }
 
             [HarmonyPrefix]
-            public static void Prefix(EntityAlive __0)
+            public static void Prefix(EntityAlive __0, string __1, string __2)
             {
                 ScBarks.SayLineDepth++;
-                try { ScBarks.NoteSayLine(__0); } catch (Exception) { }   // review m8: and when, on whom
+                try { ScBarks.NoteSayLine(__0, __1, __2); } catch (Exception) { }   // review m8 (re-check F1): on whom, when, which line
             }
 
             [HarmonyFinalizer]

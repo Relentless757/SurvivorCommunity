@@ -2651,21 +2651,23 @@ Round MP0 is the groundwork:
 - **Round MP4 (review fixes)** (the round's three code reviews):
   - **Rescues for every player** (markers/quests M1, M2): `ScRadio.RollDistress` no longer needs a local player, and
     `TickDistress` spawns and judges a call by `RescuerNear` (the anchor first, as before, else the first living community
-    player within range), so any player's copy can be the one completed. A client's copy from an earlier call or session
+    player within range), so any player's copy can be the one completed; a run's arrival with any player beside her is an
+    escort, not a distress call (`ScRunners`). A client's copy from an earlier call or session
     (not in `rescueSent`) is closed and started again for the open call (m1). A rescue quest has its own `QuestCode` and
     `QuestUniqueId` (m4).
-  - **Request quests:** `AcceptedBy` stays empty for the host's own player (m2) and `HostAccepted` is always true in single
-    player, so a save loaded under another platform id keeps its quest. A siege quest that reached no journal is logged (m5).
-  - **Voices:** `ScVoiceRoutes.SayRefusal` takes the talker from its call sites (`TalkFollow`'s sender, a dialog's weapon
-    pick) instead of guessing it from SCore's sticky `CurrentNPC` cvar (voices M1). The "all clear" goes to the tick's player
+  - **Request quests:** `AcceptedBy` stays empty for the host's own player (m2), so a save loaded under another platform id
+    keeps its quest (no deployed build ever wrote the host's id). A siege quest that reached no journal is logged (m5).
+  - **Voices:** `ScVoiceRoutes.SayRefusal` takes the talker from its call site (`TalkFollow`'s sender) instead of guessing it
+    from SCore's sticky `CurrentNPC` cvar (voices M1), and tests a remote talker before the host's own talk. The "all clear" goes to the tick's player
     (m6). The host's open talk keeps chatter away from the host only (m2). A client drops a server line (not a taunt) while
     its own Voice Control speaks on that NPC (m3). A client hears the base's stations from its copy of the registry (m5). A
-    raider's "killed" taunt is tested before a new living target (m7). A Voice Control line SC says in its place within 3 s of
-    a say-line on that NPC is not relayed (`ScBarks.NoteSayLine`, m8). A dedicated server does not count a horde line as
+    raider's "killed" taunt is tested before a new living target (m7). A Voice Control line SC says in its place is not
+    relayed when it is the say-line just said on that NPC - its line id or its words, within 3 s (`ScBarks.NoteSayLine`, m8;
+    any other line on her, an order's ack, still is). A dedicated server does not count a horde line as
     "unheard" (tells n5).
   - **Craft from Storage:** the server sends its clients the home zone's open boxes (`NetPackageScOpenBoxes`: int32
     community, int32 n, n x int32 x, y, z; the whole set when it changes, at most once a second, and to a client that lacks
-    it) and a client's crafting leaves them out, 0-SCore's own near ones too (cfs1 M1). A client adds no base box beyond
+    it) and a client's crafting leaves them out, 0-SCore's own near ones too when they are base boxes (cfs1 M1). A client adds no base box beyond
     150 m (m1). SC's own takes from the bag (`ScItemTx.TakeFromLocal`, `ScCategories`, `ScTalkContext`) run inside
     `ScCraftFromBase.SuppressContainers`, so 0-SCore's `ConsumeItem` sees no container there (m5). The base's box list is
     worked out once a frame per player (n8).
@@ -2676,7 +2678,11 @@ Round MP0 is the groundwork:
       a box in the same instant as a client's craft (an NPC deposit, another player's linked storage commit), can still be
       overwritten by the client's whole-box write. A server-side take (a request with compare-and-set, as linked storage
       does) would close it: a round of its own. A linked storage view is not told of a craft's take until its next change
-      to that slot is refused and resyncs (cfs1 m2).
+      to that slot is refused and resyncs (cfs1 m2). A box the client itself just closed stays left out until the next set
+      (up to a second). A box outside the base, or not one linked storage links, keeps 0-SCore's own client behavior.
+    - A remote player's weapon pick in a talk reaches the server as Voice Control's swap (route "voice"), so its refusal is
+      said to everyone in earshot, not as that talk's parting line; the talking client drops it while its talk is open on her.
+    - On a dedicated server a distress call needs a powered station at home: a remote player's handheld is not readable there.
     - A greeting a client drops (its own talk open) is still spent on the server (voices m1). The greeting switches are
       each machine's own, so server off and client on gives no greeting at all (m4). A non-member's say-lines and talk
       lines on a client can be in another voice than the one the server names (m9). The greeting memory is not pruned

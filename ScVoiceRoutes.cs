@@ -650,13 +650,6 @@ namespace SurvivorCommunity
                     refusalsFar++;
                     return;
                 }
-                if (ScVoice.Holds(npc))
-                {
-                    // the talk is open on her (the dialog's "Come with me.", its weapon pick): a talk line, which its close leaves be
-                    ScVoice.SayAfterTalk(npc, key);
-                    refusalsInTalk++;
-                    return;
-                }
                 // round MP4: the order came from a remote player's talk with her (talker: passed by the call sites that know it - the
                 // talk's Come with me, a dialog's weapon pick): a line of that talk, said on their machine as its parting line - a talk's
                 // lines stay the talking player's, as the host's own just above. Review M1: never guessed from SCore's CurrentNPC cvar
@@ -665,6 +658,14 @@ namespace SurvivorCommunity
                 {
                     if (ScVoice.SayAfterTalkFor(talker, npc, key)) refusalsInTalk++;
                     else refusalsUnrecorded++;
+                    return;
+                }
+                if (ScVoice.Holds(npc))
+                {
+                    // the talk is open on her (the dialog's "Come with me.", its weapon pick): a talk line, which its close leaves be.
+                    // Re-check N4: after the remote talker's test, so a remote talk's refusal is never taken for the host's own talk
+                    ScVoice.SayAfterTalk(npc, key);
+                    refusalsInTalk++;
                     return;
                 }
                 if (ScVoice.VcBusy(npc))

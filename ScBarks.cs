@@ -138,26 +138,38 @@ namespace SurvivorCommunity
         internal static int SayLineDepth;
 
         /// <summary>
-        /// Round MP4 review m8: when each NPC's last say-line began (unscaled time). Should Voice Control queue the host's own speech
-        /// of a say-line and speak it after SayToEarshot returned, SC's substitution then still belongs to that say-line, which the
-        /// clients already have: a Voice Control line SC says in its place on that NPC within SayLineWindow is not relayed.
+        /// Round MP4 review m8 (re-check F1): each NPC's last say-line - when it began (unscaled time), its words and its line id.
+        /// Should Voice Control queue the host's own speech of a say-line and speak it after SayToEarshot returned, SC's
+        /// substitution of THAT line (the same line id, or the same words) within SayLineWindow still belongs to the say-line,
+        /// which the clients already have, and is not relayed. Any other line on her (an order's ack, a chat reply) is.
         /// </summary>
-        private static readonly Dictionary<int, float> sayLineAt = new Dictionary<int, float>();
+        private struct SayLine { public float At; public string Text; public string LineId; }
+        private static readonly Dictionary<int, SayLine> sayLines = new Dictionary<int, SayLine>();
         private const float SayLineWindow = 3f;
 
-        /// <summary>Round MP4 review m8: Patch_ScSayLineScope's prefix - a say-line begins on this NPC.</summary>
-        internal static void NoteSayLine(EntityAlive npc)
+        /// <summary>Round MP4 review m8: Patch_ScSayLineScope's prefix - a say-line begins on this NPC (SayToEarshot's text and line id).</summary>
+        internal static void NoteSayLine(EntityAlive npc, string text, string lineId)
         {
             if (npc == null || !ScCommunity.IsHost) return;
-            if (sayLineAt.Count > 64) sayLineAt.Clear();
-            sayLineAt[npc.entityId] = Time.unscaledTime;
+            float now = Time.unscaledTime;
+            if (sayLines.Count > 64)
+            {
+                // re-check F1: drop the old ones only (a whole clear would end every open window at once)
+                var old = new List<int>();
+                foreach (KeyValuePair<int, SayLine> kv in sayLines) if (now - kv.Value.At >= SayLineWindow) old.Add(kv.Key);
+                for (int i = 0; i < old.Count; i++) sayLines.Remove(old[i]);
+            }
+            sayLines[npc.entityId] = new SayLine { At = now, Text = text ?? "", LineId = lineId ?? "" };
         }
 
-        private static bool InSayLine(EntityAlive npc)
+        /// <summary>Round MP4 review m8: inside a say-line now, or this line (its id or words) is the say-line said on her just before.</summary>
+        private static bool InSayLine(EntityAlive npc, string lineId, string text)
         {
             if (SayLineDepth > 0) return true;
-            float at;
-            return npc != null && sayLineAt.TryGetValue(npc.entityId, out at) && Time.unscaledTime - at < SayLineWindow;
+            SayLine s;
+            if (npc == null || !sayLines.TryGetValue(npc.entityId, out s) || Time.unscaledTime - s.At >= SayLineWindow) return false;
+            if (!string.IsNullOrEmpty(lineId) && string.Equals(lineId, s.LineId, StringComparison.Ordinal)) return true;
+            return !string.IsNullOrEmpty(text) && string.Equals(text.Trim(), s.Text.Trim(), StringComparison.Ordinal);
         }
 
         /// <summary>Round MP4: the package's kind of one of SC's own families.</summary>
@@ -193,10 +205,10 @@ namespace SurvivorCommunity
         /// Control sent that to the clients in earshot itself. caption: the words shown here (Voice Control's relay shows none;
         /// the client shows them under Voice Control's subtitle rule for that NPC).
         /// </summary>
-        private static void RelayVc(EntityAlive npc, Pick p, string caption)
+        private static void RelayVc(EntityAlive npc, Pick p, string caption, string lineId, string vcText)
         {
             if (npc == null || p == null || p.Path == null || !ScCommunity.IsHost) return;
-            if (InSayLine(npc))
+            if (InSayLine(npc, lineId, vcText))
             {
                 if (ScConfig.Verbose) ScLog.Verbose("voice: " + ScCommunity.DisplayName(npc) + "'s Voice Control line '" + p.Key + "' is part of a say-line (depth "
                                                     + SayLineDepth + "): the clients have it from Voice Control, not relayed");
@@ -694,7 +706,7 @@ namespace SurvivorCommunity
             string caption = AckCaption(trigger != null || wheel, argLine, p.Words, fallbackText, localizedSubtitle);
             bool shown = ShowsText(npc);
             if (shown) Subtitle(npc.EntityName, caption, 8f);
-            RelayVc(npc, p, caption);                               // round MP4: the players Voice Control's own relay would have reached
+            RelayVc(npc, p, caption, lineId, fallbackText);         // round MP4: the players Voice Control's own relay would have reached
             lastKey[FamilyOf(p.Key)] = p.Key;
             MarkSaid(npc, npc.EntityName, shown ? caption : null);  // round m1w (P6)
             Count("vc swapped " + Group(p.Key));
@@ -782,7 +794,7 @@ namespace SurvivorCommunity
             // the caller showed its own words already; a generic ack says other words
             bool shown = ShowsText(npc);
             if (generic && shown) Subtitle(npc.EntityName, p.Words, 8f);
-            RelayVc(npc, p, generic ? p.Words : text);              // round MP4 (D_npc 4.9 point 5): Voice Control's relay, restored
+            RelayVc(npc, p, generic ? p.Words : text, null, text);  // round MP4 (D_npc 4.9 point 5): Voice Control's relay, restored
             lastKey[FamilyOf(p.Key)] = p.Key;
             MarkSaid(npc, npc.EntityName, shown ? (generic ? p.Words : text) : null);    // round m1w (P6)
             Count("vc swapped " + Group(p.Key));

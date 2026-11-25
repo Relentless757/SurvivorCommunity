@@ -175,8 +175,8 @@ namespace SurvivorCommunity
                 }, ScRadioTalk.InPersonRange);
                 if (near > 0) ScLog.Out(m.Name + " says " + key + " in " + voice + ", in person to " + near + " other player(s)");
                 EntityPlayerLocal player = anyPlayer as EntityPlayerLocal;   // round MP4: the host's own player hears it here, as before
-                // review tells n5: no player of this machine's (a dedicated server, or a remote anchor) - the remote ones were sent it
-                // above; the host's radio rule below is not theirs, and would only count it as "unheard"
+                // review tells n5: a dedicated server (no player of this machine's) - the remote ones were sent it above; the host's
+                // radio rule below is not theirs, and would only count it as "unheard"
                 if (player == null && !force && ScCommunity.LocalPlayer == null) return near > 0 ? "in person to " + near + " player(s)" : "nobody near the guard";
                 // m1v re-check N1: 3D, as ScRadioTalk.PlayInPerson checks it (a bark is 3D audio cut off at 40 m) - a guard high up a
                 // tower is on the radio by the rule below, decided and logged here, not dropped at play time

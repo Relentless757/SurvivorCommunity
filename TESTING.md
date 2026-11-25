@@ -45,6 +45,8 @@ client (a second machine, or the dedicated server). With DebugLogging the log na
 **Rescues**
 
 - [ ] On the dedicated server, a runner's distress call now happens in normal play (before, only `sc distress` started one).
+      It needs a powered radio station at home there: a remote player's handheld is not readable by the server.
+- [ ] A client walks with a runner to her site: she does not radio for help while they stand beside her (an escort).
 - [ ] A client goes alone to the site of a call: the zombies spawn when they arrive. Once the client clears them, the
       rescue counts and every player's copy of the quest closes as completed.
 - [ ] A client is offline while a call ends. The same runner calls again from another place, then the client logs on:
