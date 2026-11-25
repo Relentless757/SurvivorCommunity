@@ -2709,6 +2709,39 @@ Round MP0 is the groundwork:
   the same fault: `XnpcWeapons` is a class inside the config block, and the early latch left it empty. A new cache built
   from `ScConfig` must not be built on a client before `TablesReady`, or it keeps the defaults.
 
+- **Round mt1 (part H), a remote talker's talk hold** (`ScWork`, `ScTalkContext`, `NetPackageScTalkContext`): 0-XNPCCore's
+  hired rows (SCore's `Leader` requirement), its craft list and Voice Control's server-side router (`NpcRelation.IsLeaderOfEntity`,
+  SCore's `GetLeaderOrOwner`) all need the talking player as her leader or owner, and a resident has neither. Round 28's talk
+  hold gives her that link, the `Owner` cvar, but it started from a postfix on the dialog window, which runs on the machine
+  whose dialog opens - so only ever for the host's own player.
+  - **Start:** when a client's talk context `Open` reaches the server (`ScTalkContext.OnTalkOpen`), after its checks, a
+    member goes through `ScWork.HoldForRemote`: a new hold through `StartTalk` (now any `EntityPlayer`; `CanHold`'s rules), or
+    the talker's own hold or shift already, before the facts are built and sent, so the force-sent `Owner` is queued first.
+    The facts carry `Linked` (flag bit 5). A client whose copy of `Owner` has not landed yet re-evaluates the talk's rows once
+    it shows its own entity id (polled for 3 s).
+  - **Lifetime:** the client runs the host's own window test (`ScWork.TalkOpen`, which reads only the local player's UI) and
+    sends `Held` (kind 3: int32 npc, byte flags, bit 0 the dialog with her is open) every second while it holds and through
+    `TalkGraceSeconds` after, then `TalkClosed` (kind 4: int32 npc). The package's version byte is 2. The server keeps a
+    remote hold (`Shift.Remote`) on those: it ends on the close, after 5 s without a beat, when the player is gone or more
+    than `TalkRange` (20 m) from her, or at the 600 s cap since the dialog was last open. Nothing for a remote hold reads or
+    closes the host's windows. Her first job or craft order promotes it to a work shift exactly as in single player
+    (`ScWork.Tick` / `Promote`, all on the server), and the resident rule leaves her alone while any shift holds her.
+  - **The end of a link** goes to the right player: `End` passes a remote owner to `ScCommunity.Station` as the party she
+    leaves, a disconnect ends that player's holds and shifts (`ScWork.ForgetPlayer`, from `PlayerDisconnected`; not at a
+    shutdown), and the crates-full / pack-full tells go to the shift's player. On the client, once her copy names it no more,
+    the local hire mark (`hired_<id>`, which SCore's leader component stamps on a client too), leader cache and companion
+    marker for her go.
+  - **Two players: the first holder keeps her.** A second talker (a client, or the host's own player) gets no link and a
+    tell (`scTalkBusyWith`); another player's Call to work is refused while someone else's talk holds her
+    (`scWorkHeldOther`). SC's own verbs (Follow me, Head home, a run, "That's all for now.") stay community orders, as before.
+  - **`Leader` reaches clients when it ends:** `ScCommunity.Detach`, `CleanupStale` and `ScRunners.ApplyTravelOrder` clear
+    `Leader` (and `Owner`) through `ScCommunity.ClearSynced`, so a client no longer keeps the player who last led her as her
+    leader after she is sent home (its rows showed, and every request was refused). Any code that ends a link must do the same.
+  - **Known gaps:** a client's leftover `hired_<id>` may already have reached the server's copy of that player through the
+    player's own cvar sync before the client drops it (SCore's `CheckForDanglingHires` prunes it at the next check). At the
+    600 s cap a client's craft window stays open without the link (its orders are refused) - the server touches no remote
+    window. The craft window's Cancel on a client still ends the whole shift (C1n needs the server's shift table).
+
 ## How it hangs together (for modders)
 
 - NPCs are 0-XNPCCore's `EntityAliveSDXV4` survivors (SCore's legacy `EntityAliveSDX` still works for pack NPCs). A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars

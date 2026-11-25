@@ -38,6 +38,12 @@ namespace SurvivorCommunity
         /// <summary>The band line's tokens (ScBands.Fill): {bandwhere}, {bandjoinfacts}, {name}, {leader}, {count}.</summary>
         public string BandWhere = "", BandJoinFacts = "", BandName = "", BandLeader = "";
         public int BandCount;
+        /// <summary>
+        /// Round mt1 (part H): the server linked this member to the talking player for this talk (ScWork.HoldForRemote: a new talk
+        /// hold, or their own hold or shift already) - her force-sent Owner cvar names them. The client re-evaluates the rows once
+        /// that cvar lands and keeps the hold alive with its heartbeat (ScTalkContext.HeldTick).
+        /// </summary>
+        public bool Linked;
 
         public ScTalkFacts Copy() { return (ScTalkFacts)MemberwiseClone(); }
     }
@@ -60,6 +66,11 @@ namespace SurvivorCommunity
     /// - Favour quests close on the journal's own machine: an action's reply carries it (ScActionsMembers' fclose hint), and
     ///   the quest op (CloseFavourForOthers; round MP4: NetPackageScQuestOp, ScQuestNet) reaches the other players who took the
     ///   same favour. The package's own Close is still read (OnFavourClose), but no longer sent.
+    /// - Round mt1 (part H): the talk hold for a remote talker. A member's Open makes the server hold her for that player
+    ///   (ScWork.HoldForRemote, before the facts: her force-sent Owner cvar goes first) and say so (ScTalkFacts.Linked). The
+    ///   client re-evaluates its rows once that cvar lands, sends Held about once a second while its own ScWork.TalkOpen holds
+    ///   (and through ScWork.TalkGraceSeconds after), then TalkClosed (HeldTick). Once her copy no longer names this player,
+    ///   this machine's leftover hire mark, leader cache and companion marker for her go (SweepHireMarks).
     /// Main thread only.
     /// </summary>
     public static class ScTalkContext
@@ -88,6 +99,24 @@ namespace SurvivorCommunity
             public bool JournalDone;
         }
 
+        /// <summary>Round mt1 (part H), client: a member the server linked to this player for a talk (facts with Linked).</summary>
+        private sealed class HeldLink
+        {
+            /// <summary>Real time (realtimeSinceStartup): when the facts said so, when this machine's talk with her was last open, the next beat.</summary>
+            public float Since, LastOpen, NextBeat;
+            /// <summary>Her copy's Owner cvar has shown this player (after that, a different value means the server ended the link).</summary>
+            public bool OwnerSeen;
+        }
+        private static readonly Dictionary<int, HeldLink> held = new Dictionary<int, HeldLink>();
+        /// <summary>Round mt1 (part H), client: members whose talk link ended here - this machine's leftovers on them go once she names us no more (SweepHireMarks).</summary>
+        private static readonly HashSet<int> hireSweeps = new HashSet<int>();
+        private static readonly List<int> heldScratch = new List<int>();
+        private static float nextHeldTick;
+        private static bool heldHooked;
+        /// <summary>Round mt1 (part H): the client's heartbeat interval, how long the rows wait for the Owner cvar, the tick's pace.</summary>
+        private const float BeatSeconds = 1f, OwnerWaitSeconds = 3f, HeldTickSeconds = 0.2f;
+        private static int beatsSent, closedSent, ownerRefreshes;
+
         /// <summary>Every machine, at world start and shutdown.</summary>
         public static void Reset()
         {
@@ -97,6 +126,17 @@ namespace SurvivorCommunity
             handOver.Clear();
             joinAfter.Clear();
             sent = answered = closes = 0;
+            // round mt1 (part H): the client's held talks, and its tick (hooked into ModEvents.GameUpdate here, once per process,
+            // as ScQuestNet's below: ModApi's GameUpdate handler is not this part's to edit)
+            held.Clear();
+            hireSweeps.Clear();
+            nextHeldTick = 0f;
+            beatsSent = closedSent = ownerRefreshes = 0;
+            if (!heldHooked)
+            {
+                heldHooked = true;
+                ModEvents.GameUpdate.RegisterHandler((ref ModEvents.SGameUpdateData _d) => HeldTick());
+            }
             // round MP4 (part Q): the quest ops' and journal reports' session state too (and their client tick, hooked once) -
             // ModApi calls this at world start and shutdown, and ModApi.cs is not this part's file
             ScQuestNet.Reset();
@@ -255,7 +295,8 @@ namespace SurvivorCommunity
                 if (ScConfig.Verbose)
                     ScLog.Verbose("talk context for " + f.Npc + ": recruit " + f.Recruit + (f.RecruitWhy.Length > 0 ? " (" + f.RecruitWhy + ")" : "") + ", home " + f.HasHome
                                   + ", favour " + (FavourKind)f.Favour + (f.Started ? " started" : "") + (f.Done ? " done" : "") + (f.PoiCleared ? ", POI clear" : "")
-                                  + (f.Band > 0 ? ", band " + f.Band + " come " + f.BandCome : ""));
+                                  + (f.Band > 0 ? ", band " + f.Band + " come " + f.BandCome : "") + (f.Linked ? ", linked to you for the talk" : ""));
+                NoteLink(f);            // round mt1 (part H): before the rows are evaluated (it drops this machine's leader cache for her)
                 Refresh(f.Npc);
             }
             catch (Exception e)
@@ -303,6 +344,163 @@ namespace SurvivorCommunity
             catch (Exception e)
             {
                 ScLog.Once("talk-favourclose", e);
+            }
+        }
+
+        // ---- round mt1 (part H): the client's side of a talk hold the server keeps for it ----
+
+        /// <summary>
+        /// Client (OnFacts): the facts say whether the server linked this member to us for the talk. Linked: her heartbeat starts
+        /// (HeldTick), and this machine's SCore leader cache for her is dropped so the rows' Leader requirement reads her cvars
+        /// afresh. Not linked (another player holds her, or she cannot be held): nothing to keep.
+        /// </summary>
+        private static void NoteLink(ScTalkFacts f)
+        {
+            if (!f.Linked)
+            {
+                held.Remove(f.Npc);
+                return;
+            }
+            float now = Time.realtimeSinceStartup;
+            HeldLink k;
+            if (!held.TryGetValue(f.Npc, out k))
+            {
+                k = new HeldLink();
+                held[f.Npc] = k;
+            }
+            k.Since = now;
+            k.LastOpen = now;
+            k.NextBeat = now;                         // the first beat at the next tick
+            k.OwnerSeen = OwnerIs(f.Npc, ScCommunity.LocalPlayer);
+            hireSweeps.Remove(f.Npc);
+            SphereCache.LeaderCache.Remove(f.Npc);    // this machine's cache only (a client's copy is never written)
+        }
+
+        /// <summary>Client: her copy's Owner cvar names this player (the server's force-sent link has landed here).</summary>
+        private static bool OwnerIs(int npcId, EntityPlayerLocal lp)
+        {
+            World w = ScCommunity.World;
+            EntityAlive npc = w != null && lp != null ? w.GetEntity(npcId) as EntityAlive : null;
+            return npc != null && npc.Buffs != null && (int)npc.Buffs.GetCustomVar("Owner") == lp.entityId;
+        }
+
+        /// <summary>
+        /// Round mt1 (part H), client, every frame (GameUpdate), at most every HeldTickSeconds: for each member the server linked
+        /// to us for a talk -
+        /// - her Owner cvar lands after the facts (their arrival order is not guaranteed): the open talk's rows are evaluated again,
+        ///   within OwnerWaitSeconds of the facts;
+        /// - the server ended the link (her Owner no longer names us after it did: its cap, us out of range, her shift's end): no
+        ///   more word from here;
+        /// - while ScWork.TalkOpen holds on this machine's windows, and for ScWork.TalkGraceSeconds after (the hold-E ring's
+        ///   close-and-reopen hop), a Held beat every BeatSeconds; then TalkClosed, once.
+        /// Nothing on the server or in single player (no facts there).
+        /// </summary>
+        private static void HeldTick()
+        {
+            try
+            {
+                if (held.Count == 0 && hireSweeps.Count == 0) return;
+                if (ScCommunity.IsHost) { held.Clear(); hireSweeps.Clear(); return; }
+                float now = Time.realtimeSinceStartup;
+                if (now < nextHeldTick) return;
+                nextHeldTick = now + HeldTickSeconds;
+                World w = ScCommunity.World;
+                EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+                if (w == null || lp == null)
+                {
+                    held.Clear();
+                    hireSweeps.Clear();
+                    return;
+                }
+#if SC_V34
+                bool send = ScNet.IsClient && ScNet.Cm != null && ScNet.ServerMatches && ScNet.ServerKnows<NetPackageScTalkContext>();
+                heldScratch.Clear();
+                heldScratch.AddRange(held.Keys);
+                foreach (int id in heldScratch)
+                {
+                    HeldLink k = held[id];
+                    EntityAlive npc = w.GetEntity(id) as EntityAlive;
+                    bool mine = npc != null && npc.Buffs != null && (int)npc.Buffs.GetCustomVar("Owner") == lp.entityId;
+                    if (mine && !k.OwnerSeen)
+                    {
+                        k.OwnerSeen = true;
+                        if (now - k.Since <= OwnerWaitSeconds)
+                        {
+                            SphereCache.LeaderCache.Remove(id);
+                            ownerRefreshes++;
+                            ScLog.Verbose("talk context: " + id + "'s link to you landed after the facts - the talk's rows are evaluated again");
+                            Refresh(id);
+                        }
+                    }
+                    else if (!mine && k.OwnerSeen)
+                    {
+                        held.Remove(id);                   // the server ended it: its Detach sent the 0
+                        hireSweeps.Add(id);
+                        ScLog.Verbose("talk context: the server ended " + id + "'s talk link to you");
+                        SphereCache.LeaderCache.Remove(id);
+                        Refresh(id);                       // a talk still open with her shows her rows as they now are
+                        continue;
+                    }
+                    bool dialog = false;
+                    if (npc != null && ScWork.TalkOpen(npc, out dialog)) k.LastOpen = now;
+                    if (npc == null || now - k.LastOpen >= ScWork.TalkGraceSeconds)
+                    {
+                        if (send)
+                        {
+                            ScNet.Cm.SendToServer(NetPackageManager.GetPackage<NetPackageScTalkContext>().SetupTalkClosed(id));
+                            closedSent++;
+                        }
+                        held.Remove(id);
+                        hireSweeps.Add(id);
+                        continue;
+                    }
+                    if (send && now >= k.NextBeat)
+                    {
+                        k.NextBeat = now + BeatSeconds;
+                        ScNet.Cm.SendToServer(NetPackageManager.GetPackage<NetPackageScTalkContext>().SetupHeld(id, dialog));
+                        beatsSent++;
+                    }
+                }
+#else
+                held.Clear();
+#endif
+                SweepHireMarks(w, lp);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("talk-held-tick", e);
+            }
+        }
+
+        /// <summary>
+        /// Round mt1 (part H), client: SCore's leader component runs on this machine's copy too, and while her Owner cvar named
+        /// this player it stamped hired_&lt;id&gt; on the local player and drew her companion marker. The server's Detach clears
+        /// only the server's side, so once her copy names this player neither as owner nor as leader (the 0 has landed), this
+        /// machine's leader cache, hire mark and marker for her go. While she still names us (the 0 on its way, a work shift her
+        /// first order made, a follow) she is looked at again each tick; a copy this machine no longer has is dropped. Local only:
+        /// nothing is sent.
+        /// </summary>
+        private static void SweepHireMarks(World w, EntityPlayerLocal lp)
+        {
+            if (hireSweeps.Count == 0) return;
+            heldScratch.Clear();
+            heldScratch.AddRange(hireSweeps);
+            foreach (int id in heldScratch)
+            {
+                EntityAlive npc = w.GetEntity(id) as EntityAlive;
+                if (npc == null || npc.Buffs == null)
+                {
+                    hireSweeps.Remove(id);
+                    continue;
+                }
+                if ((int)npc.Buffs.GetCustomVar("Owner") == lp.entityId || (int)npc.Buffs.GetCustomVar("Leader") == lp.entityId) continue;
+                SphereCache.LeaderCache.Remove(id);
+                string mark = "hired_" + id;
+                if (lp.Buffs != null && lp.Buffs.HasCustomVar(mark)) lp.Buffs.RemoveCustomVar(mark);
+#if SC_V34
+                ScWork.DropMarker(npc);
+#endif
+                hireSweeps.Remove(id);
             }
         }
 
@@ -445,13 +643,74 @@ namespace SurvivorCommunity
                 EntityAlive npc = w != null ? ScNpc.As(w.GetEntity(npcId)) : null;
                 if (npc == null || npc.IsDead()) return;
                 if ((npc.position - p.position).sqrMagnitude > TalkRange * TalkRange) return;
+                // round mt1 (part H): the talk hold for this remote talker (Patches_Craft's postfix does it for the host's own), started
+                // BEFORE the facts are built and sent - its force-sent Owner cvar is queued to the client first. The first holder keeps
+                // her: another player's hold or shift means no link for this one (and a tell)
+                bool linked = false;
+#if SC_V34
+                Member m = ScRegistry.GetMember(npc.entityId);
+                if (m != null) linked = ScWork.HoldForRemote(m, npc, p);
+#endif
                 ScTalkFacts f = Build(p, npc, (flags & 1) != 0);
+                f.Linked = linked;
                 sender.SendPackage(NetPackageManager.GetPackage<NetPackageScTalkContext>().SetupFacts(f));
             }
             catch (Exception e)
             {
                 ScLog.Once("talk-open-server", e);
             }
+        }
+
+        /// <summary>
+        /// Round mt1 (part H), server (ProcessPackage): a remote talker's client says its talk with this member is still open
+        /// (dialog: the talk window with her). Only the player whose hold it is keeps it (ScWork.RemoteBeat checks); range and the
+        /// rest are TalkTick's.
+        /// </summary>
+        internal static void OnTalkHeld(ClientInfo sender, int npcId, int flags)
+        {
+            try
+            {
+                EntityPlayer p;
+                Member m;
+                if (!HoldSender(sender, npcId, out p, out m)) return;
+#if SC_V34
+                ScWork.RemoteBeat(m, p, (flags & 1) != 0);
+#endif
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("talk-held-server", e);
+            }
+        }
+
+        /// <summary>Round mt1 (part H), server (ProcessPackage): a remote talker's client says its talk with this member is over.</summary>
+        internal static void OnTalkClosed(ClientInfo sender, int npcId)
+        {
+            try
+            {
+                EntityPlayer p;
+                Member m;
+                if (!HoldSender(sender, npcId, out p, out m)) return;
+#if SC_V34
+                ScWork.RemoteClosed(m, p);
+#endif
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("talk-closed-server", e);
+            }
+        }
+
+        /// <summary>Round mt1 (part H), server: a matched remote player and the member a Held / TalkClosed names.</summary>
+        private static bool HoldSender(ClientInfo sender, int npcId, out EntityPlayer p, out Member m)
+        {
+            p = null;
+            m = null;
+            if (sender == null || !ScCommunity.IsHost || !ScRegistry.Loaded) return false;
+            p = ScPlayers.ByEntity(sender.entityId);
+            if (p == null || p is EntityPlayerLocal || !ScNet.ClientMatches(p)) return false;
+            m = ScRegistry.GetMember(npcId);
+            return m != null;
         }
 
         /// <summary>
@@ -540,7 +799,8 @@ namespace SurvivorCommunity
         /// <summary>sc state / the log: the session's counts.</summary>
         public static string Report()
         {
-            return "talk context: " + sent + " sent, " + answered + " answered, " + facts.Count + " NPC(s) known, " + closes + " favour quest(s) closed by the server";
+            return "talk context: " + sent + " sent, " + answered + " answered, " + facts.Count + " NPC(s) known, " + closes + " favour quest(s) closed by the server"
+                   + "; talk links held here " + held.Count + ", beats sent " + beatsSent + ", closes sent " + closedSent + ", rows re-evaluated for a late link " + ownerRefreshes;   // round mt1 (part H)
         }
 
         // ------------------------------------------------------------------ the hook ----

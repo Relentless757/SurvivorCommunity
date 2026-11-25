@@ -402,8 +402,11 @@ namespace SurvivorCommunity
             ScWork.DropJob(npc, "detached");
 #endif
 
-            // detach from the party without SCore ever re-stamping it back
-            npc.Buffs.RemoveCustomVar("Leader");
+            // detach from the party without SCore ever re-stamping it back. Round mt1 (part H): through ClearSynced, as the Owner
+            // below - a plain removal never reached a client, whose copy kept Leader = the player who last led her: its rows and
+            // Voice Control's ring took that player for her leader while the server refused every order. SCore's GetLeader on a
+            // client clears a 0 and falls back to Owner; the server sees what it always did (the cvar removed)
+            ClearSynced(npc, "Leader");
             // round MP2 (review core/window m5): the Owner link (a work shift's, a talk hold's, a follower's) - clients get a 0
             // (a removal never reaches them), then it is removed here as before, so SCore's leader logic on the server sees exactly
             // what it did. A 0 is what SCore's own Dismiss and FarmHere leave, and every SCore / 0-XNPCCore reader tests > 0
@@ -1371,8 +1374,9 @@ namespace SurvivorCommunity
 #if SC_V34
                 ScCraft.OnLeft(npc);                            // C1: 0-XNPCCore's own Progression next time she is hired; no role mark, no shift
 #endif
-                npc.Buffs.RemoveCustomVar("Leader");
-                npc.Buffs.RemoveCustomVar("Owner");
+                // round mt1 (part H): clients get the 0 (a removal never reaches them), then removed here as before
+                ClearSynced(npc, "Leader");
+                ClearSynced(npc, "Owner");
                 npc.SetSpawnerSource(EnumSpawnerSource.Biome);
                 SphereCache.LeaderCache.Remove(npc.entityId);
                 if (player != null)

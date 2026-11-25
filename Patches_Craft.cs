@@ -1196,7 +1196,10 @@ namespace SurvivorCommunity
         /// marked the response list dirty, which fills on its next Update - after this, so it sees the link (SCore's leader cache
         /// is dropped with it). Also the hold-E ring's jump into her dialog (Weapons, Read, Progress) opens here. The hold's end
         /// (2 s after the last talk window closed) and its turn into a shift are ScWork.Tick's. Host only (CanHold); a member who
-        /// is not a resident at home, or is on a shift already, is left as she is.
+        /// is not a resident at home, or is on a shift already, is left as she is. Round mt1 (part H): a client's talk is held by
+        /// the server (ScTalkContext.OnTalkOpen -> ScWork.HoldForRemote, from the talk context's Open), so this postfix does
+        /// nothing on a client; on the host, a member another player holds is not taken over (the first holder keeps her) and the
+        /// host's player is told so.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_TalkHold
@@ -1212,12 +1215,14 @@ namespace SurvivorCommunity
             {
                 try
                 {
+                    if (!ScCommunity.IsHost) return;       // round mt1 (part H): a client's hold is the server's (ScTalkContext.OnTalkOpen)
                     XUi xui = __instance != null ? __instance.xui : null;
                     EntityNPC npc = xui != null && xui.Dialog != null ? xui.Dialog.Respondent : null;
                     EntityPlayerLocal player = xui != null && xui.playerUI != null ? xui.playerUI.entityPlayer : null;
                     Member m = MemberOf(npc);
                     if (m == null || player == null) return;
                     if (ScWork.StartTalk(m, npc, player)) Count("x3a-talk-hold-started");
+                    else ScWork.TellIfHeldByOther(m, player);   // round mt1 (part H): another player's hold or shift has her (never in single player)
                 }
                 catch (Exception e)
                 {

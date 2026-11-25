@@ -1825,8 +1825,10 @@ namespace SurvivorCommunity
         {
             npc.Buffs.RemoveBuff("buffOrderGuard");
             npc.Buffs.RemoveCustomVar("Guarding");
-            npc.Buffs.RemoveCustomVar("Leader");
-            npc.Buffs.RemoveCustomVar("Owner");
+            // round mt1 (part H): clients get a 0 (a removal never reaches them, and their copy kept her last leader), then the
+            // server removes them as before - HasTravelOrder still finds them absent
+            ScCommunity.ClearSynced(npc, "Leader");
+            ScCommunity.ClearSynced(npc, "Owner");
             SphereCache.LeaderCache.Remove(npc.entityId);
             if (npc.Buffs.GetCustomVar("CurrentOrder") != OrderTask) npc.Buffs.SetCustomVar("CurrentOrder", OrderTask);   // SetCurrentOrder is a no-op for Task
             ScCommunity.SetSynced(npc, OnRunCvar, 1f);    // round MP2 (E9): force-sent to clients
