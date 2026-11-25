@@ -39,7 +39,8 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 
 ## Round MP4 (review fixes) (2026-11-25): rescues for every player, refusals to the right player, Craft from Storage skips open boxes
 
-Fixes from the three reviews of round MP4. Single player should look and sound exactly as before; most steps need a
+Fixes from the three reviews of round MP4 and their re-check. Build `sc34_mp4fix`, **deployed to 3.4 on 2026-11-25** (port-3.4 af329af9, DLL 1efe55e7, protocol 5, with the review fixes; the dedicated server loads the same folder), untested in game. Single player should look
+and sound exactly as before; most steps need a
 client (a second machine, or the dedicated server). With DebugLogging the log names each step.
 
 **Rescues**
@@ -90,7 +91,7 @@ player as the server's finished words, in the server's language, and without its
 their localization key (`ScCommunity.TellKey`, `ScPlayers.TellCommunityKey`); a client formats the row in its own language
 and plays the sound (`NetPackageScTell`). Names, and words a helper builds (hours, a side, a distance, "where", a standing
 word), stay the server's. Tells built from two rows, a helper's text or a reply are unchanged. In single player and for the
-host's own player nothing changes. Build `sc34_mp4`, **not deployed**.
+host's own player nothing changes. Build `sc34_mp4fix`, **deployed to 3.4 on 2026-11-25** (port-3.4 af329af9, DLL 1efe55e7, protocol 5, with the review fixes; the dedicated server loads the same folder), untested in game.
 
 SC ships English only, so to see a difference give a few rows a second language on the SERVER (its localization goes to
 every client at join): in the server's `Mods/SurvivorCommunity/Config/Localization.csv` add `,german` to the header line and
@@ -130,7 +131,7 @@ they walked 10 m), outposts (the yield in the name) and outposts under an attack
 call for help, and the watch posts' horde marker (shown to a player within `BaseAttackLeaveRange` of the home zone, the
 host's own rule). The names are written on the server, in its language. While a remote player is on, the listen host's
 own map follows any player's change to an outpost, enclave or infestation marker (at most every 3 s). In single player and
-for a host alone nothing changes. Build `sc34_mp4k`, **not deployed** (protocol 5 comes with the MP4 merge). With
+for a host alone nothing changes. Build `sc34_mp4fix`, **deployed to 3.4 on 2026-11-25** (port-3.4 af329af9, DLL 1efe55e7, protocol 5, with the review fixes; the dedicated server loads the same folder), untested in game. With
 `DebugLogging` on, the server logs `markers: the whole set (N) to <player>` and the client `map markers from the server:
 ...` when markers come or go.
 
@@ -181,7 +182,7 @@ accepted it (`acceptedby=` on the request; until MP5 that is always the host). A
 (`NetPackageScJournalReport`) and the server answers with quest ops (`NetPackageScQuestOp`): a POI favour past its clearing is
 marked done, stale favour, rescue and request quests close, and a POI favour nobody holds any more is no longer "taken on"
 (MP2's E6 gap). On a client the favour quest's marker now follows the survivor, and the supplies favour has a marker at all.
-Build `sc34_mp4q` (part Q only, not merged or deployed), untested in game. Logs: a client writes `rescue quest for <name> (<id>)
+Build `sc34_mp4fix`, **deployed to 3.4 on 2026-11-25** (port-3.4 af329af9, DLL 1efe55e7, protocol 5, with the review fixes; the dedicated server loads the same folder), untested in game. Logs: a client writes `rescue quest for <name> (<id>)
 started`, `... closed (completed|removed) - the server ended that ...`; the server writes `rescue quest for <name> sent to
 <player>`, `favour done: ... (their journal's report)` and `... no player holds its quest any more ... (E6)`.
 
@@ -239,8 +240,8 @@ greeting, chatter, taunt, small talk, horde warning or radio line, and lost even
 Control's place (Voice Control relays its own speech; SC's clip skipped that). Now the server picks the line and the voice
 and sends it (`NetPackageScVoice`) to every player within 40 m of the speaker, or to the one player it is for (a greeting,
 a talk's parting line), or to every community player for a radio line (each client judges its own radio). The client plays
-it in that voice. On the host and in single player nothing should sound different. Build `sc34_mp4v`, **not deployed**,
-untested in game. With `DebugLogging` on, the server logs `voice: sent <kind> <key> in <voice> by <id> to <player>` and the
+it in that voice. On the host and in single player nothing should sound different. Build `sc34_mp4fix`,
+**deployed to 3.4 on 2026-11-25** (port-3.4 af329af9, DLL 1efe55e7, protocol 5, with the review fixes; the dedicated server loads the same folder), untested in game. With `DebugLogging` on, the server logs `voice: sent <kind> <key> in <voice> by <id> to <player>` and the
 client `voice: from the server: ...`. `sc voice barks` (server) and `scl voice` (a client's own game) end with a `network`
 line: lines sent, heard, and why some were not played.
 
@@ -294,7 +295,7 @@ Why (the user): "Every crafting resource in linked storage should be detected wh
 Storage looks only at containers within its Distance (10 m as 0-SCore ships it) - and, while its broadcast manager runs, only at boxes switched
 to broadcast. Now, while you stand inside the community's home zone, crafting also finds ingredients in every box linked
 storage links (player-placed storage in the base; never the packing station or the land claim block's own storage),
-wherever it stands in the base. Setting: `CraftFromBaseStorage` (on by default). Build `sc34_cfs1`, not deployed.
+wherever it stands in the base. Setting: `CraftFromBaseStorage` (on by default). Build `sc34_mp4fix`, **deployed to 3.4 on 2026-11-25** (port-3.4 af329af9, DLL 1efe55e7, protocol 5, with the review fixes; the dedicated server loads the same folder), untested in game.
 
 **Single player** (0-SCore's Craft from Storage on, a base with crates farther apart than its Distance)
 - [ ] Put an ingredient (e.g. wood) only in a crate at the far end of the base, empty your bag of it, and stand inside the
