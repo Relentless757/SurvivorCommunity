@@ -139,37 +139,20 @@ namespace SurvivorCommunity
                 });
                 ModEvents.GameStartDone.RegisterHandler((ref ModEvents.SGameStartDoneData _d) =>
                 {
-                    try { ScConfig.EnsureParsed(); ReportDialogCoverage(); }
-                    catch (Exception e) { ScLog.Once("gamestartdone", e); }
-                    // the crafted Watch Post (a shape helper) shows the post's own description
-                    ScWatch.DescribeHelper();
-#if SC_V34
-                    // round m1p: its description names this game's numbers (ScWatchDesc), not only the defaults
-                    ScWatchDesc.Apply();
-#endif
-                    // the well kit places Level 1 only; levels 2-5 are upgrades (round wl). Every machine: placement is local.
-                    ScFacilities.RestrictWellKit();
-                    // round 33b: the bundles' Open action kept (with a usable pool) or taken off (BundleOpen false), once per world
-                    ScBundleOpen.Apply();
-                    // round md1: MedsResupplyMix validated against this game's items like the pools above (one line, warnings once)
-                    ScMedic.ResolveMix();
-                    // Locked & Loaded's NPC magazines (M11): bound once per game, its state logged every game
-                    try { ScMags.Resolve(); }
-                    catch (Exception e) { ScLog.Once("gamestartdone-mags", e); }
-                    // Vanity Vault bound inside the loading screen, not in the first painted body's build (round vb)
-                    try { ScVanity.Warm(); }
-                    catch (Exception e) { ScLog.Once("gamestartdone-vanity", e); }
-                    // enclaves (E1): seeded, found again or topped up now that the world, its POI list, the registry and the
-                    // player are all here (host only; registry-only work - only the chunks round the player have started
-                    // loading, and the pre-clear covers any of those)
-                    if (ScCommunity.IsHost) ScEnclaves.OnGameStart();
-                    // infestations (I1): each one's POI found again - after the enclaves, so none is left on an enclave's POI
-                    if (ScCommunity.IsHost) ScInfestations.OnGameStart();
-                    // streamer names (round 30): the list read (made with its header when the switch is on and it is missing)
-                    if (ScCommunity.IsHost) ScStreamerNames.OnGameStart();
+                    // round mt1 (part C): a client's GameStartDone comes BEFORE the server's blocks, items and dialogs arrive, so
+                    // there the steps wait (ScConfig.HoldStartDone) and the GameUpdate handler below runs them once the tables
+                    // are in. Single player, a listen host and a dedicated server run them here, as before
+                    bool held = false;
+                    try { held = ScConfig.HoldStartDone(); }
+                    catch (Exception e) { ScLog.Once("gamestartdone-hold", e); }
+                    if (!held) OnGameStartDone();
                 });
                 ModEvents.GameUpdate.RegisterHandler((ref ModEvents.SGameUpdateData _d) =>
                 {
+                    // round mt1 (part C): a client's held game-start steps, once per world when the server's tables are in
+                    // (first, so the ticks below already see this world's config; a bool test while nothing is held)
+                    try { if (ScConfig.StartDoneDue()) OnGameStartDone(); }
+                    catch (Exception e) { ScLog.Once("gamestartdone-late", e); }
                     ScTicker.OnGameUpdate();
                     ScWeaponWarm.Update();             // NPC weapon models in the background (round wp)
                     ScBarks.Tick();                    // V2: SC's greetings, chatter and raider taunts (each paces itself)
@@ -183,6 +166,7 @@ namespace SurvivorCommunity
                     try { ScActions.Reset(); } catch (Exception e) { ScLog.Once("actions-reset", e); }      // round MP2: a client's unanswered requests
                     try { ScTalkContext.Reset(); } catch (Exception e) { ScLog.Once("talk-reset", e); }     // round MP2 (part M): the talk context
                     ScMirror.OnWorldShuttingDown();          // round MP1: a client forgets the server's copy (its own try)
+                    ScConfig.DropHeldStartDone();            // round mt1 (part C): a client's held game-start steps end with the world
                     ScRunners.OnWorldShuttingDown();   // first: runners in the world go back to their snapshot before the world is saved
                     ScEnclavePeople.OnWorldShuttingDown();   // enclave bodies recorded and taken out before the save (E2)
                     ScBands.OnWorldShuttingDown();           // band bodies the same, their walk re-planned from where they were (E13a)
@@ -256,6 +240,43 @@ namespace SurvivorCommunity
                 ScLog.Err("InitMod failed - the mod is inert for this session");
                 Log.Exception(e);
             }
+        }
+
+        /// <summary>
+        /// SC's game-start steps (the GameStartDone handler's body, unchanged and in the same order). Round mt1 (part C): run
+        /// from GameStartDone on a server; on a client from the first game update once the server's blocks and items are in
+        /// (ScConfig.HoldStartDone / StartDoneDue) - every step reads them, and each is safe to run that late, once per world.
+        /// </summary>
+        private static void OnGameStartDone()
+        {
+            try { ScConfig.EnsureParsed(); ReportDialogCoverage(); }
+            catch (Exception e) { ScLog.Once("gamestartdone", e); }
+            // the crafted Watch Post (a shape helper) shows the post's own description
+            ScWatch.DescribeHelper();
+#if SC_V34
+            // round m1p: its description names this game's numbers (ScWatchDesc), not only the defaults
+            ScWatchDesc.Apply();
+#endif
+            // the well kit places Level 1 only; levels 2-5 are upgrades (round wl). Every machine: placement is local.
+            ScFacilities.RestrictWellKit();
+            // round 33b: the bundles' Open action kept (with a usable pool) or taken off (BundleOpen false), once per world
+            ScBundleOpen.Apply();
+            // round md1: MedsResupplyMix validated against this game's items like the pools above (one line, warnings once)
+            ScMedic.ResolveMix();
+            // Locked & Loaded's NPC magazines (M11): bound once per game, its state logged every game
+            try { ScMags.Resolve(); }
+            catch (Exception e) { ScLog.Once("gamestartdone-mags", e); }
+            // Vanity Vault bound inside the loading screen, not in the first painted body's build (round vb)
+            try { ScVanity.Warm(); }
+            catch (Exception e) { ScLog.Once("gamestartdone-vanity", e); }
+            // enclaves (E1): seeded, found again or topped up now that the world, its POI list, the registry and the
+            // player are all here (host only; registry-only work - only the chunks round the player have started
+            // loading, and the pre-clear covers any of those)
+            if (ScCommunity.IsHost) ScEnclaves.OnGameStart();
+            // infestations (I1): each one's POI found again - after the enclaves, so none is left on an enclave's POI
+            if (ScCommunity.IsHost) ScInfestations.OnGameStart();
+            // streamer names (round 30): the list read (made with its header when the switch is on and it is missing)
+            if (ScCommunity.IsHost) ScStreamerNames.OnGameStart();
         }
 
         private static bool DependenciesPresent()

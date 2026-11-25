@@ -2690,6 +2690,24 @@ Round MP0 is the groundwork:
     - A forged journal report can mark a POI favour done or taken on (quests m3): the same trust the game gives a client's
       journal. A siege's quest is the anchor's alone until MP5 (m5). Marker labels, place names and a helper's words in a
       tell (`Where`, `DestText`, `Describe`, a reason) stay in the server's language (m6, tells m4).
+- **Round mt1 (part C), a client's config and game-start steps:** on a client `ModEvents.GameStartDone` fires right after
+  `StartAsClient`, before the server's configs (blocks, items, dialogs, ...) arrive. `ScConfig.TablesReady` is true on a
+  server; on a client it is `WorldStaticData.AllConfigsReceivedAndLoaded() && World != null` (the test vanilla's
+  `worldInfoCo` waits on before it creates the world; the world test covers the main menu, where the first answers true
+  from the last session). While it is false, `ScConfig.EnsureParsed` returns without parsing and without latching
+  `Parsed` (one `config: ... is read once the server's blocks are in` line), so the next call reads the server's block;
+  once it is true a missing block latches the defaults as before. The GameStartDone body is now
+  `SurvivorCommunityModApi.OnGameStartDone` (same steps, same order): a server runs it from GameStartDone; a client's is
+  held (`ScConfig.HoldStartDone`) and run once from the GameUpdate handler, first in it, by `ScConfig.StartDoneDue` (a bool
+  test, then at most one readiness test a second). In practice that is the client's first game update, when its player is
+  created. The hold is dropped at GameStarting (`ScConfig.Reset`) and at world end. Each step is safe to run then: they
+  only read the tables, and the ones that cache (bundle pools, the meds mix, the well kit's cut, the L&L binding, Vanity
+  Vault's binding) build once per world after the parse. Between a client's GameStartDone and its world, SC runs only
+  block, item and XUi loading code, and none of it reads `ScConfig`. Every lazily built cache that reads it
+  (`ScXnpc`'s class sets, `ScLoadout`'s catalogue, `ScVoice`'s table, `ScCategories`) calls `EnsureParsed` first and is
+  first built after the world exists, when that parses for real. The late `config has no XnpcWeapons block` warning was
+  the same fault: `XnpcWeapons` is a class inside the config block, and the early latch left it empty. A new cache built
+  from `ScConfig` must not be built on a client before `TablesReady`, or it keeps the defaults.
 
 ## How it hangs together (for modders)
 
