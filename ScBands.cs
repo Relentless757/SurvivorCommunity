@@ -849,7 +849,7 @@ namespace SurvivorCommunity
                 if (t >= nextMarkers)
                 {
                     nextMarkers = t + MarkerSeconds;
-                    UpdateMarkers(player);            // round MP0: the host's own only (AddMarker). MP4: per-player markers
+                    UpdateMarkers(player);            // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 }
                 if (changed) ScRegistry.SaveAtomic();
             }
@@ -1632,7 +1632,7 @@ namespace SurvivorCommunity
         {
             b.Known = true;
             b.KnownDay = ScCommunity.Today;
-            AddMarker(b, player);                     // round MP0: the host's own only (AddMarker). MP4: per-player markers
+            AddMarker(b, player);                     // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
             ScCommunity.Tell(player, string.Format(Loc(b.IsRaiders ? "scBandSeenRaiders" : "scBandSeenDrifters"), DestText(b)), b.IsRaiders ? "ui_denied" : "");
             ScOutposts.NoteLedger(string.Format(Loc(b.IsRaiders ? "scBandLedgerRaiders" : "scBandLedgerDrifters"), DestText(b)));
             ScLog.Out("band " + b.Id + " (" + b.Kind + ", " + DisplayName(b) + ") met on the road at " + World.worldToBlockPos(Where(b)) + ", heading for " + DestText(b));
@@ -1944,7 +1944,7 @@ namespace SurvivorCommunity
             try
             {
                 if (!b.Known || b.Arrived || owner == null) return;
-                // round MP0: markers are this machine's own, for its own player - none on a dedicated server. MP4: per-player markers
+                // round MP0: markers are this machine's own, for its own player - none on a dedicated server. Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 if (!(owner is EntityPlayerLocal)) return;
                 NavObjectManager nav = NavObjectManager.Instance;
                 string cls = NavClassFor(b);
@@ -2006,6 +2006,23 @@ namespace SurvivorCommunity
                 if (ScRunners.XZ(at, b.MarkerAt) < MarkerMove) continue;
                 b.Marker.TrackedPosition = at;
                 b.MarkerAt = at;
+            }
+        }
+
+        /// <summary>
+        /// Round MP4 (part K): every known band's marker as AddMarker draws it, where they are now, for ScMarkers - the set each
+        /// remote community player registers for themselves; it moves at the pace UpdateMarkers moves the host's (MarkerMove m,
+        /// at most every MarkerSeconds). Server side; registers nothing.
+        /// </summary>
+        internal static void CollectMarkers(List<ScMarkers.Entry> into)
+        {
+            if (!Configured) return;
+            foreach (Band b in ScRegistry.Bands)
+            {
+                if (!b.Known || b.Arrived) continue;
+                into.Add(new ScMarkers.Entry(ScMarkers.KindBand, b.Id, NavClassFor(b), Where(b),
+                                             string.Format(Loc(b.IsRaiders ? "scBandMarkerRaiders" : "scBandMarkerDrifters"), DestText(b)))
+                         { MoveMin = MarkerMove, MoveEvery = MarkerSeconds });
             }
         }
 

@@ -726,7 +726,7 @@ namespace SurvivorCommunity
                     }
                 }
             }
-            if (inf.Known && player != null) AddMarker(inf, player);       // round MP0: the host's own only (AddMarker). MP4: per-player markers
+            if (inf.Known && player != null) AddMarker(inf, player);       // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
             ScLog.Out("infestation #" + inf.Id + " at " + inf.PoiName + " (" + inf.Prefab + ", T" + inf.Tier + ") " + inf.Poi + " [" + how
                       + (from != null ? " from #" + from.Id : "") + "]: " + rooms + "; special " + SpecialWord(inf) + (inf.Known ? heard : ", not known yet"));
             ScRegistry.SaveAtomic();
@@ -1331,7 +1331,7 @@ namespace SurvivorCommunity
                 if (!markersRestored)
                 {
                     markersRestored = true;
-                    RefreshMarkers(player);           // round MP0: the host's own only (AddMarker). MP4: per-player markers
+                    RefreshMarkers(player);           // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 }
                 SpotAllNearHome(player);      // I3: once a session and when the home moves (cheap otherwise)
                 Vector3 at = player.position;         // round MP0: found from the anchor's position (the host's own on a host). MP5: per player
@@ -1370,7 +1370,7 @@ namespace SurvivorCommunity
             try
             {
                 if (!inf.Known || !ScConfig.Infestations) return;
-                // round MP0: markers are this machine's own, for its own player - none on a dedicated server. MP4: per-player markers
+                // round MP0: markers are this machine's own, for its own player - none on a dedicated server. Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 if (!(owner is EntityPlayerLocal)) return;
                 NavObjectManager nav = NavObjectManager.Instance;
                 if (nav == null || owner == null || NavObjectClass.GetNavObjectClass(NavClass) == null) return;
@@ -1412,6 +1412,19 @@ namespace SurvivorCommunity
                 if (inf.Known && ScConfig.Infestations) AddMarker(inf, owner);
                 else RemoveMarker(inf);
             }
+        }
+
+        /// <summary>
+        /// Round MP4 (part K): every known infestation's marker as AddMarker draws it, for ScMarkers - the set each remote
+        /// community player registers for themselves. Server side; registers nothing.
+        /// </summary>
+        internal static void CollectMarkers(List<ScMarkers.Entry> into)
+        {
+            if (!ready || !ScConfig.Infestations) return;
+            foreach (Infestation inf in All)
+                if (inf.Known)
+                    into.Add(new ScMarkers.Entry(ScMarkers.KindInfestation, inf.Id, NavClass, MarkerSpot(inf),
+                                                 string.Format(Localization.Get("scInfestMarker"), inf.PoiName)));
         }
 
         // ------------------------------------------------------------------ console ----

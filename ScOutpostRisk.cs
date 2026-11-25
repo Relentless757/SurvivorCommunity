@@ -789,7 +789,7 @@ namespace SurvivorCommunity
             try
             {
                 // round MP0: the marker is the host's own player's (a local map object) - none on a dedicated server.
-                // MP4: per-player markers
+                // round MP4: remote players' come from ScMarkers (CollectMarkers)
                 if (!(owner is EntityPlayerLocal)) return;
                 NavObjectManager nav = NavObjectManager.Instance;
                 if (nav == null || owner == null || NavObjectClass.GetNavObjectClass(AttackNav) == null) return;
@@ -819,6 +819,18 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("risk-unmarker", e);
             }
+        }
+
+        /// <summary>
+        /// Round MP4 (part K): every outpost under an attack the radio heard, its marker as AddMarker draws it, for ScMarkers -
+        /// the set each remote community player registers for themselves. Server side; registers nothing.
+        /// </summary>
+        internal static void CollectMarkers(List<ScMarkers.Entry> into)
+        {
+            foreach (Outpost o in ScRegistry.Outposts)
+                if (UnderAttack(o) && o.AttackHeard)
+                    into.Add(new ScMarkers.Entry(ScMarkers.KindOutpostAttack, o.Id, AttackNav, o.Centre + new Vector3(0f, 2f, 0f),
+                                                 string.Format(Localization.Get("scRiskMarker"), o.Name)));
         }
 
         /// <summary>Console / window: the security breakdown.</summary>

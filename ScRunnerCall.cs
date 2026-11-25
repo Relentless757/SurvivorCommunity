@@ -254,6 +254,25 @@ namespace SurvivorCommunity
             c.Marker = null;
         }
 
+        /// <summary>
+        /// Round MP4 (part K): every open call's marker on her, as AddMarker places it, for ScMarkers - the set each remote
+        /// community player registers for themselves; it follows her as Tick moves the host's (MarkerMove m). A call whose body
+        /// is gone or dead is left out (the tick ends it). Server side; registers nothing.
+        /// </summary>
+        internal static void CollectMarkers(List<ScMarkers.Entry> into)
+        {
+            World w = ScCommunity.World;
+            if (w == null) return;
+            for (int i = 0; i < calls.Count; i++)
+            {
+                Call c = calls[i];
+                EntityAlive body = c.M != null ? w.GetEntity(c.BodyId) as EntityAlive : null;
+                if (body == null || body.IsDead()) continue;
+                into.Add(new ScMarkers.Entry(ScMarkers.KindRunnerCall, c.M.Id, MarkerClass, body.position + new Vector3(0f, 0.25f, 0f), c.MarkerName)
+                         { MoveMin = MarkerMove, MoveEvery = 1f });
+            }
+        }
+
         // ------------------------------------------------------------------ the tick ----
 
         /// <summary>ScTicker, once a second (host): each open call's marker follows her; a call whose fight is over ends.</summary>

@@ -46,6 +46,7 @@ namespace SurvivorCommunity
                 if (now < nextTick) return;
                 nextTick = now + Interval;
 
+                ScMarkers.ClientTick();               // round MP4 (part K): a client's map squared with the server's markers (nothing elsewhere)
                 if (!ScCommunity.IsHost) return;
                 // round MP3 (review storage m7): linked storage's sessions are swept first and in their own try - it used to run
                 // late in this tick (ScHomeLink.Tick), after the "nobody online" return, so a fault in any earlier step stopped it
@@ -60,6 +61,8 @@ namespace SurvivorCommunity
                 // round MP1: the clients' copy of the registry - the last second's changes, at most once a second (its own try;
                 // nothing is built with no remote client, so single player is untouched)
                 ScMirror.ServerTick();
+                // round MP4 (part K): the community's map markers to remote clients (its own try; nothing is built with none)
+                ScMarkers.ServerTick();
                 // round MP0: no longer the local player - a dedicated server has none. With nobody online there is nothing
                 // to tick (a dedicated server's world time stands still with no players)
                 EntityPlayer player = ScPlayers.Anchor();

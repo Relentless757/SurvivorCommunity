@@ -254,7 +254,7 @@ namespace SurvivorCommunity
             try
             {
                 // round MP0: the marker is the host's own player's (a local map object) - none on a dedicated server.
-                // MP4: per-player markers
+                // round MP4: remote players' come from ScMarkers (CollectMarkers)
                 if (!(owner is EntityPlayerLocal)) return;
                 NavObjectManager nav = NavObjectManager.Instance;
                 string cls = NavPrefix + ScNames.Key(s.Res);
@@ -284,6 +284,21 @@ namespace SurvivorCommunity
             catch (Exception e)
             {
                 ScLog.Once("scout-unmarker", e);
+            }
+        }
+
+        /// <summary>
+        /// Round MP4 (part K): every scouted site's marker as AddMarker draws it, for ScMarkers - the set each remote community
+        /// player registers for themselves (keyed by the site's POI corner). Server side; registers nothing.
+        /// </summary>
+        internal static void CollectMarkers(List<ScMarkers.Entry> into)
+        {
+            foreach (Scout s in ScRegistry.Community.Scouts)
+            {
+                string key = s.Poi.x.ToString(System.Globalization.CultureInfo.InvariantCulture) + "," + s.Poi.y.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                             + "," + s.Poi.z.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                into.Add(new ScMarkers.Entry(ScMarkers.KindScout, key, NavPrefix + ScNames.Key(s.Res), s.Centre,
+                                             string.Format(Localization.Get("scScoutMarker"), s.Name, Localization.Get(ScNames.LocKey(s.Res)))));
             }
         }
 
