@@ -69,6 +69,15 @@ boxes a view shows and the view follows, an idle view closes after 5 minutes (wi
 overflow drops in a bag. Also: a forced station unlock no longer pays a member's crafts twice, and an AutoEquip armor piece
 given back to a full bag is no longer worn and doubled. Build `sc34_mp3`, **deployed to 3.4 on 2026-11-24** (port-3.4 b975a10c, DLL 0cc844a4, protocol 4; the dedicated server loads the same folder), untested in game.
 
+**Results so far (2026-11-25)**
+- [x] The user: single-player checks of the packing stations, linked storage and the member panel's gear slots.
+- [x] My run on the dedicated test server (the 3.4 client joined through DevLink): both logs say protocol 4. The window's Open
+      storage made `linked storage: session 1 for Elisk claims 0 box(es)` on the server, and the client's view opened beside
+      its inventory with the RE Inventory grid note; closing it ended the session (`session 1 ended (closed), 0 claim(s)
+      released`). The test save has no storage boxes in its base and the test character carries nothing, so no item moved.
+- [ ] Still to check on a server: items moved both ways in linked storage, the packing station, a member's gear, a station
+      craft with a member, two players at once.
+
 **Single player (RE Inventory with `zzzz_GridInv_SurvivorCommunity`)**
 - [ ] A crate with exactly one free spot a rifle fits, everything else full. Hold a rifle, click a bandage in linked storage
       (a swap): the bandage is on your cursor and the rifle lands in a box whose grid seats it. Open each crate by hand: none
