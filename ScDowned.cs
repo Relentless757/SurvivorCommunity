@@ -206,9 +206,12 @@ namespace SurvivorCommunity
                 || m.Status == MemberStatus.Transit) return false;                       // round op1: on the road, as a runner
             // round MP0 (D 4.6): while ANY community player is alive, not only the host's own player - a dedicated server has none,
             // and her bleed-out would pause for good (single player: while you are alive, as before)
+            // round MP6 (test fix t1): a player of HER community - 0-XNPCCore's downed tick opens no scope, so the old unscoped
+            // test counted community 0's players: a community 1 member never bled out with only her own players online, and a
+            // paused community's member bled out while another community played. With one community: as before
             List<EntityPlayer> all = ScPlayers.All;
             for (int i = 0; i < all.Count; i++)
-                if (all[i] != null && !all[i].IsDead() && ScPlayers.InCommunity(all[i])) return true;
+                if (all[i] != null && !all[i].IsDead() && ScPlayers.InCommunity(all[i], m.CommunityId)) return true;
             return false;
         }
 

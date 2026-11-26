@@ -199,6 +199,17 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// Round MP6 (test fix t1): the community in scope when one is open, else the listen host's own player's, else null - with no
+        /// "[MP6 scope]" diagnostic (GetProspect only prefers it and falls back to every community). Main thread for the scope.
+        /// </summary>
+        private static CommunityState PreferredQuiet()
+        {
+            if (scopeTop > 0 && ThreadManager.IsMainThread()) return ScCommunities.ById(scopeStack[scopeTop - 1]);
+            EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+            return lp != null ? ScCommunities.ById(ScPlayers.CommunityOf(lp)) : null;
+        }
+
         /// <summary>Round MP6 (core fix): the last missing community a scope named that Current reported (review C-n2).</summary>
         private static int goneReported = int.MinValue;
 
@@ -426,7 +437,10 @@ namespace SurvivorCommunity
         {
             CommunityState[] all = ScCommunities.Array;
             Prospect p;
-            if (all.Length > 1 && Current.Prospects.TryGetValue(entityId, out p)) return p;     // round MP6 (part relations)
+            // round MP6 (part relations): the preferred community's first. Round MP6 (test fix t1): read quietly - with no scope open
+            // (a body's PostInit, its loadout and looks) this is an "anyone's" lookup, not an unscoped read of one community
+            CommunityState pref = all.Length > 1 ? PreferredQuiet() : null;
+            if (pref != null && pref.Prospects.TryGetValue(entityId, out p)) return p;
             for (int i = 0; i < all.Length; i++)
             {
                 if (all[i].Prospects.TryGetValue(entityId, out p)) return p;

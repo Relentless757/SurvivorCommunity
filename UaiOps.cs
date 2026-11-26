@@ -858,9 +858,12 @@ namespace UAI
         /// </summary>
         public static bool LeavesAlone(EntityAlive self, EntityAlive t)
         {
-            if (self == null || t == null || t.IsDead() || ScBaseAttack.WideDefence) return false;
+            if (self == null || t == null || t.IsDead()) return false;
             Member m = ScRegistry.GetMember(self.entityId);
             if (m == null || m.Status != MemberStatus.Resident || ScWatch.OnWatch(m)) return false;
+            // round MP6 (test fix t1): after the member test - a stranger has no community scope (part G's UAI scope opens none), and
+            // the home attack's state read for one was an unscoped read (the answer was false for her either way)
+            if (ScBaseAttack.WideDefence) return false;
             if (ScInvestigate.Responds(self, t)) return false;
             return !HuntsSomeone(t);
         }
