@@ -16,6 +16,9 @@ namespace SurvivorCommunity
     /// Reuses E4's bundle code (ScEncRequests.Carried / TakeBundles: the exact size taken, a short take given back), E4's
     /// row-text postfix for the rows' words (Patches_Enclaves.Patch_DialogRowText -> ScEncRequests.FillRow -> FillRow here)
     /// and ScEnclaves.AddStanding (the clamp, the band's marker, E6's OnBandChanged). Host only, main thread.
+    /// Round MP5 (part E): any community player gives. A client's row reads the record's half from the talk's facts
+    /// (BlockedServer) and its own bag; its pick is built from its own bag (BuildPickClient), the bundle leaves its bag first
+    /// (TakeRow) and enc.gift (ScActionsEnclave) applies it here (GiveFor) or refuses, and the bundle goes back.
     /// </summary>
     public static class ScEncGifts
     {
@@ -88,11 +91,22 @@ namespace SurvivorCommunity
         /// </summary>
         public static string Blocked(Enclave e, EntityPlayer player)
         {
+            string why = BlockedServer(e);    // round MP5 (part E): the record's half, alone for a remote player's facts
+            if (why != null) return why;
+            if (RowsFor(player as EntityPlayerLocal, e).Count == 0) return Loc("scEncGiftWhyNone");
+            return null;
+        }
+
+        /// <summary>
+        /// Round MP5 (part E): Blocked's half that reads the record (off, the cap, too soon) - what the server tells a client's talk
+        /// (ScEncFacts); the bundles carried are the client's own bag's half (ScEncTalk.GiftWhy).
+        /// </summary>
+        public static string BlockedServer(Enclave e)
+        {
             if (!Shown(e)) return Loc("scEncGiftWhyOff");
             if (AtCap(e)) return Loc("scEncGiftWhyCap");
             int left = DaysLeft(e);
             if (left > 0) return left == 1 ? Loc("scEncGiftWhyTomorrow") : string.Format(Loc("scEncGiftWhyDays"), left);
-            if (RowsFor(player as EntityPlayerLocal, e).Count == 0) return Loc("scEncGiftWhyNone");
             return null;
         }
 
@@ -114,7 +128,13 @@ namespace SurvivorCommunity
         /// <summary>The resources in the rows' order: those the group does not live on (the classic five, then water), their own, luxuries.</summary>
         private static List<Resource> Order(Enclave e)
         {
-            int own = e != null ? ScEncRequests.OwnResource(e.Kind) : -1;
+            return Order(e != null ? e.Kind : null);
+        }
+
+        /// <summary>Round MP5 (part E): Order by the group's kind (a client knows it from the talk's facts).</summary>
+        private static List<Resource> Order(string kind)
+        {
+            int own = kind != null ? ScEncRequests.OwnResource(kind) : -1;
             var list = new List<Resource>(ScNames.ResourceCount);
             for (int i = 0; i < ScNames.ResourceCount; i++)
                 if (i != own && (Resource)i != Resource.Luxury) list.Add((Resource)i);
@@ -129,9 +149,15 @@ namespace SurvivorCommunity
         /// </summary>
         public static List<GiftRow> RowsFor(EntityPlayerLocal pl, Enclave e)
         {
+            return RowsFor(pl, e != null ? e.Kind : null);
+        }
+
+        /// <summary>Round MP5 (part E): RowsFor by the group's kind (a client's own bag, the kind from the talk's facts).</summary>
+        public static List<GiftRow> RowsFor(EntityPlayerLocal pl, string kind)
+        {
             var rows = new List<GiftRow>();
             if (pl == null) return rows;
-            foreach (Resource res in Order(e))
+            foreach (Resource res in Order(kind))
             {
                 ScEncRequests.Bundles b = ScEncRequests.Carried(pl, res);
                 if (b.Count == 0) continue;
@@ -157,6 +183,67 @@ namespace SurvivorCommunity
             if (player == null || npc == null || e == null || i < 0) return null;
             if (pick == null || pick.PlayerId != player.entityId || pick.NpcId != npc.entityId || pick.EnclaveId != e.Id) BuildPick(player, npc, e);
             return pick != null && i < pick.Rows.Count ? pick.Rows[i] : null;
+        }
+
+        // ---- round MP5 (part E): a client's half - its own bag, the enclave from the talk's facts ----
+
+        /// <summary>Round MP5 (part E), client: "I brought you something." - the pick of this machine's own bundles for the talk with npcId.</summary>
+        internal static void BuildPickClient(EntityPlayerLocal pl, int npcId, int enclaveId, string kind)
+        {
+            pick = pl != null && npcId > 0 ? new Pick { PlayerId = pl.entityId, NpcId = npcId, EnclaveId = enclaveId, Rows = RowsFor(pl, kind) } : null;
+        }
+
+        /// <summary>Round MP5 (part E), client: row i of the pick on screen (made again for another talk), or null.</summary>
+        internal static GiftRow PickRowClient(int i, EntityPlayerLocal pl, int npcId, int enclaveId, string kind)
+        {
+            if (pl == null || npcId <= 0 || i < 0) return null;
+            if (pick == null || pick.PlayerId != pl.entityId || pick.NpcId != npcId || pick.EnclaveId != enclaveId) BuildPickClient(pl, npcId, enclaveId, kind);
+            return pick != null && i < pick.Rows.Count ? pick.Rows[i] : null;
+        }
+
+        /// <summary>
+        /// Round MP5 (part E), client: the row's bundle (its resource and size, one) out of this machine's own bag by type
+        /// (ScItemTx.TakeFromLocal), exactly what left in taken - sent with enc.gift, given back on a refusal. False: not carried.
+        /// </summary>
+        internal static bool TakeRow(EntityPlayerLocal pl, GiftRow g, List<ItemStack> taken)
+        {
+            if (pl == null || g == null || taken == null) return false;
+            ItemValue v = ScStockpile.BundleValue(g.Res, g.Size);
+            if (v == null) return false;
+            int type = v.type;
+            if (ScItemTx.TakeFromLocal(pl, iv => iv != null && iv.type == type, 1, taken) >= 1) return true;
+            if (taken.Count > 0) ScItemTx.GiveToLocal(pl, taken);
+            taken.Clear();
+            return false;
+        }
+
+        /// <summary>Round MP5 (part E), client: the pick's rows are spent (a gift went, as the host's ActGive clears it).</summary>
+        internal static void ClearPick() { pick = null; }
+
+        /// <summary>
+        /// Round MP5 (part E): a gift from a remote player (enc.gift) - their machine took the bundle from its own bag and sent it:
+        /// the host's ActGive checks again (gifts on, under the cap, not too soon), one bundle that is a bundle, then Apply (its
+        /// band-change tell to the giver). key and info: the reply line ({giftreply}). False: nothing kept - the caller refuses, and
+        /// the player's machine gives the bundle back.
+        /// </summary>
+        internal static bool GiveFor(EntityPlayer player, EntityAlive npc, ItemStack bundle, out string key, out string info)
+        {
+            key = "scEncReqGone";
+            info = "";
+            Enclave e;
+            EnclaveRequest r;
+            if (!ScEncRequests.LeaderAt(npc, out e, out r)) return false;
+            if (!Shown(e)) return false;
+            if (AtCap(e)) { key = "scEncGiftRefuseCap"; return false; }
+            if (DaysLeft(e) > 0) { key = "scEncGiftRefuseSoon"; return false; }
+            Resource res;
+            int units;
+            if (bundle == null || bundle.count != 1 || !ScStockpile.IsBundle(bundle, out res, out units)) { key = "scEncReqNotCarried"; return false; }
+            ScLog.Out("enclave " + e.Id + " '" + e.Name + "': a gift from the " + ScNames.Key(res) + " bundles, " + units + " unit(s), from " + player.EntityName + "'s own inventory");
+            int moved = Apply(e, What(res, units), "handed over in the talk", player);
+            key = ScEncRequests.LineKey("scEncThanks", LineKind, ScEnclaves.StandingKey(e));
+            info = ScEncRequests.Aside(moved);
+            return true;
         }
 
         /// <summary>
@@ -239,7 +326,7 @@ namespace SurvivorCommunity
         /// line off), a ledger line with the bundle and the change, a tell when the band changed, the log, a save. Returns the
         /// standing it moved.
         /// </summary>
-        private static int Apply(Enclave e, string what, string why)
+        private static int Apply(Enclave e, string what, string why, EntityPlayer giver = null)     // round MP5 (part E): giver - the band tell's player (null: the host's own, as before)
         {
             int gain = GainNow(e);
             int old = e.Standing;
@@ -252,7 +339,7 @@ namespace SurvivorCommunity
                          : bandChanged ? string.Format(Loc("scEncReqLedgerDeltaBand"), "+" + moved, ScEnclaves.StandingWord(e))
                          : string.Format(Loc("scEncReqLedgerDelta"), "+" + moved);
             ScOutposts.NoteLedger(string.Format(Loc("scEncGiftLedger"), e.Name, what, delta));
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            EntityPlayer pl = giver ?? ScCommunity.LocalPlayer;      // round MP5 (part E)
             // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
             if (bandChanged && pl != null && !e.IsHostile) ScCommunity.TellKey(pl, "scEncReqBandTell", "", e.Name, ScCommunity.LocArg(ScEnclaves.StandingWordKey(e)));   // review tells m4
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': a gift (" + what + ", " + why + ") - standing " + old + " -> " + e.Standing + " ("
@@ -319,13 +406,22 @@ namespace SurvivorCommunity
         /// "give" applies a gift as if handed over (no bundle needed) under the same rules - "force" ignores the day's wait
         /// (never the cap).
         /// </summary>
-        public static void Command(Enclave e, List<string> p, List<string> into)
+        public static void Command(Enclave e, List<string> p, List<string> into, EntityPlayer player = null)
         {
             string verb = p.Count > 3 ? p[3].ToLowerInvariant() : "";
             if (verb == "")
             {
                 into.Add(e.Name + " (enclave " + e.Id + ", " + ScEnclaves.StandingWord(e) + ", standing " + e.Standing + "): " + InfoLine(e));
-                EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+                // round MP5 (part E): the player who typed it (ConsoleCmdSc.Me); a remote player's bag is their own machine's, so their
+                // row is the record's half only (their talk adds the bundles they carry)
+                EntityPlayer who = player ?? ScCommunity.LocalPlayer;
+                EntityPlayerLocal pl = who as EntityPlayerLocal;
+                if (who != null && pl == null)
+                {
+                    string half = BlockedServer(e);
+                    into.Add("  the leader's row now: " + (half == null ? "open while you carry a bundle (your bag is on your own machine)" : "greyed - " + half));
+                    return;
+                }
                 string why = Blocked(e, pl);
                 into.Add("  the leader's row now: " + (why == null ? "open" : "greyed - " + why));
                 List<GiftRow> rows = RowsFor(pl, e);
@@ -355,7 +451,7 @@ namespace SurvivorCommunity
             if (!Shown(e)) { into.Add(e.Name + " takes no gift: " + Loc("scEncGiftWhyOff")); return; }
             if (AtCap(e)) { into.Add(e.Name + " takes no gift: standing " + e.Standing + " is at the cap (EnclaveGiftCap " + ScConfig.EnclaveGiftCap + ")"); return; }
             if (DaysLeft(e) > 0 && !force) { into.Add(e.Name + " takes no gift until day " + e.GiftDay + " (request clock day " + ScEncRequests.Now + "): add force to give one anyway"); return; }
-            int moved = Apply(e, What(res, units), "the console");
+            int moved = Apply(e, What(res, units), "the console", player);     // round MP5 (part E): the band tell to who typed it
             into.Add("gift to " + e.Name + ": " + What(res, units) + " - standing +" + moved + " -> " + e.Standing + " (" + ScEnclaves.StandingWord(e) + "); the next from day " + e.GiftDay);
         }
     }

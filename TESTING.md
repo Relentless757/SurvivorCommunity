@@ -37,6 +37,63 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP5 (part: E) (2026-11-26): every player talks to an enclave's people
+
+Why: a client's talk with an enclave's people showed only "Nevermind" - their rows read records only the server has, and
+their actions ran on the client or were host-only. Now the server tells the client what the rows need when the talk opens
+and after each action, every action is a request to the server, and items move as round MP3's do (taken from your bag first,
+given back on a refusal). The enclave's standing, requests and known flags stay the whole community's. Single player and the
+host's own talks are unchanged. Build `sc34_mp5e`, not deployed, untested in game. Handy: `sc enclave reveal all`, `sc enclave
+standing <id> <points>`, `sc enclave request <id> offer <kind>`, `sc enclave spawn <id>`, `sc give` for bundles, and
+`DebugLogging` true for the `talk context for ...: enclave ...` and `action enc.... by ...` lines.
+
+**Single player (nothing may change)**
+- [ ] A leader at Neutral, Friendly and Allied: the greeting by standing, "What do you need?" (the right one of three), "I
+      brought you something.", "Let's see what you have to trade.", "Tell me about this place." and the threat, as before. The line's names,
+      `{where}` and standing word as before.
+- [ ] Trade with a leader: the prices scale by the standing as before.
+- [ ] A member: "Can you come with me?" (greyed "Needs N dukes" without them), the deal takes the dukes and they follow; "Go
+      home now." sends them home. "Would you join us?": the favour first at Neutral (both kinds), the join at Friendly.
+- [ ] A request of each kind: accept (the quest in your journal), hand over bundles, a generator, a gun from the pick, "No,
+      I can't help with that.", "Let me think about it." (the tell), "I can't do it."; each reply line and its voice as before.
+- [ ] A missing survivor: "Let's get you home.", "Wait here for me.", their remains' "Search the body", then "I found ...".
+- [ ] A gift (the reply line, standing +3), the threat (bundles in your bag, the enclave hostile after the grace), the
+      whole group's join at Allied 90.
+
+**A client on a dedicated server**
+- [ ] Talk to a leader: within a moment the greeting by standing replaces 0-XNPCCore's start (the log: `talk context for
+      <id>: ... enclave <n> (flags ...)`), its rows as single player's, the line's tokens filled (`{enc}`, `{leader}`,
+      `{standing}`, `{where}` from where you stand).
+- [ ] "Let's see what you have to trade.": the trade window opens; the prices match the host's at the same standing; after the trade the talk's
+      line fills again (no raw `{enc}`).
+- [ ] A member at Neutral: "Can you come with me?" greyed "Needs N dukes" with too few; with enough, "Deal." takes exactly
+      the fee from your bag and they follow you (the server's log: `... enlisted with <you>`). Raise their standing from
+      another console between the offer and "Deal.": refused with "Their fee is N dukes now." and the dukes are back.
+- [ ] "Go home now." sends them home. "Would you join us?" at Neutral leads to their favour (POI or supplies); take it, do
+      it, come back: the join row shows and they join (the favour quest closes in your journal). Hand the supplies over in
+      the talk ("Here are the supplies you asked for. ..." in the favour statement): the items leave, then they join.
+- [ ] Requests: "Leave it with me." - the reply line shows "..." for a moment, then the leader's answer and its voice; the
+      quest is in YOUR journal (not the host's); "What do you need?" now leads to the wait. Hand over bundles (exactly what
+      covers it leaves your bag), a generator, a gun from the pick (its row names your own guns); "No, I can't help with
+      that.", "Let me think about it." (the tell after the talk closes), "I can't do it.".
+- [ ] An infestation offer: reading the offer marks the infestation on your map (known). With "I already took care of it.":
+      done at once.
+- [ ] A missing survivor: "Let's get you home." - they follow you; "Wait here for me." - they wait. Found dead: "Search the
+      body" on the remains (the tell), then "I found ..." to the leader.
+- [ ] A gift: the bundle leaves your bag, the reply thanks you with "(standing +3)"; at the cap or too soon the row greys with
+      the reason. The threat: the bundles land in your bag (or at your feet with a full bag), the enclave turns hostile.
+- [ ] At Allied 90 with room: "Would your people join ours?" - they join, the tell reaches you.
+- [ ] `sc enclave request <id> accept` typed on the client: the quest goes to the client.
+- [ ] No SC error in either log (`enctalk-answer`, `encfacts-fill`, `talk-refill`, `talk-facts-after`, `action-enc.*`).
+
+**Two players**
+- [ ] Both talk to the same leader; one accepts the offer: the other's "Leave it with me." answers "Never mind that now.
+      It's settled." and their rows follow after it.
+- [ ] Both offer a gift on the same day: the second is refused ("Come back tomorrow." or the cap) and the bundle is back in
+      their bag.
+- [ ] Two players enlist from the same enclave at once: one gets them, the other is refused and keeps the dukes.
+- [ ] A listen host with a client: the host's own talk as single player's while the client talks to another member.
+
 ## Round mt1 (part: C) (2026-11-25): a client reads SC's config once the server's blocks and items are in
 
 Why: a client's game-start event comes before the server's blocks, items and dialogs arrive, so a client read SC's config

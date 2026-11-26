@@ -6,7 +6,9 @@ using SurvivorCommunity;
 // operators live outside the namespace. Requirements are the leader's only (at home, of an enclave that is not hostile),
 // answer from the records and roll nothing; they run when a statement's rows are built, not every frame. Actions check
 // everything again (the rows were built a moment earlier) and leave the leader's reply for the next statement ({reqreply}).
-// Host only: a client keeps no enclave records, so on a client every requirement fails and no request row shows.
+// Round MP5 (part E): every community player talks to the leader. On the server (single player, the host's own player)
+// every operator runs as before; on a client a requirement reads the talk's facts (ScTalkContext; ScEncTalk) and the client's
+// own bag, and an action is an ScActionsEnclave op whose answer is the reply line (shown "..." until it comes).
 // E5 adds the stage rows ("I found <name>. I'm sorry.", "I already took care of it.", "I can't do it." only where it can be
 // given up) and the found survivor's own talk (ScEncSearch: "Your people sent me. Let's get you home.", "Wait here for me.").
 
@@ -22,6 +24,11 @@ public class DialogRequirementScEncReq : BaseDialogRequirement
     {
         try
         {
+            if (!ScCommunity.IsHost)
+            {
+                ScTalkFacts f = ScEncTalk.Of(player, talkingTo);      // round MP5 (part E): the request's state the server said
+                return ScEncTalk.Has(f, ScTalkFacts.EncLeaderTalking) && ScEncReqOps.Listed(Value, f.EncReqState);
+            }
             Enclave e;
             EnclaveRequest r;
             if (!ScEncRequests.LeaderTalking(player, talkingTo, out e, out r)) return false;
@@ -38,6 +45,11 @@ public class DialogRequirementScEncReqKind : BaseDialogRequirement
     {
         try
         {
+            if (!ScCommunity.IsHost)
+            {
+                ScTalkFacts f = ScEncTalk.Of(player, talkingTo);      // round MP5 (part E)
+                return ScEncReqOps.HasRequest(f) && ScEncReqOps.Listed(Value, f.EncReqKind);
+            }
             Enclave e;
             EnclaveRequest r;
             return ScEncRequests.LeaderTalking(player, talkingTo, out e, out r) && r != null && ScEncReqOps.Listed(Value, r.Kind);
@@ -53,6 +65,12 @@ public class DialogRequirementScEncReqHas : BaseDialogRequirement
     {
         try
         {
+            if (!ScCommunity.IsHost)
+            {
+                // round MP5 (part E): the facts' request against this machine's own bag
+                ScTalkFacts f = ScEncTalk.Of(player, talkingTo);
+                return ScEncReqOps.HasRequest(f) && ScEncRequests.ClientHas(player as EntityPlayerLocal, f.EncReqKind, f.EncReqRes, f.EncReqUnits);
+            }
             Enclave e;
             EnclaveRequest r;
             return ScEncRequests.LeaderTalking(player, talkingTo, out e, out r) && ScEncRequests.PlayerHas(r, player);
@@ -71,7 +89,14 @@ public class DialogRequirementScEncReqGun : BaseDialogRequirement
             Enclave e;
             EnclaveRequest r;
             int i;
-            if (!int.TryParse((Value ?? "").Trim(), out i) || !ScEncRequests.LeaderTalking(player, talkingTo, out e, out r) || r == null) return false;
+            if (!int.TryParse((Value ?? "").Trim(), out i)) return false;
+            if (!ScCommunity.IsHost)
+            {
+                // round MP5 (part E): this machine's own pick (ScEncTalk.ReqGunList built it from its own bag)
+                ScTalkFacts f = ScEncTalk.Of(player, talkingTo);
+                return ScEncReqOps.HasRequest(f) && ScEncRequests.PickRowClient(i, player as EntityPlayerLocal, f.Npc, f.EncReqId) != null;
+            }
+            if (!ScEncRequests.LeaderTalking(player, talkingTo, out e, out r) || r == null) return false;
             EntityAlive npc = talkingTo != null ? (EntityAlive)talkingTo : ScFavours.CurrentNpc(player);
             return ScEncRequests.PickRow(i, player, npc, r) != null;
         }
@@ -92,10 +117,21 @@ public class DialogRequirementScEncReqStage : BaseDialogRequirement
         {
             Enclave e;
             EnclaveRequest r;
-            if (!ScEncRequests.LeaderTalking(player, talkingTo, out e, out r) || r == null) return false;
+            string stage;
+            if (!ScCommunity.IsHost)
+            {
+                ScTalkFacts f = ScEncTalk.Of(player, talkingTo);      // round MP5 (part E): the stage word the server said
+                if (!ScEncReqOps.HasRequest(f)) return false;
+                stage = f.EncReqStage;
+            }
+            else
+            {
+                if (!ScEncRequests.LeaderTalking(player, talkingTo, out e, out r) || r == null) return false;
+                stage = ScEncRequests.StageWord(r);
+            }
             string v = (Value ?? "").Trim();
             bool not = v.StartsWith("!", StringComparison.Ordinal);
-            bool hit = ScEncReqOps.Listed(not ? v.Substring(1) : v, ScEncRequests.StageWord(r));
+            bool hit = ScEncReqOps.Listed(not ? v.Substring(1) : v, stage);
             return not ? !hit : hit;
         }
         catch (Exception e) { ScLog.Once("req-encreqstage", e); return false; }
@@ -109,6 +145,11 @@ public class DialogRequirementScEncReqCanGiveUp : BaseDialogRequirement
     {
         try
         {
+            if (!ScCommunity.IsHost)
+            {
+                ScTalkFacts f = ScEncTalk.Of(player, talkingTo);      // round MP5 (part E)
+                return ScEncReqOps.HasRequest(f) && f.Enc(ScTalkFacts.EncCanGiveUp);
+            }
             Enclave e;
             EnclaveRequest r;
             return ScEncRequests.LeaderTalking(player, talkingTo, out e, out r) && ScEncRequests.CanGiveUp(r);
@@ -130,8 +171,17 @@ public class DialogRequirementScEncSearch : BaseDialogRequirement
             EntityAlive npc;
             EncPerson p;
             EnclaveRequest r;
-            if (!ScEncSearch.Talking(player, talkingTo, out npc, out p, out r)) return false;
             string v = (Value ?? "").Trim().ToLowerInvariant();
+            if (!ScCommunity.IsHost)
+            {
+                // round MP5 (part E): the stage the server said (1 alive and waiting, 2 following)
+                ScTalkFacts f = ScEncTalk.Of(player, talkingTo);
+                int stage = f != null ? f.EncSearch : 0;
+                if (v == "following") return stage == 2;
+                if (v == "alive") return stage == 1;
+                return stage == 1 || stage == 2;
+            }
+            if (!ScEncSearch.Talking(player, talkingTo, out npc, out p, out r)) return false;
             if (v == "following") return r.Stage == ScEncSearch.StageFollowing;
             if (v == "alive") return r.Stage == ScEncSearch.StageAlive;
             return r.Stage == ScEncSearch.StageAlive || r.Stage == ScEncSearch.StageFollowing;
@@ -147,7 +197,11 @@ public class DialogActionScEncReqAccept : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
     {
-        try { ScEncRequests.ActAccept(player); }
+        try
+        {
+            if (!ScCommunity.IsHost) { ScEncTalk.Req(player, ScActionsEnclave.ReqAccept); return; }     // round MP5 (part E): enc.req
+            ScEncRequests.ActAccept(player);
+        }
         catch (Exception e) { ScLog.Once("act-encreqaccept", e); }
     }
 }
@@ -157,7 +211,11 @@ public class DialogActionScEncReqGive : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
     {
-        try { ScEncRequests.ActGive(player); }
+        try
+        {
+            if (!ScCommunity.IsHost) { ScEncTalk.ReqGive(player); return; }     // round MP5 (part E): taken from this bag, then enc.reqgive
+            ScEncRequests.ActGive(player);
+        }
         catch (Exception e) { ScLog.Once("act-encreqgive", e); }
     }
 }
@@ -167,7 +225,11 @@ public class DialogActionScEncReqGunList : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
     {
-        try { ScEncRequests.ActGunList(player); }
+        try
+        {
+            if (!ScCommunity.IsHost) { ScEncTalk.ReqGunList(player); return; }  // round MP5 (part E): this machine's own guns
+            ScEncRequests.ActGunList(player);
+        }
         catch (Exception e) { ScLog.Once("act-encreqgunlist", e); }
     }
 }
@@ -180,7 +242,9 @@ public class DialogActionScEncReqGiveGun : BaseDialogAction
         try
         {
             int i;
-            if (int.TryParse((Value ?? "").Trim(), out i)) ScEncRequests.ActGiveGun(player, i);
+            if (!int.TryParse((Value ?? "").Trim(), out i)) return;
+            if (!ScCommunity.IsHost) { ScEncTalk.ReqGiveGun(player, i); return; }     // round MP5 (part E): from its slot, then enc.reqgun
+            ScEncRequests.ActGiveGun(player, i);
         }
         catch (Exception e) { ScLog.Once("act-encreqgivegun", e); }
     }
@@ -191,7 +255,11 @@ public class DialogActionScEncReqDecline : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
     {
-        try { ScEncRequests.ActDecline(player); }
+        try
+        {
+            if (!ScCommunity.IsHost) { ScEncTalk.Req(player, ScActionsEnclave.ReqDecline); return; }     // round MP5 (part E): enc.req
+            ScEncRequests.ActDecline(player);
+        }
         catch (Exception e) { ScLog.Once("act-encreqdecline", e); }
     }
 }
@@ -201,7 +269,11 @@ public class DialogActionScEncReqThink : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
     {
-        try { ScEncRequests.ActThink(player); }
+        try
+        {
+            if (!ScCommunity.IsHost) { ScEncTalk.Req(player, ScActionsEnclave.ReqThink); return; }     // round MP5 (part E): enc.req
+            ScEncRequests.ActThink(player);
+        }
         catch (Exception e) { ScLog.Once("act-encreqthink", e); }
     }
 }
@@ -211,7 +283,11 @@ public class DialogActionScEncReqCantDo : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
     {
-        try { ScEncRequests.ActCantDo(player); }
+        try
+        {
+            if (!ScCommunity.IsHost) { ScEncTalk.Req(player, ScActionsEnclave.ReqCantDo); return; }     // round MP5 (part E): enc.req
+            ScEncRequests.ActCantDo(player);
+        }
         catch (Exception e) { ScLog.Once("act-encreqcantdo", e); }
     }
 }
@@ -221,7 +297,11 @@ public class DialogActionScEncReqFound : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
     {
-        try { ScEncRequests.ActFound(player); }
+        try
+        {
+            if (!ScCommunity.IsHost) { ScEncTalk.Req(player, ScActionsEnclave.ReqFound); return; }     // round MP5 (part E): enc.req
+            ScEncRequests.ActFound(player);
+        }
         catch (Exception e) { ScLog.Once("act-encreqfound", e); }
     }
 }
@@ -231,7 +311,11 @@ public class DialogActionScEncReqCleared : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
     {
-        try { ScEncRequests.ActCleared(player); }
+        try
+        {
+            if (!ScCommunity.IsHost) { ScEncTalk.Req(player, ScActionsEnclave.ReqCleared); return; }     // round MP5 (part E): enc.req
+            ScEncRequests.ActCleared(player);
+        }
         catch (Exception e) { ScLog.Once("act-encreqcleared", e); }
     }
 }
@@ -241,7 +325,11 @@ public class DialogActionScEncFollow : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
     {
-        try { ScEncSearch.ActFollow(player); }
+        try
+        {
+            if (!ScCommunity.IsHost) { ScEncTalk.Search(player, true); return; }     // round MP5 (part E): enc.follow
+            ScEncSearch.ActFollow(player);
+        }
         catch (Exception e) { ScLog.Once("act-encfollow", e); }
     }
 }
@@ -251,7 +339,11 @@ public class DialogActionScEncWait : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
     {
-        try { ScEncSearch.ActWait(player); }
+        try
+        {
+            if (!ScCommunity.IsHost) { ScEncTalk.Search(player, false); return; }    // round MP5 (part E): enc.wait
+            ScEncSearch.ActWait(player);
+        }
         catch (Exception e) { ScLog.Once("act-encwait", e); }
     }
 }
@@ -261,6 +353,12 @@ namespace SurvivorCommunity
     /// <summary>The request operators' shared helper.</summary>
     public static class ScEncReqOps
     {
+        /// <summary>Round MP5 (part E), client: the facts say the leader is talking and has an open request (the host's "r != null").</summary>
+        internal static bool HasRequest(ScTalkFacts f)
+        {
+            return ScEncTalk.Has(f, ScTalkFacts.EncLeaderTalking) && f.EncReqState.Length > 0 && f.EncReqState != "none";
+        }
+
         /// <summary>Is 'word' one of the comma list 'value' (trimmed, any case)?</summary>
         public static bool Listed(string value, string word)
         {

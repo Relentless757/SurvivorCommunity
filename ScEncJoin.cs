@@ -180,7 +180,8 @@ namespace SurvivorCommunity
             if (r != null) return Loc(r.IsOffered ? "scEncJoinWhyAnswer" : "scEncJoinWhyRequest");
             if (ScEncCalls.Busy(e)) return Loc("scEncJoinWhyCall");
             if (!e.PeopleRolled) return Loc("scEncRecruitSettling");
-            if (!ScZone.EnsureHome(player)) return Loc("scEncJoinWhyHome");
+            // round MP5 (part E): a remote player's talk never adopts their claim as the home (EnsureHomeFor; the host's own: EnsureHome)
+            if (!ScZone.EnsureHomeFor(player)) return Loc("scEncJoinWhyHome");
             return null;
         }
 
@@ -226,7 +227,7 @@ namespace SurvivorCommunity
         /// "Welcome to the community." (DialogActionScEncJoin): the leader being talked to, every gate again (HiddenWhy, Blocked),
         /// then the join (JoinNow). False with the reason (a tooltip).
         /// </summary>
-        public static bool Join(EntityPlayerLocal player, EntityAlive npc, out string reason)
+        public static bool Join(EntityPlayer player, EntityAlive npc, out string reason)      // round MP5 (part E): any player (enc.join; was EntityPlayerLocal)
         {
             reason = null;
             EncPerson p = ScEnclavePeople.PersonOf(npc);
@@ -250,11 +251,13 @@ namespace SurvivorCommunity
         }
 
         /// <summary>A person's favour (E3) closes with the join: completed when it was done, failed otherwise; the prospect dropped.</summary>
-        private static void CloseFavour(EncPerson p, EntityPlayerLocal player)
+        private static void CloseFavour(EncPerson p, EntityPlayer player)
         {
             Prospect pr = ScEnclaveDeals.ProspectByPerson(p.Id);
             if (pr == null) return;
-            if (player != null) ScQuests.CloseFavour(player, pr.Id, pr.Done);
+            if (player is EntityPlayerLocal) ScQuests.CloseFavour(player, pr.Id, pr.Done);
+            // round MP5 (part E): a remote joiner's own copy closes on their machine (the quest op), completed when it was done
+            else if (player != null && ScNet.ClientMatches(player)) ScQuestNet.CloseFavourFor(player, pr.Id, pr.Done);
             // round MP4: every other player who took that favour on loses their copy (the quest op), as a join does (ScCommunity.Admit)
             ScTalkContext.CloseFavourForOthers(pr.Id, false, player);
             ScRegistry.Prospects.Remove(pr.Id);
@@ -265,7 +268,7 @@ namespace SurvivorCommunity
         /// way - the stockpile gets what they bring, the group ends when nobody is left; the tell, the ledger, the log, a save.
         /// Returns the console's line.
         /// </summary>
-        internal static string JoinNow(Enclave e, EntityPlayerLocal player, string cause)
+        internal static string JoinNow(Enclave e, EntityPlayer player, string cause)      // round MP5 (part E): any player (was EntityPlayerLocal)
         {
             World w = ScCommunity.World;
             Community c = ScRegistry.Community;
@@ -344,7 +347,7 @@ namespace SurvivorCommunity
         /// birth, the pair and rounds it carries; LeaveEnclave; ScCommunity.Admit - following until home), with no tooltip of its
         /// own. A join that fails leaves them a stranger, as the recruit's does. True when they joined.
         /// </summary>
-        private static bool JoinFollowing(Enclave e, EncPerson p, EntityAlive npc, EntityPlayerLocal player)
+        private static bool JoinFollowing(Enclave e, EncPerson p, EntityAlive npc, EntityPlayer player)     // round MP5 (part E): any player
         {
             Member m = p.Who;
             m.Id = npc.entityId;
@@ -726,14 +729,15 @@ namespace SurvivorCommunity
         /// (bodies out) and how (nothing changes); now - they join at once, every gate kept (force: the Allied and standing rule
         /// ignored; the room and the rest kept).
         /// </summary>
-        public static void Command(Enclave e, List<string> p, List<string> into)
+        public static void Command(Enclave e, List<string> p, List<string> into, EntityPlayer player = null)
         {
             string verb = p.Count > 3 ? p[3].ToLowerInvariant() : "";
             bool force = p.Count > 4 && p[4].Equals("force", StringComparison.OrdinalIgnoreCase);
             into.Add(e.Name + " (enclave " + e.Id + ", " + ScEnclaves.StandingWord(e) + "): " + InfoLine(e));
             if (verb == "") return;
             if (verb != "sim" && verb != "now") { into.Add("sc enclave join <id> [sim|now [force]]"); return; }
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            // round MP5 (part E): the player who typed it (ConsoleCmdSc.Me: a client's sc runs on the server), else the host's own
+            EntityPlayer pl = player ?? ScCommunity.LocalPlayer;
             if (!ScCommunity.IsHost || pl == null) { into.Add("host only, with a player"); return; }
             string hidden = HiddenWhy(e, force);
             string blocked = hidden == null ? Blocked(e, pl) : null;

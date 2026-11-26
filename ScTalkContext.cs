@@ -45,7 +45,63 @@ namespace SurvivorCommunity
         /// </summary>
         public bool Linked;
 
+        // ---- round MP5 (part E): one of an enclave's people, or a missing survivor's body (ScEncFacts.Fill on the server) ----
+
+        /// <summary>Round MP5 (part E): EncFlags' bits - what the enclave rows ask, as the server's requirement code answers for this player.</summary>
+        public const int EncBody = 1, EncAlive = 2, EncLeader = 4, EncMember = 8, EncEnlisted = 16, EncLeaderTalking = 32, EncCanTrade = 64,
+                         EncEnlistShow = 128, EncRecruitShow = 256, EncNeedsFavour = 512, EncGiftShow = 1024, EncJoinShow = 2048,
+                         EncCanGiveUp = 4096, EncThanks = 8192, EncInfestNew = 16384;
+        /// <summary>
+        /// Round MP5 (part E): EncBody - an enclave body (its line's tokens are in EncTokens); EncAlive - alive (ScEncDialog.PersonTalking);
+        /// EncLeader / EncMember / EncEnlisted - ScEncRole; EncLeaderTalking - ScEncRequests.LeaderTalking; EncCanTrade; the show
+        /// halves of the enlist, recruit, gift and join rows; EncNeedsFavour (the server's half: Neutral and their favour not done);
+        /// EncCanGiveUp; EncThanks - {reqnone} is a thanks the line spends; EncInfestNew - {reqask} names an infestation the line
+        /// makes known. 0 for anyone else.
+        /// </summary>
+        public int EncFlags;
+        /// <summary>Round MP5 (part E): their enclave, its standing key (ScEnclaves.StandingKey) and kind (the gift pick's order).</summary>
+        public int EncId;
+        public string EncStanding = "", EncKind = "";
+        /// <summary>
+        /// Round MP5 (part E): why a row greys, the server's part ("" when that part passes; text in the server's language): the
+        /// enlist row before the dukes (the client counts its own), the recruit row, the gift row before the bundles carried (the
+        /// client's own bag), the join row. EncEnlistCost: the fee at the standing now.
+        /// </summary>
+        public string EncEnlistWhy = "", EncRecruitWhy = "", EncGiftWhy = "", EncJoinWhy = "";
+        public int EncEnlistCost;
+        /// <summary>Round MP5 (part E): the leader's open request - its id, state word ("none" when there is none, "" when not the leader), kind, stage word, resource and units.</summary>
+        public int EncReqId;
+        public string EncReqState = "", EncReqKind = "", EncReqStage = "";
+        public int EncReqRes, EncReqUnits;
+        /// <summary>Round MP5 (part E): "I found Mara. I'm sorry." (the row's words, the server's language), or "".</summary>
+        public string EncFoundRow = "";
+        /// <summary>Round MP5 (part E): a missing survivor's body: 0 not one, 1 alive and waiting, 2 following the player (ScEncSearch's phases).</summary>
+        public int EncSearch;
+        /// <summary>Round MP5 (part E): where their leader is ({where}: worked out on the client from its own player's position).</summary>
+        public bool EncHasWhere;
+        public Vector3 EncWhere;
+        /// <summary>Round MP5 (part E): the line's tokens in ScEncDialog.Fill's order (shared by Copy: never changed once made).</summary>
+        public List<ScEncToken> EncTokens = new List<ScEncToken>();
+
+        public bool Enc(int bit) { return (EncFlags & bit) != 0; }       // round MP5 (part E)
+
         public ScTalkFacts Copy() { return (ScTalkFacts)MemberwiseClone(); }
+    }
+
+    /// <summary>
+    /// Round MP5 (part E): one token of an enclave line (ScTalkFacts.EncTokens): the text in its place is Key localized on the
+    /// showing machine (a line a voice says: its clip's name too), then Text (the server's words), either may be empty.
+    /// </summary>
+    public sealed class ScEncToken
+    {
+        public string Token = "", Key = "", Text = "";
+
+        public string Render()
+        {
+            string k = Key.Length > 0 ? Localization.Get(Key) : "";
+            if (k.Length == 0) return Text;
+            return Text.Length == 0 ? k : k + " " + Text;
+        }
     }
 
     /// <summary>
@@ -71,6 +127,11 @@ namespace SurvivorCommunity
     ///   client re-evaluates its rows once that cvar lands, sends Held about once a second while its own ScWork.TalkOpen holds
     ///   (and through ScWork.TalkGraceSeconds after), then TalkClosed (HeldTick). Once her copy no longer names this player,
     ///   this machine's leftover hire mark, leader cache and companion marker for her go (SweepHireMarks).
+    /// - Round MP5 (part E): one of an enclave's people. The facts carry their rows' verdicts and their line's tokens
+    ///   (ScEncFacts.Fill, ScTalkFacts.Enc*); the enclave operators' client paths read them (ScEncTalk), and every enclave action
+    ///   is an ScActions op (ScActionsEnclave). After an op the server sends that player the NPC's facts again (SendFactsAfter),
+    ///   ahead of the answer; an answer that is a reply line ({reqreply}, {giftreply}) is filled into the statement already on
+    ///   screen (RefillLine). A row's action that waits on the same row's supplies hand-over goes after it (EncAfterHandOver).
     /// Main thread only.
     /// </summary>
     public static class ScTalkContext
@@ -91,6 +152,8 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, float> handOver = new Dictionary<int, float>();
         private const float HandOverSeconds = 30f;
         private static readonly Dictionary<int, PendingJoin> joinAfter = new Dictionary<int, PendingJoin>();
+        /// <summary>Round MP5 (part E): an enclave row's action waiting on that row's supplies hand-over (scEncGiveSupplies: ScEncRecruit after ScTakeFavourItems).</summary>
+        private static readonly Dictionary<int, Action> encAfter = new Dictionary<int, Action>();
         private static int sent, answered, closes;
 
         private struct PendingJoin
@@ -133,6 +196,8 @@ namespace SurvivorCommunity
             openedOn = null;
             handOver.Clear();
             joinAfter.Clear();
+            encAfter.Clear();                 // round MP5 (part E)
+            ScEncTalk.Reset();                // round MP5 (part E): the client's enclave reply and picks (ModApi.cs is not this part's file)
             sent = answered = closes = 0;
             // round mt1 (part H): the client's held talks, and its tick (hooked into ModEvents.GameUpdate here, once per process,
             // as ScQuestNet's below: ModApi's GameUpdate handler is not this part's to edit)
@@ -306,9 +371,13 @@ namespace SurvivorCommunity
                 if (ScConfig.Verbose)
                     ScLog.Verbose("talk context for " + f.Npc + ": recruit " + f.Recruit + (f.RecruitWhy.Length > 0 ? " (" + f.RecruitWhy + ")" : "") + ", home " + f.HasHome
                                   + ", favour " + (FavourKind)f.Favour + (f.Started ? " started" : "") + (f.Done ? " done" : "") + (f.PoiCleared ? ", POI clear" : "")
-                                  + (f.Band > 0 ? ", band " + f.Band + " come " + f.BandCome : "") + (f.Linked ? ", linked to you for the talk" : ""));
+                                  + (f.Band > 0 ? ", band " + f.Band + " come " + f.BandCome : "") + (f.Linked ? ", linked to you for the talk" : "")
+                                  + (f.EncFlags != 0 ? ", enclave " + f.EncId + " (flags " + f.EncFlags + ", " + f.EncStanding + (f.EncReqState.Length > 0 ? ", request " + f.EncReqState : "")
+                                     + (f.EncSearch > 0 ? ", missing survivor " + f.EncSearch : "") + ")" : ""));      // round MP5 (part E)
                 NoteLink(f);            // round mt1 (part H): before the rows are evaluated (it drops this machine's leader cache for her)
                 Refresh(f.Npc);
+                // round MP5 (part E): an enclave line filled before these facts came (a talk reopened at a statement) is filled again
+                if (f.EncFlags != 0 && ScEncTalk.TakeUnfilled(f.Npc)) RefillLine(f.Npc, "{");
             }
             catch (Exception e)
             {
@@ -338,6 +407,43 @@ namespace SurvivorCommunity
                 }
             }
             g.RefreshDialog();
+        }
+
+        /// <summary>
+        /// Round MP5 (part E), client: the server's answer to an enclave action came after its reply statement was shown (the line
+        /// panel fills a statement's tokens once, when it is new: XUiC_ScDialogLine) - when the talk with this NPC still shows a
+        /// statement whose line holds one of the given tokens ({reqreply}, {giftreply}), it is swapped for a twin (the same id,
+        /// text, owner and rows: vanilla makes such statements itself for a quest's offer, Dialog.SelectResponse), so the line
+        /// panel fills it again with the answer and its voice says it. The dialog's own statement is never written.
+        /// </summary>
+        internal static void RefillLine(int npcId, params string[] tokens)
+        {
+            try
+            {
+                EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+                LocalPlayerUI ui = lp != null ? lp.PlayerUI : null;
+                XUi xui = ui != null ? ui.xui : null;
+                if (xui == null || xui.Dialog == null || xui.Dialog.Respondent == null || xui.Dialog.Respondent.entityId != npcId) return;
+                if (ui.windowManager == null || !ui.windowManager.IsWindowOpen("dialog")) return;
+                XUiC_DialogWindowGroup g = xui.Dialog.DialogWindowGroup;
+                Dialog d = g != null ? g.CurrentDialog : null;
+                DialogStatement st = d != null ? d.CurrentStatement : null;
+                if (st == null || string.IsNullOrEmpty(st.Text)) return;
+                bool holds = false;
+                foreach (string t in tokens) if (!string.IsNullOrEmpty(t) && st.Text.IndexOf(t, StringComparison.Ordinal) >= 0) holds = true;
+                if (!holds) return;
+                var twin = new DialogStatement(st.ID) { Text = st.Text, OwnerDialog = st.OwnerDialog };
+                twin.NextStatementID = st.NextStatementID;
+                twin.ResponseEntries = st.ResponseEntries;
+                twin.Actions = st.Actions;
+                if (ReferenceEquals(openedOn, st)) openedOn = twin;
+                d.CurrentStatement = twin;
+                g.RefreshDialog();
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("talk-refill", e);
+            }
         }
 
         /// <summary>Client (ProcessPackage): the server says this favour is over - its quest closes here, if this journal has it.</summary>
@@ -614,7 +720,14 @@ namespace SurvivorCommunity
             if (Time.realtimeSinceStartup - at <= HandOverSeconds) return true;
             handOver.Remove(npcId);
             joinAfter.Remove(npcId);
+            encAfter.Remove(npcId);           // round MP5 (part E)
             return false;
+        }
+
+        /// <summary>Round MP5 (part E), client: an enclave row's action after that row's hand-over still in flight - run once it is through.</summary>
+        internal static void EncAfterHandOver(int npcId, Action then)
+        {
+            if (then != null) encAfter[npcId] = then;
         }
 
         /// <summary>A client's ScJoin in the same row as a hand-over still in flight: sent once the hand-over is through.</summary>
@@ -627,6 +740,17 @@ namespace SurvivorCommunity
         internal static void EndHandOver(int npcId, bool ok)
         {
             handOver.Remove(npcId);
+            // round MP5 (part E): an enclave row's action of the same row (its recruit) goes now, or is dropped with a refusal
+            Action then;
+            if (encAfter.TryGetValue(npcId, out then))
+            {
+                encAfter.Remove(npcId);
+                if (ok)
+                {
+                    try { then(); }
+                    catch (Exception e) { ScLog.Once("talk-enc-after", e); }
+                }
+            }
             PendingJoin j;
             if (!joinAfter.TryGetValue(npcId, out j)) return;
             joinAfter.Remove(npcId);
@@ -812,6 +936,9 @@ namespace SurvivorCommunity
             // them the owner (with SharedOwnerOnly that would bypass home.set's Owner access). The host's own player never sends one
             f.HasHome = ScZone.EnsureHomeFor(p);
             bool changed = hadHome != ScRegistry.Community.HasHome;
+            // round MP5 (part E): one of an enclave's people - their rows' verdicts and their line's tokens (ScEncFacts.Fill), before
+            // the favour below: the favour row's roll (ScEnclaveDeals.EnsureFavour) is theirs, so the prospect read next sees it
+            ScEncFacts.Fill(f, p, npc);
             Prospect pr = ScRegistry.GetProspect(npc.entityId);
             if (pr == null && f.Recruit && f.HasHome) pr = ScFavours.Ensure(npc, p);     // E4: the roll is the server's (it saves)
             if (pr != null && !pr.Done && journalDone && pr.Favour == FavourKind.Poi)
@@ -843,6 +970,27 @@ namespace SurvivorCommunity
             ScBands.TalkFacts(npc, p, f);
             if (changed) ScRegistry.SaveAtomic();
             return f;
+        }
+
+        /// <summary>
+        /// Round MP5 (part E), server: after an enclave action of a remote player, that player's facts for the NPC again (Build;
+        /// no link - she is no member), sent BEFORE the action's answer: the reliable channel keeps order, so the client's rows
+        /// read the new state (the request accepted, the standing moved) by the time its callback shows the reply. Nothing for the
+        /// host's own player, a client without SC's protocol, or one who is a member now (a recruit: the copy follows).
+        /// </summary>
+        internal static void SendFactsAfter(EntityPlayer p, EntityAlive npc)
+        {
+            try
+            {
+                if (p == null || p is EntityPlayerLocal || npc == null || npc.IsDead() || !ScCommunity.IsHost || !ScRegistry.Loaded) return;
+                if (!ScNet.ClientMatches(p) || ScRegistry.GetMember(npc.entityId) != null) return;
+                ScTalkFacts f = Build(p, npc, false);
+                ScNet.ToPlayer(p, () => NetPackageManager.GetPackage<NetPackageScTalkContext>().SetupFacts(f), null);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("talk-facts-after", e);
+            }
         }
 
         /// <summary>
@@ -883,7 +1031,8 @@ namespace SurvivorCommunity
         {
             return "talk context: " + sent + " sent, " + answered + " answered, " + facts.Count + " NPC(s) known, " + closes + " favour quest(s) closed by the server"
                    + "; talk links held here " + held.Count + ", beats sent " + beatsSent + ", closes sent " + closedSent + ", rows re-evaluated for a late link " + ownerRefreshes   // round mt1 (part H)
-                   + ", re-asked after the server ended a link " + relinks + ", hire marks to sweep " + hireSweeps.Count;      // round mt1 (review fixes H-m1, H-m3)
+                   + ", re-asked after the server ended a link " + relinks + ", hire marks to sweep " + hireSweeps.Count      // round mt1 (review fixes H-m1, H-m3)
+                   + "; " + ScEncTalk.Report();                                                                                // round MP5 (part E)
         }
 
         // ------------------------------------------------------------------ the hook ----

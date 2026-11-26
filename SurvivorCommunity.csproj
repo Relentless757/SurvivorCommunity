@@ -83,6 +83,7 @@
     <Compile Include="ScItemTx.cs" />          <!-- round MP3: items between a player's own inventory and the community -->
     <Compile Include="ScCraftFromBase.cs" />   <!-- round cfs1: Craft from Storage finds the base's linked storage -->
     <Compile Include="ScActionsMembers.cs" />  <!-- round MP2 (part M): member orders, joining, favours, band join -->
+    <Compile Include="ScActionsEnclave.cs" />  <!-- round MP5 (part E): enclave dialogs for every player -->
     <Compile Include="ScTalkContext.cs" />     <!-- round MP2 (part M): the talk context -->
     <Compile Include="NetPackageScTalkContext.cs" /> <!-- round MP2 (part M) -->
     <Compile Include="ScTraits.cs" />
