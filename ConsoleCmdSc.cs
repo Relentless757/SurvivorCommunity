@@ -478,7 +478,8 @@ namespace SurvivorCommunity
         {
             Community c = ScRegistry.Community;
             Output("[SC] host=" + ScCommunity.IsHost + " loaded=" + ScRegistry.Loaded + " dir=" + (ScRegistry.SaveDir ?? "<none>")
-                   + " degraded=" + ScRegistry.Degraded + " lcbu=" + ScZone.LcbuAvailable);
+                   + " degraded=" + ScRegistry.Degraded + " lcbu=" + ScZone.LcbuAvailable
+                   + (ScRegistry.SaveBlocked ? " SAVE BLOCKED (a save file could not be read - this session is not saved; see the log)" : ""));   // round MP6 (core re-check): R-n2
             Output("[SC] home=" + (c.HasHome ? c.Home.ToString() : "<none>") + " owner=" + c.Owner + " day=" + ScCommunity.Today
                    + " lastday=" + c.LastDay + " morale=" + c.Morale + " lowMoraleDays=" + c.LowMoraleDays + " hungry=" + c.Hungry + " thirsty=" + c.Thirsty
                    + " beds=" + c.Beds + (ScEncAllies.ExtraBeds() > 0 ? "+" + ScEncAllies.ExtraBeds() + "(allies)" : "") + " facilities=" + c.Facilities + " crops=" + c.Crops + " water/day=" + c.HomeWater

@@ -536,6 +536,9 @@ namespace SurvivorCommunity
                     // replace it (and the backup) with what this session builds from nothing or from the older migrated state; held
                     // off until the next load
                     if (!readNew && newIo) saveBlocked = true;
+                    // round MP6 (core re-check): the fallback migration could not open the old file either (held by another program) -
+                    // saving now would write an empty community over the intact old state's only route back
+                    if (!ok && oldIo) saveBlocked = true;
                 }
                 else if (File.Exists(legacy) || File.Exists(legacyBak))
                 {
