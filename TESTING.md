@@ -51,14 +51,14 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 Why: found on the dedicated server with two communities. A downed member bleeds out only while a player is alive, and
 0-XNPCCore's downed tick asks SC with no community scope, so the test counted community 0's players: a community 1 member
 downed with only community 1's players online never bled out, and a paused community's member bled out while another
-community played. Now her own community's players count. Two log-only fixes ride along: a body's prospect lookup and a
+community played. Now her own community's players count, and her bleed-out warnings go to them. Two log-only fixes ride along: a body's prospect lookup and a
 stranger's intruder test no longer log `[MP6 scope]` lines. With one community nothing changes. Build `sc34_mp6t1`,
 **not deployed**, untested in game.
 
 - [ ] One community (single player or a dedicated server): a resident downed at home bleeds out after about a minute while
       you are alive and away from her, as before; a medic or you can still revive her.
 - [ ] Two communities, dedicated server: B (community 1) online alone, one of B's residents downed at home: she bleeds out
-      (`sc downed` in B's scope shows the seconds running, not `PAUSED`).
+      (`sc downed` in B's scope shows the seconds running, not `PAUSED`), and B gets the "will bleed out" warnings, not A.
 - [ ] Two communities: A (community 0) online, B offline, one of B's residents downed by a wandering zombie: she stays down
       (`sc community use 1`, `sc downed`: `PAUSED: no leader present`) until B is back.
 - [ ] Two communities: the dedicated server's log has no `[MP6 scope]` lines through `GetProspect` (a body loading) or

@@ -310,7 +310,13 @@ namespace SurvivorCommunity
                     if (m != null)
                     {
                         if (key == "vcDownedIsDown" && ScConfig.DownedTell) { TellsDown++; return; }   // ScDowned.Tick says it
-                        if (!(SdcsNpcRelation.LeaderEntity(npc.entityId) is EntityPlayer)) { ScDowned.TellPlayerNpcCore(npc, key, seconds); TellsHome++; return; }
+                        // round MP6 (test fix t1, review T1-M1): 0-XNPCCore's tick opens no scope - her own community's players hear it
+                        if (!(SdcsNpcRelation.LeaderEntity(npc.entityId) is EntityPlayer))
+                        {
+                            using (ScCommunities.Count > 1 ? ScRegistry.Use(m) : default(ScScope)) ScDowned.TellPlayerNpcCore(npc, key, seconds);
+                            TellsHome++;
+                            return;
+                        }
                     }
                 }
                 catch (Exception e) { ScLog.Once("downed-tell", e); }
