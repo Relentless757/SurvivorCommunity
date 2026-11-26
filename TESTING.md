@@ -40,6 +40,41 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP5 results so far (2026-11-26): one client on the dedicated server
+
+Self-test with one client on the dedicated server, protocol 7, build `sc34_mp5` (DLL 1c5a2287). The client's `sc`
+commands were typed into its own console, so the server ran them for that player. No SC exception on either side; the
+only SC warning is the old `patched an unlisted method: Quest::HandleUnlockPOI` (there since round MP4).
+
+- Passed (world, part W): the hello (protocol 7); the client walking up to an unknown enclave found it (no "by" in the
+  log, as the client was the only player) and its marker reached the client's map; the enclave's people were made round
+  the client and 7 of its doors unlocked; with no player within 200 m its people went and its chunks were let go.
+- Passed (bands): `sc band spawn drifters trouble` put the band 140 m from the client (the answer came back to the client's
+  console), its bodies were made round the client and the trouble was sized by the client's gamestage
+  (`scoutHordeStageGS2`); `sc band spawn raiders`: "Shiv the Raider saw <client> - they attack".
+- Passed (infestations): `sc infest add` standing in a POI infested it, known at once, the marker on the client's map.
+- Passed (the home's fight): `sc attack status` sized the next horde by the client's gamestage; `sc attack now` made the
+  fight live round the client; it ended HELD with its salvage; the defend counter reached the client once
+  (`sc_ev_defend` = 1 after one fight: the add, not a set).
+- Passed (runners, part N): `sc run <member> mats` from the client sent her on foot; `sc runners` from the client measured
+  from the client ("kept in reach (nearest <client>, 16 m)"); she went offline when the client teleported far off
+  ("forced") and when she walked out of range ("out of range, ring 7"); she came back near the client ("back in the world
+  ... 79 m from <client>") and stayed in the world with no forced-offline churn.
+- Passed (disconnects): kicked beside an online runner, she was captured as her chunk unloaded; after rejoining, `sc
+  runners` listed her once and one body came back. Kicked at an enclave as the only player: "enclave people: nobody is
+  online - 1 enclave building(s) no longer held loaded", all four captured; after rejoining, all four came back from
+  their records.
+- Passed (refusals): `sc enclave move <id> now` with the client beside the building: "refused: a player is within 200 m".
+- Found: `sc radio horde <moment> ... force` typed by a remote player is queued on the server's own radio (a dedicated
+  server plays nothing) instead of being sent to the player who typed it. Console only; the real horde lines are sent.
+- Seen (not SC): a third rejoin in one game session failed on the client in vanilla code (`MultiBlockManager` "Unexpected
+  mode state", then `World.OnUpdateTick` exceptions); restarting the client fixed it. A raider removed mid-swing by `sc
+  band clear` logged vanilla's `AnimatorMeleeAttackState` exception. A vanilla wandering horde at the home killed a
+  resident while the client was away (no medic to revive him).
+- Still yours: talking to enclave people (trade, enlist, gifts, the threat, requests), "Search the body", the radio window
+  and the handheld tab (a powered station), outposts (a claim), the tells' tooltips on screen, voices by ear, and everything
+  needing two players or a listen host.
+
 ## Round MP5 (part: E) (2026-11-26): every player talks to an enclave's people
 
 Why: a client's talk with an enclave's people showed only "Nevermind" - their rows read records only the server has, and
