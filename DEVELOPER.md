@@ -3103,7 +3103,8 @@ Round MP0 is the groundwork:
   player (the console's sender) send the line to that player alone (`SentForced`: `FlagForced` and `FlagHordeRadio`, the
   guard's body when there is one) and queue nothing on the server. The client's `ScRadioTalk.OnRemote` skips the hearing rule
   for a forced horde line, and `RadioHeard` lets it go on the radio once out of earshot (`Line.Forced`). The package's layout
-  is unchanged; an older client plays a forced line only by its normal rule.
+  is unchanged; an older client plays a forced line only by its normal rule. With no sender and no player of its own (a
+  dedicated server's console or telnet) a forced line is not queued: the console says nobody there hears it.
 
 ## How it hangs together (for modders)
 
