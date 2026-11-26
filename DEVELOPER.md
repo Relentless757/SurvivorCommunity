@@ -3099,6 +3099,11 @@ Round MP0 is the groundwork:
     the home radio is silent (power is the server's: `RelayOnline` reads false on a client, and the mirror carries no relay
     state) - display only, the rollover is the server's. A claim a modified client places into an enclave's building is not
     taken back by the server. A dead player counts as present where they fell (as the one player always did in single player).
+- **Round t107, forced horde lines for a remote player:** `ScHordeVoice.SayAtHome` and `SayAway` with `force` and a remote
+  player (the console's sender) send the line to that player alone (`SentForced`: `FlagForced` and `FlagHordeRadio`, the
+  guard's body when there is one) and queue nothing on the server. The client's `ScRadioTalk.OnRemote` skips the hearing rule
+  for a forced horde line, and `RadioHeard` lets it go on the radio once out of earshot (`Line.Forced`). The package's layout
+  is unchanged; an older client plays a forced line only by its normal rule.
 
 ## How it hangs together (for modders)
 

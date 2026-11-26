@@ -2670,7 +2670,8 @@ namespace SurvivorCommunity
                 side = ScBaseAttack.Open ? ScHordeVoice.SideKey(ScBaseAttack.Side(ScRegistry.Community.AttackBearing))
                                          : ScHordeVoice.Sides[UnityEngine.Random.Range(0, ScHordeVoice.Sides.Length)];
             EntityPlayer pl = Me;                    // round MP2: the sender (told the at-home warning)
-            EntityPlayerLocal lpl = pl as EntityPlayerLocal;     // MP4 (voices): ScHordeVoice.SayAtHome decides for the host's own player (round MP5, part R: SayAway takes the sender)
+            // round t107: SayAtHome and SayAway take the sender - they decide for the host's own player as before, and a forced line
+            // typed by a remote player goes to that player alone
             string what = mo.ToString().ToLowerInvariant() + (ScHordeVoice.HasSide(mo) ? " (" + side + ")" : "") + (force ? ", forced" : "");
             if (ScHordeVoice.AtHome(mo))
             {
@@ -2683,7 +2684,7 @@ namespace SurvivorCommunity
                             : mo == HordeMoment.Spotted ? string.Format(Localization.Get("scWatchSpotted"), m.Name, side)
                             : string.Format(Localization.Get("scWatchClear"), m.Name);
                 ScCommunity.Tell(pl, text, mo == HordeMoment.Clear ? "" : "ui_denied");
-                Output("[SC] " + m.Name + " " + what + ": " + ScHordeVoice.SayAtHome(mo, m, body, side, lpl, force));
+                Output("[SC] " + m.Name + " " + what + ": " + ScHordeVoice.SayAtHome(mo, m, body, side, pl, force));
                 return;
             }
             Output("[SC] the radio from home, " + what + ": " + ScHordeVoice.SayAway(mo, side, m, pl, force)

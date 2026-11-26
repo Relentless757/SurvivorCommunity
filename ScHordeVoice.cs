@@ -172,6 +172,9 @@ namespace SurvivorCommunity
                 string voice;
                 string path = ScVoice.MemberClip(m, key, out voice);
                 if (path == null) return NoClip(m, key);
+                // round t107: a forced line (the console) typed by a remote player is theirs alone - sent to their machine, which
+                // plays it whatever its hearing rule; nothing is queued here (a dedicated server has nobody to hear it)
+                if (force && anyPlayer != null && !(anyPlayer is EntityPlayerLocal)) return SentForced(anyPlayer, m, body, key, voice);
                 // round MP4: the remote players within InPersonRange of the guard hear it in person on their own machine (the same
                 // line, the guard's voice). Round MP5 (part R): when the guard can send (their handheld, the home station with
                 // power), the remote players at home farther away get it too and hear it on their own handheld radio
@@ -250,6 +253,8 @@ namespace SurvivorCommunity
                 string voice;
                 string path = ScVoice.MemberClip(m, key, out voice);
                 if (path == null) return NoClip(m, key);
+                // round t107: a forced line (the console) typed by a remote player is theirs alone, as SayAtHome's
+                if (force && anyPlayer != null && !(anyPlayer is EntityPlayerLocal)) return SentForced(anyPlayer, m, null, key, voice);
                 int sent = remote ? SendAway(moment, m, key, voice) : 0;
                 string also = sent > 0 ? " (sent to " + sent + " other player(s))" : "";
                 if (!force && (player == null || player.IsDead() || !ScHandheld.Carries(player)))
@@ -307,6 +312,25 @@ namespace SurvivorCommunity
                 if (ScVoice.SendTo(p, line)) n++;
             }
             return n;
+        }
+
+        /// <summary>
+        /// Round t107, the server: a forced warning (the console) to the remote player who typed it, alone - FlagForced (their
+        /// machine skips the hearing rule) and FlagHordeRadio (out of earshot it goes on their radio); in person from the guard's
+        /// body when there is one beside them, else on the radio. Returns what happened, for the console.
+        /// </summary>
+        private static string SentForced(EntityPlayer to, Member m, EntityAlive body, string key, string voice)
+        {
+            var line = new NetPackageScVoice.Line
+            {
+                Kind = NetPackageScVoice.KindHorde, Npc = body != null ? body.entityId : -1, Key = key, Voice = voice ?? "", Name = m.Name ?? "",
+                Priority = (byte)RadioPriority.Horde, Tag = "horde", Range = 0f,
+                Flags = (byte)((body != null ? NetPackageScVoice.FlagLipSync : 0) | ScRadioTalk.FlagHordeRadio | NetPackageScVoice.FlagForced)
+            };
+            string who = to.PlayerDisplayName ?? to.EntityName;
+            if (!ScVoice.SendTo(to, line)) return "not sent: " + who + " does not run this server's SurvivorCommunity";
+            ScLog.Out(m.Name + " says " + key + " in " + voice + ", forced - sent to " + who + " alone");
+            return "sent " + key + " in " + voice + " to " + who + " (forced: plays on their machine whatever their radio)";
         }
 
         /// <summary>Round MP5 (part R), the server: a living remote community player away from home who was not sent this moment this frame.</summary>

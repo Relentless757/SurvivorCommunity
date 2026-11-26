@@ -143,6 +143,8 @@ namespace SurvivorCommunity
             public bool Remote;
             /// <summary>Round MP5 (part R): a remote horde warning the server marked FlagHordeRadio (it may go on this player's radio: RadioHeard).</summary>
             public bool RadioOk;
+            /// <summary>Round t107: a remote horde warning the server marked FlagForced (the console): heard whatever the radio rules.</summary>
+            public bool Forced;
         }
 
         /// <summary>Round m1v: a list, so the next line is picked by priority (Enqueue, Next); never more than QueueMax.</summary>
@@ -385,7 +387,7 @@ namespace SurvivorCommunity
                     // marked it (the guard can send; the radio from home) and this player carries a handheld radio
                     bool radioOk = d.Has(FlagHordeRadio);
                     bool near = body != null && !body.IsDead() && Vector3.Distance(body.position, lp.position) <= InPersonRange;
-                    if (!near)
+                    if (!near && !forced)      // round t107: a forced line (the console) skips the hearing rule, as a runner's does
                     {
                         if (!radioOk) { ScHandheld.Count("horde unsaid: out of earshot"); return; }
                         if (lp.IsDead() || !ScHandheld.Carries(lp))
@@ -395,7 +397,7 @@ namespace SurvivorCommunity
                             return;
                         }
                     }
-                    if (Enqueue(new Line { Name = name, Key = d.Key, Words = d.Key, Path = path, Voice = d.Voice, Caption = false, InPerson = near, Priority = RadioPriority.Horde, Tag = "horde", EntityId = d.Npc, Remote = true, RadioOk = radioOk }))
+                    if (Enqueue(new Line { Name = name, Key = d.Key, Words = d.Key, Path = path, Voice = d.Voice, Caption = false, InPerson = near, Priority = RadioPriority.Horde, Tag = "horde", EntityId = d.Npc, Remote = true, RadioOk = radioOk, Forced = forced }))
                         PlayNext(lp);
                     return;
                 }
@@ -698,6 +700,7 @@ namespace SurvivorCommunity
                 // machine judges its own handheld
                 if (line.Remote)
                 {
+                    if (line.Forced) { how = "forced (the console)"; return true; }      // round t107
                     if (!line.RadioOk) { how = "the guard has no handheld radio and no station at home has power"; return false; }
                     if (!ScHandheld.Carries(p)) { how = "you carry no handheld radio"; return false; }
                     how = "the server's word that the guard can send";

@@ -40,6 +40,23 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round t107 (2026-11-26): a forced horde line typed by a client reaches that client
+
+`sc radio horde <moment> [side] [member] force` typed by a remote player used to be queued on the server's own radio (a
+dedicated server plays nothing), so the player who typed it heard nothing. It now goes to that player alone and plays on
+their machine whatever their radio. Not deployed yet.
+
+**Single player (nothing may change)**
+- [ ] `sc radio horde gather north force` at home: the guard's warning in person (beside them) or on the radio, as before.
+- [ ] `sc radio horde call north force` away from home: "the radio from home" line, as before.
+
+**A client on a dedicated server**
+- [ ] The client types `sc radio horde call north force`: the console answers "sent scHordeCall_north ... to <you> (forced
+      ...)" and the client hears the line, with or without a handheld radio. The server's log says "... forced - sent to
+      <you> alone" and queues nothing of its own.
+- [ ] `sc radio horde gather north force` with the client beside the guard: in person; 50 m away: on the client's radio.
+- [ ] Without `force` nothing changes: the at-home and away warnings follow the radio rules (round MP5, part R).
+
 ## Round MP5 results so far (2026-11-26): one client on the dedicated server
 
 Self-test with one client on the dedicated server, protocol 7, build `sc34_mp5` (DLL 1c5a2287). The client's `sc`
