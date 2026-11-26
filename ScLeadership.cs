@@ -34,6 +34,8 @@ namespace SurvivorCommunity
         public const string XpMultCvar = "$soLeadXpMult";
         public const string MoraleCvar = "$soLeadMorale";
         public const string ShieldCvar = "$soLeadShield";
+        /// <summary>Round MP5 (part W): Publish's followers per player (entity id), reused.</summary>
+        private static readonly Dictionary<int, int> followCount = new Dictionary<int, int>();
 
         /// <summary>
         /// Ticker: the facts SurvivorOrigins pays kill XP and daily morale XP from. Written only on change. Round MP0: on every
@@ -45,9 +47,20 @@ namespace SurvivorCommunity
             try
             {
                 if (player == null || player.Buffs == null) return;
-                int followers = 0;
+                // round MP5 (part W): each player's own followers - a follower counts for the player their record names as leader
+                // (Member.LeaderId) when that player is online, else for the anchor (a save from before MP0, a leader offline): in
+                // single player and for a host alone every follower is the one player's, as before
+                followCount.Clear();
+                int unowned = 0;
                 foreach (var m in ScRegistry.Members.Values)
-                    if (m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) followers++;
+                {
+                    if (m.Status != MemberStatus.Following && m.Status != MemberStatus.PendingStation) continue;
+                    EntityPlayer lead = string.IsNullOrEmpty(m.LeaderId) ? null : ScPlayers.ById(m.LeaderId);
+                    if (lead == null) { unowned++; continue; }
+                    int n;
+                    followCount.TryGetValue(lead.entityId, out n);
+                    followCount[lead.entityId] = n + 1;
+                }
                 int producing = 0;
                 foreach (Outpost o in ScRegistry.Outposts) if (o.State == OutpostState.Active) producing++;
                 List<EntityPlayer> all = ScPlayers.All;
@@ -56,7 +69,10 @@ namespace SurvivorCommunity
                     EntityPlayer p = all[i];
                     if (p == null || p.Buffs == null || !ScPlayers.InCommunity(p)) continue;
                     bool inZone = ScZone.HasHome && ScZone.Contains(p.GetBlockPosition());
-                    Set(p, FollowersCvar, followers);       // MP5: per player (the followers of each one; the community's count for now)
+                    int followers;
+                    followCount.TryGetValue(p.entityId, out followers);
+                    if (ReferenceEquals(p, player)) followers += unowned;
+                    Set(p, FollowersCvar, followers);       // round MP5 (part W): per player (the followers of each one)
                     Set(p, InZoneCvar, inZone ? 1f : 0f);
                     Set(p, MoraleHighCvar, ScConfig.HighMoraleThreshold);
                     Set(p, OutpostsCvar, producing);
@@ -76,9 +92,18 @@ namespace SurvivorCommunity
         /// <summary>+1 on an event counter; SurvivorOrigins pays the XP and resets it.</summary>
         public static void Count(string cvar)
         {
+            Count(cvar, null);
+        }
+
+        /// <summary>
+        /// Round MP5 (part W): +1 on an event counter of this player (a server-side change to a remote player's cvar is sent to
+        /// them: EntityBuffs); null: the host's own player, as before - and on a dedicated server, which has none, the anchor.
+        /// </summary>
+        public static void Count(string cvar, EntityPlayer to)
+        {
             try
             {
-                EntityPlayerLocal player = ScCommunity.LocalPlayer;
+                EntityPlayer player = to ?? ScCommunity.LocalPlayer ?? (ScRegistry.Loaded ? ScPlayers.Anchor() : null);
                 if (player == null || player.Buffs == null) return;
                 player.Buffs.SetCustomVar(cvar, player.Buffs.GetCustomVar(cvar) + 1f);
                 ScLog.Verbose("leadership event " + cvar);
@@ -93,7 +118,9 @@ namespace SurvivorCommunity
         {
             try
             {
-                EntityPlayerLocal player = ScCommunity.LocalPlayer;
+                // round MP5 (part W): the host's own player, as before; a dedicated server (none) reads the anchor's (MP6: the
+                // community's leader)
+                EntityPlayer player = ScCommunity.LocalPlayer ?? (ScRegistry.Loaded ? ScPlayers.Anchor() : null);
                 if (player == null || player.Buffs == null) return 0f;
                 float v = player.Buffs.GetCustomVar(cvar);
                 return float.IsNaN(v) || float.IsInfinity(v) ? 0f : v;

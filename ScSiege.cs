@@ -89,7 +89,9 @@ namespace SurvivorCommunity
         /// <summary>The siege: a horde of the usual size, BaseSiegePenalty below the rating ('forced' 0-2 from the console).</summary>
         public static void Besiege(World w, EntityPlayer player, int forced, string why)
         {
-            int horde = ScBaseAttack.Size(player);     // round MP0: the anchor's gamestage. MP5: gamestage of the players involved
+            // round MP0: the anchor's gamestage. Round MP5 (part W): the players involved (ScBaseAttack.InvolvedPlayer - nobody was
+            // near for it, so the community player online with the highest gamestage; single player: the one player, as before)
+            int horde = ScBaseAttack.Size(player);
             ScDefence.Settle(w, player, horde, Math.Max(0, ScConfig.BaseSiegePenalty), true, forced, why);
             ScRegistry.SaveAtomic();
         }

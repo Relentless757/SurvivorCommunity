@@ -334,12 +334,49 @@ namespace SurvivorCommunity
             return null;
         }
 
+        /// <summary>
+        /// Round MP5 (part W): the player whose gamestage sizes and mixes the home's horde - "the players involved": of the
+        /// community players near enough to fight it (Near) the one with the highest gamestage; with none near (a fight without
+        /// the player, a siege) of every community player online (StrongestOnline); else the given player (the anchor). On a
+        /// client (its window's figures), the given player. In single player always the one player, exactly as before.
+        /// </summary>
+        public static EntityPlayer InvolvedPlayer(EntityPlayer player)
+        {
+            if (!ScRegistry.Loaded) return player;
+            return Strongest(true) ?? StrongestOnline(player);
+        }
+
+        /// <summary>Round MP5 (part W): the community player online with the highest gamestage (alive or not), else fallback. Server side.</summary>
+        public static EntityPlayer StrongestOnline(EntityPlayer fallback)
+        {
+            if (!ScRegistry.Loaded) return fallback;
+            return Strongest(false) ?? fallback;
+        }
+
+        private static EntityPlayer Strongest(bool nearOnly)
+        {
+            EntityPlayer best = null;
+            int bestGs = int.MinValue;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p == null || !ScPlayers.InCommunity(p) || (nearOnly && !Near(p))) continue;
+                int gs;
+                try { gs = p.gameStage; } catch (Exception) { continue; }
+                if (gs > bestGs) { bestGs = gs; best = p; }
+            }
+            return best;
+        }
+
         /// <summary>How many come: the decided sizes, about 8 early, 14 at gamestage 50, 22 at 100, +5% per resident.</summary>
         public static int Size(EntityPlayer player)
         {
             int gs = 0;
-            // round MP0: the anchor's gamestage (the host's own player whenever there is one). MP5: gamestage of the players involved
-            try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }
+            // round MP0: the anchor's gamestage (the host's own player whenever there is one). Round MP5 (part W): the players
+            // involved (InvolvedPlayer)
+            EntityPlayer by = InvolvedPlayer(player);
+            try { gs = by != null ? by.gameStage : 0; } catch (Exception) { }
             int residents = ScRegistry.CountStatus(MemberStatus.Resident);
             float n = (ScConfig.BaseAttackBase + gs * ScConfig.BaseAttackPerGamestage) * (1f + ScConfig.BaseAttackPerMember * residents);
             int hi = Math.Max(1, ScConfig.BaseAttackMax);
@@ -490,7 +527,7 @@ namespace SurvivorCommunity
 #endif
             }
             ScLog.Out("base attack called (" + why + "): " + c.AttackSize + " zombie(s) from the " + Side(c.AttackBearing)
-                      + " (bearing " + c.AttackBearing + "), arriving " + Clock(c.AttackArrive) + "; mix " + Mix(player)
+                      + " (bearing " + c.AttackBearing + "), arriving " + Clock(c.AttackArrive) + "; mix " + Mix(InvolvedPlayer(player))   // round MP5 (part W)
                       + (near ? "" : radio ? "; the player is away - told over the radio" : "; the player is away - no radio to hear it"));
             ScRegistry.SaveAtomic();
         }
@@ -842,7 +879,8 @@ namespace SurvivorCommunity
             }
             sideFails = 0;
             int gs = 0;
-            try { gs = player.gameStage; } catch (Exception) { }     // round MP0: the anchor's. MP5: gamestage of the players involved
+            EntityPlayer by = InvolvedPlayer(player);                 // round MP0: the anchor's. Round MP5 (part W): the players involved
+            try { gs = by != null ? by.gameStage : 0; } catch (Exception) { }
             string group = GroupFor(gs, rnd);
             int cls = PickClass(group, rnd);
             EntityAlive z = SpawnHordeZombie(w, cls, pos);
@@ -1032,7 +1070,10 @@ namespace SurvivorCommunity
             c.DefenceTriumph = Math.Min(10f, c.DefenceTriumph + ScConfig.BaseAttackWinMorale);
             c.Attention = 0f;
             c.AttackNotBefore = w.worldTime + (ulong)(Math.Max(0f, ScConfig.BaseAttackGapDays) * TicksPerDay);
-            ScLeadership.Count(DefendEvent);
+            // round MP5 (part W): Leadership's event for every community player at the fight (single player: the one player, as before)
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+                if (ScPlayers.InCommunity(all[i]) && OutsideZone(all[i].position) <= ScConfig.BaseAttackLeaveRange) ScLeadership.Count(DefendEvent, all[i]);
             if (player != null) TellInFightKey("scBaseHeld", "", killed, ammo);   // round MP0: everyone at the fight
             // vo4: the guard on watch calls the all clear (its own tooltip, and their voice) - not when a timeout let stragglers go
             if (!(dispersed && left > 0)) ScWatch.CalloutClear(player);
@@ -1239,7 +1280,7 @@ namespace SurvivorCommunity
                     sb.Append(why == null ? (c.Attention >= 100f ? "a call is due" : "a call comes at attention 100%") : "a call waits: " + why);
                     break;
             }
-            sb.Append('\n').Append("next horde: ").Append(Size(player)).Append(" zombie(s), ").Append(Mix(player));
+            sb.Append('\n').Append("next horde: ").Append(Size(player)).Append(" zombie(s), ").Append(Mix(InvolvedPlayer(player)));     // round MP5 (part W): the players involved, as Size
             if (c.AttackAwayUsed) sb.Append("; this absence's fight without the player has been had (the next call waits until the player is back within the join range)");
             if (c.AwayNews.Count > 0) sb.Append("; ").Append(c.AwayNews.Count).Append(" result(s) to tell on the return");
             if (w != null && c.AttackNotBefore > w.worldTime) sb.Append("; no call before ").Append(Clock(c.AttackNotBefore));

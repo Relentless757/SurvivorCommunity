@@ -224,6 +224,44 @@ namespace SurvivorCommunity
             biomeSpawn = refusedThisUpdate = WildSpotNoted = false;
             wildRefused = 0;
             Unhook();
+            // round MP5 (part W): the player-less pass (C_world 3: a world tick with no player) - hooked into ModEvents.GameUpdate
+            // here, once per process (ScTicker returns while nobody is online, and ModApi's GameUpdate handler is not this file's)
+            nextIdle = 0f;
+            if (!idleHooked)
+            {
+                idleHooked = true;
+                ModEvents.GameUpdate.RegisterHandler((ref ModEvents.SGameUpdateData _d) => IdleTick());
+            }
+        }
+
+        private static bool idleHooked;
+        private static float nextIdle;
+
+        /// <summary>
+        /// Round MP5 (part W), a server with nobody online (a dedicated server whose last player left; never single player or a
+        /// listen host, whose own player is always there): once a second, the enclave buildings still held loaded for bodies a
+        /// player left behind are let go. Their chunks then unload and each body is recorded as it goes (OnEntityUnloaded), as
+        /// when a player walks away - instead of the bodies and their chunks staying in memory until somebody comes back.
+        /// </summary>
+        private static void IdleTick()
+        {
+            try
+            {
+                if (visits.Count == 0) return;
+                float now = Time.unscaledTime;
+                if (now < nextIdle) return;
+                nextIdle = now + 1f;
+                if (!ScCommunity.IsHost || !ScRegistry.Loaded || ScPlayers.AnyOnline) return;
+                int held = 0;
+                foreach (Visit v in visits.Values) if (v.Hold != null) held++;
+                if (held == 0) return;
+                ReleaseHolds(null);
+                ScLog.Out("enclave people: nobody is online - " + held + " enclave building(s) no longer held loaded (their people are recorded as the chunks unload)");
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("encpeople-idle", e);
+            }
         }
 
         /// <summary>
