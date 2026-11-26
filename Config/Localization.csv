@@ -2164,3 +2164,6 @@ scWorkHeldOther,UI,Tooltip,,,,They're talking with someone else right now. Try a
 scInvClosedAway,UI,Tooltip,,,,{0} had to go.
 scInvRefuseBagClient,UI,Menu,,,,That tool is in {0}'s bag and can't be taken from here.
 scTalkHandedOver,UI,Tooltip,,,,{0} is with {1} now.
+# round MP5 (part R): the radio for every player,,,,,,
+scRadioTooFar,UI,Tooltip,,,,You are too far from the radio station. Go back to it and use it again.
+scRadioGone,UI,Tooltip,,,,That radio station is gone.

@@ -44,6 +44,8 @@ namespace SurvivorCommunity
     ///   Reload   attackers are never saved: EnclaveSiegeResumeSeconds after a load, with the POI settled, their people are
     ///            all brought out again (SpawnAll, as at the arrival - not E2's pace), then the ones still standing come back.
     /// Host only, main thread.
+    /// Round MP5 (part R): a siege is called for any community player in range (the anchor first: PickSource), its quest is that
+    /// player's, and any community player answers it over the radio (ScActionsRadio's radio.siege).
     /// </summary>
     public static class ScEncSiege
     {
@@ -236,14 +238,39 @@ namespace SurvivorCommunity
                 return;
             }
             string why;
-            Enclave e = PickSource(w, player, out why);
+            EntityPlayer by;
+            Enclave e = PickSource(w, player, out why, out by);
             if (e == null)
             {
                 if (now >= waitSaid) { waitSaid = now + 300f; ScLog.Out("siege: a call is due but held back (" + why + ") - it waits until " + ScBaseAttack.Clock(last)); }
                 return;
             }
             c.EncSiegeAt = 0UL;
-            Call(w, e, player, "the day's roll");
+            Call(w, e, by, "the day's roll" + (ReferenceEquals(by, player) ? "" : ", for " + by.PlayerDisplayName));   // round MP5 (part R): the player it was called for
+        }
+
+        /// <summary>
+        /// Round MP5 (part R): the enclave that calls and the player it calls for - the anchor first, exactly as before (in single
+        /// player and on a listen host the host's own player), else the first other living community player online that one can
+        /// call for (in range of a known enclave, no outpost fight where they are: WhyNot). Null (and the anchor's why) when none.
+        /// </summary>
+        private static Enclave PickSource(World w, EntityPlayer anchor, out string why, out EntityPlayer by)
+        {
+            by = anchor;
+            Enclave e = PickSource(w, anchor, out why);
+            if (e != null || anchor == null) return e;
+            EntityPlayer[] mine = ScPlayers.Community().ToArray();     // copied: Community() reuses its list
+            for (int i = 0; i < mine.Length; i++)
+            {
+                EntityPlayer p = mine[i];
+                if (p == null || ReferenceEquals(p, anchor) || p.IsDead()) continue;
+                string no;
+                Enclave pe = PickSource(w, p, out no);
+                if (pe == null) continue;
+                by = p;
+                return pe;
+            }
+            return null;
         }
 
         /// <summary>The enclave that calls: one the rules allow (WhyNot), at random. Null (and why) when there is none.</summary>
@@ -268,7 +295,8 @@ namespace SurvivorCommunity
         /// "force") keeps only what a siege cannot be without: one at a time, enemies on, no other attack being fought, an
         /// enclave on the map that is not hostile and has no open request.
         /// </summary>
-        // round MP0: the source is picked against the anchor's position (the host's own player on a host). MP5: per player
+        // round MP0: the source is picked against the anchor's position (the host's own player on a host). Round MP5 (part R): the
+        // schedule asks it for each community player online (PickSource), the anchor first
         public static string WhyNot(Enclave e, EntityPlayer player, bool forced)
         {
             World w = ScCommunity.World;
@@ -377,8 +405,11 @@ namespace SurvivorCommunity
             r.AcceptedBy = player is EntityPlayerLocal ? "" : ScPlayers.IdOf(player);      // review m2: empty for the host's own
             Quest q = player != null ? ScQuestNet.StartRequestFor(player, e, r, ScEncRequests.WhatText(r), out error) : null;
             r.QuestCode = q != null ? q.QuestCode : 0;
-            // review m5: say so when the siege's quest reached no journal (as ScEncRequests.Accept does). Until MP5 a siege's quest
-            // is the anchor's alone - on a dedicated server whoever the tick reasoned from
+            // review m5: say so when the siege's quest reached no journal (as ScEncRequests.Accept does). Round MP5 (part R): the
+            // quest is the player the siege was called for (PickSource: the anchor first, else a community player in range) - one
+            // journal, not every player's: a request keeps one acceptor (AcceptedBy) and ScQuestNet's journal report removes a
+            // request quest from any other journal, so a copy per player needs ScQuestNet to track a siege's holders as it tracks
+            // a rescue's (a later round). Every player gets the call's tell and its radio line
             if (q == null && error != ScQuestNet.SentToClient) ScLog.Warn("siege request #" + r.Id + ": no journal quest (" + (error ?? "no player") + ") - the siege goes on all the same");
             // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
             ScPlayers.TellCommunityKey("scEncSiegeCall", "ui_denied", e.Name);     // round MP0: the community's radio news
@@ -921,7 +952,7 @@ namespace SurvivorCommunity
         /// E6, the radio window's "On our way": the call answered - their thanks over the radio and a log line; nothing else
         /// changes (the clock runs on, the fight is as it would be). Only while it is called. False (and why) when it is not.
         /// </summary>
-        public static bool OnOurWay(EntityPlayerLocal player, out string msg)
+        public static bool OnOurWay(EntityPlayer player, out string msg)      // round MP5 (part R): any community player at the radio
         {
             EnclaveRequest r;
             Enclave e;
@@ -930,7 +961,7 @@ namespace SurvivorCommunity
             acknowledged = r.Id;
             msg = string.Format(Loc("scRadioSiegeGoTell"), e.Name);
             if (player != null) ScCommunity.Tell(player, msg, "");
-            ScLog.Out("siege at " + e.Name + ": the player answered \"on our way\" over the radio (" + ClockText(r) + ")");
+            ScLog.Out("siege at " + e.Name + ": " + (player != null && !(player is EntityPlayerLocal) ? player.PlayerDisplayName : "the player") + " answered \"on our way\" over the radio (" + ClockText(r) + ")");
             return true;
         }
 
@@ -939,13 +970,13 @@ namespace SurvivorCommunity
         /// falls - OnFalling closes the request as lost, AfterFall infests the building - then E6's Fallen: morale, the refill).
         /// Only while it is called. False (and why) when it is not.
         /// </summary>
-        public static bool CantCome(EntityPlayerLocal player, out string msg)
+        public static bool CantCome(EntityPlayer player, out string msg)      // round MP5 (part R): any community player at the radio
         {
             EnclaveRequest r;
             Enclave e;
             if (!Answerable(out r, out e)) { msg = Loc("scRadioSiegeGone"); return false; }
             string name = e.Name;
-            Lose(r, e, "the player told them over the radio they could not come");
+            Lose(r, e, (player != null && !(player is EntityPlayerLocal) ? player.PlayerDisplayName : "the player") + " told them over the radio they could not come");
             msg = string.Format(Loc("scRadioSiegeCantDone"), name);
             return true;
         }
@@ -1022,11 +1053,13 @@ namespace SurvivorCommunity
         /// <summary>
         /// The live countdown's words (ObjectiveScEncSiege asks every frame): "12:34 to reach Harlan's Rest" while called, "8 left"
         /// once it is live; "" when that siege is not open. Made again only when a number changes. Host only.
+        /// Round MP5 (part R): a client's siege quest too (round MP4 sends it), from its copy of the registry - the deadline and
+        /// the count follow the server's pushes (about a second behind; a frozen clock's count, saved every 10 s, steps).
         /// </summary>
         public static string StatusFor(int requestId)
         {
             EnclaveRequest r = Open;
-            if (r == null || r.Id != requestId || !ScCommunity.IsHost) return "";
+            if (r == null || r.Id != requestId || !ScRegistry.Ready) return "";
             long key;
             if (r.Stage == StageLive)
             {

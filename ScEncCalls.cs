@@ -37,6 +37,10 @@ namespace SurvivorCommunity
     /// they go home). A pending call is called off with the cooldown refunded when the ally stops being one (Friendly again,
     /// hostile, its building lost), when its people come under siege (a fighter), or when calls or enclaves are switched
     /// off. Host only (the radio window is), main thread; no Harmony patch.
+    /// Round MP5 (part R): any community player calls from the radio window (ScActionsRadio). The fighter and the crate come
+    /// to the player who called (callers: their platform id, this session only), its tells are theirs and the fighter is
+    /// enlisted with them; the caller dead, they wait as before; the caller gone offline, or a call loaded from a save (the
+    /// record keeps no caller), the anchor as before round MP5 (ScPlayers.Anchor, the ticker's player). MP6: per community.
     /// </summary>
     public static class ScEncCalls
     {
@@ -73,11 +77,29 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, Session> sessions = new Dictionary<int, Session>();
         /// <summary>The first tick with the world up (real time): a loaded fighter comes back ResumeSeconds after it.</summary>
         private static float readySince = -1f;
+        /// <summary>
+        /// Round MP5 (part R): who made each call that is on (enclave id -> the caller's platform id, ScPlayers.IdOf). Session
+        /// only (the save's call= has no field for it): a call loaded from a save comes to the anchor, as before round MP5.
+        /// </summary>
+        private static readonly Dictionary<int, string> callers = new Dictionary<int, string>();
 
         public static void Reset()
         {
             sessions.Clear();
+            callers.Clear();               // round MP5 (part R)
             readySince = -1f;
+        }
+
+        /// <summary>
+        /// Round MP5 (part R): the player a call comes to - its caller while they are online (dead too: the arrival waits for
+        /// them, as it waited for the player), else the anchor the ticker passes (a caller gone offline, a call loaded from a save,
+        /// the console's).
+        /// </summary>
+        private static EntityPlayer CallerOf(Enclave e, EntityPlayer anchor)
+        {
+            string id;
+            if (e == null || !callers.TryGetValue(e.Id, out id) || string.IsNullOrEmpty(id)) return anchor;
+            return ScPlayers.ById(id) ?? anchor;
         }
 
         /// <summary>ScEnclaves.OnRegistryChanged: no body of a call is out (bodies never outlive a load); the resume waits again.</summary>
@@ -160,14 +182,15 @@ namespace SurvivorCommunity
         /// ignores it); a fighter also needs nobody of theirs with the player, room among the followers and somebody to spare
         /// (people met). why is the panel's words.
         /// </summary>
-        public static bool CanCall(Enclave e, string kind, bool force, out string why)
+        /// <remarks>Round MP5 (part R): who - the player at the radio (ScRadio.Usable(who): their station); null this machine's own.</remarks>
+        public static bool CanCall(Enclave e, string kind, bool force, out string why, EntityPlayer who = null)
         {
             why = null;
             if (!ScCommunity.IsHost) { why = Loc("scHostOnly"); return false; }
             if (!ScConfig.Enclaves || !ScConfig.EnclaveCalls) { why = Loc("scEncCallOff"); return false; }
             if (e == null) { why = Loc("scEncBarterNoAlly"); return false; }
             if (e.Lost || e.IsHostile || (!force && !ScEncAllies.IsAlly(e))) { why = Loc("scEncCallNotAlly"); return false; }
-            if (!ScRadio.Usable()) { why = Loc("scRadioNoPower"); return false; }
+            if (!ScRadio.Usable(who)) { why = Loc("scRadioNoPower"); return false; }
             if (Busy(e))
             {
                 EncPerson f = PersonById(e.CallPid);
@@ -228,9 +251,9 @@ namespace SurvivorCommunity
         /// from now (now: at once, the console's), the fighter picked - the ally's next call EnclaveCallCooldownDays later on
         /// the request clock, the radio's answer told, the log, a save. message: the panel's words, or why not.
         /// </summary>
-        public static bool Call(Enclave e, string kind, EntityPlayerLocal player, bool force, bool now, out string message)
+        public static bool Call(Enclave e, string kind, EntityPlayer player, bool force, bool now, out string message)   // round MP5 (part R): any player - the call comes to them
         {
-            if (!CanCall(e, kind, force, out message)) return false;
+            if (!CanCall(e, kind, force, out message, player)) return false;
             World w = ScCommunity.World;
             if (w == null) { message = Loc("scInternal"); return false; }
             bool fighter = kind == Fighter;
@@ -243,6 +266,9 @@ namespace SurvivorCommunity
             e.CallDay = ScEncRequests.Now + Math.Max(0, ScConfig.EnclaveCallCooldownDays);
             sessions.Remove(e.Id);
             if (force) SessionOf(e.Id).Forced = true;
+            // round MP5 (part R): the call comes to whoever made it (CallerOf); none named (the console without a player): the anchor
+            string caller = ScPlayers.IdOf(player);
+            if (string.IsNullOrEmpty(caller)) callers.Remove(e.Id); else callers[e.Id] = caller;
             message = fighter ? string.Format(Loc("scEncCallFighterOnWay"), p.Name, TimeText(delay)) : string.Format(Loc("scEncCallDropOnWay"), TimeText(delay));
             if (player != null) ScCommunity.Tell(player, Radio(e, fighter ? "scEncCallFighterSaid" : "scEncCallDropSaid") + " " + message, "");
             if (player != null) ScEncRadio.Say(e, fighter ? EncCall.Fighter : EncCall.Drop, player);   // round m1v: their answer aloud
@@ -267,6 +293,7 @@ namespace SurvivorCommunity
             e.CallPid = 0;
             e.CallUntil = 0UL;
             sessions.Remove(e.Id);
+            callers.Remove(e.Id);          // round MP5 (part R)
         }
 
         /// <summary>A pending call off before it came: the cooldown refunded, a tell, the log. The caller saves.</summary>
@@ -345,9 +372,10 @@ namespace SurvivorCommunity
 
         /// <summary>One call's second. True when the record changed.</summary>
         // round MP0: the fighter and the crate come to the anchor (the host's own player on a host), and its tells are theirs.
-        // MP5: per player (the caller)
+        // Round MP5 (part R): to the player who called (CallerOf), the anchor when they are not online or not known
         private static bool TickCall(World w, EntityPlayer player, Enclave e, float now)
         {
+            player = CallerOf(e, player);
             if (e.CallKind != Fighter && e.CallKind != Drop) { Clear(e); return true; }
             Session s = SessionOf(e.Id);
             if (Live(e)) return TickLive(w, player, e, s, now);
@@ -567,7 +595,7 @@ namespace SurvivorCommunity
         /// degrees, or anySide - standable (LooseSpot: the player's level first, loaded, no trader area or bedroll zone, not
         /// nearer than the minimum to any player), out of everyone's sight and on settled chunks.
         /// </summary>
-        private static bool FighterSpot(World w, EntityPlayer player, Enclave e, bool anySide, out Vector3 pos)   // round MP0: near the anchor. MP5: per player
+        private static bool FighterSpot(World w, EntityPlayer player, Enclave e, bool anySide, out Vector3 pos)   // round MP0: near the anchor. Round MP5 (part R): near the caller (TickCall)
         {
             pos = Vector3.zero;
             GameRandom r = w.GetGameRandom();
@@ -595,7 +623,7 @@ namespace SurvivorCommunity
         /// (a plant on it at most) and its eight neighbours' too within two blocks of it - no roof, wall or tree in the way -
         /// never water, never a trader's area. ground: the cell on the terrain.
         /// </summary>
-        private static bool DropSpot(World w, EntityPlayer player, out Vector3 ground)    // round MP0: near the anchor. MP5: per player
+        private static bool DropSpot(World w, EntityPlayer player, out Vector3 ground)    // round MP0: near the anchor. Round MP5 (part R): near the caller (TickCall)
         {
             ground = Vector3.zero;
             GameRandom r = w.GetGameRandom();

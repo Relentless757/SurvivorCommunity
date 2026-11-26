@@ -397,7 +397,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Where "900 m north-east" is measured from: home, or the player without one.</summary>
-        private static bool From(EntityPlayer player, out Vector3 at)  // round MP0: no home - the anchor. MP5: per player
+        private static bool From(EntityPlayer player, out Vector3 at)  // round MP0: no home - the anchor. Round MP5 (part R): per player (TellCommunityWhere)
         {
             if (ScZone.HasHome)
             {
@@ -431,10 +431,9 @@ namespace SurvivorCommunity
             if (best == null) return false;
             ally.AllyRevealDay = now + Math.Max(1, ScConfig.EnclaveAllyRevealDays);
             ScEnclaves.SetKnown(best, true, player);
-            Vector3 from;
-            string where = From(player, out from) ? ScEnclaves.Where(from, best.Centre) : "";
             // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
-            ScPlayers.TellCommunityKey("scEncAllyReveal", best.IsHostile ? "ui_denied" : "", ally.Name, best.Name, best.PoiName, where);   // round MP0: the whole community's news
+            // round MP5 (part R): "where" from home, or without one from each player (TellCommunityWhere)
+            TellCommunityWhere("scEncAllyReveal", best.IsHostile ? "ui_denied" : "", best.Centre, ally.Name, best.Name, best.PoiName);   // round MP0: the whole community's news
             ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerReveal"), ally.Name, best.Name, best.PoiName));
             ScLog.Out("enclave " + best.Id + " '" + best.Name + "' told of by the ally " + ally.Id + " '" + ally.Name + "', " + Mathf.RoundToInt(Mathf.Sqrt(bestD))
                       + " m from them" + (best.IsHostile ? " (hostile)" : "") + "; their next word from day " + ally.AllyRevealDay);
@@ -456,7 +455,7 @@ namespace SurvivorCommunity
                 if (e == null || before == after || !ScConfig.Enclaves) return;
                 bool was = before == "allied", now = after == "allied";
                 if (was == now) return;
-                EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+                EntityPlayer pl = ScPlayers.Anchor();     // round MP5 (part R): any server (the host's own player on a host, as before)
                 bool has = e.Benefit.Length > 0;
                 // a group whose building is off the map (Lost) has no benefit that applies either way: no tell or ledger line
                 // for it (the E6 review's N4)
@@ -579,12 +578,34 @@ namespace SurvivorCommunity
             if (into != null) into.Add(line);
             if (ScRadio.Online())
             {
-                Vector3 from;
-                string where = From(player, out from) ? ScEnclaves.Where(from, en.Centre) : "";
-                ScPlayers.TellCommunityKey("scEncRefillRadio", "", en.PoiName, where);     // round MP0: the community's radio news
+                TellCommunityWhere("scEncRefillRadio", "", en.Centre, en.PoiName);     // round MP0: the community's radio news (round MP5 (part R): "where" per player without a home)
                 ScOutposts.NoteLedger(string.Format(Loc("scEncRefillLedger"), en.PoiName));
             }
             return 1;
+        }
+
+        /// <summary>
+        /// Round MP5 (part R): a radio tell to every community player whose last argument is where target is - from home (the
+        /// same words for everyone: TellCommunityKey's), or with no home from each player's own position, as From measured it
+        /// from the anchor before (single player: the one player, the same words). head: the row's arguments before it.
+        /// </summary>
+        private static void TellCommunityWhere(string key, string sound, Vector3 target, params object[] head)
+        {
+            var args = new object[(head != null ? head.Length : 0) + 1];
+            if (head != null) Array.Copy(head, args, head.Length);
+            Vector3 from;
+            if (ScZone.HasHome || !ScPlayers.AnyOnline)
+            {
+                args[args.Length - 1] = From(null, out from) ? ScEnclaves.Where(from, target) : "";
+                ScPlayers.TellCommunityKey(key, sound, args);
+                return;
+            }
+            EntityPlayer[] to = ScPlayers.Community().ToArray();     // copied: a tell can re-enter code that reuses the list
+            for (int i = 0; i < to.Length; i++)
+            {
+                args[args.Length - 1] = From(to[i], out from) ? ScEnclaves.Where(from, target) : "";
+                ScCommunity.TellKey(to[i], key, sound, args);
+            }
         }
 
         /// <summary>
@@ -660,7 +681,7 @@ namespace SurvivorCommunity
                 return;
             }
             if (!ScConfig.Enclaves || !ScEnclaves.Ready) { into.Add("enclaves are off in the config, or the world is still starting"); return; }
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;     // MP5: the radio for clients (round MP2, review radials MINOR 3: the host's own player until then)
+            EntityPlayer pl = ScPlayers.Anchor();     // round MP5 (part R): any server - the host's own player on a host, as before
             if (c.EncRefills.Count == 0)
             {
                 // none owed: one anyway (testing), never queued - the sentinel POI excludes nothing

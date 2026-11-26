@@ -37,6 +37,10 @@ namespace SurvivorCommunity
     ///   Outposts - radios inside the home zone are remembered in the registry; ScOutposts.RadioOnlineAnywhere
     ///              reads their power from the power graph, so establishing and the daily report-in work from afar.
     /// Host only. Contacts, cooldowns and distress runs persist in the registry.
+    /// Round MP5 (part R): any community player uses the window - at a powered station, or over a handheld radio where the
+    /// host can. A client opens it on its own machine (Open) and asks the server for every act and for what its copy of the
+    /// registry lacks (ScActionsRadio); the server keeps each remote player's station (StationFor), and the radio's air drop
+    /// falls near the player who asked (DropFor, Patches_Radio).
     /// </summary>
     public static class ScRadio
     {
@@ -47,6 +51,11 @@ namespace SurvivorCommunity
 
         /// <summary>Set only around our own SpawnAirDrop call; the prefix refuses every other spawn.</summary>
         public static bool DropRequested;
+        /// <summary>
+        /// Round MP5 (part R): set with DropRequested - the player who asked for the drop (the caller), whom the planes fly to
+        /// (Patches_Radio); null: vanilla's own pick among every living player.
+        /// </summary>
+        public static EntityPlayer DropFor;
 
         /// <summary>Radio blocks seen this session (daily scan + activation).</summary>
         public static readonly HashSet<Vector3i> Radios = new HashSet<Vector3i>();
@@ -63,7 +72,9 @@ namespace SurvivorCommunity
             markersRestored = false;
             nextTick = 0f;
             DropRequested = false;
+            DropFor = null;                 // round MP5 (part R)
             CurrentRadio = null;
+            stations.Clear();               // round MP5 (part R): the remote players' stations
 #if SC_V34
             OpeningAtBlock = false;
 #endif
@@ -139,7 +150,7 @@ namespace SurvivorCommunity
             return next > now ? (int)((next - now + 999UL) / 1000UL) : 0;
         }
 
-        public static bool RequestDrop(EntityPlayerLocal player)
+        public static bool RequestDrop(EntityPlayer player)      // round MP5 (part R): any player (the radio's request runs on the server)
         {
             string why;
             if (!CanDrop(out why)) { if (player != null) ScCommunity.Tell(player, DropWhy(why), "ui_denied"); return false; }
@@ -151,15 +162,16 @@ namespace SurvivorCommunity
                 if (comp == null) { if (player != null) ScCommunity.TellKey(player, "scRadioDropsOff", "ui_denied"); return false; }
                 bool ok;
                 DropRequested = true;
+                DropFor = player;                    // round MP5 (part R): the planes fly to the player who asked (Patches_Radio)
                 try { ok = comp.SpawnAirDrop(); }
-                finally { DropRequested = false; }
+                finally { DropRequested = false; DropFor = null; }
                 if (!ok) { if (player != null) ScCommunity.TellKey(player, "scRadioDropBusy", "ui_denied"); return false; }
                 GameRandom rnd = w.GetGameRandom();
                 int days = Math.Max(1, rnd != null ? rnd.RandomRange(DropMinDays(), DropMaxDays() + 1) : DropMaxDays());
                 ScRegistry.Community.RadioNextDrop = w.worldTime + (ulong)days * 24000UL;
                 ScRegistry.SaveAtomic();
                 if (player != null) ScCommunity.TellKey(player, "scRadioDropSent", "");
-                ScLog.Out("air drop requested over the radio; next in " + days + " day(s)");
+                ScLog.Out("air drop requested over the radio" + (player != null && !(player is EntityPlayerLocal) ? " by " + player.PlayerDisplayName : "") + "; next in " + days + " day(s)");
                 return true;
             }
             catch (Exception e)
@@ -260,7 +272,7 @@ namespace SurvivorCommunity
             return new Vector3(a.x + s.x * 0.5f, a.y, a.z + s.z * 0.5f);
         }
 
-        public static bool Call(EntityPlayerLocal player)
+        public static bool Call(EntityPlayer player)            // round MP5 (part R): any player - the caller's gamestage, their tells (the marker: the host's own, ScMarkers for the rest)
         {
             string why;
             if (!CanCall(out why)) { if (player != null) ScCommunity.Tell(player, CallWhy(why), "ui_denied"); return false; }
@@ -292,10 +304,12 @@ namespace SurvivorCommunity
                 };
                 ScRegistry.Contacts.Add(contact);
                 c.RadioNextCallDay = ScCommunity.Today + Math.Max(0, ScConfig.RadioCallDays);
-                AddMarker(contact, player);
+                // round MP5 (part R): the marker is this machine's own player's - a listen host's own map too when a client called
+                // (the client's comes from ScMarkers)
+                AddMarker(contact, player is EntityPlayerLocal ? player : ScCommunity.LocalPlayer);
                 ScRegistry.SaveAtomic();
                 ScCommunity.TellKey(player, "scRadioContact", "", contact.Label, contact.PoiName, Dist(centre));
-                ScLog.Out("radio contact: " + cls + (pair != null ? " (" + pair + ")" : "") + " at " + contact.PoiName + " " + contact.PoiKey + " (fades day " + contact.ExpireDay + ")");
+                ScLog.Out("radio contact" + (player != null && !(player is EntityPlayerLocal) ? " (called by " + player.PlayerDisplayName + ")" : "") + ": " + cls + (pair != null ? " (" + pair + ")" : "") + " at " + contact.PoiName + " " + contact.PoiKey + " (fades day " + contact.ExpireDay + ")");
                 return true;
             }
             catch (Exception e)
@@ -882,13 +896,55 @@ namespace SurvivorCommunity
             return CurrentRadio.HasValue && IsPoweredAt(ScCommunity.World, CurrentRadio.Value);
         }
 
+        /// <summary>
+        /// Round MP5 (part R), the server: the radio blocks remote players use the window at (entity id -> block), from their last
+        /// radio request (ScActionsRadio: at a station within reach; a handheld request clears it). The host's own player keeps
+        /// CurrentRadio, set by its own window as before. Session only.
+        /// </summary>
+        private static readonly Dictionary<int, Vector3i> stations = new Dictionary<int, Vector3i>();
+
+        /// <summary>Round MP5 (part R), the server: a remote player's radio block (null: a handheld, or none known).</summary>
+        public static void NoteStationFor(EntityPlayer p, Vector3i? at)
+        {
+            if (p == null || p is EntityPlayerLocal) return;
+            if (at.HasValue) stations[p.entityId] = at.Value;
+            else stations.Remove(p.entityId);
+            if (stations.Count > 64) stations.Clear();       // never grows: a player's next request notes theirs again
+        }
+
+        /// <summary>
+        /// Round MP5 (part R): the radio block a player's window is open at - CurrentRadio for this machine's own player (or
+        /// nobody named), a remote player's from their last request (NoteStationFor) - or null (over a handheld radio).
+        /// </summary>
+        public static Vector3i? StationFor(EntityPlayer p)
+        {
+            if (p == null || p is EntityPlayerLocal) return CurrentRadio;
+            Vector3i at;
+            return stations.TryGetValue(p.entityId, out at) ? at : (Vector3i?)null;
+        }
+
+        /// <summary>
+        /// Round MP5 (part R): Usable for one player - a home radio with power, or the radio their window is open at
+        /// (StationFor). Null or this machine's own player: Usable() exactly.
+        /// </summary>
+        public static bool Usable(EntityPlayer who)
+        {
+            if (who == null || who is EntityPlayerLocal) return Usable();
+            if (Online()) return true;
+            Vector3i? at = StationFor(who);
+            return at.HasValue && IsPoweredAt(ScCommunity.World, at.Value);
+        }
+
         public static void Open(World w, Vector3i pos, EntityPlayerLocal player)
         {
             try
             {
                 if (player == null || player.PlayerUI == null || player.PlayerUI.windowManager == null) return;
-                if (!ScCommunity.IsHost) { ScCommunity.TellKey(player, "scHostOnly", "ui_denied"); return; }
-                NoteRadio(pos);
+                // round MP5 (part R): a client opens the window on its own machine and asks the server for every act (ScActionsRadio)
+                // - it was "host only"; a client that cannot ask (no SC on the server, another version, no copy yet) says why
+                string refusal = ScActionsWindow.RequestRefusal();
+                if (refusal != null) { ScCommunity.TellKey(player, refusal, "ui_denied"); return; }
+                if (ScCommunity.IsHost) NoteRadio(pos);      // round MP5: never on a client's copy - the server notes a client's station at its first request
                 CurrentRadio = pos;
                 if (!IsPoweredAt(w, pos)) { ScCommunity.TellKey(player, "scRadioNoPower", "ui_denied"); return; }
                 GUIWindow win;

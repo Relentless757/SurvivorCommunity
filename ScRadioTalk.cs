@@ -63,6 +63,9 @@ namespace SurvivorCommunity
     /// to the players it is for (NetPackageScVoice); each client runs this same queue for its own player (OnRemote, ClientTick)
     /// with its own hearing rule - its own bag's handheld radio, the stations near it, the body beside it. The host's own
     /// player hears its lines here, exactly as before.
+    /// Round MP5 (part R): the horde warnings on the radio too (ScHordeVoice): a line the server marks FlagHordeRadio (the
+    /// guard can send, or the radio from home) is heard on a client's radio while that client carries a handheld, as the
+    /// host's own rule; in person beside the guard as before.
     /// </summary>
     public static class ScRadioTalk
     {
@@ -74,6 +77,13 @@ namespace SurvivorCommunity
         public const float InPersonRange = 30f;
         /// <summary>A caption-only line holds the queue this long (real seconds), so the next one does not cover it.</summary>
         private const float CaptionSeconds = 4f;
+        /// <summary>
+        /// Round MP5 (part R): a bit of NetPackageScVoice's flags byte (bits 0-5 are that file's): a horde warning that may be
+        /// heard on the radio - the guard who calls it out can send (their handheld, or the home station with power), or it is
+        /// the radio from home while away - judged on the server (ScHordeVoice); whether the player carries a handheld radio is
+        /// judged on their own machine (OnRemote, RadioHeard). Without it a horde line is in person only, as round MP4 sent it.
+        /// </summary>
+        internal const byte FlagHordeRadio = 64;
 
         private static readonly Dictionary<RadioTalk, string[]> Keys = new Dictionary<RadioTalk, string[]>
         {
@@ -131,6 +141,8 @@ namespace SurvivorCommunity
             /// radio (the guard's radio is the server's to judge: MP5).
             /// </summary>
             public bool Remote;
+            /// <summary>Round MP5 (part R): a remote horde warning the server marked FlagHordeRadio (it may go on this player's radio: RadioHeard).</summary>
+            public bool RadioOk;
         }
 
         /// <summary>Round m1v: a list, so the next line is picked by priority (Enqueue, Next); never more than QueueMax.</summary>
@@ -349,7 +361,8 @@ namespace SurvivorCommunity
         ///  - a speaker's line (an enclave's, a band's): in person when their body stands within InPersonRange of the player, else
         ///    on the radio when ScRadioSpeaker.Hears (the player's handheld, or a powered SC station near them; a station's power
         ///    on a client is what the client's world shows);
-        ///  - a guard's horde warning: in person (the server sent it to the players near the guard). MP5: on the radio.
+        ///  - a guard's horde warning: in person beside the guard; round MP5 (part R): farther, or the radio from home (no body), on
+        ///    the radio when the server marked it FlagHordeRadio and this player carries a handheld radio (the host's own rule);
         /// A forced line (the console) skips the hearing rule. A voice this copy of the mod has no clip of is not said (a runner's
         /// caption still shows).
         /// </summary>
@@ -368,7 +381,21 @@ namespace SurvivorCommunity
                 if (d.Kind == NetPackageScVoice.KindHorde)
                 {
                     if (path == null) { ScHandheld.Count("horde unsaid: no recording here"); return; }
-                    if (Enqueue(new Line { Name = name, Key = d.Key, Words = d.Key, Path = path, Voice = d.Voice, Caption = false, InPerson = true, Priority = RadioPriority.Horde, Tag = "horde", EntityId = d.Npc, Remote = true }))
+                    // round MP5 (part R): in person beside the guard (3D, as the host's), else on the radio - only when the server
+                    // marked it (the guard can send; the radio from home) and this player carries a handheld radio
+                    bool radioOk = d.Has(FlagHordeRadio);
+                    bool near = body != null && !body.IsDead() && Vector3.Distance(body.position, lp.position) <= InPersonRange;
+                    if (!near)
+                    {
+                        if (!radioOk) { ScHandheld.Count("horde unsaid: out of earshot"); return; }
+                        if (lp.IsDead() || !ScHandheld.Carries(lp))
+                        {
+                            ScHandheld.Count("horde unheard: you carry no radio");
+                            ScLog.Verbose(name + "'s horde warning " + d.Key + " went unheard (you carry no handheld radio)");
+                            return;
+                        }
+                    }
+                    if (Enqueue(new Line { Name = name, Key = d.Key, Words = d.Key, Path = path, Voice = d.Voice, Caption = false, InPerson = near, Priority = RadioPriority.Horde, Tag = "horde", EntityId = d.Npc, Remote = true, RadioOk = radioOk }))
                         PlayNext(lp);
                     return;
                 }
@@ -667,9 +694,15 @@ namespace SurvivorCommunity
         {
             if (line.Tag == "horde")
             {
-                // MP5: a guard's warning on the radio reaches another player's machine with round MP5's radio work (the server
-                // sent this one in person; whether the guard can send is the server's to judge)
-                if (line.Remote) { how = "a horde warning on the radio reaches a player's own machine from round MP5 on"; return false; }
+                // round MP5 (part R): a warning the server sent - whether the guard can send was judged there (FlagHordeRadio), this
+                // machine judges its own handheld
+                if (line.Remote)
+                {
+                    if (!line.RadioOk) { how = "the guard has no handheld radio and no station at home has power"; return false; }
+                    if (!ScHandheld.Carries(p)) { how = "you carry no handheld radio"; return false; }
+                    how = "the server's word that the guard can send";
+                    return true;
+                }
                 if (!ScHandheld.Carries(p)) { how = "you carry no handheld radio"; return false; }
                 if (ScHandheld.NpcCarries(npc)) { how = "their handheld"; return true; }
                 if (ScDefence.Radio()) { how = "the home station"; return true; }

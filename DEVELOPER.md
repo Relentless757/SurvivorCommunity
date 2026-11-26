@@ -2133,7 +2133,8 @@ Round MP0 is the groundwork:
   client keeps the looks for the session, cleared at the world's start and end. X17 never gives a client's copy a creator
   face; the server's arrives with its look.
 - **Dedicated-server specifics:**
-  - airdrops follow vanilla's schedule (`RadioOnlyAirdrops` applies only with a local player);
+  - airdrops follow vanilla's schedule (`RadioOnlyAirdrops` applies only with a local player; round MP5 part R: it applies
+    while a player whose SC matches is online, below);
   - supply runs sent by a client are hidden runs;
   - runners make no distress calls there.
 - **Round MP1, the mirror** (`ScMirror`, `NetPackageScState`): a client holds a read-only copy of the server's registry in
@@ -2830,6 +2831,58 @@ Round MP0 is the groundwork:
     checks refuse never costs the first player the hold (re-check F1, F2, F4; with another player online, `EndFor` ending the host's own talk hold closes the host's windows on her - also when the host gave the verb itself, a known cosmetic gap); that player's quiet re-ask within 15 s gets no "busy" line. `member.workend` never
     ends another player's talk hold (`ScWork.TalkHeldByOther`). **A player who leaves while she is down** marks the kept hold
     or shift (`Shift.OwnerGone`), and `Tick` ends it once she is up.
+
+- **Round MP5 (part R), the radio for every player** (`ScActionsRadio`, `ScRadioView`, `XUiC_ScRadio`, `ScRadio`,
+  `Patches_Radio`, `ScEncCalls`, `ScEncSiege`, `ScHordeVoice`, `ScRadioTalk`): any community player uses the radio station
+  (and, with `HandheldRadioTab` on, the Radio tab over their own handheld radio). A client opens the window on its own
+  machine (`ScRadio.Open`: its copy of the block's power; no more scHostOnly) and every button calls `ScActions.Request` on
+  every machine - inline on the host, which shows the answer exactly as the old inline call's result.
+  - **Ops** (whole numbers; every op starts with `mode, x, y, z`: mode 0 at a station, x y z its block - the window's
+    `ScRadio.CurrentRadio` -, mode 1 over a handheld): `radio.view` (+ barter give, get, ally id, ally give, ally get,
+    runner id; quiet), `radio.drop`, `radio.call`, `radio.scout` (+ resource), `radio.barter` (+ give, get), `radio.demand`
+    (+ outpost id seen, pay 1/0), `radio.siege` (+ 1 on our way / 2 can't come, siege id seen), `radio.allytrade` (+ enclave
+    id, give, get), `radio.allycall` (+ enclave id, 0 fighter / 1 drop), `radio.recall` (+ member id). Access Community. For a
+    remote sender the server checks a station request against the world (a `BlockScRadio` there, the sender within
+    `ScActionsRadio.StationReach`, 10 m) and keeps it as theirs (`ScRadio.NoteStationFor` / `StationFor`: the per-player
+    `CurrentRadio`); `ScRadio.Usable(who)` and the verbs' `Can*` take the player (`ScBarter`, `ScScouting`, `ScEncBarter`,
+    `ScEncCalls`). A handheld request is trusted (the bag is the client's: it closes its window when the radio leaves it)
+    while `HandheldRadioTab` is on; a station control over a handheld is refused while the home station is offline. The
+    seen ids refuse a stale press (another demand: scActionChanged; another or no siege: the verb's "That call is over.").
+    `OpeningAtBlock` stays a machine-local UI flag (the window's own opening).
+  - **The view** (`radio.view`, polled by a client every 1.5 s while open, one at a time, again at once after a pick or an
+    act): what the copy lacks - each control's readiness and reason (the server's words), the sandbox's drop days, the
+    barter terms, the picked ally's trade/fighter/drop and the call that is on, the siege's id, clock and "on our way", the
+    picked runner's recall - as `key=value` hints with `%`, `;` and `=` escaped (`ScActionsRadio.Esc`), parsed once per
+    answer into `ScRadioView`. Each answer carries the picks it was made for; a binding whose pick changed shows "not ready"
+    until the next. The lists (contacts, outposts, distress, enclaves, requests, allies, runners, the siege) come from the
+    copy (`ScRegistry.Ready`). A client's station window closes beyond `StationReach` (minus a meter).
+  - **Near the caller:** the radio's air drop flies to the player who asked (`ScRadio.DropFor`; `Patches_Radio` runs
+    vanilla's `SpawnAirDrop` with an `AIAirDrop` of that one player - single player: the one player, as before). An ally's
+    fighter and supply drop come to the caller (`ScEncCalls` keeps the caller's platform id per call for the session; the
+    fighter is enlisted with them; caller dead: it waits, as before; offline, or a call loaded from a save: the anchor).
+    A radio contact is rolled at the caller's gamestage at a POI picked around home, as before. A client's contact and
+    scout markers reach a listen host's own map at once (and the client's through `ScMarkers`).
+  - **`RadioOnlyAirdrops`** holds on a dedicated server too while any player online runs the server's SC
+    (`ScNet.ClientMatches`: they can ask at a radio); with none, vanilla's schedule runs (as round MP0 kept it).
+  - **Sieges:** called for any community player in range (the anchor first, as before: `ScEncSiege.PickSource`); the quest
+    is that player's. Not every player's: a request keeps one acceptor and `ScQuestNet`'s journal report removes a request
+    quest from any other journal - a copy per player needs `ScQuestNet` to track a siege's holders as it tracks a rescue's.
+    `ScEncSiege.StatusFor` (the quest's countdown) now answers on a client from its copy.
+  - **Voices:** horde warnings reach a client's radio. `ScHordeVoice.SayAtHome` sends to the remote players near the guard
+    and, when the guard can send (their handheld, the home station with power), to those at home; `SayAway` (now any
+    player) to the remote players away, once per moment and frame. The server marks such a line `ScRadioTalk.FlagHordeRadio`
+    (bit 6 of `NetPackageScVoice`'s flags byte, which that file leaves free); the client hears it in person beside the guard,
+    else on its radio while it carries a handheld (`ScRadioTalk.OnRemote`, `RadioHeard`). Speakers' and runners' radio lines
+    were already sent to every community player (round MP4).
+  - **Without an id on the record, after a load an ally's call comes to the anchor** (the save's `call=` has no caller).
+  - **MP5 merge:** `ScBaseAttack` (the call and the arrival) and `ScDefence` (the result) call `ScHordeVoice.SayAway` only
+    with the host's own player (`lp != null`); passing their player lets a dedicated server voice the radio from home (it
+    takes any player since MP5 and broadcasts once). `ScOutpostRisk.PayDemand` / `RefuseDemand` take `EntityPlayerLocal`:
+    a client's refusal passes null, so `StartAttack`'s radio call to the community and the raiders' spoken answer are
+    skipped for it. `NetPackageScVoice`'s layout comment should list `FlagHordeRadio`.
+  - **Known gaps:** a client's reasons and the barter / scout lines are the server's words (its language); a "missing
+    person" request says "someone" on a client (enclave people are not in the copy). The handheld is trusted. A
+    per-player request budget is still not kept. MP6: cooldowns, contacts, allies and the siege per community.
 
 ## How it hangs together (for modders)
 

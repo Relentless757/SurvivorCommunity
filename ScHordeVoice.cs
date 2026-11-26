@@ -52,6 +52,12 @@ namespace SurvivorCommunity
     /// Round MP4 (multiplayer): a guard's warning at home is heard in person by every remote player near the guard too (the
     /// server sends it: NetPackageScVoice); a warning on the radio - farther away, or from home while away - stays the host's
     /// own player's until round MP5's radio work.
+    /// Round MP5 (part R): the radio too, by the same rules on each player's machine. The server decides that the line is said,
+    /// which one, in whose voice and whether the radio carries it (the guard's own handheld or the home station with power; the
+    /// radio from home: a station with power) and marks it ScRadioTalk.FlagHordeRadio; each client hears it in person beside
+    /// the guard, else on the radio while it carries a handheld radio (ScRadioTalk.OnRemote). At home it goes to the remote
+    /// players near the guard and, when the radio carries it, to those at home (PlayerHome: the call-out's own text goes to
+    /// them); away, to the remote players not at home. The host's own player is judged here, exactly as before.
     /// </summary>
     public static class ScHordeVoice
     {
@@ -167,24 +173,21 @@ namespace SurvivorCommunity
                 string path = ScVoice.MemberClip(m, key, out voice);
                 if (path == null) return NoClip(m, key);
                 // round MP4: the remote players within InPersonRange of the guard hear it in person on their own machine (the same
-                // line, the guard's voice). MP5: one farther away hears it on the radio only with round MP5's radio work
-                int near = force ? 0 : ScVoice.SendNear(body.position, new NetPackageScVoice.Line
-                {
-                    Kind = NetPackageScVoice.KindHorde, Npc = body.entityId, Key = key, Voice = voice ?? "", Name = m.Name ?? "",
-                    Priority = (byte)RadioPriority.Horde, Tag = "horde", Flags = NetPackageScVoice.FlagLipSync
-                }, ScRadioTalk.InPersonRange);
-                if (near > 0) ScLog.Out(m.Name + " says " + key + " in " + voice + ", in person to " + near + " other player(s)");
+                // line, the guard's voice). Round MP5 (part R): when the guard can send (their handheld, the home station with
+                // power), the remote players at home farther away get it too and hear it on their own handheld radio
+                int near = force ? 0 : SendAtHome(m, body, key, voice);
+                if (near > 0) ScLog.Out(m.Name + " says " + key + " in " + voice + ", sent to " + near + " other player(s) (in person, or their radio)");
                 EntityPlayerLocal player = anyPlayer as EntityPlayerLocal;   // round MP4: the host's own player hears it here, as before
                 // review tells n5: a dedicated server (no player of this machine's) - the remote ones were sent it above; the host's
                 // radio rule below is not theirs, and would only count it as "unheard"
-                if (player == null && !force && ScCommunity.LocalPlayer == null) return near > 0 ? "in person to " + near + " player(s)" : "nobody near the guard";
+                if (player == null && !force && ScCommunity.LocalPlayer == null) return near > 0 ? "sent to " + near + " player(s)" : "nobody near the guard or at home to hear it";
                 // m1v re-check N1: 3D, as ScRadioTalk.PlayInPerson checks it (a bark is 3D audio cut off at 40 m) - a guard high up a
                 // tower is on the radio by the rule below, decided and logged here, not dropped at play time
                 bool inPerson = player != null && Vector3.Distance(body.position, player.position) <= ScRadioTalk.InPersonRange;
                 string how = "in person";
                 if (!inPerson)
                 {
-                    // MP5: on the radio for the host's own player only (a remote player's radio: round MP5)
+                    // round MP5 (part R): the host's own player's radio, judged here (a remote player's on their machine: SendAtHome)
                     bool own = ScHandheld.NpcCarries(body);
                     bool station = !own && ScDefence.Radio();
                     if (!force)
@@ -220,17 +223,20 @@ namespace SurvivorCommunity
         /// player carries a handheld; speaker null: the guard on watch, else a member at home. The caller has just shown the
         /// radio's text. force (the console): HordeVoiceLines, the station and the handheld ignored. Returns what happened.
         /// </summary>
-        public static string SayAway(HordeMoment moment, string side, Member speaker, EntityPlayerLocal player, bool force)
+        public static string SayAway(HordeMoment moment, string side, Member speaker, EntityPlayer anyPlayer, bool force)   // round MP5 (part R): any player
         {
             try
             {
-                // MP5: the radio from home is heard by the host's own player only until round MP5's radio work (a remote player's
-                // handheld radio and the station's power, judged for them)
+                // round MP5 (part R): the host's own player is judged here as before; the remote players away from home get the line
+                // (once per moment and frame, however many players a caller loops over: SendAway) and judge their own handheld.
+                // With no remote player away this runs exactly as before round MP5
+                EntityPlayerLocal player = anyPlayer as EntityPlayerLocal;
+                bool remote = !force && AnyRemoteAway(moment);
                 if (!force)
                 {
                     if (!ScConfig.HordeVoiceLines) { ScHandheld.Count("horde off"); return "HordeVoiceLines is off"; }
                     if (!ScDefence.Radio()) { ScHandheld.Count("horde unsaid: no station with power"); return "no radio station at home has power"; }
-                    if (player == null || player.IsDead() || !ScHandheld.Carries(player))
+                    if (!remote && (player == null || player.IsDead() || !ScHandheld.Carries(player)))
                     {
                         ScHandheld.Count("horde unheard: you carry no radio");
                         ScLog.Verbose("the radio from home (" + moment + ") went unheard: you carry no handheld radio");
@@ -244,15 +250,100 @@ namespace SurvivorCommunity
                 string voice;
                 string path = ScVoice.MemberClip(m, key, out voice);
                 if (path == null) return NoClip(m, key);
+                int sent = remote ? SendAway(moment, m, key, voice) : 0;
+                string also = sent > 0 ? " (sent to " + sent + " other player(s))" : "";
+                if (!force && (player == null || player.IsDead() || !ScHandheld.Carries(player)))
+                {
+                    ScHandheld.Count("horde unheard: you carry no radio");
+                    ScLog.Verbose("the radio from home (" + moment + ") went unheard here: you carry no handheld radio" + also);
+                    return "unheard here: you carry no handheld radio" + also;
+                }
                 ScRadioTalk.QueueHorde(m, key, path, voice, false, player);
-                ScLog.Out(m.Name + " on the radio from home says " + key + " in " + voice + (ScWatch.OnWatch(m) ? " (on watch)" : " (at home)"));
-                return "queued " + key + " in " + voice + ", " + m.Name + " on the radio from home";
+                ScLog.Out(m.Name + " on the radio from home says " + key + " in " + voice + (ScWatch.OnWatch(m) ? " (on watch)" : " (at home)") + also);
+                return "queued " + key + " in " + voice + ", " + m.Name + " on the radio from home" + also;
             }
             catch (Exception e)
             {
                 ScLog.Once("horde-voice-away", e);
                 return "error";
             }
+        }
+
+        // ------------------------------------------------------------------ round MP5 (part R): the remote players ----
+
+        /// <summary>The moment and frame SendAway last sent (a caller that loops over the players sends it once).</summary>
+        private static int awayFrame = -1;
+        private static HordeMoment awayMoment;
+
+        /// <summary>
+        /// Round MP5 (part R), the server: an at-home warning to the remote players - every one within InPersonRange (3D) of the
+        /// guard (in person, as round MP4 sent it; living or dead), and, when the guard can send (their handheld, or the home
+        /// station with power: the host's rule), every living community player at home farther away (on their radio, if they
+        /// carry a handheld). Marked FlagHordeRadio when the guard can send, so a player who walks off before it plays still
+        /// hears it on their radio. Returns how many got it.
+        /// </summary>
+        private static int SendAtHome(Member m, EntityAlive body, string key, string voice)
+        {
+            if (!ScCommunity.IsHost || body == null) return 0;
+            EntityPlayer[] all = ScPlayers.All.ToArray();     // copied: a send must not meet a list that changes under it
+            bool anyRemote = false;
+            for (int i = 0; i < all.Length && !anyRemote; i++) anyRemote = all[i] != null && !(all[i] is EntityPlayerLocal);
+            if (!anyRemote) return 0;                          // single player, or the host alone: nothing to send
+            bool send = ScHandheld.NpcCarries(body) || ScDefence.Radio();
+            var line = new NetPackageScVoice.Line
+            {
+                Kind = NetPackageScVoice.KindHorde, Npc = body.entityId, Key = key, Voice = voice ?? "", Name = m.Name ?? "",
+                Priority = (byte)RadioPriority.Horde, Tag = "horde", Range = ScRadioTalk.InPersonRange,
+                Flags = (byte)(NetPackageScVoice.FlagLipSync | (send ? ScRadioTalk.FlagHordeRadio : 0))
+            };
+            float sq = ScRadioTalk.InPersonRange * ScRadioTalk.InPersonRange;
+            int n = 0;
+            for (int i = 0; i < all.Length; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p == null || p is EntityPlayerLocal) continue;
+                bool near = (p.position - body.position).sqrMagnitude <= sq;
+                if (!near && !(send && !p.IsDead() && ScPlayers.InCommunity(p) && ScBaseAttack.PlayerHome(p))) continue;
+                if (ScVoice.SendTo(p, line)) n++;
+            }
+            return n;
+        }
+
+        /// <summary>Round MP5 (part R), the server: a living remote community player away from home who was not sent this moment this frame.</summary>
+        private static bool AnyRemoteAway(HordeMoment moment)
+        {
+            if (!ScCommunity.IsHost || (awayFrame == Time.frameCount && awayMoment == moment)) return false;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p != null && !(p is EntityPlayerLocal) && !p.IsDead() && ScPlayers.InCommunity(p) && !ScBaseAttack.PlayerHome(p)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Round MP5 (part R), the server: the radio from home to every living remote community player away from home (no body:
+        /// on their radio, while they carry a handheld - FlagHordeRadio), once per moment and frame. Returns how many got it.
+        /// </summary>
+        private static int SendAway(HordeMoment moment, Member m, string key, string voice)
+        {
+            awayFrame = Time.frameCount;
+            awayMoment = moment;
+            var line = new NetPackageScVoice.Line
+            {
+                Kind = NetPackageScVoice.KindHorde, Npc = -1, Key = key, Voice = voice ?? "", Name = m.Name ?? "",
+                Priority = (byte)RadioPriority.Horde, Tag = "horde", Flags = ScRadioTalk.FlagHordeRadio
+            };
+            EntityPlayer[] all = ScPlayers.All.ToArray();     // copied: a send must not meet a list that changes under it
+            int n = 0;
+            for (int i = 0; i < all.Length; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p == null || p is EntityPlayerLocal || p.IsDead() || !ScPlayers.InCommunity(p) || ScBaseAttack.PlayerHome(p)) continue;
+                if (ScVoice.SendTo(p, line)) n++;
+            }
+            return n;
         }
 
         private static string NoClip(Member m, string key)

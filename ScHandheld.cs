@@ -17,6 +17,9 @@ namespace SurvivorCommunity
     ///    the radio window. Whether a runner carries one is snapshot into the record (Member.RunRadio) when the run starts and
     ///    refreshed whenever their body is seen (online every 5 s, at each capture), so it is known while the body is unloaded.
     /// Host only (SC is single player), main thread.
+    /// Round MP5 (part R): Carries reads this machine's own player's bag - a client's Radio tab, its remote window and its radio
+    /// lines (ScRadioTalk.OnRemote) judge the client's own handheld there; the server cannot read a remote bag and trusts a
+    /// client's handheld request (ScActionsRadio).
     /// </summary>
     public static class ScHandheld
     {

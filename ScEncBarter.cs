@@ -15,6 +15,8 @@ namespace SurvivorCommunity
     /// saved as [enclave] barter=N, shifted back by ScEnclaves.OnWorldDayBack through ScEncGifts.ShiftDays). A stockpile-only
     /// trade, modelled on the radio's own barter (ScBarter: 3 for 1 with anyone, once a day), which stays as it is. Needs a
     /// usable radio (ScRadio.Usable), as that barter does - the window opens only at a radio block. Host only, main thread.
+    /// Round MP5 (part R): any community player trades from the radio window (ScActionsRadio's radio.allytrade); the radio is
+    /// theirs (ScRadio.Usable(who): their station's power, or the home station's). MP6: per community.
     /// </summary>
     public static class ScEncBarter
     {
@@ -77,15 +79,18 @@ namespace SurvivorCommunity
             into.Sort((a, b) => a.DistanceXZ(from.x, from.z).CompareTo(b.DistanceXZ(from.x, from.z)));
         }
 
-        /// <summary>Whether this trade can be made now, and why not: off, no ally, not an ally, no radio, not theirs, the pair, the day, the stockpile.</summary>
-        public static bool CanTrade(Enclave e, Resource give, Resource get, out string why)
+        /// <summary>
+        /// Whether this trade can be made now, and why not: off, no ally, not an ally, no radio, not theirs, the pair, the day, the stockpile.
+        /// Round MP5 (part R): who - the player at the radio (ScRadio.Usable(who): their station); null this machine's own.
+        /// </summary>
+        public static bool CanTrade(Enclave e, Resource give, Resource get, out string why, EntityPlayer who = null)
         {
             why = null;
             if (!ScCommunity.IsHost) { why = Loc("scHostOnly"); return false; }
             if (!ScConfig.Enclaves || !ScConfig.EnclaveBarter) { why = Loc("scEncBarterOff"); return false; }
             if (e == null) { why = Loc("scEncBarterNoAlly"); return false; }
             if (!ScEncAllies.IsAlly(e)) { why = Loc("scEncBarterNotAlly"); return false; }
-            if (!ScRadio.Usable()) { why = Loc("scRadioNoPower"); return false; }
+            if (!ScRadio.Usable(who)) { why = Loc("scRadioNoPower"); return false; }
             if (!Gets(e, get)) { why = string.Format(Loc("scEncBarterNotTheirs"), e.Name, Word(get)); return false; }
             if ((int)give >= ScBarter.Kinds) { why = Loc("scBarterNoLuxury"); return false; }
             if (give == get) { why = Loc("scBarterSame"); return false; }
@@ -105,9 +110,9 @@ namespace SurvivorCommunity
         /// The trade (checked again): EnclaveBarterGive of give out of the stockpile, EnclaveBarterGet of get in, the ally's next
         /// trade EnclaveBarterDays later on the request clock, a ledger line, the log, a save. message: the panel's words, or why not.
         /// </summary>
-        public static bool Trade(Enclave e, Resource give, Resource get, EntityPlayerLocal player, out string message)
+        public static bool Trade(Enclave e, Resource give, Resource get, EntityPlayer player, out string message)    // round MP5 (part R): any player (stockpile-only)
         {
-            if (!CanTrade(e, give, get, out message)) return false;
+            if (!CanTrade(e, give, get, out message, player)) return false;
             Community c = ScRegistry.Community;
 #if SC_V34
             ScLifeSkills.Terms terms = ScLifeSkills.AllyBarter();   // round m1t: Bartering's cut
