@@ -46,6 +46,38 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   <name>`, `join <id> [player]`, `leave [player]` and `use <id>|none` (this console acts in that community) make and fill a
   second one. Admin only.
 
+## Round MP6 test fix t1 (2026-11-26): a downed member bleeds out by her own community's players
+
+Why: found on the dedicated server with two communities. A downed member bleeds out only while a player is alive, and
+0-XNPCCore's downed tick asks SC with no community scope, so the test counted community 0's players: a community 1 member
+downed with only community 1's players online never bled out, and a paused community's member bled out while another
+community played. Now her own community's players count. Two log-only fixes ride along: a body's prospect lookup and a
+stranger's intruder test no longer log `[MP6 scope]` lines. With one community nothing changes. Build `sc34_mp6t1`,
+**not deployed**, untested in game.
+
+- [ ] One community (single player or a dedicated server): a resident downed at home bleeds out after about a minute while
+      you are alive and away from her, as before; a medic or you can still revive her.
+- [ ] Two communities, dedicated server: B (community 1) online alone, one of B's residents downed at home: she bleeds out
+      (`sc downed` in B's scope shows the seconds running, not `PAUSED`).
+- [ ] Two communities: A (community 0) online, B offline, one of B's residents downed by a wandering zombie: she stays down
+      (`sc community use 1`, `sc downed`: `PAUSED: no leader present`) until B is back.
+- [ ] Two communities: the dedicated server's log has no `[MP6 scope]` lines through `GetProspect` (a body loading) or
+      `LeavesAlone` (a stranger's AI).
+
+## Round MP6 results so far (2026-11-26): one client on the dedicated server
+
+- Passed (self-test): a save from before MP6 migrates (`survivor_communities.txt`, SCOM 2; the old file untouched; one
+  community writes no `seentime=`). `sc community new|join|leave` move the client within a second. A called horde (state
+  1) and a live fight (state 2) of a paused community pick up where they stood: the arrival, the next call's gap and the
+  fight's start move on by the paused hours; a live fight's attackers go when it pauses and come back 15 s after it resumes;
+  after 6.5 paused hours a live fight went on and was held.
+- Passed (the user): an outsider is refused `sc home set` on another community's ground, and another community's packing
+  station and radio; hold-E on another community's member opens no Voice Control entry (it falls through to the talk
+  window) and the talk has only "Nevermind." (task t108 adds small talk).
+- Found: test fix t1 above.
+- Not tested yet: the defenders' fight with the player away (state 3) across a pause, a server restart while a community
+  is offline, and every step that needs a second player.
+
 ## Round MP6 (merged, with the review fixes) (2026-11-26): several communities on one server
 
 Why: the five MP6 parts below (core, relations, network, H, G) are merged into one build, with the fixes from their four
