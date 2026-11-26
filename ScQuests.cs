@@ -163,21 +163,23 @@ namespace SurvivorCommunity
             {
                 if (!ScRegistry.Loaded || !AnyRemote(subscribers)) return false;
                 Vector3i key = World.worldToBlockPos(poiPosition);
-                foreach (Prospect p in ScRegistry.Prospects.Values)
-                    if (p.Favour == FavourKind.Poi && p.Started && !p.Done && p.PoiPos == key) return true;
+                foreach (CommunityState cs in ScCommunities.All)          // round MP6 (part G): anyone's favour (a world question)
+                    foreach (Prospect p in cs.Prospects.Values)
+                        if (p.Favour == FavourKind.Poi && p.Started && !p.Done && p.PoiPos == key) return true;
                 // round MP4: a remote subscriber whose last journal report holds a POI favour quest for this building (Started can
                 // be reset once nobody else holds it - ScQuestNet, E6)
                 if (ScQuestNet.ReportedFavourPoi(subscribers, key)) return true;
-                foreach (EnclaveRequest r in ScRegistry.EncRequests)
-                {
-                    if (r == null || !r.IsAccepted) continue;
-                    Enclave e = ScEnclaves.ById(r.EnclaveId);
-                    if (e == null) continue;
-                    Vector3i at, size;
-                    string name;
-                    ScEncRequests.RequestPlace(r, e, out at, out size, out name);
-                    if (at == key) return true;
-                }
+                foreach (CommunityState cs in ScCommunities.All)          // round MP6 (part G): anyone's request
+                    foreach (EnclaveRequest r in cs.EncRequests)
+                    {
+                        if (r == null || !r.IsAccepted) continue;
+                        Enclave e = ScEnclaves.ById(r.EnclaveId);
+                        if (e == null) continue;
+                        Vector3i at, size;
+                        string name;
+                        ScEncRequests.RequestPlace(r, e, out at, out size, out name);
+                        if (at == key) return true;
+                    }
             }
             catch (Exception e)
             {

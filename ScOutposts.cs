@@ -147,11 +147,18 @@ namespace SurvivorCommunity
         public const string FlagBlock = "scOutpostFlag";
         private static readonly List<Vector3i> flagQueue = new List<Vector3i>();
         private static readonly Dictionary<Vector3i, int> flagTries = new Dictionary<Vector3i, int>();
+        /// <summary>Round MP6 (part G): the community each queued flag is established for (its placer's), by claim.</summary>
+        private static readonly Dictionary<Vector3i, int> flagCommunity = new Dictionary<Vector3i, int>();
 
-        /// <summary>TEFeatureSCCommunity.OnAdded: an Outpost Claim Block went down; established on the next ticker second.</summary>
-        public static void QueueFlag(Vector3i claim)
+        /// <summary>
+        /// TEFeatureSCCommunity.OnAdded: an Outpost Claim Block went down; established on the next ticker second. Round MP6 (part
+        /// G): community - the placer's (-1: whichever community ticks first, as before MP6); TickFlags establishes it in that
+        /// community's pass only.
+        /// </summary>
+        public static void QueueFlag(Vector3i claim, int community = -1)
         {
             if (!flagQueue.Contains(claim)) flagQueue.Add(claim);
+            if (community >= 0) flagCommunity[claim] = community;         // round MP6 (part G)
         }
 
         /// <summary>ScTicker, every second: establish queued flags once their claim is active.</summary>
@@ -162,12 +169,17 @@ namespace SurvivorCommunity
             for (int i = flagQueue.Count - 1; i >= 0; i--)
             {
                 Vector3i claim = flagQueue[i];
+                // round MP6 (part G): a flag waits for its placer's community's pass (the ticker runs this once per community, in
+                // its scope, with its anchor); one whose community is gone goes with the pass it meets
+                int cid;
+                if (flagCommunity.TryGetValue(claim, out cid) && cid != ScRegistry.CurrentId && ScCommunities.ById(cid) != null) continue;
                 int tries;
                 flagTries.TryGetValue(claim, out tries);
                 bool active = pp != null && pp.m_lpBlockMap != null && pp.m_lpBlockMap.ContainsKey(claim);
                 if (!active && tries < 5) { flagTries[claim] = tries + 1; continue; }   // the claim map fills a tick later
                 flagQueue.RemoveAt(i);
                 flagTries.Remove(claim);
+                flagCommunity.Remove(claim);                                  // round MP6 (part G)
                 // round MP0: told to the player who placed it (the claim's owner, while online), else the anchor - in single player
                 // and on a listen host the host's own player, as before
                 EntityPlayer placer = ClaimOwner(pp, claim) ?? player;
@@ -210,6 +222,7 @@ namespace SurvivorCommunity
         {
             flagQueue.Clear();
             flagTries.Clear();
+            flagCommunity.Clear();                // round MP6 (part G)
             markers.Clear();
             markersRestored = false;
             nextTick = 0f;
@@ -219,9 +232,11 @@ namespace SurvivorCommunity
             flags = new Vector3i[0];
         }
 
-        /// <summary>The registry was (re)loaded or reset: rebuild the lookup tables and restore markers on the next tick.</summary>
-        // MP6 (part gates): this and its cascade read the community in scope (the load runs it in community 0's): the footprint
-        // index (Rebuild) needs every community's outposts (ScCommunities.AllOutposts), the id check every community's
+        /// <summary>
+        /// The registry was (re)loaded or reset: rebuild the lookup tables and restore markers on the next tick. Round MP6 (part G):
+        /// the id check and the footprint index (Rebuild) take every community's outposts; the cascade's session resets are
+        /// static (one each), the enclaves', infestations' and bands' world state.
+        /// </summary>
         public static void OnRegistryChanged()
         {
             markersRestored = false;
@@ -236,7 +251,7 @@ namespace SurvivorCommunity
             // ids must be unique (yields, selection and staff key on them) and the counter ahead of all of them
             Community c = ScRegistry.Community;
             var ids = new HashSet<int>();
-            foreach (Outpost o in ScRegistry.Outposts)
+            foreach (Outpost o in ScCommunities.AllOutposts())                // round MP6 (part G): every community's (one id counter)
             {
                 if (o.Id <= 0 || !ids.Add(o.Id))
                 {
@@ -258,13 +273,17 @@ namespace SurvivorCommunity
             return n;
         }
 
-        /// <summary>Rebuilds the thread-safe lookup arrays (call after any change to the list or a state).</summary>
+        /// <summary>
+        /// Rebuilds the thread-safe lookup arrays (call after any change to the list or a state). Round MP6 (part G): of every
+        /// community's outposts - the claim, spawning, sleeper and seeding tests they serve mean "anyone's outpost"
+        /// (IsOutpostClaim, IsOutpostPoiKey, BoxHitsOutpost); "ours" is AtClaim / ByPoi / OutpostAt (the community in scope).
+        /// </summary>
         public static void Rebuild()
         {
             var b = new List<int[]>();
             var k = new List<Vector3i>();
             var f = new List<Vector3i>();
-            foreach (Outpost o in ScRegistry.Outposts)
+            foreach (Outpost o in ScCommunities.AllOutposts())                // round MP6 (part G): the union
             {
                 if (!o.Holding) continue;
                 b.Add(new[] { o.Poi.x, o.Poi.x + Math.Max(1, o.Size.x) - 1, o.Poi.z, o.Poi.z + Math.Max(1, o.Size.z) - 1 });
@@ -484,6 +503,10 @@ namespace SurvivorCommunity
             poi = ScSecurity.PoiAt(claim);
             if (poi == null || ScSecurity.OverlapsHome(poi)) return Localization.Get("scOpNotInPoi");
             string name = ScSecurity.DisplayName(poi);
+            // round MP6 (part G): never on another community's home or outposts (the user's decision 3: theirs, not ours to hold).
+            // Never refuses with one community
+            Vector3i pMin = poi.boundingBoxPosition, pMax = new Vector3i(pMin.x + poi.boundingBoxSize.x - 1, pMin.y, pMin.z + poi.boundingBoxSize.z - 1);
+            if (ScGates.OtherCommunityIn(pMin, pMax, ScRegistry.CurrentId) >= 0) return string.Format(Localization.Get("scOpOtherCommunity"), name);
             Enclave enclave = ScEnclaves.Holding(poi);
             if (enclave != null) return string.Format(Localization.Get("scOutpostEnclave"), name, enclave.Name);   // their building, not ours to hold
             string why;

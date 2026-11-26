@@ -57,14 +57,45 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ opening ----
 
-        /// <summary>Is this NPC one of the community's members (the host's registry; a client has none and reads the synced member flag)?</summary>
+        /// <summary>
+        /// Is this NPC one of the community's members (the host's registry; a client has none and reads the synced member flag)?
+        /// Round MP6 (part G): one of THIS machine's player's community's members - another community's member gets no panel
+        /// (the user's decision 4: talk only; IsForeign says so, and the panel's callers refuse her). With one community: as before.
+        /// </summary>
         public static bool IsMember(EntityAlive npc)
         {
             if (npc == null || npc.IsDead()) return false;
-            if (ScRegistry.GetMember(npc.entityId) != null) return true;
+            int mine = ScPlayers.CommunityOf(ScCommunity.LocalPlayer);     // round MP6 (part G): the viewer's community
+            Member m = ScRegistry.GetMember(npc.entityId);
+            if (m != null) return m.CommunityId == mine;                   // round MP6 (part G): hers is the viewer's
             // a multiplayer client: the registry lives on the host, which stamps sc_member on every member's body (a synced
-            // cvar); a radio stand-in carries it too and is no member
-            return !ScCommunity.IsHost && npc.Buffs != null && npc.Buffs.GetCustomVar("sc_member") > 0f && !npc.Buffs.HasCustomVar(ScRadio.StandInCvar);   // round MP2 (E9): the value (0 once cleared)
+            // cvar); a radio stand-in carries it too and is no member. Round MP6 (part G): its value is her community id + 1
+            return !ScCommunity.IsHost && npc.Buffs != null && npc.Buffs.GetCustomVar("sc_member") > 0f && !npc.Buffs.HasCustomVar(ScRadio.StandInCvar)   // round MP2 (E9): the value (0 once cleared)
+                   && ScGates.CvarCommunity(npc) == mine;
+        }
+
+        /// <summary>
+        /// Round MP6 (part G): a member of another community than this machine's player's - her inventory is not theirs to open
+        /// (Patches_MemberInv refuses SCore's screen too, Patches_EquipWindow the equipment window). Never with one community.
+        /// </summary>
+        public static bool IsForeign(EntityAlive npc)
+        {
+            return npc != null && !npc.IsDead() && (npc.Buffs == null || !npc.Buffs.HasCustomVar(ScRadio.StandInCvar)) && ScGates.IsForeignMember(npc, ScCommunity.LocalPlayer);
+        }
+
+        /// <summary>
+        /// Round MP6 (part G): SCore opened another community's member's inventory on this machine (EntityUtilities.OpenContainer):
+        /// refused with a line, and the container let go as the DisableLoot path in Open does - a client's copy handed back
+        /// unchanged (else her inventory stays "in use" for everyone until this client leaves), the open request's lock released.
+        /// </summary>
+        public static void RefuseForeign(EntityPlayerLocal player, SCoreLootContainer te, EntityAlive npc)
+        {
+            ScCommunity.TellKey(player, "scGateNotYourMember", "ui_denied", ScCommunity.DisplayName(npc));
+            try { LockManager.Instance.UnlockRequestLocal(); }
+            catch (Exception e) { ScLog.Once("memberinv-foreign-unlock", e); }
+            try { SendClientCopy(te); }
+            catch (Exception e) { ScLog.Once("memberinv-foreign-copy", e); }
+            ScLog.Verbose("member inventory: refused for " + ScCommunity.DisplayName(npc) + " (id " + (npc != null ? npc.entityId : -1) + ") - a member of another community");
         }
 
         /// <summary>

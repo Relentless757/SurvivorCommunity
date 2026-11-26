@@ -252,7 +252,7 @@ namespace SurvivorCommunity
             int npcId = args.Int(0, -1);
             World w = ScCommunity.World;
             EntityAlive npc = w != null && npcId > 0 ? w.GetEntity(npcId) as EntityAlive : null;
-            if (npc == null || npc.IsDead() || ScRegistry.GetMember(npcId) == null) { reply.Fail("", ""); return; }
+            if (npc == null || npc.IsDead() || ScGates.OwnMember(npcId) == null) { reply.Fail("", ""); return; }     // round MP6 (part G): the sender's community's
             // round mt1 (review fix G-m3): only for a player at her panel - one who has her inventory open (the server's mark of
             // SCore's session: every open panel has one) or stands within ViewReach of her; anyone else is refused quietly, before
             // anything is built (a distance, then a table lookup)

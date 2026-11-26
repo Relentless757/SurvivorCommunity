@@ -52,6 +52,8 @@ namespace SurvivorCommunity
                 LogFeatureHashes();
 #endif
                 // E6: a group lost (E2's Fall, any cause) costs morale when it was a friend, and owes a refill - once per process
+                // MP6 (part relations): an enclave falling concerns every community with a standing there (its morale loss and tell
+                // per community) while its refill is the world's - OnFallen runs once, in the scope of whatever raised it
                 ScEnclaves.Fallen += ScEncAllies.OnFallen;
 
                 ModEvents.GameStarting.RegisterHandler((ref ModEvents.SGameStartingData _d) =>
@@ -184,7 +186,9 @@ namespace SurvivorCommunity
                 ModEvents.GameShutdown.RegisterHandler((ref ModEvents.SGameShutdownData _d) => { ScPortraits.Reset(); ScRegistry.FlushAndReset(); });
                 ModEvents.EntityKilled.RegisterHandler((ref ModEvents.SEntityKilledData _d) =>
                 {
-                    if (ScCommunity.IsHost && ScRegistry.Loaded) ScSkills.OnEntityKilled(_d.KilledEntitiy, _d.KillingEntity);
+                    // round MP6 (part G): in the killer's community's scope (a member's skill tells go to her community)
+                    if (ScCommunity.IsHost && ScRegistry.Loaded)
+                        using (ScGates.ScopeOfActor(_d.KillingEntity)) ScSkills.OnEntityKilled(_d.KilledEntitiy, _d.KillingEntity);
                 });
 #if SC_V34
                 // round U4: an enemy you kill that was on a member is Bond for her (ScBond: queued here, written by the ticker)
@@ -225,6 +229,7 @@ namespace SurvivorCommunity
                         // round MP1: SCore raises this on the hiring client too - a client's copy of the registry is never changed
                         Member m = ScRegistry.Loaded ? ScRegistry.GetMember(hiredId) : null;
                         if (m != null && m.Status == MemberStatus.Resident)
+                        using (ScRegistry.Use(m))       // round MP6 (part G): her community's
                         {
                             m.Status = MemberStatus.Following;
                             ScStuck.ResetGain(m);   // round 29 review L5: no held move back outlives the status
@@ -804,6 +809,7 @@ namespace SurvivorCommunity
             Add(t, "SleeperVolume::UpdateSpawn", AccessTools.Method(typeof(SleeperVolume), "UpdateSpawn", new[] { typeof(World) }));
             Add(t, "SleeperVolume::Spawn", AccessTools.Method(typeof(SleeperVolume), "Spawn", new[] { typeof(World), typeof(int), typeof(int), typeof(BlockSleeper) }));
             Add(t, "SleeperVolume::ClearedUpdate", AccessTools.Method(typeof(SleeperVolume), "ClearedUpdate", new[] { typeof(World) }));
+            Add(t, "UAIBase::Update", Patches_Gates.UaiUpdateTarget());     // round MP6 (part G): an NPC's AI in her community's scope
             return t;
         }
 

@@ -2166,6 +2166,8 @@ namespace SurvivorCommunity
                 if (npc == null) return;
                 Member m = ScRegistry.GetMember(npc.entityId);
                 if (!IsPhysical(m) || m.Offline || npc.IsDead()) return;
+                using (ScRegistry.Use(m))       // round MP6 (part G): an engine delegate - in the runner's community's scope
+                {
                 bool fell = npc.position.y < 0f && (reason == EnumRemoveEntityReason.Killed || reason == EnumRemoveEntityReason.Despawned);
                 if (reason != EnumRemoveEntityReason.Unloaded && !fell) return;
                 // round r2: as GoOffline - too hurt for the job, she turns home before the snapshot (no removals in here: despawnNow false)
@@ -2191,6 +2193,7 @@ namespace SurvivorCommunity
                 ClearScoreCaches(m.Id);
                 ScRegistry.SaveAtomic();
                 ScLog.Out(m.Name + " was captured as their chunk unloaded (" + reason + ")");
+                }
             }
             catch (Exception ex)
             {
@@ -2206,11 +2209,15 @@ namespace SurvivorCommunity
                 World w = ScCommunity.World;
                 if (!ScCommunity.IsHost || !ScRegistry.Loaded || w == null) return;
                 var online = new List<Member>();
-                foreach (var m in ScRegistry.Members.Values) if (IsPhysical(m) && !m.Offline) online.Add(m);
+                // round MP6 (part G): every community's runners go back to their snapshot (a world event), each in her community's scope
+                foreach (var m in ScCommunities.AllMembers()) if (IsPhysical(m) && !m.Offline) online.Add(m);
                 foreach (Member m in online)
                 {
-                    EntityAlive npc = ScNpc.As(w.GetEntity(m.Id));
-                    if (npc == null || !GoOffline(w, m, npc, "quit", true)) { m.Offline = true; ScRegistry.SaveAtomic(); }
+                    using (ScRegistry.Use(m))
+                    {
+                        EntityAlive npc = ScNpc.As(w.GetEntity(m.Id));
+                        if (npc == null || !GoOffline(w, m, npc, "quit", true)) { m.Offline = true; ScRegistry.SaveAtomic(); }
+                    }
                 }
             }
             catch (Exception e)
@@ -2228,7 +2235,7 @@ namespace SurvivorCommunity
         {
             sessions.Clear();
             StaleIds.Clear();
-            foreach (var m in ScRegistry.Members.Values)
+            foreach (var m in ScCommunities.AllMembers())      // round MP6 (part G): every community's runners (the load's world step)
             {
                 if (!IsPhysical(m) || m.Offline) continue;
                 m.Offline = true;

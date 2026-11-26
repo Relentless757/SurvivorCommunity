@@ -641,9 +641,9 @@ namespace SurvivorCommunity
             if (cm != null && cm.CurrentMode == ProtocolManager.NetworkType.OfflineServer) return ScCommunity.LocalPlayer;
             if (!string.IsNullOrEmpty(m.LeaderId) && KnownPlayer(m.LeaderId)) return ScPlayers.ById(m.LeaderId);
             // no id, or one that is no player of this save (a solo game started as a server, a save played by another account):
-            // the host's own player, as before MP0 (null on a dedicated server).
-            // MP6 (part gates): whatever community the host's player is in - only one of the follower's community should be
-            return ScCommunity.LocalPlayer;
+            // the host's own player, as before MP0 (null on a dedicated server). Round MP6 (part G): when they are of her community -
+            // on a listen host whose player is in another, her community's anchor (ScGates.LocalPlayerOf)
+            return ScGates.LocalPlayerOf(m.CommunityId);
         }
     }
 

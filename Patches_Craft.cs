@@ -455,7 +455,8 @@ namespace SurvivorCommunity
                 if (m == null) continue;
                 int items;
                 int crafts = CraftsOf(d, out items);
-                ScCraft.OnCrafted(m, ScCommunity.FindNpc(m.Id), d.RecipeName, crafts, "sweep");
+                using (ScRegistry.Use(m))       // round MP6 (part G): paid in her community's scope (a station names no community)
+                    ScCraft.OnCrafted(m, ScCommunity.FindNpc(m.Id), d.RecipeName, crafts, "sweep");
                 // on a shift her order still moves the station's output into her window (once the player closes it):
                 // owed to the crates then (round 33a: expected until it arrives, ScWork.NoteMadeAtStation)
                 if (d.CraftedItemStack != null && d.CraftedItemStack.itemValue != null) ScWork.NoteMadeAtStation(m.Id, d.CraftedItemStack.itemValue.type, items);
@@ -1004,6 +1005,11 @@ namespace SurvivorCommunity
             [HarmonyPrefix]
             public static void Prefix(EntityAlive __0, string __1)
             {
+                // round MP6 (part G): her community's scope for the order (a remote player's runs on the server with none)
+                ScScope s = default(ScScope);
+                try { s = ScGates.ScopeOf(__0); }
+                catch (Exception e) { ScLog.Once("craft-book-order-scope", e); }
+                ScGates.PushHeld(s);
                 try
                 {
                     ScBooks.Begin(__0, __1);
@@ -1025,6 +1031,7 @@ namespace SurvivorCommunity
                 {
                     ScLog.Once("craft-book-order-end", e);
                 }
+                ScGates.PopHeld();              // round MP6 (part G)
             }
         }
 
@@ -1058,12 +1065,13 @@ namespace SurvivorCommunity
             }
 
             [HarmonyPostfix]
-            public static void Postfix(ScBooks.LevelState __state)
+            public static void Postfix(ScBooks.LevelState __state, MinEventParams __0)
             {
                 if (__state == null) return;
                 try
                 {
-                    ScBooks.AfterLevel(__state);
+                    // round MP6 (part G): her specialty XP in her community's scope (the read's target is her)
+                    using (ScGates.ScopeOf(__0 != null ? __0.Self : null)) ScBooks.AfterLevel(__state);
                 }
                 catch (Exception e)
                 {
@@ -1253,6 +1261,7 @@ namespace SurvivorCommunity
                     EntityPlayerLocal player = xui != null && xui.playerUI != null ? xui.playerUI.entityPlayer : null;
                     Member m = MemberOf(npc);
                     if (m == null || player == null) return;
+                    if (m.CommunityId != ScPlayers.CommunityOf(player)) return;     // round MP6 (part G): another community's member - talk only
                     if (ScWork.StartTalk(m, npc, player)) Count("x3a-talk-hold-started");
                     else if (ScWork.HandOver(m, npc, player)) Count("x3a-talk-hold-handed-over");   // round mt1 (review fix H-m5): another player's idle hold
                     else ScWork.TellIfHeldByOther(m, player);   // round mt1 (part H): another player's hold or shift has her (never in single player)

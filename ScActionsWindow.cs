@@ -62,7 +62,7 @@ namespace SurvivorCommunity
 
         private static Member MemberArg(ScActionArgs args, int i, ScActionReply reply)
         {
-            Member m = ScRegistry.GetMember(args.Int(i, -1));
+            Member m = ScGates.OwnMember(args.Int(i, -1));          // round MP6 (part G): the sender's community's only
             if (m == null) reply.Fail("scActionMemberGone");
             return m;
         }
@@ -131,7 +131,7 @@ namespace SurvivorCommunity
         [ScAction("member.workend", ScActionAccess.Community)]
         private static void MemberWorkEnd(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
         {
-            Member m = ScRegistry.GetMember(args.Int(0, -1));
+            Member m = ScGates.OwnMember(args.Int(0, -1));          // round MP6 (part G): the sender's community's only
             if (m == null || !ScWork.OnShift(m.Id)) { reply.Fail("", ""); return; }
             // round mt1 (review fix H-m4): never another player's talk hold (the row shows only on a work shift; a crafted request
             // could end it) - not even an idle one: a talk of the asker's own takes that over (ScWork.HandOver)
@@ -158,7 +158,7 @@ namespace SurvivorCommunity
         [ScAction(OpCancelJob, ScActionAccess.Community)]
         private static void MemberCancelJob(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
         {
-            Member m = ScRegistry.GetMember(args.Int(0, -1));
+            Member m = ScGates.OwnMember(args.Int(0, -1));          // round MP6 (part G): the sender's community's only
             EntityAlive npc = m != null ? ScCommunity.FindNpc(m.Id) : null;
             if (m == null || npc == null || npc.IsDead() || sender == null) { reply.Fail("", ""); return; }
             if (!(sender is EntityPlayerLocal) && (npc.position - sender.position).sqrMagnitude > CancelReach * CancelReach) { reply.Fail("", ""); return; }
@@ -337,7 +337,7 @@ namespace SurvivorCommunity
             if (memberId >= 0)
             {
                 if (a.Pick == null) { reply.Fail("scActionChanged"); return; }
-                Member m = ScRegistry.GetMember(memberId);
+                Member m = ScGates.OwnMember(memberId);          // round MP6 (part G): the sender's community's only
                 if (m == null) { reply.Fail("scActionMemberGone"); return; }
                 // round MP2 (review core/window M1): the pick's state the client saw (Call to work: 1 call, 0 end) - one that
                 // changed since is refused, not turned into the opposite

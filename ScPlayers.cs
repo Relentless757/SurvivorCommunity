@@ -277,19 +277,24 @@ namespace SurvivorCommunity
             return homeScratch;
         }
 
+        /// <summary>Round MP6 (part G): Nearest's community filter for "any community" (its default).</summary>
+        public const int AnyCommunity = -2;
+
         /// <summary>
-        /// The nearest living player (any community) within maxDist meters of pos, or null. maxDist &lt;= 0: no limit.
-        /// MP6 (part gates): both callers (ScRadio, ScRunners) mean the nearest of the community - add a filter.
+        /// The nearest living player within maxDist meters of pos, or null. maxDist &lt;= 0: no limit. Round MP6 (part G):
+        /// community - AnyCommunity (the default: any player, as before), CurrentCommunity (the one in scope) or a community id.
         /// </summary>
-        public static EntityPlayer Nearest(Vector3 pos, float maxDist = 0f)
+        public static EntityPlayer Nearest(Vector3 pos, float maxDist = 0f, int community = AnyCommunity)
         {
             EntityPlayer best = null;
             float bestSq = maxDist > 0f ? maxDist * maxDist : float.MaxValue;
             List<EntityPlayer> all = All;
+            int c = community == AnyCommunity ? AnyCommunity : Resolve(community);      // round MP6 (part G)
             for (int i = 0; i < all.Count; i++)
             {
                 EntityPlayer p = all[i];
                 if (p == null || p.IsDead()) continue;
+                if (c != AnyCommunity && !InCommunity(p, c)) continue;                // round MP6 (part G)
                 float sq = (p.position - pos).sqrMagnitude;
                 if (sq <= bestSq) { bestSq = sq; best = p; }
             }

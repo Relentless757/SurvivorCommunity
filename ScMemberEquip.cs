@@ -182,6 +182,7 @@ namespace SurvivorCommunity
                 return Text("scInvRefuseGone", name);
             m = ScRegistry.Loaded ? ScRegistry.GetMember(npc.entityId) : null;
             if (m == null) return Text("scInvRefuseNotMember", name);
+            if (m.CommunityId != ScPlayers.CommunityOf(player)) { m = null; return Text("scInvRefuseNotMember", name); }   // round MP6 (part G): another community's member is not yours to equip
             if (ScDowned.IsDown(npc)) return Text("scDownedBusy");      // the combined review, finding 2: no gear changes on a downed body
             // the host's own panel holds the container's user-accessing flag (and makes SCore refuse remote opens), so it is no
             // obstacle; a remote player's copy written back on its close, or 0-XNPCCore's trade, would undo or double a change.

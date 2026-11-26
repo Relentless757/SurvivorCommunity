@@ -751,6 +751,7 @@ public class DialogRequirementScFollowerVerb : BaseDialogRequirement
                 npc = ScCommunity.World != null ? ScCommunity.World.GetEntity((int)player.Buffs.GetCustomVar("CurrentNPC")) as EntityAlive : null;
             if (npc == null || npc.Buffs == null) return true;
             if (npc.Buffs.HasCustomVar(ScRadio.StandInCvar) || ScEnclavePeople.IsEnclaveNpc(npc) || ScBands.IsBandNpc(npc)) return false;
+            if (ScGates.IsForeignMember(npc, player)) return false;     // round MP6 (part G): another community's member takes no orders
             // round MP2 (E9): by the value - a client's copy keeps the 0 a dismissal sent it (ScCommunity.ClearSynced)
             if (npc.Buffs.GetCustomVar("sc_member") <= 0f) return true;
             return npc.Buffs.GetCustomVar("sc_following") > 0f;

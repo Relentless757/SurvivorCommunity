@@ -398,6 +398,8 @@ namespace SurvivorCommunity
                     EntityAlive sdx = ScNpc.As(npc);
                     EntityPlayerLocal lp = __args[1] as EntityPlayerLocal;
                     string error = "scVoiceStays";
+                    // round MP6 (part G): another community's member takes no orders (the user's decision 4): she stays, and says so
+                    if (m != null && lp != null && m.CommunityId != ScPlayers.CommunityOf(lp)) { error = "scGateNotYourMember"; m = null; }
                     if (m != null && sdx != null && lp != null && ScCommunity.ReturnHome(m, sdx, lp, out error))
                     {
                         // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
@@ -675,6 +677,8 @@ namespace SurvivorCommunity
             if (leader != null && leader.entityId == player.entityId) return 0;
             EntityPlayerLocal lp = player as EntityPlayerLocal;
             if (lp == null) return 0;
+            // round MP6 (part G): another community's member takes no orders (the user's decision 4). Never with one community
+            if (m.CommunityId != ScPlayers.CommunityOf(lp)) { error = "scGateNotYourMember"; return 2; }
             if (ScWork.RefuseHeldByOther(m, lp, null)) { error = "scWorkHeldOther"; return 2; }   // round mt1 (re-check F2): another player's talk keeps her
             if (!ScCommunity.Follow(m, npc, lp, out error)) return 2;
             Count("voice-follow-member");

@@ -95,7 +95,7 @@ namespace SurvivorCommunity
         private static void MemberFollow(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
         {
             int mode = args.Int(1, ModeWindow);
-            Member m = ScRegistry.GetMember(args.Int(0, -1));
+            Member m = ScGates.OwnMember(args.Int(0, -1));          // round MP6 (part G): the sender's community's only (another's takes no orders)
             if (m == null) { reply.Fail(mode == ModeWindow ? "scMemberGone" : ""); return; }
 #if SC_V34
             if (ScWork.RefuseHeldByOther(m, sender, reply)) return;      // round mt1 (review fix H-m4): another player's talk keeps her
@@ -210,7 +210,7 @@ namespace SurvivorCommunity
         private static void MemberHome(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
         {
             int mode = args.Int(1, ModeWindow);
-            Member m = ScRegistry.GetMember(args.Int(0, -1));
+            Member m = ScGates.OwnMember(args.Int(0, -1));          // round MP6 (part G): the sender's community's only (another's takes no orders)
             if (m == null) { reply.Fail(mode == ModeWindow ? "scMemberGone" : ""); return; }
 #if SC_V34
             if (ScWork.RefuseHeldByOther(m, sender, reply)) return;      // round mt1 (review fix H-m4): another player's talk keeps her
@@ -243,7 +243,7 @@ namespace SurvivorCommunity
         private static void MemberLeave(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
         {
             int mode = args.Int(1, ModeWindow);
-            Member m = ScRegistry.GetMember(args.Int(0, -1));
+            Member m = ScGates.OwnMember(args.Int(0, -1));          // round MP6 (part G): the sender's community's only (another's takes no orders)
             if (m == null) { reply.Fail(mode == ModeWindow ? "scMemberGone" : ""); return; }
 #if SC_V34
             if (ScWork.RefuseHeldByOther(m, sender, reply)) return;      // round mt1 (review fix H-m4): another player's talk keeps her

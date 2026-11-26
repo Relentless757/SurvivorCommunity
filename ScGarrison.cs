@@ -114,7 +114,7 @@ namespace SurvivorCommunity
                 EntityAlive s = ScNpc.As(ScNpc.Loaded(w, id));     // still being built: looked at again next sweep
                 if (s == null) continue;
                 bool current = false;
-                foreach (var m in ScRegistry.Members.Values) if (m.StandInId == id) { current = true; break; }
+                foreach (var m in ScCommunities.AllMembers()) if (m.StandInId == id) { current = true; break; }     // round MP6 (part G): anyone's stand-in
                 if (!current) { ScRuns.RemoveEntity(s); ScLog.Out("removed a stale outpost stand-in (entity " + id + ")"); }
             }
             Orphans.Clear();

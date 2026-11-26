@@ -190,7 +190,7 @@ namespace SurvivorCommunity
         /// <summary>Another loaded member whose path runs through this door.</summary>
         private static bool MemberHeadingFor(World w, Vector3i at, int except)
         {
-            foreach (var m in ScRegistry.Members.Values)
+            foreach (var m in ScCommunities.AllMembers())      // round MP6 (part G): never shut a door on anyone's member
             {
                 if (m.Id == except) continue;
                 EntityAlive npc = ScCommunity.FindNpc(m.Id);

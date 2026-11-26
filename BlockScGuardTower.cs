@@ -43,7 +43,9 @@ public class BlockScGuardTower : Block
             if (_blockValue.ischild || _addedByPlayer == null || !ThreadManager.IsMainThread()) return;
             ConnectionManager cm = SingletonMonoBehaviour<ConnectionManager>.Instance;
             if (cm == null || !cm.IsServer) return;
-            SurvivorCommunity.ScTower.Expand(_blockPos, _blockValue, _addedByPlayer);
+            // round MP6 (part G): the placer's community's rules (their home holds it, their posts' cap)
+            using (SurvivorCommunity.ScGates.ScopeOfUser(_addedByPlayer))
+                SurvivorCommunity.ScTower.Expand(_blockPos, _blockValue, _addedByPlayer);
         }
         catch (Exception e)
         {

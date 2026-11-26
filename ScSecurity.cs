@@ -94,6 +94,8 @@ namespace SurvivorCommunity
                 if (!IsRealPoi(pi)) continue;
                 Vector3i a = pi.boundingBoxPosition, s = pi.boundingBoxSize;
                 if (ScZone.HasHome && TouchesHome(a, s)) continue;
+                // round MP6 (part G): nor another community's home or outposts (none with one community)
+                if (ScGates.OtherCommunityIn(a, new Vector3i(a.x + s.x - 1, a.y, a.z + s.z - 1), -1) >= 0) continue;
                 if (ScOutposts.IsOutpostPoiKey(a)) continue;      // our own outposts are not favour targets
                 if (ScEnclaves.IsEnclavePoiKey(a)) continue;      // nor an enclave's building (its rooms are kept clear)
                 if (ScEncRequests.IsTarget(a)) continue;          // E5: nor where an enclave's request sends the player

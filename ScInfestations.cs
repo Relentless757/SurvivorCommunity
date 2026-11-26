@@ -506,10 +506,7 @@ namespace SurvivorCommunity
             for (int i = 0; i < players.Count; i++) if (players[i] != null) r.Players.Add(players[i].position);
             // a survivor waiting at a radio contact, a recruit's "secure this POI" favour, a supply run's destination, a radio
             // scouting mark, a POI one of the player's quests leads to: an infestation there would change a task already taken on
-            foreach (Contact ct in ScRegistry.Contacts) r.Taken.Add(ct.PoiKey);
-            foreach (Prospect p in ScRegistry.Prospects.Values) if (p.Favour == FavourKind.Poi && !p.Done) r.Taken.Add(p.PoiPos);
-            foreach (Member m in ScRegistry.Members.Values) if (ScRunners.IsPhysical(m)) r.Taken.Add(m.RunDest);
-            foreach (Scout s in ScRegistry.Community.Scouts) r.Taken.Add(s.Poi);     // a building the radio told the player to go to
+            ScGates.AddTakenPois(r.Taken);      // round MP6 (part G): every community's contacts, POI favours, runners and scouting marks
             ScEncRequests.AddTargets(r.Taken);       // E5: a missing survivor's building (an infestation request's target is infested already)
             EntityPlayerLocal qp = ScCommunity.LocalPlayer;
             if (qp != null && qp.QuestJournal != null && qp.QuestJournal.quests != null)

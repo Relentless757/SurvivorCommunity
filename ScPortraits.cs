@@ -189,11 +189,13 @@ namespace SurvivorCommunity
         {
             string dir = Dir();
             if (dir == null || !Directory.Exists(dir)) return;
-            if (!ScRegistry.Loaded || ScRegistry.Degraded || ScRegistry.Members.Count == 0) return;   // never wipe on a bad load
+            if (!ScRegistry.Loaded || ScRegistry.Degraded) return;
             try
             {
+                // round MP6 (part G): every community's members keep theirs (one folder for the save); none at all: never wipe
                 var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (Member m in ScRegistry.Members.Values) keep.Add(KeyFor(m) + ".png");
+                foreach (Member m in ScCommunities.AllMembers()) keep.Add(KeyFor(m) + ".png");
+                if (keep.Count == 0) return;                                                                    // never wipe on a bad load
                 foreach (string f in Directory.GetFiles(dir, "*.png"))
                     if (!keep.Contains(Path.GetFileName(f))) File.Delete(f);
             }
