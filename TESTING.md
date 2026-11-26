@@ -101,6 +101,55 @@ change.
   network) projects its own; the dialog rows still gate on `sc_member value="1"`, which a community 1 member (2) fails
   (part gates); a grudge or an enclave's hostility toward another player's community is not known to a client's talk prompt
   for players it cannot see.
+## Round MP6 (part: network) (2026-11-26): each client gets its own community's copy, markers and open boxes
+
+Why: with several communities on one server, each client must see its own community: its members, stockpile, outposts,
+requests and favours, the world with its own standing, and its own map markers. The server now builds the copy (the
+snapshot and the derived block), the markers and Craft from Storage's open boxes once per community, each in that
+community's scope, and sends each client its own community's. The client learns which community it is in. With one
+community every byte a client gets is as before (checked offline on 6 saves from before MP6 against the deployed port-3.4
+build), except the state package's new version byte and community id. Build `sc34_mp6n`, **not deployed**, untested in game.
+`NetPackageScState` is layout version 2; the merge sets the protocol to 8. Before the merge with the relations part,
+standing and the known flags are still one for the world, so community 1 sees community 0's standing and found enclaves.
+
+**Single player (nothing may change)**
+- [ ] Play a few minutes: the community window, the HUD, markers, requests and tells as before. No client is connected,
+      so nothing is built or sent.
+
+**A dedicated server, one community (nothing may change)**
+- [ ] One client: the log says `community snapshot from the server: N member(s) ...` as before (no `you are in community`
+      line). The community window, Facilities tab, Home Status HUD, member hp, morale parts and the radio window show the
+      server's state, and update after a change (a stockpile deposit, a member's order) within a second or two.
+- [ ] The map markers (enclaves, outposts, contacts, bands, infestations, a runner's call, the horde marker near home) come
+      and go as in round MP5. A box someone has open in the base is left out of Craft from Storage, as in round MP4.
+- [ ] A rescue quest reaches every client (a runner's distress call), and closes for everyone when one completes it.
+
+**Two communities (`sc community new` / `join`, telnet)**
+- [ ] `sc community new Riverside`, then `sc community join 1 <player>`. Within a second the client's log says
+      `community snapshot from the server: you are in community 1 (was 0)`. Its community window is community 1's (empty,
+      no home), and its buttons work: no "Your community changed since this was shown" answer.
+- [ ] The client in community 1 sees none of community 0's outposts, contacts or scouted sites on the map, and no
+      community 0 runner's call. The world's enclaves, infestations and bands it knows show (until the relations part:
+      the ones community 0 found).
+- [ ] The client in community 1 sets a home (claim radial) and deposits at its packing station: its window and HUD follow
+      within a second or two. A second client in community 0 sees none of it, and community 0's window is unchanged.
+- [ ] Craft from Storage: with community 0's base box open by a community 0 player, a community 1 client in its own base is
+      not told about it (its own base's open boxes only).
+- [ ] A community 1 runner's distress call: the rescue quest goes to community 1's clients only. Her radio lines (a
+      handheld radio) reach community 1's clients only.
+- [ ] `sc community leave <player>`: the client's log says `you are in community 0 (was 1)`, its window and markers are
+      community 0's again within a second or two.
+- [ ] Listen host in community 0 with a client in community 1: the client's outpost upgrade does not redraw the host's
+      map. A client of the host's own community still does (as in round MP4).
+- [ ] An enclave falls (its last person dies) or a known infestation is cleared: the tell and the ledger line go to each
+      community that knew it (with one community, as before: always).
+- [ ] With two communities a client's copy still has every enclave's building (the claim gate refuses a claim over one),
+      but an enclave its community has not found arrives as its footprint only (name, building, size; no standing, kind or
+      request clock).
+- Known gaps, for the other MP6 parts (not bugs of this part): a subsystem that draws the listen host's own marker directly
+  (a radio contact, a band met, an outpost attack, a runner's call, standing or hostility changes) still draws it whatever
+  the host's community (`ScMarkers.HostOwner()` is the helper for them). The per-community standing, known flags and
+  hostility the copy and markers carry come with the relations part.
 
 ## Round MP6 (part: core) (2026-11-26): one server can hold several communities
 

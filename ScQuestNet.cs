@@ -405,14 +405,40 @@ namespace SurvivorCommunity
             return ScNet.ToPlayer(p, () => make(), null);
         }
 
-        /// <summary>Server: the community's remote players online who speak SC's protocol (a copy: sending may re-enter).</summary>
-        private static EntityPlayer[] Remotes()
+        /// <summary>
+        /// Server: the community's remote players online who speak SC's protocol (a copy: sending may re-enter). Round MP6 (part N):
+        /// the given community's (ScPlayers.CurrentCommunity: the one in scope; a rescue's: its runner's).
+        /// </summary>
+        private static EntityPlayer[] Remotes(int community = ScPlayers.CurrentCommunity)
         {
-            List<EntityPlayer> mine = ScPlayers.Community();
+            List<EntityPlayer> mine = ScPlayers.Community(community);
             var to = new List<EntityPlayer>();
             for (int i = 0; i < mine.Count; i++)
                 if (mine[i] != null && !(mine[i] is EntityPlayerLocal) && ScNet.ClientMatches(mine[i])) to.Add(mine[i]);
             return to.ToArray();
+        }
+
+        /// <summary>
+        /// Round MP6 (part N), server: every remote player online who speaks SC's protocol, whatever their community - for an op
+        /// every copy must follow (an enclave person's favour re-keyed: each community courting them holds its own quest).
+        /// </summary>
+        private static EntityPlayer[] AllRemotes()
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            var to = new List<EntityPlayer>();
+            for (int i = 0; i < all.Count; i++)
+                if (all[i] != null && !(all[i] is EntityPlayerLocal) && ScNet.ClientMatches(all[i])) to.Add(all[i]);
+            return to.ToArray();
+        }
+
+        /// <summary>
+        /// Round MP6 (part N), server: the prospect with this id in the community in scope (a report's: its sender's), or null - a
+        /// favour quest is its own community's (each community courts a survivor on its own); with one community GetProspect.
+        /// </summary>
+        private static Prospect OwnProspect(int id)
+        {
+            Prospect p;
+            return ScRegistry.Prospects.TryGetValue(id, out p) ? p : null;
         }
 
         // ---- favours ----
@@ -426,13 +452,15 @@ namespace SurvivorCommunity
         /// <summary>
         /// Server: an enclave person's favour moved to a new key (ScEnclaveDeals.Rekey: the host's own journal is re-keyed there) -
         /// every remote copy follows. A player away now follows on their next report (their quest names the person).
+        /// Round MP6 (part N): every remote player's, whatever their community - the person's body is the world's, and each
+        /// community courting them holds its own quest under the old key (a client holding none ignores the op).
         /// </summary>
         public static void RekeyFavourRemote(int oldId, int newId)
         {
             try
             {
                 if (!ScCommunity.IsHost || oldId == newId) return;
-                foreach (EntityPlayer p in Remotes())
+                foreach (EntityPlayer p in AllRemotes())
                     Send(p, () => NetPackageManager.GetPackage<NetPackageScQuestOp>().Setup(NetPackageScQuestOp.KindFavourRekey, oldId, newId, false, null, null));
             }
             catch (Exception e)
@@ -484,6 +512,7 @@ namespace SurvivorCommunity
         /// <summary>
         /// Server (ScRadio.ForceDistress, after the host's own quest): the call is out - every remote community player online gets
         /// their own rescue quest. One who is not online (or not matched yet) gets it with their first report.
+        /// Round MP6 (part N): the runner's own community's players (her record's CommunityId), whoever's scope the call came from.
         /// </summary>
         public static void RescueStarted(Member m)
         {
@@ -495,7 +524,7 @@ namespace SurvivorCommunity
                 foreach (HashSet<int> sent in rescueSent.Values) sent.Remove(m.Id);
                 Vector3i a, s;
                 if (!IsOpenRescue(m) || !RescueBox(m, out a, out s)) return;
-                foreach (EntityPlayer p in Remotes())
+                foreach (EntityPlayer p in Remotes(m.CommunityId))
                     if (Send(p, () => RescueStartOp(m, a, s))) SetOf(rescueSent, Key(p)).Add(m.Id);
             }
             catch (Exception e)
@@ -509,6 +538,8 @@ namespace SurvivorCommunity
         /// removed as failed. The host's own journal here (ScQuests.CloseRescue, as before - the host's own player, whichever
         /// player the caller reasons from), every remote one by op; one away closes with their next report (the outcome kept).
         /// A second close of the same call (EndDistress after Rescued) closes the host's again (a no-op) and sends nothing.
+        /// Round MP6 (part N): the runner's own community's remote players (her record's CommunityId). The host's own journal is
+        /// closed whatever their community (a copy there is closed; none there, a no-op).
         /// </summary>
         public static void CloseRescueAll(Member m, bool completed)
         {
@@ -521,7 +552,7 @@ namespace SurvivorCommunity
                 rescueOutcome[m.Id] = completed;
                 foreach (HashSet<int> sent in rescueSent.Values) sent.Remove(m.Id);
                 int id = m.Id;
-                foreach (EntityPlayer p in Remotes())
+                foreach (EntityPlayer p in Remotes(m.CommunityId))
                     Send(p, () => NetPackageManager.GetPackage<NetPackageScQuestOp>().Setup(NetPackageScQuestOp.KindRescueClose, id, 0, completed, null, null));
             }
             catch (Exception e)
@@ -530,7 +561,10 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Server (ScQuests.RekeyRescue): a runner's new entity id - every remote copy follows, and the session's tables.</summary>
+        /// <summary>
+        /// Server (ScQuests.RekeyRescue): a runner's new entity id - every remote copy follows, and the session's tables. Round MP6
+        /// (part N): her community's players (the record under either id; else the community in scope).
+        /// </summary>
         public static void RekeyRescueRemote(int oldId, int newId)
         {
             try
@@ -541,7 +575,8 @@ namespace SurvivorCommunity
                 if (rescueOutcome.TryGetValue(oldId, out done)) { rescueOutcome.Remove(oldId); rescueOutcome[newId] = done; }
                 foreach (HashSet<int> sent in rescueSent.Values)
                     if (sent.Remove(oldId)) sent.Add(newId);
-                foreach (EntityPlayer p in Remotes())
+                Member who = ScRegistry.GetMember(newId) ?? ScRegistry.GetMember(oldId);     // round MP6 (part N)
+                foreach (EntityPlayer p in Remotes(who != null ? who.CommunityId : ScPlayers.CurrentCommunity))
                     Send(p, () => NetPackageManager.GetPackage<NetPackageScQuestOp>().Setup(NetPackageScQuestOp.KindRescueRekey, oldId, newId, false, null, null));
             }
             catch (Exception e)
@@ -760,7 +795,7 @@ namespace SurvivorCommunity
             foreach (ScJournalReport.Entry e in rep.Entries)
             {
                 if (e.Kind != ScJournalReport.KindPoiFavour || !e.Done) continue;
-                Prospect pr = ScRegistry.GetProspect(e.Id);
+                Prospect pr = OwnProspect(e.Id);         // round MP6 (part N): the sender's community's favour (the report's scope)
                 if (pr == null || pr.Favour != FavourKind.Poi || pr.Done || pr.Id == rep.Talking) continue;
                 ScFavours.MarkDone(ScCommunity.FindNpc(pr.Id), pr);
                 if (!pr.Done) continue;
@@ -782,9 +817,16 @@ namespace SurvivorCommunity
         private static bool FavoursHeld()
         {
             var held = new HashSet<int>();
-            foreach (ScJournalReport r in reports.Values)
-                foreach (ScJournalReport.Entry e in r.Entries)
+            // round MP6 (part N): the reports of the community in scope's players (the sender's), whose favours these prospects are -
+            // another community's quest for the same survivor is its own favour. With one community: every report, as before
+            bool several = ScCommunities.Count > 1;
+            int cid = ScRegistry.CurrentId;
+            foreach (KeyValuePair<string, ScJournalReport> kv in reports)
+            {
+                if (several && ScPlayers.CommunityOfId(kv.Key) != cid) continue;
+                foreach (ScJournalReport.Entry e in kv.Value.Entries)
                     if (e.Kind == ScJournalReport.KindPoiFavour && e.InProgress) held.Add(e.Id);
+            }
             bool changed = false;
             EntityPlayerLocal host = ScCommunity.LocalPlayer;
             foreach (Prospect pr in ScRegistry.Prospects.Values)
@@ -831,7 +873,7 @@ namespace SurvivorCommunity
                     }
                     continue;
                 }
-                if (ScRegistry.GetProspect(id) == null) CloseFavourFor(p, id, false);
+                if (OwnProspect(id) == null) CloseFavourFor(p, id, false);     // round MP6 (part N): gone from the sender's community
             }
         }
 
@@ -848,6 +890,9 @@ namespace SurvivorCommunity
                 if (e.Kind != ScJournalReport.KindRescue || !e.InProgress) continue;
                 int id = e.Id, cur = CurrentMemberId(e.Id);
                 Member m = ScRegistry.GetMember(cur);
+                // round MP6 (part N): a runner of another community than the sender's (they changed community) is not theirs to
+                // rescue - their copy closes as an ended call's
+                if (m != null && m.CommunityId != ScRegistry.CurrentId) m = null;
                 if (IsOpenRescue(m))
                 {
                     // review m1: a copy this player was not sent this session is an older call's (they were away while it ended and

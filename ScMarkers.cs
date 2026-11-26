@@ -26,6 +26,12 @@ namespace SurvivorCommunity
     ///   change (HostFollow): any player's outpost upgrade, repair, mode or staffing re-labels the host's marker too (MP3's
     ///   known gap; until now only the verbs that call ScOutposts.HostMarkersFollow did), and an enclave or infestation a
     ///   client's console revealed shows there.
+    /// - Round MP6 (part N), several communities: one published set per community. The clients are grouped by their community
+    ///   (ScPlayers.CommunityOf) and every CollectMarkers runs inside that community's scope (ScRegistry.Use), so each lists that
+    ///   community's outposts, contacts, scouted sites, runners' calls and attacks, and the enclaves, infestations and bands it
+    ///   knows (with its standing in the label and class). The package names the community; a client whose community changed
+    ///   gets its new community's whole set. The listen host's own map follows its own community's set only (HostFollow, in
+    ///   the host's community's scope; HostOwner for a subsystem's own AddMarker). With one community, exactly as before.
     /// Main thread only (the ticker, ProcessPackage).
     /// </summary>
     public static class ScMarkers
@@ -80,12 +86,30 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ the server ----
 
-        /// <summary>The set as last published (id -> entry).</summary>
-        private static readonly Dictionary<string, Entry> published = new Dictionary<string, Entry>();
+        /// <summary>
+        /// Round MP6 (part N): one community's published set - the markers as last published (id -> entry), whether it was built
+        /// since its first client came (a first Publish is no change for HostFollow), and the kinds that changed in its last
+        /// Publish. One per community with a client online.
+        /// </summary>
+        private sealed class MarkerSet
+        {
+            public readonly Dictionary<string, Entry> Published = new Dictionary<string, Entry>();
+            /// <summary>The kinds whose markers came, went or changed class or label in the last Publish (moves are not changes here).</summary>
+            public readonly HashSet<string> ChangedKinds = new HashSet<string>();
+            public bool Built;
+        }
+
+        /// <summary>Round MP6 (part N): each community's published set, by community id.</summary>
+        private static readonly Dictionary<int, MarkerSet> sets = new Dictionary<int, MarkerSet>();
         /// <summary>Per remote client (its connection, so a new connection under a reused entity id starts over): what it was sent.</summary>
         private static readonly Dictionary<ClientInfo, Dictionary<string, Entry>> sent = new Dictionary<ClientInfo, Dictionary<string, Entry>>();
+        /// <summary>Round MP6 (part N): the community each client's sent markers are of (another now: it gets its new community's whole set).</summary>
+        private static readonly Dictionary<ClientInfo, int> sentCommunity = new Dictionary<ClientInfo, int>();
         private static readonly List<Entry> fresh = new List<Entry>();
         private static readonly List<ClientInfo> targets = new List<ClientInfo>();
+        /// <summary>Round MP6 (part N): the tick's clients by community, lowest id first (reused).</summary>
+        private static readonly SortedDictionary<int, List<ClientInfo>> groups = new SortedDictionary<int, List<ClientInfo>>();
+        private static readonly List<int> goneSets = new List<int>();
         private static readonly HashSet<string> seen = new HashSet<string>();
         private static readonly List<string> gone = new List<string>();
         private static readonly List<ClientInfo> leftClients = new List<ClientInfo>();
@@ -93,11 +117,8 @@ namespace SurvivorCommunity
         private static readonly List<Entry> commitPut = new List<Entry>();
         private static readonly List<string> commitDrop = new List<string>();
         private static World serverWorld;
-        private static bool built;
         private static float nextHostFollow;
-        /// <summary>The kinds whose markers came, went or changed class or label in the last Publish (moves are not changes here).</summary>
-        private static readonly HashSet<string> changedKinds = new HashSet<string>();
-        /// <summary>The kinds the listen host's own map is to be drawn again for (HostFollow).</summary>
+        /// <summary>The kinds the listen host's own map is to be drawn again for (HostFollow): its own community's set's.</summary>
         private static readonly HashSet<string> followDue = new HashSet<string>();
         /// <summary>The listen host's own markers of a kind that Follows are drawn again at most this often (real seconds).</summary>
         private const float HostFollowSeconds = 3f;
@@ -106,6 +127,8 @@ namespace SurvivorCommunity
         /// Server, ScTicker (once a second, registry loaded): the set collected and published, and each matching remote
         /// client sent what changed for it (the whole set at its first tick). Nothing is built or sent with no such client:
         /// single player and a host alone do no work here.
+        /// Round MP6 (part N): per community - the clients grouped by their community, each community's set collected, published
+        /// and sent inside its scope. The listen host's map follows its own community's set. With one community, the old tick.
         /// </summary>
         public static void ServerTick()
         {
@@ -118,31 +141,34 @@ namespace SurvivorCommunity
                 if (targets.Count == 0 || w != serverWorld)
                 {
                     // a client joining later gets the whole set then
-                    published.Clear();
+                    sets.Clear();
                     sent.Clear();
-                    built = false;
+                    sentCommunity.Clear();
                     followDue.Clear();
                     serverWorld = w;
                     if (targets.Count == 0) return;
                 }
                 float now = Time.unscaledTime;
-                Collect(fresh);
-                bool first = !built;
-                built = true;
-                Publish(fresh, now);
-                fresh.Clear();
                 // clients gone since (a disconnect, a rejoin under a new connection)
                 leftClients.Clear();
                 foreach (ClientInfo ci in sent.Keys) if (!targets.Contains(ci)) leftClients.Add(ci);
-                for (int i = 0; i < leftClients.Count; i++) sent.Remove(leftClients[i]);
+                for (int i = 0; i < leftClients.Count; i++) { sent.Remove(leftClients[i]); sentCommunity.Remove(leftClients[i]); }
                 leftClients.Clear();
-                for (int i = 0; i < targets.Count; i++)
+                Group(targets);
+                int hostCid = HostCommunity();
+                foreach (KeyValuePair<int, List<ClientInfo>> g in groups)
                 {
-                    try { SendTo(targets[i]); }
-                    catch (Exception e) { ScLog.Once("markers-send", e); }      // one client's fault never stops the others
+                    try
+                    {
+                        using (ScRegistry.Use(g.Key)) TickCommunity(g.Key, g.Value, now, g.Key == hostCid);
+                    }
+                    catch (Exception e) { ScLog.Once("markers-tick-community", e); }     // one community's fault never stops the others'
                 }
-                if (!first) foreach (string k in changedKinds) if (Follows(k)) followDue.Add(k);
-                changedKinds.Clear();
+                // a community with no client online any more: its set goes (a client of it later gets the whole set then)
+                goneSets.Clear();
+                foreach (int cid in sets.Keys) if (!groups.ContainsKey(cid)) goneSets.Add(cid);
+                for (int i = 0; i < goneSets.Count; i++) sets.Remove(goneSets[i]);
+                goneSets.Clear();
                 if (followDue.Count > 0 && now >= nextHostFollow)
                 {
                     // at most every HostFollowSeconds: a scavenge outpost's yield follows the stock, which can move often
@@ -156,6 +182,65 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// Round MP6 (part N): one community's set, inside its scope (the caller's Use) - the old tick's body: collected,
+        /// published, and each of its clients sent what changed for it. host: the listen host's own player is in this community,
+        /// so the kinds that Follows that changed are drawn again on the host's map (HostFollow).
+        /// </summary>
+        private static void TickCommunity(int cid, List<ClientInfo> clients, float now, bool host)
+        {
+            MarkerSet set;
+            if (!sets.TryGetValue(cid, out set)) sets[cid] = set = new MarkerSet();
+            Collect(fresh, set);
+            bool first = !set.Built;
+            set.Built = true;
+            Publish(set, fresh, now);
+            fresh.Clear();
+            for (int i = 0; i < clients.Count; i++)
+            {
+                try { SendTo(clients[i], cid, set); }
+                catch (Exception e) { ScLog.Once("markers-send", e); }      // one client's fault never stops the others
+            }
+            if (!first && host) foreach (string k in set.ChangedKinds) if (Follows(k)) followDue.Add(k);
+            set.ChangedKinds.Clear();
+        }
+
+        /// <summary>Round MP6 (part N): the targets into groups by community (the server's membership map, from each client's platform id).</summary>
+        private static void Group(List<ClientInfo> list)
+        {
+            foreach (List<ClientInfo> l in groups.Values) l.Clear();
+            for (int i = 0; i < list.Count; i++)
+            {
+                int cid = ScPlayers.CommunityOf(list[i]);
+                List<ClientInfo> l;
+                if (!groups.TryGetValue(cid, out l)) groups[cid] = l = new List<ClientInfo>();
+                l.Add(list[i]);
+            }
+            goneSets.Clear();
+            foreach (KeyValuePair<int, List<ClientInfo>> g in groups) if (g.Value.Count == 0) goneSets.Add(g.Key);
+            for (int i = 0; i < goneSets.Count; i++) groups.Remove(goneSets[i]);
+            goneSets.Clear();
+        }
+
+        /// <summary>Round MP6 (part N): the listen host's own player's community, or -1 (a dedicated server, or no player yet).</summary>
+        private static int HostCommunity()
+        {
+            EntityPlayerLocal host = ScCommunity.LocalPlayer;
+            int c;
+            return host != null && ScPlayers.TryCommunityOf(host, out c) ? c : -1;
+        }
+
+        /// <summary>
+        /// Round MP6 (part N), server: the owner for a subsystem's own map marker (AddMarker) - the host's own player when they
+        /// belong to the community in scope, else null (a dedicated server; a listen host whose player is in another community -
+        /// their map shows their own community's markers only). With one community: ScCommunity.LocalPlayer, as before.
+        /// </summary>
+        public static EntityPlayerLocal HostOwner()
+        {
+            EntityPlayerLocal host = ScCommunity.LocalPlayer;
+            return host != null && ScPlayers.InCommunity(host) ? host : null;
+        }
+
         /// <summary>The remote clients that said hello with SC's protocol (never the host's own player: it has no ClientInfo).</summary>
         private static void Targets(List<ClientInfo> into)
         {
@@ -166,22 +251,26 @@ namespace SurvivorCommunity
                 if (ci != null && ci.entityId != -1 && ScNet.ClientMatches(ci.entityId)) into.Add(ci);
         }
 
-        /// <summary>Every subsystem's markers, each in its own try: one that throws keeps its kind's last published markers (no flicker).</summary>
-        private static void Collect(List<Entry> into)
+        /// <summary>
+        /// Every subsystem's markers, each in its own try: one that throws keeps its kind's last published markers (no flicker).
+        /// Round MP6 (part N): in the scope of the set's community (the caller's Use) - each collector reads that community's
+        /// records, and the world's enclaves, infestations and bands as it knows them.
+        /// </summary>
+        private static void Collect(List<Entry> into, MarkerSet set)
         {
             into.Clear();
-            Each(into, KindEnclave, ScEnclaves.CollectMarkers);
-            Each(into, KindContact, ScRadio.CollectMarkers);
-            Each(into, KindInfestation, ScInfestations.CollectMarkers);
-            Each(into, KindBand, ScBands.CollectMarkers);
-            Each(into, KindOutpost, ScOutposts.CollectMarkers);
-            Each(into, KindOutpostAttack, ScOutpostRisk.CollectMarkers);
-            Each(into, KindScout, ScScouting.CollectMarkers);
-            Each(into, KindRunnerCall, ScRunnerCall.CollectMarkers);
-            Each(into, KindWatch, ScWatch.CollectMarkers);
+            Each(into, set, KindEnclave, ScEnclaves.CollectMarkers);
+            Each(into, set, KindContact, ScRadio.CollectMarkers);
+            Each(into, set, KindInfestation, ScInfestations.CollectMarkers);
+            Each(into, set, KindBand, ScBands.CollectMarkers);
+            Each(into, set, KindOutpost, ScOutposts.CollectMarkers);
+            Each(into, set, KindOutpostAttack, ScOutpostRisk.CollectMarkers);
+            Each(into, set, KindScout, ScScouting.CollectMarkers);
+            Each(into, set, KindRunnerCall, ScRunnerCall.CollectMarkers);
+            Each(into, set, KindWatch, ScWatch.CollectMarkers);
         }
 
-        private static void Each(List<Entry> into, string kind, Action<List<Entry>> collect)
+        private static void Each(List<Entry> into, MarkerSet set, string kind, Action<List<Entry>> collect)
         {
             int start = into.Count;
             try
@@ -191,7 +280,7 @@ namespace SurvivorCommunity
             catch (Exception e)
             {
                 into.RemoveRange(start, into.Count - start);
-                foreach (Entry old in published.Values) if (old.Kind == kind) into.Add(old);
+                foreach (Entry old in set.Published.Values) if (old.Kind == kind) into.Add(old);
                 ScLog.Once("markers-collect-" + kind, e);
             }
         }
@@ -200,9 +289,12 @@ namespace SurvivorCommunity
         /// The collected list into the published set: a new marker, or a new class or label, at once; a move once it is at least
         /// MoveMin from the published spot and MoveEvery seconds after it was published; a marker no longer listed goes. The
         /// kinds that saw anything but a move go into changedKinds (the listen host's map follows some).
+        /// Round MP6 (part N): into the given community's set (its Published and ChangedKinds).
         /// </summary>
-        private static void Publish(List<Entry> list, float now)
+        private static void Publish(MarkerSet set, List<Entry> list, float now)
         {
+            Dictionary<string, Entry> published = set.Published;
+            HashSet<string> changedKinds = set.ChangedKinds;
             changedKinds.Clear();
             seen.Clear();
             for (int i = 0; i < list.Count; i++)
@@ -239,14 +331,20 @@ namespace SurvivorCommunity
         /// One client: the published markers it may see that it was not sent as they are now (put, or move when only the
         /// position changed), and the ones it was sent that it may no longer see (drop). The whole set the first time. Its
         /// record changes only once the package went out.
+        /// Round MP6 (part N): the set of the client's community (cid; the caller's scope is that community's, so the home zone of
+        /// a NearBase marker is its own). A client last sent another community's markers gets this one's whole set: the full
+        /// package makes it forget the others.
         /// </summary>
-        private static void SendTo(ClientInfo ci)
+        private static void SendTo(ClientInfo ci, int cid, MarkerSet set)
         {
             EntityPlayer viewer = ScPlayers.ByEntity(ci.entityId);
             if (viewer == null) return;                   // not spawned yet: the whole set once it is
+            Dictionary<string, Entry> published = set.Published;
             Dictionary<string, Entry> had;
+            int hadCid;
+            if (sentCommunity.TryGetValue(ci, out hadCid) && hadCid != cid) sent.Remove(ci);    // round MP6 (part N): a community change
             bool full = !sent.TryGetValue(ci, out had);
-            bool member = ScPlayers.InCommunity(viewer);
+            bool member = ScPlayers.InCommunity(viewer, cid);
             int nearState = -1;                           // -1 not worked out yet, 0 away, 1 near the home zone
             ops.Clear();
             commitPut.Clear();
@@ -275,9 +373,11 @@ namespace SurvivorCommunity
                 }
             }
             if (!full && ops.Count == 0) return;
-            NetPackageScMarkers pkg = NetPackageManager.GetPackage<NetPackageScMarkers>().Setup(ScPlayers.SharedCommunity, full, ops);
+            // round MP6 (part N): the community the set is of - the server's truth (the client keeps one community's set)
+            NetPackageScMarkers pkg = NetPackageManager.GetPackage<NetPackageScMarkers>().Setup(cid, full, ops);
             ops.Clear();
             if (!ScNet.ToPlayer(viewer, () => pkg, null)) return;    // gone between the list and now: nothing recorded
+            sentCommunity[ci] = cid;
             if (had == null) { had = new Dictionary<string, Entry>(); sent[ci] = had; }
             for (int i = 0; i < commitDrop.Count; i++) had.Remove(commitDrop[i]);
             for (int i = 0; i < commitPut.Count; i++) had[commitPut[i].Id] = commitPut[i];
@@ -308,6 +408,8 @@ namespace SurvivorCommunity
         /// anyone's upgrade, repair, mode or staffing; one established or gone; an enclave or infestation a client revealed) -
         /// the listen host's own map is drawn again from the records, as the host's own verbs do (RefreshMarkers). Only while
         /// remote clients are on (ServerTick builds nothing otherwise): single player and a host alone are untouched.
+        /// Round MP6 (part N): the host's own community's set only (ServerTick), drawn in its scope - its outposts, and the
+        /// enclaves and infestations as it knows them.
         /// </summary>
         private static void HostFollow()
         {
@@ -315,9 +417,12 @@ namespace SurvivorCommunity
             {
                 EntityPlayerLocal host = ScCommunity.LocalPlayer;
                 if (host == null) { followDue.Clear(); return; }      // a dedicated server has no map of its own
-                if (followDue.Contains(KindOutpost)) ScOutposts.RefreshMarkers(host);
-                if (followDue.Contains(KindEnclave)) ScEnclaves.RefreshMarkers(host);
-                if (followDue.Contains(KindInfestation)) ScInfestations.RefreshMarkers(host);
+                using (ScRegistry.Use(host))                            // round MP6 (part N): the host's community
+                {
+                    if (followDue.Contains(KindOutpost)) ScOutposts.RefreshMarkers(host);
+                    if (followDue.Contains(KindEnclave)) ScEnclaves.RefreshMarkers(host);
+                    if (followDue.Contains(KindInfestation)) ScInfestations.RefreshMarkers(host);
+                }
             }
             catch (Exception e)
             {
@@ -339,6 +444,8 @@ namespace SurvivorCommunity
 
         /// <summary>Client: the server's set as received (id -> entry).</summary>
         private static readonly Dictionary<string, Entry> wanted = new Dictionary<string, Entry>();
+        /// <summary>Round MP6 (part N), client: the community the set held is of (the last whole set's); -1 before the first.</summary>
+        private static int wantedCommunity = -1;
         /// <summary>Client: the markers registered for it (id -> map object).</summary>
         private static readonly Dictionary<string, Shown> shown = new Dictionary<string, Shown>();
         private static readonly List<string> drops = new List<string>();
@@ -353,6 +460,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// Client (NetPackageScMarkers.ProcessPackage, main thread): the server's set (full) or its changes, then this machine's
         /// map objects squared with it. Never on a server or in single player.
+        /// Round MP6 (part N): community is the server's word - a whole set is of this client's community and replaces any other;
+        /// changes to another community's set than the one held (sent before a community change) are dropped.
         /// </summary>
         internal static void Receive(int community, bool full, Op[] list)
         {
@@ -360,9 +469,9 @@ namespace SurvivorCommunity
             {
                 if (!ScNet.IsClient) return;          // a server draws its own (its subsystems' AddMarker): a package never lands there
                 if (ScCommunity.World == null) return;     // a late package after the world closed
-                if (community != ScPlayers.SharedCommunity) return;   // Stage 1 has one community
                 ClientWorld();
-                if (full) wanted.Clear();
+                if (!full && community != wantedCommunity) return;    // round MP6 (part N): changes to a set this client no longer holds
+                if (full) { wanted.Clear(); wantedCommunity = community; }
                 int puts = 0, moves = 0, dropped = 0;
                 if (list != null)
                 {
@@ -431,6 +540,7 @@ namespace SurvivorCommunity
             clientWorld = w;
             if (NavObjectManager.HasInstance) foreach (Shown s in shown.Values) Unshow(NavObjectManager.Instance, s);
             wanted.Clear();
+            wantedCommunity = -1;                 // round MP6 (part N)
             shown.Clear();
             clientDirty = false;
             clientTold = false;

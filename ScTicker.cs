@@ -98,19 +98,16 @@ namespace SurvivorCommunity
                 Patches_Npc.Patch_SetDead.ReleaseAll(false);
                 World w = ScCommunity.World;
                 if (w == null || !ScRegistry.Loaded) return;
-                // round MP6 (core): the three per-viewer pushes stay community 0's, as before MP6 (the snapshot is community 0's
-                // text: BuildText(true)). MP6 (part network): per community - each client gets its own community's
-                using (ScRegistry.Use(ScPlayers.SharedCommunity))
-                {
-                    // round MP1: the clients' copy of the registry - the last second's changes, at most once a second (its own try;
-                    // nothing is built with no remote client, so single player is untouched)
-                    ScMirror.ServerTick();
-                    // round MP4 (part K): the community's map markers to remote clients (its own try; nothing is built with none)
-                    ScMarkers.ServerTick();
-                    // round MP4 (review cfs1 M1): the base's open boxes to remote clients, so their Craft from Storage leaves them out (its
-                    // own try; nothing is built with none)
-                    ScCraftFromBase.ServerTick();
-                }
+                // round MP6 (part N): the three per-viewer pushes are per community - each groups its clients by community and builds
+                // each community's copy, markers and open boxes inside that community's scope (with one community, as before MP6)
+                // round MP1: the clients' copy of the registry - the last second's changes, at most once a second (its own try;
+                // nothing is built with no remote client, so single player is untouched)
+                ScMirror.ServerTick();
+                // round MP4 (part K): the community's map markers to remote clients (its own try; nothing is built with none)
+                ScMarkers.ServerTick();
+                // round MP4 (review cfs1 M1): the base's open boxes to remote clients, so their Craft from Storage leaves them out (its
+                // own try; nothing is built with none)
+                ScCraftFromBase.ServerTick();
                 // round MP0: no longer the local player - a dedicated server has none. With nobody online there is nothing
                 // to tick (a dedicated server's world time stands still with no players). Round MP6 (core): each community with a
                 // player online ticks, inside its own scope, with its own anchor; the world steps run in the first one's pass

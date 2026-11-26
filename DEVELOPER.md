@@ -3230,6 +3230,38 @@ Round MP0 is the groundwork:
     `CanRecruit`), and a hit closes only the hitter's community's favor (`ScTrust.CloseFavourForCommunity`).
   - **For modders:** read or write a relation inside the scope of the community it is about. A new relation field goes in
     `EncRel`/`InfRel`/`BandRel` with a property on the record, and in the `rel=` line (`ScRelations`).
+- **Round MP6 (part: network), what each client receives:** each client gets its own community's state. With one community
+  every byte is as before, apart from the state package's version byte and community id.
+  - **The copy** (`ScMirror`): the push groups its clients by `ScPlayers.CommunityOf(ClientInfo)` (the server's map, never a
+    number the client sent). For each community it builds the snapshot (`ScRegistry.BuildText(true, cid)`, i.e.
+    `BuildClientText`) and the derived block (`BuildDerived(cid, ...)`) inside that community's scope. Each community keeps
+    its own last text and last block for the "nothing changed, send nothing" comparison. A client whose community changed
+    gets its new community's whole snapshot at the next tick. `NetPackageScState` is layout version 2: a version byte, the
+    flags, then the community id. The client sets `ScRegistry.MirroredCommunity` from it before `ApplyMirror` parses the copy
+    into that community, inside its scope, and drops a derived block of another community.
+  - **World records in a copy** carry that community's relation values: the snapshot is built inside `Use(cid)`, so
+    `WriteEnclave`, `WriteInfestation` and `WriteBand` read `standing=`, `known=`, `turned=`, the dated stamps and `trust=`
+    through the records as that community sees them (the fields today, its rows once relations are per community). With two
+    or more communities, an enclave the community has not found goes as its footprint only (`WriteEnclaveFootprint`: id,
+    name, building, size, prefab, `known=0`): what the client's claim gate and its refusal tips read. With one community the
+    text is `BuildLegacyText`'s, byte for byte.
+  - **The derived block** is built in the community's scope, so `beds`, `extrabeds`, `allied`, `nests` and `defhorde`
+    (`ScPlayers.Anchor(cid)`) are its own. With two or more communities it also lists the players online outside community
+    0 (`pcom=entityid:cid,...`). A client's `ScPlayers.CommunityOf(otherPlayer)` reads that list (`ScMirror.PlayerCommunity`).
+  - **Markers** (`ScMarkers`): one published set per community. Every `CollectMarkers` runs in that community's scope
+    (`ScRunnerCall` skips another community's runners). `NetPackageScMarkers`' community is the recipient's own. A client
+    keeps one community's set: a whole set replaces it, and changes to another community's set are dropped. The listen
+    host's own map follows only its own community's set (`HostFollow` runs in the host's scope). A subsystem's own
+    `AddMarker` for the host should take `ScMarkers.HostOwner()`: the host's player when they are in the community in
+    scope, else null.
+  - **Recipients:** Craft from Storage's open boxes are per community home (`ScCraftFromBase.ServerTick`). A rescue quest goes
+    to its runner's community (`ScQuestNet.Remotes(m.CommunityId)`). A re-keyed enclave person's favour goes to every remote
+    player, since each community courting them holds its own quest. A journal report is answered against the sender's own
+    community's prospects and runners. `ScVoice.SendCommunity(cid, line)` sends a runner's radio line to her own community.
+    `ScWorldNews.Each` runs a world event's tells and ledger line once per community in its scope (`Concerns(related)`:
+    always with one community). An enclave falling and an infestation cleared use it.
+  - The ticker no longer runs the three per-viewer pushes in community 0's scope (the core's note above): each push scopes
+    what it reads per community.
 
 ## How it hangs together (for modders)
 
