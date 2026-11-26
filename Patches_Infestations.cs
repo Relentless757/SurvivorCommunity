@@ -158,7 +158,9 @@ namespace SurvivorCommunity
                 if (__instance == null || !__instance.wasCleared) return;
                 try
                 {
-                    ScInfestations.OnRoomCleared(__instance, _world);
+                    // round MP6 (part G): a volume names no community - the scope of the player nearest the room (who cleared it)
+                    using (ScGates.ScopeOfPlayer(ScCommunities.Count > 1 ? ScPlayers.Nearest(__instance.Center) : null))
+                        ScInfestations.OnRoomCleared(__instance, _world);
                 }
                 catch (Exception e)
                 {

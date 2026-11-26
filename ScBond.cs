@@ -236,7 +236,7 @@ namespace SurvivorCommunity
                 World w = ScCommunity.World;
                 if (victim == null || w == null || Patches_VoiceControl.IsCommunityNpc(victim)) return;
                 EntityAlive after = victim.GetAttackTarget();
-                foreach (Member m in ScRegistry.Members.Values)
+                foreach (Member m in ScCommunities.AllMembers())      // round MP6 (part G): anyone's member she was on (a world loop)
                 {
                     bool standIn;
                     EntityAlive body = ScAmmo.BodyOf(w, m, out standIn);

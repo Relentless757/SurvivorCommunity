@@ -335,10 +335,7 @@ namespace SurvivorCommunity
         private static HashSet<Vector3i> Taken()
         {
             var t = new HashSet<Vector3i>();
-            foreach (Contact ct in ScRegistry.Contacts) t.Add(ct.PoiKey);
-            foreach (Prospect p in ScRegistry.Prospects.Values) if (p.Favour == FavourKind.Poi && !p.Done) t.Add(p.PoiPos);
-            foreach (Member m in ScRegistry.Members.Values) if (ScRunners.IsPhysical(m)) t.Add(m.RunDest);
-            foreach (Scout s in ScRegistry.Community.Scouts) t.Add(s.Poi);
+            ScGates.AddTakenPois(t);            // round MP6 (part G): every community's contacts, POI favours, runners and scouting marks
             ScEncRequests.AddTargets(t);
             EntityPlayerLocal qp = ScCommunity.LocalPlayer;
             if (qp != null && qp.QuestJournal != null && qp.QuestJournal.quests != null)

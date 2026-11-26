@@ -476,7 +476,8 @@ namespace SurvivorCommunity
                     st.Stars++;
                     if (npc != null && !npc.IsDead()) ScSkills.StampCvars(m, npc);     // the new levels at once
                     // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
-                    ScCommunity.TellKey(ScCommunity.LocalPlayer, "scCraftStar", "", m.Name, ScCommunity.LocArg(ScNames.LocKey(m.Specialty)), m.SpecLevel);
+                    // round MP6 (part G): the host's own only when of her community (ScGates.LocalPlayerOf), else her community's anchor
+                    ScCommunity.TellKey(ScGates.LocalPlayerOf(m.CommunityId), "scCraftStar", "", m.Name, ScCommunity.LocArg(ScNames.LocKey(m.Specialty)), m.SpecLevel);
                 }
                 xpDirty = true;
                 FlushXp(gained);                  // a star at once, else at most every FlushSeconds (a 30-item queue was 15 writes)

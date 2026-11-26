@@ -320,7 +320,7 @@ namespace SurvivorCommunity
 #endif
                 // round MP2: out of her own leader's party (a client's follower sent home), else the host's own player as before.
                 // Round MP2 (review members MINOR 4): the caller's player first (Admit: the joiner)
-                EntityPlayer player = detachFrom ?? ScPlayers.ById(m.LeaderId) ?? LocalPlayer;
+                EntityPlayer player = detachFrom ?? ScPlayers.ById(m.LeaderId) ?? ScGates.LocalPlayerOf(m.CommunityId);     // round MP6 (part G): her community's
                 World w = World;
 
                 Detach(npc, player);
@@ -1328,12 +1328,12 @@ namespace SurvivorCommunity
 #if SC_V34
                 ScWork.EndFor(m, "leaving");          // C1: off the work shift first
 #endif
-                if (m.Status == MemberStatus.OnRun && m.RunDistress) ScRadio.EndDistress(World, LocalPlayer, m);   // no orphaned rescue quest
+                if (m.Status == MemberStatus.OnRun && m.RunDistress) ScRadio.EndDistress(World, ScGates.LocalPlayerOf(m.CommunityId), m);   // no orphaned rescue quest (round MP6 (part G): her community's)
                 // round op1: the body looked up before the snapshot goes - a posting traveler's snapshot is what says they have none
                 EntityAlive npc = FindNpc(m.Id);
                 m.Snap = null;
                 // round MP0 (the review, S3): the hire mark comes off the member's own leader (else the host's own player, as before)
-                EntityPlayer player = ScPlayers.ById(m.LeaderId) ?? LocalPlayer;
+                EntityPlayer player = ScPlayers.ById(m.LeaderId) ?? ScGates.LocalPlayerOf(m.CommunityId);     // round MP6 (part G): her community's
                 if (npc != null)
                 {
                     ScProfile.Store(m, npc);          // the snapshot shows who they are now (and a re-join brings it)

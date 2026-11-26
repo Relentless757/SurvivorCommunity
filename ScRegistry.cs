@@ -578,10 +578,9 @@ namespace SurvivorCommunity
                 foreach (CommunityState cs in ScCommunities.All)
                     foreach (var m in cs.Members.Values) m.MissingDays = Math.Max(m.MissingDays, 0);
                 WarnPreMigration();
-                // round MP6 (core): community 0's scope, as before MP6 (no diagnostic).
-                // MP6 (part gates): both read the community in scope only - ScRunners.OnRegistryLoaded resumes community 0's runners,
-                // and ScOutposts.OnRegistryChanged indexes community 0's outposts, where the claim and seeding patches need the union
-                // of every community's (ScCommunities.AllOutposts)
+                // round MP6 (core): community 0's scope, as before MP6 (no diagnostic). Round MP6 (part G): both take every
+                // community's records now (ScRunners.OnRegistryLoaded every runner, ScOutposts.OnRegistryChanged the id check and the
+                // footprint index of every outpost)
                 using (Use(ScPlayers.SharedCommunity))
                 {
                     ScRunners.OnRegistryLoaded();          // a runner left in the world by a crash resumes from its snapshot

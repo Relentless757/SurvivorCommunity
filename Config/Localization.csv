@@ -2174,3 +2174,8 @@ scRadioGone,UI,Tooltip,,,,That radio station is gone.
 # round MP6 (part relations) - grudges between communities
 scRelGrudgeHitter,UI,Tooltip,,,,{0}'s people won't forget that - they're hostile to you now.
 scRelGrudgeHit,UI,Tooltip,,,,{0} attacked {1} - our people will fight them on sight.
+# round MP6 (part G) - another community's members and stations
+scGateNotYourMember,UI,Tooltip,,,,They belong to another community: you can talk with them but they don't take your orders.
+scGateNotYourStation,UI,Tooltip,,,,That station belongs to another community.
+scOpOtherCommunity,UI,Tooltip,,,,{0} is another community's ground: no outpost here.
+scHomeOtherCommunity,UI,Tooltip,,,,This claim reaches another community's home or outposts: it can't be your home.

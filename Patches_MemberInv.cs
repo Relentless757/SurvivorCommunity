@@ -79,9 +79,13 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!ScConfig.MemberInventoryPanel || __0 == null || __1 == null) return true;
+                    if (__0 == null || __1 == null) return true;
                     World w = ScCommunity.World;
                     EntityAlive npc = w != null ? w.GetEntity(__1.EntityId) as EntityAlive : null;
+                    // round MP6 (part G): another community's member - neither SC's panel nor SCore's screen (talk only: decision 4),
+                    // the panel switched off or not
+                    if (XUiC_ScMemberInvGroup.IsForeign(npc)) { XUiC_ScMemberInvGroup.RefuseForeign(__0, __1, npc); return false; }
+                    if (!ScConfig.MemberInventoryPanel) return true;
                     if (!XUiC_ScMemberInvGroup.IsMember(npc)) return true;
                     if (XUiC_ScMemberInvGroup.Open(__0, __1, npc)) return false;
                 }

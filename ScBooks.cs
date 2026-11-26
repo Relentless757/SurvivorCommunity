@@ -211,7 +211,7 @@ namespace SurvivorCommunity
             ScLog.Out(m.Name + " read " + r.Magazines + " crafting magazine(s) as training (" + (r.All ? "read all" : "one book") + "): +" + r.Xp + " "
                       + m.Specialty + " XP, now " + m.SpecXp + " (" + m.SpecLevel + " stars" + (r.Stars > 0 ? ", " + r.Stars + " gained" : "") + ")");
             EntityPlayer to = EntityUtilities.GetLeaderOrOwner(r.Npc.entityId) as EntityPlayer;
-            if (to == null) to = ScCommunity.LocalPlayer;
+            if (to == null) to = ScGates.LocalPlayerOf(m.CommunityId);     // round MP6 (part G): the host's own only when of her community
             // round MP4: by key (each player reads it in their own language; the specialty is a key too)
             if (r.Stars > 0) ScCommunity.TellKey(to, "scBookStar", "", m.Name, ScCommunity.LocArg(ScNames.LocKey(m.Specialty)), m.SpecLevel);
             else ScCommunity.TellKey(to, "scBookTrained", "", m.Name, r.Magazines, r.Xp, ScCommunity.LocArg(ScNames.LocKey(m.Specialty)), m.SpecXp,

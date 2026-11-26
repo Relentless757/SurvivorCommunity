@@ -190,6 +190,7 @@ namespace SurvivorCommunity
             if (!(bv.Block is BlockScRadio)) return "scRadioGone";
             Vector3 c = new Vector3(pos.x + 0.5f, pos.y + 0.5f, pos.z + 0.5f);
             if (Vector3.Distance(sender.position, c) > StationReach) return "scRadioTooFar";
+            if (ScGates.OutsiderAt(pos, sender)) return "scGateNotYourStation";     // round MP6 (part G): another community's station (decision 3)
             return null;
         }
 
@@ -258,7 +259,7 @@ namespace SurvivorCommunity
             reply.SetHint("sa", ScEncSiege.Acknowledged(siege) ? 1 : 0);
             int runId = args.Int(9, -1);
             reply.SetHint("ri", runId);
-            ok = ScRadioTalk.CanRecall(ScRegistry.GetMember(runId), out why);
+            ok = ScRadioTalk.CanRecall(ScGates.OwnMember(runId), out why);      // round MP6 (part G): the sender's community's runner only
             Put(reply, "rr", ok, "rw", why);
         }
 
@@ -411,7 +412,7 @@ namespace SurvivorCommunity
         private static void Recall(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
         {
             if (!Radio(sender, args, false, reply)) return;
-            Member m = ScRegistry.GetMember(args.Int(4, -1));
+            Member m = ScGates.OwnMember(args.Int(4, -1));          // round MP6 (part G): the sender's community's only
             string why;
             if (!ScRadioTalk.CanRecall(m, out why)) { reply.Fail(why ?? ""); return; }
             string err;

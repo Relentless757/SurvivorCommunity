@@ -1888,7 +1888,7 @@ namespace SurvivorCommunity
                 try
                 {
                     if (__instance == null || !ScXnpc.IsBody(__instance)) return;
-                    Tick(__instance);
+                    using (ScGates.ScopeOf(__instance)) Tick(__instance);     // round MP6 (part G): a member's restock is her community's
                 }
                 catch (Exception ex)
                 {

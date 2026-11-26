@@ -94,6 +94,8 @@ namespace SurvivorCommunity
                 try
                 {
                     if (owner == null || owner.LPBlocks == null || owner.LPBlocks.Count == 0 || !ScRegistry.Loaded) return true;
+                    using (ScGates.ScopeOfUser(owner.PrimaryId))     // round MP6 (part G): the placing player's community's home
+                    {
                     int limit = GameStats.GetInt(EnumGameStats.LandClaimCount);
                     if (owner.LPBlocks.Count <= limit) return true;
                     // PlaceLandProtectionBlock appended the new claim just before calling this (its only caller)
@@ -128,6 +130,7 @@ namespace SurvivorCommunity
                     if (home) owner.LPBlocks.Add(ScZone.Home);
                     ScLog.Out("claim limit (" + limit + "): the home and " + outposts.Count + " outpost claim(s) kept; the " + dropped + " oldest other claim(s) go");
                     return true;
+                    }
                 }
                 catch (Exception e)
                 {
@@ -170,6 +173,8 @@ namespace SurvivorCommunity
                         return;
                     }
                     if (lpRelative == null || lpRelative.LPBlocks == null) return;
+                    using (ScGates.ScopeOfUser(lpRelative.PrimaryId))     // round MP6 (part G): the placing player's community's home
+                    {
                     int limit = GameStats.GetInt(EnumGameStats.LandClaimCount);
                     int needed = lpRelative.LPBlocks.Count + 1 - limit;     // claims the new one would push out
                     if (needed <= 0) return;
@@ -182,6 +187,7 @@ namespace SurvivorCommunity
                         nextRefusalTip = Time.unscaledTime + 1f;
                         ScCommunity.TellKey(placingPlayer, "scOpClaimLimit", "ui_denied", limit, ScOutposts.HeldCount());
                         placingFrame = -1;
+                    }
                     }
                 }
                 catch (Exception e)

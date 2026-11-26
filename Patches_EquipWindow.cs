@@ -181,6 +181,14 @@ namespace SurvivorCommunity
                 try
                 {
                     if (bypass || __0 == null || __1 == null) return true;
+                    // round MP6 (part G): another community's member is talk-only (the user's decision 4): neither SC's panel nor Voice
+                    // Control's equipment window (whose items could leave her). Never with one community
+                    if (XUiC_ScMemberInvGroup.IsForeign(__1))
+                    {
+                        Patches_Xnpc.Count("equip-window-refused-foreign");
+                        ScCommunity.TellKey(__0, "scGateNotYourMember", "ui_denied", ScCommunity.DisplayName(__1));
+                        return false;
+                    }
                     if (Away(__1))
                     {
                         Patches_Xnpc.Count("equip-window-refused-away");

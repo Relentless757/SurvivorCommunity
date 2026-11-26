@@ -2200,7 +2200,7 @@ namespace SurvivorCommunity
                     // the same respondent lookup the action itself makes
                     LocalPlayerUI ui = LocalPlayerUI.GetUIForPrimaryPlayer();
                     EntityAlive npc = ui != null && ui.xui != null && ui.xui.Dialog != null ? ui.xui.Dialog.Respondent as EntityAlive : null;
-                    OnSwap(npc, __instance.ID, player, "dialog");
+                    using (ScGates.ScopeOf(npc)) OnSwap(npc, __instance.ID, player, "dialog");     // round MP6 (part G): her community's
                 }
                 catch (Exception e)
                 {
@@ -2234,7 +2234,8 @@ namespace SurvivorCommunity
                 try
                 {
                     if (__0 == null || !ScCommunity.IsHost) return;
-                    OnSwap(__0, __1, EntityUtilities.GetLeaderOrOwner(__0.entityId) as EntityPlayer, "voice");
+                    using (ScGates.ScopeOf(__0))      // round MP6 (part G): her community's (Voice Control's command runs on the server unscoped)
+                        OnSwap(__0, __1, EntityUtilities.GetLeaderOrOwner(__0.entityId) as EntityPlayer, "voice");
                 }
                 catch (Exception e)
                 {

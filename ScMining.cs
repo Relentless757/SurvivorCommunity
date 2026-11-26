@@ -478,7 +478,7 @@ namespace SurvivorCommunity
                 Vector3i wmin, wmax;
                 bool bounded = w.GetWorldExtent(out wmin, out wmax);
                 var taken = new List<Vector3>();
-                foreach (Member om in ScRegistry.Members.Values)
+                foreach (Member om in ScCommunities.AllMembers())      // round MP6 (part G): anyone's runner's spot is taken
                     if (ScRunners.IsPhysical(om)) { taken.Add(ScRunners.C(om.RunDest)); if (om.RunSite != Vector3i.zero) taken.Add(ScRunners.C(om.RunSite)); }
                 var ok = new List<Spot>();
                 int rejected = 0;

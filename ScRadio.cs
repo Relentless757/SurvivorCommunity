@@ -286,7 +286,8 @@ namespace SurvivorCommunity
                 string cls = NewContactClass(player, rnd);
                 if (cls == null) { ScCommunity.TellKey(player, "scRadioNobody", "ui_denied"); return false; }
                 var taken = new HashSet<Vector3i>();
-                foreach (var ct in ScRegistry.Contacts) taken.Add(ct.PoiKey);
+                foreach (CommunityState cs in ScCommunities.All)      // round MP6 (part G): anyone's contact's building
+                    foreach (var ct in cs.Contacts) taken.Add(ct.PoiKey);
                 PrefabInstance pi = PickPoi(ScConfig.RadioContactMinDist, ScConfig.RadioContactMaxDist, taken, rnd);
                 if (pi == null) { ScCommunity.TellKey(player, "scRadioNoPoi", "ui_denied"); return false; }
                 Community c = ScRegistry.Community;
@@ -521,7 +522,8 @@ namespace SurvivorCommunity
                 npc.Buffs.SetCustomVar("Persist", 1f);
                 Prospect p = ScFavours.Ensure(npc, player);       // favour, guard order, sc_favour cvar, position record
                 // round MP0: told to the player whose coming loaded the spot (the nearest), the anchor when none is alive
-                ScCommunity.TellKey(ScPlayers.Nearest(pos) ?? player, "scRadioFound", "", ScCommunity.DisplayName(npc), ct.PoiName);
+                // round MP6 (part G): the nearest of the community whose radio heard them (the contact's)
+                ScCommunity.TellKey(ScPlayers.Nearest(pos, 0f, ScPlayers.CurrentCommunity) ?? player, "scRadioFound", "", ScCommunity.DisplayName(npc), ct.PoiName);
                 ScLog.Out("radio contact spawned: " + ScCommunity.DisplayName(npc) + " (" + ct.Class + ", id " + npc.entityId + ") at " + ct.PoiName + (p != null ? ", favour " + p.Favour : ""));
                 return true;
             }

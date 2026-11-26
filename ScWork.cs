@@ -216,7 +216,7 @@ namespace SurvivorCommunity
         private static EntityPlayer OwnerOf(Shift s)
         {
             EntityPlayer p = s != null && s.OwnerId > 0 ? ScPlayers.ByEntity(s.OwnerId) : null;
-            return p ?? ScCommunity.LocalPlayer;
+            return p ?? ScGates.LocalPlayerOf(ScRegistry.CurrentId);     // round MP6 (part G): the host's own only when of her community (End's scope)
         }
 
         /// <summary>
@@ -327,6 +327,10 @@ namespace SurvivorCommunity
         {
             why = null;
             if (m == null || npc == null || player == null) { why = "no member, body or player"; return false; }
+            // round MP6 (part G): another community's member is talk-only (the user's decision 4) - no hold: her Owner link would give
+            // an outsider 0-XNPCCore's hired rows (Craft..., Jobs and gear, her inventory) and Voice Control's orders. With it, the
+            // home-zone tests below read her community's home (the caller's scope is the talker's). Never refuses with one community
+            if (m.CommunityId != ScPlayers.CommunityOf(player)) { why = "a member of another community"; return false; }
             if (m.Status != MemberStatus.Resident) { why = "not a resident at home (" + m.Status + ")"; return false; }
             if (OnShift(m.Id)) return false;                                                    // linked already (a shift, a hold)
             if (!ScConfig.TalkHold || !ScConfig.WorkShiftsEnabled) { why = "TalkHold or WorkShiftsEnabled is off"; return false; }
@@ -404,6 +408,7 @@ namespace SurvivorCommunity
         public static bool HoldForRemote(Member m, EntityAlive npc, EntityPlayer player)
         {
             if (m == null || npc == null || player == null || player is EntityPlayerLocal) return false;
+            if (m.CommunityId != ScPlayers.CommunityOf(player)) return false;     // round MP6 (part G): another community's member - talk only (CanHold)
             Shift s;
             if (shifts.TryGetValue(m.Id, out s))
             {
@@ -506,6 +511,7 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool HandOver(Member m, EntityAlive npc, EntityPlayer player)
         {
+            if (m == null || m.CommunityId != ScPlayers.CommunityOf(player)) return false;     // round MP6 (part G): never for an outsider (CanHold)
             if (!TalkHeldByOther(m, player) || !YieldIdleTalk(m, npc, player)) return false;
             return StartTalk(m, npc, player);
         }
@@ -788,6 +794,14 @@ namespace SurvivorCommunity
         public static void End(Member m, EntityAlive npc, string reason, bool station, bool tell = true)
         {
             if (m == null) return;
+            // round MP6 (part G): in her community's scope, whoever ends it (a disconnect, a dialog, the ticker of another community's
+            // pass): the deposit into the home crates and her post are her community's
+            using (ScRegistry.Use(m)) EndInScope(m, npc, reason, station, tell);
+        }
+
+        /// <summary>Round MP6 (part G): End's body, in her community's scope.</summary>
+        private static void EndInScope(Member m, EntityAlive npc, string reason, bool station, bool tell)
+        {
             // round U2 (D4): no shift or talk ends while she is down (Station would drop the Owner link that keeps her bleed-out going)
             if (npc != null && ScDowned.HoldsShift(m, npc)) { ScLog.Out(m.Name + "'s " + (InTalk(m.Id) ? "talk hold" : "work shift") + " is kept: she is down (" + reason + ")"); return; }
             Shift s;

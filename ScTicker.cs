@@ -264,8 +264,7 @@ namespace SurvivorCommunity
                 ScEncRequests.Tick(w, player);        // their requests: the journal squared with the records once a session (E4)
                 ScEncCalls.Tick(w, player);           // allies' radio calls: a fighter's arrival and return after a load, a supply drop (E9)
                 if (world) ScInfestations.Tick(w, player);       // infestations found within reach, their markers restored after a load (I1)
-                // MP6 (part gates): the flag queue keeps positions only - the first community's pass establishes every flag placed
-                // this second as its own; store the placer's community with each flag
+                // round MP6 (part G): each queued flag keeps its placer's community and is established in that community's pass
                 ScOutposts.TickFlags(player);         // Outpost Claim Blocks placed since the last second establish themselves
                 ScOutpostRisk.Tick(w, player);        // attack fights and deadlines, blood-moon sieges
                 ScBaseAttack.Tick(w, player);         // the home's horde: the call at full attention, the arrival, the fight (with or without the player)
@@ -640,9 +639,9 @@ namespace SurvivorCommunity
             if (cm != null && cm.CurrentMode == ProtocolManager.NetworkType.OfflineServer) return ScCommunity.LocalPlayer;
             if (!string.IsNullOrEmpty(m.LeaderId) && KnownPlayer(m.LeaderId)) return ScPlayers.ById(m.LeaderId);
             // no id, or one that is no player of this save (a solo game started as a server, a save played by another account):
-            // the host's own player, as before MP0 (null on a dedicated server).
-            // MP6 (part gates): whatever community the host's player is in - only one of the follower's community should be
-            return ScCommunity.LocalPlayer;
+            // the host's own player, as before MP0 (null on a dedicated server). Round MP6 (part G): when they are of her community -
+            // on a listen host whose player is in another, her community's anchor (ScGates.LocalPlayerOf)
+            return ScGates.LocalPlayerOf(m.CommunityId);
         }
     }
 

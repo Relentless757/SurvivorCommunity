@@ -19,7 +19,9 @@ public class ItemActionScOpenBundle : ItemActionOpenBundle
 {
     public override bool ExecuteInstantAction(EntityAlive ent, ItemStack stack, bool isHeldItem, XUiC_ItemStack stackController)
     {
-        return SurvivorCommunity.ScBundleOpen.Open(this, ent, stack, isHeldItem, stackController);
+        // round MP6 (part G): the opener's community (the share reads its craftsmen); one community: nothing opened
+        using (SurvivorCommunity.ScGates.ScopeOfPlayer(ent as EntityPlayer))
+            return SurvivorCommunity.ScBundleOpen.Open(this, ent, stack, isHeldItem, stackController);
     }
 }
 

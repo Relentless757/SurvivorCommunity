@@ -59,6 +59,8 @@ namespace SurvivorCommunity
             public Resource Res;
             public float At;
             public World World;
+            /// <summary>Round MP6 (part G): the community whose stockpile the unit came out of (the refund goes back there).</summary>
+            public int Community;
         }
 
         /// <summary>The server's open withdrawal tickets, by id (main thread).</summary>
@@ -160,6 +162,9 @@ namespace SurvivorCommunity
             TileEntityComposite tec = w != null ? w.GetTileEntity(pos) as TileEntityComposite : null;
             TEFeatureStorage st = tec != null ? ScStockpile.StationOf(tec.GetFeature<TEFeatureStorage>()) : null;
             if (st == null) { reply.Fail("scStockNotStation", ""); return null; }
+            // round MP6 (part G): a packing station (or an outpost's box) inside another community's home or outposts is theirs (the
+            // user's decision 3) - the host's own player included. Never refuses with one community
+            if (ScGates.OutsiderAt(pos, sender)) { reply.Fail("scGateNotYourStation", ""); return null; }
             if (sender is EntityPlayerLocal) return st;
             // XUiC_LootWindow's own rule (it closes the window beyond cCollectItemDistance + 30 m, and skips a zero center)
             float reach = Constants.cCollectItemDistance + 30f + NearSlack;
@@ -301,7 +306,9 @@ namespace SurvivorCommunity
                 return;
             }
             tickets.Remove(id);
-            ScRegistry.Community.Add(t.Res, 1);
+            // round MP6 (part G): back to the stockpile it came out of, should the sender have changed community since
+            using (ScRegistry.Use(ScCommunities.ById(t.Community) != null ? t.Community : ScRegistry.CurrentId))
+                ScRegistry.Community.Add(t.Res, 1);
             ScRegistry.SaveAtomic();
             reply.Done();
             SetStockHint(reply);
@@ -328,7 +335,8 @@ namespace SurvivorCommunity
             Purge();
             int id = ++nextTicket;
             if (id <= 0) id = nextTicket = 1;
-            tickets[id] = new Ticket { EntityId = sender.entityId, Res = r, At = Time.realtimeSinceStartup, World = ScCommunity.World };
+            tickets[id] = new Ticket { EntityId = sender.entityId, Res = r, At = Time.realtimeSinceStartup, World = ScCommunity.World,
+                                       Community = ScRegistry.CurrentId };      // round MP6 (part G)
             return id;
         }
 

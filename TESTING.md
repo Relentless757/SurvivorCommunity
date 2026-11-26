@@ -208,6 +208,57 @@ nothing may change. Build `sc34_mp6h`, **not deployed**, untested in game.
   intruders' area (`ScBaseAttack.WideDefence`, `ScInvestigate.InArea`, `ScShelter.InZone`) follow the scope the UAI entry points
   set (part gates); until then a dedicated server reads community 0's for every resident. Host-local markers of other systems
   (scouting, radio, outposts) are part network's.
+## Round MP6 (part: G) (2026-11-26): another community's members, stations and ground are not yours
+
+Why: with several communities, an outsider may only talk to another community's members (the user's decision 4) and may not
+use another community's stations or storage, or put a home or an outpost on its ground (decision 3). The engine's entry
+points (an NPC's AI, blocks, deaths, kills, engine delegates) now act for the right community. With everyone in community 0
+nothing may change. Build `sc34_mp6g`, **not deployed**, protocol 7 unchanged, untested in game. A client's talk rows need
+part R (`sc_member` = community id + 1) and part N (the client knows its community) merged; the server's refusals work
+without them.
+
+**Single player (nothing may change)**
+- [ ] The log at start-up: `patch verification: all N targets patched` (one more than before: `UAIBase::Update`), and no
+      `patched an unlisted method` line.
+- [ ] Talk to a member: Community, Follow me / Go home, Supply run, Ask to leave, Equipment..., and That's all for now on a
+      shift, as before. A runner met outside still offers Head home. A stranger keeps Show me your inventory / Equipment...,
+      Jobs and gear, Come here and Order wheel.
+- [ ] A resident at home: the talk hold links her (Craft..., Jobs and gear), her member panel opens, the spoken "follow me"
+      and "dismiss" work, as before.
+- [ ] The packing station (deposit, withdraw), the radio station, linked storage, Start a community here / Set as community
+      home, Establish outpost and an Outpost Claim Block: as before.
+- [ ] A member's kill (Shooting/Fighting XP), a member's death and a stand-in's death: the same tells as before. A member
+      gaining a craft star tells you, as before.
+- [ ] Residents roam, keep their leash and go to intruders as before.
+
+**A dedicated server (one community)**
+- [ ] One client: everything above works as in round MP5, and the server log has no `[MP6 scope]` lines.
+
+**Two communities** (`sc community new B`, `sc community join 1 <client>`; each sets its own home and recruits a member)
+- [ ] The host (community 0) talks to community 1's member: greeting and small talk only - no Community, Follow me, Go home,
+      Supply run, Ask to leave, Equipment..., Show me your inventory, Jobs and gear, Come here or Order wheel, and no talk hold
+      (with DebugLogging: `no talk hold - a member of another community`). Her own community's player sees every row.
+- [ ] The hold-E ring's Equipment (or Inventory) on community 1's member: `They belong to another community ...`, nothing
+      opens, and her own players can open her inventory straight after (it is not left "in use").
+- [ ] The spoken "follow me" and "dismiss" to community 1's member: she can't, and the tooltip says why.
+- [ ] Shooting community 1's member hurts her (she is not protected as your own members are). Your own members stay protected
+      unless CommunityFriendlyFire. Her community fighting back is part R's.
+- [ ] A packing station inside community 1's home or at one of its outposts: deposit and withdraw are refused with `That
+      station belongs to another community.` Your own still works.
+- [ ] Community 1's radio station: the host is refused at "Use radio"; a client's radio window is refused on every act.
+- [ ] Set as community home on a claim whose zone touches community 1's home or outposts: refused (`This claim reaches
+      another community's home or outposts ...`). Establish outpost on a POI touching community 1's home or holding its
+      outpost: refused (`... is another community's ground: no outpost here.`).
+- [ ] An Outpost Claim Block placed by community 1's player becomes community 1's outpost (`sc community use 1`,
+      `sc outpost list`). Both communities' outposts keep their POI's sleepers from respawning.
+- [ ] A watch post and a radio placed in community 1's home are community 1's (`sc community use 1`, `sc watch`, `sc radio`).
+      Picking either up forgets it.
+- [ ] Community 1's residents keep to community 1's home zone (roam, leash, intruders), and the server log has no
+      `[MP6 scope]` trace through `UaiOps` or `UaiRetreat`.
+- [ ] `sc community join 1 <player>` while one of community 0's members follows that player: she is stationed at home (her
+      leader link ends), and the console says she goes home.
+- [ ] Save and load with two communities: every community's runners resume, both communities' outposts are indexed, and
+      every member's portrait is kept.
 
 ## Round MP6 (part: core) (2026-11-26): one server can hold several communities
 

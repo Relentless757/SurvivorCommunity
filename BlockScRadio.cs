@@ -41,7 +41,10 @@ public class BlockScRadio : BlockPowered
         try
         {
             if (_blockValue.ischild || !ThreadManager.IsMainThread() || !SurvivorCommunity.ScCommunity.IsHost) return;
-            SurvivorCommunity.ScRadio.NoteRadio(_blockPos);
+            // round MP6 (part G): remembered by the community whose home or outpost holds it, else the placer's (a relay set up
+            // before its outpost); nobody's: the community in scope, as before MP6
+            using (SurvivorCommunity.ScGates.ScopeAt(_blockPos, _addedByPlayer))
+                SurvivorCommunity.ScRadio.NoteRadio(_blockPos);
         }
         catch (Exception e)
         {
@@ -55,7 +58,9 @@ public class BlockScRadio : BlockPowered
         try
         {
             if (_blockValue.ischild || !ThreadManager.IsMainThread()) return;
-            SurvivorCommunity.ScOutposts.ForgetRadio(_blockPos);
+            // round MP6 (part G): forgotten by every community that remembered it (a removal by zombies or an explosion names no
+            // player); with one community: once, as before
+            SurvivorCommunity.ScCommunities.ForEach(cs => SurvivorCommunity.ScOutposts.ForgetRadio(_blockPos));
         }
         catch (Exception e)
         {
@@ -79,6 +84,13 @@ public class BlockScRadio : BlockPowered
             }
             if (_commandName == "radio")
             {
+                // round MP6 (part G): another community's radio station is not yours (the user's decision 3). The host checks here
+                // (its own requests are not checked again); a client's requests are refused by the server (ScActionsRadio)
+                if (SurvivorCommunity.ScGates.OutsiderAt(_blockPos, _player))
+                {
+                    SurvivorCommunity.ScCommunity.TellKey(_player, "scGateNotYourStation", "ui_denied");
+                    return true;
+                }
                 SurvivorCommunity.ScRadio.Open(_world as World, _blockPos, _player);
                 return true;
             }

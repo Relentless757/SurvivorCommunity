@@ -99,7 +99,9 @@ public class BlockScWatchPost : Block
         try
         {
             if (_blockValue.ischild || !ThreadManager.IsMainThread() || !SurvivorCommunity.ScCommunity.IsHost) return;
-            SurvivorCommunity.ScWatch.NotePost(_blockPos, _addedByPlayer != null);
+            // round MP6 (part G): registered by the community whose home holds it (else the placer's, whose rules then refuse it)
+            using (SurvivorCommunity.ScGates.ScopeAt(_blockPos, _addedByPlayer))
+                SurvivorCommunity.ScWatch.NotePost(_blockPos, _addedByPlayer != null);
         }
         catch (Exception e)
         {
@@ -114,7 +116,8 @@ public class BlockScWatchPost : Block
         try
         {
             if (_blockValue.ischild || !ThreadManager.IsMainThread() || !SurvivorCommunity.ScCommunity.IsHost) return;
-            SurvivorCommunity.ScWatch.ForgetPost(_blockPos, "was broken or picked up");
+            // round MP6 (part G): forgotten by whichever community had it (a removal by zombies names no player); one community: once
+            SurvivorCommunity.ScCommunities.ForEach(cs => SurvivorCommunity.ScWatch.ForgetPost(_blockPos, "was broken or picked up"));
         }
         catch (Exception e)
         {

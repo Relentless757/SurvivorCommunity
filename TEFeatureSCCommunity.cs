@@ -107,7 +107,8 @@ namespace SurvivorCommunity
                 // only: false for a client's flag on a listen host and for every flag on a dedicated server, so those never
                 // established themselves. A POI's or the console's block has no owner and is still left alone.
                 if (!base.Parent.LocalPlayerIsOwner && ScActionsClaim.PlacerOf(base.Parent) == null) return;
-                ScOutposts.QueueFlag(ToWorldPos());
+                // round MP6 (part G): established for the placer's community (the composite's owner), in that community's tick
+                ScOutposts.QueueFlag(ToWorldPos(), ScGates.CommunityOfUser(base.Parent.Owner));
             }
             catch (Exception e)
             {
@@ -144,6 +145,20 @@ namespace SurvivorCommunity
                 bool disband = CommandIs(_commandName, CmdDisband);
                 bool opStorage = CommandIs(_commandName, CmdOutpostStorage);
                 if (!community && !setHome && !startHome && !storage && !establish && !outpost && !disband && !opStorage) return true;
+                using (ScGates.ScopeOfPlayer(_entityFocusing as EntityPlayer))     // round MP6 (part G): the focusing player's community
+                    return Allow(setHome, startHome, storage, establish, outpost, disband, opStorage, _blockPos);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("TEFeatureSCCommunity.Allow", e);
+                return false;
+            }
+        }
+
+        /// <summary>Round MP6 (part G): AllowBlockActivationCommand's own tests, in the focusing player's community's scope.</summary>
+        private bool Allow(bool setHome, bool startHome, bool storage, bool establish, bool outpost, bool disband, bool opStorage, Vector3i _blockPos)
+        {
+            {
                 // round MP2: a client shows them from its copy of the community (the home, the outposts) - its requests act on
                 // the server (OnBlockActivated). The ownership test below runs on the pressing machine for its own player:
                 // a client's own claim passes there; the server checks it again against the sender.
@@ -169,17 +184,14 @@ namespace SurvivorCommunity
                 }
                 return true;
             }
-            catch (Exception e)
-            {
-                ScLog.Once("TEFeatureSCCommunity.Allow", e);
-                return false;
-            }
         }
 
         public override bool OnBlockActivated(ReadOnlySpan<char> _commandName, WorldBase _world, Vector3i _blockPos, BlockValue _blockValue, EntityPlayerLocal _player)
         {
             try
             {
+                using (ScGates.ScopeOfPlayer(_player))     // round MP6 (part G): the pressing player's community
+                {
                 // round MP2: every change goes through a request (ScActionsClaim: home.set, outpost.establish,
                 // outpost.disbandclaim) - run inline in single player and for the host's own player, sent to the server from a
                 // client. The windows open here, on the pressing machine (from its copy on a client).
@@ -235,6 +247,7 @@ namespace SurvivorCommunity
                     // round MP3: the outpost's own boxes for every player (the server scans its building and names the title)
                     ScStorage.RequestOpen(_player, ScStorage.KindOutpost, _blockPos);
                     return true;
+                }
                 }
             }
             catch (Exception e)

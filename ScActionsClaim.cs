@@ -117,6 +117,9 @@ namespace SurvivorCommunity
             string why = WhyNotOwnClaim(claim, sender);
             if (why != null) { reply.Fail(why); return; }
             if (ScOutposts.IsOutpostClaim(claim)) { reply.Fail("scHomeNotOutpost"); return; }     // an outpost is never the home
+            // round MP6 (part G): never a home whose zone reaches another community's home or outposts (the user's decision 3);
+            // never refuses with one community
+            if (ScGates.OtherCommunityInClaim(claim, ScRegistry.CurrentId) >= 0) { reply.Fail("scHomeOtherCommunity"); return; }
             bool adopt = mode == HomeAdoptCommunity || mode == HomeAdoptStorage;
             if (adopt && !ScConfig.AutoHomeFirstClaim) { reply.Done(); return; }   // the server's setting decides an adoption
             bool started = !ScZone.HasHome;

@@ -187,6 +187,8 @@
     <Compile Include="ScHomeHold.cs" />
     <Compile Include="ScWeaponWarm.cs" />
     <Compile Include="ScGarrison.cs" />
+    <Compile Include="ScGates.cs" />     <!-- round MP6 (part G): the entry points' scopes and the cross-community gates -->
+    <Compile Include="Patches_Gates.cs" />     <!-- round MP6 (part G): the AI's community scope (UAIBase.Update) -->
     <Compile Include="ScScouting.cs" />
     <Compile Include="ScOutpostPerks.cs" />
     <Compile Include="ScOutpostRisk.cs" />

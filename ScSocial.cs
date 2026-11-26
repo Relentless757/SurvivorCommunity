@@ -1037,7 +1037,7 @@ namespace SurvivorCommunity
         /// </summary>
         private static void SweepFlames(World w)
         {
-            foreach (Member m in ScRegistry.Members.Values) SweepFlame(ScCommunity.FindNpc(m.Id));
+            foreach (Member m in ScCommunities.AllMembers()) SweepFlame(ScCommunity.FindNpc(m.Id));     // round MP6 (part G): anyone's
             foreach (EncPerson p in ScRegistry.EncPeople) if (p != null && p.EntityId >= 0) SweepFlame(ScEnclavePeople.OwnBody(p));
         }
 

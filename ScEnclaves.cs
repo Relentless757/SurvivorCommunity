@@ -575,10 +575,7 @@ namespace SurvivorCommunity
                     if (t != null) r.Traders.Add(new[] { t.ProtectPosition.x, t.ProtectPosition.x + Math.Max(1, t.ProtectSize.x) - 1, t.ProtectPosition.z, t.ProtectPosition.z + Math.Max(1, t.ProtectSize.z) - 1 });
             SpawnPointList sp = GameManager.Instance.GetSpawnPointList();
             if (sp != null) foreach (SpawnPoint s in sp) if (s != null) r.Spawns.Add(new Vector2(s.spawnPosition.position.x, s.spawnPosition.position.z));
-            foreach (Contact ct in ScRegistry.Contacts) r.Taken.Add(ct.PoiKey);
-            foreach (Prospect p in ScRegistry.Prospects.Values) if (p.Favour == FavourKind.Poi && !p.Done) r.Taken.Add(p.PoiPos);
-            foreach (Member m in ScRegistry.Members.Values) if (ScRunners.IsPhysical(m)) r.Taken.Add(m.RunDest);
-            foreach (Scout s in ScRegistry.Community.Scouts) r.Taken.Add(s.Poi);     // a radio scouting mark still on the map
+            ScGates.AddTakenPois(r.Taken);      // round MP6 (part G): every community's contacts, POI favours, runners and scouting marks
             ScEncRequests.AddTargets(r.Taken);       // E5: a missing survivor's building, an infestation an enclave asked to clear
             // the POIs the player's quests in progress lead to: an enclave there would lock a trader quest already taken out
             EntityPlayerLocal qp = ScCommunity.LocalPlayer;

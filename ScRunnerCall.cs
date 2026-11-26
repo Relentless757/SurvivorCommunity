@@ -82,6 +82,8 @@ namespace SurvivorCommunity
                 if (body == null || src == null || body.IsDead()) return;
                 Member m = ScRegistry.GetMember(body.entityId);
                 if (m == null || !ScRunners.IsRun(m) || m.Offline) return;      // round op1: a run's call - never on a posting journey
+                using (ScRegistry.Use(m))       // round MP6 (part G): a hit names no community - her community's call (its listener, its tells)
+                {
                 World w = ScCommunity.World;
                 EntityAlive attacker = w != null ? w.GetEntity(src.getEntityId()) as EntityAlive : null;
                 if (!IsFoe(body, attacker)) return;
@@ -93,6 +95,7 @@ namespace SurvivorCommunity
                 string result;
                 // round MP5 (part N): the listener is every community player (Make) - was the host's own only (none on a dedicated server)
                 if (!Make(m, body, attacker, Listener(), false, out result)) quietUntil[m.Id] = now + SkipQuietSeconds;
+                }
             }
             catch (Exception e)
             {
@@ -128,8 +131,8 @@ namespace SurvivorCommunity
         /// </summary>
         private static EntityPlayer Listener()
         {
-            EntityPlayerLocal lp = ScCommunity.LocalPlayer;
-            return lp != null ? (EntityPlayer)lp : ScPlayers.Anchor();
+            // round MP6 (part G): the host's own player only when of the community in scope (OnHit: hers), else its anchor
+            return ScGates.LocalPlayerOf(ScRegistry.CurrentId) ?? ScPlayers.Anchor();
         }
 
         /// <summary>Round MP5 (part N): a living community player online (the call has someone to reach), or null.</summary>

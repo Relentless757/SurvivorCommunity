@@ -85,12 +85,17 @@ namespace SurvivorCommunity
 #endif
                     if (ScXnpc.IsBody(__instance) || (ScNpc.IsV4(__instance) && ScXnpc.IsCommunity(__instance))) DropWindow(__instance);
                     if (!ScRegistry.Loaded) return;
-                    if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScRadio.StandInCvar)) { ScRadio.OnStandInDied(__instance); return; }
+                    // round MP6 (part G): a stand-in's death and a member's in her community's scope (a stand-in carries her member id)
+                    if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScRadio.StandInCvar))
+                    {
+                        using (ScGates.ScopeOf((int)__instance.Buffs.GetCustomVar(ScRadio.StandInCvar))) ScRadio.OnStandInDied(__instance);
+                        return;
+                    }
                     // one of a band on the road (E13a): the person dies with the body
                     if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScBands.BandCvar)) { ScBands.OnBodyDied(__instance); return; }
                     // one of an enclave's people (E2): the person dies with the body
                     if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScEnclavePeople.EncCvar)) { ScEnclavePeople.OnBodyDied(__instance); return; }
-                    ScCommunity.OnMemberDied(__instance);
+                    using (ScGates.ScopeOf(__instance)) ScCommunity.OnMemberDied(__instance);     // round MP6 (part G)
                 }
                 catch (Exception e)
                 {
@@ -336,8 +341,11 @@ namespace SurvivorCommunity
                         && npc.NPCInfo.DialogID.StartsWith("trader", StringComparison.OrdinalIgnoreCase)) return;
                     // your own people are protected unless friendly fire is switched on (decided before the hire test:
                     // a member who ever followed carries Owner)
-                    if (ScRegistry.GetMember(self.entityId) != null
-                        || (self.Buffs != null && self.Buffs.HasCustomVar(ScRadio.StandInCvar)))
+                    // round MP6 (part G): YOUR community's people - another community's member or stand-in is to these rules as any
+                    // NPC is (the user's decision 4: attacking one draws her community's grudge, ScTrust). With one community: as before
+                    if ((ScRegistry.GetMember(self.entityId) != null
+                         || (self.Buffs != null && self.Buffs.HasCustomVar(ScRadio.StandInCvar)))
+                        && !ForeignTo(self, (EntityPlayer)damagingEntity))
                     {
                         if (ScConfig.CommunityFriendlyFire) __result = true;
                         return;
@@ -351,6 +359,18 @@ namespace SurvivorCommunity
                 {
                     ScLog.Once("sc-friendly-fire", e);
                 }
+            }
+
+            /// <summary>
+            /// Round MP6 (part G): a member (or a stand-in, by the member id it carries) of another community than the player's.
+            /// Never with one community.
+            /// </summary>
+            private static bool ForeignTo(EntityAlive self, EntityPlayer player)
+            {
+                if (ScCommunities.Count <= 1) return false;
+                Member m = ScRegistry.GetMember(self.entityId);
+                if (m == null && self.Buffs != null && self.Buffs.HasCustomVar(ScRadio.StandInCvar)) m = ScRegistry.GetMember((int)self.Buffs.GetCustomVar(ScRadio.StandInCvar));
+                return m != null && m.CommunityId != ScPlayers.CommunityOf(player);
             }
         }
 
