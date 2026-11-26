@@ -170,18 +170,29 @@ namespace SurvivorCommunity
         {
             get
             {
-                if (ScCommunities.Count == 1) return ScCommunities.Zero;      // one community: always it (nothing changes)
+                // one community: always it (nothing changes). Round MP6 (core fix): not on a client whose copy is of another
+                // community (review C-m2) - its Current is the mirrored community even while it holds that one community only
+                if (ScCommunities.Count == 1 && (loaded || MirroredCommunity == ScPlayers.SharedCommunity)) return ScCommunities.Zero;
                 int n = scopeTop;
                 if (n > 0 && ThreadManager.IsMainThread())
                 {
-                    CommunityState cs = ScCommunities.ById(scopeStack[n - 1]);
+                    int named = scopeStack[n - 1];
+                    CommunityState cs = ScCommunities.ById(named);
                     if (cs != null) return cs;
-                    ScLog.Once("mp6-scope-gone-" + scopeStack[n - 1], "a scope names community " + scopeStack[n - 1] + ", which does not exist - community 0 assumed");
+                    // round MP6 (core fix): the log key is built once per missing id, not on every read (review C-n2)
+                    if (named != goneReported)
+                    {
+                        goneReported = named;
+                        ScLog.Once("mp6-scope-gone-" + named, "a scope names community " + named + ", which does not exist - community 0 assumed");
+                    }
                     return ScCommunities.Zero;
                 }
                 return Unscoped();
             }
         }
+
+        /// <summary>Round MP6 (core fix): the last missing community a scope named that Current reported (review C-n2).</summary>
+        private static int goneReported = int.MinValue;
 
         /// <summary>Round MP6 (core): the id of the community in scope (Current.Id).</summary>
         public static int CurrentId { get { return Current.Id; } }
@@ -228,21 +239,64 @@ namespace SurvivorCommunity
         private static int[] scopeStack = new int[16];
         private static int scopeTop;
 
+        /// <summary>
+        /// Round MP6 (core fix), ScTicker.OnGameUpdate at the top of every frame (review C-m3): no SC scope is open between frames,
+        /// so one still open here leaked (a Use without "using", or held across a coroutine's yield) - it would be the default of
+        /// every later unscoped read and hide the "[MP6 scope]" diagnostic. Logged once per set of ids, then the stack is reset
+        /// (a late Dispose of a leaked handle is then a no-op: PopScope ignores a depth past the top).
+        /// </summary>
+        internal static void ResetLeakedScopes()
+        {
+            int n = scopeTop;
+            if (n == 0 || !ThreadManager.IsMainThread()) return;
+            var ids = new StringBuilder();
+            for (int i = 0; i < n && i < 8; i++) ids.Append(i > 0 ? "," : "").Append(scopeStack[i]);
+            if (n > 8) ids.Append(",...");
+            ScLog.Once("mp6-scope-leak-" + ids, "[MP6 scope] " + n + " scope(s) still open at the start of a frame (communities " + ids
+                       + ") - a ScRegistry.Use without \"using\", or one held across a yield; reset");
+            scopeTop = 0;
+        }
+
         /// <summary>Round MP6 (core): Current with nothing in scope and two or more communities (see Current).</summary>
         private static CommunityState Unscoped()
         {
             if (!loaded) return ScCommunities.ById(MirroredCommunity) ?? ScCommunities.Zero;     // a client's copy (or no world)
             EntityPlayerLocal local = ScCommunity.LocalPlayer;
-            if (local != null) return ScCommunities.ById(ScPlayers.CommunityOf(local)) ?? ScCommunities.Zero;
+            if (local != null)
+            {
+                // round MP6 (core fix): a listen host's unscoped read takes the host's community - counted, and logged (verbose)
+                // while remote clients are connected: a patch acting for a client's community would work on the host's (review C-m6)
+                NoteHostUnscoped();
+                return ScCommunities.ById(ScPlayers.CommunityOf(local)) ?? ScCommunities.Zero;
+            }
             NoteUnscoped();
             return ScCommunities.Zero;
         }
 
         /// <summary>Round MP6 (core): unscoped reads seen on a server with no local player while two or more communities exist.</summary>
         public static int UnscopedReads { get { return unscopedReads; } }
-        private static int unscopedReads;
+        /// <summary>
+        /// Round MP6 (core fix): unscoped reads on a host with a local player (the host's community assumed) while two or more
+        /// communities exist and remote clients are connected (review C-m6). Their traces are logged with ScConfig.Verbose only:
+        /// most are the host's own UI, for which the host's community is right.
+        /// </summary>
+        public static int UnscopedHostReads { get { return unscopedHostReads; } }
+        private static int unscopedReads, unscopedHostReads;
         private static int diagSecond, diagBudget;
         private static readonly HashSet<string> diagSeen = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>Round MP6 (core fix): NoteUnscoped's listen-host half (Unscoped, review C-m6).</summary>
+        private static void NoteHostUnscoped()
+        {
+            try
+            {
+                ConnectionManager cm = SingletonMonoBehaviour<ConnectionManager>.Instance;
+                if (cm == null || cm.Clients == null || cm.Clients.Count == 0) return;      // nobody else: the host's community is the only reader
+                unscopedHostReads++;
+                if (ScConfig.Verbose) NoteTrace(true);
+            }
+            catch (Exception) { }   // a diagnostic never costs the read
+        }
 
         /// <summary>
         /// Round MP6 (core): the diagnostic for an unscoped read - logged once per distinct stack trace, at most a few traces
@@ -253,18 +307,33 @@ namespace SurvivorCommunity
             try
             {
                 unscopedReads++;
-                int now = Environment.TickCount;
-                if (now - diagSecond >= 1000 || now < diagSecond) { diagSecond = now; diagBudget = 4; }
-                if (diagBudget <= 0) return;
-                diagBudget--;
-                string trace = new System.Diagnostics.StackTrace(3, false).ToString();
-                lock (diagSeen)
-                {
-                    if (diagSeen.Count >= 200 || !diagSeen.Add(trace)) return;
-                }
-                ScLog.Warn("[MP6 scope] community state read with no scope while " + ScCommunities.Count + " communities exist - community 0 assumed. From:\n" + trace);
+                NoteTrace(false);
             }
             catch (Exception) { }   // a diagnostic never costs the read
+        }
+
+        /// <summary>
+        /// Round MP6 (core fix): the trace half of NoteUnscoped, shared with NoteHostUnscoped (host: the listen host's line). The
+        /// message is built only when it is logged.
+        /// </summary>
+        private static void NoteTrace(bool host)
+        {
+            lock (diagSeen)
+            {
+                if (diagSeen.Count >= 200) return;      // round MP6 (core fix): no stack walk once the cap is reached (review C-n1)
+            }
+            int now = Environment.TickCount;
+            if (now - diagSecond >= 1000 || now < diagSecond) { diagSecond = now; diagBudget = 4; }
+            if (diagBudget <= 0) return;
+            diagBudget--;
+            string trace = new System.Diagnostics.StackTrace(4, false).ToString();
+            lock (diagSeen)
+            {
+                if (diagSeen.Count >= 200 || !diagSeen.Add(trace)) return;
+            }
+            ScLog.Warn("[MP6 scope] community state read with no scope " + (host ? "on a listen host " : "") + "while " + ScCommunities.Count
+                       + " communities exist" + (host ? " and clients are connected - the host's community assumed" : " - community 0 assumed")
+                       + ". From:\n" + trace);
         }
 
         /// <summary>Groups of survivors holed up in POIs (ScEnclaves), in seeding order.</summary>
@@ -360,6 +429,51 @@ namespace SurvivorCommunity
             return ScCommunities.CommunityOfMember(entityId);
         }
 
+        // ---- round MP6 (core fix): a record found through a global lookup is changed in its own community (review C-M2) ----
+        // GetMember / GetProspect answer across communities; removing or re-keying through ScRegistry.Members / .Prospects would
+        // change the community in scope instead - a miss there leaves the record behind, a put moves it (the container stamps
+        // CommunityId) and the save then writes it twice. Change the record's own container (these helpers), or scope to it
+        // (using (ScRegistry.Use(m))).
+
+        /// <summary>Round MP6 (core fix): the community that holds this record (its CommunityId), or null when none does.</summary>
+        public static CommunityState StateOf(IScCommunityRecord record)
+        {
+            return record != null ? ScCommunities.ById(record.CommunityId) : null;
+        }
+
+        /// <summary>Round MP6 (core fix): the roster that holds this member - her own community's (the scope's if none holds her).</summary>
+        public static ScRecordTable<Member> RosterOf(Member m)
+        {
+            CommunityState cs = StateOf(m);
+            return cs != null ? cs.Members : Members;
+        }
+
+        /// <summary>Round MP6 (core fix): the prospects table that holds this prospect - its own community's (the scope's if none does).</summary>
+        public static ScRecordTable<Prospect> ProspectsOf(Prospect p)
+        {
+            CommunityState cs = StateOf(p);
+            return cs != null ? cs.Prospects : Prospects;
+        }
+
+        /// <summary>Round MP6 (core fix): removes the member with this id from whichever community holds her. True when one did.</summary>
+        public static bool RemoveMember(int entityId)
+        {
+            CommunityState cs = ScCommunities.ById(ScCommunities.CommunityOfMember(entityId));
+            return cs != null && cs.Members.Remove(entityId);
+        }
+
+        /// <summary>
+        /// Round MP6 (core fix): removes this NPC's prospect from every community that courts them (the NPC joined someone or
+        /// died: no community's favour for them stays). Returns how many were removed. With one community: Prospects.Remove.
+        /// </summary>
+        public static int RemoveProspectEverywhere(int entityId)
+        {
+            int n = 0;
+            CommunityState[] all = ScCommunities.Array;
+            for (int i = 0; i < all.Length; i++) if (all[i].Prospects.Remove(entityId)) n++;
+            return n;
+        }
+
         public static int CountStatus(MemberStatus s)
         {
             int n = 0;
@@ -382,43 +496,59 @@ namespace SurvivorCommunity
                 shuttingDown = false;
                 loaded = false;
                 degraded = false;
+                saveBlocked = false;                   // round MP6 (core fix)
                 ClearContainers();                     // round MP6 (core): community 0 alone, a fresh world record
                 if (string.IsNullOrEmpty(saveDir)) { ScLog.Warn("registry load: no save directory"); return; }
                 string real = Path.Combine(saveDir, FileName);
                 string bak = real + ".bak";
+                string legacy = Path.Combine(saveDir, LegacyFileName);
+                string legacyBak = legacy + ".bak";
                 bool ok = false;
+                // round MP6 (core fix): whether a file could not be read at all (in use by another program, no access) rather than
+                // read and found bad - the new file's (or its backup's), and the old file's (or its backup's) (review C-m1)
+                bool newIo = false, oldIo = false;
                 // round MP6 (core): the new file (or its backup) when this save has one; else the old one-community file is migrated
                 // (its community becomes community 0, owner kept; world keys go to the world record; every id counter keeps its
                 // value). The old file is only ever read: SaveAtomic writes the new one.
                 if (File.Exists(real) || File.Exists(bak))
                 {
-                    if (File.Exists(real)) ok = TryLoadFile(real);
+                    if (File.Exists(real)) ok = TryLoadFile(real, ref newIo);
                     if (!ok && File.Exists(bak))
                     {
                         ScLog.Warn("registry: primary file unreadable, loading the backup");
                         degraded = true;
                         ClearContainers();
-                        ok = TryLoadFile(bak);
+                        ok = TryLoadFile(bak, ref newIo);
                     }
-                }
-                else
-                {
-                    string legacy = Path.Combine(saveDir, LegacyFileName);
-                    string legacyBak = legacy + ".bak";
-                    if (File.Exists(legacy) || File.Exists(legacyBak))
+                    bool readNew = ok;                 // round MP6 (core fix): the new file or its backup was read
+                    // round MP6 (core fix): the new file and its backup both unreadable (a power loss right after the first save, whose
+                    // File.Move left no backup) - the old file is migrated again rather than starting empty (review C-m1)
+                    if (!ok && (File.Exists(legacy) || File.Exists(legacyBak)))
                     {
-                        ScLog.Out("registry: migrating " + LegacyFileName + " to " + FileName + " - its community becomes community 0 (the old file is left as it is)");
-                        if (File.Exists(legacy)) ok = TryLoadFile(legacy);
-                        if (!ok && File.Exists(legacyBak))
-                        {
-                            ScLog.Warn("registry: " + LegacyFileName + " unreadable, migrating its backup");
-                            degraded = true;
-                            ClearContainers();
-                            ok = TryLoadFile(legacyBak);
-                        }
+                        ScLog.Err("registry: " + FileName + " and its backup are unreadable - migrating " + LegacyFileName + " again (the state from before MP6: what changed since is lost)");
+                        degraded = true;
+                        ClearContainers();
+                        ok = MigrateLegacy(legacy, legacyBak, ref oldIo);
                     }
-                    else ScLog.Out("registry: no " + FileName + " yet (first run in this save)");
+                    // round MP6 (core fix): an older build that played the old file since this one wrote the new file (review C-n6)
+                    else if (ok) WarnLegacyNewer(real, legacy);
+                    // round MP6 (core fix): neither the new file nor its backup read, and one could not even be opened - saving would
+                    // replace it (and the backup) with what this session builds from nothing or from the older migrated state; held
+                    // off until the next load
+                    if (!readNew && newIo) saveBlocked = true;
                 }
+                else if (File.Exists(legacy) || File.Exists(legacyBak))
+                {
+                    ok = MigrateLegacy(legacy, legacyBak, ref oldIo);
+                    // round MP6 (core fix): the old file is there but could not be opened (a sharing violation is enough) - no new file
+                    // in this session, so the next load tries the migration again (review C-m1). Read but unreadable as a registry: the
+                    // degraded start of before MP6 (the old file is left as it is either way)
+                    if (!ok && oldIo) saveBlocked = true;
+                }
+                else ScLog.Out("registry: no " + FileName + " yet (first run in this save)");
+                if (saveBlocked)
+                    ScLog.Err("registry: " + (newIo ? FileName : LegacyFileName) + " exists but could not be read (in use by another program?) - "
+                              + "SurvivorCommunity will NOT save in this session, so that file is not replaced. Close what holds it and load the save again.");
                 loaded = true;
                 foreach (CommunityState cs in ScCommunities.All)
                     foreach (var m in cs.Members.Values) m.MissingDays = Math.Max(m.MissingDays, 0);
@@ -495,12 +625,27 @@ namespace SurvivorCommunity
             }
         }
 
-        private static bool TryLoadFile(string path)
+        /// <summary>
+        /// One file into the containers. Round MP6 (core fix): ioFailed is set when the file could not be read at all (the read
+        /// threw: in use, no access), as against read and found unreadable (review C-m1).
+        /// </summary>
+        private static bool TryLoadFile(string path, ref bool ioFailed)
         {
+            string text;
+            try
+            {
+                text = File.ReadAllText(path);
+            }
+            catch (Exception e)
+            {
+                ioFailed = true;
+                ScLog.Err("registry: cannot read " + path + ": " + e.Message);
+                return false;
+            }
             try
             {
                 // round MP1: the parse is ParseText, shared with a client's copy of the server's registry (ApplyMirror)
-                return ParseText(File.ReadAllText(path), path);
+                return ParseText(text, path);
             }
             catch (Exception e)
             {
@@ -510,12 +655,66 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round MP6 (core fix): the migration of the old one-community file (or its backup), Load's (review C-m1: also when the new
+        /// file and its backup are both unreadable). ioFailed as TryLoadFile.
+        /// </summary>
+        private static bool MigrateLegacy(string legacy, string legacyBak, ref bool ioFailed)
+        {
+            ScLog.Out("registry: migrating " + LegacyFileName + " to " + FileName + " - its community becomes community 0 (the old file is left as it is)");
+            bool ok = false;
+            if (File.Exists(legacy)) ok = TryLoadFile(legacy, ref ioFailed);
+            if (!ok && File.Exists(legacyBak))
+            {
+                ScLog.Warn("registry: " + LegacyFileName + " unreadable, migrating its backup");
+                degraded = true;
+                ClearContainers();
+                ok = TryLoadFile(legacyBak, ref ioFailed);
+            }
+            return ok;
+        }
+
+        /// <summary>
+        /// Round MP6 (core fix): one warning when the old file was written after the new one - an older SC build played the old
+        /// file since; this build keeps the new file and ignores those changes (review C-n6).
+        /// </summary>
+        private static void WarnLegacyNewer(string real, string legacy)
+        {
+            try
+            {
+                if (!File.Exists(real) || !File.Exists(legacy)) return;
+                DateTime newer = File.GetLastWriteTimeUtc(legacy), ours = File.GetLastWriteTimeUtc(real);
+                if (newer > ours)
+                    ScLog.Warn("registry: " + LegacyFileName + " was written after " + FileName + " (" + newer.ToString("u", CultureInfo.InvariantCulture)
+                               + " against " + ours.ToString("u", CultureInfo.InvariantCulture) + ") - an older SurvivorCommunity build played this save since; "
+                               + "this build loads " + FileName + " and ignores those changes");
+            }
+            catch (Exception e) { ScLog.Once("registry-legacy-newer", e); }
+        }
+
+        /// <summary>
+        /// Round MP6 (core fix): this session must not save - the file it would replace (the new one, or the old one to migrate)
+        /// exists but could not be read at load (review C-m1). SaveAtomic then only marks the clients' copy dirty.
+        /// </summary>
+        public static bool SaveBlocked { get { return saveBlocked; } }
+        private static bool saveBlocked;
+
+        /// <summary>
         /// Round MP1: the registry's text (BuildText's form) into the containers, which the caller has emptied: the save file
         /// (TryLoadFile) and a client's copy of the server's registry (ApplyMirror). Returns false when the text is unreadable
         /// as a whole; skipped lines mark the load degraded. Only the containers and the records' own state are written.
         /// </summary>
         public static bool ParseText(string text, string source = "the server's snapshot")
         {
+            return ParseText(text, source, ScPlayers.SharedCommunity);
+        }
+
+        /// <summary>
+        /// Round MP6 (core fix): ParseText with the community that a [community] section or a record with no cid= belongs to - 0
+        /// for a save (every old file's one community), a client's mirrored community for its copy (ApplyMirror, review C-m2).
+        /// </summary>
+        private static bool ParseText(string text, string source, int defaultCid)
+        {
+            if (defaultCid < 0) defaultCid = ScPlayers.SharedCommunity;
             try
             {
                 // round fx1 (the review): the registry loads before GameStartDone parses the config, and the Shooting XP
@@ -541,7 +740,8 @@ namespace SurvivorCommunity
                 // is on (none: community 0 - every old file's one community); sawWorld: the text has a [world] section (else it is an
                 // old file or a client's snapshot: the world's day guard is its community's)
                 List<KeyValuePair<string, string>> comm = null;
-                int commCid = ScPlayers.SharedCommunity;
+                // round MP6 (core fix): none: defaultCid - community 0 for a save, the mirrored community for a client's copy (C-m2)
+                int commCid = defaultCid;
                 bool sawWorld = false;
                 loadShootScale = 1;   // round fx1
                 for (int i = 1; i < lines.Length; i++)
@@ -555,16 +755,17 @@ namespace SurvivorCommunity
                         bad += CommitCommunity(ref comm, commCid);      // round MP6 (core)
                         loadShootScale = 1;   // round fx1: a block without shootxp= was written before Shooting's thresholds grew
                         section = line.Trim('[', ']').ToLowerInvariant();
-                        if (section == "community") { comm = new List<KeyValuePair<string, string>>(); commCid = ScPlayers.SharedCommunity; }
+                        if (section == "community") { comm = new List<KeyValuePair<string, string>>(); commCid = defaultCid; }
                         else if (section == "world") sawWorld = true;
-                        if (section == "member") m = new Member();
-                        else if (section == "prospect") p = new Prospect();
-                        else if (section == "contact") ct = new Contact();
-                        else if (section == "outpost") op = new Outpost();
+                        // round MP6 (core fix): a community record with no cid= is defaultCid's (0 for a save, as before)
+                        if (section == "member") m = new Member { CommunityId = defaultCid };
+                        else if (section == "prospect") p = new Prospect { CommunityId = defaultCid };
+                        else if (section == "contact") ct = new Contact { CommunityId = defaultCid };
+                        else if (section == "outpost") op = new Outpost { CommunityId = defaultCid };
                         else if (section == "enclave") en = new Enclave();
                         else if (section == "encperson") ep = new EncPerson();
                         else if (section == "infestation") inf = new Infestation();
-                        else if (section == "encrequest") rq = new EnclaveRequest();
+                        else if (section == "encrequest") rq = new EnclaveRequest { CommunityId = defaultCid };
                         else if (section == "band") bd = new Band();
                         else if (section == "bandperson") bp = new BandPerson();
                         continue;
@@ -603,7 +804,7 @@ namespace SurvivorCommunity
                 DropStrayPeople();
                 DropStrayRequests();
                 DropStrayBandPeople();
-                AfterParse(sawWorld);                          // round MP6 (core)
+                AfterParse(sawWorld, defaultCid);              // round MP6 (core)
                 return true;
             }
             catch (Exception e)
@@ -625,7 +826,9 @@ namespace SurvivorCommunity
         {
             if (loaded) return false;
             ClearContainers();
-            bool ok = ParseText(text);
+            // round MP6 (core fix): the copy is the mirrored community's - its sections and records with no cid= go there, so a
+            // client's Current (and the id its actions send) is that community, not community 0 (review C-m2)
+            bool ok = ParseText(text, "the server's snapshot", MirroredCommunity);
             degraded = false;                 // the copy says nothing about this machine's (absent) save
             Cleanup.Clear();                  // server bookkeeping (BuildText(true) leaves it out): never acted on here
             Doomed.Clear();
@@ -1163,7 +1366,22 @@ namespace SurvivorCommunity
                     m.Snap = null;
                     m.Offline = false;
                 }
-                if (m.Id > 0) LoadTarget(m.CommunityId).Members[m.Id] = m; else degraded = true;   // round MP6 (core): her community's
+                if (m.Id <= 0) degraded = true;
+                else
+                {
+                    CommunityState target = LoadTarget(m.CommunityId);                       // round MP6 (core): her community's
+                    // round MP6 (core fix): a member id already in another community (entity ids are world-unique: a hand edit, or a
+                    // file written while a scoped removal missed her) - the first one read is kept, this copy dropped (review C-M2).
+                    // A second record under one id in the same community replaces the first, as before MP6
+                    int other = ScCommunities.CommunityOfMember(m.Id);
+                    if (other >= 0 && other != target.Id)
+                    {
+                        degraded = true;
+                        ScLog.Warn("registry: member " + m.Name + " (id " + m.Id + ") is in community " + other + " and again in community " + target.Id
+                                   + " - the copy in community " + target.Id + " is dropped");
+                    }
+                    else target.Members[m.Id] = m;
+                }
                 m = null;
             }
             if (p != null)
@@ -1311,10 +1529,11 @@ namespace SurvivorCommunity
         /// its community's; the community id counter is past every community there is; a membership naming a community the text
         /// does not have is dropped (that player is in community 0 again).
         /// </summary>
-        private static void AfterParse(bool sawWorld)
+        private static void AfterParse(bool sawWorld, int defaultCid)
         {
             ScWorldState ws = WorldState;
-            if (!sawWorld) ws.LastDay = ScCommunities.Zero.Community.LastDay;
+            // round MP6 (core fix): "its community" is the text's default one (community 0, but a client's mirrored community)
+            if (!sawWorld) ws.LastDay = (ScCommunities.ById(defaultCid) ?? ScCommunities.Zero).Community.LastDay;
             foreach (CommunityState cs in ScCommunities.All)
                 if (cs.Id > ws.NextCommunityId) ws.NextCommunityId = cs.Id;
             if (ws.Membership.Count == 0) return;
@@ -1744,6 +1963,8 @@ namespace SurvivorCommunity
                 if (cm == null || !cm.IsServer) return;
                 dirty = true;          // round MP1: every mutation that matters saves - the clients' copy follows (ScMirror)
                 if (string.IsNullOrEmpty(saveDir)) { ScLog.Once("save-nodir", "registry save skipped: no save directory yet"); return; }
+                // round MP6 (core fix): the file this save would replace could not be read at load - not replaced (review C-m1)
+                if (saveBlocked) { ScLog.Once("save-blocked", "registry save skipped for this session: the save file could not be read at load (see the error at load)"); return; }
                 if (!ThreadManager.IsMainThread()) { OnMain(SaveAtomic); return; }
 
                 // round MP1: the text is BuildText's, shared with the clients' snapshot

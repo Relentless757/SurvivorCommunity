@@ -54,7 +54,10 @@ the enclaves' seeding, the request clock, refills, remains and streamer names. T
 community. The save is a new file, `survivor_communities.txt`, and a save from before MP6 is migrated once. An admin's
 `sc community` makes a second community. With everyone in community 0 (no `sc community join`), single player, a listen
 host and a dedicated server must behave exactly as before. Build `sc34_mp6core`, **not deployed**, protocol 7 unchanged,
-untested in game. The save's migration and round trip were checked offline on 12 saves from before MP6.
+untested in game. The save's migration and round trip were checked offline on 12 saves from before MP6. The review's fixes
+(round MP6 (core fix), the same build) are also untested in game: a community with nobody online pauses, a member's death,
+departure and re-key change her own community, and a save file that cannot be read falls back to the old file or is not
+overwritten.
 
 **Single player (nothing may change; the save migrates)**
 - [ ] Load a save from before MP6. The log says `registry: migrating survivor_community.txt to survivor_communities.txt - its
@@ -86,11 +89,26 @@ untested in game. The save's migration and round trip were checked offline on 12
       community window and `sc status` show it. The console says how many of your followers stay with community 0. Setting a
       home from the claim radial sets community 1's. `sc community leave` takes you back to community 0, which is unchanged.
 - [ ] A community ticks only while one of its players is online: its day rollover (ledger, tell) runs then, from its own
-      `lastday`. A community that comes back online after days catches up as before, at most 60 days.
+      `lastday`. A community whose players are all offline pauses (the user's decision 9): its days do not count while
+      they are away. Test: community 1's player logs out; community 0 plays on for a few days (real days or `settime`);
+      community 1's player logs back in. The log says `community 1 (...) resumes on day N: none of its players was online
+      since day M - days M+1 to N do not count for it (paused, no catch-up)`. No burst of daily lines follows. Community 1's
+      stockpile, morale and members are as they were when it paused: no consumption, departures or missing-day removals.
+      Its next rollover is one normal day, and a run that came due while it was away lands then. The same in single
+      player: `sc community join 1`, play a day or two, `sc community leave`. Community 0 resumes with the `resumes` line
+      and no catch-up.
+- [ ] With one community nothing changes: a jump forward (`settime` a few days ahead) still runs every missed day, at most
+      60 a second until it is level, as before MP6.
 - [ ] Dedicated server, telnet: `sc community join 1 <player>` moves the client into community 1. The client's own copy
       is still community 0's until the per-community mirror, so its buttons answer "Your community changed since this was
       shown. Try again in a moment." This is expected in this part. `sc community leave <player>` makes them work again.
-- [ ] Telnet: `sc community use 1`, then `sc status`, shows community 1. `sc community use none` goes back to community 0.
+- [ ] Telnet: `sc community use 1`, then `sc status`, shows community 1. The reply says telnet, the web console and the
+      server's own console share this setting. `sc community use none` goes back to community 0.
+- [ ] Telnet, on a community that never ticked: `sc community new Test`, `sc community use <its id>`, `sc day`. The
+      reply says `simulated day <world day + 1>`, not day 1. When one of its players comes online there is no catch-up.
+- [ ] Dedicated server: a member of community 1 dies (or is dismissed). The tell goes to community 1's players, the death
+      penalty is community 1's (`sc community use 1`, `sc morale`), and `sc community list` shows one member fewer for
+      community 1 and none more or fewer for community 0. After save and load she is not back in either community.
 - [ ] Save, quit and load: both communities, their names and owners, and the membership are kept. The log says
       `registry loaded: ... (community 0; 2 communities, 1 player(s) outside community 0)`.
 - [ ] With two communities, the dedicated server's log has `[MP6 scope] community state read with no scope ...` lines, each

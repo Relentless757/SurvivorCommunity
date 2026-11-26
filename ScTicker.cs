@@ -36,6 +36,13 @@ namespace SurvivorCommunity
         public static int SimulatedCommunity = ScPlayers.SharedCommunity;
         /// <summary>Round MP6 (core): the communities with a player online this tick, lowest id first.</summary>
         private static readonly List<int> online = new List<int>();
+        /// <summary>
+        /// Round MP6 (core fix), session only: the communities that ticked in the last pass, and those ticking in this one - a
+        /// community not in the last pass resumes (its players were all offline, or this is the session's first pass), and a
+        /// community that resumes after other communities ran days without it pauses instead of catching up (the user's decision
+        /// 9, review C-M1; TickCommunity).
+        /// </summary>
+        private static readonly HashSet<int> tickedLast = new HashSet<int>(), tickedNow = new HashSet<int>();
 
         public static void Reset()
         {
@@ -43,6 +50,8 @@ namespace SurvivorCommunity
             SimulatedDay = -1;
             SimulatedFromDay = -1;
             SimulatedCommunity = ScPlayers.SharedCommunity;
+            tickedLast.Clear();                   // round MP6 (core fix)
+            tickedNow.Clear();
         }
 
         /// <summary>Round MP6 (core): the communities with a player (alive or dead) in the world, lowest id first.</summary>
@@ -50,17 +59,26 @@ namespace SurvivorCommunity
         {
             into.Clear();
             List<EntityPlayer> all = ScPlayers.All;
+            int c;
             for (int i = 0; i < all.Count; i++)
             {
                 if (all[i] == null) continue;
-                int c = ScPlayers.CommunityOf(all[i]);
+                // round MP6 (core fix): a player whose community cannot be told (no platform id yet, or their connection already
+                // gone) counts for none - not for community 0 (review C-m5)
+                if (!ScPlayers.TryCommunityOf(all[i], out c)) continue;
                 if (!into.Contains(c)) into.Add(c);
             }
+            // round MP6 (core fix): the host's own player even before World.Players lists them - the old ticker ran whenever the
+            // local player was set (ScPlayers.Anchor answered it first), so a first frame is not lost (review C-n3)
+            EntityPlayerLocal local = ScCommunity.LocalPlayer;
+            if (local != null && ScPlayers.TryCommunityOf(local, out c) && !into.Contains(c)) into.Add(c);
             into.Sort();
         }
 
         public static void OnGameUpdate()
         {
+            // round MP6 (core fix): no SC scope may be open between frames - one still open leaked; logged and reset (review C-m3)
+            ScRegistry.ResetLeakedScopes();
             try
             {
                 float now = Time.unscaledTime;
@@ -97,11 +115,12 @@ namespace SurvivorCommunity
                 // to tick (a dedicated server's world time stands still with no players). Round MP6 (core): each community with a
                 // player online ticks, inside its own scope, with its own anchor; the world steps run in the first one's pass
                 OnlineCommunities(online);
-                if (online.Count == 0) return;
+                if (online.Count == 0) { tickedLast.Clear(); return; }    // round MP6 (core fix): everyone resumes from here
                 ScConfig.EnsureParsed();
                 int day = GameUtils.WorldTimeToDays(w.worldTime);
                 int first = -1;
                 EntityPlayer firstAnchor = null;
+                tickedNow.Clear();
                 for (int i = 0; i < online.Count; i++)
                 {
                     int cid = online[i];
@@ -113,7 +132,10 @@ namespace SurvivorCommunity
                             if (player == null) continue;
                             bool world = first < 0;
                             if (world) { first = cid; firstAnchor = player; }
-                            TickCommunity(w, player, cid, day, world);
+                            // round MP6 (core fix): it did not tick in the last pass - its players were all offline (review C-M1)
+                            bool resumed = !tickedLast.Contains(cid);
+                            tickedNow.Add(cid);
+                            TickCommunity(w, player, cid, day, world, resumed);
                         }
                     }
                     catch (Exception e)
@@ -121,6 +143,8 @@ namespace SurvivorCommunity
                         ScLog.Once("ticker", e);             // as before MP6: a fault ends this community's tick for this second
                     }
                 }
+                tickedLast.Clear();                          // round MP6 (core fix): this pass is the next one's "last"
+                tickedLast.UnionWith(tickedNow);
                 // round MP6 (core): the world daily's day guard ahead of the world with no community going back to reset it (with one
                 // community it never is: the community's own rollover resets both)
                 if (first >= 0)
@@ -140,8 +164,10 @@ namespace SurvivorCommunity
         /// check, ScBond, ScMorale.SyncHud, ScRadio, ScMining, ScOutposts.Tick, ScHomeHold, ScGarrison, ScScouting, ScOutpostRisk,
         /// ScBaseAttack, ScSiege, ScWatch, ScInvestigate, ScMissing) pass it in the first community's pass of the second only.
         /// MP6 (part home): those throttles per community - else community 1+ never runs them
+        /// Round MP6 (core fix): resumed - the community did not tick in the last pass (its players were all offline, or this is the
+        /// session's first pass): see Resume.
         /// </summary>
-        private static void TickCommunity(World w, EntityPlayer player, int cid, int day, bool world)
+        private static void TickCommunity(World w, EntityPlayer player, int cid, int day, bool world, bool resumed)
         {
             {
                 Community c = ScRegistry.Community;
@@ -180,6 +206,7 @@ namespace SurvivorCommunity
                 else
                 {
                     if (cid == SimulatedCommunity) SimulatedDay = -1;      // the world has caught up with any simulated day: no resync of ours is coming
+                    if (resumed) Resume(c, ws, day);                       // round MP6 (core fix): a paused community picks up from today
                     int guard = 0;
                     while (c.LastDay < day && guard++ < 60) { c.LastDay++; ScDaily.Run(c.LastDay, player); }
                 }
@@ -250,6 +277,25 @@ namespace SurvivorCommunity
                 ScEncJoin.Tick(w, player);            // a whole enclave that joined: their bodies walk off, each turns up at home when due (E12)
                 if (world) ScStreamerNames.Tick();    // round 30: the streamer names given in the last second into the save (round MP6 (core): world)
             }
+        }
+
+        /// <summary>
+        /// Round MP6 (core fix), the user's decision 9 (review C-M1): a community whose players are all offline pauses - its days do
+        /// not count while none of them is online (no consumption, morale loss, departures, missing days or runs landing). So when
+        /// it ticks again after other communities ran world days without it (the world daily's guard is past its LastDay), it
+        /// picks up from today with no catch-up: its LastDay is rebased to the last world day run (today at most). Whatever came
+        /// due meanwhile - a run's end day, a dated stamp - resolves from its next rollover on, once, as after the world day went
+        /// back. Days nobody ran (the whole server was empty) still run as before; so does everything with one community: single
+        /// player and Shared mode pause with the server, as they always did.
+        /// </summary>
+        private static void Resume(Community c, ScWorldState ws, int day)
+        {
+            if (ScCommunities.Count < 2 || c.LastDay < 0 || c.LastDay >= day || ws.LastDay <= c.LastDay) return;
+            int to = Math.Min(ws.LastDay, day);
+            ScLog.Out(ScRegistry.Current.Label + " resumes on day " + day + ": none of its players was online since day " + c.LastDay
+                      + " - days " + (c.LastDay + 1) + " to " + to + " do not count for it (paused, no catch-up)");
+            c.LastDay = to;
+            ScRegistry.SaveAtomic();
         }
 
         /// <summary>Remembers where each prospect is while they are loaded (the return marker when they are not).</summary>
@@ -545,7 +591,7 @@ namespace SurvivorCommunity
 #if SC_V34
                     ScHanded.OnRecordGone(ScRegistry.GetMember(id), null, "dropped: her entity id was reused");   // n12 review: logged
 #endif
-                    ScRegistry.Members.Remove(id);
+                    ScRegistry.RemoveMember(id);          // round MP6 (core fix): from whichever community holds her (review C-M2)
                     ScLooks.Forget(id);
                 }
             }
@@ -693,7 +739,7 @@ namespace SurvivorCommunity
 #if SC_V34
                     ScHanded.OnRecordGone(m, null, "not seen for " + ScConfig.MissingDaysToPurge + " days");   // round n12 review: logged
 #endif
-                    ScRegistry.Members.Remove(gone[i]);
+                    ScRegistry.RemoveMember(gone[i]);     // round MP6 (core fix): from whichever community holds her (review C-M2)
                     ScLooks.Forget(gone[i]);
                     ScRegistry.Cleanup.Add(gone[i]);      // strip the mod's cvars/buffs if that entity ever loads again
                 }

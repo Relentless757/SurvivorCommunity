@@ -139,6 +139,10 @@ namespace SurvivorCommunity
                     }
                     if (ScRegistry.UnscopedReads > 0)
                         Output("[SC] unscoped reads of the community seen so far: " + ScRegistry.UnscopedReads + " (each distinct one is in the log, \"[MP6 scope]\")");
+                    // round MP6 (core fix): a listen host's, which take the host's community (review C-m6)
+                    if (ScRegistry.UnscopedHostReads > 0)
+                        Output("[SC] unscoped reads on this listen host while clients were connected (the host's community assumed): " + ScRegistry.UnscopedHostReads
+                               + (ScConfig.Verbose ? " (each distinct one is in the log, \"[MP6 scope]\")" : " (DebugLogging on logs where they come from)"));
                     break;
                 }
                 case "new":
@@ -171,7 +175,9 @@ namespace SurvivorCommunity
                     if (was == cid) { Output("[SC] " + who + " is already in " + ScCommunities.ById(cid).Label); return; }
                     ScPlayers.SetCommunity(pid, cid);
                     ScRegistry.SaveAtomic();
-                    // their followers stay with the community they belong to (members are a community's, not a player's)
+                    // their followers stay with the community they belong to (members are a community's, not a player's).
+                    // MP6 (part gates): their Leader/Owner link still points at this player, now outside their community (and that
+                    // community may no longer tick with nobody of it online) - send them home or detach them (review C-n5)
                     int followers = 0;
                     CommunityState old = ScCommunities.ById(was);
                     if (old != null)
@@ -195,7 +201,9 @@ namespace SurvivorCommunity
                     }
                     if (!int.TryParse(p[2], out cid) || ScCommunities.ById(cid) == null) { Output("[SC] usage: sc community use <id> | none - there is no community " + p[2]); return; }
                     ScRegistry.WorldState.ConsoleUse[key] = cid;
-                    Output("[SC] this console now acts in " + ScCommunities.ById(cid).Label + " (until the world closes; sc community use none goes back)");
+                    // round MP6 (core fix): the playerless consoles share one setting (review C-n4) - said, so an admin is not surprised
+                    Output("[SC] this console now acts in " + ScCommunities.ById(cid).Label + " (until the world closes; sc community use none goes back)"
+                           + (key.Length == 0 ? ". Telnet, the web console and the server's own console share this setting: it applies to all three" : ""));
                     break;
                 }
                 default:
@@ -531,6 +539,14 @@ namespace SurvivorCommunity
             EntityPlayer p = Me;                     // round MP2: the sender (the rollover's player: gamestage, tells)
             if (!ScCommunity.IsHost || p == null) { Output("[SC] host only"); return; }
             Community c = ScRegistry.Community;
+            // round MP6 (core fix): a community that never ticked (a new one, from "sc community use") starts from the world's day,
+            // as the ticker's baseline does - not from day 0, which would leave it 50 days behind to catch up (review C-m4)
+            if (c.LastDay < 0 && ScCommunity.World != null)
+            {
+                int today = GameUtils.WorldTimeToDays(ScCommunity.World.worldTime);
+                c.LastDay = today;
+                if (ScRegistry.WorldState.LastDay < 0) ScRegistry.WorldState.LastDay = today;
+            }
             c.LastDay++;
             ScTicker.SimulatedDay = c.LastDay;     // the ticker's resync back to the world's day is then ours, not a fault
             ScTicker.SimulatedCommunity = ScRegistry.CurrentId;   // round MP6 (core): the community whose day it is (the console's scope)

@@ -3124,8 +3124,12 @@ Round MP0 is the groundwork:
     2. on a client, the mirrored community (`MirroredCommunity`, 0 for now);
     3. on a host with a local player, that player's community;
     4. else community 0.
-    With one community it is always community 0. While two or more communities exist, an unscoped read on a server with no
-    local player logs `[MP6 scope] ...` once per distinct stack trace (`sc community list` counts them). Main thread only.
+    With one community it is always community 0, except on a client whose copy is of another community: a client's copy
+    (`ApplyMirror`) is parsed into its mirrored community, so its `Current` and the community its actions send are that
+    one. While two or more communities exist, an unscoped read on a server with no local player logs `[MP6 scope] ...` once
+    per distinct stack trace (`sc community list` counts them). On a listen host with clients connected, unscoped reads
+    are counted, and logged with `DebugLogging`. A scope still open at the start of a frame leaked: it is logged and reset.
+    Main thread only.
   - **Already scoped:** `ScActions.Dispatch` scopes every op to the sender's community. The `community` int in
     `NetPackageScAction` is a staleness check only: a mismatch is refused with `scActionCommunityChanged`.
     `Allowed`/`IsOwnerOrAdmin` check the sender's own community. Also scoped:
@@ -3136,7 +3140,10 @@ Round MP0 is the groundwork:
   - **Global lookups never read the scope:** `GetMember`/`GetProspect` answer across every community (entity ids are
     world-unique). So do `CommunityOfMember`, `ScCommunities.*` and `ScPlayers.CommunityOf`. `CountStatus`, `FollowerCount`
     and `Members` stay per scope. Code that means "anyone's member" must loop over `ScCommunities.AllMembers()`, not
-    `ScRegistry.Members`.
+    `ScRegistry.Members`. A record found through a global lookup is changed in its own community: scope to it
+    (`using (ScRegistry.Use(m))`) or use `RosterOf(m)`, `ProspectsOf(p)`, `RemoveMember(id)` or
+    `RemoveProspectEverywhere(id)`. Removing or re-keying through `ScRegistry.Members` in another scope misses her, or
+    moves her and the save writes her twice. The load keeps the first copy of a member id found in two communities.
   - **The world record:** `ScRegistry.WorldState` (`ScWorldState`). It holds:
     - every id counter (contact, outpost, enclave, infestation, enclave person, band, band person, enclave request, and the
       new community counter), so ids never collide and old journal quests stay valid;
@@ -3155,7 +3162,10 @@ Round MP0 is the groundwork:
     (`ScMirror`, `ScMarkers`, `ScCraftFromBase`) run in community 0's scope, as before.
     `ScDaily.Run` is a community's daily, guarded by its own `LastDay`. Where the world steps always ran, it calls
     `ScDaily.RunWorld` for every world day not run yet. That is guarded by `ScWorldState.LastDay`, so the first community
-    to roll a day over runs it.
+    to roll a day over runs it. A community whose players are all offline pauses: when it ticks again after other
+    communities ran world days without it, its `LastDay` is rebased to the last world day run (`ScTicker.Resume`), with no
+    catch-up. Whatever came due meanwhile resolves from its next rollover on. Days nobody ran (the whole server empty) run
+    as before, so one community behaves exactly as before MP6.
   - **The save:** `survivor_communities.txt` (header `SCOM 2`), written atomically as before. It holds:
     - `[world]`: the world keys that used to sit in `[community]`, plus `lastday=` and `communityid=`;
     - `[membership]`: one `player=<platform id>:<cid>` line per player outside community 0;
@@ -3164,7 +3174,9 @@ Round MP0 is the groundwork:
       community 0's.
     With only the old `survivor_community.txt`, the load migrates it: its community becomes community 0 (owner kept), its
     world keys go to the world record, and every id counter keeps its value. The old file is never written again, so an
-    older build still loads the state from before MP6 and never touches the new file. A client's snapshot
+    older build still loads the state from before MP6 and never touches the new file. When the new file and its `.bak` are
+    both unreadable, the old file is migrated again. When the file the load needed exists but cannot be opened at all (in
+    use by another program), nothing is saved in that session (`SaveBlocked`), so the file is not replaced. A client's snapshot
     (`BuildText(true)`) is still community 0's text in the old `SCOM 1` layout (`BuildLegacyText`).
   - **`sc community`** (admin, as all of `sc`): `list`, `new <name>` (owner: the sender), `join <id> [player]`,
     `leave [player]` (back to community 0), and `use <id>|none` (the console session acts in a community until the world

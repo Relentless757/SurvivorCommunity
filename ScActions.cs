@@ -268,8 +268,10 @@ namespace SurvivorCommunity
                 int id = ++nextRequest;
                 pending[id] = new Pending { Callback = onResult, At = UnityEngine.Time.realtimeSinceStartup, Op = op };
                 // round MP6 (core): the community this client's copy is of (ScRegistry.Current: the mirrored one) - the server only
-                // checks it against the sender's, it never picks the community
-                ScNet.Cm.SendToServer(NetPackageManager.GetPackage<NetPackageScAction>().Setup(id, ScRegistry.CurrentId, op, args.Ints, args.Strs));
+                // checks it against the sender's, it never picks the community. Round MP6 (core fix): a client names its mirrored
+                // community outright, whatever a scope says (review C-m2)
+                int community = ScRegistry.Loaded ? ScRegistry.CurrentId : ScRegistry.MirroredCommunity;
+                ScNet.Cm.SendToServer(NetPackageManager.GetPackage<NetPackageScAction>().Setup(id, community, op, args.Ints, args.Strs));
             }
             catch (Exception e)
             {

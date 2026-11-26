@@ -253,7 +253,8 @@ namespace SurvivorCommunity
         private static int MaxId()
         {
             int n = 0;
-            foreach (Outpost o in ScRegistry.Outposts) if (o.Id > n) n = o.Id;
+            // round MP6 (core fix): every community's - the id counter is the world's, so a repaired id must clear them all (review C-m7)
+            foreach (Outpost o in ScCommunities.AllOutposts()) if (o.Id > n) n = o.Id;
             return n;
         }
 

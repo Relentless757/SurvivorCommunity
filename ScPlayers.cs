@@ -46,10 +46,31 @@ namespace SurvivorCommunity
         /// </summary>
         public static int CommunityOf(EntityPlayer p)
         {
-            if (p == null) return SharedCommunity;
-            if (!ScRegistry.Loaded) return p is EntityPlayerLocal ? ScRegistry.MirroredCommunity : SharedCommunity;
-            if (ScRegistry.WorldState.Membership.Count == 0) return SharedCommunity;
-            return CommunityOfId(IdOf(p));
+            int c;
+            TryCommunityOf(p, out c);             // round MP6 (core fix): one path with TryCommunityOf (unknown: community 0, as before)
+            return c;
+        }
+
+        /// <summary>
+        /// Round MP6 (core fix): CommunityOf, false when the player's community cannot be told - on a server while somebody is outside
+        /// community 0 and this player's platform id does not resolve (not mapped yet, or their connection already gone at a
+        /// disconnect). community is 0 then. Callers that count players for a community skip such a player rather than count
+        /// them as community 0's (review C-m5). Null: false. With nobody outside community 0 it is always true (no id looked up).
+        /// </summary>
+        public static bool TryCommunityOf(EntityPlayer p, out int community)
+        {
+            community = SharedCommunity;
+            if (p == null) return false;
+            if (!ScRegistry.Loaded)
+            {
+                community = p is EntityPlayerLocal ? ScRegistry.MirroredCommunity : SharedCommunity;
+                return true;
+            }
+            if (ScRegistry.WorldState.Membership.Count == 0) return true;
+            string id = IdOf(p);
+            if (id.Length == 0) return false;
+            community = CommunityOfId(id);
+            return true;
         }
 
         /// <summary>Round MP6 (core), server: a connected client's community by its platform id (a package's sender, before or without a body).</summary>
@@ -154,17 +175,20 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool InCommunity(EntityPlayer p, int community = CurrentCommunity)
         {
-            return p != null && CommunityOf(p) == Resolve(community);
+            // round MP6 (core fix): a player whose community cannot be told is in none of them (review C-m5)
+            int pc;
+            return TryCommunityOf(p, out pc) && pc == Resolve(community);
         }
 
         /// <summary>The community's players online (round MP6 (core): the one in scope unless given). The list is reused: do not keep it.</summary>
         public static List<EntityPlayer> Community(int community = CurrentCommunity)
         {
             scratch.Clear();
-            int c = Resolve(community);
+            int c = Resolve(community), pc;
             List<EntityPlayer> all = All;
+            // round MP6 (core fix): a player whose community cannot be told is in none of them (review C-m5)
             for (int i = 0; i < all.Count; i++)
-                if (all[i] != null && InCommunity(all[i], c)) scratch.Add(all[i]);
+                if (all[i] != null && TryCommunityOf(all[i], out pc) && pc == c) scratch.Add(all[i]);
             return scratch;
         }
 

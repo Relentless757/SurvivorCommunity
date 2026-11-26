@@ -226,7 +226,9 @@ namespace SurvivorCommunity
         public static void RebuildRunnerSet()
         {
             var s = new Dictionary<int, KeyValuePair<int, ulong>>();
-            foreach (var m in ScRegistry.Members.Values)
+            // round MP6 (core fix): every community's runners - the chunk-save veto (IsRunnerBody) is by world-unique entity id, and a
+            // rebuild in one community's scope (a death, a leave) dropped every other community's runner from it
+            foreach (var m in ScCommunities.AllMembers())
                 if (IsPhysical(m)) s[m.Id] = new KeyValuePair<int, ulong>(string.IsNullOrEmpty(m.Class) ? 0 : EntityClass.FromString(m.Class), m.Born);
             runnerIds = s;
         }
@@ -1905,6 +1907,9 @@ namespace SurvivorCommunity
         /// </summary>
         public static void Rekey(World w, EntityPlayer player, Member m, EntityAlive e, int oldId, bool fresh)
         {
+            // round MP6 (core fix): in her own community - the roster below, her threat stamp - whatever the caller's scope (review
+            // C-M2: from an unscoped path the remove missed and the put moved her into the scope's community, a duplicate on save)
+            using ScScope inScope = ScRegistry.Use(m);
             ScRegistry.Members.Remove(oldId);
             m.Id = e.entityId;
             if (fresh || m.Born == 0) m.Born = e.WorldTimeBorn;

@@ -603,6 +603,7 @@ namespace SurvivorCommunity
         /// <summary>The member's key moves to their first body (no body ever had the old key: nothing to doom).</summary>
         private static void Rekey(Member m, EntityAlive npc, int key)
         {
+            using ScScope inScope = ScRegistry.Use(m);      // round MP6 (core fix): her own community's roster and threat stamp (review C-M2)
             ScRegistry.Members.Remove(key);
             m.Id = npc.entityId;
             m.Born = npc.WorldTimeBorn;

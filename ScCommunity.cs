@@ -196,6 +196,16 @@ namespace SurvivorCommunity
             if (!ScRegistry.Loaded) { error = "scHostOnly"; return false; }      // round MP2 (E10): never on a client's copy
             try
             {
+                // round MP6 (core fix): the member joins the community in scope (the joiner's: Dispatch, the console) - never as a
+                // second record under an id another community holds (entity ids are world-unique; the save would write her twice)
+                // (review C-M2)
+                int holder = ScRegistry.CommunityOfMember(m.Id);
+                if (holder >= 0 && holder != ScRegistry.CurrentId)
+                {
+                    ScLog.Warn(m.Name + " (id " + m.Id + ") is already a member of community " + holder + " - not admitted to " + ScRegistry.Current.Label);
+                    error = "scAlreadyMember";
+                    return false;
+                }
                 m.JoinDay = Today;
                 ScRegistry.Members[m.Id] = m;
                 ScTrust.StripOnJoin(npc);
@@ -209,7 +219,9 @@ namespace SurvivorCommunity
                     // round MP2 (the E 4.4 decision): the favour was shared - anyone else who took it on loses their copy
                     ScTalkContext.CloseFavourForOthers(pr.Id, false, player);
                 }
-                ScRegistry.Prospects.Remove(m.Id);
+                // round MP6 (core fix): every community's favour for them closes with the join (the user's decision 2: whoever finishes
+                // first recruits) - GetProspect above is global, the scope's table could miss it (review C-M2)
+                ScRegistry.RemoveProspectEverywhere(m.Id);
 
                 // D9: a companion the player hired the vanilla way joins on the same terms as anyone - the paid hire ends
                 // here. Voice Control's contract (Retainer*) goes, and as a member it is never seeded again or billed
@@ -1300,6 +1312,9 @@ namespace SurvivorCommunity
             // round MP1: only the real registry - a client's copy (ScMirror) is never changed. Round MP2 (E10): a client asks with
             // member.leave (ScActionsMembers); this refusal stays as the verb's own defense
             if (!ScRegistry.Loaded || !IsHost) return;
+            // round MP6 (core fix): in her own community - its roster, its tells - whatever the caller's scope (review C-M2: callers
+            // find her through the global GetMember)
+            using ScScope inScope = ScRegistry.Use(m);
 #if SC_V34
             // round U2: a downed member does not leave - Leave detaches her, 0-XNPCCore would find no leader and her bleed-out would
             // stop for good (an invulnerable stranger); asked again once she is up
@@ -1411,17 +1426,23 @@ namespace SurvivorCommunity
                     if (LocalPlayer != null) ScQuests.CloseFavour(LocalPlayer, p.Id, p.Done);
                     // round MP2: the same for every client that took it on (the favour is shared: the E 4.4 decision)
                     ScTalkContext.CloseFavourForOthers(p.Id, p.Done, LocalPlayer);
-                    ScRegistry.Prospects.Remove(npc.entityId);
+                    // round MP6 (core fix): every community's favour for them ends with them - GetProspect above is global, the
+                    // scope's table could miss it (review C-M2)
+                    ScRegistry.RemoveProspectEverywhere(npc.entityId);
                     ScRegistry.SaveAtomic();
                 }
                 Member m = ScRegistry.GetMember(npc.entityId);
                 if (m == null) return;
-                // round MP0: the anchor, not the local player - a dedicated server has none, and the news still goes out
+                // round MP6 (core fix): the SetDead postfix has no scope - her own community's anchor, roster and news (review C-M2)
+                using (ScRegistry.Use(m))
+                {
+                    // round MP0: the anchor, not the local player - a dedicated server has none, and the news still goes out
 #if SC_V34
-                RecordDeath(m, ScPlayers.Anchor(), ScDowned.DeathKey(m));   // round U2 (D6): "bled out" for one who was down
+                    RecordDeath(m, ScPlayers.Anchor(), ScDowned.DeathKey(m));   // round U2 (D6): "bled out" for one who was down
 #else
-                RecordDeath(m, ScPlayers.Anchor(), "scDied");
+                    RecordDeath(m, ScPlayers.Anchor(), "scDied");
 #endif
+                }
             }
             catch (Exception e)
             {
@@ -1433,6 +1454,9 @@ namespace SurvivorCommunity
         public static void RecordDeath(Member m, EntityPlayer player, string tooltipKey)     // round MP0: any player
         {
             if (m == null || !ScRegistry.Loaded) return;      // round MP2 (E10): never on a client's copy
+            // round MP6 (core fix): her own community's roster, deaths, death penalty, morale and news, whatever the caller's scope
+            // (review C-M2)
+            using ScScope inScope = ScRegistry.Use(m);
             if (m.Status == MemberStatus.Garrison) ScGarrison.RemoveStandIn(m);
             if (m.Status == MemberStatus.OnRun)
             {

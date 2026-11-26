@@ -226,7 +226,9 @@ namespace SurvivorCommunity
             var ids = new HashSet<int>();
             var enclaves = new HashSet<int>();
             int max = 0;
-            foreach (EnclaveRequest r in All) if (r.Id > max) max = r.Id;
+            // round MP6 (core fix): every community's - the id counter is the world's, so a repaired id must clear them all (review C-m7)
+            foreach (CommunityState cs in ScCommunities.All)
+                foreach (EnclaveRequest r in cs.EncRequests) if (r.Id > max) max = r.Id;
             int dropped = 0;
             bool siege = false;
             foreach (EnclaveRequest r in new List<EnclaveRequest>(All))

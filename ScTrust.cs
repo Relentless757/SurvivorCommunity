@@ -121,7 +121,12 @@ namespace SurvivorCommunity
             if (EntityUtilities.GetCurrentOrder(npc.entityId) == EntityUtilities.Orders.Guard) npc.Buffs.AddBuff("buffOrderWander");
             madeHostile++;
             string name = ScCommunity.DisplayName(npc);
-            Prospect p = ScRegistry.GetProspect(npc.entityId);
+            // round MP6 (core fix): the hitter's community's favour ends (the user's decision 5: the grudge blocks only the hitter's
+            // community) - looked up and removed in that community's own table, not the global lookup's lowest community nor the
+            // scope's (review C-M2). With one community: the one favour, as before
+            CommunityState hitters = ScCommunities.ById(ScPlayers.CommunityOf(player)) ?? ScCommunities.Zero;
+            Prospect p;
+            if (!hitters.Prospects.TryGetValue(npc.entityId, out p)) p = null;
             if (p != null)
             {
                 // round MP2: the hitter's journal is on their own machine - the host's here as before; a client's (and every other
@@ -129,10 +134,16 @@ namespace SurvivorCommunity
                 // that close is the quest op (NetPackageScQuestOp); a remote hitter is not 'except' (null), so theirs closes too, and
                 // one away closes it with their next journal report (ScQuestNet)
                 if (player is EntityPlayerLocal) ScQuests.CloseFavour(player, p.Id, false);
+                // MP6 (part relations): this closes every player's copy of the favour quest, another community's too - only the
+                // hitter's community's should close (its prospect is the one removed below)
                 ScTalkContext.CloseFavourForOthers(p.Id, false, player as EntityPlayerLocal);
-                ScRegistry.Prospects.Remove(p.Id);
-                ScCommunity.ClearSynced(npc, "sc_favour");          // round MP2 (E9): clients get the 0
-                ScCommunity.ClearSynced(npc, "sc_favourDone");
+                hitters.Prospects.Remove(p.Id);                     // round MP6 (core fix): the table it was found in
+                // round MP6 (core fix): the body's favour marks stay while another community still courts them
+                if (ScRegistry.GetProspect(npc.entityId) == null)
+                {
+                    ScCommunity.ClearSynced(npc, "sc_favour");      // round MP2 (E9): clients get the 0
+                    ScCommunity.ClearSynced(npc, "sc_favourDone");
+                }
                 ScRegistry.SaveAtomic();
             }
             // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
