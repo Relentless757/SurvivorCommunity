@@ -223,6 +223,19 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round MP6 (fix H-N1): the community in scope ticks again after a pause (ScTicker, several communities only) - a blood
+        /// moon's roll call from before the pause goes (a later blood moon takes its own; one still on takes it from who is there now).
+        /// </summary>
+        internal static void OnResumed()
+        {
+            BondState st = homes.Current;
+            if (!st.WasBloodMoon && st.BloodMoonMembers.Count == 0) return;
+            st.WasBloodMoon = false;
+            st.BloodMoonMembers.Clear();
+            ScLog.Out("Bond: " + ScRegistry.Current.Label + " resumes - its blood-moon roll call from before the pause goes");
+        }
+
+        /// <summary>
         /// ModEvents.EntityKilled (registered in ModApi; the host): an enemy killed by a player that was on a member - after her (its
         /// attack target), or her own attack or revenge target (0-XNPCCore's own test) - is +BondKillOnHer for her. Every member's
         /// body in the world counts, her outpost or rescue stand-in included. Queued (Note).

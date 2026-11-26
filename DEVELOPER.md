@@ -3258,8 +3258,8 @@ Round MP0 is the groundwork:
     to its runner's community (`ScQuestNet.Remotes(m.CommunityId)`). A re-keyed enclave person's favour goes to every remote
     player, since each community courting them holds its own quest. A journal report is answered against the sender's own
     community's prospects and runners. `ScVoice.SendCommunity(cid, line)` sends a runner's radio line to her own community.
-    `ScWorldNews.Each` runs a world event's tells and ledger line once per community in its scope (`Concerns(related)`:
-    always with one community). An enclave falling and an infestation cleared use it.
+    An enclave falling and an infestation cleared tell each community that knew them (the relations part's own news; the
+    network part's `ScWorldNews` was dropped at the merge).
   - The ticker no longer runs the three per-viewer pushes in community 0's scope (the core's note above): each push scopes
     what it reads per community.
 - **Round MP6 (part: H), the home's machinery per community:** each community's home runs on its own. With one community
@@ -3269,8 +3269,8 @@ Round MP0 is the groundwork:
     Community 0's row is a plain field (no lookup). The home systems keep what used to be their single-instance statics in a
     private row class, and the old static names are now properties that read `Current`'s row. So the code that uses them is
     unchanged and reads the community in scope. It is a side table rather than fields on `CommunityState` because a client
-    replaces its `CommunityState` objects with every snapshot, and each system's `Reset` clears its table as it cleared its
-    statics. `ScHomeTimer` is a ticker step's throttle (one float). `ScHomeScope.Of(entity)` scopes to the member a body is
+    replaces its `CommunityState` objects with every snapshot, and each system's `Reset` clears its whole table (every
+    community's row) as it cleared its statics; `ScMorale`'s HUD clock and morale override never had a reset. `ScHomeTimer` is a ticker step's throttle (one float). `ScHomeScope.Of(entity)` scopes to the member a body is
     (a stand-in's member too), and `ScHomeScope.Of(cid)` to a community; both do nothing with one community.
   - **Per community now:** the home attack's session (`ScBaseAttack`: attackers, zone, clocks), the blood-moon siege
     (`ScSiege`), noise (`ScNoise`: counters, steady part, clocks), the watch's clocks (`ScWatch`) and watch fatigue's last
@@ -3293,14 +3293,22 @@ Round MP0 is the groundwork:
     players log off. `ScHomeLink` steps every link in its own community's scope, once a frame. `ScDoors` refreshes each
     community's owner in its pass and shuts doors once a frame. `ScBond` drains every community's events and recomputes the
     morale of each community that changed.
-  - **A community that pauses** (none of its players online, the user's decision 9): a live attack's attackers are let go
-    once it has not ticked for 5 real seconds (`ScBaseAttack.StaleSessions`); when it ticks again the fight resumes as after
-    a reload. Its noise does not integrate the hours it was away: the first tick after a gap of 5 seconds or more rebases the
-    noise clock when a quarter game hour or more went by. Both only with two or more communities.
+  - **A community that pauses** (none of its players online, the user's decision 9): the ticker lets a live attack's
+    attackers go in the first pass the community has no player online (`ScBaseAttack.ReleasePaused`, from the pass's online
+    list, never from a clock); when it ticks again the fight resumes as after a reload. Its noise does not integrate the hours
+    it was away (the noise clock is rebased), and while paused it hears nothing (`ScNoise` skips a community not online in
+    the pass: `ScTicker.OnlineNow`). Its world-time stamps move on by the time it missed (`ScTicker.PauseShift`, from
+    `Community.SeenTime`, the world time it last ticked, saved as `seentime=` only while there are two or more communities):
+    the home attack's arrival, the defenders' fight, a live fight's start, the gap to the next call (`ScBaseAttack.ShiftPaused`),
+    a guard's watch shift (`ScWatch.ShiftPaused`) and an outpost fight's deadline (`ScOutpostRisk.ShiftPaused`). A blood
+    moon's roll call (`ScBond.OnResumed`) and an older blood moon's home mark (`ScSiege.OnResumed`) go. All only with two
+    or more communities. A new piece of state that runs on world time and must not run while a community is paused shifts
+    in `PauseShift`.
   - **For modders:** a new piece of home state goes in a `ScHomeState<T>` row, never a plain static. Code that has a body or a
     position and no scope scopes itself (`ScHomeScope.Of`, `ScZone.CommunityAt`). The reads the AI makes with no entity
     (`ScBaseAttack.WideDefence`/`InDefenceArea`, `ScInvestigate.InArea`, `ScShelter.InZone`) follow the scope the UAI entry
-    points set.
+    points set, and 0-XNPCCore's close-range tick (`Patches_Xnpc` X5: `ScTeam.Recount`, `ScRetreat.Update`, `ScPosture.Update`),
+    which runs from the avatar controller's own `Update`, opens the member's scope itself.
 - **Round MP6 (part: G), entry points and gates:** the engine's entry points act for the right community, and another
   community's members, stations and ground are not yours (the user's decisions 3 and 4). With one community every test
   below answers as before MP6. `ScGates.cs` holds the helpers:
@@ -3346,6 +3354,27 @@ Round MP0 is the groundwork:
     where server code picks a recipient (stationing, a leader to restore, a shift's owner, a runner's call, Leadership, a
     craft or book star, a distress call's end): the host's own player only when of that community, else its anchor.
     `ScPlayers.Nearest` takes a community filter.
+  - **Not gated on the server:** SCore's own inventory screen for another community's member is refused by the opening
+    machine (`Patches_MemberInv`); SCore's remote session on the server is not checked, so only an honest client is stopped.
+- **Round MP6 (review fixes):** the four reviews' fixes on the merged build. What a modder must know:
+  - **The listen host's own markers** are drawn for the host's own player in the host's own community: the periodic and
+    restore paths (`ScEnclaves`/`ScInfestations`' `RefreshMarkers`, `ScBands.UpdateMarkers`) take `ScCommunity.LocalPlayer`,
+    never the world pass's anchor. The one-shot restores of community records' markers (`ScRadio`, `ScScouting`,
+    `ScOutpostRisk`, `ScOutposts`) remember the community they drew for (`markersFor`) and redraw, after clearing every
+    marker they drew, when the host's community changes. A new host marker follows the same rule.
+  - **A world step that acts on a community's record** opens that record's scope: a missing person's body, death and unload
+    (`ScEncSearch`, the search's community), an enclave person's death and the new leader's news (every community that knows
+    the group, `ScEnclavePeople.ForKnowing`). The "in use" target sets walk every community (`ScEncRequests.AddTargets`).
+  - **Per community now:** the talk facts' favor (`ScTalkContext.Build` reads `OwnProspect`), journal reports' favors
+    (`ScQuestNet`, keyed by community and prospect), enlisted enclave people (`ScEnclaveDeals.EnlistedOf`/`EnlistedCount`:
+    one per ally per community, counted against that community's follower limit), a band seen (`ScEnclavePeople.SeenByCommunity`),
+    Bond for a kill, light sleepers' tells. One missing person at a time is checked at the offer and again at the accept
+    (`ScEncSearch.SearchOpen`). The claim limit keeps any community's home (`ScGates.IsAnyHome`); `sc home set` and
+    AutoHomeFirstClaim never take another community's ground.
+  - **A player who changes community** (`sc community join/leave`): their old community's accepted requests are withdrawn,
+    their talk holds and work shifts end (`ScWork.ForgetPlayer`), their new community's grudge against them is dropped, and
+    the ticker stations any follower whose live leader is not of her community (`ScTicker.Relink`). A future join flow
+    (MP7) should go through the same steps.
 
 ## How it hangs together (for modders)
 

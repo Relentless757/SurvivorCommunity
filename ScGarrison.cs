@@ -89,7 +89,7 @@ namespace SurvivorCommunity
         public static void Reset()
         {
             ReleaseFetches(null);
-            nextTick = 0f;
+            homeTicks.Reset();                    // round MP6 (fix H-N3): every community's throttle (was the scope's row only)
             nextCount.Clear();
             Orphans.Clear();
             embodyRetry.Clear();

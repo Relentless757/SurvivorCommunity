@@ -229,7 +229,7 @@ namespace SurvivorCommunity
             markers.Clear();
             markersRestored = false;
             markersFor = -1;                      // round MP6 (fix N-m1)
-            nextTick = 0f;
+            homeTicks.Reset();                    // round MP6 (fix H-N3): every community's throttle (was the scope's row only)
             disbandUntil = 0f;
             boxes = new int[0][];
             keys = new Vector3i[0];

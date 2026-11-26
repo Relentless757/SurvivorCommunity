@@ -83,8 +83,8 @@ namespace SurvivorCommunity
             live.Clear();
             markers.Clear();
             markersFor = -1;
-            wasBloodMoon = false;
-            nextTick = 0f;
+            homeBloodMoon.Reset();                // round MP6 (fix H-N3): every community's flag (was the scope's row only)
+            homeTicks.Reset();                    // round MP6 (fix H-N3): every community's throttle (was the scope's row only)
         }
 
         public static void OnRegistryChanged()

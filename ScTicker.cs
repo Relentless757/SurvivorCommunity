@@ -88,6 +88,7 @@ namespace SurvivorCommunity
         {
             // round MP6 (core fix): no SC scope may be open between frames - one still open leaked; logged and reset (review C-m3)
             ScRegistry.ResetLeakedScopes();
+            ScGates.ClearHeld();                      // round MP6 (fix G-n5): and no held one (Patches_Gates' prefix/finalizer pairs)
             try
             {
                 float now = Time.unscaledTime;
@@ -186,6 +187,13 @@ namespace SurvivorCommunity
                 ulong seenNow = w.worldTime;
                 if (resumed && ScCommunities.Count > 1 && c.SeenTime > 0UL && seenNow > c.SeenTime + PauseShiftMin) PauseShift(c, seenNow - c.SeenTime);
                 c.SeenTime = seenNow;
+                if (resumed && ScCommunities.Count > 1)
+                {
+#if SC_V34
+                    ScBond.OnResumed();                // round MP6 (fix H-N1): no roll call from before the pause
+#endif
+                    ScSiege.OnResumed(day);            // round MP6 (fix H-N2): no home mark from an older blood moon
+                }
                 if (c.LastDay < 0)
                 {
                     c.LastDay = day;                       // baseline: the first observed day is not charged

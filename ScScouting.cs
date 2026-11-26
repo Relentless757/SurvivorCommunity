@@ -99,7 +99,7 @@ namespace SurvivorCommunity
         {
             markers.Clear();
             markersFor = -1;
-            nextTick = 0f;
+            homeTicks.Reset();                    // round MP6 (fix H-N3): every community's throttle (was the scope's row only)
         }
 
         public static void OnRegistryChanged()

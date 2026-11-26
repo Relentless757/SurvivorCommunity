@@ -46,6 +46,77 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   <name>`, `join <id> [player]`, `leave [player]` and `use <id>|none` (this console acts in that community) make and fill a
   second one. Admin only.
 
+## Round MP6 (merged, with the review fixes) (2026-11-26): several communities on one server
+
+Why: the five MP6 parts below (core, relations, network, H, G) are merged into one build, with the fixes from their four
+reviews. Build `sc34_mp6fix`, **not deployed**, protocol 8, untested in game. The parts' own sections still hold, except
+where they say "protocol 7", "not merged" or list "Known gaps": those notes are from before the merge, and the merge closed
+the gaps. The checks below are what the review fixes change. With everyone in community 0 nothing may change. Setup for
+two communities: `sc community new Riverside`, `sc community join 1 <player>`; each community sets its own home and gets a
+resident or two. "A" is a community 0 player, "B" a community 1 player.
+
+**Single player and one community (nothing may change)**
+- [ ] `sc save`: `[community]` has no `seentime=` line (it is written only while two or more communities exist).
+- [ ] A hurt resident still shelters or kites at home; light sleepers still get up for a horde with their tell.
+
+**Two communities, a dedicated server**
+- [ ] Retreat: one of B's residents is hurt at B's home. She shelters or kites (`sc retreat`), as A's do. The server log
+      has no `[MP6 scope]` trace through `ScRetreat`, `ScTeam` or `ScPosture`.
+- [ ] Pause and an open fight: B's home horde is fighting the defenders (B away at an outpost, `sc attack status` says the
+      defenders fight it alone until ...). B logs off. A plays on for two game hours or more. B logs back in. The log says
+      `community 1 (...) resumes after N game hour(s) paused - its open fights, watch shifts and outpost fights pick up
+      where they stood` and `base attack: the open attack (state 3) was paused - its clocks move on by N game hour(s)`. The
+      fight is not settled in that second: `sc attack status` shows the same time left as when B logged off. The same with a
+      horde that was called but had not arrived (state 1), and a live fight (state 2: it does not end an hour after B is back).
+- [ ] The same after a server restart while B is offline: `sc save` with two communities writes `seentime=` in each
+      `[community]`, and the shift still happens after the restart.
+- [ ] A guard on a watch shift in B's home when B logs off: when B comes back, the shift goes on (no "the shift is over"
+      at once). An outpost fight of B's open when B logs off is not "unanswered" or "fought, not finished" when B comes back.
+- [ ] A paused community hears nothing: while B is offline, A shoots inside B's home zone. When B is back, `sc noise` (B's
+      console scope) shows no events from that time.
+- [ ] A stall does not end a fight: during B's live attack, anything that freezes the server for several seconds (a world
+      save) leaves B's attackers in the world (no `paused mid-fight` line while B is online).
+- [ ] Missing person: B accepts a missing survivor request, finds them alive, says "follow" and walks them into their
+      enclave. B is told they are home, community 1's standing rises, B's quest completes and the request is gone from
+      community 1's list (`sc community use 1`, `sc enclave requests`). A cannot tell that person to follow or wait.
+- [ ] A missing person who dies while following B: community 1's request fails (not stuck), and the enclave can move again.
+- [ ] Favors: A talks to a wild survivor first (A's favor). Then B talks to the same survivor: B gets a favor of their own
+      (`favour.start` works for B), and B's join row is not offered on A's finished favor.
+- [ ] Outpost Claim Block: B places one at a POI. It becomes community 1's outpost (`sc community use 1`, `sc outpost list`).
+- [ ] Two communities each enlist or call a fighter from the same ally: both come. One community's enlisted people do not
+      count against the other's follower limit.
+- [ ] Bands: A sees drifters far from B. B is not told about them and gets no marker.
+- [ ] A Bond kill: A kills a zombie that was on one of B's members. B's member gains no Bond (`sc bond`).
+- [ ] `sc home set` by a player standing in a claim that touches the other community's home or outposts is refused
+      (`... is on community N's ground`).
+- [ ] Claim limit: a player who owns community 0's home claim and is moved to community 1 places more claims than the
+      limit. Community 0's home claim is never the one that goes.
+- [ ] RadioOnlyAirdrops with only B online: no vanilla airdrop flies.
+- [ ] Moving a player (`sc community join 1 <player>` or `leave`): an enclave request they had accepted for their old
+      community is withdrawn (the console says how many). A follower of theirs from the old community goes home, also one who
+      was down at the time (once she is up). A talk hold or work shift of theirs ends. If their new community held a grudge
+      against them, it is dropped (the console says so).
+- [ ] An enclave person dies at home: the death's ledger line is in each community that knows the group, not only
+      community 0's. When the leader dies, each of those communities gets the new-leader line.
+- [ ] The hold-E ring on another community's member shows none of Voice Control's entries (orders, jobs, Equipment,
+      Inventory, Pick me up). Talking to her (tap E) works. Check this on the listen host and on a client.
+
+**Two communities, a listen host**
+- [ ] The host is in community 1, a client in community 0 is online. After a load the host's map has community 1's enclave,
+      infestation, band, outpost, radio contact, scouting and outpost attack markers, and none of community 0's.
+- [ ] The host types `sc community join 0` (or `leave`): within a few seconds the host's map shows community 0's markers
+      instead of community 1's.
+- [ ] A community 0 runner's distress call: the client gets the rescue quest; the host (community 1) does not.
+- [ ] `sc enclave hide <id>` typed in community 0's scope does not remove the host's marker when the host is in community 1.
+- [ ] A light sleeper of community 0 gets up for community 0's horde: the host in community 1 is not told.
+
+**Open questions (not changed in this round)**
+- A siege or an accepted request owned by a paused community still holds the enclave for everyone (one at a time in the
+  world) until that community is back. A paused community's offered requests never hold anything.
+- SCore's inventory screen for another community's member is refused on the opening machine only. The server does not
+  check it, so a modified client could still open it.
+- Whether another community's player may place a Watch post in your home zone (land-claim protection normally stops it).
+
 ## Round MP6 (part: relations) (2026-11-26): each community its own standing, requests, favors, band trust and hostility
 
 Why: with several communities on one server, each has its own relation to the world's groups (the user's decisions 1, 2, 4
@@ -53,8 +124,8 @@ and 5). An enclave's standing, known flag, hostility, gift, barter, call and rev
 So are an infestation's and a band's known flag, a band's trust and engagement, and a wild survivor's favor. An enclave
 hit by community A turns hostile to A only. Attacking another community's member makes her community's people fight the
 attacker. A wild survivor's grudge blocks only the hitter's community. A siege and a missing person stay one at a time in
-the world. Build `sc34_mp6r`, **not deployed**, protocol 7 unchanged, untested in game. With one community nothing may
-change.
+the world. Built as `sc34_mp6r`; now in the merged build (see "Round MP6 (merged ...)" above: protocol 8), untested in game.
+With one community nothing may change.
 
 **Single player (nothing may change)**
 - [ ] Load a save. Enclaves, standing, known flags, requests, gifts, barter, radio calls, bands (met, trust) and
@@ -97,10 +168,8 @@ change.
       The grudge survives save and load (`[community] grudge=`).
 - [ ] An enclave falls: only the communities that knew it are told. Every community's open request of theirs is withdrawn.
 - [ ] Save and load: each community's standing, known flags, hostility, trust, calls and clocks are kept (`rel=` lines).
-- Known gaps, for the other MP6 parts: a client's copy shows community 0's relations until the per-community mirror (part
-  network) projects its own; the dialog rows still gate on `sc_member value="1"`, which a community 1 member (2) fails
-  (part gates); a grudge or an enclave's hostility toward another player's community is not known to a client's talk prompt
-  for players it cannot see.
+- The merge closed this part's known gaps (a client's copy carries its own community's relations, the dialog rows read
+  `ScOwnMember`). Still so: a client's talk prompt does not know a grudge or an enclave's hostility toward players it cannot see.
 ## Round MP6 (part: network) (2026-11-26): each client gets its own community's copy, markers and open boxes
 
 Why: with several communities on one server, each client must see its own community: its members, stockpile, outposts,
@@ -109,8 +178,8 @@ snapshot and the derived block), the markers and Craft from Storage's open boxes
 community's scope, and sends each client its own community's. The client learns which community it is in. With one
 community every byte a client gets is as before (checked offline on 6 saves from before MP6 against the deployed port-3.4
 build), except the state package's new version byte and community id. Build `sc34_mp6n`, **not deployed**, untested in game.
-`NetPackageScState` is layout version 2; the merge sets the protocol to 8. Before the merge with the relations part,
-standing and the known flags are still one for the world, so community 1 sees community 0's standing and found enclaves.
+`NetPackageScState` is layout version 2; the merged build is protocol 8, and each community's copy carries its own standing
+and found enclaves.
 
 **Single player (nothing may change)**
 - [ ] Play a few minutes: the community window, the HUD, markers, requests and tells as before. No client is connected,
@@ -129,8 +198,7 @@ standing and the known flags are still one for the world, so community 1 sees co
       `community snapshot from the server: you are in community 1 (was 0)`. Its community window is community 1's (empty,
       no home), and its buttons work: no "Your community changed since this was shown" answer.
 - [ ] The client in community 1 sees none of community 0's outposts, contacts or scouted sites on the map, and no
-      community 0 runner's call. The world's enclaves, infestations and bands it knows show (until the relations part:
-      the ones community 0 found).
+      community 0 runner's call. The world's enclaves, infestations and bands its own community found show.
 - [ ] The client in community 1 sets a home (claim radial) and deposits at its packing station: its window and HUD follow
       within a second or two. A second client in community 0 sees none of it, and community 0's window is unchanged.
 - [ ] Craft from Storage: with community 0's base box open by a community 0 player, a community 1 client in its own base is
@@ -146,10 +214,8 @@ standing and the known flags are still one for the world, so community 1 sees co
 - [ ] With two communities a client's copy still has every enclave's building (the claim gate refuses a claim over one),
       but an enclave its community has not found arrives as its footprint only (name, building, size; no standing, kind or
       request clock).
-- Known gaps, for the other MP6 parts (not bugs of this part): a subsystem that draws the listen host's own marker directly
-  (a radio contact, a band met, an outpost attack, a runner's call, standing or hostility changes) still draws it whatever
-  the host's community (`ScMarkers.HostOwner()` is the helper for them). The per-community standing, known flags and
-  hostility the copy and markers carry come with the relations part.
+- The merge and the review fixes closed this part's known gaps: the listen host's own markers are drawn for the host's own
+  community (see "Round MP6 (merged ...)" above for the listen-host checks).
 ## Round MP6 (part: H) (2026-11-26): each community's home runs on its own
 
 Why: before this part the home's machinery kept one home's worth of session state: the home attack, noise, the watch, the
@@ -188,7 +254,8 @@ nothing may change. Build `sc34_mp6h`, **not deployed**, untested in game.
       each with its own attackers, counts and tells.
 - [ ] Noise counts where it is heard: shooting inside community 1's zone raises community 1's events only (`sc noise` in each).
 - [ ] A community that pauses mid-fight: community 1's last player logs off during its live attack. Within a few seconds the
-      log says `base attack: community 1 paused mid-fight (none of its players online) - N attacker(s) despawned ...`. When
+      log says `base attack: community 1 paused mid-fight (none of its players online) - N attacker(s) despawned ...` (a
+      player of another community must stay online meanwhile: with the server empty the clock stands still). When
       they log back in: `base attack resumes after a load ...`, and the fight goes on (or is handed to the defenders if
       nobody is near). After an hour or more away the log says `community 1 (...): base noise resumes - N game hour(s) while
       it was paused do not count for its attention`, and no horde is called at once.
@@ -204,18 +271,14 @@ nothing may change. Build `sc34_mp6h`, **not deployed**, untested in game.
       Linked storage from community 1's outpost opens community 1's home.
 - [ ] A round of drinks, a feast, rationing and Lights out in community 1 count down and end for community 1 only. `sc scan`
       in each community counts its own home.
-- Known gaps, for the other MP6 parts (not bugs of this part): the AI's reads of the home attack's defended area and the
-  intruders' area (`ScBaseAttack.WideDefence`, `ScInvestigate.InArea`, `ScShelter.InZone`) follow the scope the UAI entry points
-  set (part gates); until then a dedicated server reads community 0's for every resident. Host-local markers of other systems
-  (scouting, radio, outposts) are part network's.
+- The merge and the review fixes closed this part's known gaps: the AI's reads follow part G's UAI scope, and the close-range
+  hook (retreat, team, posture) opens the member's own scope.
 ## Round MP6 (part: G) (2026-11-26): another community's members, stations and ground are not yours
 
 Why: with several communities, an outsider may only talk to another community's members (the user's decision 4) and may not
 use another community's stations or storage, or put a home or an outpost on its ground (decision 3). The engine's entry
 points (an NPC's AI, blocks, deaths, kills, engine delegates) now act for the right community. With everyone in community 0
-nothing may change. Build `sc34_mp6g`, **not deployed**, protocol 7 unchanged, untested in game. A client's talk rows need
-part R (`sc_member` = community id + 1) and part N (the client knows its community) merged; the server's refusals work
-without them.
+nothing may change. Built as `sc34_mp6g`; now in the merged build (protocol 8, parts R and N merged), untested in game.
 
 **Single player (nothing may change)**
 - [ ] The log at start-up: `patch verification: all N targets patched` (one more than before: `UAIBase::Update`), and no
@@ -236,10 +299,11 @@ without them.
 
 **Two communities** (`sc community new B`, `sc community join 1 <client>`; each sets its own home and recruits a member)
 - [ ] The host (community 0) talks to community 1's member: greeting and small talk only - no Community, Follow me, Go home,
-      Supply run, Ask to leave, Equipment..., Show me your inventory, Jobs and gear, Come here or Order wheel, and no talk hold
-      (with DebugLogging: `no talk hold - a member of another community`). Her own community's player sees every row.
-- [ ] The hold-E ring's Equipment (or Inventory) on community 1's member: `They belong to another community ...`, nothing
-      opens, and her own players can open her inventory straight after (it is not left "in use").
+      Supply run, Ask to leave, Equipment..., Show me your inventory, Jobs and gear, Come here or Order wheel, and no talk hold.
+      Her own community's player sees every row.
+- [ ] The hold-E ring on community 1's member shows none of Voice Control's entries (review fix G-m7). SCore's own
+      inventory screen opened another way: `They belong to another community ...`, nothing opens, and her own players can
+      open her inventory straight after (it is not left "in use").
 - [ ] The spoken "follow me" and "dismiss" to community 1's member: she can't, and the tooltip says why.
 - [ ] Shooting community 1's member hurts her (she is not protected as your own members are). Your own members stay protected
       unless CommunityFriendlyFire. Her community fighting back is part R's.
@@ -313,9 +377,8 @@ overwritten.
       and no catch-up.
 - [ ] With one community nothing changes: a jump forward (`settime` a few days ahead) still runs every missed day, at most
       60 a second until it is level, as before MP6.
-- [ ] Dedicated server, telnet: `sc community join 1 <player>` moves the client into community 1. The client's own copy
-      is still community 0's until the per-community mirror, so its buttons answer "Your community changed since this was
-      shown. Try again in a moment." This is expected in this part. `sc community leave <player>` makes them work again.
+- [ ] Dedicated server, telnet: `sc community join 1 <player>` moves the client into community 1. Within a second its copy
+      is community 1's (the merged build's per-community mirror) and its buttons work.
 - [ ] Telnet: `sc community use 1`, then `sc status`, shows community 1. The reply says telnet, the web console and the
       server's own console share this setting. `sc community use none` goes back to community 0.
 - [ ] Telnet, on a community that never ticked: `sc community new Test`, `sc community use <its id>`, `sc day`. The
@@ -328,9 +391,8 @@ overwritten.
 - [ ] With two communities, the dedicated server's log has `[MP6 scope] community state read with no scope ...` lines, each
       with a stack trace. They are the unscoped reads the other MP6 parts close. Keep them for those parts.
       `sc community list` counts them.
-- Known gaps, for the other MP6 parts (not bugs of this part): community 1+ gets no enclave requests, radio reveals or allies
-  of its own, its steps that throttle on one static timer do not run, its members are not put to bed at night, and the
-  client's copy, markers and Craft from Storage stay community 0's.
+- The merge closed this part's known gaps (requests, reveals and allies per community; every community's throttled steps
+  and night lease; per-community copies, markers and open boxes).
 
 ## Round t107 (2026-11-26): a forced horde line typed by a client reaches that client
 

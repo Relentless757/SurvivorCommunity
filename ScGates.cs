@@ -128,6 +128,15 @@ namespace SurvivorCommunity
             held.Push(s);
         }
 
+        /// <summary>
+        /// Round MP6 (fix G-n5): ScTicker at the start of every frame, beside ScRegistry.ResetLeakedScopes - a prefix whose finalizer
+        /// never ran leaves nothing behind (its scope was reset there already).
+        /// </summary>
+        internal static void ClearHeld()
+        {
+            if (held.Count > 0 && ThreadManager.IsMainThread()) held.Clear();
+        }
+
         /// <summary>Closes the scope the matching PushHeld kept.</summary>
         internal static void PopHeld()
         {

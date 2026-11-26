@@ -38,6 +38,20 @@ namespace SurvivorCommunity
             homes.Reset();                        // round MP6 (part H): every community's
         }
 
+        /// <summary>
+        /// Round MP6 (fix H-N2): the community in scope ticks again after a pause (ScTicker, several communities only) - a "home for
+        /// the blood moon" mark from an older blood moon goes (it was neither cleared nor retaken while paused, and would count the
+        /// next blood moon as one the player was home for). One from the blood moon still on stays.
+        /// </summary>
+        internal static void OnResumed(int day)
+        {
+            Community c = ScRegistry.Community;
+            if (c.BloodMoonHomeDay <= 0 || (day <= c.BloodMoonHomeDay + 1 && day >= c.BloodMoonHomeDay)) return;
+            ScLog.Out("siege: " + ScRegistry.Current.Label + " resumes - the home mark of the blood moon of day " + c.BloodMoonHomeDay + " goes");
+            c.BloodMoonHomeDay = 0;
+            ScRegistry.SaveAtomic();
+        }
+
         public static bool BloodMoonActive(World w)
         {
             try { return w != null && w.aiDirector != null && w.aiDirector.BloodMoonComponent != null && w.aiDirector.BloodMoonComponent.BloodMoonActive; }

@@ -220,6 +220,18 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round MP6 (fix G-n1): OwnerOf for Sweep, which walks every community's shifts in whichever community's pass comes first -
+        /// the fallback is the member's own community's (her record's), not the pass's.
+        /// </summary>
+        private static EntityPlayer OwnerOf(Shift s, int memberId)
+        {
+            EntityPlayer p = s != null && s.OwnerId > 0 ? ScPlayers.ByEntity(s.OwnerId) : null;
+            if (p != null) return p;
+            int cid = ScCommunities.CommunityOfMember(memberId);
+            return ScGates.LocalPlayerOf(cid >= 0 ? cid : ScRegistry.CurrentId);
+        }
+
+        /// <summary>
         /// Round mt1 (part H): the shift's player when that is a remote player still in the world, else null - End hands it to
         /// ScCommunity.Station as the party she leaves, so a remote owner loses the link (their hire mark) while the host's own
         /// shifts and single player keep Station's own pick exactly as before.
@@ -1102,7 +1114,7 @@ namespace SurvivorCommunity
                         DropMarker(npc);
                     }
                 }
-                else if (m == null || (m.Status != MemberStatus.Following && m.Status != MemberStatus.PendingStation)) DropHireMark(id, OwnerOf(gone));
+                else if (m == null || (m.Status != MemberStatus.Following && m.Status != MemberStatus.PendingStation)) DropHireMark(id, OwnerOf(gone, id));
                 if (talk)
                 {
                     talkEnds++;

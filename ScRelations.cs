@@ -93,7 +93,8 @@ namespace SurvivorCommunity
 
     /// <summary>
     /// Round MP6 (part relations): a world record's relation rows by community id - community 0's always there, another's made by
-    /// its first write (Get). Copy on write: a reader on another thread never sees a list being changed.
+    /// its first write (Get). Main thread only (round MP6 fix R-n4: ids and rows are two plain fields swapped one after the other; the
+    /// faction postfix off the main thread reads ScRelations' own snapshots, never these).
     /// </summary>
     public sealed class RelRows<T> where T : class, new()
     {

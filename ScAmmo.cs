@@ -114,7 +114,7 @@ namespace SurvivorCommunity
         public static void Reset()
         {
             ammoTypes = null;
-            nextCheck = 0f;
+            homeTicks.Reset();                    // round MP6 (fix H-N3): every community's throttle (was the scope's row only)
             nextResupply.Clear();
             nextRefusalLog.Clear();
             waitingOutside.Clear();

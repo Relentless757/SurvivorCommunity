@@ -154,7 +154,6 @@
     <Compile Include="ScOutposts.cs" />
     <Compile Include="ScMarkers.cs" />           <!-- round MP4 (part K): every SC map marker for every community player -->
     <Compile Include="NetPackageScMarkers.cs" /> <!-- round MP4 (part K) -->
-    <Compile Include="ScWorldNews.cs" />         <!-- round MP6 (part N): a world event's tells for every community it concerns -->
     <Compile Include="NetPackageScOpenBoxes.cs" /> <!-- round MP4 (review cfs1 M1) -->
     <Compile Include="Patches_Outposts.cs" />
     <Compile Include="ScPoiIndex.cs" />

@@ -76,7 +76,7 @@ namespace SurvivorCommunity
             nextTry.Clear();
             noRoomTold.Clear();
             counters.Clear();
-            nextTick = 0f;
+            homeTicks.Reset();                    // round MP6 (fix H-N3): every community's throttle (was the scope's row only)
         }
 
         /// <summary>A config parse: the mixes and the tool tags are worked out again from the new keys.</summary>
