@@ -44,7 +44,8 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 
 `sc radio horde <moment> [side] [member] force` typed by a remote player used to be queued on the server's own radio (a
 dedicated server plays nothing), so the player who typed it heard nothing. It now goes to that player alone, and their
-machine skips its own radio rules for it. Not deployed yet.
+machine skips its own radio rules for it. Build `sc34_t107`, **deployed to 3.4 on 2026-11-26** (port-3.4 7b4e5221, DLL 76b7d858,
+protocol 7 unchanged; the dedicated server loads the same folder), untested in game.
 
 **Single player (nothing may change)**
 - [ ] `sc radio horde gather north force` at home: the guard's warning in person (beside them) or on the radio, as before.
