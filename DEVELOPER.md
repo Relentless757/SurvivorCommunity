@@ -329,10 +329,11 @@ walk back.
   and it ends the way bad runs do. Walking away mid-fight resets the fight.
 - **Recall** (the Follow button in the window, or *Head home now.* in their dialog) turns them round. A search cut
   short brings a share of the find.
-- **Fallback.** With no POI in range, `PhysicalRuns=false`, or on a dedicated server, the old hidden run above is
-  used. Runs saved before this version finish the old way too.
+- **Fallback.** With no POI in range, `PhysicalRuns=false`, or a send from a console with no player, the old hidden
+  run above is used. Runs saved before this version finish the old way too. (Since round MP5 a dedicated server's runs
+  and a client's are physical too: "you" above is any player in the community, see Multiplayer.)
 - **Console:** `sc runners` lists each runner: leg, in world or not, position, distance, snapshot size, measured
-  speed. `sc run <name> skip|offline|recall|home` drives a run for testing.
+  speed, and who keeps them in the world. `sc run <name> skip|offline|recall|home` drives a run for testing.
 
 ## Doors
 
@@ -2989,6 +2990,56 @@ Round MP0 is the groundwork:
   - **Left as they were:** the horde's radio voice at home and away (`ScHordeVoice.SayAway`, the host's own player: the radio's
     round), `sc enclave join` (`ScEncJoin.Command`, the dialog join's round), the late seed's view rule and `ScEnclaves.InView`
     (the server's loaded chunks already cover every remote player).
+- **Round MP5 (part N), physical runners around every player** (`ScRunners`, `ScRuns`, `ScMining`, `ScRunnerCall`, the
+  distress functions of `ScRadio`, `ScGarrison`'s posting travel). A physical runner - a supply or mining run, a member
+  walking to or from an outpost - used to be captured and re-created around ONE player (the host's own, or the tick's
+  anchor on a dedicated server). Now every community player with a chunk observer on the server counts: the host's own, and
+  each remote player's server-side observer (the server gives every client one, with that client's own view distance).
+  No new op or package: the bodies reach clients by vanilla's entity sync (80 m), the lines by MP4's tells, voices and
+  markers.
+  - **The rules** (private helpers in `ScRunners`): a body stays in the world while ANY living community player keeps it
+    by their own ring, view distance and drawing range (`Keeps`: the old forced and voluntary tests turned round), and is
+    captured only when none does - one player's death forces nothing, nobody alive forces the capture (single player's
+    old "the player died"). It is re-created near the nearest living player whose ring takes the spot in (`Reacher`), never
+    within 50 m in front of any living player (`PopInSeen`), and the stuck watchdog and the route hold hop or hand off a
+    body only where no player is within 40 m or looking (`UnseenByAll`). The A* grid is added where no player in the world
+    is near (vanilla lays one round each). The gate uses the shortest view distance online (`GatePoint`), "near the post"
+    is any community player (`PlayerNearPost`). The tick's anchor (`ScPlayers.Anchor`) still names who tells, radio lines
+    and a fresh body's stamps reason from. Single player has one player, so every test reads as before.
+  - **Sends:** `ScRuns.Send` and `ScMining.Send` make any player's run physical (was the host's own only: a client's and a
+    dedicated server's runs were hidden). A console with no player still sends a hidden run.
+  - **Escort and rescue:** "never a distress call with a player beside her" and the rescue use one rule,
+    `ScRadio.RescuerNear` (now internal): the anchor first, else any living community player. The players within
+    `RescueTriggerRange` of a call are told the event is on, the strongest of them sets the zombie count (`ZombieCount`
+    gets that player), and they are all told when it is won.
+  - **The handheld rule** (`ScRadio.RollDistress`, `ScRunnerCall`): callers pass the real player; the handheld that can
+    hear a call is one the server can read - that player's when it is the server's own, else the host's own player's.
+    A remote player's bag lives on their machine (the server has only a save copy, `ClientInfo.latestPlayerData`), so on
+    a dedicated server a distress call or a call for help needs a powered station at home. A client's own handheld still
+    decides whether that client hears the line (MP4).
+  - **Call for help** (`ScRunnerCall`): no call while any living community player is within 30 m of her; the message goes
+    to every community player; the marker reaches clients through `ScMarkers` (MP4) and the host's own map as before.
+    It now works on a dedicated server (with a powered station).
+  - **Hurt and heading home:** remote community players beside her are told in person (`scRunHurtHome`). Her give-up
+    count pauses while anyone has her inventory open; a client's open talk with a runner is not known to the server (no
+    talk hold for runners), so only the host's own talk pauses it.
+  - **Console:** `sc runners` measures from whoever typed it (a client's own player) and says who keeps each runner;
+    `sc run`, `sc run <name> recall|home|skip|offline|hurt` and `sc distress` act for the sender (they are admin test tools:
+    `skip`, `offline` and `home` capture a body whoever stands beside it).
+  - **No duplicate, no loss:** a runner's body is made only by `Materialize`, once per member per tick, when the record is
+    offline and nothing holds the entity id (a stale copy is removed first, a stranger forces a new id), so two players near
+    her cannot make two bodies; the keep rule is a union over players, so there is no hand-over moment between them. A
+    capture always snapshots and saves before the removal (`GoOffline`), and a chunk the server unloads (no player's
+    observer holds it any more: a client leaving, dying or teleporting away) captures through `OnEntityUnloaded` as before.
+    A re-create needs the 3x3 chunks round the spot loaded and settled on the server (`Settled`), well inside the chosen
+    player's observer. The dedicated server's MP0 notes "supply runs sent by a client are hidden runs" and "runners make no
+    distress calls there" no longer hold.
+  - **Known gaps:** the run's dice still roll for a body forced offline beside a player (a frozen chunk, the watchdog's
+    "desperate" hand-off), as for the host before. Near a client the server may hold chunks without colliders: a re-create
+    there follows MP0.1's settled rule (a body brings its chunk's colliders); should one stay frozen, the frozen-body rule
+    captures it again after `RunFrozenSeconds` - churn, never a loss. The server could read a client's handheld from its
+    save copy of their bag (`ClientInfo.latestPlayerData`), left for later (`ScHandheld` is not this part's file). MP6:
+    `Observes` asks `ScPlayers.InCommunity`, so Stage 2 decides whose players keep whose runners.
 
 ## How it hangs together (for modders)
 

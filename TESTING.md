@@ -217,6 +217,58 @@ Build `sc34_mp5w`, **not deployed**, untested in game.
       where THEY stand.
 - [ ] (With SurvivorOrigins) the host with one follower and the client with two: each one's Leadership follower count is
       their own (1 and 2), no longer the community's 3 on both.
+## Round MP5 (part: N) (2026-11-26): physical runners for every player
+
+Why: a physical runner (a supply or mining run, a member walking to or from an outpost) was taken off the world and
+brought back around ONE player: the host's own on a listen host, the tick's anchor on a dedicated server. A runner beside
+a client far from the host was invisible to that client and rolled the off-screen dice; a client's runs were hidden runs;
+on a dedicated server a runner never called for help when attacked. Now every community player counts: her body stays in
+the world while any player is near enough, is taken off only when none is, and comes back near whichever player
+approaches, out of everyone's sight. Build `sc34_mp5n`, not deployed, untested in game. `sc runners` shows each runner's
+state and who keeps her ("kept in reach (nearest NAME, N m)", "kept by nobody", "re-created near NAME when settled").
+
+**Single player (nothing may change)**
+- [ ] Send a survivor on a supply run: she walks out; `sc runners` says ONLINE, "kept in reach (nearest <you>, N m)".
+      Walk 250 m the other way: the log says she "went offline (out of range, ring N)". Walk back toward her virtual
+      position: "<name> is back in the world at ... m from you", never in front of you.
+- [ ] Escort her to the site: no distress call while you stand beside her. Send another and stay home with a powered
+      radio station: a distress call can still come, its rescue works as before.
+- [ ] Die near an online runner: the log says she "went offline (forced, ring - (no living player))"; after the respawn
+      she comes back near you as before.
+- [ ] A mining run, a posting to an outpost and `sc run <name> recall` behave as before. A runner waiting at the gate
+      walks in once you stand at her post.
+- [ ] A runner with a handheld radio is hurt by a zombie while you are far: "radios for help: under attack ..." and the
+      marker, as before. Within 30 m of her: no call.
+- [ ] A listen host alone (no client): everything above reads the same.
+
+**A client on a dedicated server**
+- [ ] The client sends a supply run (window or dialog): she walks out of the base (no longer a hidden run). `sc runners`
+      typed by the client measures from the client and names the client as the nearest.
+- [ ] The client follows her 300 m out: she stays in the world and keeps walking; the client sees her the whole way.
+- [ ] At the site, with the client beside her: no distress call. The client walks off: she goes offline only once the
+      client is out of range, and is re-created near the client when they come back (the log names the client).
+- [ ] With a powered radio station at home, a runner alone at her site can radio for help, and the client's rescue
+      works (the client is told the event is on and that she is safe). Without a station, a client's own handheld alone
+      brings no call (the server cannot read a remote player's bag).
+- [ ] A runner with a radio is attacked out of the client's reach (station powered): every player reads "under attack",
+      the marker is on the client's map. The client within 30 m of her: no call.
+- [ ] A client's mining run: at the gate the haul goes into the home crates; a crate someone has open is skipped.
+- [ ] The client posts a member to an outpost: the member walks out and is visible to the client on the way; recall
+      walks them home the same way.
+- [ ] The client disconnects while beside an online runner: the log says she went offline (forced, or "captured as
+      their chunk unloaded"); after reconnecting `sc runners` lists her once, and only one body ever comes back.
+- [ ] A hurt runner with nothing to heal with gives the job up while the client stands beside her: the client reads
+      "<name> is badly hurt with nothing to heal with - giving up the job and heading home."
+
+**Two players**
+- [ ] Listen host and a client 1 km apart, a runner near the client: she is ONLINE ("nearest <client>"), walks and fights
+      in front of the client; the host does not see her and nothing happens in front of the host.
+- [ ] Hand-over: the client walks with her toward the host and stops; the host meets her. She never vanishes in front of
+      either and never doubles (`sc runners` keeps one line for her; no "is back in the world" line while she is online).
+- [ ] Both players at a distress call: both are told the event is on; the zombie count follows the stronger player's
+      gamestage (log: "N players there"); when it is cleared both are told she is safe.
+- [ ] Two players with different view distances: a runner waiting at the gate comes in when either one stands at her post.
+- [ ] One player dies beside an online runner while the other stands near her too: she stays in the world.
 
 ## Round mt1 (part: C) (2026-11-25): a client reads SC's config once the server's blocks and items are in
 

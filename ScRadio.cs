@@ -556,8 +556,14 @@ namespace SurvivorCommunity
 #if SC_V34
             // R2 (decision 5): only a runner carrying a radio, and only with someone to hear it - the player's handheld or a
             // powered station at home (ScHandheld.DistressAllowed; DistressNeedsRadio=false: the rule above's old one).
-            // Round MP0: the handheld is the host's own (a remote bag is not readable here) - else the station alone
-            if (m == null || !ScHandheld.DistressAllowed(m, player as EntityPlayerLocal)) return false;
+            // Round MP0: the handheld is the host's own (a remote bag is not readable here) - else the station alone.
+            // Round MP5 (part N), the handheld rule: callers pass the real player (the runner tick's anchor, a run's sender). The
+            // handheld that can hear the call is one this machine can read: that player's when it is this machine's own, else the
+            // host's own player's on a listen host (the community's radio: any community player may answer the call), else none -
+            // a remote player's bag lives on their own machine (the server only keeps a save copy), so on a dedicated server a
+            // call needs a powered station at home. Single player and the host's own sends: the host's handheld, as before
+            EntityPlayerLocal ear = player as EntityPlayerLocal ?? ScCommunity.LocalPlayer;
+            if (m == null || !ScHandheld.DistressAllowed(m, ear)) return false;
             // round MP0 kept distress off a dedicated server (no local player to take the quest). Round MP4 review M2: every
             // community player online gets the rescue quest and its marker (ScQuestNet), and any of them answers it (TickDistress)
 #else
@@ -601,7 +607,9 @@ namespace SurvivorCommunity
                     ScPlayers.TellCommunityKey("scRadioDistress", "ui_denied", m.Name, m.RunPoiName, Dist(ScRunners.C(m.RunSite)));   // round MP0: the community's radio news
                     ScLog.Out(m.Name + " radios for help from " + m.RunPoiName + " " + m.RunSite + " (on a physical run)" + (perr != null ? " (quest: " + perr + ")" : ""));
 #if SC_V34
-                    ScRadioTalk.Say(m, RadioTalk.Trouble, player, false);                     // R2: their own words on the radio
+                    // R2: their own words on the radio. Round MP5 (part N): the host's own player hears it here whoever the caller
+                    // reasons from (a client's send passes the client; ScRadioTalk plays the local queue for this machine's own only)
+                    ScRadioTalk.Say(m, RadioTalk.Trouble, lp ?? player, false);
 #endif
                     return true;
                 }
@@ -630,7 +638,7 @@ namespace SurvivorCommunity
                 ScPlayers.TellCommunityKey("scRadioDistress", "ui_denied", m.Name, m.RunPoiName, Dist(centre));   // round MP0: the community's radio news
                 ScLog.Out(m.Name + " radios for help from " + m.RunPoiName + " " + m.RunPoi + (err != null ? " (quest: " + err + ")" : ""));
 #if SC_V34
-                ScRadioTalk.Say(m, RadioTalk.Trouble, player, false);                         // R2: their own words on the radio
+                ScRadioTalk.Say(m, RadioTalk.Trouble, lp ?? player, false);                   // R2: their own words on the radio (round MP5, part N: the host hears it, as above)
 #endif
                 return true;
             }
@@ -675,9 +683,11 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round MP4 review M1: who is at a rescue (XZ distance within range of centre): the anchor first, as before (the host's own
-        /// player on a host, dead or alive - the old test), else the first living community player there; or null.
+        /// player on a host, dead or alive - the old test), else the first living community player there; or null. Round MP5 (part
+        /// N): internal - ScRunners' escort test ("never a distress call with a player right beside her") asks it too, so the
+        /// escort and the rescue are one rule. The anchor may be null (any living community player then).
         /// </summary>
-        private static EntityPlayer RescuerNear(EntityPlayer anchor, Vector3 centre, float range)
+        internal static EntityPlayer RescuerNear(EntityPlayer anchor, Vector3 centre, float range)
         {
             Vector2 c = new Vector2(centre.x, centre.z);
             if (anchor != null && Vector2.Distance(new Vector2(anchor.position.x, anchor.position.z), c) <= range) return anchor;
@@ -691,7 +701,7 @@ namespace SurvivorCommunity
             return null;
         }
 
-        public static int ZombieCount(Member m, EntityPlayer player)   // round MP0: any player's gamestage. MP5: gamestage of the players involved
+        public static int ZombieCount(Member m, EntityPlayer player)   // round MP0: any player's gamestage. Round MP5 (part N): SpawnEvent passes the strongest player at the call
         {
             int gs = 0;
             try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }
@@ -726,7 +736,26 @@ namespace SurvivorCommunity
                     standIn.Buffs.AddBuff("buffOrderGuard");             // holds this spot
                     m.StandInId = standIn.entityId;
                 }
-                int count = ZombieCount(m, player);
+                // round MP5 (part N): the players involved - the one who arrived and every living community player at the call
+                // (within RescueTriggerRange of it): told it is on (below), and the strongest of them sets the zombie count (the
+                // gamestage, as vanilla meets a party). Single player: the player, as before
+                Vector3 call = new Vector3(m.RunSpawn.x + 0.5f, m.RunSpawn.y, m.RunSpawn.z + 0.5f);
+                var party = new List<EntityPlayer>();
+                if (player != null) party.Add(player);
+                List<EntityPlayer> all = ScPlayers.All;
+                for (int i = 0; i < all.Count; i++)
+                {
+                    EntityPlayer q = all[i];
+                    if (q == null || ReferenceEquals(q, player) || q.IsDead() || !ScPlayers.InCommunity(q)) continue;
+                    if (Vector2.Distance(new Vector2(q.position.x, q.position.z), new Vector2(call.x, call.z)) <= ScConfig.RescueTriggerRange) party.Add(q);
+                }
+                EntityPlayer strongest = player;
+                for (int i = 0; i < party.Count; i++)
+                {
+                    try { if (strongest == null || party[i].gameStage > strongest.gameStage) strongest = party[i]; }
+                    catch (Exception) { }
+                }
+                int count = ZombieCount(m, strongest);
                 m.EventZombies.Clear();
                 for (int i = 0; i < count; i++)
                 {
@@ -745,8 +774,9 @@ namespace SurvivorCommunity
                     m.EventZombies.Add(z.entityId);
                 }
                 m.EventSpawned = true;
-                ScCommunity.TellKey(player, "scRescueEvent", "ui_denied", m.Name, m.EventZombies.Count);
-                ScLog.Out("rescue event for " + m.Name + " at " + m.RunPoiName + ": " + m.EventZombies.Count + " zombie(s), stand-in " + m.StandInId);
+                for (int i = 0; i < party.Count; i++) ScCommunity.TellKey(party[i], "scRescueEvent", "ui_denied", m.Name, m.EventZombies.Count);   // round MP5 (part N): everyone at the call
+                ScLog.Out("rescue event for " + m.Name + " at " + m.RunPoiName + ": " + m.EventZombies.Count + " zombie(s), stand-in " + m.StandInId
+                          + (party.Count > 1 ? ", " + party.Count + " players there" : ""));
             }
             catch (Exception e)
             {
@@ -766,15 +796,27 @@ namespace SurvivorCommunity
             ScLeadership.Count(ScLeadership.RescueEvent);
             m.EventZombies.Clear();
             RemoveStandIn(w, m);
-            EntityPlayerLocal lp = player as EntityPlayerLocal;
             ScQuestNet.CloseRescueAll(m, true);       // round MP4: the first to complete it closes it for everyone - the host's own, every client's
             ScCommunity.TellKey(player, "scRescued", "", m.Name);
+            // round MP5 (part N): every other living community player at the call fought it too - told as well (within twice the
+            // trigger range, TickDistress' judging range for a hidden run's call)
+            Vector3 call = new Vector3(m.RunSpawn.x + 0.5f, m.RunSpawn.y, m.RunSpawn.z + 0.5f);
+            List<EntityPlayer> all = ScPlayers.All;
+            EntityPlayer[] others = all.ToArray();                                            // copied: a tell can re-enter code that reuses the list
+            for (int i = 0; i < others.Length; i++)
+            {
+                EntityPlayer q = others[i];
+                if (q == null || ReferenceEquals(q, player) || q.IsDead() || !ScPlayers.InCommunity(q)) continue;
+                if (Vector2.Distance(new Vector2(q.position.x, q.position.z), new Vector2(call.x, call.z)) <= ScConfig.RescueTriggerRange * 2f)
+                    ScCommunity.TellKey(q, "scRescued", "", m.Name);
+            }
             ScLog.Out(m.Name + " rescued at " + m.RunPoiName + " - the run comes home safe");
             ScSkills.AddXp(m, Skill.Wits, ScConfig.RunWitsXp);
             if (ScRunners.IsPhysical(m) && m.RunLeg == RunLeg.AtSite)
             {
                 EntityAlive r = ScCommunity.FindNpc(m.Id);
-                ScRunners.LeaveSite(lp, m, r != null ? r.position : ScRunners.C(m.RunSite), w.worldTime, true, 1f);   // round MP0: null-safe (the gate at the default view distance)
+                // round MP0: null-safe. Round MP5 (part N): the real player (the gate is every player's now, ScRunners.GatePoint)
+                ScRunners.LeaveSite(player, m, r != null ? r.position : ScRunners.C(m.RunSite), w.worldTime, true, 1f);
                 ScRunners.S(m.Id).HasWaypoint = false;
             }
             ScRegistry.SaveAtomic();

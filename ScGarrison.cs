@@ -377,7 +377,9 @@ namespace SurvivorCommunity
             Outpost o = ScOutposts.ById(m.OutpostId);
             if (o == null || !o.Holding) { string err; TurnHome(m, player, "scOpTurnedBackGone", out err); return; }
             Vector3 at = npc.position;
-            // round MP0: any community player near enough to keep a stand-in, not only the host's own player
+            // round MP0: any community player near enough to keep a stand-in, not only the host's own player. Round MP5 (part N): the
+            // walker who arrives near a client is one the runner tick kept in the world for that client (ScRunners.Keeps), so the
+            // swap happens in front of whoever escorted them
             float near;
             bool swap = player != null && NearestAt(o, out near) != null && near <= ScConfig.OutpostStandInRange * 1.8f && ScZone.IsLoaded(o.Flag);
             if (!ScRunners.GoOffline(w, m, npc, "reached " + o.Name, true)) return;
@@ -676,6 +678,8 @@ namespace SurvivorCommunity
         private static void ParkedAtGate(World w, EntityPlayer player, Member m, float t)
         {
             if (TheirBody(m) != null) { absentSince.Remove(m.Id); HomeParked(m, player); return; }
+            // round MP5 (part N): "you home" is any community player near their post (ScRunners.PlayerNearPost weighs every one by
+            // their own view distance now), as an embodied traveler's re-create near any of them (ScRunners.Reacher)
             if (!ScRunners.PlayerNearPost(m, player) || !ScZone.IsLoaded(m.Post) || ScNpc.HasBody(w, m.Id)) { absentSince.Remove(m.Id); return; }
             float since;
             if (!absentSince.TryGetValue(m.Id, out since)) { absentSince[m.Id] = t; return; }

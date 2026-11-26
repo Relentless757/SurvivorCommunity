@@ -38,6 +38,11 @@ namespace SurvivorCommunity
     /// the home's chunks unloaded (you are away) the haul waits on the record (Member.RunHaul, saved as haul=) and is put away
     /// by Tick once they are. A hidden run (no spot in reach, PhysicalRuns off) brings the home biome's mix, off a vein, at the
     /// day rollover, put away the same way. Host only, main thread.
+    ///
+    /// Round MP5 (part N, multiplayer): the server's (any server). Any player may send one (member.run), physical as the host's -
+    /// the legs are ScRunners', weighed against every community player; the home's chunks count as loaded with any community
+    /// player at home (HomeLoaded); the crates are only written where no player has the box open (ScStorage's NpcMayUse, round
+    /// MP3); every line is the community's news.
     /// </summary>
     public static class ScMining
     {
@@ -735,8 +740,9 @@ namespace SurvivorCommunity
             World w = ScCommunity.World;
             GameRandom rnd = w != null ? w.GetGameRandom() : null;
             string how = tool + " (T" + tier + ", " + where + ")";
-            // round MP0: physical only for the host's own player until MP5 (as ScRuns.Send) - a client's mining run goes hidden
-            if (ScConfig.PhysicalRuns && player is EntityPlayerLocal && player.ChunkObserver != null)
+            // round MP0: physical only for the host's own player until MP5. Round MP5 (part N): any player's (as ScRuns.Send) - the
+            // runner legs weigh every community player now; no player (a console without one): hidden, as before
+            if (ScConfig.PhysicalRuns && player != null && player.ChunkObserver != null)
             {
                 Spot s = PickSpot(job, rnd);
                 if (s != null)

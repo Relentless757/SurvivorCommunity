@@ -8,8 +8,9 @@ namespace SurvivorCommunity
     /// <summary>
     /// Supply runs (State of Decay style): a stationed, healthy, willing survivor is sent out for one of the
     /// five resources. With PhysicalRuns (the default) they walk to a real POI for it and back - see ScRunners;
-    /// what follows describes the legacy run, still used without a destination, on a dedicated server and for
-    /// runs saved before physical runs existed (RunLeg None).
+    /// what follows describes the legacy run, still used without a destination, from a console with no player and for
+    /// runs saved before physical runs existed (RunLeg None). Round MP5 (part N): no longer on a dedicated server or for a
+    /// client's send - any player's run is physical.
     /// The entity is hidden in place through SCore's SendOnMission (scale 0, invisible,
     /// ignored by AI) and parked with a Stay order - SendOnMission does NOT stop the entity ticking - and
     /// the run itself is bookkeeping in the registry, so it resolves at the day rollover whether or not the
@@ -71,9 +72,11 @@ namespace SurvivorCommunity
             ScWork.EndFor(m, "sent on a supply run");   // C1: off the work shift first
             ScMining.ClearJob(m);                       // round 33c (M33): a supply run, not a mining one
 #endif
-            // round MP0: physical runs only for the host's own player until MP5 rebuilds the runner's capture and re-creation around
-            // the nearest player (B: today they follow the host's chunk range and view) - a client's run goes hidden
-            if (ScConfig.PhysicalRuns && player is EntityPlayerLocal && player.ChunkObserver != null)
+            // round MP0: physical runs only for the host's own player until MP5. Round MP5 (part N): for any player - the runner's
+            // capture and re-creation weigh every community player now (ScRunners: Keeps, Reacher), and the server keeps a chunk
+            // observer for each remote player, so a client's run (a dedicated server's too) walks out like the host's. No player
+            // (telnet, a server's own console): a hidden run, as before
+            if (ScConfig.PhysicalRuns && player != null && player.ChunkObserver != null)
             {
                 World pw = ScCommunity.World;
                 PrefabInstance dest = PickDestination(kind, pw != null ? pw.GetGameRandom() : null);
@@ -118,8 +121,9 @@ namespace SurvivorCommunity
                 ScHandheld.NoteCarried(m, npc, "sent on a hidden run");   // R2: a radio of theirs lets them call for help (decision 5)
 #endif
                 World rw = ScCommunity.World;
-                // round MP0: ScRadio takes the local player (another slice's file) - null on a dedicated server: no distress roll there
-                bool distress = ScRadio.RollDistress(m, player as EntityPlayerLocal, rw != null ? rw.GetGameRandom() : null);
+                // round MP5 (part N): the real player who sent her - RollDistress reads the handheld it can (this machine's own player's,
+                // else the host's own; a remote bag is not readable here), so a dedicated server rolls distress on a powered station
+                bool distress = ScRadio.RollDistress(m, player, rw != null ? rw.GetGameRandom() : null);
                 ScRegistry.SaveAtomic();
                 // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
                 if (player != null && !distress) ScCommunity.TellKey(player, "scRunSent", "", m.Name, What(m), m.RunEndDay);
@@ -311,7 +315,7 @@ namespace SurvivorCommunity
                 if (ScRunners.IsPhysical(m))
                 {
                     // a physical run ends when they walk home; the rollover only rescues one far past its ETA
-                    // round MP0: near the post = the anchor, as the runner's re-create (MP5: any player)
+                    // round MP5 (part N): near the post = any community player, as the runner's re-create (ScRunners.PlayerNearPost)
                     if (m.Offline && day > m.RunEndDay + ScConfig.RunDeadlineGraceDays && (m.RunLeg != RunLeg.Back || ScRunners.PlayerNearPost(m, player))) late.Add(m);
                 }
                 else if (day >= m.RunEndDay) done.Add(m);
@@ -350,7 +354,7 @@ namespace SurvivorCommunity
                         // a radio distress run: the player's answer decides it, not the dice
                         if (m.RunSafe) { bad = false; dead = false; yield += ScConfig.RescueBundles; }   // round ie1: +1, was x1.25 rounded
                         else { bad = true; dead = roll2 < ScConfig.RunDeathShare; }
-                        ScRadio.EndDistress(w, player as EntityPlayerLocal, m);     // round MP0: the local player's journal (another slice's file). MP4: quests to the right player
+                        ScRadio.EndDistress(w, player, m);                          // round MP5 (part N): the real player - every player's copy closes (ScQuestNet)
                     }
 
                     if (dead)
