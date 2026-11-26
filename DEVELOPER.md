@@ -2831,6 +2831,57 @@ Round MP0 is the groundwork:
     ends another player's talk hold (`ScWork.TalkHeldByOther`). **A player who leaves while she is down** marks the kept hold
     or shift (`Shift.OwnerGone`), and `Tick` ends it once she is up.
 
+- **Round MP5 (part O), outposts for every player** (`ScOutpostRisk`, `ScGarrison`, `ScOutpostPerks`, `Patches_Outposts`,
+  `ConsoleCmdSc`):
+  - **Already in place, checked for multiplayer and unchanged:** "the player at the outpost" is the community player nearest
+    its footprint (`ScOutpostRisk.Closest`, `ScGarrison.NearestAt`, round MP0) for the attack's arrival and judging, the blood
+    moon's vigil, the visit day (security, moods, the check-in), the stash and the stand-ins. A stand-in appears when any
+    community player is within `OutpostStandInRange` of a loaded claim, stays while one is within 1.8 times that, and goes when
+    none is; one per member (`Member.StandInId`; a body still being built is never taken for gone), and its going records her
+    ammo first - the member is the record, so nothing is lost. The window's and radial's outpost commands are MP2's ops, the
+    markers MP4's, outpost storage and the home link MP3's linked storage sessions: `storage.open` kind 2 has `ScHomeLink` load the home zone on the server per player, the client's view is
+    virtual (the stacks come in `NetPackageScStorage`), and every change is a compare-and-set against the box, which leaves a
+    box someone has open out of the view - MP3's loss and duplication table holds unchanged.
+  - **A fight is sized by the players at it** (`ScOutpostRisk.GameStageAt(outpost, anchor)`): with one community player
+    online, the anchor's gamestage, as before; with more, the living community players within `RescueTriggerRange` * 2 of the
+    footprint (where a fight is judged) - one player's own, several by vanilla's party rule
+    (`GameStageDefinition.CalcPartyLevel`) - and the anchor's when nobody is there (an unattended raid's size,
+    `AttackerCountFor`). The raider tier follows it. The day's raider demand gate (`OutpostRaiderGamestage`) reads the highest
+    gamestage of the community's players online (one online: the anchor's).
+  - **One live fight at a time, per player** (`OtherFightHolds`): with one player online any live home attack or enclave
+    siege holds an outpost's attack back, as before; with more, only one the player at the outpost is in (within
+    `BaseAttackLeaveRange` of the zone, or `EnclaveSiegeArriveRange` * 2 of the siege's enclave). Before, a client at an
+    attacked outpost while another player fought at home got nothing and the attack settled "unanswered" at its deadline.
+    The other direction is not this part's: `ScBaseAttack` and `ScEncSiege` still wait for an outpost fight near any player
+    (`AnyLiveNearPlayers`, `AnyLiveNear`).
+  - **A stand-in's identity on a client** (`ScGarrison.SyncStandIn`): its `sc_standin` / `sc_standin_op` are set right after
+    the spawn, but the spawn data a client near it gets is made inside `SpawnEntityInWorld` (NetEntityDistribution), before
+    them, and the bulk cvar sync brings them seconds later - meanwhile that client's guards (no equipment window on a stand-in,
+    whose items would go with it; no follower verbs) did not hold. Once per stand-in, the first second it stands with a remote
+    player within 200 m, both are force-sent (after the spawn, on the same ordered channel). A client that comes near later
+    reads them in its spawn data (0-SCore's NPCs write their buffs in `Write`). Nothing is sent in single player.
+  - **Tells:** "attackers here", "held" (`TellAtKey`: every community player within `RescueTriggerRange` * 2) and the blood
+    moon's "held by you" (`Live.BloodMoonByAll`: everyone who stood there) reach every player there, not only the nearest.
+    `StartAttack`'s marker is the host's own map object whoever called the attack (remote players get theirs from ScMarkers).
+  - **Raider demands:** `PayDemand` / `RefuseDemand` take an `EntityPlayer` (they took `EntityPlayerLocal`), so a request
+    handler passes its sender; `sc outpost pay|refuse` act for the player who typed them. The radio window's buttons are the
+    radio's own (round MP5's radio part).
+  - **The stash** (`ScOutpostPerks.Unstash`) waits while `ScStorageServer.OpenBySomeone` says the claim's box is open - MP3's
+    one test for every server-side writer. It writes a closed box on the server only, and no linked storage view ever shows a
+    claim's own box (`ScStorage.Linkable`), so there is nothing to push: the bundles reach a player through a vanilla open.
+  - **The claim gate on a client** (`Patch_CanPlaceLandProtectionBlockAt`): the game asks it only on the placing machine and
+    the server never asks again, so a client gates its own claims now, from its copy (`ScMirror.Active`): an enclave's building
+    (`ScRegistry.Enclaves` with the `Enclaves` setting; the copy has no `Lost`, so an enclave the server could not place this
+    load still refuses its old footprint) and the claim limit with the home and outposts (`IsProtectedClaim` reads the copy's
+    outposts: the server's lookup tables are never built on a client). The server's `RemoveExtraLandClaims` keeps the home and
+    outposts whatever a client sends.
+  - `sc outpost who`: per held outpost, every community player online, their distance and what it counts for, each staffer's
+    stand-in, and an open attack's gamestage. No new op, package or localization key.
+  - **Known gaps:** a client's projected haulage on the Outposts tab leaves out an outpost whose radio relay is powered while
+    the home radio is silent (power is the server's: `RelayOnline` reads false on a client, and the mirror carries no relay
+    state) - display only, the rollover is the server's. A claim a modified client places into an enclave's building is not
+    taken back by the server. A dead player counts as present where they fell (as the one player always did in single player).
+
 ## How it hangs together (for modders)
 
 - NPCs are 0-XNPCCore's `EntityAliveSDXV4` survivors (SCore's legacy `EntityAliveSDX` still works for pack NPCs). A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars

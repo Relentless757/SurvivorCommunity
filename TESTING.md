@@ -12,6 +12,9 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc outpost list` shows each outpost's type, level, mode and state, and the network's radio state, upkeep and haulage.
 - `sc outpost yield` shows each outpost's whole-number steps and tonight's numbers.
 - `sc outpost security <id>` gives the security breakdown and the attack chance.
+- `sc outpost who` lists, per outpost, every player online with their distance and what it counts for (here: visit,
+  stand-ins, the blood moon's vigil; keeps: the stand-ins stay; fight: an open attack comes), each staffer's stand-in, and
+  an open attack's gamestage.
 
 **Radio**
 
@@ -36,6 +39,62 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc day` simulates one rollover, outposts included.
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
+
+## Round MP5 (part: outposts) (2026-11-26): outposts work for every player
+
+Why: a client standing at an attacked outpost got no fight while another player fought a horde at home, and the attack
+then settled "unanswered" with the client right there (an overrun sends the garrison home hurt and empties the stash). The
+attack's size and raider tier came from the host's gamestage, only one player heard "attackers here", "held" and the blood
+moon's "held by you", and a client could place a land claim into an enclave's building or past the claim limit (that gate
+only ran for the host). Presence, stand-ins, visits, the stash and the home link already counted every player (rounds
+MP0-MP3); this round checked them for multiplayer and adds `sc outpost who`. Build `sc34_mp5o`, **not deployed**.
+
+**Single player (nothing may change)**
+- [ ] Walk up to a staffed outpost: its stand-ins appear by the claim within 60 m, stay to about 110 m, then go.
+      `sc outpost who` shows you as here / keeps / away and each staffer's stand-in (an entity id, or "no stand-in").
+- [ ] `sc outpost attack <id>` and go there: the attackers come, "attackers here" once; kill them: "held" once. The log's
+      `attack at outpost ... N zombie(s)` has the size it had before for your gamestage.
+- [ ] `sc attack now` at home, then (with the home fight live) walk to an outpost under attack within 150 m of the zone:
+      its attackers wait for the home fight, as before.
+- [ ] Stand at an outpost through a blood moon: "held by you" once at its end; the other outposts roll.
+- [ ] A raider demand (`sc outpost demand <id>`): `sc outpost pay <id>` and `sc outpost refuse <id>` work as before (the
+      refusal's call, its attack marker on your map).
+- [ ] An outpost with a stash (a rollover's "cache too big to carry", or stash and haul's overflow; `sc outpost list`
+      shows "stash N"): open its claim's box and keep it open while you stand there - the bundles wait; close it - they go
+      in within a second.
+- [ ] Place a land claim reaching into an enclave's building: refused with its line, as before. At the claim limit with
+      only the home and outposts left: refused with "claim limit", as before.
+
+**A client on a dedicated server**
+- [ ] The client walks to a staffed outpost: the stand-ins appear for them (within 60 m), stay while they are near and go
+      once they leave (about 110 m). `sc outpost who` from the client lists them as here and the stand-ins' ids. Leave and
+      come back three times: never two stand-ins of one member (`sc outpost who`: one id each), nobody missing.
+- [ ] The client visits: `sc outpost list` (server) shows the visit day; a stash goes into the claim's box while they
+      stand there (closed box only, as above).
+- [ ] `sc outpost attack <id>`; the client goes there alone: the attackers come, the client is told, killing them tells
+      "held". `sc outpost who` during the fight shows the gamestage it was sized by - the client's own.
+- [ ] The client stands at an outpost through a blood moon: "held by you" goes to the client.
+- [ ] `sc outpost pay <id>` / `sc outpost refuse <id>` typed by the client act for them (no longer "no player").
+- [ ] The client places a land claim reaching into an enclave's building: refused on the client with the enclave's line
+      (it used to go down). At the claim limit with only their home and outposts left: refused with "claim limit".
+- [ ] Linked storage at an outpost the client established (the home link): "Radioing home...", then the home's boxes;
+      take, drop and swap: the home's boxes change on the server, nothing doubled or lost; a home box another player
+      has open by hand is left out of the view.
+
+**Two players**
+- [ ] Player A at home: `sc attack now`, and the horde is live there. Then `sc outpost attack <id>` and player B walks to that
+      outpost, far from home: B's attackers come at once (they used to wait out the deadline and settle "unanswered"). Both
+      fights end on their own. (The other order - an outpost fight first - still holds the home's call back: that is the
+      base attack's own rule.)
+- [ ] A and B both at an attacked outpost: both hear "attackers here" and "held"; the size is their party's gamestage
+      (`sc outpost who`), larger than either alone.
+- [ ] A and B arrive at a staffed outpost together and leave one after the other: the stand-ins appear once, stay while
+      either is near, go when both have left.
+- [ ] A and B stand at an outpost through a blood moon: each hears "held by you".
+- [ ] A has the outpost's claim box open by hand while B stands there with a stash due: nothing goes in until A closes
+      it, then the stash arrives once (count the bundles).
+- [ ] A and B each open the home link from their own outposts at the same time: each gets the home's boxes; both take the
+      same stack at once - one gets it, the other's view puts it back. No duplicate.
 
 ## Round mt1 (part: C) (2026-11-25): a client reads SC's config once the server's blocks and items are in
 

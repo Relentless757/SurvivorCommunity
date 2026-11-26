@@ -26,7 +26,9 @@ namespace SurvivorCommunity
     ///               chemists for meds, shooters for ammo, crafters for materials, mechanics for fuel, gardeners for water).
     ///   Stand-in  - within OutpostStandInRange of a loaded, staffed outpost, a copy of each staffer (their class and
     ///               look, skills, traits) stands guard at the claim; it goes when the player leaves. It IS the
-    ///               survivor: if it dies there, they died (ScRadio.OnStandInDied routes here). Never saved.
+    ///               survivor: if it dies there, they died (ScRadio.OnStandInDied routes here). Never saved. Round MP0: "the
+    ///               player" is any community player (NearestAt); round MP5 (part O): its identity reaches a client near it at
+    ///               once (SyncStandIn).
     ///   Moods     - posted away from home: -3 (a Loner: +5), +3 while the player visited in the last 3 days.
     ///   Walk-ins  - a staffed outpost sometimes becomes the spawn point of a radio contact.
     /// Host only.
@@ -46,6 +48,8 @@ namespace SurvivorCommunity
         /// <summary>Round op1 (session only): a parked traveler waiting at the gate with you home and no body of theirs there, since when.</summary>
         private static readonly Dictionary<int, float> absentSince = new Dictionary<int, float>();
         private static readonly List<Member> journeyScratch = new List<Member>();
+        /// <summary>Round MP5 (part O, session only): stand-ins whose identity cvars were force-sent to the clients (SyncStandIn).</summary>
+        private static readonly HashSet<int> standInSynced = new HashSet<int>();
 
         /// <summary>Round op1 review (M1): the longest a parked body is waited for (real seconds) before the observer goes.</summary>
         private const float FetchSeconds = 30f;
@@ -90,6 +94,7 @@ namespace SurvivorCommunity
             embodyRetry.Clear();
             absentSince.Clear();
             journeyScratch.Clear();
+            standInSynced.Clear();      // round MP5 (part O)
         }
 
         /// <summary>Round op1 review (M1): WorldShuttingDown, before the save - no brief load outlives the world.</summary>
@@ -1048,6 +1053,7 @@ namespace SurvivorCommunity
                             EntityAlive s = ScNpc.As(w.GetEntity(m.StandInId));
                             if (s == null || s.IsDead()) { if (s == null) m.StandInId = -1; continue; }
                             if (!keep) RemoveStandIn(m);
+                            else SyncStandIn(s, m, o);      // round MP5 (part O): its identity reaches a client near it now
                             continue;
                         }
                         if (near && ScZone.IsLoaded(o.Flag)) SpawnStandIn(w, m, o, null);
@@ -1128,6 +1134,30 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// Round MP5 (part O): a stand-in's identity cvars (sc_standin, sc_standin_op) are set right after its spawn, but the spawn
+        /// data a client near it already got was made before them (NetEntityDistribution sends it inside SpawnEntityInWorld), and
+        /// the bulk cvar sync brings them only a few seconds later - meanwhile that client's guards (no equipment window on a
+        /// stand-in, whose items would go with it; no follower verbs) do not hold. So once per stand-in, the first second it stands
+        /// with a remote player near, they are force-sent (NetPackageModifyCVar, after the spawn on the same ordered channel). A
+        /// client that comes near later gets them in its spawn data. Nothing in single player (no remote player).
+        /// </summary>
+        private static void SyncStandIn(EntityAlive s, Member m, Outpost o)
+        {
+            try
+            {
+                if (s == null || s.Buffs == null || m == null || o == null || standInSynced.Contains(s.entityId)) return;
+                if (!ScPlayers.AnyRemoteWithin(s.position, 200f)) return;
+                standInSynced.Add(s.entityId);
+                s.Buffs.SetCustomVar(ScRadio.StandInCvar, m.Id, true, CVarOperation.set, true);
+                s.Buffs.SetCustomVar(StandInOutpostCvar, o.Id, true, CVarOperation.set, true);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("garrison-standin-sync", e);
+            }
+        }
+
         /// <summary>Round op1: the member's stand-in while it stands (not one still being built), or null.</summary>
         private static EntityAlive LiveStandIn(World w, Member m)
         {
@@ -1148,6 +1178,7 @@ namespace SurvivorCommunity
                     ScAmmo.Record(m, s);          // the next stand-in starts with what this one had left (never a fresh stack)
                     ScRuns.RemoveEntity(s);
                 }
+                standInSynced.Remove(m.StandInId);    // round MP5 (part O)
                 m.StandInId = -1;
             }
             catch (Exception e)
