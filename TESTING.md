@@ -70,7 +70,9 @@ only SC warning is the old `patched an unlisted method: Quest::HandleUnlockPOI` 
 - Seen (not SC): a third rejoin in one game session failed on the client in vanilla code (`MultiBlockManager` "Unexpected
   mode state", then `World.OnUpdateTick` exceptions); restarting the client fixed it. A raider removed mid-swing by `sc
   band clear` logged vanilla's `AnimatorMeleeAttackState` exception. A vanilla wandering horde at the home killed a
-  resident while the client was away (no medic to revive him).
+  resident while the client was away (no medic to revive him). The raider test cost the enclave two of its people and
+  the client its life (an attacker still near the building); a teleport while dead then left the respawn stuck on
+  "Creating player" until a rejoin.
 - Still yours: talking to enclave people (trade, enlist, gifts, the threat, requests), "Search the body", the radio window
   and the handheld tab (a powered station), outposts (a claim), the tells' tooltips on screen, voices by ear, and everything
   needing two players or a listen host.
