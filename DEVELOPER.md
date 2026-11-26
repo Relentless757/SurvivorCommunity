@@ -3185,6 +3185,51 @@ Round MP0 is the groundwork:
   - **For modders:** read a community's state inside a scope. Entry points the core does not scope yet are marked
     `// MP6 (part <relations|network|home|gates>): ...` (Harmony, UAI, blocks, engine events and queues). A new world loop
     over "every member" uses `ScCommunities.AllMembers()`. A new id counter goes in `ScWorldState`.
+- **Round MP6 (part: G), entry points and gates:** the engine's entry points act for the right community, and another
+  community's members, stations and ground are not yours (the user's decisions 3 and 4). With one community every test
+  below answers as before MP6. `ScGates.cs` holds the helpers:
+  - **Whose body, whose ground:** `ScGates.MemberCommunityOf(npc)` is the server's record (a stand-in's by the member id it
+    carries, `MemberOf`), else the synced `sc_member` cvar, which holds community id + 1 on a member (1 = community 0, as
+    before). A client has only the cvar and its own community (`ScPlayers.CommunityOf(local)` = `MirroredCommunity`).
+    `IsOwnMember(npc, player)` / `IsForeignMember(npc, player)` compare it with the player's. `CommunityAt(pos)` is the first
+    community whose home zone holds the position, else the owner of the held outpost there; `OutsiderAt(pos, player)` and
+    `OtherCommunityIn(min, max, own)` / `OtherCommunityInClaim(claim, own)` (another community's home bounds or outposts
+    touching a box) are the gates. `OwnMember(id)` is `GetMember` limited to the community in scope - an action handler's
+    sender's.
+  - **Scopes for entry points:** `ScopeOf(npc)` (her community; nothing for a stranger, who reads no community),
+    `ScopeOf(memberId)`, `ScopeOfPlayer(p)`, `ScopeOfActor(entity)` (a killer: a player's or a member's), `ScopeAt(pos)` and
+    `ScopeAt(pos, placer)` (a block: the position's community, else the placer's), `ScopeOfUser(platformId)` (server only).
+    Each returns `default(ScScope)` with one community, so it costs a count test there. `PushHeld`/`PopHeld` keep a scope a
+    Harmony prefix opens until its finalizer. `Patches_Gates.Patch_UaiScope` opens the NPC's scope around vanilla's
+    `UAIBase.Update(Context)` (priority first, closed in a finalizer), so every SC consideration and task, and every hook a
+    UAI task reaches (0-XNPCCore's craft, loot and book tasks into `Patches_Craft`), reads her community. Also scoped: a
+    member's and a stand-in's death (`Patches_Npc.Patch_SetDead`), a kill's skill XP (the killer), `OnHire`, the runner
+    unload delegate and shutdown, `ScWork.End` (her community, whoever ends it), the book and station-sweep patches,
+    `ScArms`' swaps, `ScMedic`'s tick, the door opener, `ScRunnerCall.OnHit`, the radio, watch post and guard tower blocks,
+    the claim radial and the claim-limit patches, bundle opening and an infested room's clear (the nearest player).
+  - **Gates:** the talk's member rows read `ScOwnMember` (replacing `NPCHasCVarSDX sc_member value="1"`, which would read
+    community 0's members only once the cvar is id + 1); `ScForeignMember value="not"` hides 0-XNPCCore's inventory,
+    Equipment and Jobs and gear rows and Head home from an outsider; `ScFollowerVerb` refuses another community's member.
+    No talk hold (`ScWork.CanHold`, `HoldForRemote`, `HandOver`), no member panel (`XUiC_ScMemberInvGroup.IsMember` is the
+    viewer's community; `IsForeign` + `RefuseForeign` refuse SCore's own screen too, handing a client's copy back), no
+    equipment window (`ScEquipRedirect`), no gear changes (`ScMemberEquip.Gate`), no spoken follow or dismiss, and every
+    member action naming another community's member acts on nobody (`OwnMember`). `CanRecruit` already refuses anyone's
+    member (the core's global `GetMember`). `home.set` and `ScOutposts.CanEstablish` refuse another community's home or
+    outposts; the packing station (`ScActionsStock.StationFor`), the radio station (`ScActionsRadio.WhyNotStation`, and the
+    host's own "Use radio") refuse outsiders. Linked storage needs no gate: every view is the sender's own home or outpost.
+    Another community's member is not protected from your shots (`Patches_Npc.Patch_FriendlyFire`); her community's grudge
+    is the relations part's.
+  - **World loops** read every community: the seeding exclusions (`ScGates.AddTakenPois`), the favor POI pick, the
+    door-path test, Bond on a kill, portraits kept, work flames, outpost stand-in orphans, runners at load and shutdown,
+    the sleeper re-arm (`ScQuests.IsOurPoi`), mining spots, run destinations and radio contacts' buildings. The outpost index
+    (`ScOutposts.Rebuild`: `IsOutpostClaim`, `IsOutpostPoiKey`, `BoxHitsOutpost`) is the union of every community's outposts
+    ("anyone's outpost"); `AtClaim`, `ByPoi` and `OutpostAt` stay the community in scope's. Console finders by name still
+    search the console's community (`sc community use <id>` for another).
+  - **Queues** keep their community: a queued Outpost Claim Block (its placer's, established in that community's tick pass)
+    and a withdrawal's refund ticket. **Recipients:** `ScGates.LocalPlayerOf(cid)` replaces the "host's own player" fallback
+    where server code picks a recipient (stationing, a leader to restore, a shift's owner, a runner's call, Leadership, a
+    craft or book star, a distress call's end): the host's own player only when of that community, else its anchor.
+    `ScPlayers.Nearest` takes a community filter.
 
 ## How it hangs together (for modders)
 

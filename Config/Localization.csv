@@ -2171,3 +2171,8 @@ scEncEnlistFeeChanged,UI,Tooltip,,,,Their fee is {0} dukes now.
 # round MP5 (part R): the radio for every player
 scRadioTooFar,UI,Tooltip,,,,You are too far from the radio station. Go back to it and use it again.
 scRadioGone,UI,Tooltip,,,,That radio station is gone.
+# round MP6 (part G) - another community's members and stations
+scGateNotYourMember,UI,Tooltip,,,,They belong to another community: you can talk with them but they don't take your orders.
+scGateNotYourStation,UI,Tooltip,,,,That station belongs to another community.
+scOpOtherCommunity,UI,Tooltip,,,,{0} is another community's ground: no outpost here.
+scHomeOtherCommunity,UI,Tooltip,,,,This claim reaches another community's home or outposts: it can't be your home.

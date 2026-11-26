@@ -34,10 +34,22 @@ namespace SurvivorCommunity
             if (npc == null) return -1;
             if (ScRegistry.Loaded)
             {
-                Member m = ScRegistry.GetMember(npc.entityId);
+                Member m = MemberOf(npc);
                 if (m != null) return m.CommunityId;
             }
             return CvarCommunity(npc);
+        }
+
+        /// <summary>
+        /// The member this body is (any community): her record by its entity id, or - an outpost or rescue stand-in, which carries
+        /// her member id in sc_standin - the record it stands in for. Null for anyone else.
+        /// </summary>
+        public static Member MemberOf(EntityAlive npc)
+        {
+            if (npc == null) return null;
+            Member m = ScRegistry.GetMember(npc.entityId);
+            if (m == null && npc.Buffs != null && npc.Buffs.HasCustomVar(ScRadio.StandInCvar)) m = ScRegistry.GetMember((int)npc.Buffs.GetCustomVar(ScRadio.StandInCvar));
+            return m;
         }
 
         /// <summary>The community the body's sc_member cvar names (its value - 1), or -1 with none (absent or 0: cleared).</summary>
@@ -77,10 +89,12 @@ namespace SurvivorCommunity
             return m != null && m.CommunityId == ScRegistry.CurrentId ? m : null;
         }
 
-        /// <summary>Her community's scope when the body is a member's (the server's record), nothing for a stranger.</summary>
+        /// <summary>Her community's scope when the body is a member's or her stand-in's (MemberOf), nothing for a stranger.</summary>
         public static ScScope ScopeOf(EntityAlive npc)
         {
-            return npc != null ? ScopeOf(npc.entityId) : default(ScScope);
+            if (npc == null || ScCommunities.Count <= 1) return default(ScScope);      // one community: it is always the one in scope
+            Member m = MemberOf(npc);
+            return m != null ? ScRegistry.Use(m) : default(ScScope);
         }
 
         /// <summary>The member's community's scope by her entity id; nothing when no community holds her.</summary>
@@ -130,13 +144,16 @@ namespace SurvivorCommunity
         /// <summary>The community of the player with this platform id (a block's or a claim's owner; ScPlayers.CommunityOfId), -1 for none.</summary>
         public static int CommunityOfUser(PlatformUserIdentifierAbs id)
         {
-            return id != null ? ScPlayers.CommunityOfId(id.CombinedString) : -1;
+            return id != null && ScRegistry.Loaded ? ScPlayers.CommunityOfId(id.CombinedString) : -1;
         }
 
-        /// <summary>The scope of the community of the player with this platform id; nothing for none or with one community.</summary>
+        /// <summary>
+        /// The scope of the community of the player with this platform id (the server's membership map); nothing for none, with one
+        /// community, or on a client (which has no map: its copy is its own community's, Current with no scope).
+        /// </summary>
         public static ScScope ScopeOfUser(PlatformUserIdentifierAbs id)
         {
-            return id != null && ScCommunities.Count > 1 ? ScRegistry.Use(ScPlayers.CommunityOfId(id.CombinedString)) : default(ScScope);
+            return id != null && ScRegistry.Loaded && ScCommunities.Count > 1 ? ScRegistry.Use(ScPlayers.CommunityOfId(id.CombinedString)) : default(ScScope);
         }
 
         /// <summary>

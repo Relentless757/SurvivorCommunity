@@ -360,7 +360,7 @@ namespace SurvivorCommunity
                 if (!UsesOurOpener(___entity)) return true;
                 try
                 {
-                    ScDoors.TryOpen(___entity);
+                    using (ScGates.ScopeOf(___entity)) ScDoors.TryOpen(___entity);     // round MP6 (part G): her community's door rules
                 }
                 catch (Exception e)
                 {

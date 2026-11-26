@@ -176,16 +176,29 @@ namespace SurvivorCommunity
                     ScPlayers.SetCommunity(pid, cid);
                     ScRegistry.SaveAtomic();
                     // their followers stay with the community they belong to (members are a community's, not a player's).
-                    // MP6 (part gates): their Leader/Owner link still points at this player, now outside their community (and that
-                    // community may no longer tick with nobody of it online) - send them home or detach them (review C-n5)
+                    // Round MP6 (part G): and go home to it (review C-n5) - their Leader/Owner link to this player, now outside their
+                    // community, ends: a loaded one is stationed at her post now, an unloaded one turns resident (the ticker stations
+                    // her when she next loads; her leader is no longer one of hers to restore)
                     int followers = 0;
                     CommunityState old = ScCommunities.ById(was);
+                    var theirs = new List<Member>();
                     if (old != null)
                         foreach (Member m in old.Members.Values)
-                            if ((m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) && string.Equals(m.LeaderId, pid, StringComparison.Ordinal)) followers++;
+                            if ((m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) && string.Equals(m.LeaderId, pid, StringComparison.Ordinal)) theirs.Add(m);
+                    followers = theirs.Count;
+                    EntityPlayer mover = ScPlayers.ById(pid);
+                    foreach (Member m in theirs)
+                        using (ScRegistry.Use(m))
+                        {
+                            EntityAlive npc = ScCommunity.FindNpc(m.Id);
+                            if (npc != null) ScCommunity.Station(m, npc, true, mover);
+                            else m.Status = MemberStatus.Resident;
+                            m.LeaderId = "";
+                        }
+                    if (followers > 0) ScRegistry.SaveAtomic();
                     ScLog.Out("community: " + who + " (" + pid + ") moved from community " + was + " to community " + cid);
                     Output("[SC] " + who + " is now in " + ScCommunities.ById(cid).Label + " (was " + (old != null ? old.Label : "community " + was) + ")"
-                           + (followers > 0 ? "; their " + followers + " follower(s) stay members of " + (old != null ? old.Label : "it") : "")
+                           + (followers > 0 ? "; their " + followers + " follower(s) stay members of " + (old != null ? old.Label : "it") + " and go home to it" : "")
                            + ". A client's own copy stays community 0's until the per-community mirror: its requests are refused as stale meanwhile.");
                     break;
                 }

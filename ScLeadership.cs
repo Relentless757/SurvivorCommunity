@@ -103,7 +103,8 @@ namespace SurvivorCommunity
         {
             try
             {
-                EntityPlayer player = to ?? ScCommunity.LocalPlayer ?? (ScRegistry.Loaded ? ScPlayers.Anchor() : null);
+                // round MP6 (part G): the host's own only when of the community in scope, else its anchor (ScGates.LocalPlayerOf)
+                EntityPlayer player = to ?? ScGates.LocalPlayerOf(ScRegistry.CurrentId) ?? (ScRegistry.Loaded ? ScPlayers.Anchor() : null);
                 if (player == null || player.Buffs == null) return;
                 // round MP5 (review W-M1): an add, not a set - for a remote player the server's copy hears of their machine's reset
                 // (the skill drains it there) only with the stats sync, seconds later, so "copy + 1" could pay past events again;
@@ -121,9 +122,9 @@ namespace SurvivorCommunity
         {
             try
             {
-                // round MP5 (part W): the host's own player, as before; a dedicated server (none) reads the anchor's (MP6: the
-                // community's leader)
-                EntityPlayer player = ScCommunity.LocalPlayer ?? (ScRegistry.Loaded ? ScPlayers.Anchor() : null);
+                // round MP5 (part W): the host's own player, as before; a dedicated server (none) reads the anchor's. Round MP6 (part
+                // G): the host's own only when of the community in scope - else its anchor (its owner first: ScPlayers.Anchor)
+                EntityPlayer player = ScGates.LocalPlayerOf(ScRegistry.CurrentId) ?? (ScRegistry.Loaded ? ScPlayers.Anchor() : null);
                 if (player == null || player.Buffs == null) return 0f;
                 float v = player.Buffs.GetCustomVar(cvar);
                 return float.IsNaN(v) || float.IsInfinity(v) ? 0f : v;

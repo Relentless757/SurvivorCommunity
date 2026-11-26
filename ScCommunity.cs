@@ -1326,7 +1326,7 @@ namespace SurvivorCommunity
 #if SC_V34
                 ScWork.EndFor(m, "leaving");          // C1: off the work shift first
 #endif
-                if (m.Status == MemberStatus.OnRun && m.RunDistress) ScRadio.EndDistress(World, LocalPlayer, m);   // no orphaned rescue quest
+                if (m.Status == MemberStatus.OnRun && m.RunDistress) ScRadio.EndDistress(World, ScGates.LocalPlayerOf(m.CommunityId), m);   // no orphaned rescue quest (round MP6 (part G): her community's)
                 // round op1: the body looked up before the snapshot goes - a posting traveler's snapshot is what says they have none
                 EntityAlive npc = FindNpc(m.Id);
                 m.Snap = null;
