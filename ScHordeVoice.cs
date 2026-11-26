@@ -160,6 +160,7 @@ namespace SurvivorCommunity
         /// console): HordeVoiceLines and the radio rules ignored - in person in range, else on the radio. Returns what happened.
         /// Round MP4: anyPlayer - the host's own player is judged here as before (any other: nobody here); every remote player
         /// within InPersonRange of the guard hears it in person on their own machine (NetPackageScVoice), forced lines aside.
+        /// Round t107: a forced line with a remote anyPlayer (the console's sender) goes to that player alone (SentForced).
         /// </summary>
         public static string SayAtHome(HordeMoment moment, Member m, EntityAlive body, string side, EntityPlayer anyPlayer, bool force)   // round MP4: any player (the host's own decides here)
         {
@@ -175,6 +176,8 @@ namespace SurvivorCommunity
                 // round t107: a forced line (the console) typed by a remote player is theirs alone - sent to their machine, which
                 // plays it whatever its hearing rule; nothing is queued here (a dedicated server has nobody to hear it)
                 if (force && anyPlayer != null && !(anyPlayer is EntityPlayerLocal)) return SentForced(anyPlayer, m, body, key, voice);
+                // round t107 (review NIT 4): a dedicated server's own console or telnet - no sender and no player on this machine
+                if (force && anyPlayer == null && ScCommunity.LocalPlayer == null) return "nobody on this machine hears a forced line - type it in a player's own console";
                 // round MP4: the remote players within InPersonRange of the guard hear it in person on their own machine (the same
                 // line, the guard's voice). Round MP5 (part R): when the guard can send (their handheld, the home station with
                 // power), the remote players at home farther away get it too and hear it on their own handheld radio
@@ -225,6 +228,7 @@ namespace SurvivorCommunity
         /// Away (Call, Arrived, Held / Damaged / Overrun): the radio from home says the moment - the station has power and the
         /// player carries a handheld; speaker null: the guard on watch, else a member at home. The caller has just shown the
         /// radio's text. force (the console): HordeVoiceLines, the station and the handheld ignored. Returns what happened.
+        /// Round t107: a forced line with a remote anyPlayer (the console's sender) goes to that player alone (SentForced).
         /// </summary>
         public static string SayAway(HordeMoment moment, string side, Member speaker, EntityPlayer anyPlayer, bool force)   // round MP5 (part R): any player
         {
@@ -255,6 +259,8 @@ namespace SurvivorCommunity
                 if (path == null) return NoClip(m, key);
                 // round t107: a forced line (the console) typed by a remote player is theirs alone, as SayAtHome's
                 if (force && anyPlayer != null && !(anyPlayer is EntityPlayerLocal)) return SentForced(anyPlayer, m, null, key, voice);
+                // round t107 (review NIT 4): a dedicated server's own console or telnet - no sender and no player on this machine
+                if (force && anyPlayer == null && ScCommunity.LocalPlayer == null) return "nobody on this machine hears a forced line - type it in a player's own console";
                 int sent = remote ? SendAway(moment, m, key, voice) : 0;
                 string also = sent > 0 ? " (sent to " + sent + " other player(s))" : "";
                 if (!force && (player == null || player.IsDead() || !ScHandheld.Carries(player)))
@@ -328,9 +334,11 @@ namespace SurvivorCommunity
                 Flags = (byte)((body != null ? NetPackageScVoice.FlagLipSync : 0) | ScRadioTalk.FlagHordeRadio | NetPackageScVoice.FlagForced)
             };
             string who = to.PlayerDisplayName ?? to.EntityName;
-            if (!ScVoice.SendTo(to, line)) return "not sent: " + who + " does not run this server's SurvivorCommunity";
+            if (!ScVoice.SendTo(to, line))
+                return "not sent: " + who + (ScNet.KnownMismatch(to) ? " runs another SurvivorCommunity version"
+                                                                      : "'s game has not answered the server yet (still joining), or they left");
             ScLog.Out(m.Name + " says " + key + " in " + voice + ", forced - sent to " + who + " alone");
-            return "sent " + key + " in " + voice + " to " + who + " (forced: plays on their machine whatever their radio)";
+            return "sent " + key + " in " + voice + " to " + who + " (forced: their own radio rules are skipped)";
         }
 
         /// <summary>Round MP5 (part R), the server: a living remote community player away from home who was not sent this moment this frame.</summary>

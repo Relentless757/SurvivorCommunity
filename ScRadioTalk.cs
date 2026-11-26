@@ -137,8 +137,8 @@ namespace SurvivorCommunity
             public RadioSpeaker Speaker;
             /// <summary>
             /// Round MP4: a line the server sent to this client (OnRemote) - its body by entity id alone (a client has no records
-            /// and no birth times to check), and a horde warning that is out of earshot by play time is dropped, not moved to the
-            /// radio (the guard's radio is the server's to judge: MP5).
+            /// and no birth times to check). A horde warning out of earshot by play time goes on the radio only when the server
+            /// marked it RadioOk (round MP5, part R) or it is Forced (round t107): RadioHeard.
             /// </summary>
             public bool Remote;
             /// <summary>Round MP5 (part R): a remote horde warning the server marked FlagHordeRadio (it may go on this player's radio: RadioHeard).</summary>

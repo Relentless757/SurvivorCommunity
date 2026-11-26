@@ -15,7 +15,8 @@ namespace SurvivorCommunity
     /// Layout (BinaryWriter):
     ///   byte   version   1
     ///   byte   kind      0 bark (chatter, a spoken refusal), 1 talk (a line said as a talk closes: to the talking player only),
-    ///                    2 small talk, 3 greeting (to the greeted player only), 4 taunt, 5 horde (a guard's warning in person),
+    ///                    2 small talk, 3 greeting (to the greeted player only), 4 taunt, 5 horde (a guard's warning: in person, or
+    ///                    on the radio with flag bit 6; a forced one, bit 2, to the player who typed it),
     ///                    6 radio (a runner's or a radio speaker's line: the client's own hearing rule decides), 7 vc (a line of
     ///                    Voice Control's that SC said in its place: the relay Voice Control would have sent)
     ///   byte   flags     bit 0 lip sync (through Voice Control's player where it has one), bit 1 allow dead (a dying raider's

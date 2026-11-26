@@ -56,6 +56,12 @@ their machine whatever their radio. Not deployed yet.
       <you> alone" and queues nothing of its own.
 - [ ] `sc radio horde gather north force` with the client beside the guard: in person; 50 m away: on the client's radio.
 - [ ] Without `force` nothing changes: the at-home and away warnings follow the radio rules (round MP5, part R).
+- [ ] The server's own console (telnet) with `force`: "nobody on this machine hears a forced line ...", nothing queued.
+
+**A listen host and a client**
+- [ ] The client types a forced line: the client hears it, the host does not (it used to play on the host's speakers).
+- [ ] The host types a forced line: the host hears it as before; the client gets nothing.
+- [ ] A client on another SurvivorCommunity version types one: "not sent: <name> runs another SurvivorCommunity version".
 
 ## Round MP5 results so far (2026-11-26): one client on the dedicated server
 
