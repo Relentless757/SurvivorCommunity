@@ -163,7 +163,7 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round MP5 (part O): the gamestage an outpost fight is sized by - the players in it, not the host's own. With one
         /// community player online (single player; a server with one player) the anchor's, exactly as before. With more, the
-        /// living community players within the fight's range of the footprint (RescueTriggerRange * 2, where a fight is judged):
+        /// community players (dead ones too: review O-m2) within the fight's range of the footprint (RescueTriggerRange * 2, where a fight is judged):
         /// one player's own gamestage, several by vanilla's party rule (GameStageDefinition.CalcPartyLevel: the highest at full
         /// weight, each next one at half the weight before); with nobody there (an unattended fight's size) the anchor's.
         /// </summary>

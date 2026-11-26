@@ -2595,8 +2595,9 @@ Round MP0 is the groundwork:
     - a Voice Control line a client speaks itself (its own push-to-talk orders) and that SC substitutes there is heard only
       on that client. Relaying it needs a client-to-server package;
     - `ScWatch` asks `SayAtHome` only with the host's own player, so a dedicated server voices no warning at home until the
-      merge passes the anchor;
-    - SC's config is each machine's own, so different voice switches on a client can make it disagree with the server.
+      merge passes the anchor (round MP5 part R: done);
+    - (until round mt1) SC's config was each machine's own; a client now reads the server's (the pushed block, once
+      `ScConfig.TablesReady`), so voice switches agree.
 
 - **Round MP4 (part K), map markers** (`ScMarkers`, `NetPackageScMarkers`, a `CollectMarkers` beside each subsystem's
   `AddMarker`):
@@ -2892,8 +2893,11 @@ Round MP0 is the groundwork:
     the talk, another player's action meanwhile, can leave a row one step behind; every action checks everything again). A
     hand-over whose answer never comes (a dropped connection) is lost to the player. Any community player may send an
     enlisted person home or tell a missing survivor to wait (one shared community). An enclave's containers refuse a client
-    too, from its copy (`Patches_Enclaves.Patch_ContainerLock`; the server does not check it again). A remote player who goes
-    offline keeps the people they enlisted for 5 minutes (a reconnect keeps the deal); then they go home, the fee spent.
+    too, from its copy (`Patches_Enclaves.Patch_ContainerLock`; the server does not check it again; a lost enclave's old
+    footprint still refuses there, as the copy never holds `Lost`). A remote player who goes offline keeps the people they
+    enlisted for 5 minutes while the body stays in the world (another player near keeps its chunk); then they go home, the
+    fee spent. **Known gap:** a lone client's disconnect unloads the body, which ends the deal at once (`OnUnbodied`, no
+    refund); keeping it would need the body rebuilt beside the returning player.
 - **Round MP5 (part R), the radio for every player** (`ScActionsRadio`, `ScRadioView`, `XUiC_ScRadio`, `ScRadio`,
   `Patches_Radio`, `ScEncCalls`, `ScEncSiege`, `ScHordeVoice`, `ScRadioTalk`): any community player uses the radio station
   (and, with `HandheldRadioTab` on, the Radio tab over their own handheld radio). A client opens the window on its own
@@ -2992,7 +2996,8 @@ Round MP0 is the groundwork:
     (the server's loaded chunks already cover every remote player).
   - **Leadership counters** (`ScLeadership.Count`) add 1 with `CVarOperation.add`, so a remote player's machine, which drains
     them, gets exactly one per event. **Known gap:** `ScLeadership.Read` (the leadership multipliers) on a dedicated server
-    reads the anchor's server-side copy of `$`-named cvars, which a client never sends back; it stays at its login value.
+    reads the anchor's server-side copy of `$`-named cvars, which follows the client's own only through the stats sync
+    (every few seconds): a lag, not a loss.
 - **Round MP5 (part N), physical runners around every player** (`ScRunners`, `ScRuns`, `ScMining`, `ScRunnerCall`, the
   distress functions of `ScRadio`, `ScGarrison`'s posting travel). A physical runner - a supply or mining run, a member
   walking to or from an outpost - used to be captured and re-created around ONE player (the host's own, or the tick's
@@ -3056,7 +3061,7 @@ Round MP0 is the groundwork:
     virtual (the stacks come in `NetPackageScStorage`), and every change is a compare-and-set against the box, which leaves a
     box someone has open out of the view - MP3's loss and duplication table holds unchanged.
   - **A fight is sized by the players at it** (`ScOutpostRisk.GameStageAt(outpost, anchor)`): with one community player
-    online, the anchor's gamestage, as before; with more, the living community players within `RescueTriggerRange` * 2 of the
+    online, the anchor's gamestage, as before; with more, the community players (dead ones too) within `RescueTriggerRange` * 2 of the
     footprint (where a fight is judged) - one player's own, several by vanilla's party rule
     (`GameStageDefinition.CalcPartyLevel`) - and the anchor's when nobody is there (an unattended raid's size,
     `AttackerCountFor`). The raider tier follows it. The day's raider demand gate (`OutpostRaiderGamestage`) reads the highest

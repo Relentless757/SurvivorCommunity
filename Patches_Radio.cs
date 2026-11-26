@@ -12,9 +12,9 @@ namespace SurvivorCommunity
     /// Round MP5 (part R): the radio works for every community player, so:
     ///  - the radio's own drop flies to the player who asked (ScRadio.DropFor): vanilla's SpawnAirDrop, with that one player
     ///    instead of every living one (in single player the one player, as before);
-    ///  - RadioOnlyAirdrops holds on a dedicated server too, while at least one player online runs the server's
-    ///    SurvivorCommunity (ScNet.ClientMatches: they can ask at a radio). With nobody who could ask, vanilla's schedule
-    ///    runs, as round MP0 kept it for every dedicated server.
+    ///  - RadioOnlyAirdrops holds on a dedicated server too, while any community player online is not known to run another
+    ///    SurvivorCommunity version (ScNet.KnownMismatch; a joining player counts before their hello). With nobody online, or
+    ///    only mismatched clients, vanilla's schedule runs.
     /// </summary>
     public static class Patches_Radio
     {

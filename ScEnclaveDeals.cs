@@ -75,6 +75,7 @@ namespace SurvivorCommunity
             priceDepth = 0;
             synced = false;
             staleHires.Clear();
+            enlisterGone.Clear();       // round MP5 (re-check F-n9)
         }
 
         private static string Loc(string key) { return Localization.Get(key); }
@@ -598,7 +599,8 @@ namespace SurvivorCommunity
             {
                 // round MP5 (review E-m2): a remote player who dropped (a dedicated server keeps running) has EnlisterGoneSeconds to
                 // come back - their entity id is theirs again on a reconnect - before the paid deal ends. The host's own player
-                // (single player) is never gone while the world runs: home at once, as before
+                // (single player) is never gone while the world runs: home at once, as before. This holds only while the body
+                // stays in the world (another player keeps its chunk loaded): an unloaded body ends the deal (OnUnbodied)
                 EntityPlayerLocal own = ScCommunity.LocalPlayer;
                 if (own == null || own.entityId != p.EnlistedBy)
                 {

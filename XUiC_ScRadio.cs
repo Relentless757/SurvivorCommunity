@@ -352,7 +352,13 @@ namespace SurvivorCommunity
                         // controls gray, and the reason always shows; a station that is gone closes the window
                         view.Clear();
                         message = r.Text;
-                        if (r.Message == "scRadioGone") { Close(); return; }
+                        if (r.Message == "scRadioGone")
+                        {
+                            EntityPlayerLocal gp = Player;      // re-check F-n1: the window goes, so the reason is a tooltip
+                            if (gp != null) ScCommunity.TellKey(gp, "scRadioGone", "ui_denied");
+                            Close();
+                            return;
+                        }
                     }
                     if (IsShowing()) RefreshBindings();
                     if (viewAgain) AskView(true);

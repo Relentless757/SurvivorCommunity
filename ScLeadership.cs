@@ -105,9 +105,9 @@ namespace SurvivorCommunity
             {
                 EntityPlayer player = to ?? ScCommunity.LocalPlayer ?? (ScRegistry.Loaded ? ScPlayers.Anchor() : null);
                 if (player == null || player.Buffs == null) return;
-                // round MP5 (review W-M1): an add, not a set - for a remote player the server's copy never sees their machine's
-                // reset (the skill drains it there), so "copy + 1" would pay every past event again; NetPackageModifyCVar carries
-                // the operation. The host's own player: the same +1 as before
+                // round MP5 (review W-M1): an add, not a set - for a remote player the server's copy hears of their machine's reset
+                // (the skill drains it there) only with the stats sync, seconds later, so "copy + 1" could pay past events again;
+                // NetPackageModifyCVar carries the operation. The host's own player: the same +1 as before
                 player.Buffs.SetCustomVar(cvar, 1f, true, CVarOperation.add);
                 ScLog.Verbose("leadership event " + cvar);
             }
