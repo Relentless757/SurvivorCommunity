@@ -53,7 +53,7 @@ Why: found on the dedicated server with two communities. A downed member bleeds 
 downed with only community 1's players online never bled out, and a paused community's member bled out while another
 community played. Now her own community's players count, and her bleed-out warnings go to them. Two log-only fixes ride along: a body's prospect lookup and a
 stranger's intruder test no longer log `[MP6 scope]` lines. With one community nothing changes. Build `sc34_mp6t1`,
-**not deployed**, untested in game.
+**deployed to 3.4 on 2026-11-26** (port-3.4 43ef802e, DLL 05c03f56), untested in game.
 
 - [ ] One community (single player or a dedicated server): a resident downed at home bleeds out after about a minute while
       you are alive and away from her, as before; a medic or you can still revive her.
