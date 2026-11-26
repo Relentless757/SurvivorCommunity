@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SurvivorCommunity
@@ -20,20 +21,38 @@ namespace SurvivorCommunity
         private const float ReleaseExtra = 50f;
         private const float CheckSeconds = 2f;
 
-        private static ChunkManager.ChunkObserver observer;
-        private static int heldXMin, heldXMax, heldZMin, heldZMax;
+        /// <summary>Round MP6 (part H): one home's hold - its observer and the bounds it holds. One per community (ScHomeState).</summary>
+        private sealed class HoldState
+        {
+            public ChunkManager.ChunkObserver Observer;
+            public int HeldXMin, HeldXMax, HeldZMin, HeldZMax;
+        }
+        private static readonly ScHomeState<HoldState> homes = new ScHomeState<HoldState>();
+        // round MP6 (part H): the old statics, now the row of the community in scope (nextCheck stays one: Tick holds every home)
+        private static ChunkManager.ChunkObserver observer { get { return homes.Current.Observer; } set { homes.Current.Observer = value; } }
+        private static int heldXMin { get { return homes.Current.HeldXMin; } set { homes.Current.HeldXMin = value; } }
+        private static int heldXMax { get { return homes.Current.HeldXMax; } set { homes.Current.HeldXMax = value; } }
+        private static int heldZMin { get { return homes.Current.HeldZMin; } set { homes.Current.HeldZMin = value; } }
+        private static int heldZMax { get { return homes.Current.HeldZMax; } set { homes.Current.HeldZMax = value; } }
         private static float nextCheck;
 
+        /// <summary>The home zone of the community in scope is held loaded.</summary>
         public static bool Held { get { return observer != null; } }
 
         /// <summary>Per world (GameStarting) and at its shutdown, with the world still there to take the observer back.</summary>
         public static void Reset()
         {
-            Release(null);
+            // round MP6 (part H): every community's hold goes back (by its row: at a world start community 1+ may no longer exist)
+            homes.ForEach((cid, s) => Release(s, null));
+            homes.Reset();
             nextCheck = 0f;
         }
 
-        /// <summary>ScTicker, every second (works every CheckSeconds).</summary>
+        /// <summary>
+        /// ScTicker, every second (works every CheckSeconds). Round MP6 (part H): every community's home in one pass, each in its own
+        /// scope - one with nobody of its own online too, so none is ever left held when its players log off (a player of any
+        /// community near a home holds it, as any player did); a hold whose community no longer exists goes.
+        /// </summary>
         public static void Tick(World w)
         {
             try
@@ -42,6 +61,24 @@ namespace SurvivorCommunity
                 if (now < nextCheck) return;
                 nextCheck = now + CheckSeconds;
                 if (w == null || !ScCommunity.IsHost) return;
+                foreach (KeyValuePair<int, HoldState> kv in homes.Rows())
+                    if (kv.Value.Observer != null && ScCommunities.ById(kv.Key) == null) Release(kv.Value, "its community is gone");
+                if (ScCommunities.Count < 2) { TickOne(w); return; }      // one community: exactly as before
+                IReadOnlyList<CommunityState> all = ScCommunities.All;
+                for (int i = 0; i < all.Count; i++)
+                    using (ScRegistry.Use(all[i].Id)) TickOne(w);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("homehold-tick", e);
+            }
+        }
+
+        /// <summary>Round MP6 (part H): Tick for the community in scope (the body Tick always had after its throttle).</summary>
+        private static void TickOne(World w)
+        {
+            try
+            {
                 if (!ScConfig.HomeKeepLoaded || !ScZone.HasHome) { Release("off, or no home"); return; }
                 float near = NearestPlayer(w);
                 float limit = ScConfig.HomeKeepLoadedRange + (observer != null ? ReleaseExtra : 0f);
@@ -87,12 +124,18 @@ namespace SurvivorCommunity
                       + (want > MaxViewDim ? ", wider than that: partly" : "") + ") - a player is " + (int)near + " m from it");
         }
 
+        /// <summary>The community in scope's hold goes back. Round MP6 (part H): by its row (Release(s, why)).</summary>
         private static void Release(string why)
         {
-            if (observer == null) return;
+            Release(homes.Current, why);
+        }
+
+        private static void Release(HoldState s, string why)
+        {
+            if (s == null || s.Observer == null) return;
             try
             {
-                if (GameManager.Instance != null && GameManager.Instance.World != null) GameManager.Instance.RemoveChunkObserver(observer);
+                if (GameManager.Instance != null && GameManager.Instance.World != null) GameManager.Instance.RemoveChunkObserver(s.Observer);
                 if (why != null) ScLog.Out("home hold: released the home zone (" + why + ")");
             }
             catch (Exception e)
@@ -101,7 +144,7 @@ namespace SurvivorCommunity
             }
             finally
             {
-                observer = null;
+                s.Observer = null;
             }
         }
     }

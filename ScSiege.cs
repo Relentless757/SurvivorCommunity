@@ -15,13 +15,27 @@ namespace SurvivorCommunity
     /// </summary>
     public static class ScSiege
     {
-        private static bool wasBloodMoon;
-        private static float nextTick;
+        /// <summary>Round MP6 (part H): one home's blood-moon watch - one per community (ScHomeState), so each community's siege is its own.</summary>
+        private sealed class SiegeState
+        {
+            public bool WasBloodMoon;
+            public float SeenAt;
+            public float NextTick;
+        }
+        private static readonly ScHomeState<SiegeState> homes = new ScHomeState<SiegeState>();
+        // round MP6 (part H): the old statics, now the row of the community in scope. The flag is written every tick of a blood
+        // moon; with two or more communities one last written more than 5 real seconds ago reads false - the community paused, so
+        // the blood moon's end was not seen there and brings no siege (as an end never seen before a reload)
+        private static bool wasBloodMoon
+        {
+            get { SiegeState s = homes.Current; return s.WasBloodMoon && (ScCommunities.Count < 2 || Time.unscaledTime - s.SeenAt <= 5f); }
+            set { SiegeState s = homes.Current; s.WasBloodMoon = value; s.SeenAt = Time.unscaledTime; }
+        }
+        private static float nextTick { get { return homes.Current.NextTick; } set { homes.Current.NextTick = value; } }
 
         public static void Reset()
         {
-            wasBloodMoon = false;
-            nextTick = 0f;
+            homes.Reset();                        // round MP6 (part H): every community's
         }
 
         public static bool BloodMoonActive(World w)

@@ -152,10 +152,21 @@ namespace SurvivorCommunity
         /// I3: the lookups' version (Rebuild counts it up), and what the near-home list was made for - that version and the
         /// home block: a change to either rebuilds it.
         /// </summary>
-        private static int version, nearVersion = -1;
-        private static bool nearHasHome;
-        private static Vector3i nearHome;
-        private static readonly List<NearNest> near = new List<NearNest>();
+        private static int version;
+        /// <summary>Round MP6 (part H): one home's near-home list and what it was made for - one per community (ScHomeState).</summary>
+        private sealed class NearState
+        {
+            public int Version = -1;
+            public bool HasHome;
+            public Vector3i Home;
+            public readonly List<NearNest> Near = new List<NearNest>();
+        }
+        private static readonly ScHomeState<NearState> nearHomes = new ScHomeState<NearState>();
+        // round MP6 (part H): the old statics, now the row of the community in scope (NearHome is each community's own home's)
+        private static int nearVersion { get { return nearHomes.Current.Version; } set { nearHomes.Current.Version = value; } }
+        private static bool nearHasHome { get { return nearHomes.Current.HasHome; } set { nearHomes.Current.HasHome = value; } }
+        private static Vector3i nearHome { get { return nearHomes.Current.Home; } set { nearHomes.Current.Home = value; } }
+        private static List<NearNest> near { get { return nearHomes.Current.Near; } }
         /// <summary>
         /// I3: the home block the tick last spotted nests near (none: not yet this session). Round MP6 (part relations): per
         /// community (community id -> its home block when it last looked).
@@ -179,8 +190,7 @@ namespace SurvivorCommunity
             ferals.Clear();
             dirty = false;
             version++;
-            nearVersion = -1;
-            near.Clear();
+            nearHomes.Reset();                // round MP6 (merge): every community's near-home list (part H's table), not the scope's alone
             homeChecked.Clear();              // round MP6 (part relations)
         }
 

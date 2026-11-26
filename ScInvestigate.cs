@@ -40,6 +40,7 @@ namespace SurvivorCommunity
     /// levels) for LeaveSeconds (5 s); or someone is fighting it (it is after a member or you): then the base defense has it, as for any intruder that
     /// hunts somebody. A released intruder that goes idle again within RememberSeconds gets its old responders back first.
     /// InvestigateIntruders false: nothing is tracked - round n08's rule as before.
+    /// Round MP6 (part H): one per community - each community's base has its own intruders, answered by its own residents.
     /// </summary>
     public static class ScInvestigate
     {
@@ -76,33 +77,58 @@ namespace SurvivorCommunity
             public EntityAlive Npc;
         }
 
-        private static readonly Dictionary<int, Intruder> tracked = new Dictionary<int, Intruder>();
+        /// <summary>
+        /// Round MP6 (part H): one home's intruders - who is tracked, who answers whom, its residents, its levels and its clock.
+        /// One per community (ScHomeState): each community's base is scanned for its own intruders and answers with its own
+        /// residents. The old statics below read the row of the community in scope; the pure reads (Responds, IntruderOf) read
+        /// the asking resident's own community's.
+        /// </summary>
+        private sealed class HomeState
+        {
+            public readonly Dictionary<int, Intruder> Tracked = new Dictionary<int, Intruder>();
+            public readonly Dictionary<int, int> ResponderOf = new Dictionary<int, int>();
+            public readonly List<Candidate> Cands = new List<Candidate>();
+            public float NextScan;
+            public float LevelMin, LevelMax;
+        }
+        private static readonly ScHomeState<HomeState> homes = new ScHomeState<HomeState>();
+
+        private static Dictionary<int, Intruder> tracked { get { return homes.Current.Tracked; } }
         /// <summary>A responder's body id -> the live intruder she answers.</summary>
-        private static readonly Dictionary<int, int> responderOf = new Dictionary<int, int>();
+        private static Dictionary<int, int> responderOf { get { return homes.Current.ResponderOf; } }
         private static readonly List<Entity> near = new List<Entity>();
-        private static readonly List<Candidate> cands = new List<Candidate>();
+        private static List<Candidate> cands { get { return homes.Current.Cands; } }
         private static readonly List<int> scratch = new List<int>();
-        private static float nextScan;
+        private static float nextScan { get { return homes.Current.NextScan; } set { homes.Current.NextScan = value; } }
         /// <summary>F5: the lowest and highest of the home block and the residents' posts (Levels, each scan).</summary>
-        private static float levelMin, levelMax;
+        private static float levelMin { get { return homes.Current.LevelMin; } set { homes.Current.LevelMin = value; } }
+        private static float levelMax { get { return homes.Current.LevelMax; } set { homes.Current.LevelMax = value; } }
         private static int seen, assigned, unanswered, replaced, released;
 
         public static void Reset()
         {
-            tracked.Clear();
-            responderOf.Clear();
+            homes.Reset();                        // round MP6 (part H): every community's intruders, responders and clocks
             near.Clear();
-            cands.Clear();
             scratch.Clear();
-            nextScan = 0f;
             seen = assigned = unanswered = replaced = released = 0;
         }
 
-        /// <summary>A despawned body: as a responder and as an intruder (entity ids are recycled).</summary>
+        /// <summary>A despawned body: as a responder and as an intruder (entity ids are recycled). Round MP6 (part H): in every community's.</summary>
         public static void Forget(int entityId)
         {
-            responderOf.Remove(entityId);
-            tracked.Remove(entityId);
+            if (ScCommunities.Count < 2) { HomeState z = homes.For(ScPlayers.SharedCommunity); z.ResponderOf.Remove(entityId); z.Tracked.Remove(entityId); return; }
+            homes.ForEach((cid, s) => { s.ResponderOf.Remove(entityId); s.Tracked.Remove(entityId); });
+        }
+
+        /// <summary>
+        /// Round MP6 (part H): the row of the community this resident belongs to (her member record's), for the pure reads; null for
+        /// anyone who is no member (a responder always is one). With one community, community 0's at once.
+        /// </summary>
+        private static HomeState StateOf(EntityAlive self)
+        {
+            if (ScCommunities.Count < 2) return homes.For(ScPlayers.SharedCommunity);
+            int cid = ScCommunities.CommunityOfMember(self.entityId);
+            return cid >= 0 ? homes.For(cid) : null;
         }
 
         /// <summary>
@@ -445,8 +471,9 @@ namespace SurvivorCommunity
         {
             int id;
             Intruder it;
-            return self != null && t != null && responderOf.TryGetValue(self.entityId, out id) && id == t.entityId
-                   && tracked.TryGetValue(id, out it) && it.Live;
+            HomeState s = self != null ? StateOf(self) : null;      // round MP6 (part H): her own community's intruders
+            return s != null && t != null && s.ResponderOf.TryGetValue(self.entityId, out id) && id == t.entityId
+                   && s.Tracked.TryGetValue(id, out it) && it.Live;
         }
 
         /// <summary>The live intruder this resident answers, or null. A pure read.</summary>
@@ -454,7 +481,8 @@ namespace SurvivorCommunity
         {
             int id;
             Intruder it;
-            if (self == null || self.world == null || !responderOf.TryGetValue(self.entityId, out id) || !tracked.TryGetValue(id, out it) || !it.Live) return null;
+            HomeState s = self != null ? StateOf(self) : null;      // round MP6 (part H): her own community's intruders
+            if (s == null || self.world == null || !s.ResponderOf.TryGetValue(self.entityId, out id) || !s.Tracked.TryGetValue(id, out it) || !it.Live) return null;
             EntityAlive t = self.world.GetEntity(id) as EntityAlive;
             return t != null && !t.IsDead() ? t : null;
         }

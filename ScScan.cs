@@ -24,6 +24,9 @@ namespace SurvivorCommunity
     /// BedBlocksExclude; facilities = FacilityBlocks names; crops = planted* minus dead/helper/deco/tree.
     /// Crops are counted from the same lists, so only model-shaped plants count (the flat flower crops -
     /// chrysanthemum, goldenrod, snowberry - are not food and are not model blocks).
+    ///
+    /// Round MP6 (part H): one scan per community - the counts were always its record's; the session state (the last run, the
+    /// chunks seen settling, the shelter seeds, the last figures) is its own too, so each community's home is counted apart.
     /// </summary>
     public static class ScScan
     {
@@ -31,7 +34,26 @@ namespace SurvivorCommunity
 
         private static Block[] tableFor;
         private static byte[] kinds;
-        private static float lastRun = -1000f;
+
+        /// <summary>
+        /// Round MP6 (part H): one home's scan state - its last run, the chunks it saw settle, the bed and station cells it found
+        /// and its last run's figures. One per community (ScHomeState): each community's home is scanned on its own (one shared
+        /// set of first-seen chunks would make every community's chunks look new at every other community's scan).
+        /// </summary>
+        private sealed class ScanState
+        {
+            public float LastRun = -1000f;
+            public Dictionary<long, KeyValuePair<Chunk, float>> Seen = new Dictionary<long, KeyValuePair<Chunk, float>>();
+            public Dictionary<long, KeyValuePair<Chunk, float>> SeenNext = new Dictionary<long, KeyValuePair<Chunk, float>>();
+            public readonly Dictionary<long, List<Vector3i>> BedCells = new Dictionary<long, List<Vector3i>>();
+            public readonly Dictionary<long, List<Vector3i>> StationCells = new Dictionary<long, List<Vector3i>>();
+            public int LastChunks, LastLoaded, LastMissing;
+            public double LastMs;
+        }
+        private static readonly ScHomeState<ScanState> homes = new ScHomeState<ScanState>();
+
+        // round MP6 (part H): the old statics below, now the row of the community in scope
+        private static float lastRun { get { return homes.Current.LastRun; } set { homes.Current.LastRun = value; } }
         private static readonly HashSet<long> pending = new HashSet<long>();
         private static readonly HashSet<long> visited = new HashSet<long>();
         private static readonly List<int[]> rects = new List<int[]>();
@@ -40,8 +62,8 @@ namespace SurvivorCommunity
         /// has been in the cache for a second: the generator thread adds a chunk to the cache (GetChunkSync finds
         /// it) before World.OnChunkAdded queues it for OnLoad, and until OnLoad runs its model list is empty.
         /// </summary>
-        private static Dictionary<long, KeyValuePair<Chunk, float>> seen = new Dictionary<long, KeyValuePair<Chunk, float>>();
-        private static Dictionary<long, KeyValuePair<Chunk, float>> seenNext = new Dictionary<long, KeyValuePair<Chunk, float>>();
+        private static Dictionary<long, KeyValuePair<Chunk, float>> seen { get { return homes.Current.Seen; } set { homes.Current.Seen = value; } }
+        private static Dictionary<long, KeyValuePair<Chunk, float>> seenNext { get { return homes.Current.SeenNext; } set { homes.Current.SeenNext = value; } }
         private const float SettleSeconds = 1f;
         /// <summary>
         /// Round rt1 (I6): the cells of the beds and the facility blocks (work stations) each counted chunk held at its last
@@ -49,8 +71,8 @@ namespace SurvivorCommunity
         /// beside the counts, which do not change; a chunk that is not loaded keeps its last list, as its counts do. Per
         /// session (not saved): the first scan after a load fills it.
         /// </summary>
-        private static readonly Dictionary<long, List<Vector3i>> bedCells = new Dictionary<long, List<Vector3i>>();
-        private static readonly Dictionary<long, List<Vector3i>> stationCells = new Dictionary<long, List<Vector3i>>();
+        private static Dictionary<long, List<Vector3i>> bedCells { get { return homes.Current.BedCells; } }
+        private static Dictionary<long, List<Vector3i>> stationCells { get { return homes.Current.StationCells; } }
 
         /// <summary>Round rt1: every bed cell (beds) and facility block cell (stations) the scans have seen in the zone.</summary>
         internal static void SeedCells(List<Vector3i> beds, List<Vector3i> stations)
@@ -59,9 +81,11 @@ namespace SurvivorCommunity
             foreach (List<Vector3i> l in stationCells.Values) stations.AddRange(l);
         }
 
-        /// <summary>Last run: zone chunks in range, loaded now, never counted, milliseconds.</summary>
-        public static int LastChunks, LastLoaded, LastMissing;
-        public static double LastMs;
+        /// <summary>Last run: zone chunks in range, loaded now, never counted, milliseconds. Round MP6 (part H): the community in scope's.</summary>
+        public static int LastChunks { get { return homes.Current.LastChunks; } set { homes.Current.LastChunks = value; } }
+        public static int LastLoaded { get { return homes.Current.LastLoaded; } set { homes.Current.LastLoaded = value; } }
+        public static int LastMissing { get { return homes.Current.LastMissing; } set { homes.Current.LastMissing = value; } }
+        public static double LastMs { get { return homes.Current.LastMs; } set { homes.Current.LastMs = value; } }
         public static int BedTypes, FacilityTypes, CropTypes;
 
         /// <summary>Per-world reset (ModEvents.GameStarting): the block table belongs to the old Block.list.</summary>
@@ -69,13 +93,7 @@ namespace SurvivorCommunity
         {
             tableFor = null;
             kinds = null;
-            lastRun = -1000f;
-            seen.Clear();
-            seenNext.Clear();
-            bedCells.Clear();                      // round rt1
-            stationCells.Clear();
-            LastChunks = LastLoaded = LastMissing = 0;
-            LastMs = 0;
+            homes.Reset();                         // round MP6 (part H): every community's last run, chunks, cells (round rt1) and figures
             BedTypes = FacilityTypes = CropTypes = 0;
         }
 

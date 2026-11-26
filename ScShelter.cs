@@ -25,6 +25,8 @@ namespace SurvivorCommunity
     /// - 2 for company within 6 m; then the fallback chain of decision 9: (a) a walled spot with ShelterWalls - 1 walls (+20
     /// with no roof), (b) the zone floor farthest from the threat within FallbackRadius of her, near another member or you,
     /// (c) hold where she stands and fight back on reach.
+    ///
+    /// Round MP6 (part H): one cache per community, each scanned in its own scope and picked from for its own members.
     /// </summary>
     public static class ScShelter
     {
@@ -86,41 +88,62 @@ namespace SurvivorCommunity
         private const float DoorClear = 2.5f;
         private const float DoorPenalty = 100f;
 
-        private static List<Cand> cands = new List<Cand>();
-        private static List<Cand> next = new List<Cand>();
-        private static readonly HashSet<Vector3i> nextCells = new HashSet<Vector3i>();
-        private static readonly Queue<Seed> queue = new Queue<Seed>();
-        private static readonly HashSet<Vector3i> queued = new HashSet<Vector3i>();
+        /// <summary>
+        /// Round MP6 (part H): one home's shelter cache - its candidates, the scan in progress and its clocks and figures. One per
+        /// community (ScHomeState): each community's home has its own cache, scanned in its own scope (Step) and picked from for
+        /// its own members (Pick).
+        /// </summary>
+        private sealed class ShelterState
+        {
+            public List<Cand> Cands = new List<Cand>();
+            public List<Cand> Next = new List<Cand>();
+            public readonly HashSet<Vector3i> NextCells = new HashSet<Vector3i>();
+            public readonly Queue<Seed> Queue = new Queue<Seed>();
+            public readonly HashSet<Vector3i> Queued = new HashSet<Vector3i>();
+            public bool Scanning, Wanted, Force;
+            public float NextScan, NextCheck, LastDone = -1f, Started, HomeSeenAt = -1f;
+            public string ZoneSig;
+            public int SeedsTotal, LastSeeds, Frames, LastFrames, Scans;
+            public double ScanMs, LastMs;
+            public readonly int[] BySource = new int[6];
+        }
+        private static readonly ScHomeState<ShelterState> homes = new ScHomeState<ShelterState>();
+
+        // round MP6 (part H): the old statics, now the row of the community in scope (the per-pick lists below stay shared)
+        private static List<Cand> cands { get { return homes.Current.Cands; } set { homes.Current.Cands = value; } }
+        private static List<Cand> next { get { return homes.Current.Next; } set { homes.Current.Next = value; } }
+        private static HashSet<Vector3i> nextCells { get { return homes.Current.NextCells; } }
+        private static Queue<Seed> queue { get { return homes.Current.Queue; } }
+        private static HashSet<Vector3i> queued { get { return homes.Current.Queued; } }
         private static readonly List<int[]> rects = new List<int[]>();
         private static readonly List<Entity> near = new List<Entity>();
         private static readonly List<Vector3> enemies = new List<Vector3>();
         private static readonly List<Vector3> others = new List<Vector3>();
         private static readonly List<Vector3> allies = new List<Vector3>();
         private static readonly Stopwatch sw = new Stopwatch();
-        private static bool scanning, wanted, force;
-        private static float nextScan, nextCheck, lastDone = -1f, started, homeSeenAt = -1f;
+        private static bool scanning { get { return homes.Current.Scanning; } set { homes.Current.Scanning = value; } }
+        private static bool wanted { get { return homes.Current.Wanted; } set { homes.Current.Wanted = value; } }
+        private static bool force { get { return homes.Current.Force; } set { homes.Current.Force = value; } }
+        private static float nextScan { get { return homes.Current.NextScan; } set { homes.Current.NextScan = value; } }
+        private static float nextCheck { get { return homes.Current.NextCheck; } set { homes.Current.NextCheck = value; } }
+        private static float lastDone { get { return homes.Current.LastDone; } set { homes.Current.LastDone = value; } }
+        private static float started { get { return homes.Current.Started; } set { homes.Current.Started = value; } }
+        private static float homeSeenAt { get { return homes.Current.HomeSeenAt; } set { homes.Current.HomeSeenAt = value; } }
         /// <summary>The first scan of a session waits at most this long (real seconds) for ScScan's first count with the home loaded.</summary>
         private const float FirstWait = 20f;
-        private static string zoneSig;
-        private static int seedsTotal, lastSeeds, frames, lastFrames, scans;
-        private static double scanMs, lastMs;
-        private static readonly int[] bySource = new int[6];
+        private static string zoneSig { get { return homes.Current.ZoneSig; } set { homes.Current.ZoneSig = value; } }
+        private static int seedsTotal { get { return homes.Current.SeedsTotal; } set { homes.Current.SeedsTotal = value; } }
+        private static int lastSeeds { get { return homes.Current.LastSeeds; } set { homes.Current.LastSeeds = value; } }
+        private static int frames { get { return homes.Current.Frames; } set { homes.Current.Frames = value; } }
+        private static int lastFrames { get { return homes.Current.LastFrames; } set { homes.Current.LastFrames = value; } }
+        private static int scans { get { return homes.Current.Scans; } set { homes.Current.Scans = value; } }
+        private static double scanMs { get { return homes.Current.ScanMs; } set { homes.Current.ScanMs = value; } }
+        private static double lastMs { get { return homes.Current.LastMs; } set { homes.Current.LastMs = value; } }
+        private static int[] bySource { get { return homes.Current.BySource; } }
 
         public static void Reset()
         {
-            cands = new List<Cand>();
-            next = new List<Cand>();
-            nextCells.Clear();
-            queue.Clear();
-            queued.Clear();
-            scanning = wanted = force = false;
-            nextScan = nextCheck = 0f;
-            lastDone = -1f;
-            homeSeenAt = -1f;
-            zoneSig = null;
-            seedsTotal = lastSeeds = frames = lastFrames = scans = 0;
-            scanMs = lastMs = 0;
-            Array.Clear(bySource, 0, bySource.Length);
+            homes.Reset();                        // round MP6 (part H): every community's cache, scan and figures
         }
 
         /// <summary>A retreat began: scan now if the cache has nothing.</summary>
@@ -135,8 +158,19 @@ namespace SurvivorCommunity
         /// ScTicker.OnGameUpdate, every frame before its 1 s gate: starts a scan when one is due (the zone changed, the
         /// rescan time, a retreat with an empty cache, or sc retreat shelters rescan) and the home is loaded, and evaluates
         /// PerFrame seeds of a running one. Nothing at all with RetreatHome off. Never throws.
+        /// Round MP6 (part H): every community's cache in turn, each in its own scope (it runs before the ticker's scopes); with
+        /// one community exactly as before.
         /// </summary>
         public static void Step()
+        {
+            if (ScCommunities.Count < 2 || !ScRegistry.Loaded) { StepOne(); return; }
+            IReadOnlyList<CommunityState> all = ScCommunities.All;
+            for (int i = 0; i < all.Count; i++)
+                using (ScRegistry.Use(all[i].Id)) StepOne();
+        }
+
+        /// <summary>Round MP6 (part H): Step for the community in scope (the body Step always had).</summary>
+        private static void StepOne()
         {
             try
             {
@@ -342,6 +376,12 @@ namespace SurvivorCommunity
         /// body at home: (c) holds where she stands.
         /// </summary>
         public static PickResult Pick(EntityAlive self, List<Vector3i> bad, int fails)
+        {
+            using (ScHomeScope.Of(self)) return PickIn(self, bad, fails);     // round MP6 (part H): her own community's cache and zone
+        }
+
+        /// <summary>Round MP6 (part H): Pick in the scope it set (the body Pick always had).</summary>
+        private static PickResult PickIn(EntityAlive self, List<Vector3i> bad, int fails)
         {
             var r = new PickResult { Kind = PickKind.None };
             World w = self != null ? self.world : null;

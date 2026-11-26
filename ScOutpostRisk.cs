@@ -51,8 +51,20 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, Live> live = new Dictionary<int, Live>();
         private static readonly Dictionary<int, Vector3> markers = new Dictionary<int, Vector3>();
         private static bool markersRestored;
-        private static bool wasBloodMoon;
-        private static float nextTick;
+        /// <summary>
+        /// Round MP6 (part H): one per community - every community's pass sees the blood moon end for its own outposts. Written every
+        /// tick; with two or more communities a flag last written more than 5 real seconds ago reads false (the community paused,
+        /// so the blood moon's end was not seen there: no siege for it, as after a reload).
+        /// </summary>
+        private sealed class BloodMoonSeen { public bool Was; public float At; }
+        private static readonly ScHomeState<BloodMoonSeen> homeBloodMoon = new ScHomeState<BloodMoonSeen>();
+        private static bool wasBloodMoon
+        {
+            get { BloodMoonSeen s = homeBloodMoon.Current; return s.Was && (ScCommunities.Count < 2 || Time.unscaledTime - s.At <= 5f); }
+            set { BloodMoonSeen s = homeBloodMoon.Current; s.Was = value; s.At = Time.unscaledTime; }
+        }
+        private static readonly ScHomeState<ScHomeTimer> homeTicks = new ScHomeState<ScHomeTimer>();     // round MP6 (part H): the ticker step's throttle, one per community
+        private static float nextTick { get { return homeTicks.Current.Next; } set { homeTicks.Current.Next = value; } }
         private static int lastClass = -1;
 
         public static void Reset()

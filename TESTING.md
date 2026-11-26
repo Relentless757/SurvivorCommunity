@@ -150,6 +150,64 @@ standing and the known flags are still one for the world, so community 1 sees co
   (a radio contact, a band met, an outpost attack, a runner's call, standing or hostility changes) still draws it whatever
   the host's community (`ScMarkers.HostOwner()` is the helper for them). The per-community standing, known flags and
   hostility the copy and markers carry come with the relations part.
+## Round MP6 (part: H) (2026-11-26): each community's home runs on its own
+
+Why: before this part the home's machinery kept one home's worth of session state: the home attack, noise, the watch, the
+home scan, the shelter cache, the night lease's beds, the home hold, intruders, the doors' owner, the activities'
+countdowns, and the throttles of the ticker's steps. With two communities only the first community's pass ran most of them.
+Now each community has its own (one row per community in a side table, `ScHomeState`), and a sound, a Watch post or a door
+belongs to the community whose home zone holds it (`ScZone.CommunityAt`). A community whose players are all offline pauses:
+its live attackers go (as after a reload), and its noise does not count the hours it was away. With everyone in community 0
+nothing may change. Build `sc34_mp6h`, **not deployed**, untested in game.
+
+**Single player (nothing may change)**
+- [ ] `sc noise`: the same breakdown as before. Gunfire in the base raises the events; `sc noise add 100` calls a horde when
+      nothing holds it back. `sc attack status`, the arrival, the fight, the held tell, the salvage and the ledger line are as
+      before. `sc attack now`, `sc attack end` and `sc attack settle` work as before.
+- [ ] A Watch post in the zone registers on placement and is forgotten when removed. A guard's shift, the gathering and
+      spotted call-outs, the horde marker and the all clear are as before. `sc watch list` and `sc watch fatigue` read as before.
+- [ ] A blood moon away from home besieges the base at its end; one at home does not (`sc siege`).
+- [ ] At night residents with beds go to bed (`sc sleep` lists them and the beds as before). A hurt resident shelters
+      (`sc retreat shelters` lists the candidates). A zombie idling inside the base gets responders (`sc team`).
+- [ ] Members open and shut doors as before, the owner's locked doors included (MembersOpenOwnerLockedDoors).
+- [ ] The home stays loaded while you are near it (`home hold: keeping the home zone loaded ...`) and is let go farther out.
+      Linked storage from an outpost opens the home's boxes.
+- [ ] A round of drinks, a feast and rationing count down and end with their tells; Lights out ends at dawn. `sc scan`,
+      `sc defence` and `sc bond` read as before.
+
+**A dedicated server (one community)**
+- [ ] One client: the same checks as single player where the client can do them (a horde at home, a watch shift, linked
+      storage, the activities). The server log has no `[MP6 scope]` lines and none of this part's `paused` or `resumes` lines.
+
+**Two communities (`sc community new`, `join`)**
+- [ ] Setup: `sc community new Riverside`; put a player in it (`sc community join 1 <player>`, or the listen host's own
+      `sc community join 1`). That player sets a home on their own claim and gets a resident or two. A telnet console acts in
+      community 1 after `sc community use 1`.
+- [ ] Each home attacks on its own: in community 1, `sc noise add 100`. Community 1's horde is called and comes to community
+      1's home; community 0's `sc attack status` says no attack. Then call one in community 0 as well: both fights run at once,
+      each with its own attackers, counts and tells.
+- [ ] Noise counts where it is heard: shooting inside community 1's zone raises community 1's events only (`sc noise` in each).
+- [ ] A community that pauses mid-fight: community 1's last player logs off during its live attack. Within a few seconds the
+      log says `base attack: community 1 paused mid-fight (none of its players online) - N attacker(s) despawned ...`. When
+      they log back in: `base attack resumes after a load ...`, and the fight goes on (or is handed to the defenders if
+      nobody is near). After an hour or more away the log says `community 1 (...): base noise resumes - N game hour(s) while
+      it was paused do not count for its attention`, and no horde is called at once.
+- [ ] A Watch post placed in community 1's zone registers to community 1 (`sc watch list` in community 1) and counts against
+      community 1's post cap; removing it frees its guard. (Whether another community's player may place one there is part
+      gates' call.) A listen host in community 0 never sees community 1's horde marker, and community 1's fights never take
+      down the host's own marker.
+- [ ] At night community 1's residents are leased against community 1's beds, community 0's against community 0's (`sc sleep`
+      in each). Each home has its own shelter candidates (`sc retreat shelters`) and its own intruders (`sc team`).
+- [ ] With MembersOpenOwnerLockedDoors, a community 1 member opens doors locked by community 1's owner and not doors only
+      community 0's owner may open (and the other way round).
+- [ ] Each home is held loaded while any player is near it, and let go when nobody is, also after its own players log off.
+      Linked storage from community 1's outpost opens community 1's home.
+- [ ] A round of drinks, a feast, rationing and Lights out in community 1 count down and end for community 1 only. `sc scan`
+      in each community counts its own home.
+- Known gaps, for the other MP6 parts (not bugs of this part): the AI's reads of the home attack's defended area and the
+  intruders' area (`ScBaseAttack.WideDefence`, `ScInvestigate.InArea`, `ScShelter.InZone`) follow the scope the UAI entry points
+  set (part gates); until then a dedicated server reads community 0's for every resident. Host-local markers of other systems
+  (scouting, radio, outposts) are part network's.
 
 ## Round MP6 (part: core) (2026-11-26): one server can hold several communities
 

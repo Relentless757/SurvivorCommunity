@@ -28,13 +28,15 @@ namespace SurvivorCommunity
     public static class ScLightsOut
     {
         private const ulong TicksPerDay = 24000UL;
-        private static float nextTick;
+        /// <summary>Round MP6 (part H): one per community (ScHomeState) - each community's Lights out ends at its own check.</summary>
+        private static readonly ScHomeState<ScHomeTimer> ticks = new ScHomeState<ScHomeTimer>();
+        private static float nextTick { get { return ticks.Current.Next; } set { ticks.Current.Next = value; } }
         /// <summary>A power.dat save that found vanilla's own save thread running (it would have done nothing): Tick tries again.</summary>
         private static bool powerSaveDue;
 
         public static void Reset()
         {
-            nextTick = 0f;
+            ticks.Reset();                        // round MP6 (part H): every community's
             powerSaveDue = false;
         }
 

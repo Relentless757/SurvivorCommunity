@@ -55,6 +55,9 @@ namespace SurvivorCommunity
     ///             still standing (the attackers are Dynamic and never saved), BaseAttackResumeSeconds after the load.
     ///   Timeout   BaseAttackMaxHours after it went live with no kill in the last game hour, the stragglers are let go
     ///             as ordinary zombies and it counts as held (none killed at all: they lost the trail).
+    ///   Round MP6 (part H): one attack per community - its state was always the community record's; its session (attackers,
+    ///             zone, clocks) is one per community too, and a community that pauses mid-fight lets its attackers go as a reload
+    ///             would (StaleSessions).
     /// </summary>
     public static class ScBaseAttack
     {
@@ -80,37 +83,85 @@ namespace SurvivorCommunity
             public float IdleSince;
         }
 
-        // session state: the attackers in the world, and the zone as last seen (refreshed every tick)
-        private static readonly Dictionary<int, Attacker> attackers = new Dictionary<int, Attacker>();
+        /// <summary>
+        /// Round MP6 (part H): one home's attack session - its attackers in the world, its zone as last seen (refreshed every tick)
+        /// and the fight's clocks. One per community (ScHomeState); the old statics below read the row of the community in scope,
+        /// so every community's home attack runs on its own.
+        /// </summary>
+        private sealed class AttackState
+        {
+            public readonly Dictionary<int, Attacker> Attackers = new Dictionary<int, Attacker>();
+            public readonly List<int[]> Rects = new List<int[]>();
+            public bool SessionReady;
+            public float NextTick, ResumeAt, FirstSpawnAt, NextSave;
+            public bool ArrivalTold, AnySide, LooseGround;
+            public int SideFails, SpawnFails;
+            public ulong LastProgress;
+            public Vector3 HomeCentre;
+            public int FighterId;
+            /// <summary>The real time this community's attack last ticked (the stale-session check: StaleSessions).</summary>
+            public float LastTick = -1f;
+        }
+        private static readonly ScHomeState<AttackState> homes = new ScHomeState<AttackState>();
+
+        // session state: the attackers in the world, and the zone as last seen (refreshed every tick). Round MP6 (part H): the row
+        // of the community in scope
+        private static Dictionary<int, Attacker> attackers { get { return homes.Current.Attackers; } }
         private static readonly List<int> scratch = new List<int>();
-        private static readonly List<int[]> rects = new List<int[]>();
-        private static bool sessionReady;
-        private static float nextTick, resumeAt, firstSpawnAt, nextSave;
-        private static bool arrivalTold, anySide, looseGround;
-        private static int sideFails, spawnFails;
-        private static ulong lastProgress;
+        private static List<int[]> rects { get { return homes.Current.Rects; } }
+        private static bool sessionReady { get { return homes.Current.SessionReady; } set { homes.Current.SessionReady = value; } }
+        private static float nextTick { get { return homes.Current.NextTick; } set { homes.Current.NextTick = value; } }
+        private static float resumeAt { get { return homes.Current.ResumeAt; } set { homes.Current.ResumeAt = value; } }
+        private static float firstSpawnAt { get { return homes.Current.FirstSpawnAt; } set { homes.Current.FirstSpawnAt = value; } }
+        private static float nextSave { get { return homes.Current.NextSave; } set { homes.Current.NextSave = value; } }
+        private static bool arrivalTold { get { return homes.Current.ArrivalTold; } set { homes.Current.ArrivalTold = value; } }
+        private static bool anySide { get { return homes.Current.AnySide; } set { homes.Current.AnySide = value; } }
+        private static bool looseGround { get { return homes.Current.LooseGround; } set { homes.Current.LooseGround = value; } }
+        private static int sideFails { get { return homes.Current.SideFails; } set { homes.Current.SideFails = value; } }
+        private static int spawnFails { get { return homes.Current.SpawnFails; } set { homes.Current.SpawnFails = value; } }
+        private static ulong lastProgress { get { return homes.Current.LastProgress; } set { homes.Current.LastProgress = value; } }
         private static int lastClass = -1;
-        private static Vector3 homeCentre;
+        private static Vector3 homeCentre { get { return homes.Current.HomeCentre; } set { homes.Current.HomeCentre = value; } }
         /// <summary>Round MP0: the entity id of a community player last seen at the live fight (told when it is left), 0 = none.</summary>
-        private static int fighterId;
+        private static int fighterId { get { return homes.Current.FighterId; } set { homes.Current.FighterId = value; } }
+        /// <summary>Round MP6 (part H): real seconds without a tick after which a community's live session counts as paused.</summary>
+        private const float PausedGap = 5f;
+        /// <summary>Round MP6 (part H): the frame StaleSessions last ran (once a frame, whichever community ticks first).</summary>
+        private static int staleFrame = -1;
 
         public static void Reset()
         {
-            attackers.Clear();
-            rects.Clear();
-            sessionReady = false;
-            nextTick = resumeAt = firstSpawnAt = nextSave = 0f;
-            arrivalTold = anySide = looseGround = false;
-            sideFails = spawnFails = 0;
-            lastProgress = 0UL;
-            fighterId = 0;
+            homes.Reset();                        // round MP6 (part H): every community's session
+            staleFrame = -1;
         }
 
         /// <summary>The registry was (re)loaded: whatever this session spawned is squared with it on the next tick.</summary>
         public static void OnRegistryChanged()
         {
-            attackers.Clear();
-            sessionReady = false;
+            // round MP6 (part H): every community's session
+            homes.ForEach((cid, s) => { s.Attackers.Clear(); s.SessionReady = false; });
+        }
+
+        /// <summary>
+        /// Round MP6 (part H), the user's decision 9: a community whose players all went offline pauses - its ticks stop, but its live
+        /// attackers would stay in the world as chunk observers and fight its residents with nobody there. Once a frame (from any
+        /// community's tick), a session that has attackers and has not ticked for PausedGap real seconds lets them go (despawned)
+        /// and is no longer ready: when the community ticks again it resumes exactly as after a load (only the ones still standing
+        /// come back, BaseAttackResumeSeconds later; then the usual rules - a fight nobody is at is handed to the defenders). Never
+        /// with one community: the server stands still with nobody online.
+        /// </summary>
+        private static void StaleSessions(World w, float now)
+        {
+            if (ScCommunities.Count < 2 || staleFrame == Time.frameCount) return;
+            staleFrame = Time.frameCount;
+            foreach (KeyValuePair<int, AttackState> kv in homes.Rows())
+            {
+                AttackState s = kv.Value;
+                if (s.Attackers.Count == 0 || s.LastTick < 0f || now - s.LastTick <= PausedGap) continue;
+                int gone = Release(s.Attackers, w, true);
+                s.SessionReady = false;
+                ScLog.Out("base attack: community " + kv.Key + " paused mid-fight (none of its players online) - " + gone + " attacker(s) despawned; the ones still standing come back when it resumes");
+            }
         }
 
         public static bool Open { get { return ScRegistry.Community.AttackState != StateNone; } }
@@ -400,6 +451,8 @@ namespace SurvivorCommunity
             {
                 if (w == null || player == null) return;
                 float now = Time.unscaledTime;
+                homes.Current.LastTick = now;     // round MP6 (part H): this community ticks (StaleSessions)
+                StaleSessions(w, now);            // round MP6 (part H): a paused community's live attackers go
                 if (now < nextTick) return;
                 nextTick = now + 1f;
                 // the pause menu stops the world but not this ticker: nothing spawns into a frozen world
@@ -1135,10 +1188,16 @@ namespace SurvivorCommunity
         /// <summary>Lets go of every attacker this session tracks: despawned, or left as an ordinary zombie. Returns how many were alive.</summary>
         private static int Release(World w, bool despawn)
         {
+            return Release(attackers, w, despawn);      // round MP6 (part H): the community in scope's
+        }
+
+        /// <summary>Round MP6 (part H): Release for one community's attackers (StaleSessions passes a paused community's own).</summary>
+        private static int Release(Dictionary<int, Attacker> those, World w, bool despawn)
+        {
             int alive = 0;
             if (w != null)
             {
-                foreach (int id in attackers.Keys)
+                foreach (int id in those.Keys)
                 {
                     EntityAlive z = w.GetEntity(id) as EntityAlive;
                     if (z == null) continue;
@@ -1147,7 +1206,7 @@ namespace SurvivorCommunity
                     else Unflag(z);
                 }
             }
-            attackers.Clear();
+            those.Clear();
             return alive;
         }
 

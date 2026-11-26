@@ -19,13 +19,22 @@ namespace SurvivorCommunity
         public const int KindNone = 0, KindHeld = 1, KindHeldAway = 2, KindDamaged = 3, KindOverrun = 4,
                          KindSiegeHeld = 5, KindSiegeDamaged = 6, KindSiegeOverrun = 7, KindLostTrail = 8;
 
-        /// <summary>The whole horde of the attack ScBaseAttack.SettleAway is settling (0: none noted); Settled takes it once.</summary>
-        private static int awayTotal;
+        /// <summary>Round MP6 (part H): a community's noted horde size - one per community (ScHomeState).</summary>
+        private sealed class AwayState
+        {
+            public int Total;
+        }
+        private static readonly ScHomeState<AwayState> homes = new ScHomeState<AwayState>();
+        /// <summary>
+        /// The whole horde of the attack ScBaseAttack.SettleAway is settling (0: none noted); Settled takes it once. Round MP6 (part
+        /// H): the community in scope's (both run in the settling community's scope).
+        /// </summary>
+        private static int awayTotal { get { return homes.Current.Total; } set { homes.Current.Total = value; } }
 
         /// <summary>Per-world reset (ModApi): no noted total carries into the next world (the re-check's N4).</summary>
         public static void Reset()
         {
-            awayTotal = 0;
+            homes.Reset();                        // round MP6 (part H): every community's
         }
 
         /// <summary>ScBaseAttack.SettleAway, before it clears the attack: its full size, for the corpse pile and the record.</summary>

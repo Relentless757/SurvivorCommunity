@@ -3262,6 +3262,45 @@ Round MP0 is the groundwork:
     always with one community). An enclave falling and an infestation cleared use it.
   - The ticker no longer runs the three per-viewer pushes in community 0's scope (the core's note above): each push scopes
     what it reads per community.
+- **Round MP6 (part: H), the home's machinery per community:** each community's home runs on its own. With one community
+  nothing changes.
+  - **`ScHomeState<T>`** (`ScHomeState.cs`): a side table with one `T` per community, made on first use. `Current` is the row
+    of the community in scope, `For(cid)` any community's, `Rows()`/`ForEach` every row made so far, `Reset()` all of them.
+    Community 0's row is a plain field (no lookup). The home systems keep what used to be their single-instance statics in a
+    private row class, and the old static names are now properties that read `Current`'s row. So the code that uses them is
+    unchanged and reads the community in scope. It is a side table rather than fields on `CommunityState` because a client
+    replaces its `CommunityState` objects with every snapshot, and each system's `Reset` clears its table as it cleared its
+    statics. `ScHomeTimer` is a ticker step's throttle (one float). `ScHomeScope.Of(entity)` scopes to the member a body is
+    (a stand-in's member too), and `ScHomeScope.Of(cid)` to a community; both do nothing with one community.
+  - **Per community now:** the home attack's session (`ScBaseAttack`: attackers, zone, clocks), the blood-moon siege
+    (`ScSiege`), noise (`ScNoise`: counters, steady part, clocks), the watch's clocks (`ScWatch`) and watch fatigue's last
+    terms, the home scan's session (`ScScan`: last run, settling chunks, shelter seeds, `LastChunks`/`LastLoaded`/
+    `LastMissing`/`LastMs`), the shelter cache (`ScShelter`), the night lease's bed group (`ScSleep.HomeGroup`: bed counts
+    and grants per home), the home hold (`ScHomeHold`), intruders and responders (`ScInvestigate`), the doors' owner
+    (`ScDoors`), the activities' clocks (`ScActivities`), Lights out's check, the away news's clock (`ScDefence`), salvage's
+    noted horde (`ScSalvage`), the followers' opened Water (`ScDrinks`), the morale HUD's clock, Bond's clocks and
+    blood-moon roll call (`ScBond`), the near-home nests list (`ScInfestations.NearHome`), and the throttle of every ticker
+    step that had one static timer (also `ScAmmo`, `ScRadio`, `ScMining`, `ScOutposts.Tick`, `ScGarrison`, `ScScouting`,
+    `ScOutpostRisk` with its blood-moon flag, `ScMissing`).
+  - **Position to community:** `ScZone.CommunityAt(pos)` is the community whose home zone holds a position (-1 for none),
+    and `ScZone.ContainsFor(cid, pos)` tests one community's zone. Neither reads the scope. A heard sound counts for the
+    community whose zone it lands in. A Watch post placed belongs to the zone's community, and one removed to the community
+    whose list holds it. A member opens doors by her own community's owner. `UAI.ScArea.HomeOf(cid)` is each community's home
+    zone for the AI; `ScHome.Of` gives a resident her own community's, which reads that zone whatever is in scope.
+  - **The ticker:** `ScSleep.Tick(w, player, world)` runs in every community's pass (its members against its own beds), the
+    enclaves' people once. `ScShelter.Step` (every frame, before the ticker's scopes) steps each community's cache in its
+    scope. `ScHomeHold.Tick` holds every community's home in one pass, each in its scope, so a home is let go after its
+    players log off. `ScHomeLink` steps every link in its own community's scope, once a frame. `ScDoors` refreshes each
+    community's owner in its pass and shuts doors once a frame. `ScBond` drains every community's events and recomputes the
+    morale of each community that changed.
+  - **A community that pauses** (none of its players online, the user's decision 9): a live attack's attackers are let go
+    once it has not ticked for 5 real seconds (`ScBaseAttack.StaleSessions`); when it ticks again the fight resumes as after
+    a reload. Its noise does not integrate the hours it was away: the first tick after a gap of 5 seconds or more rebases the
+    noise clock when a quarter game hour or more went by. Both only with two or more communities.
+  - **For modders:** a new piece of home state goes in a `ScHomeState<T>` row, never a plain static. Code that has a body or a
+    position and no scope scopes itself (`ScHomeScope.Of`, `ScZone.CommunityAt`). The reads the AI makes with no entity
+    (`ScBaseAttack.WideDefence`/`InDefenceArea`, `ScInvestigate.InArea`, `ScShelter.InZone`) follow the scope the UAI entry
+    points set.
 
 ## How it hangs together (for modders)
 

@@ -109,19 +109,23 @@ namespace SurvivorCommunity
             return since >= ScNpcClock.LeaseAfterDusk() ? null : "too soon after dusk (0-XNPCCore is still in its evening)";
         }
 
-        public static void Reset() { leased.Clear(); dawnSince.Clear(); bedCache.Clear(); grants.Clear(); Opened = Closed = Refused = 0; LastRefusal = ""; }
+        public static void Reset() { leased.Clear(); dawnSince.Clear(); bedCache.Clear(); grants.Clear(); homeGroups.Reset(); Opened = Closed = Refused = 0; LastRefusal = ""; }   // round MP6 (part H): homeGroups
 
-        /// <summary>1 Hz from ScTicker: opens the night lease for everyone eligible and takes it back from everyone who is not.</summary>
-        public static void Tick(World w, EntityPlayer player)
+        /// <summary>
+        /// 1 Hz from ScTicker: opens the night lease for everyone eligible and takes it back from everyone who is not. Round MP6 (part
+        /// H): in every community's pass - its own members against its own home's beds (HomeGroup); world (the first community's
+        /// pass) also the enclaves' people, once. With one community exactly as before.
+        /// </summary>
+        public static void Tick(World w, EntityPlayer player, bool world = true)
         {
             if (w == null || !ScCommunity.IsHost || !ScRegistry.Loaded) return;
             try
             {
                 // SleepAtNight off (or no wake path) still has to CLOSE what is already open - just not opening would
                 // leave whoever is asleep stranded in 0-XNPCCore's routine for good.
-                ScTraitEffects.SleepTick();                // round m1t: Light Sleeper's "up for the horde" told once per attack
+                if (world) ScTraitEffects.SleepTick();     // round m1t: Light Sleeper's "up for the horde" told once per attack (round MP6 (part H): once a second, as before)
                 string nightWhy = CannotWake() ? "0-XNPCCore cannot wake her (SdcsResident.Clear missing)" : SleepWhy(w);
-                List<Verdict> all = Plan(w, nightWhy, ScConfig.Enclaves);
+                List<Verdict> all = Plan(w, nightWhy, ScConfig.Enclaves && world);     // round MP6 (part H): the enclaves' people once
                 for (int i = 0; i < all.Count; i++) Apply(all[i].Npc, all[i].Why, all[i].Min, all[i].Size, all[i].Name);
             }
             catch (Exception ex) { ScLog.Once("sleep-tick", ex); }
@@ -402,7 +406,11 @@ namespace SurvivorCommunity
             public object Group;            // HomeGroup, or her Enclave - beds are shared within one group
             public string Place;            // for the refusal text
         }
-        private static readonly object HomeGroup = new object();
+        /// <summary>Round MP6 (part H): a community's home as a bed group (its own key in bedCache and grants) - one per community.</summary>
+        private sealed class HomeKey { }
+        private static readonly ScHomeState<HomeKey> homeGroups = new ScHomeState<HomeKey>();
+        /// <summary>The home zone's bed group. Round MP6 (part H): the community in scope's - each home's beds are its own.</summary>
+        private static object HomeGroup { get { return homeGroups.Current; } }
 
         /// <summary>
         /// Everyone's verdict for this pass, the bed cap included - the one place both Tick and "sc sleep" get it from,

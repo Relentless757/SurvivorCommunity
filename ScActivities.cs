@@ -39,15 +39,22 @@ namespace SurvivorCommunity
             new[] { Ration, "scActRation", "scActRationDesc", "ui_game_symbol_hunger", ScFacilityTab.Campfire },
         };
 
-        private static float lastTick = -1f;
-        private static float sinceSave;
-        private static float nextBuffCheck;
+        /// <summary>Round MP6 (part H): one community's countdown clocks - one per community (ScHomeState): each counts down its own.</summary>
+        private sealed class ClockState
+        {
+            public float LastTick = -1f;
+            public float SinceSave;
+            public float NextBuffCheck;
+        }
+        private static readonly ScHomeState<ClockState> homes = new ScHomeState<ClockState>();
+        // round MP6 (part H): the old statics, now the row of the community in scope
+        private static float lastTick { get { return homes.Current.LastTick; } set { homes.Current.LastTick = value; } }
+        private static float sinceSave { get { return homes.Current.SinceSave; } set { homes.Current.SinceSave = value; } }
+        private static float nextBuffCheck { get { return homes.Current.NextBuffCheck; } set { homes.Current.NextBuffCheck = value; } }
 
         public static void Reset()
         {
-            lastTick = -1f;
-            sinceSave = 0f;
-            nextBuffCheck = 0f;
+            homes.Reset();                        // round MP6 (part H): every community's clocks
         }
 
         // ---- round fd1: the feast and rationing ----
