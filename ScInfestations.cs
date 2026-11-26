@@ -887,18 +887,28 @@ namespace SurvivorCommunity
             Restore(PoiOf(inf));
             if (how == "cleared")
             {
-                ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerCleared"), inf.PoiName));
-                // round MP0: a known one is the whole community's news; else every community player near it hears (the host alone
-                // in single player, as before)
-                // round MP4: by key (each player reads it in their own language)
-                if (inf.Known) ScPlayers.TellCommunityKey("scInfestCleared", "", inf.PoiName);
-                else
+                // round MP6 (part N): per community, in its scope - its ledger line and tells when it knew of it or one of its players
+                // is near (with one community, as before: the ledger line always)
+                ScWorldNews.Each(() =>
                 {
-                    List<EntityPlayer> all = ScPlayers.All;
-                    for (int i = 0; i < all.Count; i++)
-                        if (all[i] != null && ScPlayers.InCommunity(all[i]) && inf.DistanceXZ(all[i].position.x, all[i].position.z) <= ScConfig.InfestDiscoverRange)
-                            ScCommunity.TellKey(all[i], "scInfestCleared", "", inf.PoiName);
-                }
+                    bool near = false;
+                    if (!inf.Known)
+                        foreach (EntityPlayer np in ScPlayers.All)
+                            if (np != null && ScPlayers.InCommunity(np) && inf.DistanceXZ(np.position.x, np.position.z) <= ScConfig.InfestDiscoverRange) { near = true; break; }
+                    if (!ScWorldNews.Concerns(inf.Known || near)) return;
+                    ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerCleared"), inf.PoiName));
+                    // round MP0: a known one is the whole community's news; else every community player near it hears (the host alone
+                    // in single player, as before)
+                    // round MP4: by key (each player reads it in their own language)
+                    if (inf.Known) ScPlayers.TellCommunityKey("scInfestCleared", "", inf.PoiName);
+                    else
+                    {
+                        List<EntityPlayer> all = ScPlayers.All;
+                        for (int i = 0; i < all.Count; i++)
+                            if (all[i] != null && ScPlayers.InCommunity(all[i]) && inf.DistanceXZ(all[i].position.x, all[i].position.z) <= ScConfig.InfestDiscoverRange)
+                                ScCommunity.TellKey(all[i], "scInfestCleared", "", inf.PoiName);
+                    }
+                });
             }
             ScLog.Out("infestation #" + inf.Id + " at " + inf.PoiName + " ended (" + how + ") after " + Math.Max(0, ScCommunity.Today - inf.StartDay) + " day(s)"
                       + (inf.Special == SpecialState.Met ? "; its special was " + inf.SpecialClass : ""));

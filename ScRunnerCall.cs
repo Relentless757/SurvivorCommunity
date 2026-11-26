@@ -307,9 +307,11 @@ namespace SurvivorCommunity
         {
             World w = ScCommunity.World;
             if (w == null) return;
+            int cid = ScRegistry.CurrentId;               // round MP6 (part N): ScMarkers collects in each community's scope
             for (int i = 0; i < calls.Count; i++)
             {
                 Call c = calls[i];
+                if (c.M != null && c.M.CommunityId != cid) continue;     // round MP6 (part N): another community's runner
                 EntityAlive body = c.M != null ? w.GetEntity(c.BodyId) as EntityAlive : null;
                 if (body == null || body.IsDead()) continue;
                 into.Add(new ScMarkers.Entry(ScMarkers.KindRunnerCall, c.M.Id, MarkerClass, body.position + new Vector3(0f, 0.25f, 0f), c.MarkerName)

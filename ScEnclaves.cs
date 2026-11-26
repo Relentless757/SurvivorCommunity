@@ -1644,8 +1644,14 @@ namespace SurvivorCommunity
             int released = Release(PoiOf(e), w);
             All.Remove(e);
             Rebuild();
-            ScPlayers.TellCommunityKey(e.Hostile ? "scEncWipedOut" : "scEncGone", "", e.Name);   // round MP0: news for the whole community
-            ScOutposts.NoteLedger(string.Format(Localization.Get(e.Hostile ? "scEncLedgerWipedOut" : "scEncLedgerGone"), e.Name, e.PoiName));
+            // round MP6 (part N): the tell and the ledger line for every community that knew them, each in its own scope (with one
+            // community, as before: always)
+            ScWorldNews.Each(() =>
+            {
+                if (!ScWorldNews.Concerns(e.Known)) return;
+                ScPlayers.TellCommunityKey(e.Hostile ? "scEncWipedOut" : "scEncGone", "", e.Name);   // round MP0: news for the whole community
+                ScOutposts.NoteLedger(string.Format(Localization.Get(e.Hostile ? "scEncLedgerWipedOut" : "scEncLedgerGone"), e.Name, e.PoiName));
+            });
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "' at " + e.PoiName + " is gone (" + cause + ")"
                       + (released > 0 ? " - " + released + " sleeper area(s) respawn after the loot respawn wait" : ""));
             if (siege) ScEncSiege.AfterFall(e);                                 // E5: the dead have their building now

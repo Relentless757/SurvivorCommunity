@@ -41,7 +41,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round MP6 (core): the player's community. Server: the membership map by their platform id (not in it, or a community
         /// that no longer exists: community 0). Client: its own player is in the mirrored community (ScRegistry.MirroredCommunity);
-        /// another player is answered community 0 - a client does not know (MP6 (part network): send it if a client needs it).
+        /// another player's is the server's list in the derived block (round MP6 (part N): ScMirror.PlayerCommunity - community 0
+        /// when not listed, and always with one community).
         /// Null: community 0. Cheap while nobody is outside community 0 (no platform id is looked up).
         /// </summary>
         public static int CommunityOf(EntityPlayer p)
@@ -63,7 +64,8 @@ namespace SurvivorCommunity
             if (p == null) return false;
             if (!ScRegistry.Loaded)
             {
-                community = p is EntityPlayerLocal ? ScRegistry.MirroredCommunity : SharedCommunity;
+                // round MP6 (part N): another player's from the server's list (ScMirror.PlayerCommunity: 0 when not listed)
+                community = p is EntityPlayerLocal ? ScRegistry.MirroredCommunity : ScMirror.PlayerCommunity(p.entityId);
                 return true;
             }
             if (ScRegistry.WorldState.Membership.Count == 0) return true;

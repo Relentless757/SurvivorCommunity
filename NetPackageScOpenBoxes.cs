@@ -13,7 +13,8 @@ namespace SurvivorCommunity
     /// (ScNet.ClientMatches), the whole set each time it changes (at most once a second, ScTicker) and to a client that has not
     /// had the current set yet. A client never sends it, and one that arrives on a server is ignored.
     /// Layout:
-    ///   int32  community  the community the set is for (Stage 1: always 0)
+    ///   int32  community  the community the set is for (Stage 1: always 0; round MP6 (part N): the recipient's own - the open boxes
+    ///                     of its own community's home; layout unchanged)
     ///   int32  n          then n box positions (n at most MaxBoxes):
     ///     int32  x, y, z    the box's block position
     /// Everything is captured in Setup: write() runs on a network thread, once per recipient, and only copies.

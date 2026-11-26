@@ -1397,8 +1397,17 @@ namespace SurvivorCommunity
         /// <summary>Round MP4, server: the line to every remote player of the community (Stage 1: everyone online) - a radio line, whose hearing each client decides. Returns how many got it.</summary>
         internal static int SendCommunity(NetPackageScVoice.Line line)
         {
+            return SendCommunity(ScPlayers.CurrentCommunity, line);    // round MP6 (part N): the community in scope
+        }
+
+        /// <summary>
+        /// Round MP6 (part N), server: SendCommunity to the given community's remote players (ScPlayers.CurrentCommunity: the one in
+        /// scope) - a runner's radio line to her own community, whoever's scope the caller runs in.
+        /// </summary>
+        internal static int SendCommunity(int community, NetPackageScVoice.Line line)
+        {
             if (line == null || !ScCommunity.IsHost) return 0;
-            EntityPlayer[] to = ScPlayers.Community().ToArray();     // copied: Community() reuses its list
+            EntityPlayer[] to = ScPlayers.Community(community).ToArray();     // copied: Community() reuses its list
             int n = 0;
             for (int i = 0; i < to.Length; i++) if (SendTo(to[i], line)) n++;
             return n;

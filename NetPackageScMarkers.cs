@@ -11,7 +11,8 @@ namespace SurvivorCommunity
     /// its markers itself, as before (each subsystem's AddMarker). A client never sends it, and one that arrives on a server
     /// is ignored. The whole set comes at the server's first tick after the client's hello, then only changes.
     /// Layout:
-    ///   int32  community  the community the set is for (Stage 1: always 0)
+    ///   int32  community  the community the set is for (Stage 1: always 0; round MP6 (part N): the recipient's own, the server's
+    ///                     truth - a client keeps one community's set, and a whole set of another replaces it; layout unchanged)
     ///   bool   full       true: the whole set - the client forgets every marker of the server's it holds that is not in it
     ///   int32  n          then n changes:
     ///     byte   op         0 put (a new marker, or a new class or label), 1 move (the position alone), 2 drop

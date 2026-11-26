@@ -20,7 +20,8 @@ namespace SurvivorCommunity
     ///   [community]  cid=N first, then name= (when set) and the community keys below; one section per community
     ///   [member], [prospect], [contact], [outpost], [encrequest]: cid=N first, then the keys below (no cid: community 0)
     ///   [enclave], [encperson], [infestation], [band], [bandperson]: world records, unchanged (their relation fields stay for now)
-    /// A client's snapshot (BuildText(true)) is still community 0's text in the SCOM 1 layout, exactly as before MP6.
+    /// A client's snapshot (BuildText(true, cid)) is its own community's text in the SCOM 1 layout (round MP6 (part N); with one
+    /// community exactly as before MP6).
     /// The keys below are each section's, as before MP6 (SCOM 1):
     ///
     /// Lifecycle mirrors LandClaimUpgrade's registry: loaded from the PersistentPlayerList.ReadXML postfix
@@ -828,7 +829,13 @@ namespace SurvivorCommunity
             ClearContainers();
             // round MP6 (core fix): the copy is the mirrored community's - its sections and records with no cid= go there, so a
             // client's Current (and the id its actions send) is that community, not community 0 (review C-m2)
-            bool ok = ParseText(text, "the server's snapshot", MirroredCommunity);
+            // round MP6 (part N): the community is there before the first line and the parse runs in its scope, so a relation value a
+            // world record's line sets (an enclave's standing=, known= ...) lands where the copy's readers look - the record's field
+            // today, the mirrored community's row once relations are per community. ScMirror.Receive set MirroredCommunity first
+            bool ok;
+            if (MirroredCommunity < 0) MirroredCommunity = ScPlayers.SharedCommunity;
+            ScCommunities.Ensure(MirroredCommunity);
+            using (Use(MirroredCommunity)) ok = ParseText(text, "the server's snapshot", MirroredCommunity);
             degraded = false;                 // the copy says nothing about this machine's (absent) save
             Cleanup.Clear();                  // server bookkeeping (BuildText(true) leaves it out): never acted on here
             Doomed.Clear();
@@ -1994,16 +2001,88 @@ namespace SurvivorCommunity
         /// <summary>
         /// The registry as text (read back by ParseText). Main thread. Round MP6 (core): the save (forClients false) is the SCOM 2
         /// layout - [world], [membership], one [community] per community, cid= on each community's records (BuildSaveText); a
-        /// client's snapshot (forClients true, NetPackageScState) is still community 0's text in the old SCOM 1 layout, exactly as
-        /// before MP6 (BuildLegacyText). Round MP1: forClients leaves out what a client must not get or does not need - platform
+        /// client's snapshot (forClients true, NetPackageScState) is one community's text in the old SCOM 1 layout - community 0's
+        /// here, the client's own through BuildText(true, cid) (round MP6 (part N): BuildClientText; with one community exactly as
+        /// before MP6, BuildLegacyText). Round MP1: forClients leaves out what a client must not get or does not need - platform
         /// ids (ownerid=, leader=), the server's cleanup bookkeeping and streamer names, the members' entity snapshots (snap= and
         /// postsnap= become "-", which keeps their meaning: the member is held offline), handed items, worn pieces, ammo and
         /// magazines, the enclaves' trade stock, and the enclaves' and bands' people. Throws on a bad record (SaveAtomic logs it).
         /// </summary>
         public static string BuildText(bool forClients)
         {
-            // MP6 (part network): the snapshot is community 0's, whichever community the client is in
-            return forClients ? BuildLegacyText(ScCommunities.Zero, true) : BuildSaveText();
+            // round MP6 (part N): a client's snapshot without a community named is community 0's (BuildText(true, cid) names one)
+            return BuildText(forClients, ScPlayers.SharedCommunity);
+        }
+
+        /// <summary>
+        /// Round MP6 (part N): BuildText for one community - forClients: that community's snapshot for its own clients
+        /// (BuildClientText); otherwise the save file's text (every community, cid ignored).
+        /// </summary>
+        public static string BuildText(bool forClients, int cid)
+        {
+            return forClients ? BuildClientText(cid) : BuildSaveText();
+        }
+
+        /// <summary>
+        /// Round MP6 (part N): community cid's snapshot for its clients (NetPackageScState), in the old one-community layout
+        /// (SCOM 1, BuildLegacyText): its [community], members, contacts, outposts, requests and prospects, and the world's
+        /// enclaves, infestations and bands. It is built inside cid's scope (ScRegistry.Use), so every relation value a world record
+        /// writes - an enclave's standing=, known=, turned= and its dated stamps, an infestation's and a band's known= and trust= -
+        /// is read through the record as the community in scope sees it: the record's own field while the relations live there,
+        /// that community's row once they are per community. With one community this is exactly BuildLegacyText(community 0) - the
+        /// bytes BuildText(true) sent before MP6. With several, an enclave this community has not found (Known false in its scope)
+        /// goes as its footprint only (WriteEnclaveFootprint): what the client's claim gate and its refusal tips read, and nothing
+        /// else - no relation, kind, request clock or stamp. A missing community (it went since the client was grouped) sends
+        /// community 0's. Throws on a bad record, as BuildText.
+        /// </summary>
+        internal static string BuildClientText(int cid)
+        {
+            CommunityState cs = ScCommunities.ById(cid) ?? ScCommunities.Zero;
+            using (Use(cs.Id))
+            {
+                if (ScCommunities.Count < 2) return BuildLegacyText(cs, true);      // one community: byte for byte as before MP6
+                // several: BuildLegacyText's text and WriteRecords' order (forClients), with an enclave not found here as its footprint
+                var sb = new StringBuilder();
+                sb.AppendLine(LegacyHeader);
+                sb.AppendLine("# SurvivorCommunity registry - the server's snapshot for a client");
+                sb.AppendLine("[community]");
+                WriteCommunityKeys(sb, cs.Community, true, true);
+                foreach (var m in cs.Members.Values)
+                {
+                    sb.AppendLine("[member]");
+                    WriteMemberFields(sb, m, true);
+                }
+                foreach (var ct in cs.Contacts) WriteContact(sb, ct, -1);
+                foreach (var o in cs.Outposts) WriteOutpost(sb, o, -1);
+                foreach (var en in Enclaves)
+                {
+                    if (en.Known) WriteEnclave(sb, en, true);
+                    else WriteEnclaveFootprint(sb, en);
+                }
+                foreach (var rq in cs.EncRequests) WriteRequest(sb, rq, true, -1);
+                foreach (var inf in Infestations) WriteInfestation(sb, inf);
+                foreach (var bd in Bands) WriteBand(sb, bd);
+                foreach (var p in cs.Prospects.Values) WriteProspect(sb, p, -1);
+                return sb.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Round MP6 (part N): an enclave a community has not found, in that community's snapshot (two or more communities): what a
+        /// client's claim gate needs (Patches_Outposts: the footprint, poi= and size=, and prefab=, without which the copy drops the
+        /// record) and its refusal tips name (name=, poiname=: the player stands at the building then) - and known=0. No standing,
+        /// kind, row, tier, request clock or stamp: the client learns those when the community finds them.
+        /// </summary>
+        private static void WriteEnclaveFootprint(StringBuilder sb, Enclave en)
+        {
+            sb.AppendLine("[enclave]");
+            sb.AppendLine("id=" + en.Id);
+            sb.AppendLine("name=" + Clean(en.Name));
+            sb.AppendLine("poi=" + Vec(en.Poi));
+            sb.AppendLine("size=" + Vec(en.Size));
+            sb.AppendLine("prefab=" + Clean(en.Prefab));
+            sb.AppendLine("poiname=" + Clean(en.PoiName));
+            sb.AppendLine("known=0");
         }
 
         /// <summary>

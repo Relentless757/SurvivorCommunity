@@ -54,11 +54,14 @@ namespace SurvivorCommunity
         // review cfs1 M1, client: the home zone's boxes open on the server (NetPackageScOpenBoxes)
         private static readonly HashSet<Vector3i> openOnServer = new HashSet<Vector3i>();
 
-        // review cfs1 M1, server: the set sent last, and the clients that have it
+        // review cfs1 M1, server: the set sent last, and the clients that have it. Round MP6 (part N): per community home - each
+        // community's set sent last, and the community whose current set each client (entity id) has
         private static readonly HashSet<Vector3i> openNow = new HashSet<Vector3i>();
-        private static readonly HashSet<Vector3i> openSent = new HashSet<Vector3i>();
-        private static readonly HashSet<int> haveSet = new HashSet<int>();
+        private static readonly Dictionary<int, HashSet<Vector3i>> openSent = new Dictionary<int, HashSet<Vector3i>>();
+        private static readonly Dictionary<int, int> haveSet = new Dictionary<int, int>();
         private static readonly List<ClientInfo> targets = new List<ClientInfo>();
+        private static readonly List<int> scratchIds = new List<int>();
+        private static readonly HashSet<int> tickCommunities = new HashSet<int>();
 
         /// <summary>A new world: nothing carries over.</summary>
         public static void Reset()
@@ -102,6 +105,9 @@ namespace SurvivorCommunity
         /// Round MP4 review cfs1 M1, server (ScTicker, once a second): the home zone's linked storage boxes someone has open, to every
         /// remote client with SC's protocol - the whole set when it changed, and to a client that has not had it. Nothing is
         /// built with no such client (single player and a host alone are untouched).
+        /// Round MP6 (part N): per community - each client gets its own community's home's open boxes (ScPlayers.CommunityOf, from
+        /// its platform id), each community's set worked out in its scope (its home zone) and compared with its own last one; a
+        /// client whose community changed gets its new community's set. With one community, exactly as before.
         /// </summary>
         public static void ServerTick()
         {
@@ -114,31 +120,56 @@ namespace SurvivorCommunity
                     foreach (ClientInfo ci in cm.Clients.List)
                         if (ci != null && ci.entityId != -1 && ScNet.ClientMatches(ci.entityId)) targets.Add(ci);
                 if (targets.Count == 0) { haveSet.Clear(); openSent.Clear(); return; }
-                openNow.Clear();
-                if (ScZone.HasHome)
+                // round MP6 (part N): each community with a client online, its home's open boxes in its own scope
+                tickCommunities.Clear();
+                for (int i = 0; i < targets.Count; i++) tickCommunities.Add(ScPlayers.CommunityOf(targets[i]));
+                foreach (int cid in tickCommunities)
                 {
-                    World w = ScCommunity.World;
-                    ForEachBaseBox(w, (tc, st, pos) => { if (openNow.Count < NetPackageScOpenBoxes.MaxBoxes && ScStorageServer.OpenBySomeone(st)) openNow.Add(pos); });
+                    HashSet<Vector3i> sentSet;
+                    if (!openSent.TryGetValue(cid, out sentSet)) openSent[cid] = sentSet = new HashSet<Vector3i>();
+                    openNow.Clear();
+                    using (ScRegistry.Use(cid))
+                    {
+                        if (ScZone.HasHome)
+                        {
+                            World w = ScCommunity.World;
+                            ForEachBaseBox(w, (tc, st, pos) => { if (openNow.Count < NetPackageScOpenBoxes.MaxBoxes && ScStorageServer.OpenBySomeone(st)) openNow.Add(pos); });
+                        }
+                    }
+                    if (!openNow.SetEquals(sentSet))
+                    {
+                        sentSet.Clear();
+                        sentSet.UnionWith(openNow);
+                        // this community's clients get the new set
+                        scratchIds.Clear();
+                        foreach (KeyValuePair<int, int> kv in haveSet) if (kv.Value == cid) scratchIds.Add(kv.Key);
+                        for (int i = 0; i < scratchIds.Count; i++) haveSet.Remove(scratchIds[i]);
+                    }
                 }
-                if (!openNow.SetEquals(openSent))
-                {
-                    openSent.Clear();
-                    openSent.UnionWith(openNow);
-                    haveSet.Clear();
-                }
+                // a community with no client online any more: its set goes
+                scratchIds.Clear();
+                foreach (int cid in openSent.Keys) if (!tickCommunities.Contains(cid)) scratchIds.Add(cid);
+                for (int i = 0; i < scratchIds.Count; i++) openSent.Remove(scratchIds[i]);
                 // forget clients gone (a returning one is sent the set again)
                 if (haveSet.Count > 0)
                 {
-                    var still = new HashSet<int>();
-                    for (int i = 0; i < targets.Count; i++) still.Add(targets[i].entityId);
-                    haveSet.IntersectWith(still);
+                    scratchIds.Clear();
+                    foreach (int id in haveSet.Keys)
+                    {
+                        bool on = false;
+                        for (int i = 0; i < targets.Count && !on; i++) on = targets[i].entityId == id;
+                        if (!on) scratchIds.Add(id);
+                    }
+                    for (int i = 0; i < scratchIds.Count; i++) haveSet.Remove(scratchIds[i]);
                 }
+                scratchIds.Clear();
                 for (int i = 0; i < targets.Count; i++)
                 {
                     ClientInfo ci = targets[i];
-                    if (haveSet.Contains(ci.entityId)) continue;
-                    ci.SendPackage(NetPackageManager.GetPackage<NetPackageScOpenBoxes>().Setup(ScPlayers.SharedCommunity, openSent));
-                    haveSet.Add(ci.entityId);
+                    int cid = ScPlayers.CommunityOf(ci), had;
+                    if (haveSet.TryGetValue(ci.entityId, out had) && had == cid) continue;
+                    ci.SendPackage(NetPackageManager.GetPackage<NetPackageScOpenBoxes>().Setup(cid, openSent[cid]));
+                    haveSet[ci.entityId] = cid;
                 }
             }
             catch (Exception e)

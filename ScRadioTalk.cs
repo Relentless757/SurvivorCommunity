@@ -300,7 +300,7 @@ namespace SurvivorCommunity
                 Flags = (byte)(NetPackageScVoice.FlagRunner | (ev == RadioTalk.RecallAck ? NetPackageScVoice.FlagNoHandheld : 0) | (force ? NetPackageScVoice.FlagForced : 0))
             };
             if (ev == RadioTalk.RecallAck || force) return ScVoice.SendTo(player, line) ? 1 : 0;
-            return ScVoice.SendCommunity(line);
+            return ScVoice.SendCommunity(m.CommunityId, line);       // round MP6 (part N): her own community's players
         }
 
         /// <summary>A physical runner's body within InPersonRange of the player: they would just talk (and the community window
