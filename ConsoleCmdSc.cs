@@ -166,7 +166,7 @@ namespace SurvivorCommunity
                         if (_params.Count < 3 || !ScNames.TryResource(_params[1], out give) || !ScNames.TryResource(_params[2], out get)) { Output("[SC] sc barter <give> <get> (ignores the once-a-day wait)"); break; }
                         ScRegistry.Community.RadioNextBarterDay = 0;
                         string msg;
-                        bool ok = ScBarter.Trade(give, get, Me as EntityPlayerLocal, out msg);   // MP5 (the radio): ScBarter.Trade takes the host's own player
+                        bool ok = ScBarter.Trade(give, get, Me, out msg);   // round MP5 (part R): the sender (ScBarter.Trade takes any player; their radio station counts)
                         Output("[SC] " + (ok ? "" : "refused: ") + msg);
                         break;
                     }
@@ -176,7 +176,7 @@ namespace SurvivorCommunity
                         if (_params.Count < 2 || !ScNames.TryResource(_params[1], out r)) { Output("[SC] sc scout <food|meds|ammo|mats|fuel> (ignores the once-a-day wait)"); break; }
                         ScRegistry.Community.RadioNextScoutDay = 0;
                         string msg;
-                        bool ok = ScScouting.Scout(r, Me as EntityPlayerLocal, out msg);   // MP5 (the radio): ScScouting.Scout takes the host's own player
+                        bool ok = ScScouting.Scout(r, Me, out msg);   // round MP5 (part R): the sender (ScScouting.Scout takes any player)
                         Output("[SC] " + (ok ? "" : "refused: ") + msg);
                         break;
                     }
@@ -2632,7 +2632,7 @@ namespace SurvivorCommunity
                 side = ScBaseAttack.Open ? ScHordeVoice.SideKey(ScBaseAttack.Side(ScRegistry.Community.AttackBearing))
                                          : ScHordeVoice.Sides[UnityEngine.Random.Range(0, ScHordeVoice.Sides.Length)];
             EntityPlayer pl = Me;                    // round MP2: the sender (told the at-home warning)
-            EntityPlayerLocal lpl = pl as EntityPlayerLocal;     // MP4 (voices): ScHordeVoice.SayAtHome / SayAway take the host's own player
+            EntityPlayerLocal lpl = pl as EntityPlayerLocal;     // MP4 (voices): ScHordeVoice.SayAtHome decides for the host's own player (round MP5, part R: SayAway takes the sender)
             string what = mo.ToString().ToLowerInvariant() + (ScHordeVoice.HasSide(mo) ? " (" + side + ")" : "") + (force ? ", forced" : "");
             if (ScHordeVoice.AtHome(mo))
             {
@@ -2648,7 +2648,7 @@ namespace SurvivorCommunity
                 Output("[SC] " + m.Name + " " + what + ": " + ScHordeVoice.SayAtHome(mo, m, body, side, lpl, force));
                 return;
             }
-            Output("[SC] the radio from home, " + what + ": " + ScHordeVoice.SayAway(mo, side, m, lpl, force)
+            Output("[SC] the radio from home, " + what + ": " + ScHordeVoice.SayAway(mo, side, m, pl, force)
                    + " (the message itself carries the attack's numbers: see it with sc attack while away)");
         }
 #endif

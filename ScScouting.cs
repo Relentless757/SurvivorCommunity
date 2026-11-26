@@ -26,12 +26,13 @@ namespace SurvivorCommunity
         /// <summary>What the radio trades: food, meds, ammo, materials, fuel and (round wl) water - Resource 0..Kinds-1. Not luxuries.</summary>
         public const int Kinds = (int)Resource.Water + 1;
 
-        public static bool CanTrade(Resource give, Resource get, out string why)
+        /// <summary>Round MP5 (part R): who - the player at the radio (ScRadio.Usable(who): their station); null this machine's own.</summary>
+        public static bool CanTrade(Resource give, Resource get, out string why, EntityPlayer who = null)
         {
             why = null;
             if (!ScCommunity.IsHost) { why = Localization.Get("scHostOnly"); return false; }
             if ((int)give >= Kinds || (int)get >= Kinds) { why = Localization.Get("scBarterNoLuxury"); return false; }
-            if (!ScRadio.Usable()) { why = Localization.Get("scRadioNoPower"); return false; }
+            if (!ScRadio.Usable(who)) { why = Localization.Get("scRadioNoPower"); return false; }
             if (give == get) { why = Localization.Get("scBarterSame"); return false; }
             Community c = ScRegistry.Community;
             int wait = c.RadioNextBarterDay - ScCommunity.Today;
@@ -45,9 +46,9 @@ namespace SurvivorCommunity
             return true;
         }
 
-        public static bool Trade(Resource give, Resource get, EntityPlayerLocal player, out string message)
+        public static bool Trade(Resource give, Resource get, EntityPlayer player, out string message)     // round MP5 (part R): any player (stockpile-only)
         {
-            if (!CanTrade(give, get, out message)) return false;
+            if (!CanTrade(give, get, out message, player)) return false;
             Community c = ScRegistry.Community;
 #if SC_V34
             // round m1t: the terms with Bartering's cut and a Haggler's extra (ScLifeSkills.RadioBarter)
@@ -105,23 +106,26 @@ namespace SurvivorCommunity
             restored = false;
         }
 
-        public static bool CanScout(out string why)
+        /// <summary>Round MP5 (part R): who - the player at the radio (ScRadio.Usable(who): their station); null this machine's own.</summary>
+        public static bool CanScout(out string why, EntityPlayer who = null)
         {
             why = null;
             if (!ScCommunity.IsHost) { why = Localization.Get("scHostOnly"); return false; }
             if (!ScZone.HasHome) { why = Localization.Get("scNeedHome"); return false; }
-            if (!ScRadio.Usable()) { why = Localization.Get("scRadioNoPower"); return false; }
+            if (!ScRadio.Usable(who)) { why = Localization.Get("scRadioNoPower"); return false; }
             int wait = ScRegistry.Community.RadioNextScoutDay - ScCommunity.Today;
             if (wait > 0) { why = string.Format(Localization.Get("scScoutWait"), wait); return false; }
             return true;
         }
 
         /// <summary>The radio window's scout button for one resource.</summary>
-        public static bool Scout(Resource r, EntityPlayerLocal player, out string message)
+        public static bool Scout(Resource r, EntityPlayer player, out string message)     // round MP5 (part R): any player (the marker: this machine's own; ScMarkers for the rest)
         {
             message = null;
             if ((int)r >= ScNames.ClassicCount) { message = Localization.Get("scScoutClassicOnly"); return false; }
-            if (!CanScout(out message)) return false;
+            if (!CanScout(out message, player)) return false;
+            // round MP5 (part R): the markers are this machine's own player's - a listen host's own map too when a client scouted
+            EntityPlayer markFor = player is EntityPlayerLocal ? player : ScCommunity.LocalPlayer;
             try
             {
                 ScConfig.EnsureParsed();
@@ -179,7 +183,7 @@ namespace SurvivorCommunity
                         ExpireDay = ScCommunity.Today + Math.Max(1, ScConfig.RadioScoutDays)
                     };
                     c.Scouts.Add(sc);
-                    AddMarker(sc, player);
+                    AddMarker(sc, markFor);
                     if (sb.Length > 0) sb.Append(", ");
                     sb.Append(string.Format(Localization.Get("scScoutSite"), sc.Name, Where(sc)));
                     n++;

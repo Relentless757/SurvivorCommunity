@@ -2167,3 +2167,6 @@ scTalkHandedOver,UI,Tooltip,,,,{0} is with {1} now.
 # round MP5 (part E) - enclave dialogs for every player
 scEncReplyWait,Dialog,Statement,,,,...
 scEncEnlistFeeChanged,UI,Tooltip,,,,Their fee is {0} dukes now.
+# round MP5 (part R): the radio for every player
+scRadioTooFar,UI,Tooltip,,,,You are too far from the radio station. Go back to it and use it again.
+scRadioGone,UI,Tooltip,,,,That radio station is gone.

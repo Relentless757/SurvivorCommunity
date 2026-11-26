@@ -30,6 +30,14 @@ namespace SurvivorCommunity
     /// with where they are, and Call home (decision 6) - ScRunners.Recall for a physical runner who carries a radio, not
     /// pinned down and not on the way home already; they answer on the radio (ScRadioTalk.OnRecalled). It needs no station:
     /// radio to radio. Remote and the handheld gone from the inventory, the window closes.
+    /// Round MP5 (part R): every community player uses it. Every button asks the server (ScActionsRadio: radio.drop, radio.call,
+    /// radio.scout, radio.barter, radio.demand, radio.siege, radio.allytrade, radio.allycall, radio.recall) on every machine;
+    /// on the host and in single player the request runs inline and the answer is shown exactly as the old inline call's
+    /// result was. A client's window reads its copy of the registry for the lists (contacts, outposts, distress, enclaves,
+    /// requests, allies, runners, the siege) and the server's view for what the copy lacks (radio.view: readiness and reasons,
+    /// the call that is on, the siege's clock and answer, the recall), asked every ViewSeconds while open, one at a time
+    /// (ScRadioView, parsed once per answer: the bindings read fields). At a station a client's window closes beyond
+    /// ScActionsRadio.StationReach of it (the server refuses farther). The host's bindings read the registry as before.
     /// </summary>
     [Preserve]
     public class XUiC_ScRadio : XUiController
@@ -85,6 +93,19 @@ namespace SurvivorCommunity
         };
 #endif
 
+        // ---- round MP5 (part R): a client's window - the server's view of what its copy of the registry lacks (radio.view) ----
+        // Every field is set here, not in Init (bindings are read while the XML is parsed).
+        private readonly ScRadioView view = new ScRadioView();
+        /// <summary>A client asks for the view this often while the window is open, and again after this long without an answer.</summary>
+        private const float ViewSeconds = 1.5f, ViewWaitSeconds = 10f;
+        /// <summary>Bumped at each opening: an answer of an earlier one is dropped.</summary>
+        private int viewToken;
+        private bool viewAsking, viewAgain;
+        private float viewAskedAt = -100f;
+
+        /// <summary>A client's window (the copy of the registry, the server's view); false on the host and in single player, which read the registry as before.</summary>
+        private static bool Client { get { return !ScCommunity.IsHost; } }
+
         public EntityPlayerLocal Player
         {
             get { return (xui != null && xui.playerUI != null) ? xui.playerUI.entityPlayer : null; }
@@ -96,53 +117,32 @@ namespace SurvivorCommunity
             try
             {
                 Hook("btnClose", Close);
-                Hook("btnDrop", () => { message = ScRadio.RequestDrop(Player) ? Localization.Get("scRadioDropSent") : ""; RefreshBindings(); });
-                Hook("btnCall", () => { message = ScRadio.Call(Player) ? Localization.Get("scRadioCalled") : ""; RefreshBindings(); });
+                // round MP5 (part R): every act is a request (ScActionsRadio) - inline on the host, the old lines and sounds; the verb
+                // tells the drop's and the call's outcome itself, so their answers carry words only when the request was refused
+                // before the verb (a client too far from the station, a server that cannot answer)
+                Hook("btnDrop", () => Act(ScActionsRadio.OpDrop, r => { Sound(r); message = r.Ok ? Localization.Get("scRadioDropSent") : r.Text; RefreshBindings(); }));
+                Hook("btnCall", () => Act(ScActionsRadio.OpCall, r => { Sound(r); message = r.Ok ? Localization.Get("scRadioCalled") : r.Text; RefreshBindings(); }));
                 Hook("btnScoutFood", () => DoScout(Resource.Food));
                 Hook("btnScoutMeds", () => DoScout(Resource.Meds));
                 Hook("btnScoutAmmo", () => DoScout(Resource.Ammo));
                 Hook("btnScoutMaterials", () => DoScout(Resource.Materials));
                 Hook("btnScoutFuel", () => DoScout(Resource.Fuel));
                 // the five classic supplies and water (round wl); luxuries are not bartered
-                Hook("btnBarterGive", () => { barterGive = (Resource)(((int)barterGive + 1) % ScBarter.Kinds); if (barterGive == barterGet) barterGive = (Resource)(((int)barterGive + 1) % ScBarter.Kinds); RefreshBindings(); });
-                Hook("btnBarterGet", () => { barterGet = (Resource)(((int)barterGet + 1) % ScBarter.Kinds); if (barterGet == barterGive) barterGet = (Resource)(((int)barterGet + 1) % ScBarter.Kinds); RefreshBindings(); });
-                Hook("btnDemandPay", () =>
-                {
-                    string msg;
-                    EntityPlayerLocal p = Player;
-                    if (!ScOutpostRisk.PayDemand(ScOutpostRisk.FirstDemand(), p, out msg) && p != null) p.PlayOneShot("ui_denied");
-                    message = msg ?? "";
-                    RefreshBindings();
-                });
-                Hook("btnDemandRefuse", () =>
-                {
-                    string msg;
-                    ScOutpostRisk.RefuseDemand(ScOutpostRisk.FirstDemand(), Player, out msg);
-                    message = msg ?? "";
-                    RefreshBindings();
-                });
-                Hook("btnBarterTrade", () =>
-                {
-                    string msg;
-                    EntityPlayerLocal p = Player;
-                    if (!ScBarter.Trade(barterGive, barterGet, p, out msg) && p != null) p.PlayOneShot("ui_denied");
-                    message = msg ?? "";
-                    RefreshBindings();
-                });
+                Hook("btnBarterGive", () => { barterGive = (Resource)(((int)barterGive + 1) % ScBarter.Kinds); if (barterGive == barterGet) barterGive = (Resource)(((int)barterGive + 1) % ScBarter.Kinds); AskView(true); RefreshBindings(); });   // round MP5 (part R): a client asks for the new pair's view
+                Hook("btnBarterGet", () => { barterGet = (Resource)(((int)barterGet + 1) % ScBarter.Kinds); if (barterGet == barterGive) barterGet = (Resource)(((int)barterGet + 1) % ScBarter.Kinds); AskView(true); RefreshBindings(); });
+                // round MP5 (part R): the demand, the barter and the siege's answers as requests (the outpost and the siege the window
+                // shows go along: another one on the server by then is refused, never answered in its place)
+                Hook("btnDemandPay", () => Act(ScActionsRadio.OpDemand, r => { Sound(r); message = r.Text; RefreshBindings(); }, DemandId(), 1));
+                Hook("btnDemandRefuse", () => Act(ScActionsRadio.OpDemand, r => { Sound(r); message = r.Text; RefreshBindings(); }, DemandId(), 0));
+                Hook("btnBarterTrade", () => Act(ScActionsRadio.OpBarter, r => { Sound(r); message = r.Text; RefreshBindings(); }, (int)barterGive, (int)barterGet));
                 // E6: a siege call answered - "On our way" (thanks, nothing else changes), "We can't come" (pressed twice: lost)
                 Hook("btnSiegeGo", () =>
                 {
-                    string msg;
-                    EntityPlayerLocal p = Player;
                     confirmCantUntil = 0f;
-                    if (!ScEncSiege.OnOurWay(p, out msg) && p != null) p.PlayOneShot("ui_denied");
-                    siegeHint = msg ?? "";
-                    BuildEnclaves();
-                    RefreshBindings();
+                    Act(ScActionsRadio.OpSiege, r => { Sound(r); siegeHint = r.Text; BuildEnclaves(); RefreshBindings(); }, 1, SiegeId());
                 });
                 Hook("btnSiegeCant", () =>
                 {
-                    EntityPlayerLocal p = Player;
                     float now = Time.unscaledTime;
                     if (now > confirmCantUntil)
                     {
@@ -152,23 +152,21 @@ namespace SurvivorCommunity
                         return;
                     }
                     confirmCantUntil = 0f;
-                    string msg;
-                    if (!ScEncSiege.CantCome(p, out msg) && p != null) p.PlayOneShot("ui_denied");
-                    siegeHint = msg ?? "";
-                    BuildEnclaves();
-                    RefreshBindings();
+                    Act(ScActionsRadio.OpSiege, r => { Sound(r); siegeHint = r.Text; BuildEnclaves(); RefreshBindings(); }, 2, SiegeId());
                 });
                 // E7: the Allies panel - the next ally (nearest first), what you give, what you get (a scavengers' group), the trade
                 Hook("btnAllyPick", () =>
                 {
                     if (allies.Count > 1) PickAlly(allies[(IndexOfAlly() + 1) % allies.Count]);
                     allyHint = "";
+                    AskView(true);              // round MP5 (part R): a client asks for the new pick's view
                     RefreshBindings();
                 });
                 Hook("btnAllyGive", () =>
                 {
                     allyGive = ScEncBarter.NextGive(allyGive, allyGet);
                     allyHint = "";
+                    AskView(true);              // round MP5 (part R)
                     RefreshBindings();
                 });
                 Hook("btnAllyGet", () =>
@@ -178,17 +176,16 @@ namespace SurvivorCommunity
                     allyGet = ScEncBarter.NextGet(a, allyGet);
                     allyGive = ScEncBarter.FixGive(allyGive, allyGet);
                     allyHint = "";
+                    AskView(true);              // round MP5 (part R)
                     RefreshBindings();
                 });
-                Hook("btnAllyTrade", () =>
+                Hook("btnAllyTrade", () => Act(ScActionsRadio.OpAllyTrade, r =>      // round MP5 (part R): a request
                 {
-                    string msg;
-                    EntityPlayerLocal p = Player;
-                    if (!ScEncBarter.Trade(PickedAlly(), allyGive, allyGet, p, out msg) && p != null) p.PlayOneShot("ui_denied");
-                    allyHint = msg ?? "";
+                    Sound(r);
+                    allyHint = r.Text;
                     BuildEnclaves();
                     RefreshBindings();
-                });
+                }, PickedAllyId(), (int)allyGive, (int)allyGet));
                 // E9: the radio commands - a fighter, a supply drop (the call that is on then shows on the hint line)
                 Hook("btnAllyFighter", () => DoCall(ScEncCalls.Fighter));
                 Hook("btnAllyDrop", () => DoCall(ScEncCalls.Drop));
@@ -197,6 +194,7 @@ namespace SurvivorCommunity
                 Hook("btnRunPick", () =>
                 {
                     if (runners.Count > 1) runId = runners[(IndexOfRunner() + 1) % runners.Count].Id;
+                    AskView(true);              // round MP5 (part R): a client asks for the new pick's view
                     RefreshBindings();
                 });
                 Hook("btnRunRecall", DoRecall);
@@ -211,23 +209,253 @@ namespace SurvivorCommunity
         /// <summary>E9: a call to the picked ally. Made: the radio's answer is told and the hint shows the call; refused: the reason, the denied sound.</summary>
         private void DoCall(string kind)
         {
-            string msg;
-            EntityPlayerLocal p = Player;
-            bool done = ScEncCalls.Call(PickedAlly(), kind, p, false, false, out msg);
-            if (!done && p != null) p.PlayOneShot("ui_denied");
-            allyHint = done ? "" : msg ?? "";
-            BuildEnclaves();
-            RefreshBindings();
+            // round MP5 (part R): a request (radio.allycall) - the call comes to whoever made it
+            Act(ScActionsRadio.OpAllyCall, r =>
+            {
+                Sound(r);
+                allyHint = r.Ok ? "" : r.Text;
+                BuildEnclaves();
+                RefreshBindings();
+            }, PickedAllyId(), kind == ScEncCalls.Drop ? 1 : 0);
         }
 
         private void DoScout(Resource res)
         {
-            string msg;
+            // round MP5 (part R): a request (radio.scout); the answer's words are Scout's, shown and told here as before
+            Act(ScActionsRadio.OpScout, r =>
+            {
+                EntityPlayerLocal p = Player;
+                Sound(r);
+                message = r.Text;
+                if (p != null && !string.IsNullOrEmpty(message)) ScCommunity.Tell(p, message, "");
+                RefreshBindings();
+            }, (int)res);
+        }
+
+        // ---- round MP5 (part R): the requests and the client's view ----
+
+        /// <summary>
+        /// One act of the window as a request (ScActionsRadio): the radio it is used at goes first - mode, x, y, z (at a station
+        /// its block, ScRadio.CurrentRadio; over a handheld radio nothing) - then the op's own numbers. On the host the answer comes
+        /// before this returns. A client asks for the view again at once, so the readiness follows the act.
+        /// </summary>
+        private void Act(string op, Action<ScActionReply> done, params int[] extra)
+        {
+            int n = extra != null ? extra.Length : 0;
+            var ints = new int[4 + n];
+            FillRadio(ints);
+            for (int i = 0; i < n; i++) ints[4 + i] = extra[i];
+            int token = viewToken;
+            ScActions.Request(op, ints, null, r =>
+            {
+                if (done != null) done(r);
+                if (token == viewToken) AskView(true);
+            });
+        }
+
+        /// <summary>mode, x, y, z of the radio this window is used at, into ints[0..3].</summary>
+        private void FillRadio(int[] ints)
+        {
+#if SC_V34
+            bool handheld = remote;
+#else
+            bool handheld = false;
+#endif
+            Vector3i at = !handheld && ScRadio.CurrentRadio.HasValue ? ScRadio.CurrentRadio.Value : Vector3i.zero;
+            ints[0] = handheld ? ScActionsRadio.ModeHandheld : ScActionsRadio.ModeStation;
+            ints[1] = at.x;
+            ints[2] = at.y;
+            ints[3] = at.z;
+        }
+
+        /// <summary>An answer's sound, on this machine (the old inline code's PlayOneShot).</summary>
+        private void Sound(ScActionReply r)
+        {
             EntityPlayerLocal p = Player;
-            if (!ScScouting.Scout(res, p, out msg) && p != null) p.PlayOneShot("ui_denied");
-            message = msg ?? "";
-            if (p != null && !string.IsNullOrEmpty(msg)) ScCommunity.Tell(p, msg, "");
-            RefreshBindings();
+            if (p != null && r != null && !string.IsNullOrEmpty(r.Sound)) p.PlayOneShot(r.Sound);
+        }
+
+        private static int DemandId()
+        {
+            Outpost d = ScOutpostRisk.FirstDemand();
+            return d != null ? d.Id : -1;
+        }
+
+        private static int SiegeId()
+        {
+            EnclaveRequest r = ScEncSiege.Open;
+            return r != null ? r.Id : -1;
+        }
+
+        private int PickedAllyId()
+        {
+            Enclave a = PickedAlly();
+            return a != null ? a.Id : -1;
+        }
+
+        private int PickedRunnerId()
+        {
+#if SC_V34
+            Member m = PickedRunner();
+            return m != null ? m.Id : -1;
+#else
+            return -1;
+#endif
+        }
+
+        /// <summary>A client's view starts over (an opening): an answer of an earlier one is dropped.</summary>
+        private void ResetView()
+        {
+            view.Clear();
+            viewToken++;
+            viewAsking = viewAgain = false;
+            viewAskedAt = -100f;
+        }
+
+        /// <summary>
+        /// A client asks the server for the view (radio.view, quiet) - every ViewSeconds, or now (an opening, a pick, an act); one
+        /// request at a time (a "now" while one is on its way asks again after it; none answered in ViewWaitSeconds: asked again).
+        /// The host never asks: its bindings read the registry.
+        /// </summary>
+        private void AskView(bool now)
+        {
+            if (!Client || !ScActionsWindow.CanRequest) return;
+            float t = Time.unscaledTime;
+            if (viewAsking && t - viewAskedAt > ViewWaitSeconds) viewAsking = false;
+            if (viewAsking)
+            {
+                if (now) viewAgain = true;
+                return;
+            }
+            if (!now && t - viewAskedAt < ViewSeconds) return;
+            viewAsking = true;
+            viewAgain = false;
+            viewAskedAt = t;
+            var ints = new int[10];
+            FillRadio(ints);
+            ints[4] = (int)barterGive;
+            ints[5] = (int)barterGet;
+            ints[6] = PickedAllyId();
+            ints[7] = (int)allyGive;
+            ints[8] = (int)allyGet;
+            ints[9] = PickedRunnerId();
+            int token = viewToken;
+            ScActions.Request(ScActionsRadio.OpView, ints, null, r =>
+            {
+                try
+                {
+                    if (token != viewToken) return;              // an earlier opening's answer
+                    viewAsking = false;
+                    if (!view.Read(r) && !r.Ok && message.Length == 0) message = r.Text;     // refused (too far, the station gone): said once
+                    if (IsShowing()) RefreshBindings();
+                    if (viewAgain) AskView(true);
+                }
+                catch (Exception e) { ScLog.Once("radio-window-view", e); }
+            });
+        }
+
+        private bool IsShowing()
+        {
+            return xui != null && xui.playerUI != null && xui.playerUI.windowManager != null && xui.playerUI.windowManager.IsWindowOpen(ScRadio.WindowGroup);
+        }
+
+        /// <summary>A client at a station: farther from its block than the server lets it act (a meter short of StationReach, for lag).</summary>
+        private bool WalkedAway()
+        {
+            EntityPlayerLocal p = Player;
+            if (p == null || !ScRadio.CurrentRadio.HasValue) return false;
+            Vector3i at = ScRadio.CurrentRadio.Value;
+            return Vector3.Distance(p.position, new Vector3(at.x + 0.5f, at.y + 0.5f, at.z + 0.5f)) > ScActionsRadio.StationReach - 1f;
+        }
+
+        // ---- round MP5 (part R): each control's readiness and words - the registry on the host (exactly the old expressions), the
+        // server's view on a client (for the pick it was asked for: another pick shows "not ready" until its answer) ----
+
+        private bool DropOk(out string why)
+        {
+            if (Client) { why = view.DropWhy; return view.DropReady; }
+            string key;
+            bool ok = ScRadio.CanDrop(out key);
+            why = ok ? null : ScRadio.DropWhy(key);
+            return ok;
+        }
+
+        private bool CallOk(out string why)
+        {
+            if (Client) { why = view.CallWhy; return view.CallReady; }
+            string key;
+            bool ok = ScRadio.CanCall(out key);
+            why = ok ? null : ScRadio.CallWhy(key);
+            return ok;
+        }
+
+        private bool ScoutOk(out string why)
+        {
+            if (Client) { why = view.ScoutWhy; return view.ScoutReady; }
+            return ScScouting.CanScout(out why);
+        }
+
+        private bool BarterOk(out string why)
+        {
+            if (!Client) return ScBarter.CanTrade(barterGive, barterGet, out why);
+            bool mine = view.BarterGive == (int)barterGive && view.BarterGet == (int)barterGet;
+            why = mine ? view.BarterWhy : "";
+            return mine && view.BarterReady;
+        }
+
+        /// <summary>A client: the view was asked for the ally picked now.</summary>
+        private bool AllyAnswered() { return view.Has && view.AllyId == PickedAllyId(); }
+
+        private bool AllyTradeOk(out string why)
+        {
+            if (!Client) return ScEncBarter.CanTrade(PickedAlly(), allyGive, allyGet, out why);
+            bool mine = AllyAnswered() && view.AllyGive == (int)allyGive && view.AllyGet == (int)allyGet;
+            why = mine ? view.AllyTradeWhy : "";
+            return mine && view.AllyTradeReady;
+        }
+
+        private bool CallAllyOk(string kind, out string why)
+        {
+            if (!Client) return ScEncCalls.CanCall(PickedAlly(), kind, false, out why);
+            bool mine = AllyAnswered();
+            bool drop = kind == ScEncCalls.Drop;
+            why = mine ? (drop ? view.AllyDropWhy : view.FighterWhy) : "";
+            return mine && (drop ? view.AllyDropReady : view.FighterReady);
+        }
+
+        /// <summary>The call that is on with the picked ally ("" none): ScEncCalls.StateText, a client's from the view.</summary>
+        private string AllyCallText()
+        {
+            if (!Client) return ScEncCalls.StateText(PickedAlly());
+            return AllyAnswered() ? view.AllyCall : "";
+        }
+
+        private int AllyGiveN() { return Client && view.Has ? view.AllyN : ScLifeSkills.AllyBarter().Give; }
+        private int AllyGetN() { return Client && view.Has ? view.AllyGetN : ScLifeSkills.AllyBarter().Get; }
+        private int RadioGiveN() { return Client && view.Has ? view.BarterN : ScLifeSkills.RadioBarter().Give; }
+        private int RadioGetN() { return Client && view.Has ? view.BarterGetN : ScLifeSkills.RadioBarter().Get; }
+
+        /// <summary>The home station has power: ScRadio.Online, a client's from the view once it came (its copy's derived block before).</summary>
+        private bool OnlineNow() { return Client && view.Has ? view.Online : ScRadio.Online(); }
+
+        private bool SiegeAcked(EnclaveRequest r)
+        {
+            if (!Client) return ScEncSiege.Acknowledged(r);
+            return r != null && view.SiegeId == r.Id && view.SiegeAcked;
+        }
+
+        private string SiegeClock(EnclaveRequest r)
+        {
+            if (!Client) return ScEncSiege.Countdown(r);
+            return r != null && view.SiegeId == r.Id ? view.SiegeClock : "";
+        }
+
+        /// <summary>The drop's line: the sandbox's days (a client's from the server's view: the setting is the server's).</summary>
+        private string DropDesc()
+        {
+            if (!Client) return ScRadio.DropMaxDays() > 0 ? string.Format(Localization.Get("scRadioDropDesc"), ScRadio.DropDaysText()) : Localization.Get("scRadioDropsOff");
+            int a = view.Has ? view.DropMin : ScRadio.DropMinDays(), b = view.Has ? view.DropMax : ScRadio.DropMaxDays();
+            return b > 0 ? string.Format(Localization.Get("scRadioDropDesc"), a == b ? a.ToString() : a + "-" + b) : Localization.Get("scRadioDropsOff");
         }
 
         private void Hook(string id, Action action)
@@ -252,7 +480,7 @@ namespace SurvivorCommunity
         // ---- R2 (round 27): the handheld radio ----
 
         /// <summary>The station can act: at a radio block (its power was checked as it opened), or remote with a powered station at home.</summary>
-        private bool StationUp() { return !remote || ScRadio.Online(); }
+        private bool StationUp() { return !remote || OnlineNow(); }     // round MP5 (part R): a client's from the server's view
 
         private void RefuseOffline()
         {
@@ -268,7 +496,7 @@ namespace SurvivorCommunity
             runners.Clear();
             try
             {
-                if (!ScRegistry.Loaded) return;
+                if (!ScRegistry.Ready) return;            // round MP5 (part R): a client's copy too
                 foreach (Member m in ScRegistry.Members.Values) if (m.Status == MemberStatus.OnRun) runners.Add(m);
                 runners.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
                 if (IndexOfRunner() >= 0) return;
@@ -297,31 +525,23 @@ namespace SurvivorCommunity
         /// <summary>Decision 6: the picked runner told to come home - ScRunners.Recall, then their answer on the radio.</summary>
         private void DoRecall()
         {
-            EntityPlayerLocal p = Player;
-            Member m = PickedRunner();
-            string why;
-            if (!ScRadioTalk.CanRecall(m, out why))
+            // round MP5 (part R): a request (radio.recall: CanRecall, ScRunners.Recall, ScRadioTalk.OnRecalled on the server)
+            Act(ScActionsRadio.OpRecall, r =>
             {
-                if (p != null) p.PlayOneShot("ui_denied");
-                message = why ?? "";
+                Sound(r);
+                message = r.Text;
+                BuildRunners();
                 RefreshBindings();
-                return;
-            }
-            string err;
-            if (ScRunners.Recall(m, p, out err))
-            {
-                message = string.Format(Localization.Get("scRunRecalled"), m.Name);
-                ScRadioTalk.OnRecalled(m, p);
-                ScRegistry.SaveAtomic();
-                ScLog.Out(m.Name + " was called home over the radio" + (remote ? " (handheld)" : ""));
-            }
-            else
-            {
-                if (p != null) p.PlayOneShot("ui_denied");
-                message = Localization.Get(err ?? "scInternal");
-            }
-            BuildRunners();
-            RefreshBindings();
+            }, PickedRunnerId());
+        }
+
+        /// <summary>Round MP5 (part R): the picked runner's recall - ScRadioTalk.CanRecall on the host, the server's view on a client.</summary>
+        private bool RecallOk(out string why)
+        {
+            if (!Client) return ScRadioTalk.CanRecall(PickedRunner(), out why);
+            bool mine = view.Has && view.RunId == PickedRunnerId();
+            why = mine ? view.RecallWhy : "";
+            return mine && view.RecallReady;
         }
 
         /// <summary>
@@ -334,19 +554,19 @@ namespace SurvivorCommunity
             switch (name)
             {
                 case "runvisible": value = (runners.Count > 0).ToString(); return true;
-                case "runnone": value = runners.Count == 0 && ScRegistry.Loaded ? Localization.Get("scRadioRunNone") : ""; return true;
+                case "runnone": value = runners.Count == 0 && ScRegistry.Ready ? Localization.Get("scRadioRunNone") : ""; return true;   // round MP5 (part R): a client's copy too
                 case "runname": { Member m = PickedRunner(); value = m != null ? m.Name : ""; return true; }
                 case "runpickready": value = (runners.Count > 1).ToString(); return true;
                 case "runstate": { Member m = PickedRunner(); value = m != null ? ScRuns.StatusLine(m) : ""; return true; }
-                case "runrecallready": value = ScRadioTalk.CanRecall(PickedRunner(), out why).ToString(); return true;
-                case "runrecalllabel": value = ScRadioTalk.CanRecall(PickedRunner(), out why) ? Localization.Get("scRadioRunRecall") : why ?? ""; return true;
+                case "runrecallready": value = RecallOk(out why).ToString(); return true;                                          // round MP5 (part R)
+                case "runrecalllabel": value = RecallOk(out why) ? Localization.Get("scRadioRunRecall") : why ?? ""; return true;
                 case "demandready": value = StationUp().ToString(); return true;
                 case "siegecantready": value = (SiegeCalled() && StationUp()).ToString(); return true;
                 case "title": value = Localization.Get(remote ? "scRadioTitleRemote" : "scRadioTitle"); return true;
                 case "status":
                     if (!remote) return false;                                     // the station's own line
-                    value = ScRegistry.Loaded
-                        ? string.Format(Localization.Get("scRadioStatusRemote"), Localization.Get(ScRadio.Online() ? "scRadioOnline" : "scRadioRemoteDown"),
+                    value = ScRegistry.Ready                                       // round MP5 (part R): a client's copy, the server's word on the station
+                        ? string.Format(Localization.Get("scRadioStatusRemote"), Localization.Get(OnlineNow() ? "scRadioOnline" : "scRadioRemoteDown"),
                                         ScRegistry.Contacts.Count, ScConfig.RadioMaxContacts)
                         : "";
                     return true;
@@ -403,6 +623,9 @@ namespace SurvivorCommunity
                 ScMothUI.FitPage(this, PageWidth, PageHeight, ScHandheld.Carries(Player));
 #endif
                 BuildEnclaves();
+                // round MP5 (part R): a client's view starts over and is asked at once (the host never asks)
+                ResetView();
+                AskView(true);
                 RefreshBindings();
             }
             catch (Exception e)
@@ -418,6 +641,7 @@ namespace SurvivorCommunity
             try
             {
                 if (xui == null || xui.playerUI == null || xui.playerUI.windowManager == null || !xui.playerUI.windowManager.IsWindowOpen(ScRadio.WindowGroup)) return;
+                AskView(false);                 // round MP5 (part R): a client's view, every ViewSeconds (a time test; the host never asks)
                 float now = Time.unscaledTime;
                 if (now < nextRefresh) return;
                 nextRefresh = now + RefreshSeconds;
@@ -431,6 +655,16 @@ namespace SurvivorCommunity
                 if (remote && !ScHandheld.Carries(Player))
                 {
                     ScLog.Out("radio window: the handheld radio is no longer carried - closing the remote window");
+                    Close();
+                    return;
+                }
+                // round MP5 (part R): a client walked away from the station - the server would refuse its acts from there
+                if (!remote && Client && WalkedAway())
+                {
+                    ScLog.Out("radio window: more than " + ScActionsRadio.StationReach.ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+                              + " m from the radio station - closing the window");
+                    EntityPlayerLocal p = Player;
+                    if (p != null) ScCommunity.TellKey(p, "scRadioTooFar", "ui_denied");
                     Close();
                     return;
                 }
@@ -481,31 +715,32 @@ namespace SurvivorCommunity
                 case "allypickready": _value = (allies.Count > 1).ToString(); return true;
                 case "allyvisible": _value = (PickedAlly() != null && ScConfig.EnclaveBarter).ToString(); return true;
                 case "allynone": _value = AllyNone(); return true;
-                // round m1t: the terms with Bartering's cut (ScLifeSkills.AllyBarter)
+                // round m1t: the terms with Bartering's cut (ScLifeSkills.AllyBarter). Round MP5 (part R): every readiness, reason and
+                // term below through the helpers - the registry on the host (the old expressions), the server's view on a client
                 case "allygive":
-                    _value = string.Format(Localization.Get("scBarterGive"), ScLifeSkills.AllyBarter().Give, Localization.Get(ScNames.LocKey(allyGive)));
+                    _value = string.Format(Localization.Get("scBarterGive"), AllyGiveN(), Localization.Get(ScNames.LocKey(allyGive)));
                     return true;
                 case "allyget":
-                    _value = string.Format(Localization.Get("scRadioAllyGet"), ScLifeSkills.AllyBarter().Get, Localization.Get(ScNames.LocKey(allyGet)));
+                    _value = string.Format(Localization.Get("scRadioAllyGet"), AllyGetN(), Localization.Get(ScNames.LocKey(allyGet)));
                     return true;
                 case "allygetready": _value = ScEncBarter.ChoosesGet(PickedAlly()).ToString(); return true;
-                case "allytradeready": _value = ScEncBarter.CanTrade(PickedAlly(), allyGive, allyGet, out why).ToString(); return true;
+                case "allytradeready": _value = AllyTradeOk(out why).ToString(); return true;
                 case "allyhint": _value = AllyHint(); return true;
-                case "allyhintcolor": _value = allyHint.Length > 0 || ScEncCalls.StateText(PickedAlly()).Length > 0 ? Gold : Dim; return true;
+                case "allyhintcolor": _value = allyHint.Length > 0 || AllyCallText().Length > 0 ? Gold : Dim; return true;
                 // ---- E9: the radio commands (each label is the command, or why it can't be made now) ----
                 case "allycallvisible": _value = (PickedAlly() != null && ScConfig.EnclaveCalls).ToString(); return true;
                 case "allycallnone": _value = AllyCallNone(); return true;
-                case "allyfighterready": _value = ScEncCalls.CanCall(PickedAlly(), ScEncCalls.Fighter, false, out why).ToString(); return true;
+                case "allyfighterready": _value = CallAllyOk(ScEncCalls.Fighter, out why).ToString(); return true;
                 case "allyfighterlabel":
-                    _value = ScEncCalls.CanCall(PickedAlly(), ScEncCalls.Fighter, false, out why) ? Localization.Get("scRadioAllyFighter") : why ?? "";
+                    _value = CallAllyOk(ScEncCalls.Fighter, out why) ? Localization.Get("scRadioAllyFighter") : why ?? "";
                     return true;
-                case "allydropready": _value = ScEncCalls.CanCall(PickedAlly(), ScEncCalls.Drop, false, out why).ToString(); return true;
+                case "allydropready": _value = CallAllyOk(ScEncCalls.Drop, out why).ToString(); return true;
                 case "allydroplabel":
-                    _value = ScEncCalls.CanCall(PickedAlly(), ScEncCalls.Drop, false, out why) ? Localization.Get("scRadioAllyDrop") : why ?? "";
+                    _value = CallAllyOk(ScEncCalls.Drop, out why) ? Localization.Get("scRadioAllyDrop") : why ?? "";
                     return true;
                 // ---- E6: the Enclaves column ----
                 case "encnone":
-                    _value = encKnown == 0 ? Localization.Get("scRadioEncNone") : encKnown < 0 && ScRegistry.Loaded && !ScConfig.Enclaves ? Localization.Get("scRadioEncOff") : "";
+                    _value = encKnown == 0 ? Localization.Get("scRadioEncNone") : encKnown < 0 && ScRegistry.Ready && !ScConfig.Enclaves ? Localization.Get("scRadioEncOff") : "";
                     return true;
                 case "encmore": _value = encMore > 0 ? string.Format(Localization.Get("scRadioEncMore"), encMore) : ""; return true;
                 case "reqnone": _value = encKnown >= 0 && reqRows.Count == 0 ? Localization.Get("scRadioReqNone") : ""; return true;
@@ -513,37 +748,35 @@ namespace SurvivorCommunity
                 case "siegetext": _value = SiegeText(); return true;
                 case "siegecolor": _value = SiegeCalled() ? Danger : Body; return true;
                 case "siegebuttons": _value = SiegeCalled().ToString(); return true;
-                case "siegegoready": _value = (SiegeCalled() && !ScEncSiege.Acknowledged(ScEncSiege.Open)).ToString(); return true;
-                case "siegegolabel": _value = Localization.Get(ScEncSiege.Acknowledged(ScEncSiege.Open) ? "scRadioSiegeGoDone" : "scRadioSiegeGo"); return true;
+                case "siegegoready": _value = (SiegeCalled() && !SiegeAcked(ScEncSiege.Open)).ToString(); return true;
+                case "siegegolabel": _value = Localization.Get(SiegeAcked(ScEncSiege.Open) ? "scRadioSiegeGoDone" : "scRadioSiegeGo"); return true;
                 case "siegehint": _value = siegeHint ?? ""; return true;
                 case "title": _value = Localization.Get("scRadioTitle"); return true;
                 case "status":
-                    _value = ScRegistry.Loaded
-                        ? string.Format(Localization.Get("scRadioStatus"), ScRadio.Online() ? Localization.Get("scRadioOnline") : Localization.Get("scRadioOffline"),
+                    _value = ScRegistry.Ready
+                        ? string.Format(Localization.Get("scRadioStatus"), OnlineNow() ? Localization.Get("scRadioOnline") : Localization.Get("scRadioOffline"),
                                         ScRegistry.Contacts.Count, ScConfig.RadioMaxContacts)
                         : "";
                     return true;
                 case "droplabel":
-                    _value = ScRadio.CanDrop(out why) ? Localization.Get("scRadioDrop") : ScRadio.DropWhy(why);
+                    _value = DropOk(out why) ? Localization.Get("scRadioDrop") : why;
                     return true;
                 case "dropcolor":
-                    _value = ScRadio.CanDrop(out why) ? "50,110,50,255" : "70,70,70,255";
+                    _value = DropOk(out why) ? "50,110,50,255" : "70,70,70,255";
                     return true;
                 // Whether each control can act now (Tools/generate_radio_ui.py: a control that cannot keeps its
                 // plate but loses its hover plate and its label dims). The *color bindings are kept for any
                 // older markup.
-                case "dropready": _value = ScRadio.CanDrop(out why).ToString(); return true;
-                case "callready": _value = ScRadio.CanCall(out why).ToString(); return true;
-                case "scoutready": _value = ScScouting.CanScout(out why).ToString(); return true;
-                case "barterready": _value = ScBarter.CanTrade(barterGive, barterGet, out why).ToString(); return true;
-                case "dropdesc":
-                    _value = ScRadio.DropMaxDays() > 0 ? string.Format(Localization.Get("scRadioDropDesc"), ScRadio.DropDaysText()) : Localization.Get("scRadioDropsOff");
-                    return true;
+                case "dropready": _value = DropOk(out why).ToString(); return true;
+                case "callready": _value = CallOk(out why).ToString(); return true;
+                case "scoutready": _value = ScoutOk(out why).ToString(); return true;
+                case "barterready": _value = BarterOk(out why).ToString(); return true;
+                case "dropdesc": _value = DropDesc(); return true;
                 case "calllabel":
-                    _value = ScRadio.CanCall(out why) ? Localization.Get("scRadioCall") : ScRadio.CallWhy(why);
+                    _value = CallOk(out why) ? Localization.Get("scRadioCall") : why;
                     return true;
                 case "callcolor":
-                    _value = ScRadio.CanCall(out why) ? "50,80,120,255" : "70,70,70,255";
+                    _value = CallOk(out why) ? "50,80,120,255" : "70,70,70,255";
                     return true;
                 case "calldesc":
                     _value = string.Format(Localization.Get("scRadioCallDesc"), ScConfig.RadioContactMinDist, ScConfig.RadioContactMaxDist, ScConfig.RadioContactDays, ScConfig.RadioCallDays);
@@ -559,21 +792,21 @@ namespace SurvivorCommunity
                     return true;
                 }
                 // round m1t: the terms with Bartering's cut and a Haggler's extra (ScLifeSkills.RadioBarter)
-                case "bartergive": _value = string.Format(Localization.Get("scBarterGive"), ScLifeSkills.RadioBarter().Give, Localization.Get(ScNames.LocKey(barterGive))); return true;
+                case "bartergive": _value = string.Format(Localization.Get("scBarterGive"), RadioGiveN(), Localization.Get(ScNames.LocKey(barterGive))); return true;
                 case "barterget":
                 {
-                    int barterN = ScLifeSkills.RadioBarter().Get;
+                    int barterN = RadioGetN();
                     _value = barterN == 1 ? string.Format(Localization.Get("scBarterGet"), Localization.Get(ScNames.LocKey(barterGet)))
                                     : string.Format(Localization.Get("scRadioAllyGet"), barterN, Localization.Get(ScNames.LocKey(barterGet)));
                     return true;
                 }
-                case "bartercolor": _value = ScBarter.CanTrade(barterGive, barterGet, out why) ? "60,90,60,255" : "70,70,70,255"; return true;
+                case "bartercolor": _value = BarterOk(out why) ? "60,90,60,255" : "70,70,70,255"; return true;
                 case "barterdesc":
-                    _value = ScBarter.CanTrade(barterGive, barterGet, out why) ? Localization.Get("scRadioBarterDesc") : why ?? "";
+                    _value = BarterOk(out why) ? Localization.Get("scRadioBarterDesc") : why ?? "";
                     return true;
-                case "scoutcolor": _value = ScScouting.CanScout(out why) ? "60,90,60,255" : "70,70,70,255"; return true;
+                case "scoutcolor": _value = ScoutOk(out why) ? "60,90,60,255" : "70,70,70,255"; return true;
                 case "scoutdesc":
-                    _value = ScScouting.CanScout(out why) ? Localization.Get("scRadioScoutDesc") : why ?? "";
+                    _value = ScoutOk(out why) ? Localization.Get("scRadioScoutDesc") : why ?? "";
                     return true;
                 case "message": _value = message ?? ""; return true;
                 default: return base.GetBindingValueInternal(ref _value, _bindingName);
@@ -600,7 +833,7 @@ namespace SurvivorCommunity
 #endif
         private static string ContactsText()
         {
-            if (!ScRegistry.Loaded) return "";
+            if (!ScRegistry.Ready) return "";               // round MP5 (part R): a client's copy too
             if (ScRegistry.Contacts.Count == 0) return Localization.Get("scRadioNoContacts");
             var sb = new StringBuilder();
             int today = ScCommunity.Today;
@@ -615,7 +848,7 @@ namespace SurvivorCommunity
         /// <summary>Whether the outposts report in through this radio, and what each one sends or keeps waiting.</summary>
         private static string OutpostsText()
         {
-            if (!ScRegistry.Loaded) return "";
+            if (!ScRegistry.Ready) return "";               // round MP5 (part R): a client's copy too
             bool online = ScOutposts.RadioOnlineAnywhere();
             var sb = new StringBuilder();
             sb.Append(string.Format(Localization.Get(online ? "scRadioOutpostsOnline" : "scRadioOutpostsSilent"), ScOutposts.HeldCount(), ScOutposts.Slots()));
@@ -636,7 +869,7 @@ namespace SurvivorCommunity
 
         private static string DistressText()
         {
-            if (!ScRegistry.Loaded) return "";
+            if (!ScRegistry.Ready) return "";               // round MP5 (part R): a client's copy too
             var sb = new StringBuilder();
             foreach (var m in ScRegistry.Members.Values)
             {
@@ -664,7 +897,7 @@ namespace SurvivorCommunity
             encKnown = -1;
             try
             {
-                if (!ScRegistry.Loaded || !ScConfig.Enclaves) return;
+                if (!ScRegistry.Ready || !ScConfig.Enclaves) return;      // round MP5 (part R): a client's copy too
                 EntityPlayerLocal pl = Player;
                 Vector3 from = pl != null ? pl.position : ScZone.HasHome ? new Vector3(ScZone.Home.x, ScZone.Home.y, ScZone.Home.z) : Vector3.zero;
                 var known = new List<Enclave>();
@@ -798,11 +1031,11 @@ namespace SurvivorCommunity
         {
             if (allyHint.Length > 0) return allyHint;
             Enclave a = PickedAlly();
-            string call = ScEncCalls.StateText(a);
+            string call = AllyCallText();               // round MP5 (part R): ScEncCalls.StateText, a client's from the view
             if (call.Length > 0) return call;
             if (a == null || !ScConfig.EnclaveBarter) return "";
             string why;
-            if (!ScEncBarter.CanTrade(a, allyGive, allyGet, out why)) return why ?? "";
+            if (!AllyTradeOk(out why)) return why ?? "";
             return Localization.Get(ScEncBarter.ChoosesGet(a) ? "scRadioAllyBarterDescAny" : "scRadioAllyBarterDesc");
         }
 
@@ -854,20 +1087,21 @@ namespace SurvivorCommunity
         private static bool SiegeCalled()
         {
             EnclaveRequest r = ScEncSiege.Open;
-            return ScRegistry.Loaded && r != null && r.Stage == ScEncSiege.StageCalled;
+            return ScRegistry.Ready && r != null && r.Stage == ScEncSiege.StageCalled;     // round MP5 (part R): a client's copy too
         }
 
         /// <summary>The siege panel's words: none open, called (who, the countdown, where; "you told them" once answered), live (how many left).</summary>
         private string SiegeText()
         {
-            if (!ScRegistry.Loaded) return "";
+            if (!ScRegistry.Ready) return "";               // round MP5 (part R): a client's copy too
             EnclaveRequest r = ScEncSiege.Open;
             Enclave e = r != null ? ScEnclaves.ById(r.EnclaveId) : null;
             if (r == null || e == null) return Localization.Get("scRadioSiegeNone");
             if (r.Stage != ScEncSiege.StageCalled) return string.Format(Localization.Get("scRadioSiegeLive"), e.Name, Math.Max(0, r.SiegeSize - r.SiegeKilled));
             EntityPlayerLocal pl = Player;
-            string s = string.Format(Localization.Get("scRadioSiegeCalled"), e.Name, ScEncSiege.Countdown(r), pl != null ? ScEnclaves.Where(pl.position, e.Centre) : e.PoiName);
-            if (ScEncSiege.Acknowledged(r)) s += "\n" + Localization.Get("scRadioSiegeAcked");
+            // round MP5 (part R): the clock and the answer - a client's from the server's view
+            string s = string.Format(Localization.Get("scRadioSiegeCalled"), e.Name, SiegeClock(r), pl != null ? ScEnclaves.Where(pl.position, e.Centre) : e.PoiName);
+            if (SiegeAcked(r)) s += "\n" + Localization.Get("scRadioSiegeAcked");
             return s;
         }
     }

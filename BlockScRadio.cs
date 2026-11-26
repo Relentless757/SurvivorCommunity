@@ -7,6 +7,8 @@ using UnityEngine.Scripting;
 /// <summary>
 /// The radio station: a powered consumer block (vanilla's BlockPowered + TileEntityPoweredBlock, wired like a
 /// light) whose "Use radio" command opens the radio window while it has power. "Take" is vanilla's pickup.
+/// Round MP5 (part R): any player's "Use radio" opens the window on their own machine (ScRadio.Open: a client checks the
+/// power its copy of the block shows, and the server checks the station again with every request - ScActionsRadio).
 /// </summary>
 [Preserve]
 public class BlockScRadio : BlockPowered

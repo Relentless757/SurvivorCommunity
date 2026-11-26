@@ -13,7 +13,7 @@ namespace SurvivorCommunity
     /// The tab is the selector's like any other (a ButtonSelectable named ScRadio: pressing it opens the window group
     /// "scradio", the radio station's window, whose XUiC_ScPageGroup keeps the bar with it - "remote", over the handheld).
     /// It shows only while the local player carries a handheld radio (ScHandheld.Carries: bag or toolbelt), the host plays
-    /// and HandheldRadioTab is on - never in the prefab editor. The rect and the tab bind {scradiotab}, which this controller
+    /// (round MP5, part R: or a client that can ask the server) and HandheldRadioTab is on - never in the prefab editor. The rect and the tab bind {scradiotab}, which this controller
     /// answers from its last look (both bindings register here, the nearest controller that answers), so a change shows by
     /// refreshing its own bindings - and the selector skips the hidden tab when it pages, as it skips any hidden one.
     /// Looked at as the bar opens (OnOpen), every half second while it is open (Update: two item counts, no allocation) and
@@ -126,10 +126,14 @@ namespace SurvivorCommunity
             return live != null && live.Refresh(true);
         }
 
-        /// <summary>Should the tab show: HandheldRadioTab, the host, not the prefab editor, a living player carrying a handheld radio.</summary>
+        /// <summary>
+        /// Should the tab show: HandheldRadioTab, the host, not the prefab editor, a living player carrying a handheld radio.
+        /// Round MP5 (part R): any player whose machine can ask the server (ScActionsWindow.CanRequest: the host, or a client of a
+        /// server with the same SurvivorCommunity and its copy of the registry) - the client's own bag is its own to read.
+        /// </summary>
         public static bool Wanted(XUi xui)
         {
-            if (!ScConfig.HandheldRadioTab || !ScCommunity.IsHost) return false;
+            if (!ScConfig.HandheldRadioTab || !ScActionsWindow.CanRequest) return false;
             if (PrefabEditModeManager.Instance != null && PrefabEditModeManager.Instance.IsActive()) return false;
             EntityPlayerLocal p = xui != null && xui.playerUI != null ? xui.playerUI.entityPlayer : null;
             return p != null && !p.IsDead() && ScHandheld.Carries(p);

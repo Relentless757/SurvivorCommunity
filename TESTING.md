@@ -93,6 +93,63 @@ standing <id> <points>`, `sc enclave request <id> offer <kind>`, `sc enclave spa
       their bag.
 - [ ] Two players enlist from the same enclave at once: one gets them, the other is refused and keeps the dukes.
 - [ ] A listen host with a client: the host's own talk as single player's while the client talks to another member.
+## Round MP5 (part: R) (2026-11-26): the radio for every player
+
+Why: the radio station's window and the handheld Radio tab were the host's alone ("The community is managed by the host"
+on a client), and on a dedicated server nobody could open the radio, so the radio's air drops never came there. Now any
+community player uses the radio at a powered station (or over a handheld radio, with `HandheldRadioTab` on): every button
+asks the server, a client's window reads its copy of the registry for the lists and asks the server every 1.5 s for what
+the copy lacks (the buttons' readiness and reasons, the call that is on, the siege's clock). An ally's fighter or supply
+drop, and the radio's air drop, come to the player who asked. Horde warnings reach a client's own handheld radio. Build
+`sc34_mp5r`, not deployed, untested in game. With `DebugLogging` on the server logs `action radio.<op> by <player>: ...`
+for every act (the view's polls are not logged).
+
+**Single player (and the host's own play): nothing may change**
+- [ ] At a powered station: Request air drop (the plane flies to you; the button grays with the hours left), Call for
+      survivors (a contact on the map), Scout food (the tooltip and the window line), Barter (the window line), as before.
+- [ ] Unpowered station: "The radio has no power." and no window. The Radio tab with a handheld radio: the remote window;
+      with the home station off, every station button grays "Home station offline" and refuses.
+- [ ] Allies panel: trade, Send a fighter (they come to you, the hint shows "on the way" then "with you until ..."),
+      Supply drop (the crate falls near you). An outpost's raid demand: Pay / Refuse as before.
+- [ ] A siege call: "On our way" (their thanks, the button shows it), "We can't come" twice (the enclave falls).
+- [ ] A runner with a radio: Call home from the radio; "Copy that." on your radio.
+- [ ] `sc barter food meds`, `sc scout food`, `sc radio horde call force` work as before.
+- [ ] A horde at home with a guard on watch: the warnings in person or on your radio, as before.
+
+**A client on a dedicated server** (the client has the same SurvivorCommunity; a home with a powered station, an ally, a
+runner with a radio, a handheld radio in the client's bag)
+- [ ] "Use radio" at the station opens the window on the client (no "managed by the host"). Status, contacts, outposts,
+      supply runs, enclaves, requests and allies fill from the client's copy; the buttons' readiness and grayed reasons show
+      within about a second (the server's numbers: the drop's hours, the call's days, the scout's and barter's waits).
+- [ ] Request air drop: the plane comes to the CLIENT (not to another player); the tooltip "on its way"; the button grays
+      for the sandbox days. `RadioOnlyAirdrops` true: no scheduled vanilla drop while the client is online.
+- [ ] Call for survivors: a contact marker on the client's map, the tooltip; the contact's weapons fit the client's
+      gamestage. Scout: the sites marked on the client's map, the window line and tooltip.
+- [ ] Barter and ally trade: the stockpile changes on the server (the community window shows it), the window line says so;
+      a second trade the same day is refused with the wait.
+- [ ] Send a fighter: they come to the client, are enlisted with the client (they follow the client), say hello near the
+      client; the hint line shows the call. Supply drop: the crate falls near the client.
+- [ ] Walk more than about 9 m from the station: the window closes with "You are too far from the radio station."
+- [ ] The Radio tab shows while the client carries a handheld radio; its window works remotely, closes when the radio
+      leaves the bag; with the home station unpowered the station buttons gray "Home station offline".
+- [ ] A siege called for the client (stand within range of a known enclave): the journal quest is the client's, its
+      countdown runs on the client; "On our way" and "We can't come" work from the client's window.
+- [ ] Call home a runner with a radio: "Copy that." on the client's radio.
+- [ ] A horde at home, the client at the base more than 30 m from the guard, carrying a handheld: the guard's warning on
+      the client's radio (the guard carries a handheld, or the home station has power). Away from the base with a handheld
+      and a powered station: the radio's call, arrival and result lines (once a dedicated server's callers pass the anchor:
+      see DEVELOPER, "MP5 merge"). Without a handheld: the texts alone.
+- [ ] A dedicated server with no SurvivorCommunity client online: vanilla's scheduled drops still come.
+- [ ] No SC error in the server's or the client's log.
+
+**Two players** (a listen host and a client, or two clients)
+- [ ] Both open the radio at the same station: both see the same cooldowns; one requests the drop, the other's button grays
+      within a second and a late press is refused with the wait.
+- [ ] One calls an ally's fighter: they come to that player, not the other; the other's panel shows the call on.
+- [ ] The host scouts or calls a contact: the client's map gets the markers; the client does: the host's map gets them.
+- [ ] Both press "On our way": the second is told they already answered.
+- [ ] A client refuses a raid demand: the raid starts (known gap: the radio's call about it is not told to the community
+      for a client's refusal until the merge).
 
 ## Round mt1 (part: C) (2026-11-25): a client reads SC's config once the server's blocks and items are in
 
@@ -8943,7 +9000,7 @@ shows the parts; `sc enclave refill [now]` the refills. Use known, non-hostile e
     1920x1080 and at the smallest resolution you play: nothing runs off the screen.
 12. **On our way.** `sc enclave siege <id> now`: the Siege calls panel shows "<enclave> is under attack! 14:59 left to
     reach them, <where>." counting down, and two buttons. "On our way": the tell "<enclave> on the radio: "Thank you!
-    We'll hold them off as long as we can."", the button greys to "They know you're coming", the panel adds "You told
+    We'll hold them off as long as we can."", the button grays to "They know you're coming", the panel adds "You told
     them you're on your way."; the countdown and the siege run on unchanged (step 8 of E5 still wins it). Once you get
     there and it goes live, the panel shows "<enclave>: the fight is on, N of the dead left." and no buttons.
 13. **We can't come.** Another call: press "We can't come" once: "Press We can't come again: they will fall without
