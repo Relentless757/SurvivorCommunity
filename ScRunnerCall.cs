@@ -27,6 +27,14 @@ namespace SurvivorCommunity
     ///
     /// The hit is seen in Patches_Trust.Patch_DamageResponse (V4's ProcessDamageResponseLocal postfix: every landed hit, on
     /// the host); no new Harmony target. Host only (SC is single player), main thread.
+    ///
+    /// Round MP5 (part N, multiplayer): the server's, for every community player. "The player" in the rules above is any of
+    /// them: no call while any living community player is within InPersonRange of her (they would just shout - the escort rule),
+    /// none with no living community player online; it is heard on a powered station at home or a handheld this machine can
+    /// read (the host's own player's - a remote player's bag lives on their machine, so on a dedicated server a call needs the
+    /// station, as a distress call does). The message goes to every community player online (the community's radio news, each
+    /// in their own language); her line reaches every client, who judges their own handheld (ScRadioTalk, MP4); the marker is
+    /// the host's own map object here and every client's through ScMarkers (CollectMarkers, MP4).
     /// </summary>
     public static class ScRunnerCall
     {
@@ -83,7 +91,8 @@ namespace SurvivorCommunity
                 float until;
                 if (quietUntil.TryGetValue(m.Id, out until) && now < until) return;
                 string result;
-                if (!Make(m, body, attacker, ScCommunity.LocalPlayer, false, out result)) quietUntil[m.Id] = now + SkipQuietSeconds;
+                // round MP5 (part N): the listener is every community player (Make) - was the host's own only (none on a dedicated server)
+                if (!Make(m, body, attacker, Listener(), false, out result)) quietUntil[m.Id] = now + SkipQuietSeconds;
             }
             catch (Exception e)
             {
@@ -113,21 +122,54 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ the call ----
 
         /// <summary>
-        /// The call itself, when its rules allow it (force: the console - whatever the rules; her line is said even if it was).
-        /// result: what happened, for the console. True when the call was made.
+        /// Round MP5 (part N): who the call reasons from - the host's own player whenever there is one (their handheld is readable,
+        /// their map gets the object, the radio line plays here for them: single player and a listen host as before), else the
+        /// tick's anchor (a dedicated server: a remote community player, for whom Make reads only the station). Null with nobody online.
         /// </summary>
-        private static bool Make(Member m, EntityAlive body, EntityAlive attacker, EntityPlayerLocal player, bool force, out string result)
+        private static EntityPlayer Listener()
+        {
+            EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+            return lp != null ? (EntityPlayer)lp : ScPlayers.Anchor();
+        }
+
+        /// <summary>Round MP5 (part N): a living community player online (the call has someone to reach), or null.</summary>
+        private static EntityPlayer AnyLiving()
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+                if (all[i] != null && !all[i].IsDead() && ScPlayers.InCommunity(all[i])) return all[i];
+            return null;
+        }
+
+        /// <summary>Round MP5 (part N): a living community player beside her (ScRadioTalk.InPerson: her body within InPersonRange), or null.</summary>
+        private static EntityPlayer Beside(Member m)
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+                if (all[i] != null && !all[i].IsDead() && ScPlayers.InCommunity(all[i]) && ScRadioTalk.InPerson(m, all[i])) return all[i];
+            return null;
+        }
+
+        /// <summary>
+        /// The call itself, when its rules allow it (force: the console - whatever the rules; her line is said even if it was).
+        /// result: what happened, for the console. True when the call was made. Round MP5 (part N): player is the Listener (the
+        /// host's own, else the anchor); the rules ask every community player (see the class summary).
+        /// </summary>
+        private static bool Make(Member m, EntityAlive body, EntityAlive attacker, EntityPlayer player, bool force, out string result)
         {
             result = null;
+            // round MP5 (part N): the handheld this machine can read - this machine's own player's (null on a dedicated server)
+            EntityPlayerLocal lp = player as EntityPlayerLocal ?? ScCommunity.LocalPlayer;
             if (!force)
             {
                 if (!ScConfig.RunnerCallsWhenAttacked) { ScHandheld.Count("attack call off"); result = "RunnerCallsWhenAttacked is off"; return false; }
                 if (m.RunDistress) { ScHandheld.Count("attack call skipped: radioed for help already (distress)"); result = m.Name + " radioed for help already (a distress call)"; return false; }
                 if (ScRadioTalk.Said(m, RadioTalk.Trouble)) { ScHandheld.Count("attack call skipped: called once this run"); result = m.Name + " called for help once this run already"; return false; }
                 if (!m.RunRadio) { ScHandheld.Count("attack call skipped: runner has no radio"); result = m.Name + " carries no radio"; return false; }
-                if (player == null || player.IsDead()) { result = "no live player"; return false; }
-                if (ScRadioTalk.InPerson(m, player)) { ScHandheld.Count("attack call skipped: you are with them"); result = "you are within " + ScRadioTalk.InPersonRange.ToString("0", CultureInfo.InvariantCulture) + " m of " + m.Name; return false; }
-                if (!ScRadio.Online() && !ScHandheld.Carries(player)) { ScHandheld.Count("attack call skipped: no station or handheld to hear it"); result = "nothing hears it: you carry no handheld and no radio station at home has power"; return false; }
+                if (AnyLiving() == null) { result = "no live player"; return false; }      // round MP5 (part N): any community player (was the host's own)
+                EntityPlayer beside = Beside(m);                                              // round MP5 (part N): any community player beside her
+                if (beside != null) { ScHandheld.Count("attack call skipped: you are with them"); result = (beside is EntityPlayerLocal ? "you are" : beside.PlayerDisplayName + " is") + " within " + ScRadioTalk.InPersonRange.ToString("0", CultureInfo.InvariantCulture) + " m of " + m.Name; return false; }
+                if (!ScRadio.Online() && !ScHandheld.Carries(lp)) { ScHandheld.Count("attack call skipped: no station or handheld to hear it"); result = "nothing hears it: no handheld this server can read and no radio station at home has power"; return false; }
             }
             if (player == null) { result = "no player"; return false; }
             Vector3 at = body.position;
@@ -138,10 +180,11 @@ namespace SurvivorCommunity
             int dist = Mathf.RoundToInt(Mathf.Sqrt(dx * dx + dz * dz));
             string dir = Localization.Get(DirKey(dx, dz));
             // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
-            ScCommunity.TellKey(player, "scRunnerAttacked", "ui_denied", m.Name, where, dist, ScCommunity.LocArg(DirKey(dx, dz)));   // the direction: a key
+            // round MP5 (part N): to every community player online - the community's radio news, as a distress call's (single player: the player)
+            ScPlayers.TellCommunityKey("scRunnerAttacked", "ui_denied", m.Name, where, dist, ScCommunity.LocArg(DirKey(dx, dz)));   // the direction: a key
             var c = new Call { M = m, BodyId = body.entityId, Attacker = Describe(attacker), Since = Time.unscaledTime, LastHit = Time.unscaledTime };
             c.MarkerName = string.Format(Localization.Get("scRunnerAttackedMarker"), m.Name);
-            AddMarker(c, at, player);
+            AddMarker(c, at, lp);                                                             // round MP5 (part N): the host's own map; clients' come from ScMarkers
             calls.Add(c);
             quietUntil.Remove(m.Id);
             ScHandheld.Count("attack call made");
@@ -345,7 +388,8 @@ namespace SurvivorCommunity
             Call open = Find(m);
             if (open != null) { open.LastHit = Time.unscaledTime; return m.Name + "'s call is open already - its fight goes on"; }
             string result;
-            bool made = Make(m, body, ScCommunity.LiveFoe(body, ScCommunity.FightRange), ScCommunity.LocalPlayer, force, out result);
+            // round MP5 (part N): the Listener (the host's own player, else the anchor: a dedicated server's console works too)
+            bool made = Make(m, body, ScCommunity.LiveFoe(body, ScCommunity.FightRange), Listener(), force, out result);
             return made ? null : result;
         }
     }

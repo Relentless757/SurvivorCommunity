@@ -1577,7 +1577,9 @@ namespace SurvivorCommunity
 
         private static void RunnersCmd()
         {
-            EntityPlayerLocal player = Me as EntityPlayerLocal;      // MP5 (runners): ScRunners.Describe takes the host's own player
+            // round MP5 (part N): the sender - a client's own player too (ScRunners.Describe takes any player: the distance, ring and
+            // view distance are theirs, from the observer the server keeps for them; each line also says who keeps the runner)
+            EntityPlayer player = Me;
             int n = 0;
             foreach (var m in ScRegistry.Members.Values)
             {

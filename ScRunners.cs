@@ -24,6 +24,14 @@ namespace SurvivorCommunity
     /// ScGarrison): Outbound ends beside the claim (ScGarrison.ArriveOnline / ArriveOffline instead of EnterSite), Inbound at the
     /// gate with nothing to bank, Back as a runner's. A safe journey: no dice, no distress, no radio, never given up hurt (IsRun
     /// gates those steps).
+    ///
+    /// Round MP5 (part N, multiplayer): "the player" above is every community player this server keeps a chunk observer for -
+    /// the host's own, each client's server-side one, a dedicated server's remote players (Observes). A body stays in the world
+    /// while ANY living one keeps it (their own ring, view distance and drawing range: Keeps), is captured only when none does,
+    /// is re-created near whichever one comes within reach (Reacher), out of the view of every living one near the spot
+    /// (PopInSeen), and the watchdog hops it only where none of them sees (UnseenByAll). The tick's anchor (ScPlayers.Anchor)
+    /// is still who the tells, the radio lines and a fresh body's stamps reason from. Single player: the one player, so every
+    /// test reads as the old one did.
     /// </summary>
     public static class ScRunners
     {
@@ -399,11 +407,15 @@ namespace SurvivorCommunity
 
         public static bool Pinned(Member m) { return m.RunLeg == RunLeg.AtSite && m.RunDistress && !m.RunSafe; }
 
-        /// <summary>The gate: a point on the site-to-post line close enough to the post to always be inside the online radius.</summary>
+        /// <summary>
+        /// The gate: a point on the site-to-post line close enough to the post to always be inside the online radius. Round MP5
+        /// (part N): the radius of the community player online with the shortest view distance (GateViewDim), so a runner
+        /// waiting at the gate is re-created with any of them at the post; 'player' only when nobody has an observer.
+        /// </summary>
         public static Vector3 GatePoint(Member m, Vector3 from, EntityPlayer player)
         {
             Vector3 post = ScCommunity.PostCenter(m);
-            int d = ViewDim(player);
+            int d = GateViewDim(player);
             // always inside the radius a runner can be re-created in (16 x (D - margin) m) with the player at the post
             float dist = Mathf.Clamp(16f * (d - ScConfig.RunOnlineRingMargin) - 8f, 16f, Math.Max(16f, ScConfig.RunGateDistance));
             Vector3 dir = from - post;
@@ -546,13 +558,155 @@ namespace SurvivorCommunity
             return r > int.MaxValue ? int.MaxValue : (int)r;
         }
 
+        // ------------------------------------------------------------------ round MP5 (part N): every community player ----
+
+        /// <summary>
+        /// Round MP5 (part N): a community player this server keeps a chunk observer for - the host's own, a client's (the server
+        /// gives every remote player one, with that client's own view distance), a dedicated server's remote players - alive or
+        /// dead. The players a runner is weighed against; a living one can keep her body in the world (Keeps) and have it re-created
+        /// near them (Reacher). Single player: the one player. MP6: Stage 2's InCommunity says whose community she is.
+        /// </summary>
+        private static bool Observes(EntityPlayer p)
+        {
+            return p != null && ScPlayers.InCommunity(p) && p.ChunkObserver != null;
+        }
+
+        /// <summary>Round MP5 (part N): any community player has an observer here (single player: the player's own, as Tick asked before).</summary>
+        private static bool AnyObserver()
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++) if (Observes(all[i])) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Round MP5 (part N), the capture rule against every living observer (each by their own ring, view distance and distance):
+        /// forced - some player still has her inside their ring D, or within drawing range inside D+1 (the old "must" for one player,
+        /// turned round: she is captured by force only when no player keeps her so); voluntary - some player has her inside D -
+        /// RunOfflineRingMargin or within drawing range (the old "may", turned round). ring: the nearest living observer's ring, for
+        /// the log (int.MaxValue with none). With no living observer neither keeps her: single player's "the player is dead".
+        /// </summary>
+        private static void Keeps(Vector3 pos, out bool forced, out bool voluntary, out int ring)
+        {
+            forced = false;
+            voluntary = false;
+            ring = int.MaxValue;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (!Observes(p) || p.IsDead()) continue;
+                int D = ViewDim(p);
+                int r = Ring(p, pos);
+                float dist = XZ(pos, p.position);
+                if (r < ring) ring = r;
+                if (!(r >= D + 1 && (dist >= NoDrawRange || r >= D + 2))) forced = true;
+                if (!(r >= D - ScConfig.RunOfflineRingMargin && dist >= NoDrawRange)) voluntary = true;
+            }
+        }
+
+        /// <summary>
+        /// Round MP5 (part N): the nearest living observer whose own ring and view distance take pos in for a re-create (ring within
+        /// D - RunOnlineRingMargin, within 16 x (D - margin) m), or null - "near whichever player comes". Single player: the player
+        /// when alive and near enough, as before.
+        /// </summary>
+        private static EntityPlayer Reacher(Vector3 pos)
+        {
+            EntityPlayer best = null;
+            float bestDist = float.MaxValue;
+            int margin = ScConfig.RunOnlineRingMargin;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (!Observes(p) || p.IsDead()) continue;
+                int D = ViewDim(p);
+                float dist = XZ(pos, p.position);
+                if (Ring(p, pos) > D - margin || dist > 16f * (D - margin) || dist >= bestDist) continue;
+                best = p;
+                bestDist = dist;
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Round MP5 (part N), vanilla's pop-in rule for every living observer: one within RunNoPopInRange has pos in their view
+        /// cone (the server has each remote player's look: their synced rotation). Single player: the player's old test.
+        /// </summary>
+        private static bool PopInSeen(Vector3 pos)
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (!Observes(p) || p.IsDead()) continue;
+                if (XZ(pos, p.position) < ScConfig.RunNoPopInRange && p.IsInViewCone(pos)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Round MP5 (part N): no observer is within RunSkipMinPlayerDist of pos or has it in view - where the watchdog may hop a
+        /// stuck body or hand it to the registry. Dead ones count too (the old test read the one player dead or alive; a body is
+        /// forced offline that same tick anyway when nobody is alive). True with no observer at all.
+        /// </summary>
+        private static bool UnseenByAll(Vector3 pos)
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (!Observes(p)) continue;
+                if (XZ(pos, p.position) <= ScConfig.RunSkipMinPlayerDist || p.IsInViewCone(pos)) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Round MP5 (part N): the flat distance from pos to the nearest player in the world (any player, dead or alive: vanilla's
+        /// AstarManager lays a grid round every one of them), float.MaxValue with none.
+        /// </summary>
+        private static float NearestAnyPlayer(Vector3 pos)
+        {
+            float best = float.MaxValue;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i] == null) continue;
+                float d = XZ(pos, all[i].position);
+                if (d < best) best = d;
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Round MP5 (part N): the shortest view distance among the community players with an observer (GatePoint: the gate is
+        /// inside every one's re-create radius), else 'fallback''s (6 without one) - single player: the player's.
+        /// </summary>
+        private static int GateViewDim(EntityPlayer fallback)
+        {
+            int best = int.MaxValue;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+                if (Observes(all[i])) best = Math.Min(best, ViewDim(all[i]));
+            return best == int.MaxValue ? ViewDim(fallback) : best;
+        }
+
+        /// <summary>Round MP5 (part N): for the log - a player's name, "you" for this machine's own (the host reads the log).</summary>
+        private static string Who(EntityPlayer p)
+        {
+            return p is EntityPlayerLocal ? "you" : PlayerName(p);
+        }
+
         /// <summary>ScTicker.OnGameUpdate, right after Relink. Host, main thread, once a second.</summary>
         public static void Tick(World w, EntityPlayer player)
         {
             // round MP0: 'player' is the anchor (the host's own player whenever there is one, as before; on a dedicated server a
-            // remote player, whose server-side chunk observer stands in). MP5: capture and re-create round every player, not one
+            // remote player). Round MP5 (part N): it is still who the tells, the radio and a fresh body's stamps reason from, but
+            // the capture, the re-create and the hiding weigh every community player's own observer (Keeps, Reacher, PopInSeen,
+            // UnseenByAll) - nothing to weigh with no observer at all (single player: the player's own, as the old test asked)
             // runners already out keep going even if PhysicalRuns was switched off: only new sends read the switch
-            if (w == null || player == null || player.ChunkObserver == null) return;
+            if (w == null || player == null || !AnyObserver()) return;
             Hook(w);
             float t = Time.unscaledTime;
             ulong now = w.worldTime;
@@ -670,8 +824,9 @@ namespace SurvivorCommunity
                     break;
             }
 
-            // an A* grid around a runner the player's own grid does not cover (locations expire after 4 s)
-            if (s.HasWaypoint && XZ(npc.position, player.position) > ScConfig.RunGridFarFromPlayer && AstarManager.Instance != null)
+            // an A* grid around a runner the player's own grid does not cover (locations expire after 4 s). Round MP5 (part N): no
+            // player's - vanilla lays one round every player in the world, a client's included
+            if (s.HasWaypoint && NearestAnyPlayer(npc.position) > ScConfig.RunGridFarFromPlayer && AstarManager.Instance != null)
                 AstarManager.Instance.AddLocationLine(npc.position, s.Waypoint, ScConfig.RunGridSize);
 
             Watchdog(w, player, m, npc, s, t);
@@ -685,17 +840,21 @@ namespace SurvivorCommunity
                 s.NextSnap = t + Math.Max(10f, ScConfig.RunSnapRefreshSeconds);
             }
 
-            // online -> offline (round MP0: against the anchor's ring, view and death, as before. MP5: per player)
-            int D = ViewDim(player);
-            int ring = Ring(player, npc.position);
-            float dist = XZ(npc.position, player.position);
+            // online -> offline. Round MP5 (part N): against every living community player's own ring, view distance and drawing
+            // range (Keeps) - captured only when NO player keeps her, so a runner a client escorts stays in the world for them and
+            // keeps walking. One player's death forces nothing; with nobody alive to keep her (single player: the player died)
+            // the capture is forced, as before
+            bool keptForced, keptMay;
+            int ring;
+            Keeps(npc.position, out keptForced, out keptMay, out ring);
             if (!npc.CanUpdateEntity()) { if (s.FrozenSince < 0f) s.FrozenSince = t; }      // a chunk without colliders: vanilla freezes it
             else s.FrozenSince = -1f;
             bool eventLive = m.RunDistress && m.EventSpawned;
-            bool must = (ring >= D + 1 && (dist >= NoDrawRange || ring >= D + 2))                  // never pop out inside drawing range if it can wait
-                        || (s.FrozenSince >= 0f && t - s.FrozenSince >= ScConfig.RunFrozenSeconds) || player.IsDead();
-            bool may = ring >= D - ScConfig.RunOfflineRingMargin && dist >= NoDrawRange && !eventLive && t - s.OnlineSince >= ScConfig.RunOnlineDwellSeconds;
-            if (must || may) GoOffline(w, m, npc, must ? "forced, ring " + ring : "out of range, ring " + ring, true);
+            bool must = !keptForced                                                                   // never pop out inside drawing range if it can wait
+                        || (s.FrozenSince >= 0f && t - s.FrozenSince >= ScConfig.RunFrozenSeconds);
+            bool may = !keptMay && !eventLive && t - s.OnlineSince >= ScConfig.RunOnlineDwellSeconds;
+            string rt = ring == int.MaxValue ? "- (no living player)" : ring.ToString();
+            if (must || may) GoOffline(w, m, npc, must ? "forced, ring " + rt : "out of range, ring " + rt, true);
         }
 
         private static bool NearHome(Member m, Vector3 pos)
@@ -759,7 +918,7 @@ namespace SurvivorCommunity
                 if (npc.getNavigator() != null) npc.getNavigator().clearPath();
             }
             if (still < ScConfig.RunStuckSkipSeconds) return;
-            bool unseen = XZ(npc.position, player.position) > ScConfig.RunSkipMinPlayerDist && !player.IsInViewCone(npc.position);   // round MP0: the anchor's view. MP5: unseen by every player
+            bool unseen = UnseenByAll(npc.position);                                             // round MP5 (part N): unseen by every community player (was the anchor's view)
             bool desperate = still >= ScConfig.RunStuckSkipSeconds * 4f;                         // a minute against a wall, watched or not
             if (!unseen && !desperate) return;
             Vector3 wp;
@@ -801,14 +960,15 @@ namespace SurvivorCommunity
             m.RunSafe = false;
             m.EventSpawned = false;
             BeginLeg(m, RunLeg.AtSite, at, at, now);
-            // distress is rolled on arrival - never with the player standing right there (that is an escort, not a radio call)
-            bool escorted = (player != null && XZ(player.position, at) <= ScConfig.RescueTriggerRange)
-                            || ScPlayers.AnyWithin(at, ScConfig.RescueTriggerRange, true);   // round MP4 re-check F4: any player there (RescuerNear's rule)
-            // round MP0: the anchor near the site (MP5: per player); ScRadio and ScRadioTalk take the local player (other slices'
-            // files) - null on a dedicated server: no distress roll and no radio line there until they take any player
-            if (!escorted && ScRadio.RollDistress(m, player as EntityPlayerLocal, w != null ? w.GetGameRandom() : null)) BeginLeg(m, RunLeg.AtSite, at, at, now);   // re-timed to RunDistressHours
+            // distress is rolled on arrival - never with the player standing right there (that is an escort, not a radio call).
+            // Round MP5 (part N): any community player there - the anchor first, dead or alive, as before, else any living one:
+            // the rescue's own test (ScRadio.RescuerNear; was the anchor or any player, MP4 re-check F4)
+            bool escorted = ScRadio.RescuerNear(player, at, ScConfig.RescueTriggerRange) != null;
+            // round MP5 (part N): the real player (the anchor) - RollDistress picks the handheld it can read itself (the host's own;
+            // a dedicated server: a powered station at home), so a dedicated server rolls distress too
+            if (!escorted && ScRadio.RollDistress(m, player, w != null ? w.GetGameRandom() : null)) BeginLeg(m, RunLeg.AtSite, at, at, now);   // re-timed to RunDistressHours
 #if SC_V34
-            if (!m.RunDistress) ScRadioTalk.Say(m, RadioTalk.Arrived, player as EntityPlayerLocal, false);       // R2 (a distress call said its own line); MP4: voices to clients
+            if (!m.RunDistress) ScRadioTalk.Say(m, RadioTalk.Arrived, ScCommunity.LocalPlayer, false);       // R2 (a distress call said its own line); MP4: voices to clients. Round MP5 (part N): the host's own hears it here whoever reasons
 #endif
             ScLog.Out(m.Name + " reached " + m.RunDestName + (m.Offline ? " (offline)" : "") + (m.RunDistress ? " - and radios for help" : ""));
             ScRegistry.SaveAtomic();
@@ -831,7 +991,7 @@ namespace SurvivorCommunity
 #if SC_V34
             // R2: a good haul or a poor one on the radio - not after a rescue (you were there) or a failed distress call (hurt);
             // a recall marked both as said already
-            if (!rescued && !m.Injured) ScRadioTalk.OnLeftSite(m, player as EntityPlayerLocal);   // round MP0: the local player's radio (another slice's file). MP4: voices to clients
+            if (!rescued && !m.Injured) ScRadioTalk.OnLeftSite(m, ScCommunity.LocalPlayer);   // round MP0: the local player's radio (another slice's file). MP4: voices to clients. Round MP5 (part N): the host's own whoever recalled
 #endif
             ScLog.Out(m.Name + " leaves " + m.RunDestName + " with " + m.RunCarry + " " + Carried(m) + (rescued ? " (rescued)" : ""));
             ScRegistry.SaveAtomic();
@@ -850,7 +1010,7 @@ namespace SurvivorCommunity
                 return;
             }
 #if SC_V34
-            ScRadioTalk.Say(m, RadioTalk.Near, player as EntityPlayerLocal, false);             // R2: "Almost home." Round MP0: the local player's radio (another slice's file). MP4: voices to clients
+            ScRadioTalk.Say(m, RadioTalk.Near, ScCommunity.LocalPlayer, false);                 // R2: "Almost home." Round MP0: the local player's radio (another slice's file). MP4: voices to clients. Round MP5 (part N): the host's own whoever reasons
 #endif
             // round r2: she gave the job up hurt - she comes home injured (the community's flag: treated with meds at the rollover),
             // unless she was patched up on the way (her body here, above the line ScMedic bandages at); with her body not here to
@@ -991,7 +1151,7 @@ namespace SurvivorCommunity
 
         private static void DistressTimedOut(World w, EntityPlayer player, Member m, ulong now)
         {
-            ScRadio.EndDistress(w, player as EntityPlayerLocal, m);                           // the rescue quest closes as failed (round MP0: the local player's journal - another slice's file; MP4: quests to the right player)
+            ScRadio.EndDistress(w, player, m);                                                // the rescue quest closes as failed - every player's copy (round MP5, part N: the real player; MP4's ScQuestNet closes them all)
             if (w.GetGameRandom().RandomFloat < ScConfig.RunDeathShare) { DieOffline(player, m, "scRescueDied"); return; }
             m.Injured = true;
             LeaveSite(player, m, C(m.RunSite), now, false, 1f);
@@ -1039,7 +1199,7 @@ namespace SurvivorCommunity
             ScLog.Warn(m.Name + ": the run is " + ScConfig.RunDeadlineGraceDays + " day(s) past its ETA (" + m.RunLeg + ") - bringing them home");
             if (m.RunLeg == RunLeg.Outbound || m.RunLeg == RunLeg.AtSite)
             {
-                if (m.RunDistress) ScRadio.EndDistress(w, player as EntityPlayerLocal, m);     // round MP0: the local player's journal (another slice's file). MP4: quests to the right player
+                if (m.RunDistress) ScRadio.EndDistress(w, player, m);                          // round MP5 (part N): the real player - every player's copy closes (ScQuestNet)
                 if (m.RunSite == Vector3i.zero) m.RunSite = m.LegTo;
                 LeaveSite(player, m, C(m.RunSite), now, false, 1f);
             }
@@ -1077,13 +1237,23 @@ namespace SurvivorCommunity
             return false;
         }
 
-        /// <summary>Is the player close enough to the post for a runner waiting there to be re-created?</summary>
+        /// <summary>
+        /// Is the player close enough to the post for a runner waiting there to be re-created? Round MP5 (part N): ANY community
+        /// player online, each by their own view distance (dead or alive: the old position test read the one player either way);
+        /// 'player' is no longer read - kept for the callers. Single player: the player, as before.
+        /// </summary>
         public static bool PlayerNearPost(Member m, EntityPlayer player)
         {
-            // round MP0: the anchor (the host's own player whenever there is one, as before). MP5: any player, by their own view distance
-            if (player == null) return false;
-            int d = ViewDim(player);
-            return XZ(player.position, ScCommunity.PostCenter(m)) <= 16f * (d - ScConfig.RunOnlineRingMargin);
+            if (m == null) return false;
+            Vector3 post = ScCommunity.PostCenter(m);
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p == null || !ScPlayers.InCommunity(p)) continue;
+                if (XZ(p.position, post) <= 16f * (ViewDim(p) - ScConfig.RunOnlineRingMargin)) return true;
+            }
+            return false;
         }
 
         /// <summary>Recall from the window or the dialog: turn round now (a site visit cut short brings a share of the find).</summary>
@@ -1154,8 +1324,10 @@ namespace SurvivorCommunity
         {
             if (!TooHurtForTheJob(m, npc)) { s.HurtSince = -1f; return; }
             if (GameManager.Instance != null && GameManager.Instance.IsPaused()) return;
-            // round MP0: a talk is the local player's window (ScQuests, another slice's file). MP2: window
-            EntityPlayerLocal lp = player as EntityPlayerLocal;
+            // round MP0: a talk is the local player's window (ScQuests, another slice's file). MP2: window. Round MP5 (part N): her
+            // inventory window counts for every player (ScAmmo.IsWindowOpen knows a remote open); a remote player's open talk with
+            // a runner is not known to the server (no talk hold for a runner: ScWork holds residents only) - the host's own is
+            EntityPlayerLocal lp = ScCommunity.LocalPlayer;
             if (ScAmmo.IsWindowOpen(m.Id) || (lp != null && ScQuests.TalkingTo(lp) == m.Id)) { s.HurtSince = -1f; return; }
             if (s.HurtSince < 0f) { s.HurtSince = t; return; }
             if (t - s.HurtSince < HurtConfirmSeconds) return;
@@ -1170,7 +1342,9 @@ namespace SurvivorCommunity
         {
             try
             {
-                // round MP0: the anchor (the host's own player whenever there is one, as before). MP5: per player
+                // round MP0: the anchor (the host's own player whenever there is one, as before). Round MP5 (part N): kept - it only
+                // names who the tells and the radio reason from; the gate (GatePoint) and the rescuer (any community player at the
+                // call) no longer read it
                 return TooHurtForTheJob(m, npc) && TurnHomeHurt(w, ScPlayers.Anchor(), m, npc, w != null ? w.worldTime : 0UL, true, despawnNow);
             }
             catch (Exception e)
@@ -1283,7 +1457,17 @@ namespace SurvivorCommunity
 #if SC_V34
             // round MP0: ScRadioTalk takes the local player (another slice's file) - null on a dedicated server. MP4: voices to clients
             EntityPlayerLocal lp = player as EntityPlayerLocal;
-            if (lp != null && ScRadioTalk.InPerson(m, lp))
+            // round MP5 (part N): every remote community player beside her is told in person too (their machine drops the radio
+            // line as "in person" by itself, MP4) - the host's own as before
+            bool hostThere = lp != null && ScRadioTalk.InPerson(m, lp);
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p == null || p is EntityPlayerLocal || p.IsDead() || !ScPlayers.InCommunity(p) || !ScRadioTalk.InPerson(m, p)) continue;
+                ScCommunity.TellKey(p, "scRunHurtHome", "ui_denied", m.Name);
+            }
+            if (hostThere)
             {
                 ScRadioTalk.Mark(m, RadioTalk.HurtHome);
                 ScCommunity.TellKey(lp, "scRunHurtHome", "ui_denied", m.Name);
@@ -1366,7 +1550,7 @@ namespace SurvivorCommunity
             if (s.HeldTotal < HoldMaxSeconds) return false;
             s.HeldTotal = 0f;
             string what = ThreatName(w, s.RouteThreat);
-            bool unseen = XZ(npc.position, player.position) > ScConfig.RunSkipMinPlayerDist && !player.IsInViewCone(npc.position);
+            bool unseen = UnseenByAll(npc.position);                                             // round MP5 (part N): every community player's view (was the anchor's)
             if (unseen)
             {
                 ScLog.Out(m.Name + ": held " + HoldMaxSeconds.ToString("0") + " s in all by " + what + " with no way round, out of your sight - the walk goes on offline");
@@ -1552,15 +1736,15 @@ namespace SurvivorCommunity
             Session s = S(m.Id);
             if (!s.SwapIn && t - s.OfflineSince < ScConfig.RunOfflineDwellSeconds) return false;
             Vector3 v = VirtualPos(m, now);
-            int D = ViewDim(player);
-            int margin = ScConfig.RunOnlineRingMargin;
-            float dist = XZ(v, player.position);
-            // round MP0: near the anchor and out of its view, as before. MP5: near any player, out of every nearby player's view
-            if (player.IsDead() || Ring(player, v) > D - margin || dist > 16f * (D - margin)) { s.SettledSince = -1f; s.PopInBlockedSince = -1f; s.SwapIn = false; return false; }
+            // round MP5 (part N): near ANY living community player - the nearest one whose own ring and view distance take the spot
+            // in (Reacher; was the anchor alone) - and out of the view of every living player near it (PopInSeen, below)
+            EntityPlayer near = Reacher(v);
+            if (near == null) { s.SettledSince = -1f; s.PopInBlockedSince = -1f; s.SwapIn = false; return false; }
             // vanilla's pop-in rule: nothing appears within 50 m in front of the player - given up after a while so a
             // runner waiting at the gate still comes home while the player looks that way. Round op1: not for the body that
-            // takes a stand-in's place on its spot (SwapIn) - the stand-in just went from there
-            if (!s.SwapIn && dist < ScConfig.RunNoPopInRange && player.IsInViewCone(v))
+            // takes a stand-in's place on its spot (SwapIn) - the stand-in just went from there. Round MP5 (part N): in front of
+            // any community player
+            if (!s.SwapIn && PopInSeen(v))
             {
                 if (s.PopInBlockedSince < 0f) s.PopInBlockedSince = t;
                 if (t - s.PopInBlockedSince < ScConfig.RunPopInMaxWait) return false;
@@ -1578,10 +1762,14 @@ namespace SurvivorCommunity
             }
             else if (w.entityAsyncManager != null && w.entityAsyncManager.IsEntityPending(m.Id)) return false;
             if (ScRegistry.Doomed.Contains(m.Id) || ScRegistry.Cleanup.Contains(m.Id)) rekey = true;
-            return Materialize(w, player, m, v, now, t, rekey);
+            return Materialize(w, player, near, m, v, now, t, rekey);
         }
 
-        private static bool Materialize(World w, EntityPlayer player, Member m, Vector3 v, ulong now, float t, bool rekey)
+        /// <summary>
+        /// The re-create. player: the tick's anchor (a fresh body's stamps, the re-key's quest); near (round MP5, part N): the player
+        /// it comes back near (Reacher) - the log's distance.
+        /// </summary>
+        private static bool Materialize(World w, EntityPlayer player, EntityPlayer near, Member m, Vector3 v, ulong now, float t, bool rekey)
         {
             Session s = S(m.Id);
             Vector3 spot;
@@ -1592,8 +1780,8 @@ namespace SurvivorCommunity
                     s.SpotFailures++;
                     return false;
                 }
-                // the post, not the gate: the pop-in rule was judged at the gate, judge it here
-                if (XZ(spot, player.position) < ScConfig.RunNoPopInRange && player.IsInViewCone(spot))
+                // the post, not the gate: the pop-in rule was judged at the gate, judge it here (round MP5, part N: every player's view)
+                if (PopInSeen(spot))
                 {
                     if (s.PopInBlockedSince < 0f) s.PopInBlockedSince = t;
                     if (t - s.PopInBlockedSince < ScConfig.RunPopInMaxWait) return false;
@@ -1702,8 +1890,9 @@ namespace SurvivorCommunity
             s.LastCreateMs = sw.ElapsedMilliseconds;
             RebuildRunnerSet();
             ScRegistry.SaveAtomic();                                                            // Snap is kept: it is the crash fallback
-            ScLog.Out(m.Name + " is back in the world at " + World.worldToBlockPos(spot) + " (" + m.RunLeg + ", " + XZ(spot, player.position).ToString("0")
-                      + " m from you, entity " + m.Id + (newId ? ", was " + oldId : "") + ", built in " + sw.ElapsedMilliseconds + " ms)");
+            EntityPlayer by = near ?? player;                                                   // round MP5 (part N): who she came back near
+            ScLog.Out(m.Name + " is back in the world at " + World.worldToBlockPos(spot) + " (" + m.RunLeg + ", " + XZ(spot, by.position).ToString("0")
+                      + " m from " + Who(by) + ", entity " + m.Id + (newId ? ", was " + oldId : "") + ", built in " + sw.ElapsedMilliseconds + " ms)");
             return true;
         }
 
@@ -1953,7 +2142,11 @@ namespace SurvivorCommunity
             hooked = null;
         }
 
-        /// <summary>Backstop: a chunk unload (teleport, bed respawn, fast travel) or a fall out of the world beat the 1 Hz tick.</summary>
+        /// <summary>
+        /// Backstop: a chunk unload (teleport, bed respawn, fast travel) or a fall out of the world beat the 1 Hz tick. Round MP5
+        /// (part N): already every player's - the server unloads a chunk only once no player's observer holds it any more (a
+        /// client leaving, dying or teleporting away from the runner it escorted included), so this is "nobody near" by itself.
+        /// </summary>
         private static void OnEntityUnloaded(Entity e, EnumRemoveEntityReason reason)
         {
             try
@@ -2190,7 +2383,12 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ display ----
 
-        public static string Describe(Member m, EntityPlayerLocal player)
+        /// <summary>
+        /// sc runners' line. Round MP5 (part N): player is whoever typed it (a client's own player too: the distance, ring and view
+        /// distance are theirs - the server keeps an observer for them), null from a console with no player; the line also says
+        /// which community player keeps her in the world (online) or would have her re-created near them (offline).
+        /// </summary>
+        public static string Describe(Member m, EntityPlayer player)
         {
             World w = ScCommunity.World;
             ulong now = w != null ? w.worldTime : 0UL;
@@ -2201,6 +2399,7 @@ namespace SurvivorCommunity
             return m.Name + " [" + m.Id + "] " + m.RunLeg + (m.Offline ? " offline" : " ONLINE") + (Pinned(m) ? " PINNED" : "")
                    + " -> " + m.RunDestName + " " + m.RunDest
                    + " at " + World.worldToBlockPos(at) + " (" + dist.ToString("0") + " m, ring " + Ring(player, at) + "/D " + ViewDim(player) + ")"
+                   + KeeperText(m, at)
                    + " leg left " + (left / (float)TicksPerHour).ToString("0.0") + " h, ETA day " + m.RunEndDay
                    + ", carry " + m.RunCarry + (m.RollPending ? " (dice pending)" : "")
 #if SC_V34
@@ -2210,6 +2409,30 @@ namespace SurvivorCommunity
                    + (s.MeasuredMps > 0f ? ", moves at " + s.MeasuredMps.ToString("0.00") + " m/s (offline pace " + ScConfig.RunWalkMps.ToString("0.00") + ")" : "")
                    + (s.LastCreateMs >= 0 ? ", last build " + s.LastCreateMs + " ms" : "")
                    + HurtState(m, s);
+        }
+
+        /// <summary>
+        /// Round MP5 (part N), for sc runners (read only): online - whether a living community player keeps her (Keeps; "nobody":
+        /// she goes offline on the next tick); offline - who she would be re-created near now (Reacher), or that nobody is near.
+        /// </summary>
+        private static string KeeperText(Member m, Vector3 at)
+        {
+            if (!m.Offline)
+            {
+                bool forced, voluntary;
+                int ring;
+                Keeps(at, out forced, out voluntary, out ring);
+                EntityPlayer by = ScPlayers.Nearest(at);
+                return ", kept " + (forced ? (voluntary ? "in reach" : "at the edge") : "by nobody") + (by != null ? " (nearest " + PlayerName(by) + ", " + XZ(at, by.position).ToString("0") + " m)" : "");
+            }
+            EntityPlayer near = Reacher(at);
+            return near != null ? ", re-created near " + PlayerName(near) + " when settled" : ", no player near enough to re-create her";
+        }
+
+        /// <summary>Round MP5 (part N): a player's display name for sc runners (read on any player's console).</summary>
+        private static string PlayerName(EntityPlayer p)
+        {
+            return p == null ? "nobody" : !string.IsNullOrEmpty(p.PlayerDisplayName) ? p.PlayerDisplayName : "player " + p.entityId;
         }
 
         /// <summary>
