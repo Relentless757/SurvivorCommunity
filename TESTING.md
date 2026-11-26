@@ -49,7 +49,8 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 ## Round MP6 (merged, with the review fixes) (2026-11-26): several communities on one server
 
 Why: the five MP6 parts below (core, relations, network, H, G) are merged into one build, with the fixes from their four
-reviews. Build `sc34_mp6fix`, **not deployed**, protocol 8, untested in game. The parts' own sections still hold, except
+reviews. Build `sc34_mp6fix`, **deployed to 3.4 on 2026-11-26** (port-3.4 d22ab3ce, DLL 1d3c6aa6), protocol 8, untested in
+game. The first load of a save from before MP6 migrates it to `survivor_communities.txt` (the old file stays untouched). The parts' own sections still hold, except
 where they say "protocol 7", "not merged" or list "Known gaps": those notes are from before the merge, and the merge closed
 the gaps. The checks below are what the review fixes change. With everyone in community 0 nothing may change. Setup for
 two communities: `sc community new Riverside`, `sc community join 1 <player>`; each community sets its own home and gets a
