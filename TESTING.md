@@ -62,14 +62,16 @@ resident or two. "A" is a community 0 player, "B" a community 1 player.
 **Two communities, a dedicated server**
 - [ ] Retreat: one of B's residents is hurt at B's home. She shelters or kites (`sc retreat`), as A's do. The server log
       has no `[MP6 scope]` trace through `ScRetreat`, `ScTeam` or `ScPosture`.
-- [ ] Pause and an open fight: B's home horde is fighting the defenders (B away at an outpost, `sc attack status` says the
-      defenders fight it alone until ...). B logs off. A plays on for two game hours or more. B logs back in. The log says
+- [ ] Pause and an open fight: B's home horde is fighting the defenders (B away at an outpost; `sc attack status` in B's
+      scope says `attack: the defenders fight it alone (the player is away) ... settled <time> unless ...`). B logs off. A
+      plays on for two game hours or more (a pause under one game hour is not shifted). B logs back in. The log says
       `community 1 (...) resumes after N game hour(s) paused - its open fights, watch shifts and outpost fights pick up
       where they stood` and `base attack: the open attack (state 3) was paused - its clocks move on by N game hour(s)`. The
-      fight is not settled in that second: `sc attack status` shows the same time left as when B logged off. The same with a
-      horde that was called but had not arrived (state 1), and a live fight (state 2: it does not end an hour after B is back).
+      fight is not settled in that second: the `settled` time in `sc attack status` has moved on by the paused hours. The
+      same with a horde that was called but had not arrived (state 1), and a live fight (state 2: it does not end an hour
+      after B is back).
 - [ ] The same after a server restart while B is offline: `sc save` with two communities writes `seentime=` in each
-      `[community]`, and the shift still happens after the restart.
+      `[community]` that has ticked, and the shift still happens after the restart.
 - [ ] A guard on a watch shift in B's home when B logs off: when B comes back, the shift goes on (no "the shift is over"
       at once). An outpost fight of B's open when B logs off is not "unanswered" or "fought, not finished" when B comes back.
 - [ ] A paused community hears nothing: while B is offline, A shoots inside B's home zone. When B is back, `sc noise` (B's
@@ -88,7 +90,7 @@ resident or two. "A" is a community 0 player, "B" a community 1 player.
 - [ ] Bands: A sees drifters far from B. B is not told about them and gets no marker.
 - [ ] A Bond kill: A kills a zombie that was on one of B's members. B's member gains no Bond (`sc bond`).
 - [ ] `sc home set` by a player standing in a claim that touches the other community's home or outposts is refused
-      (`... is on community N's ground`).
+      (`refused: the land claim at ... is on community N (...)'s ground`).
 - [ ] Claim limit: a player who owns community 0's home claim and is moved to community 1 places more claims than the
       limit. Community 0's home claim is never the one that goes.
 - [ ] RadioOnlyAirdrops with only B online: no vanilla airdrop flies.
@@ -104,8 +106,9 @@ resident or two. "A" is a community 0 player, "B" a community 1 player.
 **Two communities, a listen host**
 - [ ] The host is in community 1, a client in community 0 is online. After a load the host's map has community 1's enclave,
       infestation, band, outpost, radio contact, scouting and outpost attack markers, and none of community 0's.
-- [ ] The host types `sc community join 0` (or `leave`): within a few seconds the host's map shows community 0's markers
-      instead of community 1's.
+- [ ] The host types `sc community join 0` (or `leave`): within about ten seconds the host's map shows community 0's
+      markers instead of community 1's.
+- [ ] A client of community 0 establishes, upgrades or repairs an outpost: the host (community 1) gets no marker for it.
 - [ ] A community 0 runner's distress call: the client gets the rescue quest; the host (community 1) does not.
 - [ ] `sc enclave hide <id>` typed in community 0's scope does not remove the host's marker when the host is in community 1.
 - [ ] A light sleeper of community 0 gets up for community 0's horde: the host in community 1 is not told.
@@ -116,6 +119,8 @@ resident or two. "A" is a community 0 player, "B" a community 1 player.
 - SCore's inventory screen for another community's member is refused on the opening machine only. The server does not
   check it, so a modified client could still open it.
 - Whether another community's player may place a Watch post in your home zone (land-claim protection normally stops it).
+- A player moved out of a community (`sc community join/leave`) has their accepted requests withdrawn even when other
+  players of the old community are online (a live siege included); MP7's own join flow may hand them over instead.
 
 ## Round MP6 (part: relations) (2026-11-26): each community its own standing, requests, favors, band trust and hostility
 
@@ -388,9 +393,8 @@ overwritten.
       community 1 and none more or fewer for community 0. After save and load she is not back in either community.
 - [ ] Save, quit and load: both communities, their names and owners, and the membership are kept. The log says
       `registry loaded: ... (community 0; 2 communities, 1 player(s) outside community 0)`.
-- [ ] With two communities, the dedicated server's log has `[MP6 scope] community state read with no scope ...` lines, each
-      with a stack trace. They are the unscoped reads the other MP6 parts close. Keep them for those parts.
-      `sc community list` counts them.
+- [ ] With two communities, an `[MP6 scope] community state read with no scope ...` line in the dedicated server's log (with
+      a stack trace) is a read the merged parts missed: keep it and report it. `sc community list` counts them.
 - The merge closed this part's known gaps (requests, reveals and allies per community; every community's throttled steps
   and night lease; per-community copies, markers and open boxes).
 

@@ -173,6 +173,12 @@ namespace SurvivorCommunity
                     }
                     int was = ScPlayers.CommunityOfId(pid);
                     if (was == cid) { Output("[SC] " + who + " is already in " + ScCommunities.ById(cid).Label); return; }
+#if SC_V34
+                    // round MP6 (fix G-m1, F-m2): a talk hold or work shift the mover owned ends now (the disconnect path), BEFORE the move -
+                    // so a listen host's own shift is detached from the host (still of her community), not from the old community's anchor
+                    EntityPlayer moverBefore = ScPlayers.ById(pid);
+                    if (moverBefore != null) ScWork.ForgetPlayer(moverBefore.entityId);
+#endif
                     ScPlayers.SetCommunity(pid, cid);
                     ScRegistry.SaveAtomic();
                     // their followers stay with the community they belong to (members are a community's, not a player's).
@@ -196,11 +202,6 @@ namespace SurvivorCommunity
                             m.LeaderId = "";
                         }
                     if (followers > 0) ScRegistry.SaveAtomic();
-#if SC_V34
-                    // round MP6 (fix G-m1): a talk hold or work shift the mover owned ends now (the disconnect path): an outsider keeps no
-                    // Owner link to another community's member
-                    if (mover != null) ScWork.ForgetPlayer(mover.entityId);
-#endif
                     // round MP6 (fix N-m6): the old community's requests the mover had taken on are withdrawn (no standing lost) - a
                     // request is its community's, and theirs no longer (the host's own journal reads AcceptedBy "")
                     int handedBack = 0;

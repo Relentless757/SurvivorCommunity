@@ -3298,7 +3298,8 @@ Round MP0 is the groundwork:
     list, never from a clock); when it ticks again the fight resumes as after a reload. Its noise does not integrate the hours
     it was away (the noise clock is rebased), and while paused it hears nothing (`ScNoise` skips a community not online in
     the pass: `ScTicker.OnlineNow`). Its world-time stamps move on by the time it missed (`ScTicker.PauseShift`, from
-    `Community.SeenTime`, the world time it last ticked, saved as `seentime=` only while there are two or more communities):
+    `Community.SeenTime`, the world time it last ticked, saved as `seentime=` only while there are two or more communities;
+    a pause under one game hour, `PauseShiftMin`, is not shifted):
     the home attack's arrival, the defenders' fight, a live fight's start, the gap to the next call (`ScBaseAttack.ShiftPaused`),
     a guard's watch shift (`ScWatch.ShiftPaused`) and an outpost fight's deadline (`ScOutpostRisk.ShiftPaused`). A blood
     moon's roll call (`ScBond.OnResumed`) and an older blood moon's home mark (`ScSiege.OnResumed`) go. All only with two
@@ -3375,6 +3376,13 @@ Round MP0 is the groundwork:
     their talk holds and work shifts end (`ScWork.ForgetPlayer`), their new community's grudge against them is dropped, and
     the ticker stations any follower whose live leader is not of her community (`ScTicker.Relink`). A future join flow
     (MP7) should go through the same steps.
+  - **Left open after the reviews:** a paused community's siege or accepted request holds that enclave for everyone until it
+    is back; SCore's inventory screen is refused on the opening machine only (above); every save makes each online
+    community's copy be rebuilt and compared (one dirty flag for the world); a client's `ScRelations.PlayerCid` answers its
+    own community for every player although `pcom` lists the others; a joiner whose snapshot is too big keeps its old copy
+    until the next save; a band's `NextAssert` is one for the band, so only the first community's engagement asserts; a
+    client's `ScTrust.TrustOf` reads `sc_favourDone`, which any community's finished favor sets; the door opener's scope
+    fallback for a body that is no member (`ScDoors.OpenerCommunity`) is unused (only members and stand-ins reach it).
 
 ## How it hangs together (for modders)
 

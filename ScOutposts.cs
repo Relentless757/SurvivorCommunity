@@ -204,7 +204,11 @@ namespace SurvivorCommunity
         {
             if (actor == null || actor is EntityPlayerLocal) return;
             EntityPlayerLocal host = ScCommunity.LocalPlayer;
-            if (host != null) RefreshMarkers(host);
+            if (host == null) return;
+            // round MP6 (fix F-m1): only for an actor of the host's own community, drawn in the host's scope - another community's
+            // outposts never reach the host's map (with one community: as before)
+            if (ScCommunities.Count > 1 && ScPlayers.CommunityOf(host) != ScPlayers.CommunityOf(actor)) return;
+            using (ScGates.ScopeOfPlayer(host)) RefreshMarkers(host);
         }
 
         /// <summary>Round MP0: the online player who owns this land claim, or null (unknown, or not online).</summary>

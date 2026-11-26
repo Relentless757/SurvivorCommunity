@@ -184,9 +184,9 @@ namespace SurvivorCommunity
                 Community c = ScRegistry.Community;
                 ScWorldState ws = ScRegistry.WorldState;
                 // round MP6 (fix H-M2): back from a pause, its open fights pick up where they stood (never with one community)
-                ulong seenNow = w.worldTime;
-                if (resumed && ScCommunities.Count > 1 && c.SeenTime > 0UL && seenNow > c.SeenTime + PauseShiftMin) PauseShift(c, seenNow - c.SeenTime);
-                c.SeenTime = seenNow;
+                ulong seenNow = w.worldTime, seenBefore = c.SeenTime;
+                c.SeenTime = seenNow;                    // round MP6 (fix F-n1): before PauseShift saves, so the gap is never shifted twice
+                if (resumed && ScCommunities.Count > 1 && seenBefore > 0UL && seenNow > seenBefore + PauseShiftMin) PauseShift(c, seenNow - seenBefore);
                 if (resumed && ScCommunities.Count > 1)
                 {
 #if SC_V34

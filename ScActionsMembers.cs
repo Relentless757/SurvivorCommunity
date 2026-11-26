@@ -282,7 +282,7 @@ namespace SurvivorCommunity
             if (p != null && !p.Done) { reply.Fail("scFavourNotDone"); return; }
             // round MP6 (fix R-M2): no favour of the sender's community while another community courts them - the sender's own
             // favour comes first (the user's decision 2), never a join on the other's. Never with one community
-            if (p == null && ScCommunities.Count > 1 && ScRegistry.GetProspect(npc.entityId) != null) { reply.Fail("scFavourNotDone"); return; }
+            if (p == null && ScCommunities.Count > 1 && ScZone.HasHome && ScRegistry.GetProspect(npc.entityId) != null) { reply.Fail("scFavourNotDone"); return; }   // (fix F-n3: no home - Join's own answer first)
             int favourId = p != null ? p.Id : 0;
             bool favourDone = p != null && p.Done;
             string error;
