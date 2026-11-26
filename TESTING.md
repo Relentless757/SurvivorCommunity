@@ -95,6 +95,9 @@ standing <id> <points>`, `sc enclave request <id> offer <kind>`, `sc enclave spa
 - [ ] Both offer a gift on the same day: the second is refused ("Come back tomorrow." or the cap) and the bundle is back in
       their bag.
 - [ ] Two players enlist from the same enclave at once: one gets them, the other is refused and keeps the dukes.
+- [ ] Dedicated server: a client enlists someone, disconnects and rejoins within 5 minutes: they still follow. Rejoin
+      later than that: they have gone home (the log: "the player who enlisted them went offline - waiting 300 s").
+- [ ] A client opens a container inside a living enclave's building: refused with the enclave's name, as for the host.
 - [ ] A listen host with a client: the host's own talk as single player's while the client talks to another member.
 
 ## Round MP5 (part: R) (2026-11-26): the radio for every player
@@ -126,7 +129,10 @@ runner with a radio, a handheld radio in the client's bag)
       supply runs, enclaves, requests and allies fill from the client's copy; the buttons' readiness and grayed reasons show
       within about a second (the server's numbers: the drop's hours, the call's days, the scout's and barter's waits).
 - [ ] Request air drop: the plane comes to the CLIENT (not to another player); the tooltip "on its way"; the button grays
-      for the sandbox days. `RadioOnlyAirdrops` true: no scheduled vanilla drop while the client is online.
+      for the sandbox days. `RadioOnlyAirdrops` true: no scheduled vanilla drop while the client is online, and none when
+      they log off past the drop time and log in again.
+- [ ] A second client picks up the station while the first has its window open: the first's buttons gray, "That radio
+      station is gone." shows and the window closes.
 - [ ] Call for survivors: a contact marker on the client's map, the tooltip; the contact's weapons fit the client's
       gamestage. Scout: the sites marked on the client's map, the window line and tooltip.
 - [ ] Barter and ally trade: the stockpile changes on the server (the community window shows it), the window line says so;
@@ -141,8 +147,8 @@ runner with a radio, a handheld radio in the client's bag)
 - [ ] Call home a runner with a radio: "Copy that." on the client's radio.
 - [ ] A horde at home, the client at the base more than 30 m from the guard, carrying a handheld: the guard's warning on
       the client's radio (the guard carries a handheld, or the home station has power). Away from the base with a handheld
-      and a powered station: the radio's call, arrival and result lines (once a dedicated server's callers pass the anchor:
-      see DEVELOPER, "MP5 merge"). Without a handheld: the texts alone.
+      and a powered station: the radio's call, arrival and result lines (on a dedicated server too). Without a handheld: the
+      texts alone.
 - [ ] A dedicated server with no SurvivorCommunity client online: vanilla's scheduled drops still come.
 - [ ] No SC error in the server's or the client's log.
 
@@ -242,7 +248,8 @@ state and who keeps her ("kept in reach (nearest NAME, N m)", "kept by nobody", 
 **Single player (nothing may change)**
 - [ ] Send a survivor on a supply run: she walks out; `sc runners` says ONLINE, "kept in reach (nearest <you>, N m)".
       Walk 250 m the other way: the log says she "went offline (out of range, ring N)". Walk back toward her virtual
-      position: "<name> is back in the world at ... m from you", never in front of you.
+      position: "<name> is back in the world at ... m from you", not in front of you (after 20 s of looking her way she
+      comes anyway, as before). On a dedicated server, no repeating "went offline (forced" lines after "is back in the world".
 - [ ] Escort her to the site: no distress call while you stand beside her. Send another and stay home with a powered
       radio station: a distress call can still come, its rescue works as before.
 - [ ] Die near an online runner: the log says she "went offline (forced, ring - (no living player))"; after the respawn

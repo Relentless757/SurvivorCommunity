@@ -657,7 +657,10 @@ namespace SurvivorCommunity
             {
                 EntityPlayer p = all[i];
                 if (!Observes(p)) continue;
-                if (XZ(pos, p.position) <= ScConfig.RunSkipMinPlayerDist || p.IsInViewCone(pos)) return false;
+                if (XZ(pos, p.position) <= ScConfig.RunSkipMinPlayerDist) return false;
+                // round MP5 (review N-M1): the view cone is an angle alone - only a player whose loaded ring reaches pos sees it
+                // (always so for the one player: a body is only in the world inside their ring)
+                if (Ring(p, pos) <= ViewDim(p) + 1 && p.IsInViewCone(pos)) return false;
             }
             return true;
         }
@@ -850,8 +853,11 @@ namespace SurvivorCommunity
             if (!npc.CanUpdateEntity()) { if (s.FrozenSince < 0f) s.FrozenSince = t; }      // a chunk without colliders: vanilla freezes it
             else s.FrozenSince = -1f;
             bool eventLive = m.RunDistress && m.EventSpawned;
+            // round MP5 (review N-m1): under the server rule a body is made where no colliders are built yet and brings them
+            // with it - give the engine longer than RunFrozenSeconds before a forced capture (never so near the host's own player)
+            float frozenLimit = ServerRule(npc.position) ? Math.Max(ScConfig.RunFrozenSeconds, ServerFrozenSeconds) : ScConfig.RunFrozenSeconds;
             bool must = !keptForced                                                                   // never pop out inside drawing range if it can wait
-                        || (s.FrozenSince >= 0f && t - s.FrozenSince >= ScConfig.RunFrozenSeconds);
+                        || (s.FrozenSince >= 0f && t - s.FrozenSince >= frozenLimit);
             bool may = !keptMay && !eventLive && t - s.OnlineSince >= ScConfig.RunOnlineDwellSeconds;
             string rt = ring == int.MaxValue ? "- (no living player)" : ring.ToString();
             if (must || may) GoOffline(w, m, npc, must ? "forced, ring " + rt : "out of range, ring " + rt, true);
@@ -1467,12 +1473,9 @@ namespace SurvivorCommunity
                 if (p == null || p is EntityPlayerLocal || p.IsDead() || !ScPlayers.InCommunity(p) || !ScRadioTalk.InPerson(m, p)) continue;
                 ScCommunity.TellKey(p, "scRunHurtHome", "ui_denied", m.Name);
             }
-            if (hostThere)
-            {
-                ScRadioTalk.Mark(m, RadioTalk.HurtHome);
-                ScCommunity.TellKey(lp, "scRunHurtHome", "ui_denied", m.Name);
-                return;
-            }
+            // round MP5 (review N-m2): the host beside her is told in person, and Say still runs - it spends the moment, sends
+            // the radio line to the remote players elsewhere, and plays nothing here for a host she stands beside (InPerson)
+            if (hostThere) ScCommunity.TellKey(lp, "scRunHurtHome", "ui_denied", m.Name);
             ScRadioTalk.Say(m, RadioTalk.HurtHome, lp, false);
 #endif
         }
@@ -2006,6 +2009,8 @@ namespace SurvivorCommunity
 
         /// <summary>Round MP0.1: how near a remote player makes the server rule apply (loaded chunks bound it anyway).</summary>
         private const float RemoteSettleRange = 512f;
+        /// <summary>Round MP5 (review N-m1): a frozen body under the server rule waits this long for its colliders before a forced capture.</summary>
+        private const float ServerFrozenSeconds = 15f;
         /// <summary>Round MP0.1 (the review's S1): within this of the host's own player its renderer builds the chunks - the old rule.</summary>
         private const float HostViewRange = 160f;
 

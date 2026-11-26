@@ -53,12 +53,16 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Round MP5 (part R), a dedicated server: a player online whose SurvivorCommunity matches the server's (they can use the radio).</summary>
+        /// <summary>
+        /// Round MP5 (part R), a dedicated server: a player online who can use the radio. Review R-m1: everyone but a client known
+        /// to run another SurvivorCommunity - a joining player is tracked by the director before their hello arrives, and
+        /// waiting for the hello let an overdue vanilla drop fly to them at login.
+        /// </summary>
         private static bool AnyoneCanAsk()
         {
             List<EntityPlayer> all = ScPlayers.All;
             for (int i = 0; i < all.Count; i++)
-                if (all[i] != null && ScPlayers.InCommunity(all[i]) && ScNet.ClientMatches(all[i])) return true;
+                if (all[i] != null && ScPlayers.InCommunity(all[i]) && !ScNet.KnownMismatch(all[i])) return true;
             return false;
         }
 

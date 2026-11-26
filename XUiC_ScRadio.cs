@@ -346,7 +346,14 @@ namespace SurvivorCommunity
                 {
                     if (token != viewToken) return;              // an earlier opening's answer
                     viewAsking = false;
-                    if (!view.Read(r) && !r.Ok && message.Length == 0) message = r.Text;     // refused (too far, the station gone): said once
+                    if (!view.Read(r) && !r.Ok)
+                    {
+                        // round MP5 (review R-m2): refused (too far, the station gone, dead) - the old readiness goes, so the
+                        // controls gray, and the reason always shows; a station that is gone closes the window
+                        view.Clear();
+                        message = r.Text;
+                        if (r.Message == "scRadioGone") { Close(); return; }
+                    }
                     if (IsShowing()) RefreshBindings();
                     if (viewAgain) AskView(true);
                 }

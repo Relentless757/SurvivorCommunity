@@ -891,6 +891,10 @@ namespace SurvivorCommunity
                 if (npc.IsDead()) continue;                 // the SetDead postfix took it
                 live.Add(new KeyValuePair<BandPerson, EntityAlive>(p, npc));
             }
+            // round MP5 (review W-m2): a hostile drifter band's grudge reaches a player who came online after its bodies were
+            // made (a set to the same value sends nothing); a single player's was stamped at the spawn, as before
+            if (live.Count > 0 && !b.IsRaiders && b.Trust < 0 && ScPlayers.All.Count > 1)
+                for (int i = 0; i < live.Count; i++) GrudgeCommunity(live[i].Value, null);
             if (live.Count > 0) return TickOnline(w, player, b, live, t, now, ref budget) || changed;
             if (pending > 0) return changed;
             // every body went without the unload capture (the loop above): the walk starts again where the last one led them

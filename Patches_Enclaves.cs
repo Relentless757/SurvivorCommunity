@@ -310,7 +310,9 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (__instance == null || !ScCommunity.IsHost || !__instance.CommandIs(_commandName, "Search")) return true;
+                    // round MP5 (review E-m3): a client with the community's copy refuses too (ScEnclaves.All is the copy there),
+                    // as the host's own UI does
+                    if (__instance == null || (!ScCommunity.IsHost && !ScRegistry.Ready) || !__instance.CommandIs(_commandName, "Search")) return true;
 #if SC_V34
                     if (ScStorage.IsPlayerStorage(__instance) || (__instance.Parent != null && __instance.Parent.PlayerPlaced)) return true;
 #else

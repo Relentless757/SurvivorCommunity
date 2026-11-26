@@ -361,7 +361,8 @@ namespace SurvivorCommunity
             for (int i = 0; i < all.Count; i++)
             {
                 EntityPlayer p = all[i];
-                if (p == null || !ScPlayers.InCommunity(p) || (nearOnly && !Near(p))) continue;
+                // round MP5 (review W-m3): "near" is anyone at the fight - Near, or within BaseAttackLeaveRange, as InFight
+                if (p == null || !ScPlayers.InCommunity(p) || (nearOnly && !Near(p) && OutsideZone(p.position) > ScConfig.BaseAttackLeaveRange)) continue;
                 int gs;
                 try { gs = p.gameStage; } catch (Exception) { continue; }
                 if (gs > bestGs) { bestGs = gs; best = p; }

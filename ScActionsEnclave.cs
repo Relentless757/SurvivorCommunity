@@ -692,6 +692,7 @@ namespace SurvivorCommunity
                 // too large for a hint (never for bundles): at the sender's feet, never lost
                 foreach (ItemStack s in give) GameManager.Instance.ItemDropServer(s, sender.GetDropPosition(), Vector3.zero, -1, 60f);
             }
+            ScTalkContext.SendFactsAfter(sender, npc);      // round MP5 (review E-n5): the enclave is hostile now - the rows follow
             reply.Done();
         }
 

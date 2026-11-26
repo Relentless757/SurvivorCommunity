@@ -2135,9 +2135,9 @@ Round MP0 is the groundwork:
   face; the server's arrives with its look.
 - **Dedicated-server specifics:**
   - airdrops follow vanilla's schedule (`RadioOnlyAirdrops` applies only with a local player; round MP5 part R: it applies
-    while a player whose SC matches is online, below);
-  - supply runs sent by a client are hidden runs;
-  - runners make no distress calls there.
+    while any community player online is not known to run another SC version, below);
+  - a client's supply runs are physical and runners call for help there too (round MP5 part N; until then they were hidden
+    runs with no distress calls).
 - **Round MP1, the mirror** (`ScMirror`, `NetPackageScState`): a client holds a read-only copy of the server's registry in
   `ScRegistry`'s own containers. The community window, the Home Status HUD, the Facilities tab, the talk card and the
   helpers under them read it unchanged.
@@ -2845,7 +2845,7 @@ Round MP0 is the groundwork:
     `ScEncSearch.FollowAt` / `WaitAt` / `SearchAtFor`, `ScEncJoin.Join` and `ScEnclaveDeals.Recruit` with an `EntityPlayer`),
     and each returns the reply line's key and specifics instead of writing the host's `reply` static.
   - **The talk's facts (version 3 of `NetPackageScTalkContext`; layout in its header):** when a client's talk opens, and
-    again after each of its enclave actions (`ScTalkContext.SendFactsAfter`, sent before that action's answer: the reliable
+    again after each enclave action that changes what a row reads (`ScTalkContext.SendFactsAfter`, sent before that action's answer: the reliable
     channel keeps order), the server adds what the enclave rows need (`ScEncFacts.Fill`, from the host's own requirement code
     answered for that player): `EncFlags` (alive, leader / member / enlisted, leader talking, can trade, the show halves of
     the enlist, recruit, gift and join rows, needs a favour, can give up, a thanks to spend, an infestation to make known),
@@ -2891,8 +2891,9 @@ Round MP0 is the groundwork:
     words are the client's. A client's rows show what the facts said at the talk's open or its last action (a day passing in
     the talk, another player's action meanwhile, can leave a row one step behind; every action checks everything again). A
     hand-over whose answer never comes (a dropped connection) is lost to the player. Any community player may send an
-    enlisted person home or tell a missing survivor to wait (one shared community). Enclave containers still open for a client
-    (`Patches_Enclaves.Patch_ContainerLock` is host-only; not a dialog).
+    enlisted person home or tell a missing survivor to wait (one shared community). An enclave's containers refuse a client
+    too, from its copy (`Patches_Enclaves.Patch_ContainerLock`; the server does not check it again). A remote player who goes
+    offline keeps the people they enlisted for 5 minutes (a reconnect keeps the deal); then they go home, the fee spent.
 - **Round MP5 (part R), the radio for every player** (`ScActionsRadio`, `ScRadioView`, `XUiC_ScRadio`, `ScRadio`,
   `Patches_Radio`, `ScEncCalls`, `ScEncSiege`, `ScHordeVoice`, `ScRadioTalk`): any community player uses the radio station
   (and, with `HandheldRadioTab` on, the Radio tab over their own handheld radio). A client opens the window on its own
@@ -2923,8 +2924,9 @@ Round MP0 is the groundwork:
     fighter is enlisted with them; caller dead: it waits, as before; offline, or a call loaded from a save: the anchor).
     A radio contact is rolled at the caller's gamestage at a POI picked around home, as before. A client's contact and
     scout markers reach a listen host's own map at once (and the client's through `ScMarkers`).
-  - **`RadioOnlyAirdrops`** holds on a dedicated server too while any player online runs the server's SC
-    (`ScNet.ClientMatches`: they can ask at a radio); with none, vanilla's schedule runs (as round MP0 kept it).
+  - **`RadioOnlyAirdrops`** holds on a dedicated server too while any community player is online who is not known to run
+    another SC version (`ScNet.KnownMismatch`; a joining player counts before their hello, so an overdue vanilla drop does
+    not fly to them at login). With nobody online, or only mismatched clients, vanilla's schedule runs.
   - **Sieges:** called for any community player in range (the anchor first, as before: `ScEncSiege.PickSource`); the quest
     is that player's. Not every player's: a request keeps one acceptor and `ScQuestNet`'s journal report removes a request
     quest from any other journal - a copy per player needs `ScQuestNet` to track a siege's holders as it tracks a rescue's.
@@ -2980,14 +2982,17 @@ Round MP0 is the groundwork:
     so their chunks unload and each body is recorded by the unload capture. Bodies, doors and streamer names otherwise come
     round any online player since round MP0.
   - **Op** (`ScActionsWorld`): `encremains.search` (x, y, z; Community): "Search the body" on a missing survivor's remains,
-    asked on every machine (inline for the host's own player, which `ScEncSearch.SearchAt` tells as before). A remote sender
-    must be alive within `RemainsReach` (8 m) of a remains block; its tell (`scEncRemainsNothing` / `Searched` / `Found`) is
-    worked out from the search as it stood before (SearchAt still takes `EntityPlayerLocal`).
+    asked on every machine (inline for the host's own player). A remote sender must be alive within `RemainsReach` (8 m) of a
+    remains block. The search is part E's `ScEncSearch.SearchAtFor`, which tells the sender (`scEncRemainsNothing` /
+    `Searched` / `Found`) on any machine.
   - **Console:** `sc infest add|clear|spread|roll`, `sc band ...`, `sc enclave move <id> now` and `sc enclave raid <id> ...` act
     for the sender (`ConsoleCmdSc.Me`). `sc enclave raid ... now` refuses the demand for the sender through
     `ScOutpostRisk.RefuseDemand`. `ScEncRaids.OnPaid(o, by)` takes the payer (optional).
   - **Left as they were:** `sc enclave join` (`ScEncJoin.Command`, the dialog join's round), the late seed's view rule and `ScEnclaves.InView`
     (the server's loaded chunks already cover every remote player).
+  - **Leadership counters** (`ScLeadership.Count`) add 1 with `CVarOperation.add`, so a remote player's machine, which drains
+    them, gets exactly one per event. **Known gap:** `ScLeadership.Read` (the leadership multipliers) on a dedicated server
+    reads the anchor's server-side copy of `$`-named cvars, which a client never sends back; it stays at its login value.
 - **Round MP5 (part N), physical runners around every player** (`ScRunners`, `ScRuns`, `ScMining`, `ScRunnerCall`, the
   distress functions of `ScRadio`, `ScGarrison`'s posting travel). A physical runner - a supply or mining run, a member
   walking to or from an outpost - used to be captured and re-created around ONE player (the host's own, or the tick's
@@ -3030,12 +3035,13 @@ Round MP0 is the groundwork:
     capture always snapshots and saves before the removal (`GoOffline`), and a chunk the server unloads (no player's
     observer holds it any more: a client leaving, dying or teleporting away) captures through `OnEntityUnloaded` as before.
     A re-create needs the 3x3 chunks round the spot loaded and settled on the server (`Settled`), well inside the chosen
-    player's observer. The dedicated server's MP0 notes "supply runs sent by a client are hidden runs" and "runners make no
-    distress calls there" no longer hold.
+    player's observer. A re-created body keeps vanilla's pop-in rule (not within 50 m in front of a living player) for up to
+    `RunPopInMaxWait` (20 s), then comes anyway, as it always did.
   - **Known gaps:** the run's dice still roll for a body forced offline beside a player (a frozen chunk, the watchdog's
     "desperate" hand-off), as for the host before. Near a client the server may hold chunks without colliders: a re-create
     there follows MP0.1's settled rule (a body brings its chunk's colliders); should one stay frozen, the frozen-body rule
-    captures it again after `RunFrozenSeconds` - churn, never a loss. The server could read a client's handheld from its
+    captures it again after 15 s under that rule (`RunFrozenSeconds` elsewhere) - churn, never a loss. With nobody left on a
+    dedicated server the ticker stops: an online runner is captured when the server unloads her chunk or shuts down. The server could read a client's handheld from its
     save copy of their bag (`ClientInfo.latestPlayerData`), left for later (`ScHandheld` is not this part's file). MP6:
     `Observes` asks `ScPlayers.InCommunity`, so Stage 2 decides whose players keep whose runners.
 - **Round MP5 (part O), outposts for every player** (`ScOutpostRisk`, `ScGarrison`, `ScOutpostPerks`, `Patches_Outposts`,

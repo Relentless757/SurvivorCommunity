@@ -159,6 +159,16 @@ namespace SurvivorCommunity
             return clientProtocol.TryGetValue(entityId, out v) && v == Protocol;
         }
 
+        /// <summary>
+        /// Round MP5 (review R-m1), server: a remote client that said hello with another protocol. A client whose hello has not
+        /// come yet (still loading in) is not one: it may well be able to use the radio.
+        /// </summary>
+        public static bool KnownMismatch(EntityPlayer p)
+        {
+            int v;
+            return p != null && !(p is EntityPlayerLocal) && clientProtocol.TryGetValue(p.entityId, out v) && v != Protocol;
+        }
+
         public static void ForgetClient(int entityId)
         {
             clientProtocol.Remove(entityId);

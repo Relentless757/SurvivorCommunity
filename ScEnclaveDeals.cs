@@ -65,6 +65,10 @@ namespace SurvivorCommunity
         private static bool synced;
         /// <summary>Bodies a save still recorded as enlisted (a crash): their hired_* is taken off the player at the first tick.</summary>
         private static readonly List<int> staleHires = new List<int>();
+        /// <summary>Round MP5 (review E-m2): a remote player who enlisted someone and went offline - since when (real time), by person id. Session only.</summary>
+        private static readonly Dictionary<int, float> enlisterGone = new Dictionary<int, float>();
+        /// <summary>Round MP5 (review E-m2): how long an enlisted person waits for a remote player who went offline (a reconnect keeps the deal).</summary>
+        private const float EnlisterGoneSeconds = 300f;
 
         public static void Reset()
         {
@@ -590,7 +594,23 @@ namespace SurvivorCommunity
         public static bool TickEnlisted(World w, Enclave e, EncPerson p, EntityAlive npc)
         {
             EntityPlayer pl = p.EnlistedBy > 0 ? w.GetEntity(p.EnlistedBy) as EntityPlayer : null;
-            if (pl == null) { SendHome(p, npc, null, "the player who enlisted them is gone"); return true; }
+            if (pl == null)
+            {
+                // round MP5 (review E-m2): a remote player who dropped (a dedicated server keeps running) has EnlisterGoneSeconds to
+                // come back - their entity id is theirs again on a reconnect - before the paid deal ends. The host's own player
+                // (single player) is never gone while the world runs: home at once, as before
+                EntityPlayerLocal own = ScCommunity.LocalPlayer;
+                if (own == null || own.entityId != p.EnlistedBy)
+                {
+                    float since;
+                    if (!enlisterGone.TryGetValue(p.Id, out since)) { enlisterGone[p.Id] = since = Time.unscaledTime; ScLog.Out(p.Name + ": the player who enlisted them went offline - waiting " + EnlisterGoneSeconds + " s"); }
+                    if (Time.unscaledTime - since < EnlisterGoneSeconds) return false;
+                }
+                enlisterGone.Remove(p.Id);
+                SendHome(p, npc, null, "the player who enlisted them is gone");
+                return true;
+            }
+            enlisterGone.Remove(p.Id);
             if (w.worldTime >= p.EnlistedUntil) { SendHome(p, npc, "scEncEnlistOver", "their days with the player are up"); return true; }
             if ((int)npc.Buffs.GetCustomVar("Leader") != p.EnlistedBy) { SendHome(p, npc, "scEncHeadsHome", "dismissed through a side door (no Leader)"); return true; }
             return false;

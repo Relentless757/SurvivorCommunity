@@ -180,7 +180,9 @@ namespace SurvivorCommunity
                 for (int i = 0; i < mine.Count; i++)
                 {
                     EntityPlayer p = mine[i];
-                    if (p == null || p.IsDead() || ScOutposts.DistanceToBox(o, p.position) > range) continue;
+                    // round MP5 (review O-m2): the dead count, as they do for presence (Closest) - a fight a dead player is
+                    // at is sized by them, not by a far-away anchor
+                    if (p == null || ScOutposts.DistanceToBox(o, p.position) > range) continue;
                     stages.Add(p.gameStage);
                 }
                 if (stages.Count == 0) return own;
@@ -398,7 +400,9 @@ namespace SurvivorCommunity
             // line drew none there); remote players' come from ScMarkers. In single player LocalPlayer is the player, as before
             if (radio) AddMarker(o, ScCommunity.LocalPlayer ?? player);
             Enclave by = raiders ? ScEncRaids.EnclaveOf(o) : null;
-            if (player != null && radio)        // round MP0: the radio's call to every community player
+            // round MP0: the radio's call to every community player. Round MP5 (review O-m1): on the radio alone - an attack typed on
+            // a dedicated server's own console has no sender, and with nobody online the call reaches nobody anyway
+            if (radio)
             {
                 if (by != null) ScPlayers.TellCommunityKey("scEncRaidCall", "ui_denied", o.Name, ScConfig.OutpostAttackHours, by.Name);
                 else ScPlayers.TellCommunityKey(raiders ? "scRiskRaidCall" : "scRiskAttackCall", "ui_denied", o.Name, ScConfig.OutpostAttackHours);
@@ -873,7 +877,7 @@ namespace SurvivorCommunity
             c.Add(Resource.Ammo, -o.DemandAmmo);
             c.Add(Resource.Food, -o.DemandFood);
             o.DemandUntil = -1;
-            string theirs = ScEncRaids.OnPaid(o);          // E10: an enclave's demand - its ledger line, their rest, their words
+            string theirs = ScEncRaids.OnPaid(o, player);  // E10: an enclave's demand - its ledger line, their rest, their words (round MP5, review W-m1: the payer)
             if (theirs == null) ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerPaid"), o.Name));
             ScRegistry.SaveAtomic();
             message = theirs ?? string.Format(Localization.Get("scRiskPaid"), o.Name);
