@@ -280,6 +280,9 @@ namespace SurvivorCommunity
                 ScLog.Out("favour done: " + p.PoiName + " for " + p.Name + " - " + sender.PlayerDisplayName + "'s quest is past the clearing");
             }
             if (p != null && !p.Done) { reply.Fail("scFavourNotDone"); return; }
+            // round MP6 (fix R-M2): no favour of the sender's community while another community courts them - the sender's own
+            // favour comes first (the user's decision 2), never a join on the other's. Never with one community
+            if (p == null && ScCommunities.Count > 1 && ScRegistry.GetProspect(npc.entityId) != null) { reply.Fail("scFavourNotDone"); return; }
             int favourId = p != null ? p.Id : 0;
             bool favourDone = p != null && p.Done;
             string error;

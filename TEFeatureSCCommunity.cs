@@ -106,9 +106,14 @@ namespace SurvivorCommunity
                 // placer as the block went down) is an online community player. LocalPlayerIsOwner is the host's own player's
                 // only: false for a client's flag on a listen host and for every flag on a dedicated server, so those never
                 // established themselves. A POI's or the console's block has no owner and is still left alone.
-                if (!base.Parent.LocalPlayerIsOwner && ScActionsClaim.PlacerOf(base.Parent) == null) return;
-                // round MP6 (part G): established for the placer's community (the composite's owner), in that community's tick
-                ScOutposts.QueueFlag(ToWorldPos(), ScGates.CommunityOfUser(base.Parent.Owner));
+                // round MP6 (fix G-M1): asked in the placer's community's scope - PlacerOf's community test reads the scope, which
+                // nothing set here (community 0 on a dedicated server: another community's flag never established)
+                using (ScGates.ScopeOfUser(base.Parent.Owner))
+                {
+                    if (!base.Parent.LocalPlayerIsOwner && ScActionsClaim.PlacerOf(base.Parent) == null) return;
+                    // round MP6 (part G): established for the placer's community (the composite's owner), in that community's tick
+                    ScOutposts.QueueFlag(ToWorldPos(), ScGates.CommunityOfUser(base.Parent.Owner));
+                }
             }
             catch (Exception e)
             {

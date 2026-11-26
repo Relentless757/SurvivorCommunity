@@ -589,6 +589,8 @@ namespace SurvivorCommunity
                 // here (whoever the caller reasons from: in single player and on a listen host that was always the host's own),
                 // every client's through the quest op (ScQuestNet.RescueStarted, below)
                 EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+                // round MP6 (fix N-M2): the host's own journal only when the host is of the runner's community
+                if (lp != null && ScPlayers.CommunityOf(lp) != m.CommunityId) lp = null;
                 if (ScRunners.IsPhysical(m))
                 {
                     // a physical runner calls from the site they are searching - only once they are there

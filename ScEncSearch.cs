@@ -596,6 +596,30 @@ namespace SurvivorCommunity
         internal static bool TickBody(World w, Enclave e, EncPerson p, EntityAlive npc)
         {
             EnclaveRequest r = RequestOf(p);
+            // round MP6 (fix R-M1): this is a world step (the first online community's pass) - the search's own community's scope,
+            // or Home's Close found the request in no list (it returned, the request stuck in Following) and the thanks went to
+            // the wrong community. Nothing with one community
+            using (ScopeOfSearch(r)) return TickBodyScoped(w, e, p, npc, r);
+        }
+
+        /// <summary>Round MP6 (fix R-M1): the search's community's scope (several communities and a search), else nothing.</summary>
+        private static ScScope ScopeOfSearch(EnclaveRequest r)
+        {
+            return r != null && ScCommunities.Count > 1 ? ScRegistry.Use(r.CommunityId) : default(ScScope);
+        }
+
+        /// <summary>
+        /// Round MP6 (fix R-M1): another community's player may not lead or park the person this search is for (the user's decision
+        /// 2: a request is its community's). Never with one community.
+        /// </summary>
+        private static bool OtherCommunity(EntityPlayer player, EnclaveRequest r)
+        {
+            return player != null && r != null && ScCommunities.Count > 1 && ScPlayers.CommunityOf(player) != r.CommunityId;
+        }
+
+        /// <summary>Round MP6 (fix R-M1): TickBody in the search's community's scope.</summary>
+        private static bool TickBodyScoped(World w, Enclave e, EncPerson p, EntityAlive npc, EnclaveRequest r)
+        {
             if (r == null || (r.Stage != StageAlive && r.Stage != StageFollowing))
             {
                 ScEnclavePeople.ForgetBody(p);
@@ -653,6 +677,7 @@ namespace SurvivorCommunity
             EncPerson p;
             EnclaveRequest r;
             if (!TalkingAt(npc, out p, out r) || r.Stage != StageAlive || npc.IsDead() || player == null) return false;
+            if (OtherCommunity(player, r)) return false;       // round MP6 (fix R-M1): another community's search
             Enclave e = ScEnclaves.ById(r.EnclaveId);
             if (e == null) return false;
             ScEnclaveDeals.Hire(npc, player);
@@ -684,6 +709,7 @@ namespace SurvivorCommunity
             EncPerson p;
             EnclaveRequest r;
             if (!TalkingAt(npc, out p, out r) || r.Stage != StageFollowing) return false;
+            if (OtherCommunity(player, r)) return false;       // round MP6 (fix R-M1): another community's search
             StopEscort(r, p, npc, player, "the player told them to wait", "scEncSearchWaitTell");
             ScRegistry.SaveAtomic();
             return true;
@@ -762,6 +788,12 @@ namespace SurvivorCommunity
         {
             EnclaveRequest r = RequestOf(p);
             if (r == null || r.Stage != StageFollowing) return;
+            using (ScopeOfSearch(r)) OnUnbodiedScoped(p, own, r);   // round MP6 (fix R-M1): the search's community's scope
+        }
+
+        /// <summary>Round MP6 (fix R-M1): OnUnbodied in the search's community's scope.</summary>
+        private static void OnUnbodiedScoped(EncPerson p, EntityAlive own, EnclaveRequest r)
+        {
             World w = ScCommunity.World;
             EntityPlayer pl = r.EscortBy > 0 && w != null ? w.GetEntity(r.EscortBy) as EntityPlayer : null;
             ScEnclaveDeals.Unhire(own, pl, own != null ? own.entityId : r.EscortBody);
@@ -781,6 +813,13 @@ namespace SurvivorCommunity
         {
             EnclaveRequest r = RequestOf(p);
             if (r == null) return;
+            // round MP6 (fix R-M1): from the unscoped death hook - the search's community's scope (Close finds it in its list)
+            using (ScopeOfSearch(r)) OnDiedScoped(p, at, r);
+        }
+
+        /// <summary>Round MP6 (fix R-M1): OnDied in the search's community's scope.</summary>
+        private static void OnDiedScoped(EncPerson p, Vector3 at, EnclaveRequest r)
+        {
             if (r.Stage == StageFollowing)
             {
                 ScEncRequests.Close(r, ScEncRequests.Failed, p.Name + " died on the way home");

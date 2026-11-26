@@ -722,13 +722,19 @@ namespace SurvivorCommunity
                         if (ScArms.RaiderLead(__instance, e)) return false;
                         // round tm1: a member's team verdict (F against T), recounted once a second, staggered - the only writer;
                         // everything after it and the UAI considerations only read it
-                        ScTeam.Recount(e);
-                        // round rt1: a hurt member's (or a coward's) retreat - shelter inside or KITE with the gun (k5); the only
-                        // writer of the retreat states (the posture, the UAI considerations and the hand rule below only read them)
-                        ScRetreat.Update(e);
-                        // round k4: her one posture (MELEE, KITE, HOLD, SHELTER, INVESTIGATE) from the verdict, the retreat, her
-                        // target and her hand - the only writer; the hand rule below and UAIConsiderationScPosture only read it
-                        ScPosture.Update(__instance, e);
+                        // round MP6 (fix H-M1): 0-XNPCCore calls this from the avatar controller's own Update, not from
+                        // UAIBase.Update, so part G's UAI scope is not open here: read her own community's home zone, attack
+                        // area and shelter cache (nothing with one community, none for a stranger)
+                        using (ScGates.ScopeOf(e))
+                        {
+                            ScTeam.Recount(e);
+                            // round rt1: a hurt member's (or a coward's) retreat - shelter inside or KITE with the gun (k5); the only
+                            // writer of the retreat states (the posture, the UAI considerations and the hand rule below only read them)
+                            ScRetreat.Update(e);
+                            // round k4: her one posture (MELEE, KITE, HOLD, SHELTER, INVESTIGATE) from the verdict, the retreat, her
+                            // target and her hand - the only writer; the hand rule below and UAIConsiderationScPosture only read it
+                            ScPosture.Update(__instance, e);
+                        }
                         // round k2b: while she backs off to heal (ScHealBackOff) no weapon swap - not SC's hand rule, not
                         // 0-XNPCCore's 3 m swap: the medical item takes her hand next, and a swap would only cost time
                         if (ScHealBackOff.Walking(e))

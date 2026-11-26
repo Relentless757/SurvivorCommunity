@@ -732,7 +732,9 @@ namespace SurvivorCommunity
             }
             // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers). Round MP6
             // (part relations): drawn for the host's own player's community (AddMarker reads its known flag)
-            if (player != null) AddMarker(inf, ScMarkers.HostOwner());   // round MP6 (merge): the host's map only for the host's community (part N's HostOwner)
+            // round MP6 (fix R-m6): the host's own player, whichever community rolled it - AddMarker opens the host's community's
+            // scope and draws only when that community knows it (HostOwner here asked the rolling community instead)
+            if (player != null) AddMarker(inf, ScCommunity.LocalPlayer);
             ScLog.Out("infestation #" + inf.Id + " at " + inf.PoiName + " (" + inf.Prefab + ", T" + inf.Tier + ") " + inf.Poi + " [" + how
                       + (from != null ? " from #" + from.Id : "") + "]: " + rooms + "; special " + SpecialWord(inf)
                       + (ScRelations.Several ? (heard.Length > 0 ? heard : ", not known yet") : (inf.Known ? heard : ", not known yet")));
@@ -1407,7 +1409,10 @@ namespace SurvivorCommunity
                 if (!markersRestored)
                 {
                     markersRestored = true;
-                    RefreshMarkers(player);           // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
+                    // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers). Round
+                    // MP6 (fix N-M1): for the host's own player in its community's view, never the world pass's anchor (null on a
+                    // dedicated server: RefreshMarkers returns)
+                    RefreshMarkers(ScCommunity.LocalPlayer);
                 }
                 // round MP6 (part relations): each community with a player online spots near its own home and finds for itself (its
                 // scope, its anchor; the known flag is its own). With one community: once, the ticker's player, as before

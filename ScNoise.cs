@@ -155,6 +155,9 @@ namespace SurvivorCommunity
                     int cid = ScZone.CommunityAt(h.Pos);
                     CommunityState cs = cid >= 0 ? ScCommunities.ById(cid) : null;
                     if (cs == null) continue;
+                    // round MP6 (fix H-m2): a paused community (none of its players online) hears nothing - its noise does not fade
+                    // while paused, so it would come back to a loud base and a horde
+                    if (ScCommunities.Count > 1 && !ScTicker.OnlineNow(cid)) continue;
                     float v = h.Value * (h.Kind == KindNpcShot ? ScConfig.NoiseNpcShotMult : ScConfig.NoiseHeatMult);
                     if (v <= 0f) continue;
                     Community hc = cs.Community;

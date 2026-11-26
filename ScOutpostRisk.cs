@@ -67,6 +67,16 @@ namespace SurvivorCommunity
         private static float nextTick { get { return homeTicks.Current.Next; } set { homeTicks.Current.Next = value; } }
         private static int lastClass = -1;
 
+        /// <summary>
+        /// Round MP6 (fix H-M2): the community in scope was paused for gap world ticks (ScTicker.PauseShift) - an open outpost fight's
+        /// deadline moves on by the gap (neither "unanswered" nor "fought, not finished" while none of its players could go).
+        /// </summary>
+        internal static void ShiftPaused(ulong gap)
+        {
+            foreach (Outpost o in ScRegistry.Outposts)
+                if (o.AttackUntil > 0UL) o.AttackUntil += gap;
+        }
+
         public static void Reset()
         {
             live.Clear();

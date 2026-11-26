@@ -880,7 +880,11 @@ namespace SurvivorCommunity
                 if (t >= nextMarkers)
                 {
                     nextMarkers = t + MarkerSeconds;
-                    UpdateMarkers(player);            // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
+                    // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers). Round
+                    // MP6 (fix N-M1): drawn and moved for the host's own player in its community's view, never the world pass's anchor
+                    // (another community's player: its view removed the host's markers); none on a dedicated server
+                    EntityPlayerLocal host = ScCommunity.LocalPlayer;
+                    if (host != null) UpdateMarkers(host);
                 }
                 if (changed) ScRegistry.SaveAtomic();
             }

@@ -57,7 +57,7 @@ namespace SurvivorCommunity
     ///             as ordinary zombies and it counts as held (none killed at all: they lost the trail).
     ///   Round MP6 (part H): one attack per community - its state was always the community record's; its session (attackers,
     ///             zone, clocks) is one per community too, and a community that pauses mid-fight lets its attackers go as a reload
-    ///             would (StaleSessions).
+    ///             would (ReleasePaused; round MP6 fix H-M2: back from a pause its clocks move on, ShiftPaused).
     /// </summary>
     public static class ScBaseAttack
     {
@@ -99,8 +99,6 @@ namespace SurvivorCommunity
             public ulong LastProgress;
             public Vector3 HomeCentre;
             public int FighterId;
-            /// <summary>The real time this community's attack last ticked (the stale-session check: StaleSessions).</summary>
-            public float LastTick = -1f;
         }
         private static readonly ScHomeState<AttackState> homes = new ScHomeState<AttackState>();
 
@@ -124,15 +122,10 @@ namespace SurvivorCommunity
         private static Vector3 homeCentre { get { return homes.Current.HomeCentre; } set { homes.Current.HomeCentre = value; } }
         /// <summary>Round MP0: the entity id of a community player last seen at the live fight (told when it is left), 0 = none.</summary>
         private static int fighterId { get { return homes.Current.FighterId; } set { homes.Current.FighterId = value; } }
-        /// <summary>Round MP6 (part H): real seconds without a tick after which a community's live session counts as paused.</summary>
-        private const float PausedGap = 5f;
-        /// <summary>Round MP6 (part H): the frame StaleSessions last ran (once a frame, whichever community ticks first).</summary>
-        private static int staleFrame = -1;
 
         public static void Reset()
         {
             homes.Reset();                        // round MP6 (part H): every community's session
-            staleFrame = -1;
         }
 
         /// <summary>The registry was (re)loaded: whatever this session spawned is squared with it on the next tick.</summary>
@@ -144,24 +137,42 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round MP6 (part H), the user's decision 9: a community whose players all went offline pauses - its ticks stop, but its live
-        /// attackers would stay in the world as chunk observers and fight its residents with nobody there. Once a frame (from any
-        /// community's tick), a session that has attackers and has not ticked for PausedGap real seconds lets them go (despawned)
-        /// and is no longer ready: when the community ticks again it resumes exactly as after a load (only the ones still standing
-        /// come back, BaseAttackResumeSeconds later; then the usual rules - a fight nobody is at is handed to the defenders). Never
-        /// with one community: the server stands still with nobody online.
+        /// attackers would stay in the world as chunk observers and fight its residents with nobody there. A session that has
+        /// attackers lets them go (despawned) and is no longer ready: when the community ticks again it resumes exactly as after a
+        /// load (only the ones still standing come back, BaseAttackResumeSeconds later; then the usual rules - a fight nobody is at
+        /// is handed to the defenders). Never with one community: the server stands still with nobody online.
+        /// Round MP6 (fix H-m1): called by ScTicker once a pass with the communities that have a player online - "paused" is decided
+        /// from that list, not from 5 real seconds without a tick (a stall, or a step that threw before this one, despawned a fight
+        /// its players were at).
         /// </summary>
-        private static void StaleSessions(World w, float now)
+        internal static void ReleasePaused(World w, List<int> online)
         {
-            if (ScCommunities.Count < 2 || staleFrame == Time.frameCount) return;
-            staleFrame = Time.frameCount;
+            if (ScCommunities.Count < 2) return;
             foreach (KeyValuePair<int, AttackState> kv in homes.Rows())
             {
                 AttackState s = kv.Value;
-                if (s.Attackers.Count == 0 || s.LastTick < 0f || now - s.LastTick <= PausedGap) continue;
+                if (s.Attackers.Count == 0 || online.Contains(kv.Key)) continue;
                 int gone = Release(s.Attackers, w, true);
                 s.SessionReady = false;
                 ScLog.Out("base attack: community " + kv.Key + " paused mid-fight (none of its players online) - " + gone + " attacker(s) despawned; the ones still standing come back when it resumes");
             }
+        }
+
+        /// <summary>
+        /// Round MP6 (fix H-M2): the community in scope was paused for gap world ticks while others played (ScTicker.PauseShift) - its
+        /// open attack's stamps move on by the gap, so the arrival, the defenders' fight and a live fight's length pick up where
+        /// they stood, and the gap to the next call does not run while it was paused. A stamp already past stays past.
+        /// </summary>
+        internal static void ShiftPaused(Community c, ulong gap)
+        {
+            if (c.AttackNotBefore > 0UL) c.AttackNotBefore += gap;
+            if (c.AttackState == StateNone) return;
+            if (c.AttackArrive > 0UL) c.AttackArrive += gap;
+            if (c.AttackStarted > 0UL) c.AttackStarted += gap;
+            if (c.AttackAwaySince > 0UL) c.AttackAwaySince += gap;
+            if (c.AttackAwayEnd > 0UL) c.AttackAwayEnd += gap;
+            if (lastProgress > 0UL) lastProgress += gap;
+            ScLog.Out("base attack: the open attack (state " + c.AttackState + ") was paused - its clocks move on by " + (gap / 1000f).ToString("0.#", CultureInfo.InvariantCulture) + " game hour(s)");
         }
 
         public static bool Open { get { return ScRegistry.Community.AttackState != StateNone; } }
@@ -451,8 +462,7 @@ namespace SurvivorCommunity
             {
                 if (w == null || player == null) return;
                 float now = Time.unscaledTime;
-                homes.Current.LastTick = now;     // round MP6 (part H): this community ticks (StaleSessions)
-                StaleSessions(w, now);            // round MP6 (part H): a paused community's live attackers go
+                // round MP6 (fix H-m1): a paused community's live attackers go from ScTicker (ReleasePaused), by its online list
                 if (now < nextTick) return;
                 nextTick = now + 1f;
                 // the pause menu stops the world but not this ticker: nothing spawns into a frozen world
@@ -1191,7 +1201,7 @@ namespace SurvivorCommunity
             return Release(attackers, w, despawn);      // round MP6 (part H): the community in scope's
         }
 
-        /// <summary>Round MP6 (part H): Release for one community's attackers (StaleSessions passes a paused community's own).</summary>
+        /// <summary>Round MP6 (part H): Release for one community's attackers (ReleasePaused passes a paused community's own).</summary>
         private static int Release(Dictionary<int, Attacker> those, World w, bool despawn)
         {
             int alive = 0;

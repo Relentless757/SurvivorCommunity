@@ -939,7 +939,9 @@ namespace SurvivorCommunity
             // round MP5 (part E): one of an enclave's people - their rows' verdicts and their line's tokens (ScEncFacts.Fill), before
             // the favour below: the favour row's roll (ScEnclaveDeals.EnsureFavour) is theirs, so the prospect read next sees it
             ScEncFacts.Fill(f, p, npc);
-            Prospect pr = ScRegistry.GetProspect(npc.entityId);
+            // round MP6 (fix R-M2): the talker's community's own favour (the package's scope is the sender's) - GetProspect fell back
+            // to another community's, so a second community never rolled its own and could recruit on the first one's finished favour
+            Prospect pr = ScRegistry.OwnProspect(npc.entityId);
             if (pr == null && f.Recruit && f.HasHome) pr = ScFavours.Ensure(npc, p);     // E4: the roll is the server's (it saves)
             if (pr != null && !pr.Done && journalDone && pr.Favour == FavourKind.Poi)
             {

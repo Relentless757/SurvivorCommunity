@@ -527,6 +527,12 @@ namespace SurvivorCommunity
         /// <summary>World time the noise and attention were last advanced to (0 = not yet).</summary>
         public ulong NoiseStamp;
         /// <summary>
+        /// Round MP6 (fix H-M2): the world time this community last ticked (0 = not yet). With several communities, a community that
+        /// was paused (none of its players online, the user's decision 9) shifts its open fights' world-time stamps by the time other
+        /// communities played meanwhile (ScTicker.PauseShift). Saved as seentime= only while there are several communities.
+        /// </summary>
+        public ulong SeenTime;
+        /// <summary>
         /// Base defence D2 (ScBaseAttack): the open home attack. State 0 none, 1 called (AttackArrive = world time it
         /// arrives, 0 = when the player is next home), 2 live (since AttackStarted), 3 fought without the player (D4). The
         /// side it comes from, how many come,

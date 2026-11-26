@@ -1383,7 +1383,10 @@ namespace SurvivorCommunity
                 if (!markersRestored)
                 {
                     markersRestored = true;
-                    RefreshMarkers(player);           // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
+                    // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers). Round
+                    // MP6 (fix N-M1): for the host's own player in its community's view, never the world pass's anchor (null on a
+                    // dedicated server: RefreshMarkers returns)
+                    RefreshMarkers(ScCommunity.LocalPlayer);
                 }
                 // round MP6 (part relations): each community with a player online finds for itself (its scope, its anchor) - the
                 // known flag is its own (the user's decision 1); with one community: once, the ticker's player, as before

@@ -44,6 +44,15 @@ namespace SurvivorCommunity
         /// </summary>
         private static readonly HashSet<int> tickedLast = new HashSet<int>(), tickedNow = new HashSet<int>();
 
+        /// <summary>
+        /// Round MP6 (fix H-m1, H-m2): this community has a player online in the ticker's current pass (the list OnlineCommunities
+        /// made at its start). Main thread. Asked only with several communities.
+        /// </summary>
+        internal static bool OnlineNow(int cid) { return online.Contains(cid); }
+
+        /// <summary>Round MP6 (fix H-M2): world time a paused community must have missed before its stamps shift (one game hour).</summary>
+        private const ulong PauseShiftMin = 1000UL;
+
         public static void Reset()
         {
             nextTick = 0f;
@@ -142,6 +151,9 @@ namespace SurvivorCommunity
                 }
                 tickedLast.Clear();                          // round MP6 (core fix): this pass is the next one's "last"
                 tickedLast.UnionWith(tickedNow);
+                // round MP6 (fix H-m1): a community with no player online this pass paused - its live attackers go (they come back when it
+                // resumes). Decided from this pass's list, not from a clock, so a stall or a throwing step never despawns a present fight
+                if (ScCommunities.Count > 1) ScBaseAttack.ReleasePaused(w, online);
                 // round MP6 (core): the world daily's day guard ahead of the world with no community going back to reset it (with one
                 // community it never is: the community's own rollover resets both)
                 if (first >= 0)
@@ -170,6 +182,10 @@ namespace SurvivorCommunity
             {
                 Community c = ScRegistry.Community;
                 ScWorldState ws = ScRegistry.WorldState;
+                // round MP6 (fix H-M2): back from a pause, its open fights pick up where they stood (never with one community)
+                ulong seenNow = w.worldTime;
+                if (resumed && ScCommunities.Count > 1 && c.SeenTime > 0UL && seenNow > c.SeenTime + PauseShiftMin) PauseShift(c, seenNow - c.SeenTime);
+                c.SeenTime = seenNow;
                 if (c.LastDay < 0)
                 {
                     c.LastDay = day;                       // baseline: the first observed day is not charged
@@ -293,6 +309,22 @@ namespace SurvivorCommunity
             ScLog.Out(ScRegistry.Current.Label + " resumes on day " + day + ": none of its players was online since day " + c.LastDay
                       + " - days " + (c.LastDay + 1) + " to " + to + " do not count for it (paused, no catch-up)");
             c.LastDay = to;
+            ScRegistry.SaveAtomic();
+        }
+
+        /// <summary>
+        /// Round MP6 (fix H-M2), the user's decision 9: a community that was paused while other communities played on - its open
+        /// fights' world-time stamps move forward by the time it missed, so nothing that was running (the home attack's arrival, the
+        /// defenders' fight, a live fight's length, the gap to the next call, a guard's watch shift, an outpost fight's deadline) came
+        /// due while none of its players could act. Inside the community's scope (TickCommunity). Saved.
+        /// </summary>
+        private static void PauseShift(Community c, ulong gap)
+        {
+            ScLog.Out(ScRegistry.Current.Label + " resumes after " + (gap / 1000f).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)
+                      + " game hour(s) paused - its open fights, watch shifts and outpost fights pick up where they stood");
+            ScBaseAttack.ShiftPaused(c, gap);
+            ScWatch.ShiftPaused(gap);
+            ScOutpostRisk.ShiftPaused(gap);
             ScRegistry.SaveAtomic();
         }
 

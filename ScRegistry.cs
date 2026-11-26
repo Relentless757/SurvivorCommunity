@@ -1642,6 +1642,7 @@ namespace SurvivorCommunity
                 case "noiseev": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.NoiseEvents = Math.Max(0f, f); break; }
                 case "attention": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.Attention = Math.Max(0f, Math.Min(100f, f)); break; }
                 case "noisestamp": { ulong u; if (ulong.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) c.NoiseStamp = u; break; }
+                case "seentime": { ulong u; if (ulong.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) c.SeenTime = u; break; }   // round MP6 (fix H-M2)
                 case "baseattack": ParseBaseAttack(c, val); break;
                 case "attacknext": { ulong u; if (ulong.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) c.AttackNotBefore = u; break; }
                 case "defended": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.DefenceTriumph = Math.Max(0f, Math.Min(10f, f)); break; }
@@ -2232,6 +2233,8 @@ namespace SurvivorCommunity
             if (c.NoiseEvents > 0f) sb.AppendLine("noiseev=" + c.NoiseEvents.ToString("0.###", CultureInfo.InvariantCulture));
             if (c.Attention > 0f) sb.AppendLine("attention=" + c.Attention.ToString("0.###", CultureInfo.InvariantCulture));
             if (c.NoiseStamp > 0UL) sb.AppendLine("noisestamp=" + c.NoiseStamp.ToString(CultureInfo.InvariantCulture));
+            // round MP6 (fix H-M2): never with one community (its save stays as before), never to a client
+            if (!forClients && c.SeenTime > 0UL && ScCommunities.Count > 1) sb.AppendLine("seentime=" + c.SeenTime.ToString(CultureInfo.InvariantCulture));
             if (c.AttackState != 0)
                 sb.AppendLine("baseattack=" + c.AttackState + ":" + c.AttackArrive.ToString(CultureInfo.InvariantCulture) + ":" + c.AttackStarted.ToString(CultureInfo.InvariantCulture)
                               + ":" + c.AttackBearing + ":" + c.AttackSize + ":" + c.AttackSpawned + ":" + c.AttackKilled + ":" + c.AttackAmmoRounds + ":" + c.AttackAmmoPoints);

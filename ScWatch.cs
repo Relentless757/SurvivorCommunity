@@ -72,6 +72,16 @@ namespace SurvivorCommunity
         private static NavObject marker;
         private static bool saveDue;
 
+        /// <summary>
+        /// Round MP6 (fix H-M2): the community in scope was paused for gap world ticks (ScTicker.PauseShift) - a guard's shift picks up
+        /// where it stood (it was not over, nor her fatigue due, while none of the community's players could see it).
+        /// </summary>
+        internal static void ShiftPaused(ulong gap)
+        {
+            foreach (Member m in ScRegistry.Members.Values)
+                if (m.WatchStart > 0UL) m.WatchStart += gap;
+        }
+
         public static void Reset()
         {
             guards.Clear();
