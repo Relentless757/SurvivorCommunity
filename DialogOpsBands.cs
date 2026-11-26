@@ -6,7 +6,8 @@ using SurvivorCommunity;
 // through the NPC the dialog passes (talkingTo: phases get the dialog's CurrentOwner) or else the player's CurrentNPC cvar,
 // then ScBands' body lookup - one dictionary hit. Host only: a client keeps no band records - round MP2 (part M): a client's
 // path reads what the server said at the talk's open (ScTalkContext: ScTalkFacts.Band, BandCome), and the join is a request
-// (band.join, ScActionsMembers) on every machine.
+// (band.join, ScActionsMembers) on every machine. Round MP5 (part W): a client's talk halts the band as the host's does (the
+// server reads the NPC's talk lock: ScBands.InTalk); the band's trust (wary, trusted, against you) is the community's.
 
 /// <summary>
 /// value="drifter": one of a drifter band, alive, not against the player (the phase picks their greeting); "trusted": ...

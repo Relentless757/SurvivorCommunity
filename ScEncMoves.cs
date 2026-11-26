@@ -319,8 +319,8 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Where "900 m north-east" is measured from: home, or the player without one.</summary>
-        private static bool From(EntityPlayer player, out Vector3 at)  // round MP0: no home - the anchor. MP5: per player
+        /// <summary>Where "900 m north-east" is measured from: home, or the player without one (round MP5, part W: each player's own, Move).</summary>
+        private static bool From(EntityPlayer player, out Vector3 at)  // round MP0: no home - the anchor
         {
             if (ScZone.HasHome)
             {
@@ -368,11 +368,16 @@ namespace SurvivorCommunity
             {
                 if (told)
                 {
-                    Vector3 from;
-                    string where = From(player, out from) ? ScEnclaves.Where(from, e.Centre) : dir;
-                    // round MP0: news for the whole community (the host alone in single player)
-                    ScPlayers.TellCommunity(string.Format(Loc("scEncCallRadio"), e.Name, Loc(SaidKey(reason))) + " "
-                                            + string.Format(Loc("scEncMoveTold"), oldName, e.PoiName, where), "");
+                    // round MP0: news for the whole community (the host alone in single player). Round MP5 (part W): with no home,
+                    // each player hears where they went from where they stand (single player: the one player, the old words)
+                    string said = string.Format(Loc("scEncCallRadio"), e.Name, Loc(SaidKey(reason))) + " ";
+                    EntityPlayer[] hear = ScPlayers.Community().ToArray();   // copied: a tell can re-enter code that reuses the list
+                    for (int i = 0; i < hear.Length; i++)
+                    {
+                        Vector3 from;
+                        string where = From(hear[i], out from) ? ScEnclaves.Where(from, e.Centre) : dir;
+                        ScCommunity.Tell(hear[i], said + string.Format(Loc("scEncMoveTold"), oldName, e.PoiName, where), "");
+                    }
                     ScEncRadio.Say(e, ScEncRadio.MoveCall(SaidKey(reason)), player);   // round m1v: their words aloud
                 }
                 // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
@@ -437,7 +442,7 @@ namespace SurvivorCommunity
         /// building they would go to (nothing changes); now - they move at once (the reasons and the roll ignored, what holds them
         /// kept), to the building sim names.
         /// </summary>
-        public static void Command(Enclave e, List<string> p, List<string> into)
+        public static void Command(Enclave e, List<string> p, List<string> into, EntityPlayer me)   // round MP5 (part W): me - the console's sender
         {
             string verb = p.Count > 3 ? p[3].ToLowerInvariant() : "";
             into.Add(e.Name + " (enclave " + e.Id + ", " + ScEnclaves.StandingWord(e) + "): " + InfoLine(e));
@@ -474,7 +479,7 @@ namespace SurvivorCommunity
                 return;
             }
             string old = e.PoiName;
-            Move(e, dest, Reason(e, now) ?? ReasonConsole, ScCommunity.LocalPlayer, "the console");
+            Move(e, dest, Reason(e, now) ?? ReasonConsole, me ?? ScPlayers.Anchor(), "the console");     // round MP5 (part W): the sender (telnet: the anchor)
             into.Add(e.Name + " moved from " + old + " to " + e.PoiName + " - " + (e.Known ? "known: their marker is there" : "off the map until found again"));
         }
     }

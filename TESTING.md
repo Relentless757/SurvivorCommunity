@@ -37,6 +37,74 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round MP5 (part: world) (2026-11-26): the world around any player - discovery, bands, arrivals, the home's fights
+
+Why: the world systems reasoned from one player, the "anchor" (the host's own player on a listen host, the owner or a player
+at home on a dedicated server). So only that player found enclaves and infestations, met bands, set off a band's trouble,
+was attacked by raider bands, and stopped a band by talking to it; the home's horde was sized by the anchor's gamestage.
+Now every community player counts: whoever comes near finds the place (the known flags stay the community's, the finder is
+told, every map gets the marker), bands meet, trouble and engage whichever community player is near, a remote player's talk
+halts a band (the server reads the NPC's talk lock), the home's horde and a siege are sized by the strongest player involved,
+a client can search a missing survivor's remains, and `sc band`, `sc infest`, `sc enclave move|raid` act round the player who
+typed them. Whole-group arrivals already turn up while any community player is home (round MP0), and enclave people
+already come round any player; a dedicated server with nobody online now lets go of the enclave buildings it held loaded.
+Build `sc34_mp5w`, **not deployed**, untested in game.
+
+**Single player (nothing may change)**
+- [ ] Walk up to an unknown enclave (150 m): "You found ..." with its standing, its marker, a ledger line, as before. The
+      same with an unknown infestation.
+- [ ] `sc band spawn drifters trouble`: once you are within 30 m (or see them), "Drifters on the road ..." and their
+      marker; the zombies come on them from the side away from you; help kill them: their thanks and "they trust you now".
+      Talk to one: the whole band stops; close the talk: they walk on.
+- [ ] `sc band spawn raiders`: they attack you once one of them sees you (the log: "... saw <you> - they attack"); run
+      more than 180 m off: they let you go.
+- [ ] `sc band spawn drifters`, hit one: "turned on you"; `sc band here <id>` (their bodies made again): they still attack.
+- [ ] `sc attack status` / `sc attack now`: the horde's size and mix as before; `sc siege` settles as before.
+- [ ] A missing survivor found dead (an enclave's search request): "Search the body" tells you who and to go back, a
+      second time "searched already", as before.
+- [ ] `sc infest add`, `sc infest spread <id>`, `sc infest roll`, `sc infest clear <id>`: as before.
+- [ ] `sc enclave move <id> now`, `sc enclave raid <id> <outpost id> demand`: as before, with their tells.
+- [ ] (With SurvivorOrigins) Leadership's follower count and the "held an attack" event as before.
+- [ ] No SC error in the log (`enclave-tick`, `infest-tick`, `bands-tick-*`, `bands-remote-talk`, `encpeople-idle`).
+
+**A client on a dedicated server**
+- [ ] The client walks up to an unknown enclave: the CLIENT gets "You found ...", its map shows the marker; the server's log
+      says "enclave N '...' found at ... by <client name>" (no "by" when the anchor found it). The same with an infestation.
+- [ ] The enclave's people appear round the client and its doors are unlocked.
+- [ ] The client logs off standing at that enclave (the only player on): the server's log says "enclave people: nobody is
+      online - 1 enclave building(s) no longer held loaded ..." and then each body's "... was captured as their chunk
+      unloaded". Join again and walk back: they come back from their records.
+- [ ] In the client's console, `sc band spawn drifters trouble`: the band is put 140 m from the CLIENT; the client is told
+      when it meets them; the trouble's zombies come on them away from the client (sized by the client's gamestage); help:
+      the thanks reach the client. The client talks to one of them: the whole band stops within a second; close the talk:
+      they walk on.
+- [ ] `sc band spawn raiders` in the client's console: they attack the client (server log "... saw <client name> - they
+      attack").
+- [ ] The client hits a drifter: "turned on you" on the client; they attack it, and their talk rows are gone.
+- [ ] The client answers a drifter band's "Come to our place." with yes: they join; with the client at home (nobody else
+      there), each turns up at the zone's edge and the client is told.
+- [ ] With the client at home and the owner away: `sc attack status` (client console) - the next horde is sized by the
+      client's gamestage; `sc attack now`: the fight is live round the client.
+- [ ] A missing survivor found dead: the client uses "Search the body" - the client is told who and to go back; a second
+      time "searched already". From more than 8 m (or a block that is not the remains) nothing happens.
+- [ ] `sc infest add` in the client's console while standing in a POI: that POI is infested and known (marker on the
+      client's map).
+- [ ] `sc enclave move <id> now` and `sc enclave raid <id> <outpost id> now` in the client's console: done round the client,
+      with the tells.
+
+**Two players**
+- [ ] A listen host and a client far apart: the client walks up to an enclave alone - the client is told, the HOST's map
+      gets the marker at once (no need to wait for the follow).
+- [ ] Both near a raider band: they attack whoever they see first; that player runs more than 180 m off - the band turns
+      on the other once one of them sees them.
+- [ ] Drifters turned by one player: neither player can talk to them, and they attack both.
+- [ ] The host talks to a drifter while the client talks to another of the same band: the band stays stopped until both
+      talks are closed.
+- [ ] No home, a powered radio: the radio's reveal of an enclave or an infestation tells each player where it is from
+      where THEY stand.
+- [ ] (With SurvivorOrigins) the host with one follower and the client with two: each one's Leadership follower count is
+      their own (1 and 2), no longer the community's 3 on both.
+
 ## Round mt1 (part: C) (2026-11-25): a client reads SC's config once the server's blocks and items are in
 
 Why: a client's game-start event comes before the server's blocks, items and dialogs arrive, so a client read SC's config

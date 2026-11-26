@@ -303,13 +303,30 @@ namespace SurvivorCommunity
             return Mathf.Sqrt(dx * dx + dz * dz);
         }
 
-        /// <summary>Where the roll's distances and the radio measure from: home, else the local player.</summary>
+        /// <summary>
+        /// Where the roll's distances and the radio measure from: home, else the local player. Round MP5 (part W): with no home,
+        /// the roll's weighting keeps the anchor (one place to weigh from); the radio also hears one in range of any other
+        /// community player (RadioNear).
+        /// </summary>
         private static bool From(out Vector3 at)
         {
             if (ScZone.HasHome) { Vector3i h = ScZone.Home; at = new Vector3(h.x, h.y, h.z); return true; }
-            EntityPlayer pl = ScPlayers.Anchor();       // round MP0: the anchor (the host's own player whenever there is one). MP5: per player
+            EntityPlayer pl = ScPlayers.Anchor();       // round MP0: the anchor (the host's own player whenever there is one)
             at = pl != null ? pl.position : Vector3.zero;
             return pl != null;
+        }
+
+        /// <summary>Round MP5 (part W): a living community player within InfestRadioRange of a point - at moves to them; unchanged when none is.</summary>
+        private static void RadioNear(Vector3 cen, ref Vector3 at)
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p == null || p.IsDead() || !ScPlayers.InCommunity(p) || Dist(cen.x, cen.z, p.position.x, p.position.z) > ScConfig.InfestRadioRange) continue;
+                at = p.position;
+                return;
+            }
         }
 
         /// <summary>The cap: clamp(round(InfestPerKm2 x km2), InfestMin, InfestMax) over the world's XZ extent (8 on a 6k map, 13 on 8k).</summary>
@@ -717,13 +734,22 @@ namespace SurvivorCommunity
                 if (ScRadio.Online() && From(out at))
                 {
                     Vector3 cen = inf.Centre;
+                    // round MP5 (part W): with no home, in range of any living community player when not of the anchor
+                    if (!ScZone.HasHome && Dist(cen.x, cen.z, at.x, at.z) > ScConfig.InfestRadioRange) RadioNear(cen, ref at);
                     if (Dist(cen.x, cen.z, at.x, at.z) <= ScConfig.InfestRadioRange)
                     {
                         inf.Known = true;
                         inf.KnownDay = day;
                         string where = ScEnclaves.Where(at, cen);
                         heard = ", heard on the radio (" + where + " from " + (ScZone.HasHome ? "home" : "you") + ")";
-                        ScPlayers.TellCommunityKey("scInfestRadio", "", inf.PoiName, where);    // round MP0: the community's radio news
+                        if (ScZone.HasHome) ScPlayers.TellCommunityKey("scInfestRadio", "", inf.PoiName, where);    // round MP0: the community's radio news
+                        else
+                        {
+                            // round MP5 (part W): no home - each community player hears where it is from where they stand (single
+                            // player: the one player, the old words)
+                            EntityPlayer[] to = ScPlayers.Community().ToArray();     // copied: a tell can re-enter code that reuses the list
+                            for (int i = 0; i < to.Length; i++) ScCommunity.TellKey(to[i], "scInfestRadio", "", inf.PoiName, ScEnclaves.Where(to[i].position, cen));
+                        }
                         ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerRadio"), inf.PoiName));
                     }
                 }
@@ -1336,16 +1362,21 @@ namespace SurvivorCommunity
                     RefreshMarkers(player);           // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 }
                 SpotAllNearHome(player);      // I3: once a session and when the home moves (cheap otherwise)
-                Vector3 at = player.position;         // round MP0: found from the anchor's position (the host's own on a host). MP5: per player
+                Vector3 at = player.position;
+                float range = ScConfig.InfestDiscoverRange;
                 foreach (Infestation inf in All)
                 {
-                    if (inf.Known || inf.DistanceXZ(at.x, at.z) > ScConfig.InfestDiscoverRange) continue;
+                    if (inf.Known) continue;
+                    // round MP5 (part W): found by any community player that near - the anchor first (the host's own player on a
+                    // listen host, as before), else the first living community player in range; the known flag stays the community's
+                    EntityPlayer finder = inf.DistanceXZ(at.x, at.z) <= range ? player : FirstWithin(inf, range);
+                    if (finder == null) continue;
                     inf.Known = true;
                     inf.KnownDay = ScCommunity.Today;
-                    AddMarker(inf, player);
-                    ScCommunity.TellKey(player, "scInfestFound", "ui_denied", inf.PoiName);
+                    AddMarker(inf, ScCommunity.LocalPlayer);  // round MP5 (part W): the host's own map whoever found it (remote maps: ScMarkers)
+                    ScCommunity.TellKey(finder, "scInfestFound", "ui_denied", inf.PoiName);
                     ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerFound"), inf.PoiName));
-                    ScLog.Out("infestation #" + inf.Id + " found at " + inf.PoiName);
+                    ScLog.Out("infestation #" + inf.Id + " found at " + inf.PoiName + (ReferenceEquals(finder, player) ? "" : " by " + finder.PlayerDisplayName));
                     ScRegistry.SaveAtomic();
                 }
             }
@@ -1353,6 +1384,18 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("infest-tick", e);
             }
+        }
+
+        /// <summary>Round MP5 (part W): the first living community player within range (flat, to the footprint) of the infestation, or null.</summary>
+        private static EntityPlayer FirstWithin(Infestation inf, float range)
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p != null && !p.IsDead() && ScPlayers.InCommunity(p) && inf.DistanceXZ(p.position.x, p.position.z) <= range) return p;
+            }
+            return null;
         }
 
         // ------------------------------------------------------------------ markers ----
@@ -1511,12 +1554,12 @@ namespace SurvivorCommunity
         }
 
         /// <summary>sc infest add [x z]: the POI you stand in (or at x z) infested now - no roll, no distance or tier rules, the console's filter; known at once.</summary>
-        public static string ConsoleAdd(bool at, int x, int z, EntityPlayerLocal player)
+        public static string ConsoleAdd(bool at, int x, int z, EntityPlayer player)     // round MP5 (part W): the console's sender (a client's too)
         {
             World w = ScCommunity.World;
             if (w == null || !ScCommunity.IsHost) return "host only, with a world";
             if (!ScConfig.Infestations) return "Infestations is off in the config";
-            if (!at && player == null) return "no local player: give x z";
+            if (!at && player == null) return "no player: give x z";       // round MP5 (part W): telnet, or a dedicated server's own console
             if (!ScPoiIndex.EnsureBuilt()) return "no POI list on this world";
             Vector3i pos = at ? new Vector3i(x, 0, z) : player.GetBlockPosition();
             PrefabInstance pi = ScSecurity.PoiAt(pos);
@@ -1534,7 +1577,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>sc infest clear &lt;id|all&gt;: ends them - records and markers only, the rooms are left as they are. Returns how many.</summary>
-        public static int ConsoleClear(Infestation only, EntityPlayerLocal player)
+        public static int ConsoleClear(Infestation only, EntityPlayer player)      // round MP5 (part W): the console's sender
         {
             int n = 0;
             foreach (Infestation inf in new List<Infestation>(All))
@@ -1547,7 +1590,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>sc infest spread &lt;id&gt;: spreads now (no age, chance or once-a-day rule; the cap holds).</summary>
-        public static string ConsoleSpread(Infestation src, EntityPlayerLocal player)
+        public static string ConsoleSpread(Infestation src, EntityPlayer player)  // round MP5 (part W): the console's sender
         {
             World w = ScCommunity.World;
             if (w == null || !ScCommunity.IsHost) return "host only, with a world";
@@ -1561,7 +1604,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>sc infest roll: the daily roll now - no chance, but the cap and every rule of the roll.</summary>
-        public static string ConsoleRoll(EntityPlayerLocal player)
+        public static string ConsoleRoll(EntityPlayer player)                     // round MP5 (part W): the console's sender
         {
             World w = ScCommunity.World;
             if (w == null || !ScCommunity.IsHost) return "host only, with a world";

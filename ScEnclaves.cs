@@ -1315,7 +1315,13 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ discovery, the radio, markers ----
 
-        /// <summary>ScTicker, every second: markers back after a load, and an unknown enclave within EnclaveDiscoverRange of its POI is found.</summary>
+        /// <summary>
+        /// ScTicker, every second: markers back after a load, and an unknown enclave within EnclaveDiscoverRange of its POI is found.
+        /// Round MP5 (part W): found by any community player who comes that near (seeing it, passing, walking in) - the anchor
+        /// first (the host's own player on a listen host, as before), else the first living community player in range. The
+        /// known flag stays the community's; the finder is told, every player's map gets the marker (the host's here, the
+        /// remote players' through ScMarkers).
+        /// </summary>
         public static void Tick(World w, EntityPlayer player)          // round MP0: the ticker's anchor - any server
         {
             try
@@ -1326,17 +1332,22 @@ namespace SurvivorCommunity
                     markersRestored = true;
                     RefreshMarkers(player);           // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 }
-                Vector3 at = player.position;         // round MP0: found from the anchor's position (the host's own on a host). MP5: per player
+                Vector3 at = player.position;
+                float range = ScConfig.EnclaveDiscoverRange;
                 foreach (Enclave e in All)
                 {
-                    if (e.Known || e.Lost || e.DistanceXZ(at.x, at.z) > ScConfig.EnclaveDiscoverRange) continue;
+                    if (e.Known || e.Lost) continue;
+                    // round MP5 (part W): the anchor first, then any living community player within range
+                    EntityPlayer finder = e.DistanceXZ(at.x, at.z) <= range ? player : FirstWithin(e, range);
+                    if (finder == null) continue;
                     e.Known = true;
                     e.KnownDay = ScCommunity.Today;
-                    AddMarker(e, player);
+                    AddMarker(e, ScCommunity.LocalPlayer);    // round MP5 (part W): the host's own map whoever found it (none on a dedicated server; remote maps: ScMarkers)
                     // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
-                    ScCommunity.TellKey(player, "scEnclaveFound", e.IsHostile ? "ui_denied" : "", e.Name, e.PoiName, ScCommunity.LocArg(StandingWordKey(e)));   // review tells m4
+                    ScCommunity.TellKey(finder, "scEnclaveFound", e.IsHostile ? "ui_denied" : "", e.Name, e.PoiName, ScCommunity.LocArg(StandingWordKey(e)));   // review tells m4
                     ScOutposts.NoteLedger(string.Format(Localization.Get("scEnclaveLedgerFound"), e.Name, e.PoiName));
-                    ScLog.Out("enclave " + e.Id + " '" + e.Name + "' found at " + e.PoiName + (e.IsHostile ? " (hostile)" : ""));
+                    ScLog.Out("enclave " + e.Id + " '" + e.Name + "' found at " + e.PoiName + (e.IsHostile ? " (hostile)" : "")
+                              + (ReferenceEquals(finder, player) ? "" : " by " + finder.PlayerDisplayName));
                     ScRegistry.SaveAtomic();
                 }
             }
@@ -1344,6 +1355,33 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("enclave-tick", e);
             }
+        }
+
+        /// <summary>Round MP5 (part W): the first living community player within range (flat, to the footprint) of the enclave, or null.</summary>
+        private static EntityPlayer FirstWithin(Enclave e, float range)
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p != null && !p.IsDead() && ScPlayers.InCommunity(p) && e.DistanceXZ(p.position.x, p.position.z) <= range) return p;
+            }
+            return null;
+        }
+
+        /// <summary>The nearest unknown enclave (by centre) within EnclaveRadioRange of a point, or null.</summary>
+        private static Enclave RadioPick(Vector3 from)
+        {
+            Enclave best = null;
+            float bestD = float.MaxValue;
+            foreach (Enclave e in All)
+            {
+                if (e.Known || e.Lost) continue;
+                Vector3 ec = e.Centre;
+                float d = Dist(ec.x, ec.z, from.x, from.z);
+                if (d <= ScConfig.EnclaveRadioRange && d < bestD) { bestD = d; best = e; }
+            }
+            return best;
         }
 
         /// <summary>
@@ -1359,17 +1397,22 @@ namespace SurvivorCommunity
                 Community c = ScRegistry.Community;
                 if (day < c.EnclaveRadioDay || Time.frameCount == radioFrame || !ScRadio.Online()) return;
                 Vector3 from;
-                if (ScZone.HasHome) { Vector3i h = ScZone.Home; from = new Vector3(h.x, h.y, h.z); }
-                else if (player != null) from = player.position;          // round MP0: no home - the anchor. MP5: per player
+                bool home = ScZone.HasHome;
+                if (home) { Vector3i h = ScZone.Home; from = new Vector3(h.x, h.y, h.z); }
+                else if (player != null) from = player.position;          // round MP0: no home - the anchor
                 else return;
-                Enclave best = null;
-                float bestD = float.MaxValue;
-                foreach (Enclave e in All)
+                Enclave best = RadioPick(from);
+                if (best == null && !home)
                 {
-                    if (e.Known || e.Lost) continue;
-                    Vector3 ec = e.Centre;
-                    float d = Dist(ec.x, ec.z, from.x, from.z);
-                    if (d <= ScConfig.EnclaveRadioRange && d < bestD) { bestD = d; best = e; }
+                    // round MP5 (part W): no home, and none in range of the anchor - in range of any other living community player
+                    List<EntityPlayer> all = ScPlayers.All;
+                    for (int i = 0; i < all.Count && best == null; i++)
+                    {
+                        EntityPlayer p = all[i];
+                        if (p == null || ReferenceEquals(p, player) || p.IsDead() || !ScPlayers.InCommunity(p)) continue;
+                        best = RadioPick(p.position);
+                        if (best != null) from = p.position;
+                    }
                 }
                 if (best == null) return;
                 radioFrame = Time.frameCount;
@@ -1378,7 +1421,15 @@ namespace SurvivorCommunity
                 best.KnownDay = day;
                 if (player != null) AddMarker(best, player);              // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 string where = Where(from, best.Centre);
-                ScPlayers.TellCommunityKey("scEnclaveRadio", "", best.Name, best.PoiName, where);   // round MP0: the community's radio news
+                if (home) ScPlayers.TellCommunityKey("scEnclaveRadio", "", best.Name, best.PoiName, where);   // round MP0: the community's radio news
+                else
+                {
+                    // round MP5 (part W): no home - each community player hears where it is from where they stand (in single
+                    // player the one player: the old words)
+                    EntityPlayer[] to = ScPlayers.Community().ToArray();     // copied: a tell can re-enter code that reuses the list
+                    for (int i = 0; i < to.Length; i++)
+                        ScCommunity.TellKey(to[i], "scEnclaveRadio", "", best.Name, best.PoiName, Where(to[i].position, best.Centre));
+                }
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scEnclaveLedgerRadio"), best.Name, best.PoiName));
                 ScLog.Out("enclave " + best.Id + " '" + best.Name + "' heard on the radio: " + best.PoiName + ", " + where + " from " + (ScZone.HasHome ? "home" : "you")
                           + "; the next reveal from day " + c.EnclaveRadioDay);

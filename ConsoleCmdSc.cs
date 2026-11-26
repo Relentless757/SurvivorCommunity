@@ -2056,7 +2056,7 @@ namespace SurvivorCommunity
                     Enclave e = EnclaveArg(p);
                     if (e == null) return;
                     if (!ScEnclaves.Ready) { Output("[SC] the world is still starting"); return; }
-                    ScEncRaids.Command(e, p, lines);
+                    ScEncRaids.Command(e, p, lines, Me);     // round MP5 (part W): the sender
                     break;
                 }
                 // E11: a group's move - its reasons, what holds it, the chance; sim: where it would go today (nothing changes);
@@ -2067,7 +2067,7 @@ namespace SurvivorCommunity
                     Enclave e = EnclaveArg(p);
                     if (e == null) return;
                     if (!ScEnclaves.Ready) { Output("[SC] the world is still starting"); return; }
-                    ScEncMoves.Command(e, p, lines);
+                    ScEncMoves.Command(e, p, lines, Me);     // round MP5 (part W): the sender
                     break;
                 }
                 // E12: whether the whole group would join you and why not; sim: who would come and what they'd bring (nothing
@@ -2104,7 +2104,7 @@ namespace SurvivorCommunity
             if (!ScCommunity.IsHost) { Output("[SC] host only"); return; }
             if (!ScRegistry.Loaded) { Output("[SC] the registry is not loaded"); return; }
             var lines = new List<string>();
-            ScBands.Command(p, lines);
+            ScBands.Command(p, lines, Me);       // round MP5 (part W): the sender (a client's sc band acts round the client)
             foreach (string l in lines) Output("[SC] " + l);
         }
 
@@ -2141,7 +2141,7 @@ namespace SurvivorCommunity
                     int x = 0, z = 0;
                     bool at = p.Count > 3 && int.TryParse(p[2], out x) && int.TryParse(p[3], out z);
                     if (p.Count > 2 && !at) { Output("[SC] sc infest add [<x> <z>] - the POI you stand in, or the one at x z"); return; }
-                    lines.Add(ScInfestations.ConsoleAdd(at, x, z, Me as EntityPlayerLocal));   // MP5 (the world): ScInfestations' console verbs take the host's own player
+                    lines.Add(ScInfestations.ConsoleAdd(at, x, z, Me));   // round MP5 (part W): the sender (a client's sc infest add: the POI it stands in)
                     break;
                 }
                 case "clear":
@@ -2149,7 +2149,7 @@ namespace SurvivorCommunity
                     bool all = p.Count > 2 && p[2].Equals("all", StringComparison.OrdinalIgnoreCase);
                     Infestation inf = all ? null : InfestArg(p);
                     if (!all && inf == null) return;
-                    int n = ScInfestations.ConsoleClear(inf, Me as EntityPlayerLocal);   // MP5
+                    int n = ScInfestations.ConsoleClear(inf, Me);   // round MP5 (part W): the sender
                     lines.Add(n + " infestation(s) ended - records and markers only, the rooms are left as they are");
                     break;
                 }
@@ -2157,10 +2157,10 @@ namespace SurvivorCommunity
                 {
                     Infestation inf = InfestArg(p);
                     if (inf == null) return;
-                    lines.Add(ScInfestations.ConsoleSpread(inf, Me as EntityPlayerLocal));   // MP5
+                    lines.Add(ScInfestations.ConsoleSpread(inf, Me));   // round MP5 (part W): the sender
                     break;
                 }
-                case "roll": lines.Add(ScInfestations.ConsoleRoll(Me as EntityPlayerLocal)); break;   // MP5
+                case "roll": lines.Add(ScInfestations.ConsoleRoll(Me)); break;   // round MP5 (part W): the sender
                 case "reveal":
                 case "hide":
                 {

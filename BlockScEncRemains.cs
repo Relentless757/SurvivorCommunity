@@ -7,8 +7,8 @@ using UnityEngine.Scripting;
 /// <summary>
 /// E5, a missing survivor's remains (SurvivorCommunity.ScEncSearch): a corpse block the search places where they were found
 /// dead (or fell before the player reached them), put back when something erased it, taken away when the search ends. Its one
-/// command, "Search the body" (the BlockScRadio activation pattern), tells the search; nothing to pick up or harvest. Host
-/// only: on a client the command does nothing.
+/// command, "Search the body" (the BlockScRadio activation pattern), tells the search; nothing to pick up or harvest. Round MP5
+/// (part W): any player's - the command asks the server (encremains.search, ScActionsWorld), inline for the host's own player.
 /// </summary>
 [Preserve]
 public class BlockScEncRemains : Block
@@ -42,7 +42,15 @@ public class BlockScEncRemains : Block
         {
             if (_commandName == CmdSearch)
             {
-                SurvivorCommunity.ScEncSearch.SearchAt(_blockPos, _player);
+                // round MP5 (part W): a request on every machine (encremains.search, ScActionsWorld) - inline on the server, where the
+                // host's own player searches exactly as before (ScEncSearch.SearchAt); a client's goes to the server, which tells it
+                EntityPlayerLocal pl = _player;
+                SurvivorCommunity.ScActions.Request("encremains.search", r =>
+                {
+                    // a client's refusal it can read (no SC on the server, a mismatch); the host's path stays silent, as before
+                    if (r != null && !r.Ok && !SurvivorCommunity.ScCommunity.IsHost && pl != null && r.Text.Length > 0)
+                        GameManager.ShowTooltip(pl, r.Text, string.Empty, r.Sound);
+                }, _blockPos.x, _blockPos.y, _blockPos.z);
                 return true;
             }
         }

@@ -256,15 +256,18 @@ namespace SurvivorCommunity
             ScRegistry.SaveAtomic();
         }
 
-        /// <summary>ScOutpostRisk.PayDemand, once paid: the ledger, their rest, the stamp off; the window's words. Null for a nameless demand.</summary>
-        internal static string OnPaid(Outpost o)
+        /// <summary>
+        /// ScOutpostRisk.PayDemand, once paid: the ledger, their rest, the stamp off; the window's words. Null for a nameless demand.
+        /// Round MP5 (part W): by - the player who paid (their answer aloud for them); null: the host's own player, as before.
+        /// </summary>
+        internal static string OnPaid(Outpost o, EntityPlayer by = null)
         {
             Enclave e = EnclaveOf(o);
             Unstamp(o);
             if (e == null) return null;
             Rest(e);
             ScOutposts.NoteLedger(string.Format(Loc("scEncRaidLedgerPaid"), e.Name, o.Name));
-            ScEncRadio.Say(e, EncCall.Paid, ScCommunity.LocalPlayer);           // round m1v: their answer aloud (the window shows its words)
+            ScEncRadio.Say(e, EncCall.Paid, by ?? ScCommunity.LocalPlayer);     // round m1v: their answer aloud (the window shows its words). Round MP5 (part W): the payer
             ScLog.Out("paid enclave " + e.Id + " '" + e.Name + "' for outpost " + o.Id + " (" + o.Name + ") - they rest until day " + e.RaidDay);
             return Radio(e, "scEncRaidPaidSaid") + " " + string.Format(Loc("scEncRaidPaid"), e.Name, o.Name);
         }
@@ -497,7 +500,7 @@ namespace SurvivorCommunity
             var party = new Party { OutpostId = o.Id, EnclaveId = e.Id, EnclaveName = e.Name };
             GameRandom r = w.GetGameRandom();
             float reach = ScOutpostRisk.Reach(o);
-            if (target == null) target = player;      // round MP0: the player the caller names (the anchor). MP5: per player
+            if (target == null) target = player;      // round MP0: the player the caller names - round MP5 (part W): the community player at the outpost (ScOutpostRisk.SpawnAttack's 'here')
             int made = 0, fresh = 0, moved = 0, seen = 0, busy = 0;
             scratch.Clear();
             foreach (EncPerson p in ScRegistry.EncPeople)
@@ -575,7 +578,7 @@ namespace SurvivorCommunity
             if (e == null || e.Lost || o.RaidEnclave != e.Id) return 0;
             GameRandom r = w.GetGameRandom();
             float reach = ScOutpostRisk.Reach(o);
-            EntityAlive target = Target(w, o) ?? player;  // round MP0: else the anchor. MP5: per player
+            EntityAlive target = Target(w, o) ?? player;  // round MP0: else the player the caller names - round MP5 (part W): the community player at the outpost (ScOutpostRisk's 'at')
             int n = 0;
             foreach (int pid in party.Pids.ToArray())
             {
@@ -847,8 +850,9 @@ namespace SurvivorCommunity
         {
             int home, unmade;
             int spare = Spare(e, out home, out unmade);
-            // round MP0: ScOutpostRisk's size takes the host's own player (its gamestage; 0 on a dedicated server). MP5: gamestage of the players involved
-            int party = Math.Min(Math.Min(ScOutpostRisk.AttackerCountFor(o, player), Math.Max(1, ScConfig.EnclaveRaidPartyMax)), spare);
+            // round MP5 (part W): sized by the players involved - nobody was there (an unattended hold), so the community player
+            // online with the highest gamestage (single player: the one player, as before; ScBaseAttack.StrongestOnline)
+            int party = Math.Min(Math.Min(ScOutpostRisk.AttackerCountFor(o, ScBaseAttack.StrongestOnline(player)), Math.Max(1, ScConfig.EnclaveRaidPartyMax)), spare);
             int n = Math.Min(Math.Max(0, ScConfig.EnclaveRaidLossHeld), party);
             if (n <= 0) return 0;
             World w = ScCommunity.World;
@@ -973,9 +977,9 @@ namespace SurvivorCommunity
         /// distance and whether a demand can be made; a demand now (the day's roll, their rest, the gamestage and an outpost's
         /// quiet days ignored; the range kept), or a demand refused at once (the raid called, heard: the console is the radio).
         /// </summary>
-        public static void Command(Enclave e, List<string> p, List<string> into)
+        public static void Command(Enclave e, List<string> p, List<string> into, EntityPlayer me)   // round MP5 (part W): me - the console's sender
         {
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            EntityPlayer pl = me;
             if (p.Count <= 3)
             {
                 into.Add(e.Name + " (enclave " + e.Id + ", " + ScEnclaves.StandingWord(e) + "): " + InfoLine(e));
@@ -1011,7 +1015,7 @@ namespace SurvivorCommunity
                 return;
             }
             string msg;
-            ScOutpostRisk.RefuseDemand(t, pl, out msg);
+            ScOutpostRisk.RefuseDemand(t, pl as EntityPlayerLocal, out msg);    // MP5 merge: ScOutpostRisk.RefuseDemand takes EntityPlayerLocal (part O / R: the radio's demand answer)
             into.Add("refused at once: " + msg);
         }
     }

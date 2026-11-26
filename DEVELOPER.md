@@ -2831,6 +2831,52 @@ Round MP0 is the groundwork:
     ends another player's talk hold (`ScWork.TalkHeldByOther`). **A player who leaves while she is down** marks the kept hold
     or shift (`Shift.OwnerGone`), and `Tick` ends it once she is up.
 
+- **Round MP5 (part W), the world around any player** (`ScEnclaves`, `ScInfestations`, `ScBands`, `ScEnclavePeople`,
+  `ScBaseAttack`, `ScEncMoves`, `ScEncRaids`, `ScLeadership`, `ScActionsWorld`, `BlockScEncRemains`): the world ticks still get
+  the anchor (`ScPlayers.Anchor()`), but every "is a player there" now asks for any community player, with the anchor tried
+  first - so single player and a host alone take exactly the old branch.
+  - **Discovery:** an unknown enclave or infestation is found by the first community player within its discover range (the
+    anchor first, alive or not as before; the others living). The known flag stays the community's; the finder is told, the
+    host's own map gets the marker whoever found it (`AddMarker(e, ScCommunity.LocalPlayer)`), remote maps through `ScMarkers`.
+    With no home, the radio's reveal (enclaves) and report (infestations) also hears a place in range of any community player
+    when none is in range of the anchor, and each player is told where it is from where they stand (the same per-player
+    "where" in `ScEncMoves.Move`'s told move). The infestation roll's weighting still measures from the anchor.
+  - **Bands:** met when any player sees them or a community player comes within `KnowRange` (the one who met them is told);
+    trouble starts round the community player near them (the anchor first), at that player's gamestage, its thanks for the
+    nearest one; no body comes while a fight is on near the community player nearest them. Raiders (and drifters against the
+    community) engage whichever community player one of them sees within `AggroRange`, the anchor first, and keep that player
+    (`Band.EngagedId`, session only) while they live and stay within `BandDespawnRange`, then take the next one seen. Drifters
+    turned on the community hold ScTrust's grudge against every community player online (Band.Trust is the community's;
+    MP6: a per-target grudge). With no home, a dedicated server's day roll sends a band past a community player drawn at random
+    (the anchor on a listen host, as before). `sc band` acts round its sender (`ScBands.Command(p, into, me)`).
+  - **A talk from any player halts a band:** `ScBands.InTalk` keeps the host's own dialog test and adds the server's talk lock:
+    SCore's `EntityAliveSDX.OnEntityActivated` takes `LockManager`'s channel-0 lock on the NPC (shared, so several players may
+    hold it) and the dialog's close lets it go (`EntityTrader.TransitionToNextWindow`), so the server reads
+    `LockManager.sharedLocks` for any holder but its own player. No package. The band's talk rows were already a client's (round
+    MP2, part M: the talk context and `band.join`).
+  - **The home's horde:** `ScBaseAttack.InvolvedPlayer(anchor)` is the player whose gamestage sizes and mixes it - the strongest
+    community player near the base, else the strongest online, else the anchor (on a client: the given player);
+    `StrongestOnline` is the second half. `Size`, the spawn mix and `ScSiege.Besiege` use it, and `ScEncRaids.LoseHeld` sizes an
+    unattended raid's loss with `StrongestOnline`. A held attack counts Leadership's defend event for every community player at
+    the fight (`ScLeadership.Count(cvar, player)`; `Count(cvar)` is the host's own, the anchor on a dedicated server).
+    `ScLeadership.Publish` gives each player their own follower count (a follower counts for the player its record names as
+    leader when online, else for the anchor). Presence ("at home", the live fight, joining an away fight, the siege's "home for
+    the blood moon", lights out's dawn tell, whole-group arrivals) was already any community player (round MP0).
+  - **A world tick with no player:** a dedicated server whose last player left lets go of the enclave buildings it held loaded
+    (`ScEnclavePeople.IdleTick`, hooked into `ModEvents.GameUpdate` once per process; ScTicker returns while nobody is online),
+    so their chunks unload and each body is recorded by the unload capture. Bodies, doors and streamer names otherwise come
+    round any online player since round MP0.
+  - **Op** (`ScActionsWorld`): `encremains.search` (x, y, z; Community): "Search the body" on a missing survivor's remains,
+    asked on every machine (inline for the host's own player, which `ScEncSearch.SearchAt` tells as before). A remote sender
+    must be alive within `RemainsReach` (8 m) of a remains block; its tell (`scEncRemainsNothing` / `Searched` / `Found`) is
+    worked out from the search as it stood before (SearchAt still takes `EntityPlayerLocal`).
+  - **Console:** `sc infest add|clear|spread|roll`, `sc band ...`, `sc enclave move <id> now` and `sc enclave raid <id> ...` act
+    for the sender (`ConsoleCmdSc.Me`). `sc enclave raid ... now` still refuses the demand through `ScOutpostRisk.RefuseDemand`
+    (`EntityPlayerLocal`: no voice for a client until the radio's round). `ScEncRaids.OnPaid(o, by)` takes the payer (optional).
+  - **Left as they were:** the horde's radio voice at home and away (`ScHordeVoice.SayAway`, the host's own player: the radio's
+    round), `sc enclave join` (`ScEncJoin.Command`, the dialog join's round), the late seed's view rule and `ScEnclaves.InView`
+    (the server's loaded chunks already cover every remote player).
+
 ## How it hangs together (for modders)
 
 - NPCs are 0-XNPCCore's `EntityAliveSDXV4` survivors (SCore's legacy `EntityAliveSDX` still works for pack NPCs). A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars

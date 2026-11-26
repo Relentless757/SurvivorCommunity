@@ -483,5 +483,9 @@
   <ItemGroup Condition="'$(ScGame)'=='34'">
     <Compile Include="ScActionsWindow.cs" />
   </ItemGroup>
+  <!-- round MP5 (part W): the world's requests (a missing survivor's remains searched by any player) -->
+  <ItemGroup>
+    <Compile Include="ScActionsWorld.cs" />
+  </ItemGroup>
 
 </Project>
