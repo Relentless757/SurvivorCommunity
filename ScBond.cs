@@ -33,6 +33,8 @@ namespace SurvivorCommunity
     /// DeathPenalty. 0-XNPCCore's Progress line ("Trust: x  Feels: y") reads Mirror: Feels from her mood, Trust from her Bond.
     ///
     /// Purity (the round's rule): the hooks only queue an event (Note); Tick, on the ticker, writes it into her record.
+    /// Round MP6 (part H): the queue is the world's (an event names its member, whichever community she is in); each community's
+    /// clocks and blood-moon roll call are its own, and each community whose members changed recomputes its own morale.
     /// </summary>
     public static class ScBond
     {
@@ -52,13 +54,30 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, List<string>> history = new Dictionary<int, List<string>>();
         private const int HistoryKeep = 8;
         private static readonly Dictionary<string, int> counts = new Dictionary<string, int>();
-        private static float nextTick, nextSweep, nextSave;
+        /// <summary>
+        /// Round MP6 (part H): one community's Bond clocks and blood-moon roll call - one per community (ScHomeState): each sees its
+        /// own blood moon through with its own players and members. The old statics below read the row of the community in scope.
+        /// </summary>
+        private sealed class BondState
+        {
+            public float NextTick, NextSweep, NextSave;
+            public bool WasBloodMoon;
+            public readonly HashSet<int> BloodMoonMembers = new HashSet<int>();
+            /// <summary>The real time this community's Bond last ticked (-1: not yet) - a gap means it paused.</summary>
+            public float LastTick = -1f;
+        }
+        private static readonly ScHomeState<BondState> homes = new ScHomeState<BondState>();
+        private static float nextTick { get { return homes.Current.NextTick; } set { homes.Current.NextTick = value; } }
+        private static float nextSweep { get { return homes.Current.NextSweep; } set { homes.Current.NextSweep = value; } }
+        private static float nextSave { get { return homes.Current.NextSave; } set { homes.Current.NextSave = value; } }
         /// <summary>A Bond change not saved yet: the registry is saved at most every SaveSeconds for them (a fight's kills).</summary>
         private static bool unsaved;
         private const float SaveSeconds = 10f;
         /// <summary>The blood moon in progress: the members who were with you at its start (the Fable review's finding 5).</summary>
-        private static bool wasBloodMoon;
-        private static readonly HashSet<int> bloodMoonMembers = new HashSet<int>();
+        private static bool wasBloodMoon { get { return homes.Current.WasBloodMoon; } set { homes.Current.WasBloodMoon = value; } }
+        private static HashSet<int> bloodMoonMembers { get { return homes.Current.BloodMoonMembers; } }
+        /// <summary>Round MP6 (part H): the communities whose members' Bond the last Drain changed (each recomputes its own morale).</summary>
+        private static readonly HashSet<int> drained = new HashSet<int>();
         /// <summary>Members whose body was checked for 0-XNPCCore's own per-hire numbers this session (Sweep's log line once each).</summary>
         private static readonly HashSet<int> swept = new HashSet<int>();
 
@@ -74,12 +93,9 @@ namespace SurvivorCommunity
             }
             history.Clear();
             counts.Clear();
-            nextTick = 0f;
-            nextSweep = 0f;
-            nextSave = 0f;
+            homes.Reset();                        // round MP6 (part H): every community's clocks and blood-moon roll call
+            drained.Clear();
             unsaved = false;
-            wasBloodMoon = false;
-            bloodMoonMembers.Clear();
             swept.Clear();
         }
 
@@ -252,6 +268,16 @@ namespace SurvivorCommunity
                 float now = Time.unscaledTime;
                 if (now < nextTick) return;
                 nextTick = now + 1f;
+                // round MP6 (part H): a community that paused (none of its players online) through a blood moon's end did not see it
+                // end - its roll call goes, as a blood moon whose end was not seen here gives nothing (only with two or more communities)
+                BondState st = homes.Current;
+                if (ScCommunities.Count > 1 && st.LastTick >= 0f && now - st.LastTick > 5f && st.WasBloodMoon && !ScSiege.BloodMoonActive(w))
+                {
+                    st.WasBloodMoon = false;
+                    st.BloodMoonMembers.Clear();
+                    ScLog.Out("Bond: " + ScRegistry.Current.Label + " paused through the end of a blood moon - no Bond for it");
+                }
+                st.LastTick = now;
                 bool changed = Drain();
                 BloodMoon(w);      // round MP0: any community player home counts (PlayerHome), so it no longer takes the host's player
                 if (now >= nextSweep)
@@ -261,7 +287,11 @@ namespace SurvivorCommunity
                 }
                 if (changed)
                 {
-                    ScMorale.Recompute();
+                    // round MP6 (part H): Drain takes every community's events; each community whose members changed recomputes its
+                    // own morale (with one community: once, as before)
+                    foreach (int cid in drained)
+                        using (ScRegistry.Use(cid)) ScMorale.Recompute();
+                    drained.Clear();
                     unsaved = true;
                 }
                 if (!unsaved || now < nextSave) return;
@@ -307,6 +337,7 @@ namespace SurvivorCommunity
                 if (after == before) { ScLog.Verbose(m.Name + "'s Bond: " + line); continue; }   // at the cap (a horde's kills): no log line each
                 ScLog.Out(m.Name + "'s Bond: " + line);
                 changed = true;
+                drained.Add(m.CommunityId);       // round MP6 (part H): her community recomputes its morale
             }
             return changed;
         }

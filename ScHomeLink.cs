@@ -15,6 +15,8 @@ namespace SurvivorCommunity
     /// when that player's view ends (OnSessionEnded) - closed, walked away, replaced, disconnected. The wait for the player's
     /// other window to close happens on their own machine (ScStorage.OnView). Linked storage's sessions are swept by ScTicker
     /// itself (round MP3, review storage m7: in their own try).
+    /// Round MP6 (part H): a link loads the home of the community the player asked from (Link.CommunityId), and is stepped in
+    /// that community's scope, once a frame whichever community ticks.
     /// </summary>
     public static class ScHomeLink
     {
@@ -36,11 +38,15 @@ namespace SurvivorCommunity
             public float NextNote;
             /// <summary>The linked storage session the home is held for (-1: none yet).</summary>
             public int Session = -1;
+            /// <summary>Round MP6 (part H): the community whose home the link loads (the player's when they asked: Request's scope).</summary>
+            public int CommunityId;
         }
 
         private static readonly Dictionary<int, Link> links = new Dictionary<int, Link>();
         private static readonly HashSet<long> pending = new HashSet<long>();
         private static readonly List<int> scratch = new List<int>();
+        /// <summary>Round MP6 (part H): the frame Tick last worked (once a frame: every link in its own community's scope).</summary>
+        private static int tickFrame = -1;
 
         /// <summary>Some player's home link is calling or holding the home zone.</summary>
         public static bool Busy { get { return links.Count > 0; } }
@@ -75,6 +81,7 @@ namespace SurvivorCommunity
                 }
                 l.Claim = claim;
                 l.Session = -1;
+                l.CommunityId = ScRegistry.CurrentId;       // round MP6 (part H): the sender's community (ScActions.Dispatch's scope)
                 if (ZoneReady(l))
                 {
                     string why = OpenFor(l, player);
@@ -131,10 +138,13 @@ namespace SurvivorCommunity
         }
 
         /// <summary>ScTicker, every second (the server): each home link - load, open, release. Round MP3 (review storage m7):
-        /// linked storage's sweep moved to the start of ScTicker's tick, in its own try.</summary>
+        /// linked storage's sweep moved to the start of ScTicker's tick, in its own try. Round MP6 (part H): once a frame (the first
+        /// community's pass), every link in its own community's scope - its home is that community's.</summary>
         public static void Tick(EntityPlayer player)
         {
             if (links.Count == 0) return;
+            if (tickFrame == Time.frameCount) return;          // round MP6 (part H): one pass a frame (with one community: every tick, as before)
+            tickFrame = Time.frameCount;
             try
             {
                 float now = Time.unscaledTime;
@@ -144,52 +154,58 @@ namespace SurvivorCommunity
                 {
                     Link l;
                     if (!links.TryGetValue(scratch[i], out l)) continue;
-                    EntityPlayer p = ScPlayers.ByEntity(l.EntityId);
-                    if (!l.Waiting)
-                    {
-                        // open: keep the home loaded while that view is open, let it go once it ends
-                        if (l.Session < 0 || !ScStorageServer.HasSession(l.EntityId, l.Session)) Drop(l);
-                        continue;
-                    }
-                    if (p == null || p.IsDead())
-                    {
-                        Drop(l);
-                        continue;
-                    }
-                    if (ZoneReady(l))
-                    {
-                        // never open on a player who left: drop the call if they walked away from the claim (the view would close
-                        // itself) or got in a vehicle. Another window up is waited for on their own machine (ScStorage.OnView).
-                        if (p.AttachedToEntity != null || Distance(p, l.Claim) > 28f)
-                        {
-                            Drop(l);
-                            // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
-                            ScCommunity.TellKey(p, "scOpDoorCancelled", "ui_denied");
-                            continue;
-                        }
-                        string why = OpenFor(l, p);
-                        if (why != null)
-                        {
-                            Drop(l);
-                            ScCommunity.TellKey(p, why, "ui_denied");
-                        }
-                    }
-                    else if (now > l.Deadline)
-                    {
-                        Drop(l);
-                        ScCommunity.TellKey(p, "scOpDoorNoAnswer", "ui_denied");
-                        ScLog.Warn("home link: the home zone did not load in " + TimeoutSeconds + " s - gave up");
-                    }
-                    else if (now >= l.NextNote)
-                    {
-                        l.NextNote = now + 6f;
-                        ScCommunity.TellKey(p, "scOpDoorCalling", "");
-                    }
+                    using (ScHomeScope.Of(l.CommunityId)) TickLink(l, now);   // round MP6 (part H): the link's community
                 }
             }
             catch (Exception e)
             {
                 ScLog.Once("homelink-tick", e);
+            }
+        }
+
+        /// <summary>Round MP6 (part H): one link's step, in its community's scope (the body of Tick's loop as it always was).</summary>
+        private static void TickLink(Link l, float now)
+        {
+            EntityPlayer p = ScPlayers.ByEntity(l.EntityId);
+            if (!l.Waiting)
+            {
+                // open: keep the home loaded while that view is open, let it go once it ends
+                if (l.Session < 0 || !ScStorageServer.HasSession(l.EntityId, l.Session)) Drop(l);
+                return;
+            }
+            if (p == null || p.IsDead())
+            {
+                Drop(l);
+                return;
+            }
+            if (ZoneReady(l))
+            {
+                // never open on a player who left: drop the call if they walked away from the claim (the view would close
+                // itself) or got in a vehicle. Another window up is waited for on their own machine (ScStorage.OnView).
+                if (p.AttachedToEntity != null || Distance(p, l.Claim) > 28f)
+                {
+                    Drop(l);
+                    // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
+                    ScCommunity.TellKey(p, "scOpDoorCancelled", "ui_denied");
+                    return;
+                }
+                string why = OpenFor(l, p);
+                if (why != null)
+                {
+                    Drop(l);
+                    ScCommunity.TellKey(p, why, "ui_denied");
+                }
+            }
+            else if (now > l.Deadline)
+            {
+                Drop(l);
+                ScCommunity.TellKey(p, "scOpDoorNoAnswer", "ui_denied");
+                ScLog.Warn("home link: the home zone did not load in " + TimeoutSeconds + " s - gave up");
+            }
+            else if (now >= l.NextNote)
+            {
+                l.NextNote = now + 6f;
+                ScCommunity.TellKey(p, "scOpDoorCalling", "");
             }
         }
 

@@ -21,16 +21,22 @@ namespace SurvivorCommunity
     /// </summary>
     public static class ScWatchFatigue
     {
-        /// <summary>Each member's term at the last look (Tick): a change recomputes the moods.</summary>
-        private static readonly Dictionary<int, int> lastTerm = new Dictionary<int, int>();
+        /// <summary>Round MP6 (part H): one home's last look - one per community (ScHomeState): each recomputes its own moods.</summary>
+        private sealed class FatigueState
+        {
+            public readonly Dictionary<int, int> LastTerm = new Dictionary<int, int>();
+            public float NextTick;
+        }
+        private static readonly ScHomeState<FatigueState> homes = new ScHomeState<FatigueState>();
+        /// <summary>Each member's term at the last look (Tick): a change recomputes the moods. Round MP6 (part H): the community in scope's.</summary>
+        private static Dictionary<int, int> lastTerm { get { return homes.Current.LastTerm; } }
         private static readonly List<int> gone = new List<int>();
-        private static float nextTick;
+        private static float nextTick { get { return homes.Current.NextTick; } set { homes.Current.NextTick = value; } }
 
         public static void Reset()
         {
-            lastTerm.Clear();
+            homes.Reset();                        // round MP6 (part H): every community's
             gone.Clear();
-            nextTick = 0f;
         }
 
         /// <summary>

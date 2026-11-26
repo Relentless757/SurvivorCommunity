@@ -29,15 +29,22 @@ namespace SurvivorCommunity
         /// <summary>Per-world reset (the LCBU assembly does not change, but be safe about statics).</summary>
         public static void Reset()
         {
-            // the probe is process-wide; the rectangle cache is per world
-            rectCache.Clear();
-            rectCacheAt = -100f;
+            // the probe is process-wide; the rectangle cache is per world. Round MP6 (part H): every community's
+            rectState.Reset();
         }
 
         // ---- distance and random spots (round hz: residents roam the zone, ScHomeHold keeps it loaded) ----
 
-        private static readonly List<int[]> rectCache = new List<int[]>();
-        private static float rectCacheAt = -100f;
+        /// <summary>Round MP6 (part H): a community's zone rectangles as last read (CachedRects) - one cache per community.</summary>
+        private sealed class RectState
+        {
+            public readonly List<int[]> Cache = new List<int[]>();
+            public float At = -100f;
+        }
+        private static readonly ScHomeState<RectState> rectState = new ScHomeState<RectState>();
+        // round MP6 (part H): the old statics, now the row of the community in scope
+        private static List<int[]> rectCache { get { return rectState.Current.Cache; } }
+        private static float rectCacheAt { get { return rectState.Current.At; } set { rectState.Current.At = value; } }
         private const float RectCacheSeconds = 2f;
 
         /// <summary>The zone's rectangles (Rects), read again at most every RectCacheSeconds: AI scoring asks five times a second per resident.</summary>
@@ -280,8 +287,39 @@ namespace SurvivorCommunity
         /// <summary>Is the block position inside the home zone?</summary>
         public static bool Contains(Vector3i p)
         {
-            Community c = ScRegistry.Community;
-            if (!c.HasHome) return false;
+            return ContainsIn(ScRegistry.Community, p);     // round MP6 (part H): the community in scope, as before
+        }
+
+        /// <summary>
+        /// Round MP6 (part H): the community whose home zone holds the block position (its id), or -1 when none does - for code
+        /// that has a position and no community (a block placed or removed, a sound heard, a door). Lowest id first should two
+        /// zones overlap. Never reads ScRegistry.Current. With one community: 0 exactly where Contains is true, else -1.
+        /// </summary>
+        public static int CommunityAt(Vector3i p)
+        {
+            IReadOnlyList<CommunityState> all = ScCommunities.All;
+            for (int i = 0; i < all.Count; i++)
+                if (ContainsIn(all[i].Community, p)) return all[i].Id;
+            return -1;
+        }
+
+        /// <summary>Round MP6 (part H): CommunityAt for a world position.</summary>
+        public static int CommunityAt(UnityEngine.Vector3 world)
+        {
+            return CommunityAt(World.worldToBlockPos(world));
+        }
+
+        /// <summary>Round MP6 (part H): is the block position inside community cid's home zone? False for a community that does not exist.</summary>
+        public static bool ContainsFor(int cid, Vector3i p)
+        {
+            CommunityState cs = ScCommunities.ById(cid);
+            return cs != null && ContainsIn(cs.Community, p);
+        }
+
+        /// <summary>Round MP6 (part H): Contains for a given community's record (the body Contains always had).</summary>
+        private static bool ContainsIn(Community c, Vector3i p)
+        {
+            if (c == null || !c.HasHome) return false;
             try
             {
                 Probe();

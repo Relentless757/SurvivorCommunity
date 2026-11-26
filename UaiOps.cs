@@ -35,23 +35,61 @@ namespace UAI
     /// </summary>
     public sealed class ScArea
     {
-        public static readonly ScArea HomeZone = new ScArea(null);
+        /// <summary>
+        /// The home zone of the community in scope. Round MP6 (part H): each community's home zone is its own instance (HomeOf),
+        /// which reads that community's zone whatever is in scope when it is asked - it was ONE area for every resident.
+        /// </summary>
+        public static ScArea HomeZone { get { return HomeOf(ScRegistry.CurrentId); } }
         private readonly Enclave enclave;
+        /// <summary>Round MP6 (part H): the community whose home zone this is (unused for an enclave's ground).</summary>
+        private readonly int community;
 
         public ScArea(Enclave e) { enclave = e; }
+
+        private ScArea(int cid) { community = cid; }
+
+        // round MP6 (part H): one home-zone area per community, community 0's made once (main thread: the AI asks)
+        private static readonly ScArea zeroHome = new ScArea(ScPlayers.SharedCommunity);
+        private static readonly Dictionary<int, ScArea> homes = new Dictionary<int, ScArea>();
+
+        /// <summary>Round MP6 (part H): the home zone of community cid (a resident's: ScHome.Of).</summary>
+        public static ScArea HomeOf(int cid)
+        {
+            if (cid == ScPlayers.SharedCommunity) return zeroHome;
+            lock (homes)
+            {
+                ScArea a;
+                if (!homes.TryGetValue(cid, out a)) homes[cid] = a = new ScArea(cid);
+                return a;
+            }
+        }
 
         /// <summary>The enclave whose footprint this is (null for the home zone).</summary>
         public Enclave Enclave { get { return enclave; } }
 
-        public bool Contains(Vector3i p) { return enclave == null ? ScZone.Contains(p) : enclave.Contains(p.x, p.z); }
+        /// <summary>Round MP6 (part H): the home zone's community (0 for an enclave's ground).</summary>
+        public int Community { get { return community; } }
+
+        /// <summary>Round MP6 (part H): the home zone's community in scope for a ScZone read (nothing with one community).</summary>
+        private ScScope Scope() { return ScHomeScope.Of(community); }
+
+        public bool Contains(Vector3i p)
+        {
+            if (enclave != null) return enclave.Contains(p.x, p.z);
+            using (Scope()) return ScZone.Contains(p);          // round MP6 (part H): this area's community
+        }
 
         /// <summary>Horizontal metres outside the ground (0 inside it).</summary>
-        public float DistanceOutside(Vector3 p) { return enclave == null ? ScZone.DistanceOutside(p) : enclave.DistanceXZ(p.x, p.z); }
+        public float DistanceOutside(Vector3 p)
+        {
+            if (enclave != null) return enclave.DistanceXZ(p.x, p.z);
+            using (Scope()) return ScZone.DistanceOutside(p);   // round MP6 (part H): this area's community
+        }
 
         /// <summary>A random point of the ground (y 0): ScZone's for the zone, a cell of the footprint for an enclave.</summary>
         public bool RandomPoint(out Vector3 p)
         {
-            if (enclave == null) return ScZone.RandomPoint(out p);
+            if (enclave == null) using (Scope()) return ScZone.RandomPoint(out p);     // round MP6 (part H): this area's community
             Vector3i a = enclave.Poi, s = enclave.Size;
             p = new Vector3(Random.Range(a.x, a.x + Mathf.Max(1, s.x)) + 0.5f, 0f, Random.Range(a.z, a.z + Mathf.Max(1, s.z)) + 0.5f);
             return true;
@@ -85,7 +123,7 @@ namespace UAI
             {
                 if (m.Post == Vector3i.zero) return false;
                 h.Member = m;
-                h.Area = ScArea.HomeZone;
+                h.Area = ScArea.HomeOf(m.CommunityId);      // round MP6 (part H): her own community's home zone
                 h.Post = ScCommunity.PostCenter(m);
                 return true;
             }

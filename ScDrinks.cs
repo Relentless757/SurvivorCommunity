@@ -27,8 +27,14 @@ namespace SurvivorCommunity
     {
         private static readonly Dictionary<int, ulong> lastAt = new Dictionary<int, ulong>();
         private static readonly Dictionary<int, string> lastWhy = new Dictionary<int, string>();
-        /// <summary>Session only: Water points opened from the stockpile and not yet given as drinks.</summary>
-        private static int openPoints;
+        /// <summary>Round MP6 (part H): a community's opened Water - one per community (ScHomeState): its points came from its stockpile.</summary>
+        private sealed class WaterState
+        {
+            public int OpenPoints;
+        }
+        private static readonly ScHomeState<WaterState> homes = new ScHomeState<WaterState>();
+        /// <summary>Session only: Water points opened from the stockpile and not yet given as drinks. Round MP6 (part H): the community in scope's.</summary>
+        private static int openPoints { get { return homes.Current.OpenPoints; } set { homes.Current.OpenPoints = value; } }
         private static int topUps, given, refused;
         private const ulong TicksPerHour = 1000UL;
 
@@ -36,7 +42,7 @@ namespace SurvivorCommunity
         {
             lastAt.Clear();
             lastWhy.Clear();
-            openPoints = 0;
+            homes.Reset();                        // round MP6 (part H): every community's opened Water
             topUps = 0;
             given = 0;
             refused = 0;
@@ -44,6 +50,7 @@ namespace SurvivorCommunity
 
         internal static void HomeTick(Member m, EntityAlive e)
         {
+            ScScope scope = ScHomeScope.Of(m != null ? m.CommunityId : -1);     // round MP6 (part H): her own community's stockpile, zone and opened Water
             try
             {
                 if (ScConfig.MemberDrinks <= 0 || m == null || e == null || e.Buffs == null || e.IsDead()) return;
@@ -94,6 +101,10 @@ namespace SurvivorCommunity
             catch (Exception ex)
             {
                 ScLog.Once("drinks-home", ex);
+            }
+            finally
+            {
+                scope.Dispose();                  // round MP6 (part H)
             }
         }
 

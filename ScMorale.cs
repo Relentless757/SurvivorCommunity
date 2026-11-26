@@ -19,10 +19,15 @@ namespace SurvivorCommunity
         public const string HudBuff = "buffSCMorale";
         public const string HudCvar = "sc_morale";
 
-        /// <summary>Console override for testing (-1 = none).</summary>
-        public static int Override = -1;
+        /// <summary>Round MP6 (part H): a community's console override - one per community (ScHomeState).</summary>
+        private sealed class OverrideState { public int Value = -1; }
+        private static readonly ScHomeState<OverrideState> overrides = new ScHomeState<OverrideState>();
+        /// <summary>Console override for testing (-1 = none). Round MP6 (part H): the community in scope's (the console's).</summary>
+        public static int Override { get { return overrides.Current.Value; } set { overrides.Current.Value = value; } }
 
-        private static float nextHud;
+        /// <summary>Round MP6 (part H): one per community (ScHomeState) - each community's HUD is kept on its own clock.</summary>
+        private static readonly ScHomeState<ScHomeTimer> huds = new ScHomeState<ScHomeTimer>();
+        private static float nextHud { get { return huds.Current.Next; } set { huds.Current.Next = value; } }
 
         public struct Parts
         {

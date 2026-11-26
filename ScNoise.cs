@@ -22,6 +22,8 @@ namespace SurvivorCommunity
     ///               can (the player away, the 2-day gap, the blood moon, an outpost fight) a full meter stays full.
     /// Vanilla's own heat map is not used as the meter: it wipes an area to 0 at 25, exists only near a player and
     /// never hears NPCs (_research\base_defence\engine_report.md).
+    /// Round MP6 (part H): one meter per community - an event counts for the community whose home zone it lands in, and each
+    /// community's steady part, attention and clocks are its own (a community that was paused picks up with no catch-up).
     /// </summary>
     public static class ScNoise
     {
@@ -45,23 +47,43 @@ namespace SurvivorCommunity
         private static readonly List<Heard> queue = new List<Heard>(64);
         private static readonly List<Heard> drain = new List<Heard>(64);
 
-        // session counters for "sc noise"
-        private static int heardHeat, heardShots, countedHeat, countedShots, dropped;
-        private static readonly Dictionary<int, float> countedByKind = new Dictionary<int, float>();
+        // session counters for "sc noise" (heard: everything, any community's)
+        private static int heardHeat, heardShots, dropped;
+        private static bool bloodMoon;
 
-        private static float nextSteady, nextSave;
-        private static int steadyMembers, steadyGenerators;
-        private static bool bloodMoon, fullLogged;
+        /// <summary>
+        /// Round MP6 (part H): one home's noise state - what was counted in its zone, its steady part's counts and clocks. One per
+        /// community (ScHomeState); the old statics below read the row of the community in scope.
+        /// </summary>
+        private sealed class NoiseState
+        {
+            public int CountedHeat, CountedShots;
+            public readonly Dictionary<int, float> CountedByKind = new Dictionary<int, float>();
+            public float NextSteady, NextSave;
+            public int SteadyMembers, SteadyGenerators;
+            public bool FullLogged;
+            /// <summary>The real time this community's noise last ticked (-1: not yet this session) - a gap means it was paused.</summary>
+            public float LastTick = -1f;
+        }
+        private static readonly ScHomeState<NoiseState> homes = new ScHomeState<NoiseState>();
+        private static int countedHeat { get { return homes.Current.CountedHeat; } set { homes.Current.CountedHeat = value; } }
+        private static int countedShots { get { return homes.Current.CountedShots; } set { homes.Current.CountedShots = value; } }
+        private static Dictionary<int, float> countedByKind { get { return homes.Current.CountedByKind; } }
+        private static float nextSteady { get { return homes.Current.NextSteady; } set { homes.Current.NextSteady = value; } }
+        private static float nextSave { get { return homes.Current.NextSave; } set { homes.Current.NextSave = value; } }
+        private static int steadyMembers { get { return homes.Current.SteadyMembers; } set { homes.Current.SteadyMembers = value; } }
+        private static int steadyGenerators { get { return homes.Current.SteadyGenerators; } set { homes.Current.SteadyGenerators = value; } }
+        private static bool fullLogged { get { return homes.Current.FullLogged; } set { homes.Current.FullLogged = value; } }
+        /// <summary>Round MP6 (part H): real seconds without a tick after which a community counts as having been paused.</summary>
+        private const float PausedGap = 5f;
 
         public static void Reset()
         {
             lock (gate) { queue.Clear(); }
             drain.Clear();
-            heardHeat = heardShots = countedHeat = countedShots = dropped = 0;
-            countedByKind.Clear();
-            nextSteady = nextSave = 0f;
-            steadyMembers = steadyGenerators = 0;
-            bloodMoon = fullLogged = false;
+            heardHeat = heardShots = dropped = 0;
+            homes.Reset();                       // round MP6 (part H): every community's counters, counts and clocks
+            bloodMoon = false;
         }
 
         // ------------------------------------------------------------------ the meter ----
@@ -122,28 +144,49 @@ namespace SurvivorCommunity
             {
                 Community c = ScRegistry.Community;
                 lock (gate) { drain.AddRange(queue); queue.Clear(); }
-                if (!ScConfig.BaseNoise || !c.HasHome) { drain.Clear(); return; }
+                if (!ScConfig.BaseNoise) { drain.Clear(); return; }
 
+                // round MP6 (part H): every event goes to the community whose home zone it landed in (ScZone.CommunityAt) - the
+                // first community to tick this second takes the whole queue for all of them; one in no zone is dropped, as before.
+                // With one community: community 0 exactly where ScZone.Contains was true
                 for (int i = 0; i < drain.Count; i++)
                 {
                     Heard h = drain[i];
-                    if (!ScZone.Contains(h.Pos)) continue;
+                    int cid = ScZone.CommunityAt(h.Pos);
+                    CommunityState cs = cid >= 0 ? ScCommunities.ById(cid) : null;
+                    if (cs == null) continue;
                     float v = h.Value * (h.Kind == KindNpcShot ? ScConfig.NoiseNpcShotMult : ScConfig.NoiseHeatMult);
                     if (v <= 0f) continue;
-                    c.NoiseEvents += v;
-                    if (h.Kind == KindNpcShot) countedShots++; else countedHeat++;
+                    Community hc = cs.Community;
+                    hc.NoiseEvents += v;
+                    if (hc.NoiseEvents > ScConfig.NoiseEventCap) hc.NoiseEvents = ScConfig.NoiseEventCap;   // the cap, as after the loop before
+                    NoiseState ns = homes.For(cid);
+                    if (h.Kind == KindNpcShot) ns.CountedShots++; else ns.CountedHeat++;
                     float sum;
-                    countedByKind.TryGetValue(h.Kind, out sum);
-                    countedByKind[h.Kind] = sum + v;
+                    ns.CountedByKind.TryGetValue(h.Kind, out sum);
+                    ns.CountedByKind[h.Kind] = sum + v;
                 }
                 drain.Clear();
-                if (c.NoiseEvents > ScConfig.NoiseEventCap) c.NoiseEvents = ScConfig.NoiseEventCap;
+                if (!c.HasHome) return;
 
                 float now = Time.unscaledTime;
                 if (now >= nextSteady) { nextSteady = now + 10f; RefreshSteady(); }
                 bloodMoon = w.aiDirector != null && w.aiDirector.BloodMoonComponent != null && w.aiDirector.BloodMoonComponent.BloodMoonActive;
 
                 ulong t = w.worldTime;
+                // round MP6 (part H), the user's decision 9: a community whose players were all offline paused - its attention does
+                // not integrate the hours other communities played meanwhile (it would call a horde the moment one logs in); it picks
+                // up from now. Never with one community (the server stood still with nobody online, so the hours are its own)
+                NoiseState st = homes.Current;
+                bool paused = st.LastTick < 0f || now - st.LastTick > PausedGap;
+                st.LastTick = now;
+                if (paused && ScCommunities.Count > 1 && c.NoiseStamp != 0UL && t > c.NoiseStamp + 250UL)      // a quarter hour or more
+                {
+                    ScLog.Out(ScRegistry.Current.Label + ": base noise resumes - " + ((t - c.NoiseStamp) / 1000f).ToString("0.#", CultureInfo.InvariantCulture)
+                              + " game hour(s) while it was paused do not count for its attention");
+                    c.NoiseStamp = t;
+                    return;
+                }
                 if (c.NoiseStamp == 0UL || t < c.NoiseStamp) { c.NoiseStamp = t; return; }   // first look, or the clock went back
                 float hours = (t - c.NoiseStamp) / 1000f;
                 if (hours < 0.05f) return;

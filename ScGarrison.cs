@@ -40,7 +40,8 @@ namespace SurvivorCommunity
         /// <summary>Round op1: a parked body whose capture failed is not tried again for this long (real seconds).</summary>
         private const float EmbodyRetrySeconds = 30f;
 
-        private static float nextTick;
+        private static readonly ScHomeState<ScHomeTimer> homeTicks = new ScHomeState<ScHomeTimer>();     // round MP6 (part H): the ticker step's throttle, one per community
+        private static float nextTick { get { return homeTicks.Current.Next; } set { homeTicks.Current.Next = value; } }
         private static readonly Dictionary<int, float> nextCount = new Dictionary<int, float>();
         private static readonly int[] countScratch = new int[4];
         /// <summary>Round op1 (session only): member id -> when a failed capture of their parked body may be tried again.</summary>

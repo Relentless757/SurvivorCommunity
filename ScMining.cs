@@ -66,7 +66,8 @@ namespace SurvivorCommunity
         private static FastTags<TagGroup.Global> mineTags, digTags;
         private static bool tagsParsed;
         private static FastTags<TagGroup.Global>[] tierTags;
-        private static float nextTick;
+        private static readonly ScHomeState<ScHomeTimer> homeTicks = new ScHomeState<ScHomeTimer>();     // round MP6 (part H): the ticker step's throttle, one per community
+        private static float nextTick { get { return homeTicks.Current.Next; } set { homeTicks.Current.Next = value; } }
 
         /// <summary>Per world (ScConfig.ResetMining): the biome mixes, the delivery retries, the counters.</summary>
         public static void Reset()

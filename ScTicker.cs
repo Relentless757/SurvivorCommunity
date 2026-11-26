@@ -160,10 +160,11 @@ namespace SurvivorCommunity
         /// Round MP6 (core): one community's tick, inside its scope (the caller's Use), with its anchor: its day rollover, then
         /// every step in the order they always ran. world: this is the first community's pass - the world steps run in it (only),
         /// in their old places. With one community this is exactly the old tick.
-        /// The steps whose throttle is one static (a "next tick" time: ScAmmo, ScLightsOut, ScWatchFatigue, ScActivities' buff
+        /// The steps whose throttle was one static (a "next tick" time: ScAmmo, ScLightsOut, ScWatchFatigue, ScActivities' buff
         /// check, ScBond, ScMorale.SyncHud, ScRadio, ScMining, ScOutposts.Tick, ScHomeHold, ScGarrison, ScScouting, ScOutpostRisk,
-        /// ScBaseAttack, ScSiege, ScWatch, ScInvestigate, ScMissing) pass it in the first community's pass of the second only.
-        /// MP6 (part home): those throttles per community - else community 1+ never runs them
+        /// ScBaseAttack, ScSiege, ScWatch, ScInvestigate, ScMissing) passed it in the first community's pass of the second only.
+        /// Round MP6 (part H): each of those throttles is one per community now (ScHomeState / ScHomeTimer), so every community
+        /// runs them; ScHomeHold's is one for the world on purpose (it holds every community's home in one pass).
         /// Round MP6 (core fix): resumed - the community did not tick in the last pass (its players were all offline, or this is the
         /// session's first pass): see Resume.
         /// </summary>
@@ -223,8 +224,8 @@ namespace SurvivorCommunity
                 ScDoors.Tick(w, player);              // shut the doors members opened once they are through
 #if SC_V34
                 // round MP6 (core): world, once (it plans members and the enclaves' people together).
-                // MP6 (part home): it plans the members of the community in scope only - community 1+'s are never put to bed
-                if (world) ScSleep.Tick(w, player);   // round n06: the night lease - off-duty people sleep through 0-XNPCCore's routine
+                // round MP6 (part H): every community's members in its own pass, against its own home's beds; the enclaves' people once
+                ScSleep.Tick(w, player, world);       // round n06: the night lease - off-duty people sleep through 0-XNPCCore's routine
                 ScSocial.Tick(w, player);             // round U3: small talk, walking over to chat, the evening campfire (after the lease)
                 ScReach.Tick(w, player);              // round n08: watches 0-XNPCCore's melee-unreachable marks (measurement only)
 #endif

@@ -34,6 +34,8 @@ namespace SurvivorCommunity
     ///   (e) remember the door and shut it behind them, as SCore meant to - vanilla never closes.
     /// A door 0-XNPCCore's follow (Voice Control) opens for one of them is remembered and shut the same way
     /// (Patch_VoiceFollowDoor). Host only: the move helper exists on the server.
+    /// Round MP6 (part H): the owner in (c) is each community's own (its anchor's), and a member opens by her own community's
+    /// owner; the doors opened are the world's, shut once a second whichever community ticks.
     /// </summary>
     public static class ScDoors
     {
@@ -52,13 +54,38 @@ namespace SurvivorCommunity
         private static readonly Dictionary<Vector3i, Opened> opened = new Dictionary<Vector3i, Opened>();   // keyed by the door's parent block
         private static readonly List<Vector3i> done = new List<Vector3i>();
         private static readonly List<Entity> near = new List<Entity>();
-        /// <summary>The community owner (the host player), refreshed once a second by Tick.</summary>
-        private static PlatformUserIdentifierAbs ownerId;
+        /// <summary>Round MP6 (part H): a community's door owner - one per community (ScHomeState).</summary>
+        private sealed class OwnerState
+        {
+            public PlatformUserIdentifierAbs Owner;
+        }
+        private static readonly ScHomeState<OwnerState> owners = new ScHomeState<OwnerState>();
+        /// <summary>
+        /// The community owner (the host player), refreshed once a second by Tick. Round MP6 (part H): the community in scope's (each
+        /// community's anchor's); a member opens by her own community's (LockedForMembers).
+        /// </summary>
+        private static PlatformUserIdentifierAbs ownerId { get { return owners.Current.Owner; } set { owners.Current.Owner = value; } }
+        /// <summary>Round MP6 (part H): the frame Tick last shut doors (once a frame: the doors are the world's, whichever community opened one).</summary>
+        private static int shutFrame = -1;
 
         public static void Reset()
         {
             opened.Clear();
-            ownerId = null;
+            owners.Reset();                      // round MP6 (part H): every community's owner
+            shutFrame = -1;
+        }
+
+        /// <summary>
+        /// Round MP6 (part H): the community whose owner's locks a member may open - the opener's own (her record's, or the member an
+        /// outpost or rescue stand-in stands in for); anyone else, the community in scope. With one community always community 0.
+        /// </summary>
+        private static int OpenerCommunity(EntityAlive npc)
+        {
+            if (npc == null || ScCommunities.Count < 2) return ScRegistry.CurrentId;
+            int cid = ScCommunities.CommunityOfMember(npc.entityId);
+            if (cid < 0 && npc.Buffs != null && npc.Buffs.HasCustomVar(ScRadio.StandInCvar))
+                cid = ScCommunities.CommunityOfMember((int)npc.Buffs.GetCustomVar(ScRadio.StandInCvar));
+            return cid >= 0 ? cid : ScRegistry.CurrentId;
         }
 
         /// <summary>Switches vanilla's NPC door opener on or off. The move helper only exists on the server (EntityAlive.Awake).</summary>
@@ -91,12 +118,16 @@ namespace SurvivorCommunity
             return name != null && name.IndexOf("hatch", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        /// <summary>Locked against members: locked, and (unless allowed) not a lock the community owner may open.</summary>
-        private static bool LockedForMembers(TileEntityComposite te)
+        /// <summary>
+        /// Locked against members: locked, and (unless allowed) not a lock the community owner may open. Round MP6 (part H): the owner
+        /// of community cid (the opener's: OpenerCommunity).
+        /// </summary>
+        private static bool LockedForMembers(TileEntityComposite te, int cid)
         {
             TEFeatureLockable lk;
             if (!te.TryGetSelfOrFeature<TEFeatureLockable>(out lk) || lk == null || !lk.IsLocked()) return false;
-            return !(ScConfig.MembersOpenOwnerLockedDoors && ownerId != null && lk.IsUserAllowed(ownerId));
+            PlatformUserIdentifierAbs owner = owners.For(cid).Owner;
+            return !(ScConfig.MembersOpenOwnerLockedDoors && owner != null && lk.IsUserAllowed(owner));
         }
 
         private static PathEntity LivePath(EntityAlive npc)
@@ -127,7 +158,7 @@ namespace SurvivorCommunity
             TEFeatureDoor door;
             Vector3i at;
             if (!FindDoor(npc.world, pt.GetBlockPos(), out te, out door, out at) || door.IsOpen()) return;
-            if ((!ScConfig.MembersOpenHatches && Defence(npc.world, at, door)) || LockedForMembers(te)) return;
+            if ((!ScConfig.MembersOpenHatches && Defence(npc.world, at, door)) || LockedForMembers(te, OpenerCommunity(npc))) return;   // round MP6 (part H): her community's owner
             door.SetOpen(true, true);        // what vanilla does: animation, sound, SetBlockRPC sync
             opened[at] = new Opened { By = npc.entityId, Since = Time.time };
             ScLog.Verbose(npc.EntityName + " (" + npc.entityId + ") opened the door at " + at);
@@ -229,6 +260,10 @@ namespace SurvivorCommunity
                     if (ppd != null) ownerId = ppd.PrimaryId;
                 }
                 if (opened.Count == 0 || w == null) return;
+                // round MP6 (part H): the owner above is each community's (every pass); the doors are shut once a frame, whichever
+                // community's pass comes first (with one community: every tick, as before)
+                if (shutFrame == Time.frameCount) return;
+                shutFrame = Time.frameCount;
                 float now = Time.time;
                 done.Clear();
                 foreach (var kv in opened)

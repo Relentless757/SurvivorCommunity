@@ -142,7 +142,8 @@ namespace SurvivorCommunity
 
         private static readonly Dictionary<int, Vector3> markers = new Dictionary<int, Vector3>();
         private static bool markersRestored;
-        private static float nextTick;
+        private static readonly ScHomeState<ScHomeTimer> homeTicks = new ScHomeState<ScHomeTimer>();     // round MP6 (part H): the ticker step's throttle, one per community
+        private static float nextTick { get { return homeTicks.Current.Next; } set { homeTicks.Current.Next = value; } }
         /// <summary>The Outpost Claim Block block: a claim that establishes itself when placed.</summary>
         public const string FlagBlock = "scOutpostFlag";
         private static readonly List<Vector3i> flagQueue = new List<Vector3i>();

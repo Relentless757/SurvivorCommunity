@@ -32,11 +32,13 @@ namespace SurvivorCommunity
         public const int Held = 0, Damaged = 1, Overrun = 2;
         private static readonly string[] ResultNames = { "held", "damaged", "OVERRUN" };
         private const float NewsSeconds = 7f;
-        private static float nextNews;
+        /// <summary>Round MP6 (part H): one per community (ScHomeState) - each community's news is told on its own clock.</summary>
+        private static readonly ScHomeState<ScHomeTimer> news = new ScHomeState<ScHomeTimer>();
+        private static float nextNews { get { return news.Current.Next; } set { news.Current.Next = value; } }
 
         public static void Reset()
         {
-            nextNews = 0f;
+            news.Reset();                         // round MP6 (part H): every community's
         }
 
         public static string ResultName(int result) { return ResultNames[Mathf.Clamp(result, 0, 2)]; }

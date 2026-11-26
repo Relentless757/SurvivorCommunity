@@ -28,6 +28,9 @@ namespace SurvivorCommunity
     ///             ("gathering", a marker on that side) and when a guard first sees an attacker ("spotted", the marker moves
     ///             onto the horde until the fight ends). D4's defence rating will read Manned(). vo4: the guard also says
     ///             each warning (ScHordeVoice), and says the all clear when the attack is held (CalloutClear).
+    ///   Round MP6 (part H): one watch per community - its posts and guards were always its records; its clocks are its own, a
+    ///             post placed or removed belongs to the community whose zone (or posts list) holds it, and a listen host's own
+    ///             horde marker follows the host's community.
     /// </summary>
     public static class ScWatch
     {
@@ -55,7 +58,17 @@ namespace SurvivorCommunity
         /// <summary>Entity ids whose sightRangeBase this raised (put back when their watch ends).</summary>
         private static readonly HashSet<int> boosted = new HashSet<int>();
         private static readonly List<Member> scratch = new List<Member>();
-        private static float nextTick, nextScan, nextRefusalTip;
+        /// <summary>Round MP6 (part H): one home's watch clocks - one per community (ScHomeState), so each community's watch runs on its own.</summary>
+        private sealed class WatchState
+        {
+            public float NextTick, NextScan;
+        }
+        private static readonly ScHomeState<WatchState> homes = new ScHomeState<WatchState>();
+        // round MP6 (part H): the old statics, now the row of the community in scope
+        private static float nextTick { get { return homes.Current.NextTick; } set { homes.Current.NextTick = value; } }
+        private static float nextScan { get { return homes.Current.NextScan; } set { homes.Current.NextScan = value; } }
+        private static float nextRefusalTip;
+        /// <summary>The horde marker on this machine's own map (a listen host's player): round MP6 (part H) - the host's community's only (MarkerMine).</summary>
         private static NavObject marker;
         private static bool saveDue;
 
@@ -64,9 +77,31 @@ namespace SurvivorCommunity
             guards.Clear();
             boosted.Clear();
             scratch.Clear();
-            nextTick = nextScan = nextRefusalTip = 0f;
+            homes.Reset();                       // round MP6 (part H): every community's clocks
+            nextRefusalTip = 0f;
             marker = null;          // the world's NavObjectManager goes with the world
             saveDue = false;
+        }
+
+        /// <summary>
+        /// Round MP6 (part H): the community in scope is the one this machine's own map follows - the host's own player's (a
+        /// listen host), or any with no local player (a dedicated server has no marker) or with one community. Another
+        /// community's tick never shows or takes down the host's horde marker.
+        /// </summary>
+        private static bool MarkerMine()
+        {
+            if (ScCommunities.Count < 2) return true;
+            EntityPlayerLocal local = ScCommunity.LocalPlayer;
+            return local == null || ScPlayers.CommunityOf(local) == ScRegistry.CurrentId;
+        }
+
+        /// <summary>Round MP6 (part H): the community whose posts list holds this block position, or -1.</summary>
+        internal static int CommunityOfPost(Vector3i pos)
+        {
+            IReadOnlyList<CommunityState> all = ScCommunities.All;
+            for (int i = 0; i < all.Count; i++)
+                if (all[i].Community.WatchPosts.Contains(pos)) return all[i].Id;
+            return -1;
         }
 
         /// <summary>The registry was (re)loaded: the session's guard states start again, the marker is rebuilt from attackwarn=.</summary>
@@ -260,7 +295,7 @@ namespace SurvivorCommunity
         public static string PlaceRefusal(Vector3i pos)
         {
             if (!ScCommunity.IsHost || !ScRegistry.Loaded || !ScConfig.WatchPosts) return null;
-            return PostRefusal(pos);
+            using (ScHomeScope.Of(ScZone.CommunityAt(pos))) return PostRefusal(pos);     // round MP6 (part H): the zone's community (as NotePost)
         }
 
         /// <summary>Why the block at pos is no working post: no home, outside the zone, or the cap reached (null: it can be one).</summary>
@@ -281,9 +316,14 @@ namespace SurvivorCommunity
             ScCommunity.Tell(player, ErrorText(key, null, Vector3i.zero), "ui_denied");
         }
 
-        /// <summary>BlockScWatchPost.OnBlockAdded (host, main thread): a Watch post placed - registered when it counts.</summary>
+        /// <summary>
+        /// BlockScWatchPost.OnBlockAdded (host, main thread): a Watch post placed - registered when it counts. Round MP6 (part H):
+        /// for the community whose home zone it stands in (ScZone.CommunityAt), whatever is in scope; outside every zone the
+        /// community in scope refuses it as before.
+        /// </summary>
         public static void NotePost(Vector3i pos, bool byPlayer)
         {
+            using (ScHomeScope.Of(ScRegistry.Loaded ? ScZone.CommunityAt(pos) : -1))
             try
             {
                 if (!ScCommunity.IsHost || !ScRegistry.Loaded || !ScConfig.WatchPosts) return;
@@ -311,9 +351,13 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>BlockScWatchPost.OnBlockRemoved, and the scan: a post that is gone is forgotten, its guard goes back to their post.</summary>
+        /// <summary>
+        /// BlockScWatchPost.OnBlockRemoved, and the scan: a post that is gone is forgotten, its guard goes back to their post. Round
+        /// MP6 (part H): for the community whose posts list holds it (CommunityOfPost), whatever is in scope.
+        /// </summary>
         public static void ForgetPost(Vector3i pos, string why)
         {
+            using (ScHomeScope.Of(ScRegistry.Loaded ? CommunityOfPost(pos) : -1))
             try
             {
                 if (!ScCommunity.IsHost || !ScRegistry.Loaded) return;
@@ -864,7 +908,7 @@ namespace SurvivorCommunity
         /// </summary>
         private static void TickCallouts(World w, EntityPlayer player, Community c)
         {
-            if (!ScBaseAttack.Open) { RemoveMarker(); return; }
+            if (!ScBaseAttack.Open) { if (MarkerMine()) RemoveMarker(); return; }     // round MP6 (part H): the host's community's marker only
             // round MP0: the call-outs while any community player is at the base, told to every one there; the voice and the
             // marker are the host's own player's (MP4: voices to clients, per-player markers)
             EntityPlayerLocal lp = player as EntityPlayerLocal;
@@ -912,7 +956,7 @@ namespace SurvivorCommunity
                 if (!(c.AttackWarned >= 2 && ScBaseAttack.Live && ScBaseAttack.Centroid(w, out at))) at = ScBaseAttack.ApproachPoint();
                 ShowMarker(at + new Vector3(0f, 2f, 0f), lp);
             }
-            else RemoveMarker();
+            else if (MarkerMine()) RemoveMarker();     // round MP6 (part H): another community's tick leaves the host's marker alone
         }
 
         /// <summary>
