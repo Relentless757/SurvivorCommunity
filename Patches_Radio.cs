@@ -62,7 +62,7 @@ namespace SurvivorCommunity
         {
             List<EntityPlayer> all = ScPlayers.All;
             for (int i = 0; i < all.Count; i++)
-                if (all[i] != null && ScPlayers.InCommunity(all[i]) && !ScNet.KnownMismatch(all[i])) return true;
+                if (all[i] != null && !ScNet.KnownMismatch(all[i])) return true;     // round MP6 (fix G-m3): any community's player (no scope here)
             return false;
         }
 

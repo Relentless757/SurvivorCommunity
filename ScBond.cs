@@ -236,8 +236,11 @@ namespace SurvivorCommunity
                 World w = ScCommunity.World;
                 if (victim == null || w == null || Patches_VoiceControl.IsCommunityNpc(victim)) return;
                 EntityAlive after = victim.GetAttackTarget();
+                // round MP6 (fix G-m5): her Bond is with her own community - only the killer's community's members (never with one)
+                int killerCid = ScCommunities.Count > 1 ? ScPlayers.CommunityOf((EntityPlayer)killer) : -1;
                 foreach (Member m in ScCommunities.AllMembers())      // round MP6 (part G): anyone's member she was on (a world loop)
                 {
+                    if (killerCid >= 0 && m.CommunityId != killerCid) continue;
                     bool standIn;
                     EntityAlive body = ScAmmo.BodyOf(w, m, out standIn);
                     if (body == null || body.IsDead()) continue;

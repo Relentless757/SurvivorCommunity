@@ -996,7 +996,15 @@ namespace SurvivorCommunity
                 // round MP5 (part W): met once any player sees them or a living community player comes within KnowRange of one of
                 // them - the anchor first (as before); the one who met them is told
                 EntityPlayer by = WithinOf(live, anchor, KnowRange) ? anchor : FirstWithinOf(live, KnowRange);
-                if (by == null && seen) by = NearestCommunity(lead.position, anchor);
+                // round MP6 (fix R-m3): seen by one of this community's players - another community's sight tells this one nothing
+                bool seenHere = seen;
+                if (seen && ScRelations.Several)
+                {
+                    seenHere = false;
+                    int cid = ScRegistry.CurrentId;
+                    foreach (var kv in live) if (ScEnclavePeople.SeenByCommunity(w, kv.Value.position, cid)) { seenHere = true; break; }
+                }
+                if (by == null && seenHere) by = NearestCommunity(lead.position, anchor);
                 if (by != null) { MarkKnown(b, by); met = true; }
             });
             if (met) changed = true;

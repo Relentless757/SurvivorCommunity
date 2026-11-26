@@ -352,19 +352,22 @@ namespace SurvivorCommunity
         /// </summary>
         public static void AddTargets(ICollection<Vector3i> into)
         {
-            foreach (EnclaveRequest r in All)
-                if (r.HasTarget && (r.Kind == EnclaveRequest.KindMissing || r.Kind == EnclaveRequest.KindInfestation)) into.Add(r.Target);
+            // round MP6 (fix R-m1): every community's requests - the "in use" sets are the world's (two searches never share a
+            // building, no infestation starts in one another community searches). With one community: All, as before
+            CommunityState[] cs = ScCommunities.Array;
+            for (int c = 0; c < cs.Length; c++)
+                foreach (EnclaveRequest r in cs[c].EncRequests)
+                    if (r.HasTarget && (r.Kind == EnclaveRequest.KindMissing || r.Kind == EnclaveRequest.KindInfestation)) into.Add(r.Target);
         }
 
         /// <summary>E5: is this POI an open request's target (AddTargets)? A short list scan.</summary>
         public static bool IsTarget(Vector3i key)
         {
-            List<EnclaveRequest> all = All;
-            for (int i = 0; i < all.Count; i++)
-            {
-                EnclaveRequest r = all[i];
-                if (r.HasTarget && r.Target == key && (r.Kind == EnclaveRequest.KindMissing || r.Kind == EnclaveRequest.KindInfestation)) return true;
-            }
+            // round MP6 (fix R-m1): every community's requests (AddTargets)
+            CommunityState[] cs = ScCommunities.Array;
+            for (int c = 0; c < cs.Length; c++)
+                foreach (EnclaveRequest r in cs[c].EncRequests)
+                    if (r.HasTarget && r.Target == key && (r.Kind == EnclaveRequest.KindMissing || r.Kind == EnclaveRequest.KindInfestation)) return true;
             return false;
         }
 
@@ -813,6 +816,14 @@ namespace SurvivorCommunity
             int now = Now;
             if (r.Kind == EnclaveRequest.KindMissing)
             {
+                // round MP6 (fix R-m1): one missing person at a time in the world - two communities may each hold an offer from the
+                // same enclave, and the second accept would send a second person missing (withdrawn, no standing lost)
+                string busy = ScEncSearch.SearchOpen(e);
+                if (busy != null)
+                {
+                    Close(r, Withdrawn, "it cannot be taken on: " + busy);
+                    return false;
+                }
                 // E5: the person goes missing now, and the building they were last seen at is picked
                 string no;
                 if (!ScEncSearch.Prepare(r, e, out no))

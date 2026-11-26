@@ -50,7 +50,8 @@ namespace SurvivorCommunity
 
         private static readonly Dictionary<int, Live> live = new Dictionary<int, Live>();
         private static readonly Dictionary<int, Vector3> markers = new Dictionary<int, Vector3>();
-        private static bool markersRestored;
+        /// <summary>Round MP6 (fix N-m1): the community whose outpost attack markers the host's map shows (-1: none restored yet).</summary>
+        private static int markersFor = -1;
         /// <summary>
         /// Round MP6 (part H): one per community - every community's pass sees the blood moon end for its own outposts. Written every
         /// tick; with two or more communities a flag last written more than 5 real seconds ago reads false (the community paused,
@@ -81,7 +82,7 @@ namespace SurvivorCommunity
         {
             live.Clear();
             markers.Clear();
-            markersRestored = false;
+            markersFor = -1;
             wasBloodMoon = false;
             nextTick = 0f;
         }
@@ -90,7 +91,7 @@ namespace SurvivorCommunity
         {
             live.Clear();
             markers.Clear();
-            markersRestored = false;
+            markersFor = -1;
             ScEncRaids.OnRegistryChanged();      // E10: no raid party is out after a load
         }
 
@@ -495,10 +496,13 @@ namespace SurvivorCommunity
                 float now = Time.unscaledTime;
                 if (now < nextTick) return;
                 nextTick = now + 1f;
-                if (!markersRestored)
+                // round MP6 (fix N-m1): restored for the host's own player in its own community's pass (HostOwner) - once per community the host is in: the flag was one for the world, set in whichever community's pass came first (a remote anchor drew nothing), and a host moved by sc community join kept the old community's
+                EntityPlayerLocal host = ScMarkers.HostOwner();
+                if (host != null && markersFor != ScRegistry.CurrentId)
                 {
-                    markersRestored = true;
-                    foreach (Outpost o in ScRegistry.Outposts) if (UnderAttack(o) && o.AttackHeard) AddMarker(o, player);
+                    markersFor = ScRegistry.CurrentId;
+                    ClearHostMarkers();
+                    foreach (Outpost o in ScRegistry.Outposts) if (UnderAttack(o) && o.AttackHeard) AddMarker(o, host);
                 }
                 ScEncRaids.Tick(w, player);        // E10: enclave demands and raids squared with their groups (off, gone, nobody left)
                 bool bm = false;
@@ -982,6 +986,21 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("risk-marker", e);
             }
+        }
+
+        /// <summary>Round MP6 (fix N-m1): every outpost attack marker on the host's map goes (another community's, after the host moved).</summary>
+        private static void ClearHostMarkers()
+        {
+            try
+            {
+                NavObjectManager nav = NavObjectManager.Instance;
+                if (nav != null) foreach (Vector3 at in markers.Values) nav.UnRegisterNavObjectByPosition(at, AttackNav);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("risk-unmarker-all", e);
+            }
+            markers.Clear();
         }
 
         private static void RemoveMarker(Outpost o)

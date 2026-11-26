@@ -544,6 +544,17 @@ namespace SurvivorCommunity
                         // m.LeaderId), else the player with that id once they are online again. Never whoever happens to host:
                         // in multiplayer that handed a client's follower to the host at the first lost link
                         EntityPlayer leader = EntityUtilities.GetLeaderOrOwner(m.Id) as EntityPlayer;
+                        // round MP6 (fix G-m1): a live leader who is not of her community (moved by sc community join or leave) is no
+                        // leader of hers - she goes home (deferred while she is down: Station waits, and so does this) and the link is
+                        // never noted back. Never with one community
+                        int leaderCid;
+                        if (leader != null && ScCommunities.Count > 1 && ScPlayers.TryCommunityOf(leader, out leaderCid) && leaderCid != m.CommunityId)
+                        {
+                            ScLog.Once("mp6-foreign-leader-" + m.Id + "-" + leader.entityId, m.Name + ": her leader " + leader.EntityName + " is in community " + leaderCid + ", not hers - she goes home");
+                            ScCommunity.Station(m, npc, true, leader);
+                            m.LeaderId = "";
+                            break;
+                        }
                         if (leader != null) NoteLeader(m, leader);
                         // the review (S2): a live link to a non-player (an entity id reused after a crash) is lost too, as before MP0
                         if (leader == null)

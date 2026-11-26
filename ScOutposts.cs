@@ -142,6 +142,8 @@ namespace SurvivorCommunity
 
         private static readonly Dictionary<int, Vector3> markers = new Dictionary<int, Vector3>();
         private static bool markersRestored;
+        /// <summary>Round MP6 (fix N-m1): the community whose outpost markers the host's map shows (-1: none restored yet).</summary>
+        private static int markersFor = -1;
         private static readonly ScHomeState<ScHomeTimer> homeTicks = new ScHomeState<ScHomeTimer>();     // round MP6 (part H): the ticker step's throttle, one per community
         private static float nextTick { get { return homeTicks.Current.Next; } set { homeTicks.Current.Next = value; } }
         /// <summary>The Outpost Claim Block block: a claim that establishes itself when placed.</summary>
@@ -226,6 +228,7 @@ namespace SurvivorCommunity
             flagCommunity.Clear();                // round MP6 (part G)
             markers.Clear();
             markersRestored = false;
+            markersFor = -1;                      // round MP6 (fix N-m1)
             nextTick = 0f;
             disbandUntil = 0f;
             boxes = new int[0][];
@@ -241,6 +244,7 @@ namespace SurvivorCommunity
         public static void OnRegistryChanged()
         {
             markersRestored = false;
+            markersFor = -1;                      // round MP6 (fix N-m1)
             markers.Clear();
             ScScouting.OnRegistryChanged();       // scout marks are restored from the registry too
             ScOutpostRisk.OnRegistryChanged();
@@ -1004,12 +1008,19 @@ namespace SurvivorCommunity
                 int today = ScCommunity.Today;
                 if (c.RadioOnlineDay < today && RadioOnlineAnywhere()) c.RadioOnlineDay = today;   // saved with the next save
                 PruneRadios(w);
+                // round MP6 (fix N-m1): restored for the host's own player in its own community's pass (HostOwner) - once per community the host is in: the flag was one for the world, set in whichever community's pass came first (a remote anchor drew nothing), and a host moved by sc community join kept the old community's (before the "no outposts" return: a community with none clears the old ones too)
+                EntityPlayerLocal host = ScMarkers.HostOwner();
+                if (host != null && markersFor != ScRegistry.CurrentId)
+                {
+                    markersFor = ScRegistry.CurrentId;
+                    ClearHostMarkers();
+                    RefreshMarkers(host);
+                }
                 if (ScRegistry.Outposts.Count == 0) return;
                 if (!markersRestored)
                 {
                     markersRestored = true;
                     Rebuild();
-                    RefreshMarkers(player);
                 }
                 if (CheckClaims(player)) ScRegistry.SaveAtomic();
                 // round fx2: the slot limit now, not only at the rollover - before the retake check, the rollover's order
@@ -1220,6 +1231,26 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("outpost-marker", e);
             }
+        }
+
+        /// <summary>Round MP6 (fix N-m1): every outpost marker on the host's map goes (another community's, after the host moved).</summary>
+        private static void ClearHostMarkers()
+        {
+            try
+            {
+                NavObjectManager nav = NavObjectManager.Instance;
+                if (nav != null)
+                    foreach (Vector3 at in markers.Values)
+                    {
+                        foreach (string k in ScNames.ResourceKeys) nav.UnRegisterNavObjectByPosition(at, NavPrefix + k);
+                        nav.UnRegisterNavObjectByPosition(at, NavPrefix + "scavenge");
+                    }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("outpost-unmarker-all", e);
+            }
+            markers.Clear();
         }
 
         private static void RemoveMarker(Outpost o)

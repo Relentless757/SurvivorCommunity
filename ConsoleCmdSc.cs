@@ -196,10 +196,33 @@ namespace SurvivorCommunity
                             m.LeaderId = "";
                         }
                     if (followers > 0) ScRegistry.SaveAtomic();
-                    ScLog.Out("community: " + who + " (" + pid + ") moved from community " + was + " to community " + cid);
+#if SC_V34
+                    // round MP6 (fix G-m1): a talk hold or work shift the mover owned ends now (the disconnect path): an outsider keeps no
+                    // Owner link to another community's member
+                    if (mover != null) ScWork.ForgetPlayer(mover.entityId);
+#endif
+                    // round MP6 (fix N-m6): the old community's requests the mover had taken on are withdrawn (no standing lost) - a
+                    // request is its community's, and theirs no longer (the host's own journal reads AcceptedBy "")
+                    int handedBack = 0;
+                    if (old != null)
+                    {
+                        bool moverIsHost = mover != null && mover is EntityPlayerLocal;
+                        var taken = new List<EnclaveRequest>();
+                        foreach (EnclaveRequest r in old.EncRequests)
+                            if (r.IsAccepted && (string.Equals(r.AcceptedBy, pid, StringComparison.Ordinal) || (moverIsHost && r.AcceptedBy.Length == 0))) taken.Add(r);
+                        using (ScRegistry.Use(old.Id))
+                            foreach (EnclaveRequest r in taken) ScEncRequests.Close(r, ScEncRequests.Withdrawn, who + " moved to another community");
+                        handedBack = taken.Count;
+                    }
+                    // round MP6 (fix R-m5): the new community's grudge against the mover ends - its members do not fight their own player
+                    bool forgiven = ScRelations.Forgive(cid, pid);
+                    ScLog.Out("community: " + who + " (" + pid + ") moved from community " + was + " to community " + cid
+                              + (handedBack > 0 ? "; " + handedBack + " request(s) they had taken on withdrawn" : "") + (forgiven ? "; the new community's grudge against them dropped" : ""));
                     Output("[SC] " + who + " is now in " + ScCommunities.ById(cid).Label + " (was " + (old != null ? old.Label : "community " + was) + ")"
                            + (followers > 0 ? "; their " + followers + " follower(s) stay members of " + (old != null ? old.Label : "it") + " and go home to it" : "")
-                           + ". A client's own copy stays community 0's until the per-community mirror: its requests are refused as stale meanwhile.");
+                           + (handedBack > 0 ? "; " + handedBack + " enclave request(s) they had taken on withdrawn" : "")
+                           + (forgiven ? "; " + ScCommunities.ById(cid).Label + "'s grudge against them dropped" : "")
+                           + ". A client receives the new community's copy within a second.");
                     break;
                 }
                 case "use":
@@ -3568,6 +3591,9 @@ namespace SurvivorCommunity
                 bool started = !ScZone.HasHome;
                 Vector3i old = ScZone.Home;
                 if (!started && old == claim) { Output("[SC] the land claim at " + claim + " is already the home"); return; }
+                // round MP6 (fix G-m2): never on another community's home or outpost ground (home.set's own refusal)
+                int otherCid = ScGates.OtherCommunityInClaim(claim, ScRegistry.CurrentId);
+                if (otherCid >= 0) { Output("[SC] refused: the land claim at " + claim + " is on " + ScCommunities.ById(otherCid).Label + "'s ground"); return; }
                 ScZone.SetHome(claim, pl);
                 ScRegistry.SaveAtomic();
                 ScLog.Out((started ? "community started: home set to " : "community home set to ") + claim + " by sc home set");

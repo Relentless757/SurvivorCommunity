@@ -839,6 +839,9 @@ namespace SurvivorCommunity
         private static bool HiddenRingEntry(EntityAlive npc, string commandId)
         {
             if (npc == null || commandId == null) return false;
+            // round MP6 (fix G-m7): another community's member is talk only (the user's decision 4) - none of Voice Control's own
+            // ring entries (their ids start "vc": orders, jobs, Equipment, Inventory, Pick me up); vanilla's talk stays
+            if (commandId.StartsWith("vc", StringComparison.Ordinal) && XUiC_ScMemberInvGroup.IsForeign(npc)) return true;
             if (string.Equals(commandId, RingPickupId, StringComparison.Ordinal)) return PickupRefusal(npc) != null;
 #if SC_V34
             // only while the ring's Equipment entry is the redirected one (0-XNPCCore 3.4.06+ AND the redirect patched - the Fable

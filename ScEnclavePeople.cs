@@ -660,6 +660,20 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Some player may see it: within NoDrawRange and inside their view cone.</summary>
+        /// <summary>Round MP6 (fix R-m3): SeenByAny for one community's players only.</summary>
+        internal static bool SeenByCommunity(World w, Vector3 at, int cid)
+        {
+            List<EntityPlayer> list = w.Players != null ? w.Players.list : null;
+            if (list == null) return false;
+            int pc;
+            for (int i = 0; i < list.Count; i++)
+            {
+                EntityPlayer p = list[i];
+                if (p != null && ScRunners.XZ(at, p.position) <= NoDrawRange && p.IsInViewCone(at) && ScPlayers.TryCommunityOf(p, out pc) && pc == cid) return true;
+            }
+            return false;
+        }
+
         internal static bool SeenByAny(World w, Vector3 at)
         {
             List<EntityPlayer> list = w.Players != null ? w.Players.list : null;
@@ -1668,7 +1682,14 @@ namespace SurvivorCommunity
             p.Role = EncPerson.MemberRole;             // one leader among the living
             ScEncMoves.NoteLoss(e);                    // E11: the day of their last death (request clock)
             if (raid) ScEncRaids.OnDied(e, p);         // E10: before a fall below can end the raid
-            if (!raid) ScOutposts.NoteLedger(string.Format(Localization.Get(wasEnlisted ? "scEncLedgerEnlistedDied" : "scEncLedgerDied"), p.Name, e.Name));
+            // round MP6 (fix R-m4): the ledger line goes to the community they were out with, else to every community that knows
+            // the group (this runs from the unscoped death hook). With one community: the one ledger, as before
+            if (!raid)
+            {
+                string line = string.Format(Localization.Get(wasEnlisted ? "scEncLedgerEnlistedDied" : "scEncLedgerDied"), p.Name, e.Name);
+                if (withCid >= 0) using (ScRegistry.Use(withCid)) ScOutposts.NoteLedger(line);
+                else ForKnowing(e, () => ScOutposts.NoteLedger(line));
+            }
             // round MP0: one who was out with the community is everyone's news; else every community player near the enclave
             // round MP4: by key (each player reads it in their own language)
             // round MP6 (part relations): the news and the penalty are the community's they were out with; a death at home is told to
@@ -1708,6 +1729,18 @@ namespace SurvivorCommunity
                     if (!e.IsHostile) ScEnclaves.TurnHostile(e, "kill");
             if (wasLeader) Succeed(e, p, living);
             ScRegistry.SaveAtomic();
+        }
+
+        /// <summary>
+        /// Round MP6 (fix R-m4): act in the scope of every community that knows this group (its known flag is per community); with one
+        /// community, once in the scope as it is (as before).
+        /// </summary>
+        private static void ForKnowing(Enclave e, Action act)
+        {
+            if (!ScRelations.Several) { act(); return; }
+            foreach (CommunityState cs in ScCommunities.All)
+                using (ScRegistry.Use(cs.Id))
+                    if (e.Known) act();
         }
 
         /// <summary>The player behind a kill: the player, or the player a companion follows (its Leader / Owner cvar). Turrets name their owner already.</summary>
@@ -1751,8 +1784,12 @@ namespace SurvivorCommunity
                     ScNpc.SetGuard(npc, next.HomeCentre, LookPoint(next));
                 }
             }
-            ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerLeader"), next.Name, e.Name));
-            TellNearKey(e, "scEncNewLeader", next.Name, e.Name);     // round MP0: every community player near them
+            // round MP6 (fix R-m4): every community that knows the group writes the line, every community's players near them hear it
+            // (the death hook is unscoped). With one community: as before
+            string line = string.Format(Localization.Get("scEncLedgerLeader"), next.Name, e.Name);
+            ForKnowing(e, () => ScOutposts.NoteLedger(line));
+            foreach (CommunityState cs in ScRelations.Several ? ScCommunities.All : new[] { ScRegistry.Current })
+                using (ScRegistry.Use(cs.Id)) TellNearKey(e, "scEncNewLeader", next.Name, e.Name);     // round MP0: every community player near them
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + next.Name + " (p" + next.Id + ") leads them now");
         }
 

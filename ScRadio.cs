@@ -63,7 +63,8 @@ namespace SurvivorCommunity
         public static readonly HashSet<Vector3i> Radios = new HashSet<Vector3i>();
 
         private static readonly Dictionary<int, Vector3> markers = new Dictionary<int, Vector3>();
-        private static bool markersRestored;
+        /// <summary>Round MP6 (fix N-m1): the community whose contact markers the host's map shows (-1: none restored yet).</summary>
+        private static int markersFor = -1;
         private static readonly ScHomeState<ScHomeTimer> homeTicks = new ScHomeState<ScHomeTimer>();     // round MP6 (part H): the ticker step's throttle, one per community
         private static float nextTick { get { return homeTicks.Current.Next; } set { homeTicks.Current.Next = value; } }
         private static int lastZombieClass = -1;
@@ -72,7 +73,7 @@ namespace SurvivorCommunity
         {
             Radios.Clear();
             markers.Clear();
-            markersRestored = false;
+            markersFor = -1;
             nextTick = 0f;
             DropRequested = false;
             DropFor = null;                 // round MP5 (part R)
@@ -413,6 +414,21 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>Round MP6 (fix N-m1): every contact marker on the host's map goes (another community's, after the host moved).</summary>
+        private static void ClearHostMarkers()
+        {
+            try
+            {
+                NavObjectManager nav = NavObjectManager.Instance;
+                if (nav != null) foreach (Vector3 at in markers.Values) nav.UnRegisterNavObjectByPosition(at, NavClass);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("radio-unmarker-all", e);
+            }
+            markers.Clear();
+        }
+
         private static void RemoveMarker(Contact ct)
         {
             try
@@ -450,10 +466,13 @@ namespace SurvivorCommunity
                 float now = Time.unscaledTime;
                 if (now < nextTick) return;
                 nextTick = now + 1f;
-                if (!markersRestored)
+                // round MP6 (fix N-m1): restored for the host's own player in its own community's pass (HostOwner) - once per community the host is in: the flag was one for the world, set in whichever community's pass came first (a remote anchor drew nothing), and a host moved by sc community join kept the old community's
+                EntityPlayerLocal host = ScMarkers.HostOwner();
+                if (host != null && markersFor != ScRegistry.CurrentId)
                 {
-                    markersRestored = true;
-                    foreach (var ct in ScRegistry.Contacts) AddMarker(ct, player);     // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
+                    markersFor = ScRegistry.CurrentId;
+                    ClearHostMarkers();
+                    foreach (var ct in ScRegistry.Contacts) AddMarker(ct, host);       // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 }
                 DespawnLater(w);
                 TickContacts(w, player);

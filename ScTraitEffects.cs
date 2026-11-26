@@ -346,15 +346,16 @@ namespace SurvivorCommunity
         public static void SleepTick()
         {
             if (toldWoken.Count == 0) return;
-            // round MP6 (merge): cleared once no community has an attack open (ScBaseAttack is per community since part H; this runs
-            // once, in the world pass). With one community: community 0's, as before
-            bool open = false;
+            // round MP6 (fix H-m3): per community - a community with no attack open clears its own light sleepers (another
+            // community's open or paused attack no longer silences them). With one community: cleared when its attack closed, as before
             foreach (CommunityState cs in ScCommunities.All)
             {
+                bool open;
                 using (ScRegistry.Use(cs.Id)) open = ScBaseAttack.Open;
-                if (open) break;
+                if (open) continue;
+                if (ScCommunities.Count < 2) { toldWoken.Clear(); return; }
+                foreach (Member m in cs.Members.Values) toldWoken.Remove(m.Id);
             }
-            if (!open) toldWoken.Clear();
         }
 
         /// <summary>ScSleep: a light sleeper's lease closed for a horde on the base - logged, the player told once per attack.</summary>
@@ -364,7 +365,9 @@ namespace SurvivorCommunity
             ScLog.Out("sleep: " + name + " (" + (npc != null ? npc.entityId : -1) + ") is a light sleeper - up for the horde on the base");
             if (npc == null || !toldWoken.Add(npc.entityId)) return;      // once per attack: cleared only when no attack is open
             EntityPlayerLocal player = ScCommunity.LocalPlayer;
-            if (player != null) ScCommunity.TellKey(player, "scLightSleeperUp", "", name);
+            // round MP6 (fix H-m3): the host hears of its own community's sleepers only
+            if (player != null && (ScCommunities.Count < 2 || ScGates.MemberCommunityOf(npc) == ScPlayers.CommunityOf(player)))
+                ScCommunity.TellKey(player, "scLightSleeperUp", "", name);
         }
 
         /// <summary>sc traits: the counters.</summary>

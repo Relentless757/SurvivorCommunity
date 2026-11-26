@@ -45,7 +45,7 @@ namespace SurvivorCommunity
             // round MP5 (part O): a client's copy has no ScOutposts lookup tables (they are built on the server only) - its
             // outposts list is read instead
             if (ScMirror.Active) return (ScZone.HasHome && ScZone.Home == p) || ScOutposts.AtClaim(p) != null;
-            return (ScZone.HasHome && ScZone.Home == p) || ScOutposts.IsOutpostClaim(p);
+            return ScGates.IsAnyHome(p) || ScOutposts.IsOutpostClaim(p);     // round MP6 (fix G-m4): any community's home
         }
 
         /// <summary>
@@ -102,14 +102,17 @@ namespace SurvivorCommunity
                     Vector3i newest = owner.LPBlocks[owner.LPBlocks.Count - 1];
                     var outposts = new List<Vector3i>();
                     var older = new List<Vector3i>();
-                    bool home = false;
+                    // round MP6 (fix G-m4): any community's home among the owner's claims (one moved to another community may own the
+                    // old one's home claim) - with one community at most the one home, as before
+                    var homeClaims = new List<Vector3i>();
                     for (int i = 0; i < owner.LPBlocks.Count - 1; i++)
                     {
                         Vector3i p = owner.LPBlocks[i];
-                        if (ScZone.HasHome && ScZone.Home == p) home = true;
+                        if (ScGates.IsAnyHome(p)) homeClaims.Add(p);
                         else if (ScOutposts.IsOutpostClaim(p)) outposts.Add(p);
                         else older.Add(p);
                     }
+                    bool home = homeClaims.Count > 0;
                     if (!home && outposts.Count == 0) return true;      // nothing of ours at stake: vanilla as is
                     int dropped = owner.LPBlocks.Count - limit;
                     if (older.Count < dropped)
@@ -127,7 +130,7 @@ namespace SurvivorCommunity
                     owner.LPBlocks.AddRange(older);
                     owner.LPBlocks.Add(newest);
                     owner.LPBlocks.AddRange(outposts);
-                    if (home) owner.LPBlocks.Add(ScZone.Home);
+                    owner.LPBlocks.AddRange(homeClaims);              // round MP6 (fix G-m4): the home last, as before (every one held)
                     ScLog.Out("claim limit (" + limit + "): the home and " + outposts.Count + " outpost claim(s) kept; the " + dropped + " oldest other claim(s) go");
                     return true;
                     }

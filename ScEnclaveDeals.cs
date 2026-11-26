@@ -711,20 +711,32 @@ namespace SurvivorCommunity
             return false;
         }
 
-        /// <summary>People enlisted with the player now (MaxFollowers counts them with the community's followers).</summary>
+        /// <summary>
+        /// People enlisted with the player now (MaxFollowers counts them with the community's followers). Round MP6 (fix R-m2): with
+        /// the community in scope's players only - another community's enlisted people never use up this one's follower limit.
+        /// </summary>
         public static int EnlistedCount()
         {
             int n = 0;
-            foreach (EncPerson p in ScRegistry.EncPeople) if (p.Enlisted) n++;
+            foreach (EncPerson p in ScRegistry.EncPeople) if (p.Enlisted && EnlistedHere(p)) n++;
             return n;
         }
 
-        /// <summary>The one of an enclave's people enlisted now, or null.</summary>
+        /// <summary>
+        /// The one of an enclave's people enlisted now, or null. Round MP6 (fix R-m2): with the community in scope - one enlisted per
+        /// ally per community, so two communities' fighter calls to one ally no longer cancel each other.
+        /// </summary>
         public static EncPerson EnlistedOf(Enclave e)
         {
             if (e == null) return null;
-            foreach (EncPerson p in ScRegistry.EncPeople) if (p.EnclaveId == e.Id && p.Enlisted) return p;
+            foreach (EncPerson p in ScRegistry.EncPeople) if (p.EnclaveId == e.Id && p.Enlisted && EnlistedHere(p)) return p;
             return null;
+        }
+
+        /// <summary>Round MP6 (fix R-m2): enlisted by a player of the community in scope (always with one community).</summary>
+        private static bool EnlistedHere(EncPerson p)
+        {
+            return !ScRelations.Several || ScRelations.CommunityOfPlayerEntity(p.EnlistedBy) == ScRegistry.CurrentId;
         }
 
         /// <summary>An enlisted body, by its cvar (Voice Control's billing guard: one cvar read).</summary>

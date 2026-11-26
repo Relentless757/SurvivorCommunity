@@ -168,6 +168,8 @@ namespace SurvivorCommunity
                 if (!ScConfig.AutoHomeFirstClaim) return false;     // opt-in: no claim becomes the home by itself
                 Vector3i lp;
                 if (!FirstOwnClaim(owner, out lp)) return false;
+                // round MP6 (fix G-m2): never another community's home or outpost ground (home.set's own refusal)
+                if (ScGates.OtherCommunityInClaim(lp, ScRegistry.CurrentId) >= 0) return false;
                 c.Home = lp;
                 c.HasHome = true;
                 c.Owner = owner.PlayerDisplayName ?? "";

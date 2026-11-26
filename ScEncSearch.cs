@@ -249,15 +249,24 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ the offer and acceptance ----
 
+        /// <summary>
+        /// Round MP6 (part relations): a missing person is a world event, one at a time - not while any community searches for one of
+        /// theirs (the user's decision 2). Null when none does. Round MP6 (fix R-m1): asked at the offer and again at the accept.
+        /// </summary>
+        internal static string SearchOpen(Enclave e)
+        {
+            foreach (CommunityState cs in ScCommunities.All)
+                foreach (EnclaveRequest r in cs.EncRequests)
+                    if (r.Kind == EnclaveRequest.KindMissing && r.IsAccepted && r.EnclaveId == e.Id) return "one of theirs is missing already (" + cs.Label + " searches)";
+            return null;
+        }
+
         /// <summary>Why this enclave cannot be given a missing survivor request (null when it can): someone at home besides the leader who could go missing, and a building to search.</summary>
         public static string CanOffer(Enclave e)
         {
             if (e == null) return "no enclave";
-            // round MP6 (part relations): a missing person is a world event, one at a time - not while another community searches
-            // for one of theirs (the user's decision 2)
-            foreach (CommunityState cs in ScCommunities.All)
-                foreach (EnclaveRequest r in cs.EncRequests)
-                    if (r.Kind == EnclaveRequest.KindMissing && r.IsAccepted && r.EnclaveId == e.Id) return "one of theirs is missing already (" + cs.Label + " searches)";
+            string busy = SearchOpen(e);
+            if (busy != null) return busy;
             if (Candidate(e, null) == null) return "nobody at home besides the leader could go missing";
             string no;
             return PickPoi(e, null, out no) == null ? no : null;

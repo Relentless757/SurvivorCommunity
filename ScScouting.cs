@@ -90,21 +90,22 @@ namespace SurvivorCommunity
         public const string NavPrefix = "sc_scout_";
 
         private static readonly Dictionary<Vector3i, Vector3> markers = new Dictionary<Vector3i, Vector3>();
-        private static bool restored;
+        /// <summary>Round MP6 (fix N-m1): the community whose scout marks the host's map shows (-1: none restored yet).</summary>
+        private static int markersFor = -1;
         private static readonly ScHomeState<ScHomeTimer> homeTicks = new ScHomeState<ScHomeTimer>();     // round MP6 (part H): the ticker step's throttle, one per community
         private static float nextTick { get { return homeTicks.Current.Next; } set { homeTicks.Current.Next = value; } }
 
         public static void Reset()
         {
             markers.Clear();
-            restored = false;
+            markersFor = -1;
             nextTick = 0f;
         }
 
         public static void OnRegistryChanged()
         {
             markers.Clear();
-            restored = false;
+            markersFor = -1;
         }
 
         /// <summary>Round MP5 (part R): who - the player at the radio (ScRadio.Usable(who): their station); null this machine's own.</summary>
@@ -241,10 +242,13 @@ namespace SurvivorCommunity
                     c.Scouts.RemoveAt(i);
                     changed = true;
                 }
-                if (!restored)
+                // round MP6 (fix N-m1): restored for the host's own player in its own community's pass (HostOwner) - once per community the host is in: the flag was one for the world, set in whichever community's pass came first (a remote anchor drew nothing), and a host moved by sc community join kept the old community's
+                EntityPlayerLocal host = ScMarkers.HostOwner();
+                if (host != null && markersFor != ScRegistry.CurrentId)
                 {
-                    restored = true;
-                    foreach (Scout s in c.Scouts) AddMarker(s, player);
+                    markersFor = ScRegistry.CurrentId;
+                    ClearHostMarkers();
+                    foreach (Scout s in c.Scouts) AddMarker(s, host);
                 }
                 if (changed) ScRegistry.SaveAtomic();
             }
@@ -274,6 +278,23 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("scout-marker", e);
             }
+        }
+
+        /// <summary>Round MP6 (fix N-m1): every scout mark on the host's map goes (another community's, after the host moved).</summary>
+        private static void ClearHostMarkers()
+        {
+            try
+            {
+                NavObjectManager nav = NavObjectManager.Instance;
+                if (nav != null)
+                    foreach (Vector3 at in markers.Values)
+                        foreach (string k in ScNames.ResourceKeys) nav.UnRegisterNavObjectByPosition(at, NavPrefix + k);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("scout-unmarker-all", e);
+            }
+            markers.Clear();
         }
 
         private static void RemoveMarker(Scout s)

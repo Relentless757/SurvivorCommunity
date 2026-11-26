@@ -232,6 +232,8 @@ namespace SurvivorCommunity
 
         private static readonly Dictionary<int, Vector3> markers = new Dictionary<int, Vector3>();
         private static bool markersRestored;
+        /// <summary>Round MP6 (fix N-m1): the host's community the markers were last restored for (a host moved: redrawn).</summary>
+        private static int markersFor = -1;
         /// <summary>
         /// The frame the radio last revealed one: a catch-up of several missed days reveals one, not one per day. Round MP6 (part
         /// relations): per community (community id -> the frame).
@@ -1380,9 +1382,13 @@ namespace SurvivorCommunity
             try
             {
                 if (!ready || w == null || player == null || !ScConfig.Enclaves || All.Count == 0) return;
-                if (!markersRestored)
+                // round MP6 (fix N-m1): also when the host's own community changed (sc community join): its view is redrawn
+                EntityPlayerLocal hostNow = ScCommunity.LocalPlayer;
+                int hostCid = hostNow != null ? ScPlayers.CommunityOf(hostNow) : -1;
+                if (!markersRestored || hostCid != markersFor)
                 {
                     markersRestored = true;
+                    markersFor = hostCid;
                     // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers). Round
                     // MP6 (fix N-M1): for the host's own player in its community's view, never the world pass's anchor (null on a
                     // dedicated server: RefreshMarkers returns)
@@ -1868,7 +1874,9 @@ namespace SurvivorCommunity
                 if (e.Known == known) continue;
                 e.Known = known;
                 e.KnownDay = known ? ScCommunity.Today : -1;
-                if (known) AddMarker(e, owner); else RemoveMarker(e);
+                // round MP6 (fix N-m2): the host's marker goes only when the host is of the community in scope (another community's
+                // hide is not the host's)
+                if (known) AddMarker(e, owner); else if (ScMarkers.HostOwner() != null) RemoveMarker(e);
                 n++;
             }
             if (n > 0) ScRegistry.SaveAtomic();

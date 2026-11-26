@@ -127,7 +127,19 @@ namespace SurvivorCommunity
             TEFeatureLockable lk;
             if (!te.TryGetSelfOrFeature<TEFeatureLockable>(out lk) || lk == null || !lk.IsLocked()) return false;
             PlatformUserIdentifierAbs owner = owners.For(cid).Owner;
+            // round MP6 (fix H-m4): a community that has not ticked this session (none of its players online, its members loaded by
+            // another community's player) has no anchor noted yet - its saved owner's locks then (never with one community)
+            if (owner == null && ScCommunities.Count > 1) owner = SavedOwner(cid);
             return !(ScConfig.MembersOpenOwnerLockedDoors && owner != null && lk.IsUserAllowed(owner));
+        }
+
+        /// <summary>Round MP6 (fix H-m4): community cid's saved owner (Community.OwnerId), or null.</summary>
+        private static PlatformUserIdentifierAbs SavedOwner(int cid)
+        {
+            CommunityState cs = ScCommunities.ById(cid);
+            string id = cs != null ? cs.Community.OwnerId : null;
+            PlatformUserIdentifierAbs u;
+            return !string.IsNullOrEmpty(id) && PlatformUserIdentifierAbs.TryFromCombinedString(id, out u) ? u : null;
         }
 
         private static PathEntity LivePath(EntityAlive npc)

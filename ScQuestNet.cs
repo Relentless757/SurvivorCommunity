@@ -112,8 +112,14 @@ namespace SurvivorCommunity
 
         /// <summary>Each remote player's last report this session, by platform id (kept after they leave: E6 and the pickers).</summary>
         private static readonly Dictionary<string, ScJournalReport> reports = new Dictionary<string, ScJournalReport>(StringComparer.Ordinal);
-        /// <summary>POI favours (prospect ids) a remote report held this session: only those can be found "held by nobody" (E6).</summary>
-        private static readonly HashSet<int> favourEverHeld = new HashSet<int>();
+        /// <summary>
+        /// POI favours (prospect ids) a remote report held this session: only those can be found "held by nobody" (E6). Round MP6
+        /// (fix N-m3): by (community, prospect id) - a wild survivor's prospect has the same id in every community courting them.
+        /// </summary>
+        private static readonly HashSet<long> favourEverHeld = new HashSet<long>();
+
+        /// <summary>Round MP6 (fix N-m3): favourEverHeld's key for a community's prospect.</summary>
+        private static long FavourKey(int cid, int prospectId) { return ((long)cid << 32) | (uint)prospectId; }
         /// <summary>The rescues (member ids) whose start went to each player this call - sent once, a quest removed by hand stays removed.</summary>
         private static readonly Dictionary<string, HashSet<int>> rescueSent = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
         /// <summary>How each rescue ended this session (member id: completed), for a copy closed later (its holder was away).</summary>
@@ -745,10 +751,14 @@ namespace SurvivorCommunity
                 if (pl == null || pl is EntityPlayerLocal) continue;
                 ScJournalReport r;
                 if (!reports.TryGetValue(Key(pl), out r)) continue;
+                // round MP6 (fix N-m4): the reporter's own community's favour (another community courting the same survivor has its own POI)
+                CommunityState rcs = ScCommunities.Count > 1 ? ScCommunities.ById(ScPlayers.CommunityOf(pl)) : null;
                 foreach (ScJournalReport.Entry e in r.Entries)
                 {
                     if (e.Kind != ScJournalReport.KindPoiFavour || !e.InProgress) continue;
-                    Prospect p = ScRegistry.GetProspect(e.Id);
+                    Prospect p;
+                    if (rcs != null) rcs.Prospects.TryGetValue(e.Id, out p);
+                    else p = ScRegistry.GetProspect(e.Id);
                     if (p != null && p.Favour == FavourKind.Poi && p.PoiPos == key) return true;
                 }
             }
@@ -834,17 +844,18 @@ namespace SurvivorCommunity
                 if (pr.Favour != FavourKind.Poi || pr.Done) continue;
                 if (held.Contains(pr.Id))
                 {
-                    favourEverHeld.Add(pr.Id);
+                    favourEverHeld.Add(FavourKey(cid, pr.Id));
                     if (pr.Started) continue;
                     pr.Started = true;
                     changed = true;
                     ScLog.Out("favour of " + pr.Name + " (" + pr.PoiName + "): a player's journal holds its quest - taken on again (E6)");
                     continue;
                 }
-                if (!pr.Started || !favourEverHeld.Contains(pr.Id)) continue;
-                if (host != null && ScQuests.FindFavour(host, pr.Id) != null) continue;
+                if (!pr.Started || !favourEverHeld.Contains(FavourKey(cid, pr.Id))) continue;
+                // round MP6 (fix N-m3): the host's journal holds this community's quest only when the host is of it
+                if (host != null && (!several || ScPlayers.CommunityOf(host) == cid) && ScQuests.FindFavour(host, pr.Id) != null) continue;
                 pr.Started = false;
-                favourEverHeld.Remove(pr.Id);
+                favourEverHeld.Remove(FavourKey(cid, pr.Id));
                 changed = true;
                 ScLog.Out("favour of " + pr.Name + " (" + pr.PoiName + "): no player holds its quest any more - " + pr.PoiName + " is no longer held for it (E6)");
             }

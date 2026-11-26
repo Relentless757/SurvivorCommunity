@@ -270,6 +270,22 @@ namespace SurvivorCommunity
             return -1;
         }
 
+        /// <summary>
+        /// Round MP6 (fix G-m4): this land claim is some community's home (the claim limit never drops one, whoever owns it now). With
+        /// one community: ScZone's home test, as before. Server (a client's copy holds only its own community).
+        /// </summary>
+        public static bool IsAnyHome(Vector3i claim)
+        {
+            if (ScCommunities.Count <= 1) return ScZone.HasHome && ScZone.Home == claim;
+            CommunityState[] all = ScCommunities.Array;
+            for (int i = 0; i < all.Length; i++)
+            {
+                Community c = all[i].Community;
+                if (c.HasHome && c.Home == claim) return true;
+            }
+            return false;
+        }
+
         /// <summary>OtherCommunityIn for a land claim's own zone (the claim's rectangles, ScZone.ClaimRects: an upgraded claim's pieces).</summary>
         public static int OtherCommunityInClaim(Vector3i claim, int own)
         {
