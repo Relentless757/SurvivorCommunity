@@ -46,7 +46,7 @@ Why: a client's talk with an enclave's people showed only "Nevermind" - their ro
 their actions ran on the client or were host-only. Now the server tells the client what the rows need when the talk opens
 and after each action, every action is a request to the server, and items move as round MP3's do (taken from your bag first,
 given back on a refusal). The enclave's standing, requests and known flags stay the whole community's. Single player and the
-host's own talks are unchanged. Build `sc34_mp5e`, not deployed, untested in game. Handy: `sc enclave reveal all`, `sc enclave
+host's own talks are unchanged. Build `sc34_mp5`, **deployed to 3.4 on 2026-11-26** (port-3.4 25b275b1, DLL 1c5a2287, protocol 7, with the review fixes; the dedicated server loads the same folder), untested in game. Handy: `sc enclave reveal all`, `sc enclave
 standing <id> <points>`, `sc enclave request <id> offer <kind>`, `sc enclave spawn <id>`, `sc give` for bundles, and
 `DebugLogging` true for the `talk context for ...: enclave ...` and `action enc.... by ...` lines.
 
@@ -109,7 +109,7 @@ community player uses the radio at a powered station (or over a handheld radio, 
 asks the server, a client's window reads its copy of the registry for the lists and asks the server every 1.5 s for what
 the copy lacks (the buttons' readiness and reasons, the call that is on, the siege's clock). An ally's fighter or supply
 drop, and the radio's air drop, come to the player who asked. Horde warnings reach a client's own handheld radio. Build
-`sc34_mp5r`, not deployed, untested in game. With `DebugLogging` on the server logs `action radio.<op> by <player>: ...`
+`sc34_mp5`, **deployed to 3.4 on 2026-11-26** (port-3.4 25b275b1, DLL 1c5a2287, protocol 7, with the review fixes; the dedicated server loads the same folder), untested in game. With `DebugLogging` on the server logs `action radio.<op> by <player>: ...`
 for every act (the view's polls are not logged).
 
 **Single player (and the host's own play): nothing may change**
@@ -180,7 +180,7 @@ halts a band (the server reads the NPC's talk lock), the home's horde and a sieg
 a client can search a missing survivor's remains, and `sc band`, `sc infest`, `sc enclave move|raid` act round the player who
 typed them. Whole-group arrivals already turn up while any community player is home (round MP0), and enclave people
 already come round any player; a dedicated server with nobody online now lets go of the enclave buildings it held loaded.
-Build `sc34_mp5w`, **not deployed**, untested in game.
+Build `sc34_mp5`, **deployed to 3.4 on 2026-11-26** (port-3.4 25b275b1, DLL 1c5a2287, protocol 7, with the review fixes; the dedicated server loads the same folder), untested in game.
 
 **Single player (nothing may change)**
 - [ ] Walk up to an unknown enclave (150 m): "You found ..." with its standing, its marker, a ledger line, as before. The
@@ -244,7 +244,7 @@ brought back around ONE player: the host's own on a listen host, the tick's anch
 a client far from the host was invisible to that client and rolled the off-screen dice; a client's runs were hidden runs;
 on a dedicated server a runner never called for help when attacked. Now every community player counts: her body stays in
 the world while any player is near enough, is taken off only when none is, and comes back near whichever player
-approaches, out of everyone's sight. Build `sc34_mp5n`, not deployed, untested in game. `sc runners` shows each runner's
+approaches, out of everyone's sight. Build `sc34_mp5`, **deployed to 3.4 on 2026-11-26** (port-3.4 25b275b1, DLL 1c5a2287, protocol 7, with the review fixes; the dedicated server loads the same folder), untested in game. `sc runners` shows each runner's
 state and who keeps her ("kept in reach (nearest NAME, N m)", "kept by nobody", "re-created near NAME when settled").
 
 **Single player (nothing may change)**
@@ -299,7 +299,7 @@ then settled "unanswered" with the client right there (an overrun sends the garr
 attack's size and raider tier came from the host's gamestage, only one player heard "attackers here", "held" and the blood
 moon's "held by you", and a client could place a land claim into an enclave's building or past the claim limit (that gate
 only ran for the host). Presence, stand-ins, visits, the stash and the home link already counted every player (rounds
-MP0-MP3); this round checked them for multiplayer and adds `sc outpost who`. Build `sc34_mp5o`, **not deployed**.
+MP0-MP3); this round checked them for multiplayer and adds `sc outpost who`. Build `sc34_mp5`, **deployed to 3.4 on 2026-11-26** (port-3.4 25b275b1, DLL 1c5a2287, protocol 7, with the review fixes; the dedicated server loads the same folder), untested in game.
 
 **Single player (nothing may change)**
 - [ ] Walk up to a staffed outpost: its stand-ins appear by the claim within 60 m, stay to about 110 m, then go.
