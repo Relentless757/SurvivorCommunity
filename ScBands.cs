@@ -41,13 +41,23 @@ namespace SurvivorCommunity
         public bool HasVia;
         /// <summary>The request-clock day the trip began (a trip still going after MaxTripDays ends once nobody sees them).</summary>
         public int StartDay;
-        /// <summary>Seen by the player: their marker shows while they travel. KnownDay: the day it happened (-1: never).</summary>
-        public bool Known;
-        public int KnownDay = -1;
+        /// <summary>
+        /// Seen by the player: their marker shows while they travel. KnownDay: the day it happened (-1: never). Round MP6 (part
+        /// relations): each community's own (Rels: the row of the community in scope, ScRelations.Cid).
+        /// </summary>
+        public bool Known { get { return R.Known; } set { W.Known = value; } }
+        public int KnownDay { get { return R.KnownDay; } set { W.KnownDay = value; } }
+        /// <summary>Round MP6 (part relations): each community's relation to them - known, trust, the trouble's help, engagement.</summary>
+        public readonly RelRows<BandRel> Rels = new RelRows<BandRel>();
+        private BandRel R { get { return Rels.Peek(ScRelations.Cid) ?? ScRelations.NoBand; } }
+        private BandRel W { get { return Rels.Get(ScRelations.Cid); } }
         /// <summary>Their own random stream (their people's classes, their answer to "Come to our place.").</summary>
         public int Seed;
-        /// <summary>Drifters: 0 wary, 1 trusting the player (helped in trouble), -1 against the player (one of them hit or killed).</summary>
-        public int Trust;
+        /// <summary>
+        /// Drifters: 0 wary, 1 trusting the player (helped in trouble), -1 against the player (one of them hit or killed). Round
+        /// MP6 (part relations): the community in scope's (each community its own).
+        /// </summary>
+        public int Trust { get { return R.Trust; } set { W.Trust = value; } }
         /// <summary>Drifters: 0 none, 1 zombies on them when they are met (owed), 2 the fight is on (this session only), 3 over.</summary>
         public int Trouble;
         /// <summary>At their destination: no marker; their bodies go once nobody sees them, then the record.</summary>
@@ -75,17 +85,29 @@ namespace SurvivorCommunity
         public bool HasLastPos;
         /// <summary>A talk with one of them holds them all where they stand (ScBands.InTalk).</summary>
         public bool Halted;
-        /// <summary>Raiders, or drifters against the player: they have the player in their sights (the whole band attacks).</summary>
-        public bool Engaged;
+        /// <summary>
+        /// Raiders, or drifters against the player: they have the player in their sights (the whole band attacks). Round MP6
+        /// (part relations): per community (two communities may be fought at once) - the scope's.
+        /// </summary>
+        public bool Engaged { get { return R.Engaged; } set { W.Engaged = value; } }
         /// <summary>Round MP5 (part W): the player they attack while Engaged (entity id; -1 none) - whichever community player one of them saw.</summary>
-        public int EngagedId = -1;
+        public int EngagedId { get { return R.EngagedId; } set { W.EngagedId = value; } }
+        /// <summary>Round MP6 (part relations): engaged with any community (their bodies' own behavior, ScTaunts, the UAI).</summary>
+        public bool EngagedAny
+        {
+            get
+            {
+                for (int i = 0; i < Rels.Count; i++) if (Rels.At(i).Engaged) return true;
+                return false;
+            }
+        }
         public float NextAssert;
         /// <summary>Their map marker (a moving one: its tracked position follows them).</summary>
         public NavObject Marker;
         public Vector3 MarkerAt;
         /// <summary>The trouble's zombies (entity ids) while it is on, how many of them a player killed, the next target check.</summary>
         public readonly List<int> TroubleIds = new List<int>();
-        public int Helped;
+        public int Helped { get { return R.Helped; } set { W.Helped = value; } }   // round MP6 (part relations): the scope's community's kills
         public float TroubleAssert;
         /// <summary>Their roll for "Come to our place." (ScBands.JoinRoll; -1: not drawn yet this session).</summary>
         public float JoinRoll = -1f;
@@ -893,8 +915,9 @@ namespace SurvivorCommunity
             }
             // round MP5 (review W-m2): a hostile drifter band's grudge reaches a player who came online after its bodies were
             // made (a set to the same value sends nothing); a single player's was stamped at the spawn, as before
-            if (live.Count > 0 && !b.IsRaiders && b.Trust < 0 && ScPlayers.All.Count > 1)
-                for (int i = 0; i < live.Count; i++) GrudgeCommunity(live[i].Value, null);
+            // round MP6 (part relations): each community they are against - its own players (GrudgeAll)
+            if (live.Count > 0 && !b.IsRaiders && ScPlayers.All.Count > 1)
+                for (int i = 0; i < live.Count; i++) GrudgeAll(b, live[i].Value);
             if (live.Count > 0) return TickOnline(w, player, b, live, t, now, ref budget) || changed;
             if (pending > 0) return changed;
             // every body went without the unload capture (the loop above): the walk starts again where the last one led them
@@ -960,14 +983,19 @@ namespace SurvivorCommunity
             // round MP5 (part W): the community player nearest their leader (the anchor with nobody else alive near: single player's
             // one player) - the one their trouble starts round and whose fight holds their bodies back
             EntityPlayer close = NearestCommunity(lead.position, player);
-            if (!b.Known)
+            // round MP6 (part relations): each community meets them for itself (its scope, its anchor and players; seen: any
+            // player's sight, as before - the one of that community nearest them is told). With one community: once, as before
+            bool met = false;
+            ScRelations.ForEachOnline(player, anchor =>
             {
+                if (b.Known) return;
                 // round MP5 (part W): met once any player sees them or a living community player comes within KnowRange of one of
                 // them - the anchor first (as before); the one who met them is told
-                EntityPlayer by = WithinOf(live, player, KnowRange) ? player : FirstWithinOf(live, KnowRange);
-                if (by == null && seen) by = close;
-                if (by != null) { MarkKnown(b, by); changed = true; }
-            }
+                EntityPlayer by = WithinOf(live, anchor, KnowRange) ? anchor : FirstWithinOf(live, KnowRange);
+                if (by == null && seen) by = NearestCommunity(lead.position, anchor);
+                if (by != null) { MarkKnown(b, by); met = true; }
+            });
+            if (met) changed = true;
             // the rest of their people come while a player is near (one a second across all bands), in file behind the leader
             int missing = 0;
             foreach (BandPerson p in Living(b)) if (p.EntityId < 0 && p.SpawnFailures < ScEnclavePeople.MaxSpawnFailures) missing++;
@@ -990,7 +1018,8 @@ namespace SurvivorCommunity
                 }
             }
             if (b.Trouble == 2 && TickTrouble(w, close, b, live, t)) changed = true;
-            if (b.Hostile) Engage(b, player, live, t);
+            // round MP6 (part relations): each community they are against (raiders: every one) - its own engagement
+            ScRelations.ForEachOnline(player, anchor => { if (b.Hostile) Engage(b, anchor, live, t); });
             // a talk with one of them holds the whole band where it stands; they walk on as it closes. Round MP5 (part W): any
             // player's talk (InTalk: the host's dialog, or a remote player's talk lock on one of them)
             if (InTalk(b, live))
@@ -1364,7 +1393,7 @@ namespace SurvivorCommunity
                 ScTraits.ApplyBuffs(p.Who, npc);
                 ScProfile.Stamp(p.Who, npc);
             }
-            if (!b.IsRaiders && b.Trust < 0) GrudgeCommunity(npc, ScCommunity.LocalPlayer);   // round MP5 (part W): against the community (its trust)
+            if (!b.IsRaiders) GrudgeAll(b, npc);      // round MP5 (part W): against the community (its trust). Round MP6 (part relations): each one's
             ScDoors.Enable(npc, true);
             int max = npc.GetMaxHealth();
             if (max > 0) npc.Health = Mathf.Clamp(Mathf.RoundToInt(p.Health * max), 1, max);
@@ -1392,8 +1421,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round MP5 (part W): drifters against the community (Band.Trust is the community's in Shared mode) hold ScTrust's grudge
-        /// against the given player and every community player online - in single player the one player, as before. MP6: a
-        /// per-community trust needs a per-target grudge.
+        /// against the given player and every community player online - in single player the one player, as before. Round MP6
+        /// (part relations): the community in scope's players (its trust is its own; GrudgeAll walks each community against them).
         /// </summary>
         private static void GrudgeCommunity(EntityAlive npc, EntityPlayer player)
         {
@@ -1401,6 +1430,20 @@ namespace SurvivorCommunity
             List<EntityPlayer> all = ScPlayers.All;
             for (int i = 0; i < all.Count; i++)
                 if (all[i] != null && !ReferenceEquals(all[i], player) && ScPlayers.InCommunity(all[i])) Grudge(npc, all[i]);
+        }
+
+        /// <summary>
+        /// Round MP6 (part relations): a body holds the grudge of every community the band is against (its row's trust below 0),
+        /// against that community's players online. With one community: GrudgeCommunity when they are against it, as before.
+        /// </summary>
+        private static void GrudgeAll(Band b, EntityAlive npc)
+        {
+            if (b == null || npc == null || b.IsRaiders) return;
+            for (int i = 0; i < b.Rels.Count; i++)
+            {
+                if (b.Rels.At(i).Trust >= 0) continue;
+                using (ScRegistry.Use(b.Rels.IdAt(i))) GrudgeCommunity(npc, null);
+            }
         }
 
         // ------------------------------------------------------------------ bodies going ----
@@ -1462,7 +1505,7 @@ namespace SurvivorCommunity
             if (!b.Arrived) Replan(b, from, now);
             if (b.Trouble == 2) EndTrouble(b, ScCommunity.LocalPlayer, "they went off the map");
             b.SettledSince = -1f;
-            b.Engaged = false;
+            for (int i = 0; i < b.Rels.Count; i++) { b.Rels.At(i).Engaged = false; b.Rels.At(i).EngagedId = -1; }    // round MP6 (part relations): every community's
             b.Camped = false;
             if (n > 0) ScLog.Out("band " + b.Id + " (" + b.Kind + ", " + DisplayName(b) + "): " + n + " body(ies) went (" + why + ") at " + World.worldToBlockPos(from)
                                  + (b.Arrived ? "" : " - they walk on unseen"));
@@ -1787,7 +1830,8 @@ namespace SurvivorCommunity
             // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
             ScCommunity.TellKey(player, b.IsRaiders ? "scBandSeenRaiders" : "scBandSeenDrifters", b.IsRaiders ? "ui_denied" : "", DestText(b));
             ScOutposts.NoteLedger(string.Format(Loc(b.IsRaiders ? "scBandLedgerRaiders" : "scBandLedgerDrifters"), DestText(b)));
-            ScLog.Out("band " + b.Id + " (" + b.Kind + ", " + DisplayName(b) + ") met on the road at " + World.worldToBlockPos(Where(b)) + ", heading for " + DestText(b));
+            ScLog.Out("band " + b.Id + " (" + b.Kind + ", " + DisplayName(b) + ") met on the road at " + World.worldToBlockPos(Where(b)) + ", heading for " + DestText(b)
+                      + (ScRelations.Several ? " (" + ScRegistry.Current.Label + ")" : ""));      // round MP6 (part relations)
         }
 
         /// <summary>
@@ -1802,8 +1846,12 @@ namespace SurvivorCommunity
             if (!IsBandNpc(npc)) return false;
             BandPerson p = PersonOf(npc);
             Band b = p != null ? ById(p.BandId) : null;
-            if (b == null || player == null || b.IsRaiders || b.Trust < 0) return true;
-            TurnOn(b, player, "one of them was hit");
+            if (b == null || player == null) return true;
+            using (ScRegistry.Use(player))       // round MP6 (part relations): the hitter's community's trust turns (decision 1's rule for bands)
+            {
+                if (b.IsRaiders || b.Trust < 0) return true;
+                TurnOn(b, player, "one of them was hit");
+            }
             ScRegistry.SaveAtomic();
             return true;
         }
@@ -1825,7 +1873,8 @@ namespace SurvivorCommunity
                 n++;
             }
             if (n > 0 && player != null) ScCommunity.TellKey(player, "scBandTurned", "ui_denied");
-            ScLog.Out("band " + b.Id + " (drifters, " + DisplayName(b) + ") turned on " + (player != null ? player.EntityName : "the player") + " (" + cause + ")");
+            ScLog.Out("band " + b.Id + " (drifters, " + DisplayName(b) + ") turned on " + (player != null ? player.EntityName : "the player") + " (" + cause + ")"
+                      + (ScRelations.Several ? " - against " + ScRegistry.Current.Label : ""));      // round MP6 (part relations)
         }
 
         // ------------------------------------------------------------------ trouble ----
@@ -1839,7 +1888,7 @@ namespace SurvivorCommunity
         {
             b.Trouble = 2;
             b.TroubleIds.Clear();
-            b.Helped = 0;
+            for (int i = 0; i < b.Rels.Count; i++) b.Rels.At(i).Helped = 0;      // round MP6 (part relations): every community's
             Vector3 c = Vector3.zero;
             foreach (var kv in live) c += kv.Value.position;
             c /= live.Count;
@@ -1883,7 +1932,8 @@ namespace SurvivorCommunity
                 if (z == null) { b.TroubleIds.RemoveAt(i); continue; }
                 if (z.IsDead())
                 {
-                    if (KillerPlayer(z.entityThatKilledMe) != null) b.Helped++;
+                    EntityPlayer helper = KillerPlayer(z.entityThatKilledMe);
+                    if (helper != null) using (ScRegistry.Use(helper)) b.Helped++;      // round MP6 (part relations): the killer's community's
                     ScBaseAttack.Unflag(z);         // the corpse lingers a while: it keeps no chunks loaded (as the base attack's)
                     b.TroubleIds.RemoveAt(i);
                     continue;
@@ -1914,20 +1964,30 @@ namespace SurvivorCommunity
                           + (gone + left > 0 ? " - its zombies: " + gone + " despawned unseen, " + left + " let go" : ""));
                 return;
             }
-            if (b.Helped <= 0 || b.Trust < 0)
+            // round MP6 (part relations): each community whose players helped (and who they are not against) earns their trust -
+            // its players near are thanked, its ledger written. With one community: community 0, exactly as before
+            bool thanked = false;
+            for (int i = 0; i < b.Rels.Count; i++)
             {
+                BandRel row = b.Rels.At(i);
+                if (row.Helped <= 0 || row.Trust < 0) continue;
+                using (ScRegistry.Use(b.Rels.IdAt(i)))
+                {
+                    thanked = true;
+                    b.Trust = 1;
+                    BandPerson lead = LeaderOf(b) ?? living[0];
+                    // round MP0: told to every community player near them (the host alone in single player, as before)
+                    if (TellNear(Where(b), ScConfig.BandDespawnRange, string.Format(Loc("scEncCallSays"), lead.Name, Loc("scBandThanksSaid")) + " " + Loc("scBandTrustNow"), ""))
+                    {
+                        ScEncRadio.Say(lead, b, EncCall.BandThanks, player);   // round m1v: their thanks aloud (found inside: never throws)
+                    }
+                    ScOutposts.NoteLedger(string.Format(Loc("scBandLedgerHelped"), DisplayName(b)));
+                    ScLog.Out("band " + b.Id + " (drifters, " + DisplayName(b) + "): you helped them fight off the dead (" + b.Helped + " killed by you) - they trust you now"
+                              + (ScRelations.Several ? " (" + ScRegistry.Current.Label + ")" : ""));
+                }
+            }
+            if (!thanked)
                 ScLog.Out("band " + b.Id + " (drifters, " + DisplayName(b) + "): they fought off the dead" + (b.Trust < 0 ? " (they are against you)" : " without your help"));
-                return;
-            }
-            b.Trust = 1;
-            BandPerson lead = LeaderOf(b) ?? living[0];
-            // round MP0: told to every community player near them (the host alone in single player, as before)
-            if (TellNear(Where(b), ScConfig.BandDespawnRange, string.Format(Loc("scEncCallSays"), lead.Name, Loc("scBandThanksSaid")) + " " + Loc("scBandTrustNow"), ""))
-            {
-                ScEncRadio.Say(lead, b, EncCall.BandThanks, player);   // round m1v: their thanks aloud (found inside: never throws)
-            }
-            ScOutposts.NoteLedger(string.Format(Loc("scBandLedgerHelped"), DisplayName(b)));
-            ScLog.Out("band " + b.Id + " (drifters, " + DisplayName(b) + "): you helped them fight off the dead (" + b.Helped + " killed by you) - they trust you now");
         }
 
         /// <summary>
@@ -2059,8 +2119,12 @@ namespace SurvivorCommunity
             }
             if (!b.IsRaiders)
             {
-                TellNearKey(Where(b), ScConfig.BandDespawnRange, "scBandDied", "", p.Name);      // round MP0: every community player near
-                if (by != null && b.Trust >= 0) TurnOn(b, by, "a kill");
+                // round MP6 (part relations): every community's players near (one community: as before)
+                foreach (CommunityState cs in ScCommunities.All)
+                    using (ScRegistry.Use(cs.Id)) TellNearKey(Where(b), ScConfig.BandDespawnRange, "scBandDied", "", p.Name);      // round MP0: every community player near
+                if (by != null)
+                    using (ScRegistry.Use(by))       // round MP6 (part relations): the killer's community's trust
+                        if (b.Trust >= 0) TurnOn(b, by, "a kill");
             }
             ScRegistry.SaveAtomic();
         }
@@ -2073,8 +2137,14 @@ namespace SurvivorCommunity
         /// </summary>
         private static void Destroyed(Band b, EntityPlayer by)
         {
-            bool near = TellNearKey(Where(b), ScConfig.BandDespawnRange, "scBandGone", "", ScCommunity.LocArg(KindWordKey(b)), DestText(b));   // review tells m4: the kind word as a key   // round MP0: every community player near
-            if (b.Known || near) ScOutposts.NoteLedger(string.Format(Loc("scBandLedgerGone"), KindWord(b), DestText(b)));
+            // round MP6 (part relations): each community's players near are told, and each community that met them (or whose player
+            // is near) writes it in its ledger - with one community: once, exactly as before
+            foreach (CommunityState cs in ScCommunities.All)
+                using (ScRegistry.Use(cs.Id))
+                {
+                    bool near = TellNearKey(Where(b), ScConfig.BandDespawnRange, "scBandGone", "", ScCommunity.LocArg(KindWordKey(b)), DestText(b));   // review tells m4: the kind word as a key   // round MP0: every community player near
+                    if (b.Known || near) ScOutposts.NoteLedger(string.Format(Loc("scBandLedgerGone"), KindWord(b), DestText(b)));
+                }
             End(b, "destroyed" + (by != null ? " (the last killed by " + by.EntityName + ")" : ""), false);
         }
 
@@ -2107,6 +2177,12 @@ namespace SurvivorCommunity
 
         /// <summary>A known band's marker where they are (owner-only, map; drifters grey, raiders red); its label says who and where to.</summary>
         private static void AddMarker(Band b, EntityPlayer owner)
+        {
+            // round MP6 (part relations): this machine's own map shows its own player's community's view (met or not)
+            using (ScRegistry.Use(owner)) AddMarkerScoped(b, owner);
+        }
+
+        private static void AddMarkerScoped(Band b, EntityPlayer owner)
         {
             try
             {
@@ -2165,6 +2241,7 @@ namespace SurvivorCommunity
         /// <summary>Every MarkerSeconds: a known band's marker follows them (registered when missing, moved when they moved MarkerMove m).</summary>
         private static void UpdateMarkers(EntityPlayer owner)
         {
+            using (ScRegistry.Use(owner))        // round MP6 (part relations): the owner's community's view
             foreach (Band b in ScRegistry.Bands)
             {
                 if (!b.Known || b.Arrived) { if (b.Marker != null) RemoveMarker(b); continue; }

@@ -16,7 +16,8 @@ namespace SurvivorCommunity
     /// trade, modelled on the radio's own barter (ScBarter: 3 for 1 with anyone, once a day), which stays as it is. Needs a
     /// usable radio (ScRadio.Usable), as that barter does - the window opens only at a radio block. Host only, main thread.
     /// Round MP5 (part R): any community player trades from the radio window (ScActionsRadio's radio.allytrade); the radio is
-    /// theirs (ScRadio.Usable(who): their station's power, or the home station's). MP6: per community.
+    /// theirs (ScRadio.Usable(who): their station's power, or the home station's). Round MP6 (part relations): per community -
+    /// Enclave.BarterDay is the community's row, the trade goes through the sender's scope (radio.allytrade).
     /// </summary>
     public static class ScEncBarter
     {

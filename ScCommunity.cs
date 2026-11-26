@@ -103,8 +103,10 @@ namespace SurvivorCommunity
             if (ScBands.IsBandNpc(npc)) { why = "scEncStays"; return false; }
             // a raider never joins (M10; belt and braces: its class is Hirable false, so the next checks refuse it too)
             if (ScXnpc.IsRaider(npc)) { why = "scNotHireable"; return false; }
-            // nor one who holds a grudge against this player (ScTrust: they were hit)
-            if (ScTrust.IsHostileToAny(npc)) { why = "scTrustRefuses"; return false; }
+            // nor one who holds a grudge against this player (ScTrust: they were hit). Round MP6 (part relations): against a player
+            // of the recruiting player's community - another community's hit blocks only that community (the user's decision 5;
+            // with one community: any grudge, as before)
+            if (ScRelations.GrudgeBlocks(npc, ScPlayers.CommunityOf(player))) { why = "scTrustRefuses"; return false; }
             if (!IsHost) { why = "scHostOnly"; return false; }
             if (!ScNpc.IsFramework(npc) || !ScNpc.IsHirable(npc)) { why = "scNotHireable"; return false; }
             if (!EntityUtilities.IsHuman(npc.entityId) || npc.HasAnyTags(AnimalTags)) { why = "scNotHireable"; return false; }
@@ -1418,6 +1420,9 @@ namespace SurvivorCommunity
             if (npc == null) return;
             try
             {
+                // round MP6 (part relations): killed by a player of another community - her community's grudge (the user's decision 4;
+                // the hit hook never sees a killing blow). Nothing with one community
+                if (ScRelations.Several) ScRelations.OnMemberHit(npc, npc.entityThatKilledMe as EntityPlayer);
                 Prospect p = ScRegistry.GetProspect(npc.entityId);
                 if (p != null)
                 {
@@ -1491,7 +1496,10 @@ namespace SurvivorCommunity
         public static void StampCvars(Member m, EntityAlive npc, EntityPlayer owner)
         {
             if (m == null || npc == null || npc.Buffs == null) return;
-            SetSynced(npc, "sc_member", 1f);            // round MP2 (E9): the talk's member rows read it on every client
+            // round MP2 (E9): the talk's member rows read it on every client. Round MP6 (part relations): her community's id + 1
+            // (community 0's members: 1, as before) - the faction postfix and the gates find her community in one read.
+            // MP6 (part gates): Config/dialogs.xml's seven sc_member value="1" rows fail for a community 1+ member (value 2)
+            SetSynced(npc, "sc_member", m.CommunityId + 1f);
             if (owner != null) npc.Buffs.SetCustomVar("sc_owner", owner.entityId);
             Patches_VoiceControl.StripContract(npc);   // hired and billed before joining: members are never billed
             if (ScXnpc.HasXnpcLevels(npc)) ScXnpc.StripLevels(npc);   // D8: SC's skills only (Patches_Xnpc X3 keeps them off)

@@ -145,7 +145,8 @@ namespace SurvivorCommunity
                 // recycled entity id can never be marked a resident on SC's say-so.
                 EntityAlive npc = ScEnclavePeople.OwnBody(p);
                 if (npc == null) continue;
-                string why = en.IsHostile ? "a hostile enclave"
+                // round MP6 (part relations): a group turned hostile to any community keeps its people awake
+                string why = en.IsHostileAny ? "a hostile enclave"
                            : p.State != EncPerson.StateHome ? "not at home"
                            : Common(npc, nightWhy);
                 into.Add(new Verdict { Npc = npc, Name = npc.EntityName, Why = why, Min = en.Poi, Size = en.Size,

@@ -99,21 +99,27 @@ namespace SurvivorCommunity
                 if (p.EnlistedBody >= 0) staleHires.Add(p.EnlistedBody);
                 p.EnlistedBody = -1;
             }
-            List<Prospect> mine = null;
-            foreach (Prospect pr in ScRegistry.Prospects.Values)
-                if (pr.EncPersonId > 0) (mine ?? (mine = new List<Prospect>())).Add(pr);
-            if (mine == null) return;
             int parked = 0, dropped = 0;
-            foreach (Prospect pr in mine)
+            // round MP6 (part relations): every community's enclave favours, each in its own table (each courts a person for itself)
+            foreach (CommunityState cs in ScCommunities.All)
+            using (ScRegistry.Use(cs.Id))
             {
-                ScRegistry.Prospects.Remove(pr.Id);
-                EncPerson p;
-                if (!byId.TryGetValue(pr.EncPersonId, out p) || !p.Alive) { dropped++; continue; }
-                pr.Id = ParkedKey(p);
-                if (p.HasHome) pr.NpcPos = p.Home;
-                ScRegistry.Prospects[pr.Id] = pr;
-                parked++;
+                List<Prospect> mine = null;
+                foreach (Prospect pr in ScRegistry.Prospects.Values)
+                    if (pr.EncPersonId > 0) (mine ?? (mine = new List<Prospect>())).Add(pr);
+                if (mine == null) continue;
+                foreach (Prospect pr in mine)
+                {
+                    ScRegistry.Prospects.Remove(pr.Id);
+                    EncPerson p;
+                    if (!byId.TryGetValue(pr.EncPersonId, out p) || !p.Alive) { dropped++; continue; }
+                    pr.Id = ParkedKey(p);
+                    if (p.HasHome) pr.NpcPos = p.Home;
+                    ScRegistry.Prospects[pr.Id] = pr;
+                    parked++;
+                }
             }
+            if (parked + dropped == 0) return;
             ScLog.Out("enclave favours: " + parked + " waiting on their person's next body" + (dropped > 0 ? ", " + dropped + " dropped (the person is gone)" : ""));
         }
 
@@ -331,8 +337,13 @@ namespace SurvivorCommunity
         public static void OnDressed(Enclave e, EncPerson p, EntityAlive npc)
         {
             if (p.IsLeader) GiveStock(e, npc);
-            Prospect pr = ProspectByPerson(p.Id);
-            if (pr != null) Rekey(pr, npc.entityId, npc.GetBlockPosition());
+            // round MP6 (part relations): every community's favour of this person follows the body
+            foreach (CommunityState cs in ScCommunities.All)
+                using (ScRegistry.Use(cs.Id))
+                {
+                    Prospect pr = ProspectByPerson(p.Id);
+                    if (pr != null) Rekey(pr, npc.entityId, npc.GetBlockPosition());
+                }
         }
 
         /// <summary>ScEnclavePeople's succession: the new leader's body, when it is out, becomes the trader (the stock is the enclave's).</summary>
@@ -354,8 +365,13 @@ namespace SurvivorCommunity
             if (p.Enlisted) EndEnlist(p, own, "scEncEnlistGone", "their body went");
             p.Leaving = false;
             p.LeaveTarget = Vector3.zero;
-            Prospect pr = ProspectByPerson(p.Id);
-            if (pr != null) Rekey(pr, ParkedKey(p), p.HasHome ? p.Home : pr.NpcPos);
+            // round MP6 (part relations): every community's favour of this person waits for the next body
+            foreach (CommunityState cs in ScCommunities.All)
+                using (ScRegistry.Use(cs.Id))
+                {
+                    Prospect pr = ProspectByPerson(p.Id);
+                    if (pr != null) Rekey(pr, ParkedKey(p), p.HasHome ? p.Home : pr.NpcPos);
+                }
         }
 
         // ------------------------------------------------------------------ enlisting ----
@@ -581,6 +597,8 @@ namespace SurvivorCommunity
             foreach (EncPerson p in ScRegistry.EncPeople)
             {
                 if (p.EnclaveId != e.Id || !p.Enlisted) continue;
+                // round MP6 (part relations): only those enlisted with a player of the community in scope (the one the group turned on)
+                if (ScRelations.Several && ScRelations.CommunityOfPlayerEntity(p.EnlistedBy) != ScRegistry.CurrentId) continue;
                 EntityAlive npc = ScEnclavePeople.OwnBody(p);
                 if (npc != null && !npc.IsDead()) SendHome(p, npc, "scEncEnlistHostile", why);
                 else EndEnlist(p, null, "scEncEnlistHostile", why);
@@ -960,10 +978,15 @@ namespace SurvivorCommunity
             foreach (EncPerson p in ScRegistry.EncPeople)
             {
                 if (p.EnclaveId != e.Id) continue;
-                Prospect pr = ProspectByPerson(p.Id);
-                if (pr == null) continue;
-                pr.NpcPos = at;
-                n++;
+                // round MP6 (part relations): every community's favour of theirs
+                foreach (CommunityState cs in ScCommunities.All)
+                    using (ScRegistry.Use(cs.Id))
+                    {
+                        Prospect pr = ProspectByPerson(p.Id);
+                        if (pr == null) continue;
+                        pr.NpcPos = at;
+                        n++;
+                    }
             }
             return n;
         }
@@ -971,13 +994,19 @@ namespace SurvivorCommunity
         /// <summary>The person's favour is off (they died, their enclave is gone): its quest closed as failed, the prospect dropped.</summary>
         public static void DropFavour(EncPerson p, string why)
         {
-            Prospect pr = p != null ? ProspectByPerson(p.Id) : null;
-            if (pr == null) return;
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
-            if (pl != null) ScQuests.CloseFavour(pl, pr.Id, false);
-            ScTalkContext.CloseFavourForOthers(pr.Id, false, pl);     // round MP4: every client's copy too (the quest op)
-            ScRegistry.Prospects.Remove(pr.Id);
-            ScLog.Out("the favour of " + p.Name + " is off (" + why + ")");
+            if (p == null) return;
+            // round MP6 (part relations): every community's favour of this person is off (they died, went missing, their group went)
+            foreach (CommunityState cs in ScCommunities.All)
+                using (ScRegistry.Use(cs.Id))
+                {
+                    Prospect pr = ProspectByPerson(p.Id);
+                    if (pr == null) continue;
+                    EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+                    if (pl != null) ScQuests.CloseFavour(pl, pr.Id, false);
+                    ScTalkContext.CloseFavourForOthers(pr.Id, false, pl);     // round MP4: every client's copy too (the quest op)
+                    ScRegistry.Prospects.Remove(pr.Id);
+                    ScLog.Out("the favour of " + p.Name + " is off (" + why + ")" + (ScRelations.Several ? " (" + cs.Label + ")" : ""));
+                }
         }
 
         // ------------------------------------------------------------------ console ----

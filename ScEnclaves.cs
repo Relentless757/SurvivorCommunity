@@ -29,9 +29,32 @@ namespace SurvivorCommunity
         /// threat, what they hand over most. Derived when missing (E1 records) and kept when the enclave moves.
         /// </summary>
         public string Kind = "";
-        /// <summary>E2: hostile for good since HostileDay (a second hit within the warning window, a kill, a threat). Never undone.</summary>
-        public bool TurnedHostile;
-        public int HostileDay = -1;
+        /// <summary>
+        /// Round MP6 (part relations): each community's relation to this group - standing, what it knows, its hostility, its
+        /// requests', gifts', barter's, calls' and reveals' clocks (EncRel; community 0's always there). The relation properties
+        /// below read and write the row of the community in scope (ScRelations.Cid); world code walks every row (Count, IdAt, At).
+        /// </summary>
+        public readonly RelRows<EncRel> Rels = new RelRows<EncRel>();
+        /// <summary>Round MP6 (part relations): the row the relation properties read (the defaults when this community has none yet).</summary>
+        private EncRel R { get { return Rels.Peek(ScRelations.Cid) ?? ScRelations.NoEnc; } }
+        /// <summary>Round MP6 (part relations): the row the relation properties write (made on the first write).</summary>
+        private EncRel W { get { return Rels.Get(ScRelations.Cid); } }
+
+        /// <summary>
+        /// E2: hostile for good since HostileDay (a second hit within the warning window, a kill, a threat). Never undone.
+        /// Round MP6 (part relations): to the community in scope only (the user's decision 1: hit by A, hostile to A).
+        /// </summary>
+        public bool TurnedHostile { get { return R.TurnedHostile; } set { W.TurnedHostile = value; } }
+        public int HostileDay { get { return R.HostileDay; } set { W.HostileDay = value; } }
+        /// <summary>Round MP6 (part relations): turned hostile to any community (body behavior that is not toward anyone in particular).</summary>
+        public bool TurnedHostileAny
+        {
+            get
+            {
+                for (int i = 0; i < Rels.Count; i++) if (Rels.At(i).TurnedHostile) return true;
+                return false;
+            }
+        }
         /// <summary>E2: its group was made (ScEnclavePeople.Generate); until then the next approach makes the rest.</summary>
         public bool PeopleRolled;
         /// <summary>
@@ -46,12 +69,12 @@ namespace SurvivorCommunity
         /// E4: the first day (the request clock's: ScEncRequests.Now) the daily roll may give them a new request - set when one
         /// closes: the day after, plus EnclaveRequestCooldownDays (0: any day).
         /// </summary>
-        public int NextRequestDay;
+        public int NextRequestDay { get { return R.NextRequestDay; } set { W.NextRequestDay = value; } }   // round MP6 (part relations): the scope's row
         /// <summary>
         /// E5: the kind of a request done while the player was away (an infestation cleared, a siege beaten, a survivor brought
         /// home who ran ahead): the leader thanks the player for it at the next talk, once ("": nothing owed).
         /// </summary>
-        public string Thanks = "";
+        public string Thanks { get { return R.Thanks; } set { W.Thanks = value ?? ""; } }   // round MP6 (part relations): the scope's row
         /// <summary>
         /// E6: what the group does for the player while Allied (ScEncAllies.Benefits): set by its kind (growers "harvest",
         /// medics "pharmacy", militia "munitions", builders "construction", a road crew "filtration"), a scavengers' group
@@ -62,31 +85,31 @@ namespace SurvivorCommunity
         /// E6: the first day (the request clock's: ScEncRequests.Now) this group, Allied, may tell the player about one more
         /// enclave - set EnclaveAllyRevealDays ahead each time it does (0: any day).
         /// </summary>
-        public int AllyRevealDay;
+        public int AllyRevealDay { get { return R.AllyRevealDay; } set { W.AllyRevealDay = value; } }   // round MP6 (part relations): the scope's row
         /// <summary>
         /// E7: the first day (the request clock's: ScEncRequests.Now) the leader takes another gift from the player - set
         /// EnclaveGiftDays ahead by each one (0: any day). ScEncGifts.
         /// </summary>
-        public int GiftDay;
+        public int GiftDay { get { return R.GiftDay; } set { W.GiftDay = value; } }   // round MP6 (part relations): the scope's row
         /// <summary>
         /// E7: the first day (the request clock's) this group, Allied, trades over the radio again - set EnclaveBarterDays ahead
         /// by each trade (0: any day). ScEncBarter.
         /// </summary>
-        public int BarterDay;
+        public int BarterDay { get { return R.BarterDay; } set { W.BarterDay = value; } }   // round MP6 (part relations): the scope's row
         /// <summary>
         /// E9: the first day (the request clock's) this group, Allied, answers another radio call - set EnclaveCallCooldownDays
         /// ahead by each call, given back (0) when a call is called off before it came (0: any day). ScEncCalls.
         /// </summary>
-        public int CallDay;
+        public int CallDay { get { return R.CallDay; } set { W.CallDay = value; } }   // round MP6 (part relations): the scope's row
         /// <summary>
         /// E9: the radio call of theirs that is on ("" none): CallKind "fighter" or "drop", CallAt the world time it arrives,
         /// CallPid the fighter's person, CallUntil the world time the fighter goes home once they came (0: not come yet).
         /// Saved as [enclave] call=kind:at:pid:until. ScEncCalls.
         /// </summary>
-        public string CallKind = "";
-        public ulong CallAt;
-        public int CallPid;
-        public ulong CallUntil;
+        public string CallKind { get { return R.CallKind; } set { W.CallKind = value ?? ""; } }   // round MP6 (part relations): the scope's row
+        public ulong CallAt { get { return R.CallAt; } set { W.CallAt = value; } }
+        public int CallPid { get { return R.CallPid; } set { W.CallPid = value; } }
+        public ulong CallUntil { get { return R.CallUntil; } set { W.CallUntil = value; } }
         /// <summary>
         /// E10: the first day (the request clock's) this hostile group may lean on an outpost again - set EnclaveRaidRestDays
         /// ahead when a demand of theirs is paid or a raid of theirs ends (0: any day). Saved as [enclave] raidday=N. ScEncRaids.
@@ -114,10 +137,10 @@ namespace SurvivorCommunity
         /// </summary>
         public int NestDay = -1;
         /// <summary>Standing points: Neutral below 30 (down to EnclaveStandingMin), Friendly 30-69, Allied 70 and up.</summary>
-        public int Standing;
+        public int Standing { get { return R.Standing; } set { W.Standing = value; } }   // round MP6 (part relations): the scope's row
         /// <summary>Discovered: its marker shows. KnownDay = the day it was found (-1 = not yet).</summary>
-        public bool Known;
-        public int KnownDay = -1;
+        public bool Known { get { return R.Known; } set { W.Known = value; } }   // round MP6 (part relations): the scope's row
+        public int KnownDay { get { return R.KnownDay; } set { W.KnownDay = value; } }
         public int SeededDay;
         /// <summary>
         /// How it came: "new" (a new save's first start), "late" (an existing save), "top" (a raised target), "moved" (its POI
@@ -132,12 +155,15 @@ namespace SurvivorCommunity
 
         // ---- E2, session only (never saved) ----
         /// <summary>The attack rule's clock (real time): the last hit that counted, and the warning it gave (-1: none).</summary>
-        public float LastHitAt = -1f, WarnedAt = -1f;
+        public float LastHitAt { get { return R.LastHitAt; } set { W.LastHitAt = value; } }   // round MP6 (part relations): per attacker's community
+        public float WarnedAt { get { return R.WarnedAt; } set { W.WarnedAt = value; } }
         /// <summary>A threat's grace (real time): its hostility is on only from then (ScEnclavePeople.RebuildHostile).</summary>
-        public float GraceUntil;
+        public float GraceUntil { get { return R.GraceUntil; } set { W.GraceUntil = value; } }   // round MP6 (part relations): the scope's row
 
         /// <summary>A raider enclave, or one turned hostile: what standing, markers and talk act on.</summary>
         public bool IsHostile { get { return Hostile || TurnedHostile; } }
+        /// <summary>Round MP6 (part relations): raiders, or turned hostile to any community (body behavior toward no one in particular).</summary>
+        public bool IsHostileAny { get { return Hostile || TurnedHostileAny; } }
 
         /// <summary>The POI footprint as an inclusive box {xMin, xMax, zMin, zMax}.</summary>
         public int[] Box { get { return new[] { Poi.x, Poi.x + Math.Max(1, Size.x) - 1, Poi.z, Poi.z + Math.Max(1, Size.z) - 1 }; } }
@@ -206,8 +232,11 @@ namespace SurvivorCommunity
 
         private static readonly Dictionary<int, Vector3> markers = new Dictionary<int, Vector3>();
         private static bool markersRestored;
-        /// <summary>The frame the radio last revealed one: a catch-up of several missed days reveals one, not one per day.</summary>
-        private static int radioFrame = -1;
+        /// <summary>
+        /// The frame the radio last revealed one: a catch-up of several missed days reveals one, not one per day. Round MP6 (part
+        /// relations): per community (community id -> the frame).
+        /// </summary>
+        private static readonly Dictionary<int, int> radioFrames = new Dictionary<int, int>();
         /// <summary>
         /// Set once OnGameStart has run: the ticker starts a frame or more before GameStartDone, and must not find, mark or
         /// reveal an enclave that Validate is about to move or drop.
@@ -223,7 +252,7 @@ namespace SurvivorCommunity
         {
             markers.Clear();
             markersRestored = false;
-            radioFrame = -1;
+            radioFrames.Clear();              // round MP6 (part relations)
             ready = false;
             boxes = new int[0][];
             keys = new Vector3i[0];
@@ -1236,18 +1265,45 @@ namespace SurvivorCommunity
             Rebuild();
             int released = Release(old, w);
             cleared = PreClear(to.Pi, w);
-            if (told)
+            // round MP6 (part relations): each community's knowledge - told (the caller's word, for the community in scope; every
+            // other community by its own standing, Friendly or Allied: ToldOnMove) keeps them known at the new building, otherwise
+            // they are off that community's map until found again. With one community: told alone, as before
+            int scopeCid = ScRelations.Cid;
+            bool anyTold = false;
+            for (int i = 0; i < e.Rels.Count; i++)
             {
-                if (!e.Known) { e.Known = true; e.KnownDay = ScCommunity.Today; }
-                if (owner != null) AddMarker(e, owner);
+                int cid = e.Rels.IdAt(i);
+                EncRel r = e.Rels.At(i);
+                bool t = cid == scopeCid ? told : ToldOnMove(e, cid);
+                if (t)
+                {
+                    if (!r.Known) { r.Known = true; r.KnownDay = ScCommunity.Today; }
+                    anyTold = true;
+                }
+                else
+                {
+                    r.Known = false;
+                    r.KnownDay = -1;
+                }
+            }
+            if (anyTold)
+            {
+                // round MP6 (part relations): drawn for the owner's community (AddMarker); an owner who is not this machine's own
+                // player (another community's anchor) leaves it to the next tick's refresh for the host's own map
+                if (owner is EntityPlayerLocal) AddMarker(e, owner);
                 else markersRestored = false;       // the next tick puts it on
             }
-            else
-            {
-                e.Known = false;
-                e.KnownDay = -1;
-            }
             return released;
+        }
+
+        /// <summary>Round MP6 (part relations): a move is told to community cid - they are Friendly or Allied to it (ScEncMoves' rule).</summary>
+        internal static bool ToldOnMove(Enclave e, int cid)
+        {
+            using (ScRegistry.Use(cid))
+            {
+                string band = StandingKey(e);
+                return band == "friendly" || band == "allied";
+            }
         }
 
         // ------------------------------------------------------------------ sleeper areas ----
@@ -1332,6 +1388,23 @@ namespace SurvivorCommunity
                     markersRestored = true;
                     RefreshMarkers(player);           // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 }
+                // round MP6 (part relations): each community with a player online finds for itself (its scope, its anchor) - the
+                // known flag is its own (the user's decision 1); with one community: once, the ticker's player, as before
+                ScRelations.ForEachOnline(player, Find);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("enclave-tick", e);
+            }
+        }
+
+        /// <summary>
+        /// Round MP6 (part relations): Tick's finding for the community in scope - an enclave it does not know yet, within
+        /// EnclaveDiscoverRange of its anchor or of another living player of it, is known to it now.
+        /// </summary>
+        private static void Find(EntityPlayer player)
+        {
+            {
                 Vector3 at = player.position;
                 float range = ScConfig.EnclaveDiscoverRange;
                 foreach (Enclave e in All)
@@ -1347,13 +1420,10 @@ namespace SurvivorCommunity
                     ScCommunity.TellKey(finder, "scEnclaveFound", e.IsHostile ? "ui_denied" : "", e.Name, e.PoiName, ScCommunity.LocArg(StandingWordKey(e)));   // review tells m4
                     ScOutposts.NoteLedger(string.Format(Localization.Get("scEnclaveLedgerFound"), e.Name, e.PoiName));
                     ScLog.Out("enclave " + e.Id + " '" + e.Name + "' found at " + e.PoiName + (e.IsHostile ? " (hostile)" : "")
-                              + (ReferenceEquals(finder, player) ? "" : " by " + finder.PlayerDisplayName));
+                              + (ReferenceEquals(finder, player) ? "" : " by " + finder.PlayerDisplayName)
+                              + (ScRelations.Several ? " (" + ScRegistry.Current.Label + ")" : ""));      // round MP6 (part relations)
                     ScRegistry.SaveAtomic();
                 }
-            }
-            catch (Exception e)
-            {
-                ScLog.Once("enclave-tick", e);
             }
         }
 
@@ -1395,7 +1465,9 @@ namespace SurvivorCommunity
             {
                 if (!ready || !ScConfig.Enclaves || All.Count == 0) return;
                 Community c = ScRegistry.Community;
-                if (day < c.EnclaveRadioDay || Time.frameCount == radioFrame || !ScRadio.Online()) return;
+                // round MP6 (part relations): one reveal a frame for each community (its own radio, its own known flags)
+                int rf;
+                if (day < c.EnclaveRadioDay || (radioFrames.TryGetValue(ScRegistry.CurrentId, out rf) && rf == Time.frameCount) || !ScRadio.Online()) return;
                 Vector3 from;
                 bool home = ScZone.HasHome;
                 if (home) { Vector3i h = ScZone.Home; from = new Vector3(h.x, h.y, h.z); }
@@ -1415,7 +1487,7 @@ namespace SurvivorCommunity
                     }
                 }
                 if (best == null) return;
-                radioFrame = Time.frameCount;
+                radioFrames[ScRegistry.CurrentId] = Time.frameCount;       // round MP6 (part relations): this community's
                 c.EnclaveRadioDay = day + Math.Max(1, ScConfig.EnclaveRadioRevealDays);
                 best.Known = true;
                 best.KnownDay = day;
@@ -1468,12 +1540,17 @@ namespace SurvivorCommunity
                 if (worldBack > 0)
                 {
                     ulong ticks = (ulong)worldBack * 24000UL;
-                    if (c.EnclaveRadioDay > 0) { c.EnclaveRadioDay = Math.Max(0, c.EnclaveRadioDay - worldBack); stamps++; }          // E1
+                    // round MP6 (part relations): every community's next radio reveal and scheduled siege call, not only the scope's
+                    foreach (CommunityState cs in ScCommunities.All)
+                    {
+                        Community cc = cs.Community;
+                        if (cc.EnclaveRadioDay > 0) { cc.EnclaveRadioDay = Math.Max(0, cc.EnclaveRadioDay - worldBack); stamps++; }   // E1
+                        if (cc.EncSiegeAt > 0UL) { cc.EncSiegeAt = cc.EncSiegeAt > ticks ? cc.EncSiegeAt - ticks : 0UL; stamps++; }    // E5
+                    }
                     foreach (Enclave e in All)
                         if (e.LastRecruitDay > 0) { e.LastRecruitDay = Math.Max(0, e.LastRecruitDay - worldBack); stamps++; }         // E3
                     foreach (EncPerson p in ScRegistry.EncPeople)
                         if (p.EnlistedUntil > 0UL) { p.EnlistedUntil = p.EnlistedUntil > ticks ? p.EnlistedUntil - ticks : 1UL; stamps++; }   // E3
-                    if (c.EncSiegeAt > 0UL) { c.EncSiegeAt = c.EncSiegeAt > ticks ? c.EncSiegeAt - ticks : 0UL; stamps++; }             // E5
                     infest = ScInfestations.ShiftDays(worldBack);                                                                      // I1
                 }
                 int calls = ScEncCalls.ShiftDays(reqBack, worldBack);     // E9: the next radio call (request clock); a call's arrival and its fighter's end (world)
@@ -1509,6 +1586,12 @@ namespace SurvivorCommunity
         }
 
         private static void AddMarker(Enclave e, EntityPlayer owner)
+        {
+            // round MP6 (part relations): this machine's own map shows its own player's community's view (known, standing)
+            using (ScRegistry.Use(owner)) AddMarkerScoped(e, owner);
+        }
+
+        private static void AddMarkerScoped(Enclave e, EntityPlayer owner)
         {
             try
             {
@@ -1553,11 +1636,12 @@ namespace SurvivorCommunity
         public static void RefreshMarkers(EntityPlayer owner)
         {
             if (owner == null) return;
-            foreach (Enclave e in All)
-            {
-                if (e.Known && !e.Lost && ScConfig.Enclaves) AddMarker(e, owner);
-                else RemoveMarker(e);
-            }
+            using (ScRegistry.Use(owner))        // round MP6 (part relations): the owner's community's view
+                foreach (Enclave e in All)
+                {
+                    if (e.Known && !e.Lost && ScConfig.Enclaves) AddMarker(e, owner);
+                    else RemoveMarker(e);
+                }
         }
 
         /// <summary>
@@ -1604,6 +1688,8 @@ namespace SurvivorCommunity
         /// and HostileDay, live bodies stamped (X9 hides talk, X10 turrets shoot), the faction lookup rebuilt - after grace
         /// seconds, so a threat's dialog can close first - the marker red, a ledger line and a tell, the log, a save. It never
         /// improves: nothing turns it back except "sc enclave reseed". A raider enclave is hostile already.
+        /// Round MP6 (part relations): toward the community in scope only (the user's decision 1: the hitter's, the killer's, the
+        /// threatener's - each caller opens that scope): its request withdrawn, its players' enlisted people sent home, its tell.
         /// </summary>
         public static void TurnHostile(Enclave e, string cause, float grace = 0f)
         {
@@ -1620,7 +1706,8 @@ namespace SurvivorCommunity
             if (e.Known && pl != null) AddMarker(e, pl);
             ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerHostile"), e.Name));
             ScPlayers.TellCommunityKey("scEncTurnedHostile", "ui_denied", e.Name);    // round MP0: news for the whole community
-            ScLog.Out("enclave " + e.Id + " '" + e.Name + "' turned hostile for good (" + cause + ")" + (grace > 0f ? ", " + grace.ToString("0.#", CultureInfo.InvariantCulture) + " s grace" : ""));
+            ScLog.Out("enclave " + e.Id + " '" + e.Name + "' turned hostile for good (" + cause + ")" + (grace > 0f ? ", " + grace.ToString("0.#", CultureInfo.InvariantCulture) + " s grace" : "")
+                      + (ScRelations.Several ? " - toward " + ScRegistry.Current.Label : ""));      // round MP6 (part relations)
             ScEncAllies.OnBandChanged(e, before, StandingKey(e));      // E6: an ally's benefit stops
             ScRegistry.SaveAtomic();
         }
@@ -1638,14 +1725,21 @@ namespace SurvivorCommunity
             if (e == null || !All.Contains(e)) return;
             World w = ScCommunity.World;
             bool siege = ScEncSiege.OnFalling(e, cause);                          // E5: before the request is withdrawn
-            ScEncRequests.Withdraw(e, "the group is gone (" + cause + ")");     // E4: before the record goes
+            // round MP6 (part relations): the communities that knew them (before the record goes) - each is told; every
+            // community's open request is withdrawn (with one community: community 0, exactly as before)
+            List<int> knew = KnewOf(e);
+            ScEncRequests.WithdrawEverywhere(e, "the group is gone (" + cause + ")");     // E4: before the record goes
             ScEnclavePeople.DropPeople(e);
             RemoveMarker(e);
             int released = Release(PoiOf(e), w);
             All.Remove(e);
             Rebuild();
-            ScPlayers.TellCommunityKey(e.Hostile ? "scEncWipedOut" : "scEncGone", "", e.Name);   // round MP0: news for the whole community
-            ScOutposts.NoteLedger(string.Format(Localization.Get(e.Hostile ? "scEncLedgerWipedOut" : "scEncLedgerGone"), e.Name, e.PoiName));
+            foreach (int cid in knew)
+                using (ScRegistry.Use(cid))
+                {
+                    ScPlayers.TellCommunityKey(e.Hostile ? "scEncWipedOut" : "scEncGone", "", e.Name);   // round MP0: news for the whole community
+                    ScOutposts.NoteLedger(string.Format(Localization.Get(e.Hostile ? "scEncLedgerWipedOut" : "scEncLedgerGone"), e.Name, e.PoiName));
+                }
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "' at " + e.PoiName + " is gone (" + cause + ")"
                       + (released > 0 ? " - " + released + " sleeper area(s) respawn after the loot respawn wait" : ""));
             if (siege) ScEncSiege.AfterFall(e);                                 // E5: the dead have their building now
@@ -1670,7 +1764,7 @@ namespace SurvivorCommunity
         {
             if (e == null || !All.Contains(e)) return 0;
             World w = ScCommunity.World;
-            ScEncRequests.Withdraw(e, "the group is gone (" + cause + ")");
+            ScEncRequests.WithdrawEverywhere(e, "the group is gone (" + cause + ")");     // round MP6 (part relations): every community's
             ScEnclavePeople.DropPeople(e);
             RemoveMarker(e);
             int released = Release(PoiOf(e), w);
@@ -1686,6 +1780,22 @@ namespace SurvivorCommunity
                 catch (Exception ex) { ScLog.Once("enclave-fallen", ex); }
             }
             return released;
+        }
+
+        /// <summary>
+        /// Round MP6 (part relations): the communities that know this group (their rows' Known), lowest id first - who hears that it
+        /// fell. With one community: community 0 alone whatever it knew (its tell always came), as before.
+        /// </summary>
+        private static List<int> KnewOf(Enclave e)
+        {
+            var l = new List<int>();
+            if (!ScRelations.Several) { l.Add(ScRegistry.CurrentId); return l; }
+            foreach (CommunityState cs in ScCommunities.All)
+            {
+                EncRel r = e.Rels.Peek(cs.Id);
+                if (r != null && r.Known) l.Add(cs.Id);
+            }
+            return l;
         }
 
         // ------------------------------------------------------------------ console ----
@@ -1719,6 +1829,7 @@ namespace SurvivorCommunity
             into.Add("#" + e.Id + " " + e.Name + ": " + (e.Hostile ? "hostile by nature" : e.TurnedHostile ? "survivors, hostile since day " + e.HostileDay : "survivors")
                      + ", kind " + (e.Kind.Length > 0 ? e.Kind : "-") + ", standing " + e.Standing + " (" + StandingWord(e) + "), "
                      + (e.Known ? "known since day " + e.KnownDay : "not found yet") + ", seeded day " + e.SeededDay + " (" + e.Mode + ")");
+            ScRelations.RowLines(e, into);                  // round MP6 (part relations): each community's relation (with two or more)
             into.Add("  people: " + ScEnclavePeople.Summary(e) + " (sc enclave people " + e.Id + ")");
             into.Add("  " + ScEncAllies.InfoLine(e));       // E6: the benefit, whether it applies, the next word of another
             into.Add("  " + ScEncGifts.InfoLine(e));        // E7: the next gift, the ally barter

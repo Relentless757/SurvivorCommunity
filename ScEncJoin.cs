@@ -254,13 +254,25 @@ namespace SurvivorCommunity
         private static void CloseFavour(EncPerson p, EntityPlayer player)
         {
             Prospect pr = ScEnclaveDeals.ProspectByPerson(p.Id);
-            if (pr == null) return;
-            if (player is EntityPlayerLocal) ScQuests.CloseFavour(player, pr.Id, pr.Done);
-            // round MP5 (part E): a remote joiner's own copy closes on their machine (the quest op), completed when it was done
-            else if (player != null && ScNet.ClientMatches(player)) ScQuestNet.CloseFavourFor(player, pr.Id, pr.Done);
-            // round MP4: every other player who took that favour on loses their copy (the quest op), as a join does (ScCommunity.Admit)
-            ScTalkContext.CloseFavourForOthers(pr.Id, false, player);
-            ScRegistry.Prospects.Remove(pr.Id);
+            if (pr != null)
+            {
+                if (player is EntityPlayerLocal) ScQuests.CloseFavour(player, pr.Id, pr.Done);
+                // round MP5 (part E): a remote joiner's own copy closes on their machine (the quest op), completed when it was done
+                else if (player != null && ScNet.ClientMatches(player)) ScQuestNet.CloseFavourFor(player, pr.Id, pr.Done);
+                // round MP4: every other player who took that favour on loses their copy (the quest op), as a join does (ScCommunity.Admit)
+                ScTalkContext.CloseFavourForOthers(pr.Id, false, player);
+                ScRegistry.Prospects.Remove(pr.Id);
+            }
+            // round MP6 (part relations): another community's favour of this person closes too (they joined someone: the user's
+            // decision 2, whoever finishes first recruits) - every player's copy closed above, each community's record dropped here
+            foreach (CommunityState cs in ScCommunities.All)
+                using (ScRegistry.Use(cs.Id))
+                {
+                    Prospect other = ScEnclaveDeals.ProspectByPerson(p.Id);
+                    if (other == null) continue;
+                    if (pr == null) ScTalkContext.CloseFavourForOthers(other.Id, false, null);
+                    ScRegistry.Prospects.Remove(other.Id);
+                }
         }
 
         /// <summary>

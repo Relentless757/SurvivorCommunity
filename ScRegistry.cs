@@ -114,6 +114,13 @@ namespace SurvivorCommunity
     ///                with no body (missing; "Call back" brings them) or, for a parked traveler, a resident whose hidden body is home.
     ///                The op1 review: postsnap= is "2:<bytes>:<base64url of gzip>" (Unpack reads "1:" too); bodyat=x,y,z, any status,
     ///                where the member's body last stood while loaded (the brief load of a parked body looks there).
+    ///   Round MP6 (part relations; SCOM 2 only): [enclave], [infestation] and [band] keep their relation keys as community 0's row
+    ///                (standing=, known=, knownday=, turned=, nextreq=, thanks=, allyreveal=, gift=, barter=, callday=, call=; known=,
+    ///                knownday=; known=, knownday=, trust=); each other community's row is one rel= line in the same section:
+    ///                [enclave] rel=cid:standing:known:knownday:turned:nextreq:allyreveal:gift:barter:callday:thanks:callkind:callat:callpid:calluntil,
+    ///                [infestation] rel=cid:known:knownday, [band] rel=cid:known:knownday:trust (ScRelations). [community] grudge=&lt;platform
+    ///                id&gt;, one line per player its people hold a grudge against (never to a client). A client's snapshot writes the
+    ///                scope's row into the record's keys and no rel= line.
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -409,18 +416,32 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The prospect with this NPC id, in any community (round MP6 (core), as GetMember).
-        /// MP6 (part relations): two communities can court one NPC under one key - this answers the lowest community's.
+        /// The prospect with this NPC id, in any community (round MP6 (core), as GetMember). Round MP6 (part relations): each
+        /// community courts a survivor with its own favour under the NPC's id (the user's decision 2), so two communities can hold
+        /// one key - this answers the community in scope's when it has one, else the lowest community's (a "does anyone court
+        /// them" test reads the same). A favour's own flow (the talk rows, the favour ops) reads OwnProspect: never another's.
         /// </summary>
         public static Prospect GetProspect(int entityId)
         {
             CommunityState[] all = ScCommunities.Array;
+            Prospect p;
+            if (all.Length > 1 && Current.Prospects.TryGetValue(entityId, out p)) return p;     // round MP6 (part relations)
             for (int i = 0; i < all.Length; i++)
             {
-                Prospect p;
                 if (all[i].Prospects.TryGetValue(entityId, out p)) return p;
             }
             return null;
+        }
+
+        /// <summary>
+        /// Round MP6 (part relations): the community in scope's own prospect for this NPC, or null - another community's favour for
+        /// the same survivor is never answered (the favour flow: rolling one, the talk rows, the favour ops). With one community:
+        /// GetProspect.
+        /// </summary>
+        public static Prospect OwnProspect(int entityId)
+        {
+            Prospect p;
+            return Current.Prospects.TryGetValue(entityId, out p) ? p : null;
         }
 
         /// <summary>Round MP6 (core): the community whose roster holds this member id, or -1 (ScCommunities.CommunityOfMember).</summary>
@@ -980,9 +1001,10 @@ namespace SurvivorCommunity
                 case "row": e.Row = val; break;
                 case "tier": e.Tier = I(val); break;
                 case "hostile": e.Hostile = val == "1"; break;
-                case "standing": e.Standing = Clamp(I(val), -100, 100); break;
-                case "known": e.Known = val == "1"; break;
-                case "knownday": e.KnownDay = I(val); break;
+                // round MP6 (part relations): the section's relation keys are community 0's row (another community's: rel=)
+                case "standing": e.Rels.Zero.Standing = Clamp(I(val), -100, 100); break;
+                case "known": e.Rels.Zero.Known = val == "1"; break;
+                case "knownday": e.Rels.Zero.KnownDay = I(val); break;
                 case "seeded":
                 {
                     // day:mode
@@ -993,23 +1015,23 @@ namespace SurvivorCommunity
                 }
                 // E2: the group's kind, the day it turned hostile (-1 = never), whether its people were made
                 case "kind": e.Kind = val.Trim().ToLowerInvariant(); break;
-                case "turned": { int d = I(val); e.TurnedHostile = d >= 0; e.HostileDay = d; break; }
+                case "turned": { int d = I(val); e.Rels.Zero.TurnedHostile = d >= 0; e.Rels.Zero.HostileDay = d; break; }
                 case "people": e.PeopleRolled = val == "1"; break;
                 // E3: the leader's trade stock (packed, read back by ScEnclaveDeals.DecodeStock), the last recruit's day
                 case "stock": e.Stock = val.Trim(); break;
                 case "recruited": e.LastRecruitDay = I(val); break;
                 // E4: the first day the daily roll may give them a new request
-                case "nextreq": e.NextRequestDay = I(val); break;
+                case "nextreq": e.Rels.Zero.NextRequestDay = I(val); break;
                 // E5: the kind of a request done while the player was away, thanked for at the next talk
-                case "thanks": e.Thanks = val.Trim().ToLowerInvariant(); break;
+                case "thanks": e.Rels.Zero.Thanks = val.Trim().ToLowerInvariant(); break;
                 // E6: the group's benefit (an unknown one is set again at OnGameStart), the next ally reveal's day
                 case "benefit": e.Benefit = val.Trim().ToLowerInvariant(); break;
-                case "allyreveal": e.AllyRevealDay = Math.Max(0, I(val)); break;
+                case "allyreveal": e.Rels.Zero.AllyRevealDay = Math.Max(0, I(val)); break;
                 // E7: the next gift's day, the next ally barter's day (request clock)
-                case "gift": e.GiftDay = Math.Max(0, I(val)); break;
-                case "barter": e.BarterDay = Math.Max(0, I(val)); break;
+                case "gift": e.Rels.Zero.GiftDay = Math.Max(0, I(val)); break;
+                case "barter": e.Rels.Zero.BarterDay = Math.Max(0, I(val)); break;
                 // E9: the next radio call's day (request clock); the call that is on: kind:at:pid:until (an unknown kind is dropped)
-                case "callday": e.CallDay = Math.Max(0, I(val)); break;
+                case "callday": e.Rels.Zero.CallDay = Math.Max(0, I(val)); break;
                 case "call":
                 {
                     string[] f = val.Split(':');
@@ -1018,10 +1040,11 @@ namespace SurvivorCommunity
                     if (f.Length < 4 || (kind != ScEncCalls.Fighter && kind != ScEncCalls.Drop)
                         || !ulong.TryParse(f[1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out at)
                         || !ulong.TryParse(f[3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out until)) break;
-                    e.CallKind = kind;
-                    e.CallAt = at;
-                    e.CallPid = I(f[2]);
-                    e.CallUntil = kind == ScEncCalls.Fighter ? until : 0UL;
+                    EncRel r0 = e.Rels.Zero;      // round MP6 (part relations): community 0's row
+                    r0.CallKind = kind;
+                    r0.CallAt = at;
+                    r0.CallPid = I(f[2]);
+                    r0.CallUntil = kind == ScEncCalls.Fighter ? until : 0UL;
                     break;
                 }
                 // E10: the day they may raid again (request clock); people a held raid cost them before they were made
@@ -1045,6 +1068,8 @@ namespace SurvivorCommunity
                 }
                 case "lossday": e.LossDay = Math.Max(0, I(val)); break;
                 case "nestday": e.NestDay = Math.Max(0, I(val)); break;
+                // round MP6 (part relations): another community's relation to them (the keys above are community 0's)
+                case "rel": ScRelations.ParseEnclaveRow(e, val); break;
             }
         }
 
@@ -1204,12 +1229,14 @@ namespace SurvivorCommunity
                 case "depart": { ulong u; if (ulong.TryParse(val.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) b.Depart = u; break; }
                 case "via": { Vector3i v; if (TryVec(val, out v)) { b.Via = v; b.HasVia = true; } break; }
                 case "day": b.StartDay = Math.Max(0, I(val)); break;
-                case "known": b.Known = val == "1"; break;
-                case "knownday": b.KnownDay = I(val); break;
+                // round MP6 (part relations): known=, knownday=, trust= are community 0's row (another community's: rel=)
+                case "known": b.Rels.Zero.Known = val == "1"; break;
+                case "knownday": b.Rels.Zero.KnownDay = I(val); break;
                 case "seed": b.Seed = I(val); break;
-                case "trust": b.Trust = Clamp(I(val), -1, 1); break;
+                case "trust": b.Rels.Zero.Trust = Clamp(I(val), -1, 1); break;
                 case "trouble": b.Trouble = Clamp(I(val), 0, 3); break;
                 case "arrived": b.Arrived = val == "1"; break;
+                case "rel": ScRelations.ParseBandRow(b, val); break;
             }
         }
 
@@ -1271,8 +1298,10 @@ namespace SurvivorCommunity
                 case "start": inf.StartDay = I(val); break;
                 case "how": inf.How = val; break;
                 case "source": inf.Source = I(val); break;
-                case "known": inf.Known = val == "1"; break;
-                case "knownday": inf.KnownDay = I(val); break;
+                // round MP6 (part relations): known=, knownday= are community 0's row (another community's: rel=)
+                case "known": inf.Rels.Zero.Known = val == "1"; break;
+                case "knownday": inf.Rels.Zero.KnownDay = I(val); break;
+                case "rel": ScRelations.ParseInfestationRow(inf, val); break;
                 case "special":
                 {
                     // none | owed | pending:x,y,z (the room bringing it) | met:class; a pending one without its room is owed
@@ -1685,6 +1714,7 @@ namespace SurvivorCommunity
                 case "rationday": c.RationDay = I(val); break;
                 // round m1f: the Facilities tab's sites, Lights out, the last attack, the Guard Towers (keys an older build ignores)
                 case "scansites": case "lightsout": case "lastattack": case "towers": ScFacilityTab.ParseKey(c, key, val); break;
+                case "grudge": ScRelations.ParseGrudge(c, val); break;           // round MP6 (part relations): a player its people hold a grudge against
                 // enclaves (E1): the day of the next radio reveal (round MP6 (core): the id counter and the seeding are ParseWorld's)
                 case "enclaveradio": c.EnclaveRadioDay = I(val); break;
                 // P2: the world's day of the last call for help and how many came that day
@@ -2192,6 +2222,7 @@ namespace SurvivorCommunity
             if (c.RationLeft > 0f) sb.AppendLine("ration=" + c.RationLeft.ToString("0.#", CultureInfo.InvariantCulture));
             if (c.RationDay >= 0) sb.AppendLine("rationday=" + c.RationDay);
             ScFacilityTab.WriteKeys(c, sb);       // round m1f: scansites=, lightsout=, lastattack=, towers=
+            ScRelations.WriteGrudges(sb, c, forClients);    // round MP6 (part relations): grudge= (never to a client)
             if (legacy) WriteEnclaveIds(sb, WorldState);                   // round MP6 (core): enclaveid=, enclaveseed= (the world's)
             sb.AppendLine("enclaveradio=" + c.EnclaveRadioDay);
             if (legacy) WriteWorldIds(sb, WorldState);                     // round MP6 (core): infestid= ... encreqday= (the world's)
@@ -2241,9 +2272,9 @@ namespace SurvivorCommunity
             if (!forClients) foreach (var ep in EncPeople) WriteEncPerson(sb, ep, forClients);
             foreach (CommunityState cs in communities)
                 foreach (var rq in cs.EncRequests) WriteRequest(sb, rq, forClients, withCid ? cs.Id : -1);
-            foreach (var inf in Infestations) WriteInfestation(sb, inf);
+            foreach (var inf in Infestations) WriteInfestation(sb, inf, forClients);       // round MP6 (part relations): forClients
             // E13a: bands on the road and their people (forward-only sections)
-            foreach (var bd in Bands) WriteBand(sb, bd);
+            foreach (var bd in Bands) WriteBand(sb, bd, forClients);                       // round MP6 (part relations): forClients
             if (!forClients) foreach (var bp in BandPeople) WriteBandPerson(sb, bp, forClients);     // round MP1: as the enclave people
             foreach (CommunityState cs in communities)
                 foreach (var p in cs.Prospects.Values) WriteProspect(sb, p, withCid ? cs.Id : -1);
@@ -2383,6 +2414,11 @@ namespace SurvivorCommunity
         /// <summary>Round MP6 (core): one [enclave] section, as BuildText wrote it inline before MP6 (a world record: no cid).</summary>
         private static void WriteEnclave(StringBuilder sb, Enclave en, bool forClients)
         {
+            // round MP6 (part relations): the relation keys are one community's row - community 0's in the save (each other
+            // community's follows as a rel= line), the community in scope's in a client's snapshot (BuildText(true) run inside
+            // ScRegistry.Use(cid) projects that community's standing, known flags, clocks and hostility into the keys it reads).
+            // MP6 (part network): build each community's snapshot inside ScRegistry.Use(cid) - WriteInfestation and WriteBand do the same
+            EncRel rr = forClients ? (en.Rels.Peek(ScRelations.Cid) ?? ScRelations.NoEnc) : en.Rels.Zero;
             sb.AppendLine("[enclave]");
             sb.AppendLine("id=" + en.Id);
             sb.AppendLine("name=" + Clean(en.Name));
@@ -2394,25 +2430,25 @@ namespace SurvivorCommunity
             sb.AppendLine("row=" + Clean(en.Row));
             sb.AppendLine("tier=" + en.Tier);
             sb.AppendLine("hostile=" + (en.Hostile ? 1 : 0));
-            sb.AppendLine("standing=" + en.Standing.ToString(CultureInfo.InvariantCulture));
-            sb.AppendLine("known=" + (en.Known ? 1 : 0));
-            sb.AppendLine("knownday=" + en.KnownDay.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("standing=" + rr.Standing.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("known=" + (rr.Known ? 1 : 0));
+            sb.AppendLine("knownday=" + rr.KnownDay.ToString(CultureInfo.InvariantCulture));
             sb.AppendLine("seeded=" + en.SeededDay + ":" + Clean(en.Mode));
             if (en.Kind.Length > 0) sb.AppendLine("kind=" + Clean(en.Kind));
-            sb.AppendLine("turned=" + (en.TurnedHostile ? Math.Max(0, en.HostileDay) : -1).ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("turned=" + (rr.TurnedHostile ? Math.Max(0, rr.HostileDay) : -1).ToString(CultureInfo.InvariantCulture));
             sb.AppendLine("people=" + (en.PeopleRolled ? 1 : 0));
             if (!forClients && en.Stock.Length > 0) sb.AppendLine("stock=" + en.Stock);   // base64url: never Clean()ed (it has no '=' or ';'); MP1: bulky, server-side trading
             if (en.LastRecruitDay >= 0) sb.AppendLine("recruited=" + en.LastRecruitDay.ToString(CultureInfo.InvariantCulture));
-            if (en.NextRequestDay > 0) sb.AppendLine("nextreq=" + en.NextRequestDay.ToString(CultureInfo.InvariantCulture));
-            if (en.Thanks.Length > 0) sb.AppendLine("thanks=" + Clean(en.Thanks));
+            if (rr.NextRequestDay > 0) sb.AppendLine("nextreq=" + rr.NextRequestDay.ToString(CultureInfo.InvariantCulture));
+            if (rr.Thanks.Length > 0) sb.AppendLine("thanks=" + Clean(rr.Thanks));
             if (en.Benefit.Length > 0) sb.AppendLine("benefit=" + Clean(en.Benefit));
-            if (en.AllyRevealDay > 0) sb.AppendLine("allyreveal=" + en.AllyRevealDay.ToString(CultureInfo.InvariantCulture));
-            if (en.GiftDay > 0) sb.AppendLine("gift=" + en.GiftDay.ToString(CultureInfo.InvariantCulture));
-            if (en.BarterDay > 0) sb.AppendLine("barter=" + en.BarterDay.ToString(CultureInfo.InvariantCulture));
-            if (en.CallDay > 0) sb.AppendLine("callday=" + en.CallDay.ToString(CultureInfo.InvariantCulture));
-            if (en.CallKind.Length > 0)
-                sb.AppendLine("call=" + Clean(en.CallKind) + ":" + en.CallAt.ToString(CultureInfo.InvariantCulture) + ":" + en.CallPid.ToString(CultureInfo.InvariantCulture)
-                              + ":" + en.CallUntil.ToString(CultureInfo.InvariantCulture));
+            if (rr.AllyRevealDay > 0) sb.AppendLine("allyreveal=" + rr.AllyRevealDay.ToString(CultureInfo.InvariantCulture));
+            if (rr.GiftDay > 0) sb.AppendLine("gift=" + rr.GiftDay.ToString(CultureInfo.InvariantCulture));
+            if (rr.BarterDay > 0) sb.AppendLine("barter=" + rr.BarterDay.ToString(CultureInfo.InvariantCulture));
+            if (rr.CallDay > 0) sb.AppendLine("callday=" + rr.CallDay.ToString(CultureInfo.InvariantCulture));
+            if (rr.CallKind.Length > 0)
+                sb.AppendLine("call=" + Clean(rr.CallKind) + ":" + rr.CallAt.ToString(CultureInfo.InvariantCulture) + ":" + rr.CallPid.ToString(CultureInfo.InvariantCulture)
+                              + ":" + rr.CallUntil.ToString(CultureInfo.InvariantCulture));
             if (en.RaidDay > 0) sb.AppendLine("raidday=" + en.RaidDay.ToString(CultureInfo.InvariantCulture));
             if (en.RaidLost > 0) sb.AppendLine("raidlost=" + en.RaidLost.ToString(CultureInfo.InvariantCulture));
             if (en.MovedDay >= 0)
@@ -2420,6 +2456,7 @@ namespace SurvivorCommunity
                               + (en.MovedDead >= 0 ? en.MovedDead.ToString(CultureInfo.InvariantCulture) + ":" : "") + Clean(en.MovedFromName));
             if (en.LossDay >= 0) sb.AppendLine("lossday=" + en.LossDay.ToString(CultureInfo.InvariantCulture));
             if (en.NestDay >= 0) sb.AppendLine("nestday=" + en.NestDay.ToString(CultureInfo.InvariantCulture));
+            if (!forClients) ScRelations.WriteEnclaveRows(sb, en);        // round MP6 (part relations): rel= for communities 1+
         }
 
         /// <summary>Round MP6 (core): one [encperson] section, as BuildText wrote it inline before MP6 (a world record: no cid).</summary>
@@ -2482,8 +2519,10 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Round MP6 (core): one [infestation] section, as BuildText wrote it inline before MP6 (a world record: no cid).</summary>
-        private static void WriteInfestation(StringBuilder sb, Infestation inf)
+        private static void WriteInfestation(StringBuilder sb, Infestation inf, bool forClients)
         {
+            // round MP6 (part relations): community 0's row in the save (others: rel= below), the scope's in a client's snapshot
+            InfRel ir = forClients ? (inf.Rels.Peek(ScRelations.Cid) ?? ScRelations.NoInf) : inf.Rels.Zero;
             sb.AppendLine("[infestation]");
             sb.AppendLine("id=" + inf.Id);
             sb.AppendLine("poi=" + Vec(inf.Poi));
@@ -2494,8 +2533,8 @@ namespace SurvivorCommunity
             sb.AppendLine("start=" + inf.StartDay.ToString(CultureInfo.InvariantCulture));
             sb.AppendLine("how=" + Clean(inf.How));
             sb.AppendLine("source=" + inf.Source);
-            sb.AppendLine("known=" + (inf.Known ? 1 : 0));
-            sb.AppendLine("knownday=" + inf.KnownDay.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("known=" + (ir.Known ? 1 : 0));
+            sb.AppendLine("knownday=" + ir.KnownDay.ToString(CultureInfo.InvariantCulture));
             sb.AppendLine("special=" + (inf.Special == SpecialState.Owed ? "owed" : inf.Special == SpecialState.Pending ? "pending:" + Vec(inf.SpecialHost)
                                         : inf.Special == SpecialState.Met ? "met:" + Clean(inf.SpecialClass) : "none"));
             sb.AppendLine("spread=" + inf.LastSpreadDay.ToString(CultureInfo.InvariantCulture));
@@ -2505,11 +2544,14 @@ namespace SurvivorCommunity
                 foreach (Vector3i v in inf.Rearmed) { if (ra.Length > 0) ra.Append(';'); ra.Append(Vec(v)); }
                 sb.AppendLine("rearm=" + ra);
             }
+            if (!forClients) ScRelations.WriteInfestationRows(sb, inf);       // round MP6 (part relations): rel= for communities 1+
         }
 
         /// <summary>Round MP6 (core): one [band] section, as BuildText wrote it inline before MP6 (a world record: no cid).</summary>
-        private static void WriteBand(StringBuilder sb, Band bd)
+        private static void WriteBand(StringBuilder sb, Band bd, bool forClients)
         {
+            // round MP6 (part relations): community 0's row in the save (others: rel= below), the scope's in a client's snapshot
+            BandRel br = forClients ? (bd.Rels.Peek(ScRelations.Cid) ?? ScRelations.NoBand) : bd.Rels.Zero;
             sb.AppendLine("[band]");
             sb.AppendLine("id=" + bd.Id.ToString(CultureInfo.InvariantCulture));
             sb.AppendLine("kind=" + Clean(bd.Kind));
@@ -2526,13 +2568,14 @@ namespace SurvivorCommunity
             sb.AppendLine("depart=" + bd.Depart.ToString(CultureInfo.InvariantCulture));
             if (bd.HasVia) sb.AppendLine("via=" + Vec(bd.Via));
             sb.AppendLine("day=" + bd.StartDay.ToString(CultureInfo.InvariantCulture));
-            sb.AppendLine("known=" + (bd.Known ? 1 : 0));
-            if (bd.KnownDay >= 0) sb.AppendLine("knownday=" + bd.KnownDay.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("known=" + (br.Known ? 1 : 0));
+            if (br.KnownDay >= 0) sb.AppendLine("knownday=" + br.KnownDay.ToString(CultureInfo.InvariantCulture));
             sb.AppendLine("seed=" + bd.Seed.ToString(CultureInfo.InvariantCulture));
-            if (bd.Trust != 0) sb.AppendLine("trust=" + bd.Trust.ToString(CultureInfo.InvariantCulture));
+            if (br.Trust != 0) sb.AppendLine("trust=" + br.Trust.ToString(CultureInfo.InvariantCulture));
             // a fight that is on (2) never outlives a load: its zombies are not saved
             if (bd.Trouble != 0) sb.AppendLine("trouble=" + (bd.Trouble == 2 ? 3 : bd.Trouble).ToString(CultureInfo.InvariantCulture));
             if (bd.Arrived) sb.AppendLine("arrived=1");
+            if (!forClients) ScRelations.WriteBandRows(sb, bd);               // round MP6 (part relations): rel= for communities 1+
         }
 
         /// <summary>Round MP6 (core): one [bandperson] section, as BuildText wrote it inline before MP6 (a world record: no cid).</summary>

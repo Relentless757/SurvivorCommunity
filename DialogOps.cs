@@ -35,8 +35,9 @@ namespace SurvivorCommunity
         {
             if (npc == null) return null;
             // an enclave person's favour too, once E3's enclave path rolled it (ScEnclaveDeals.EnsureFavour, kept on their
-            // current body): the favour operators below then work for them as for anyone
-            Prospect p = ScRegistry.GetProspect(npc.entityId);
+            // current body): the favour operators below then work for them as for anyone. Round MP6 (part relations): the asking
+            // player's community's own favour - another community courting them rolls its own (the user's decision 2)
+            Prospect p = ScCommunity.IsHost ? ScRegistry.OwnProspect(npc.entityId) : ScRegistry.GetProspect(npc.entityId);
             if (p != null) return p;
             // round MP1: rolling one is the server's (a client's copy of the prospects is read-only; round MP2 sends it there)
             if (!ScCommunity.IsHost) return null;
@@ -126,7 +127,8 @@ namespace SurvivorCommunity
         internal static Prospect Lookup(EntityAlive npc)
         {
             if (npc == null) return null;
-            return ScCommunity.IsHost ? ScRegistry.GetProspect(npc.entityId) : ScTalkContext.View(npc.entityId);
+            // round MP6 (part relations): the talker's community's own favour on the server (never another community's)
+            return ScCommunity.IsHost ? ScRegistry.OwnProspect(npc.entityId) : ScTalkContext.View(npc.entityId);
         }
 
         /// <summary>
@@ -199,7 +201,8 @@ public class DialogRequirementScFavour : BaseDialogRequirement
             // Never roll (and pin as persistent) an NPC that cannot join anyway - requirement evaluation
             // order is not something to rely on.
             string why;
-            if (ScRegistry.GetProspect(npc.entityId) == null && !ScCommunity.CanRecruit(npc, player, out why)) return false;
+            // round MP6 (part relations): the talker's community's own favour (another community's does not let them past CanRecruit)
+            if (ScRegistry.OwnProspect(npc.entityId) == null && !ScCommunity.CanRecruit(npc, player, out why)) return false;
             Prospect p = ScFavours.Ensure(npc, player);
             if (p == null) return false;
             string v = (Value ?? "").Trim().ToLowerInvariant();
@@ -230,7 +233,7 @@ public class DialogRequirementScFavourDone : BaseDialogRequirement
             }
             else
             {
-                Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
+                Prospect p = npc != null ? ScRegistry.OwnProspect(npc.entityId) : null;      // round MP6 (part relations): the talker's community's own
                 done = ScFavours.CheckDone(npc, player, p);
             }
             return (Value ?? "").Trim().Equals("not", StringComparison.OrdinalIgnoreCase) ? !done : done;

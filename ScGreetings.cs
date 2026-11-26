@@ -136,7 +136,8 @@ namespace SurvivorCommunity
             // round m1w, re-check fix 1: a body out of sight - a member posted to an outpost or on a hidden run, parked at home
             // (SCore's onMission, as ScRuns.Park hides her) - greets no one, and Voice Control does not greet her either
             if (ScNpc.IsOnMission(npc) || !npc.enabled) return null;
-            if (ScTrust.IsHostileTo(npc, player) || ScEnclavePeople.IsHostileBody(npc)) return null;
+            // round MP6 (part relations): an enclave hostile to this player's community (its own cvar)
+            if (ScTrust.IsHostileTo(npc, player) || ScEnclavePeople.IsHostileBodyTo(npc, player)) return null;
             if (npc.Buffs != null && npc.Buffs.HasCustomVar(ScRadio.StandInCvar)) return null;
             // round MP1: the real registry only - on a client (TriggerProactiveGreeting runs there) a copy's answer would change
             // which of Voice Control's greetings plays, which stays as before until the voices travel (round MP4).
@@ -159,7 +160,9 @@ namespace SurvivorCommunity
                 if (!ScRegistry.Loaded) return "enclave";
                 EncPerson p = ScEnclavePeople.PersonOf(npc);
                 Enclave e = ScEnclavePeople.EnclaveOf(p);
-                if (p == null || e == null || e.IsHostile || p.Missing) return null;
+                bool hostile;
+                using (ScRegistry.Use(player)) hostile = e != null && e.IsHostile;      // round MP6 (part relations): toward this player's community
+                if (p == null || e == null || hostile || p.Missing) return null;
                 return "enclave";
             }
             if (ScCommunity.HiredBy(npc) == player.entityId) return "follower";

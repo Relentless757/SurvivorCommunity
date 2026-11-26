@@ -94,6 +94,9 @@ namespace SurvivorCommunity
             // the review's L1: a group a session left with nobody alive (it ended before the next tick's test) falls now
             foreach (Enclave enc in ScEnclaves.All) fallChecks.Add(enc.Id);
             var named = new HashSet<int>();
+            // round MP6 (part relations): every community's searches, each in its scope (a person is missing for one search in the world)
+            foreach (CommunityState scs in ScCommunities.All)
+            using (ScRegistry.Use(scs.Id))
             foreach (EnclaveRequest r in new List<EnclaveRequest>(ScRegistry.EncRequests))
             {
                 if (r.Kind != EnclaveRequest.KindMissing || !r.IsAccepted) continue;
@@ -137,12 +140,13 @@ namespace SurvivorCommunity
             return null;
         }
 
-        /// <summary>The open (accepted) search for this person, or null.</summary>
+        /// <summary>The open (accepted) search for this person, or null. Round MP6 (part relations): whichever community's (one in the world).</summary>
         internal static EnclaveRequest RequestOf(EncPerson p)
         {
             if (p == null) return null;
-            foreach (EnclaveRequest r in ScRegistry.EncRequests)
-                if (r.Kind == EnclaveRequest.KindMissing && r.IsAccepted && r.PersonId == p.Id) return r;
+            foreach (CommunityState cs in ScCommunities.All)
+                foreach (EnclaveRequest r in cs.EncRequests)
+                    if (r.Kind == EnclaveRequest.KindMissing && r.IsAccepted && r.PersonId == p.Id) return r;
             return null;
         }
 
@@ -154,12 +158,14 @@ namespace SurvivorCommunity
         internal static bool AnyAlive(Enclave e)
         {
             if (e == null) return false;
-            foreach (EnclaveRequest r in ScRegistry.EncRequests)
-            {
-                if (r.Kind != EnclaveRequest.KindMissing || !r.IsAccepted || r.EnclaveId != e.Id || r.Stage > StageFollowing) continue;
-                EncPerson p = PersonById(r.PersonId);
-                if (p != null && p.Missing) return true;
-            }
+            // round MP6 (part relations): any community's search (the group stands while any of them may bring one home)
+            foreach (CommunityState cs in ScCommunities.All)
+                foreach (EnclaveRequest r in cs.EncRequests)
+                {
+                    if (r.Kind != EnclaveRequest.KindMissing || !r.IsAccepted || r.EnclaveId != e.Id || r.Stage > StageFollowing) continue;
+                    EncPerson p = PersonById(r.PersonId);
+                    if (p != null && p.Missing) return true;
+                }
             return false;
         }
 
@@ -186,8 +192,10 @@ namespace SurvivorCommunity
         /// <summary>The open search whose remains lie here (dead or searched), or null.</summary>
         private static EnclaveRequest RemainsAt(Vector3i pos)
         {
-            foreach (EnclaveRequest r in ScRegistry.EncRequests)
-                if (r.Kind == EnclaveRequest.KindMissing && r.IsAccepted && r.HasSpot && r.Spot == pos && (r.Stage == StageDead || r.Stage == StageSearched)) return r;
+            // round MP6 (part relations): any community's search (the remains are in the world; the sweep must never take another's)
+            foreach (CommunityState cs in ScCommunities.All)
+                foreach (EnclaveRequest r in cs.EncRequests)
+                    if (r.Kind == EnclaveRequest.KindMissing && r.IsAccepted && r.HasSpot && r.Spot == pos && (r.Stage == StageDead || r.Stage == StageSearched)) return r;
             return null;
         }
 
@@ -245,6 +253,11 @@ namespace SurvivorCommunity
         public static string CanOffer(Enclave e)
         {
             if (e == null) return "no enclave";
+            // round MP6 (part relations): a missing person is a world event, one at a time - not while another community searches
+            // for one of theirs (the user's decision 2)
+            foreach (CommunityState cs in ScCommunities.All)
+                foreach (EnclaveRequest r in cs.EncRequests)
+                    if (r.Kind == EnclaveRequest.KindMissing && r.IsAccepted && r.EnclaveId == e.Id) return "one of theirs is missing already (" + cs.Label + " searches)";
             if (Candidate(e, null) == null) return "nobody at home besides the leader could go missing";
             string no;
             return PickPoi(e, null, out no) == null ? no : null;
@@ -874,6 +887,13 @@ namespace SurvivorCommunity
         {
             if (!ScCommunity.IsHost || !ScRegistry.Loaded) return;
             EnclaveRequest r = RemainsAt(pos);
+            // round MP6 (part relations): the search's community's scope (its ledger, its request) - whoever finds the remains
+            using (r != null ? ScRegistry.Use(r.CommunityId) : default(ScScope)) SearchAtScoped(pos, player, r);
+        }
+
+        /// <summary>Round MP6 (part relations): SearchAtFor inside the search's community's scope.</summary>
+        private static void SearchAtScoped(Vector3i pos, EntityPlayer player, EnclaveRequest r)
+        {
             World w = ScCommunity.World;
             if (r == null)
             {

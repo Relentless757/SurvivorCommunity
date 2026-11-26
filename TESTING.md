@@ -46,6 +46,62 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   <name>`, `join <id> [player]`, `leave [player]` and `use <id>|none` (this console acts in that community) make and fill a
   second one. Admin only.
 
+## Round MP6 (part: relations) (2026-11-26): each community its own standing, requests, favors, band trust and hostility
+
+Why: with several communities on one server, each has its own relation to the world's groups (the user's decisions 1, 2, 4
+and 5). An enclave's standing, known flag, hostility, gift, barter, call and reveal clocks and requests are per community.
+So are an infestation's and a band's known flag, a band's trust and engagement, and a wild survivor's favor. An enclave
+hit by community A turns hostile to A only. Attacking another community's member makes her community's people fight the
+attacker. A wild survivor's grudge blocks only the hitter's community. A siege and a missing person stay one at a time in
+the world. Build `sc34_mp6r`, **not deployed**, protocol 7 unchanged, untested in game. With one community nothing may
+change.
+
+**Single player (nothing may change)**
+- [ ] Load a save. Enclaves, standing, known flags, requests, gifts, barter, radio calls, bands (met, trust) and
+      infestations (known) are as before. `sc save`: the `[enclave]`, `[infestation]` and `[band]` sections have the same
+      keys as before and no `rel=` line. `[community]` has no `grudge=` line.
+- [ ] Hit an enclave person twice within the warning window: the warning, then `turned hostile for good`. Their bodies
+      attack you and your members. The talk prompt is gone. Turrets shoot them once the grace is over. A threat does the
+      same after its grace.
+- [ ] A day rollover: the radio reveal, the requests (lapse, expire, the day's roll, the siege roll), allies' bundles and an
+      ally's word of another enclave come as before, in the same order in the ledger's summary.
+- [ ] Drifters: hit one (they turn on you, they hold your grudge), or help them in trouble (they thank you and trust you).
+      Meeting a band, finding an enclave or an infestation: the tells, the ledger and the marker as before.
+- [ ] A recruit favor, done and joined, works as before. A survivor you hit refuses to join (`scTrustRefuses`).
+- [ ] An enclave moves: Friendly or Allied, you hear where they went; Neutral and known, "nobody knows where".
+- [ ] `settime` back a day: the request clock, gifts, barter, calls and reveals shift back, as before.
+
+**A dedicated server (one community)**
+- [ ] One client: everything above works for the client as in round MP5. The server log has no `[MP6 scope]` lines.
+- [ ] A member's `sc_member` cvar is 1 (`sc members` prints it), as before.
+
+**Two communities (`sc community new <name>`, `sc community join <id> <player>`)**
+- [ ] Player A in community 0, player B in community 1. B walks near an enclave A knows: B gets `scEnclaveFound`, the log says
+      `... found at ... (community 1 ...)`. `sc enclave info <id>` lists each community's row (standing, known, hostile).
+- [ ] B gives the leader a gift: community 1's standing rises, community 0's does not. A gift from A the same day still works.
+- [ ] B hits an enclave person twice: the enclave turns hostile to community 1 only (`... toward community 1`). Its bodies
+      attack B and community 1's members, not A or community 0's members. B has no talk prompt on them, A still has. A's
+      turret ignores them, B's turret shoots them (after the grace).
+- [ ] Each community gets its own requests: `sc community use 1`, then `sc enclave requests` (or the radio window) shows
+      only community 1's. A request accepted by B closes only community 1's. Community 1's day rollover rolls its own requests
+      when community 0's rollover ran the world day first.
+- [ ] A siege called for community 0 blocks a siege for community 1 (`a siege is open already`). A missing person
+      searched by one community blocks a missing-person request from the same enclave for the other.
+- [ ] Radio calls: A and B each call a fighter from the same ally. Both come, each to their own caller.
+- [ ] Drifters: B hits one - they turn on community 1 (`... against community 1`), they attack B, they still talk to A. A
+      helps them in trouble: they trust community 0 only.
+- [ ] A wild survivor B hit refuses to join community 1, but A can still take their favor and recruit them. A and B each get
+      their own favor from the same survivor. Whoever finishes first recruits; the other's favor quest closes.
+- [ ] B hits one of community 0's members: B is told `<name>'s people won't forget that`, community 0's players are told.
+      Community 0's members fight B on sight. `sc trust <member>` (as B) says the grudge; `sc trust <member> forgive` ends it.
+      The grudge survives save and load (`[community] grudge=`).
+- [ ] An enclave falls: only the communities that knew it are told. Every community's open request of theirs is withdrawn.
+- [ ] Save and load: each community's standing, known flags, hostility, trust, calls and clocks are kept (`rel=` lines).
+- Known gaps, for the other MP6 parts: a client's copy shows community 0's relations until the per-community mirror (part
+  network) projects its own; the dialog rows still gate on `sc_member value="1"`, which a community 1 member (2) fails
+  (part gates); a grudge or an enclave's hostility toward another player's community is not known to a client's talk prompt
+  for players it cannot see.
+
 ## Round MP6 (part: core) (2026-11-26): one server can hold several communities
 
 Why: MP6 lets one server hold several communities. This part is the core the other MP6 parts build on. Each community has

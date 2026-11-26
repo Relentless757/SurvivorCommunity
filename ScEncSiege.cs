@@ -128,6 +128,23 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// Round MP6 (part relations): the open siege of any community (called or live), or null - one at a time in the whole world
+        /// (the user's decision 2: a world event, the accepting community's). Open is the scope's (its tick, its radio, its quest).
+        /// </summary>
+        public static EnclaveRequest OpenAnywhere
+        {
+            get
+            {
+                foreach (CommunityState cs in ScCommunities.All)
+                {
+                    List<EnclaveRequest> all = cs.EncRequests;
+                    for (int i = 0; i < all.Count; i++) if (all[i].Kind == EnclaveRequest.KindSiege) return all[i];
+                }
+                return null;
+            }
+        }
+
         /// <summary>A siege is being fought (live: its horde out or coming) - base and outpost attacks wait for it. A short list scan.</summary>
         public static bool Live
         {
@@ -167,11 +184,12 @@ namespace SurvivorCommunity
                 World w = ScCommunity.World;
                 Community c = ScRegistry.Community;
                 if (w == null || !ScConfig.Enclaves || ScConfig.EnclaveSiegeChance <= 0f) return;
-                if (Open != null) return;
+                if (OpenAnywhere != null) return;            // round MP6 (part relations): one siege in the whole world
                 if (c.EncSiegeAt > 0UL && GameUtils.WorldTimeToDays(c.EncSiegeAt) >= day) return;
                 c.EncSiegeAt = 0UL;
                 int callDay = Math.Min(day, GameUtils.WorldTimeToDays(w.worldTime));
-                GameRandom rnd = GameRandomManager.Instance.CreateGameRandom(w.Seed ^ Salt.GetStableHashCode() ^ unchecked(day * 7919));
+                // round MP6 (part relations): each community its own roll (community 0's: the old seed)
+                GameRandom rnd = GameRandomManager.Instance.CreateGameRandom(w.Seed ^ Salt.GetStableHashCode() ^ unchecked(day * 7919) ^ unchecked(ScRegistry.CurrentId * 104729));
                 try
                 {
                     if (rnd.RandomFloat >= ScConfig.EnclaveSiegeChance) return;
@@ -302,7 +320,7 @@ namespace SurvivorCommunity
             World w = ScCommunity.World;
             if (w == null || player == null) return "no world or player";
             if (!ScConfig.Enclaves) return "Enclaves is off";
-            if (Open != null) return "a siege is open already (one at a time)";
+            if (OpenAnywhere != null) return "a siege is open already (one at a time)";      // round MP6 (part relations): anywhere
             if (!EntityFactory.EnemySpawnMode) return "enemy spawning is off";
             if (ScBaseAttack.Live) return "a base attack is being fought";
             // an outpost fight the player walked away from stays live in name for hours: only one where they are holds a call
@@ -996,9 +1014,11 @@ namespace SurvivorCommunity
         {
             try
             {
-                EnclaveRequest r = ScEncRequests.Of(e);
-                if (r == null || r.Kind != EnclaveRequest.KindSiege) return false;
-                ScEncRequests.Close(r, ScEncRequests.Lost, pendingWhy ?? "the enclave fell (" + cause + ")");
+                // round MP6 (part relations): the siege is whichever community's it is (one in the world) - closed in its scope
+                EnclaveRequest r = OpenAnywhere;
+                if (r == null || r.EnclaveId != e.Id) return false;
+                using (ScRegistry.Use(r.CommunityId))
+                    ScEncRequests.Close(r, ScEncRequests.Lost, pendingWhy ?? "the enclave fell (" + cause + ")");
                 return true;
             }
             catch (Exception ex)

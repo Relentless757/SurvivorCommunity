@@ -1070,8 +1070,9 @@ namespace SurvivorCommunity
                     if (!__result) return;
                     if (__instance is EntityAliveSDXV4)
                     {
-                        // a raider, or a body of an enclave turned hostile (E2: the synced cvar - nothing to say, a client too)
-                        if (ScXnpc.IsRaider(__instance) || ScEnclavePeople.IsHostileBody(__instance))
+                        // a raider, or a body of an enclave turned hostile (E2: the synced cvar - nothing to say, a client too). Round
+                        // MP6 (part relations): turned hostile to this player's community (each community its own cvar)
+                        if (ScXnpc.IsRaider(__instance) || ScEnclavePeople.IsHostileBodyTo(__instance, _playerFocusing))
                         {
                             __result = false;
                             talkRefused++;
@@ -1155,8 +1156,10 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target) || ScEnclavePeople.HostileNow(_target))) return;
+                    // round MP6 (part relations): a body of an enclave turned hostile to the turret owner's community
                     TileEntityPoweredRangedTrap te = __instance != null ? __instance.TileEntity : null;
+                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4)
+                        || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target) || ScEnclavePeople.HostileNowFor(_target, ScRelations.OwnerCid(te != null ? te.GetOwner() : null)))) return;
                     if (te == null || !te.TargetZombies || !_target.IsAlive() || __instance.Cone == null) return;
                     // vanilla's own first test, unchanged: a positive dot product with the cone's forward is out of view
                     if (UnityEngine.Vector3.Dot(_target.position - te.ToWorldPos().ToVector3(), __instance.Cone.forward) > 0f) return;
@@ -1193,8 +1196,10 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target) || ScEnclavePeople.HostileNow(_target))) return;
+                    // round MP6 (part relations): a body of an enclave turned hostile to the turret owner's community
                     EntityTurret turret = __instance != null ? __instance.entityTurret : null;
+                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4)
+                        || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target) || ScEnclavePeople.HostileNowFor(_target, ScRelations.OwnerCid(turret != null ? turret.OwnerID : null)))) return;
                     if (turret == null || !turret.TargetEnemies || !_target.IsAlive() || _target.entityId == turret.entityId) return;
                     // vanilla's field of view (the cone's forward, else the controller's)...
                     UnityEngine.Vector3 forward = __instance.Cone != null ? __instance.Cone.forward : __instance.transform.forward;
@@ -1239,8 +1244,10 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target) || ScEnclavePeople.HostileNow(_target))) return;
+                    // round MP6 (part relations): a body of an enclave turned hostile to the sensor owner's community
                     TileEntityPoweredTrigger te = __instance != null ? __instance.TileEntity : null;
+                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4)
+                        || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target) || ScEnclavePeople.HostileNowFor(_target, ScRelations.OwnerCid(te != null ? te.GetOwner() : null)))) return;
                     if (te == null || !te.TargetZombies || !_target.IsAlive() || __instance.Cone == null) return;
                     if (UnityEngine.Vector3.Dot(_target.position - te.ToWorldPos().ToVector3(), __instance.Cone.forward) > 0f) return;
                     __result = false;

@@ -197,6 +197,11 @@ namespace SurvivorCommunity
         private static int syncTries;
         private const int MaxSyncTries = 30;
         private static bool clockSaid;
+        /// <summary>
+        /// Round MP6 (part relations), session only: the world day whose daily last moved the request clock, and the request day it
+        /// moved it to - the other communities' halves of the request pass run for that day (DailyCommunity), and only then.
+        /// </summary>
+        private static int clockRanFor = -1, clockRanDay = -1;
 
         public static List<EnclaveRequest> All { get { return ScRegistry.EncRequests; } }
 
@@ -209,6 +214,7 @@ namespace SurvivorCommunity
             synced = false;
             syncTries = 0;
             clockSaid = false;
+            clockRanFor = clockRanDay = -1;      // round MP6 (part relations)
             foundRowFor = -1;
             foundRowText = "";
             ScEncGifts.Reset();      // E7: the gift pick and the gift reply
@@ -224,41 +230,47 @@ namespace SurvivorCommunity
             Reset();
             Community c = ScRegistry.Community;
             var ids = new HashSet<int>();
-            var enclaves = new HashSet<int>();
             int max = 0;
             // round MP6 (core fix): every community's - the id counter is the world's, so a repaired id must clear them all (review C-m7)
             foreach (CommunityState cs in ScCommunities.All)
                 foreach (EnclaveRequest r in cs.EncRequests) if (r.Id > max) max = r.Id;
             int dropped = 0;
             bool siege = false;
-            foreach (EnclaveRequest r in new List<EnclaveRequest>(All))
+            // round MP6 (part relations): every community's requests, each in its own scope - one per (community, enclave), one
+            // siege in the whole world (the first kept), ids unique across communities. With one community: community 0's, as before
+            foreach (CommunityState rcs in ScCommunities.All)
+            using (ScRegistry.Use(rcs.Id))
             {
-                // E5: a request its kind cannot work without (a hand-edited save) and a second siege (one at a time) go too
-                string bad = E5Fault(r, ref siege);
-                if (!KnownKind(r.Kind) || (!r.IsOffered && !r.IsAccepted) || !enclaves.Add(r.EnclaveId) || bad != null)
+                var enclaves = new HashSet<int>();
+                foreach (EnclaveRequest r in new List<EnclaveRequest>(All))
                 {
-                    if (bad != null) ScLog.Warn("enclave request #" + r.Id + ": " + bad);
-                    All.Remove(r);
-                    dropped++;
-                    ScLog.Warn("enclave request #" + r.Id + " (" + r.Kind + ", " + r.State + ", enclave " + r.EnclaveId + ") is not one this build can keep - dropped");
-                    continue;
-                }
-                if (r.Id <= 0 || !ids.Add(r.Id))
-                {
-                    int old = r.Id;
-                    r.Id = Math.Max(c.NextEncRequestId, max) + 1;
-                    max = r.Id;
-                    ids.Add(r.Id);
-                    ScLog.Warn("enclave request had a duplicate id " + old + " - now " + r.Id);
-                }
-                if (r.Id > c.NextEncRequestId) c.NextEncRequestId = r.Id;
-                // a hand-edited resource request: the classic five, 1 to 3 units
-                if (r.Kind == EnclaveRequest.KindResource && ((int)r.Res >= Asked || r.Units < 1 || r.Units > 3))
-                {
-                    ScLog.Warn("enclave request #" + r.Id + " asked for " + r.Units + " " + r.Res + " - now " + Mathf.Clamp(r.Units, 1, 3) + " "
-                               + ((int)r.Res >= Asked ? Resource.Food : r.Res));
-                    if ((int)r.Res >= Asked) r.Res = Resource.Food;
-                    r.Units = Mathf.Clamp(r.Units, 1, 3);
+                    // E5: a request its kind cannot work without (a hand-edited save) and a second siege (one at a time) go too
+                    string bad = E5Fault(r, ref siege);
+                    if (!KnownKind(r.Kind) || (!r.IsOffered && !r.IsAccepted) || !enclaves.Add(r.EnclaveId) || bad != null)
+                    {
+                        if (bad != null) ScLog.Warn("enclave request #" + r.Id + ": " + bad);
+                        All.Remove(r);
+                        dropped++;
+                        ScLog.Warn("enclave request #" + r.Id + " (" + r.Kind + ", " + r.State + ", enclave " + r.EnclaveId + ") is not one this build can keep - dropped");
+                        continue;
+                    }
+                    if (r.Id <= 0 || !ids.Add(r.Id))
+                    {
+                        int old = r.Id;
+                        r.Id = Math.Max(c.NextEncRequestId, max) + 1;
+                        max = r.Id;
+                        ids.Add(r.Id);
+                        ScLog.Warn("enclave request had a duplicate id " + old + " - now " + r.Id);
+                    }
+                    if (r.Id > c.NextEncRequestId) c.NextEncRequestId = r.Id;
+                    // a hand-edited resource request: the classic five, 1 to 3 units
+                    if (r.Kind == EnclaveRequest.KindResource && ((int)r.Res >= Asked || r.Units < 1 || r.Units > 3))
+                    {
+                        ScLog.Warn("enclave request #" + r.Id + " asked for " + r.Units + " " + r.Res + " - now " + Mathf.Clamp(r.Units, 1, 3) + " "
+                                   + ((int)r.Res >= Asked ? Resource.Food : r.Res));
+                        if ((int)r.Res >= Asked) r.Res = Resource.Food;
+                        r.Units = Mathf.Clamp(r.Units, 1, 3);
+                    }
                 }
             }
             if (dropped > 0) ScLog.Out("enclave requests: " + dropped + " dropped at load (see above)");
@@ -468,6 +480,40 @@ namespace SurvivorCommunity
                     return;
                 }
                 c.EncRequestDay = d;
+                clockRanFor = day;                // round MP6 (part relations): the other communities' halves pass for this day
+                clockRanDay = d;
+                Pass(d, player);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("encreq-daily", e);
+            }
+        }
+
+        /// <summary>
+        /// Round MP6 (part relations), ScRelations.DailyCommunity: the request pass for a community whose rollover did not run the
+        /// world daily (the request clock moved in another community's) - its own requests lapse, expire or are withdrawn, then its
+        /// day's roll and siege roll, for the request day the clock moved to. Nothing when the clock did not move for this day.
+        /// </summary>
+        internal static void DailyCommunity(int day, EntityPlayer player)
+        {
+            try
+            {
+                if (!ScEnclaves.Ready || !ScConfig.Enclaves || !ScRegistry.Loaded) return;
+                // the clock moved for this day in this session; or (a restart since it moved) it stands at today exactly
+                if (clockRanFor == day && clockRanDay >= 0) Pass(clockRanDay, player);
+                else if (clockRanFor < 0 && ScRegistry.WorldState.EncRequestDay == day) Pass(day, player);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("encreq-daily-community", e);
+            }
+        }
+
+        /// <summary>Round MP6 (part relations): the community half of the request pass (Daily's, as it always ran), for request day d.</summary>
+        private static void Pass(int d, EntityPlayer player)
+        {
+            {
                 foreach (EnclaveRequest r in All.ToArray())
                 {
                     if (!All.Contains(r)) continue;      // closed meanwhile by another's ending
@@ -494,10 +540,6 @@ namespace SurvivorCommunity
                     ScEncSiege.Daily(d, player);         // E5: the day's siege roll and its hour
                 }
             }
-            catch (Exception e)
-            {
-                ScLog.Once("encreq-daily", e);
-            }
         }
 
         /// <summary>
@@ -512,26 +554,36 @@ namespace SurvivorCommunity
             if (back <= 0) return 0;
             Community c = ScRegistry.Community;
             if (c.EncRequestDay > day) c.EncRequestDay = day;
-            foreach (EnclaveRequest r in All)
-            {
-                // never below 0 (E6's R2): -1 means "not yet" for the acceptance and the due day
-                r.OfferDay = Math.Max(0, r.OfferDay - back);
-                r.LapseDay = Math.Max(0, r.LapseDay - back);
-                if (r.AcceptDay >= 0) r.AcceptDay = Math.Max(0, r.AcceptDay - back);
-                if (r.DueDay >= 0) r.DueDay = Math.Max(0, r.DueDay - back);
-            }
-            foreach (Enclave e in ScEnclaves.All) if (e.NextRequestDay > 0) e.NextRequestDay = Math.Max(0, e.NextRequestDay - back);
+            // round MP6 (part relations): every community's open requests and every community's cooldown (the world's clock went back)
+            int n = 0;
+            foreach (CommunityState cs in ScCommunities.All)
+                foreach (EnclaveRequest r in cs.EncRequests)
+                {
+                    // never below 0 (E6's R2): -1 means "not yet" for the acceptance and the due day
+                    r.OfferDay = Math.Max(0, r.OfferDay - back);
+                    r.LapseDay = Math.Max(0, r.LapseDay - back);
+                    if (r.AcceptDay >= 0) r.AcceptDay = Math.Max(0, r.AcceptDay - back);
+                    if (r.DueDay >= 0) r.DueDay = Math.Max(0, r.DueDay - back);
+                    n++;
+                }
+            foreach (Enclave e in ScEnclaves.All)
+                for (int i = 0; i < e.Rels.Count; i++)
+                {
+                    EncRel row = e.Rels.At(i);
+                    if (row.NextRequestDay > 0) row.NextRequestDay = Math.Max(0, row.NextRequestDay - back);
+                }
             clockSaid = false;
             try
             {
                 EntityPlayerLocal pl = ScCommunity.LocalPlayer;
-                foreach (EnclaveRequest r in All) if (r.IsAccepted) SyncDue(QuestOf(pl, r), r);
+                foreach (CommunityState cs in ScCommunities.All)
+                    foreach (EnclaveRequest r in cs.EncRequests) if (r.IsAccepted) SyncDue(QuestOf(pl, r), r);
             }
             catch (Exception ex)
             {
                 ScLog.Once("encreq-dayback", ex);      // the journal's due days only: the records moved already
             }
-            return All.Count;
+            return n;
         }
 
         /// <summary>
@@ -551,7 +603,9 @@ namespace SurvivorCommunity
             if (OpenCount() >= max || DayFull()) return;
             if (cands.Count == 0) return;
             World w = ScCommunity.World;
-            GameRandom rnd = GameRandomManager.Instance.CreateGameRandom((w != null ? w.Seed : 0) ^ Salt.GetStableHashCode() ^ unchecked(day * 19349663));
+            // round MP6 (part relations): each community its own draw (community 0's: the old seed)
+            GameRandom rnd = GameRandomManager.Instance.CreateGameRandom((w != null ? w.Seed : 0) ^ Salt.GetStableHashCode() ^ unchecked(day * 19349663)
+                                                                         ^ unchecked(ScRegistry.CurrentId * 7368787));
             try
             {
                 for (int i = cands.Count - 1; i > 0; i--)
@@ -855,6 +909,26 @@ namespace SurvivorCommunity
             if (r != null) Close(r, Withdrawn, why);
         }
 
+        /// <summary>
+        /// Round MP6 (part relations): every community's open request of this enclave withdrawn, each in its community's scope (the
+        /// group fell, joined someone, lost its building). With one community: Withdraw.
+        /// </summary>
+        public static void WithdrawEverywhere(Enclave e, string why)
+        {
+            if (e == null) return;
+            foreach (CommunityState cs in ScCommunities.All)
+                using (ScRegistry.Use(cs.Id)) Withdraw(e, why);
+        }
+
+        /// <summary>Round MP6 (part relations): this enclave's open request in any community (the lowest id's), or null.</summary>
+        public static EnclaveRequest OfAnywhere(Enclave e)
+        {
+            if (e == null) return null;
+            foreach (CommunityState cs in ScCommunities.All)
+                foreach (EnclaveRequest r in cs.EncRequests) if (r.EnclaveId == e.Id) return r;
+            return null;
+        }
+
         /// <summary>E5: each kind's own ending, after the record left the list (a missing survivor's person and remains, a siege's attackers).</summary>
         private static void KindClosed(EnclaveRequest r, string outcome)
         {
@@ -1003,8 +1077,10 @@ namespace SurvivorCommunity
                 // Round MP0: the host's own journal only. Round MP4: a client's journal is squared with the records on its own
                 // reports (ScQuestNet.OnReport), each request with the player who accepted it
                 EntityPlayerLocal lp = player as EntityPlayerLocal;
+                // round MP6 (part relations): the host's journal against its own community's requests (its pass: the anchor is the
+                // host's own player only in its own community's pass - ScPlayers.Anchor)
                 if (!synced && ScEnclaves.Ready && lp != null && lp.QuestJournal != null && ScRegistry.Loaded)
-                    synced = SyncJournal(lp) || ++syncTries >= MaxSyncTries;
+                    using (ScRegistry.Use(lp)) synced = SyncJournal(lp) || ++syncTries >= MaxSyncTries;
             }
             catch (Exception e)
             {

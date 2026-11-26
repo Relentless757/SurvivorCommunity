@@ -405,7 +405,8 @@ namespace SurvivorCommunity
                 if (npc == null || npc.IsDead()) continue;
                 Body b = new Body { Npc = npc, Key = "enc:" + p.Id.ToString(CultureInfo.InvariantCulture), Name = p.Name, Place = en, Rec = p.Who, Person = p };
                 Fill(w, b);
-                b.Why = en.IsHostile ? "a hostile enclave"
+                // round MP6 (part relations): a group turned hostile to any community keeps out of small talk
+                b.Why = en.IsHostileAny ? "a hostile enclave"
                       : !p.HasHome ? "no home spot"                                  // the review's finding 5: as ScEncHome reads it
                       : p.Leaving ? "walking home"
                       : ScEnclaveDeals.IsEnlistedBody(npc) ? "enlisted with you"
@@ -915,7 +916,7 @@ namespace SurvivorCommunity
         {
             if (ScBaseAttack.BloodMoonWindow(w)) return null;
             Enclave en = place as Enclave;
-            if (en != null && en.IsHostile) return null;
+            if (en != null && en.IsHostileAny) return null;      // round MP6 (part relations): to any community
             if (place == HomePlace)
             {
                 if (ScBaseAttack.Open) return null;

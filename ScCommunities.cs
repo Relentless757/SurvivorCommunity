@@ -112,6 +112,14 @@ namespace SurvivorCommunity
         {
             get { return "community " + Id + (string.IsNullOrEmpty(Community.Name) ? "" : " (" + Community.Name + ")"); }
         }
+
+        // ---- round MP6 (part relations) ----
+        /// <summary>
+        /// Round MP6 (part relations): the players (platform ids) this community's people hold a grudge against - a player of
+        /// another community who hit one of its members or stand-ins (the user's decision 4; ScRelations.OnMemberHit). Saved as
+        /// [community] grudge=; never sent to a client.
+        /// </summary>
+        public readonly HashSet<string> Grudges = new HashSet<string>(StringComparer.Ordinal);
     }
 
     /// <summary>

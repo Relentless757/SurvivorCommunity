@@ -40,7 +40,9 @@ namespace SurvivorCommunity
     /// Round MP5 (part R): any community player calls from the radio window (ScActionsRadio). The fighter and the crate come
     /// to the player who called (callers: their platform id, this session only), its tells are theirs and the fighter is
     /// enlisted with them; the caller dead, they wait as before; the caller gone offline, or a call loaded from a save (the
-    /// record keeps no caller), the anchor as before round MP5 (ScPlayers.Anchor, the ticker's player). MP6: per community.
+    /// record keeps no caller), the anchor as before round MP5 (ScPlayers.Anchor, the ticker's player).
+    /// Round MP6 (part relations): per community - the call fields are the community's row (Enclave.Call*), and the sessions and
+    /// callers are keyed by (community, enclave) (CallKey, the scope's community: Tick runs in each community's pass).
     /// </summary>
     public static class ScEncCalls
     {
@@ -74,14 +76,18 @@ namespace SurvivorCommunity
             public bool Forced;
         }
 
-        private static readonly Dictionary<int, Session> sessions = new Dictionary<int, Session>();
+        /// <summary>Round MP6 (part relations): by (community id, enclave id) - CallKey: two communities may each have a call with one ally.</summary>
+        private static readonly Dictionary<long, Session> sessions = new Dictionary<long, Session>();
         /// <summary>The first tick with the world up (real time): a loaded fighter comes back ResumeSeconds after it.</summary>
         private static float readySince = -1f;
         /// <summary>
         /// Round MP5 (part R): who made each call that is on (enclave id -> the caller's platform id, ScPlayers.IdOf). Session
         /// only (the save's call= has no field for it): a call loaded from a save comes to the anchor, as before round MP5.
         /// </summary>
-        private static readonly Dictionary<int, string> callers = new Dictionary<int, string>();
+        private static readonly Dictionary<long, string> callers = new Dictionary<long, string>();     // round MP6 (part relations): CallKey
+
+        /// <summary>Round MP6 (part relations): a call's session key - the community in scope (its call: the scope's row) and the enclave.</summary>
+        private static long CallKey(int enclaveId) { return ((long)ScRegistry.CurrentId << 32) | (uint)enclaveId; }
 
         public static void Reset()
         {
@@ -98,7 +104,7 @@ namespace SurvivorCommunity
         private static EntityPlayer CallerOf(Enclave e, EntityPlayer anchor)
         {
             string id;
-            if (e == null || !callers.TryGetValue(e.Id, out id) || string.IsNullOrEmpty(id)) return anchor;
+            if (e == null || !callers.TryGetValue(CallKey(e.Id), out id) || string.IsNullOrEmpty(id)) return anchor;
             return ScPlayers.ById(id) ?? anchor;
         }
 
@@ -113,7 +119,8 @@ namespace SurvivorCommunity
         private static Session SessionOf(int enclaveId)
         {
             Session s;
-            if (!sessions.TryGetValue(enclaveId, out s)) sessions[enclaveId] = s = new Session();
+            long k = CallKey(enclaveId);       // round MP6 (part relations)
+            if (!sessions.TryGetValue(k, out s)) sessions[k] = s = new Session();
             return s;
         }
 
@@ -138,7 +145,7 @@ namespace SurvivorCommunity
         /// <summary>A siege of theirs is called or being fought (E5): nobody can come.</summary>
         private static bool UnderSiege(Enclave e)
         {
-            EnclaveRequest r = ScEncSiege.Open;
+            EnclaveRequest r = ScEncSiege.OpenAnywhere;      // round MP6 (part relations): any community's siege of them
             return r != null && e != null && r.EnclaveId == e.Id;
         }
 
@@ -264,11 +271,11 @@ namespace SurvivorCommunity
             e.CallPid = p != null ? p.Id : 0;
             e.CallUntil = 0UL;
             e.CallDay = ScEncRequests.Now + Math.Max(0, ScConfig.EnclaveCallCooldownDays);
-            sessions.Remove(e.Id);
+            sessions.Remove(CallKey(e.Id));
             if (force) SessionOf(e.Id).Forced = true;
             // round MP5 (part R): the call comes to whoever made it (CallerOf); none named (the console without a player): the anchor
             string caller = ScPlayers.IdOf(player);
-            if (string.IsNullOrEmpty(caller)) callers.Remove(e.Id); else callers[e.Id] = caller;
+            if (string.IsNullOrEmpty(caller)) callers.Remove(CallKey(e.Id)); else callers[CallKey(e.Id)] = caller;
             message = fighter ? string.Format(Loc("scEncCallFighterOnWay"), p.Name, TimeText(delay)) : string.Format(Loc("scEncCallDropOnWay"), TimeText(delay));
             if (player != null) ScCommunity.Tell(player, Radio(e, fighter ? "scEncCallFighterSaid" : "scEncCallDropSaid") + " " + message, "");
             if (player != null) ScEncRadio.Say(e, fighter ? EncCall.Fighter : EncCall.Drop, player);   // round m1v: their answer aloud
@@ -292,8 +299,8 @@ namespace SurvivorCommunity
             e.CallAt = 0UL;
             e.CallPid = 0;
             e.CallUntil = 0UL;
-            sessions.Remove(e.Id);
-            callers.Remove(e.Id);          // round MP5 (part R)
+            sessions.Remove(CallKey(e.Id));
+            callers.Remove(CallKey(e.Id));          // round MP5 (part R)
         }
 
         /// <summary>A pending call off before it came: the cooldown refunded, a tell, the log. The caller saves.</summary>
@@ -340,13 +347,15 @@ namespace SurvivorCommunity
                 float now = Time.unscaledTime;
                 if (readySince < 0f) readySince = now;
                 bool changed = false;
-                List<int> stale = null;
-                foreach (int id in sessions.Keys)
+                List<long> stale = null;
+                int mine = ScRegistry.CurrentId;      // round MP6 (part relations): this community's sessions only
+                foreach (long key in sessions.Keys)
                 {
-                    Enclave had = ScEnclaves.ById(id);
-                    if (had == null || had.CallKind.Length == 0) (stale ?? (stale = new List<int>())).Add(id);
+                    if ((int)(key >> 32) != mine) continue;
+                    Enclave had = ScEnclaves.ById((int)key);
+                    if (had == null || had.CallKind.Length == 0) (stale ?? (stale = new List<long>())).Add(key);
                 }
-                if (stale != null) foreach (int id in stale) sessions.Remove(id);
+                if (stale != null) foreach (long key in stale) sessions.Remove(key);
                 bool any = false;
                 foreach (Enclave e in ScEnclaves.All) if (e.CallKind.Length > 0) { any = true; break; }
                 if (!any) return;
@@ -680,7 +689,7 @@ namespace SurvivorCommunity
             if (Live(e))
             {
                 Session s;
-                bool here = sessions.TryGetValue(e.Id, out s) && s.Body >= 0;
+                bool here = sessions.TryGetValue(CallKey(e.Id), out s) && s.Body >= 0;
                 return here ? string.Format(Loc("scEncCallFighterWith"), name, ClockText(e.CallUntil)) : string.Format(Loc("scEncCallFighterBack"), name);
             }
             return w.worldTime < e.CallAt ? string.Format(Loc("scEncCallFighterOnWay"), name, TimeText(e.CallAt - w.worldTime)) : string.Format(Loc("scEncCallFighterNear"), name);
@@ -696,12 +705,14 @@ namespace SurvivorCommunity
             int n = 0;
             ulong ticks = (ulong)Math.Max(0, worldBack) * 24000UL;
             foreach (Enclave e in ScEnclaves.All)
-            {
-                if (reqBack > 0 && e.CallDay > 0) { e.CallDay = Math.Max(0, e.CallDay - reqBack); n++; }
-                if (ticks == 0UL || e.CallKind.Length == 0) continue;
-                if (e.CallAt > 0UL) { e.CallAt = e.CallAt > ticks ? e.CallAt - ticks : 0UL; n++; }
-                if (e.CallUntil > 0UL) { e.CallUntil = e.CallUntil > ticks ? e.CallUntil - ticks : 1UL; n++; }
-            }
+                for (int i = 0; i < e.Rels.Count; i++)      // round MP6 (part relations): every community's call and clock
+                {
+                    EncRel r = e.Rels.At(i);
+                    if (reqBack > 0 && r.CallDay > 0) { r.CallDay = Math.Max(0, r.CallDay - reqBack); n++; }
+                    if (ticks == 0UL || r.CallKind.Length == 0) continue;
+                    if (r.CallAt > 0UL) { r.CallAt = r.CallAt > ticks ? r.CallAt - ticks : 0UL; n++; }
+                    if (r.CallUntil > 0UL) { r.CallUntil = r.CallUntil > ticks ? r.CallUntil - ticks : 1UL; n++; }
+                }
             return n;
         }
 
@@ -719,7 +730,7 @@ namespace SurvivorCommunity
             if (Live(e))
             {
                 Session s;
-                bool here = sessions.TryGetValue(e.Id, out s) && s.Body >= 0;
+                bool here = sessions.TryGetValue(CallKey(e.Id), out s) && s.Body >= 0;
                 return "a fighter, " + who + ", with you until " + ClockText(e.CallUntil) + (here ? " (entity " + s.Body + ")" : " - back near you " + Mathf.RoundToInt(ResumeSeconds) + " s after the world is up");
             }
             return "a fighter, " + who + ", " + (now < e.CallAt ? "arriving in " + TimeText(e.CallAt - now) + " (" + ClockText(e.CallAt) + ")" : "due now - looking for a spot near you");
