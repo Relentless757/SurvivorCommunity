@@ -379,10 +379,12 @@ namespace SurvivorCommunity
             if (back <= 0) return 0;
             int n = 0;
             foreach (Enclave e in ScEnclaves.All)
-            {
-                if (e.GiftDay > 0) { e.GiftDay = Math.Max(0, e.GiftDay - back); n++; }
-                if (e.BarterDay > 0) { e.BarterDay = Math.Max(0, e.BarterDay - back); n++; }
-            }
+                for (int i = 0; i < e.Rels.Count; i++)      // round MP6 (part relations): every community's gift and barter days
+                {
+                    EncRel r = e.Rels.At(i);
+                    if (r.GiftDay > 0) { r.GiftDay = Math.Max(0, r.GiftDay - back); n++; }
+                    if (r.BarterDay > 0) { r.BarterDay = Math.Max(0, r.BarterDay - back); n++; }
+                }
             return n;
         }
 

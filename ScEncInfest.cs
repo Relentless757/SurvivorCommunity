@@ -136,6 +136,9 @@ namespace SurvivorCommunity
             try
             {
                 if (inf == null) return;
+                // round MP6 (part relations): every community's request naming it, each in its scope (they all wanted it cleared)
+                foreach (CommunityState cs in ScCommunities.All)
+                using (ScRegistry.Use(cs.Id))
                 foreach (EnclaveRequest r in ScRegistry.EncRequests.ToArray())
                 {
                     if (r.Kind != EnclaveRequest.KindInfestation || r.InfestationId != inf.Id || !ScRegistry.EncRequests.Contains(r)) continue;

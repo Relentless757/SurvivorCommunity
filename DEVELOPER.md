@@ -3185,6 +3185,51 @@ Round MP0 is the groundwork:
   - **For modders:** read a community's state inside a scope. Entry points the core does not scope yet are marked
     `// MP6 (part <relations|network|home|gates>): ...` (Harmony, UAI, blocks, engine events and queues). A new world loop
     over "every member" uses `ScCommunities.AllMembers()`. A new id counter goes in `ScWorldState`.
+- **Round MP6 (part: relations), each community its own relation to the world's groups:** an enclave's standing, known flag,
+  hostility, request cooldown, thanks, gift, barter, call and reveal clocks, an infestation's known flag, and a band's known
+  flag, trust and engagement are one row per (community, record). With one community nothing changes.
+  - **Relation rows** (`ScRelations.cs`): `Enclave.Rels` (`EncRel`), `Infestation.Rels` (`InfRel`) and `Band.Rels`
+    (`BandRel`) hold one row per community. Community 0's row always exists; another community's is made by its first write.
+    The old fields are properties now (`Enclave.Standing`, `.Known`, `.TurnedHostile`, `.CallKind`, `Band.Trust` ...). They
+    read and write the row of `ScRelations.Cid`: the community in scope on the server, row 0 on a client (its copy holds one
+    community's view) and while a save is read. So code that runs in a community's scope is unchanged. World code that
+    touches a relation opens the scope of the community concerned (the finder, the hitter, the killer: `ScRegistry.Use`), or
+    walks every row (`Rels.Count`, `IdAt(i)`, `At(i)`; the day-back shifts do). `TurnedHostileAny`, `IsHostileAny` and
+    `Band.EngagedAny` mean "toward any community", for a body's own behavior. `LastRecruitDay` and `RaidDay` stay the
+    group's (world).
+  - **The save:** a record's own keys (`standing=`, `known=` ...) are community 0's row, so a one-community save is byte for
+    byte as before. Each other community's row is one `rel=` line in the same section. A community's grudges are
+    `[community] grudge=<platform id>` lines. A client's snapshot writes the scope's row into the keys and no `rel=` line:
+    the per-community mirror builds `BuildText(true)` inside `ScRegistry.Use(cid)`.
+  - **Finding and the daily:** `ScEnclaves.Tick`, `ScInfestations.Tick` and `ScBands` (meeting, engaging) find for each
+    community with a player online, in its scope (`ScRelations.ForEachOnline`). A new infestation is learned by each
+    community for itself (spread from one it knew, near its home, its radio). The world daily runs the community halves of
+    the relation steps (the radio reveal, the requests, allies' bundles and words) for the rolling community. Another
+    community's rollover that day runs them through `ScRelations.DailyCommunity`. The request clock and the refills stay
+    the world's.
+  - **Requests and favors:** requests are already per community (`CommunityState.EncRequests`), one per (community,
+    enclave). A siege is one at a time in the world (`ScEncSiege.OpenAnywhere`). A missing person is one search in the
+    world (`ScEncSearch` looks across communities). `ScEncCalls` keys its sessions and callers by (community, enclave). A
+    falling or departing group withdraws every community's request (`ScEncRequests.WithdrawEverywhere`). Each community
+    courts a survivor with its own prospect under the NPC's id: `ScRegistry.OwnProspect(id)` is the scope's only (the favor
+    flow uses it), `GetProspect(id)` prefers the scope's and else answers any. An enclave person's favors follow their body
+    in every community. A join closes every community's favor for them.
+  - **Hostility:** an enclave turns hostile toward the community in scope (`ScEnclaves.TurnHostile`; the hit, the kill and
+    the threat open the attacker's scope). Its bodies carry one cvar per community: `%sc_enchostile` for community 0 (as
+    before), `%sc_enchostile_<id>` for others (`ScEnclavePeople.HostileCvarFor`). The faction lookup is keyed by (community,
+    enclave). `ScRelations.SideCid` finds the other side's community in O(1) on any thread: a player through a snapshot of
+    the membership map, a member through `sc_member` (now community id + 1: 1 for community 0, as before), a stand-in through
+    its member, a hired follower through its leader. The talk prompt, greetings and voice lines check the viewer's community
+    (`IsHostileBodyTo`). Turrets and motion sensors check their owner's (`HostileNowFor`, `ScRelations.OwnerCid`). A drifter
+    band holds ScTrust's per-player grudge against the players of each community it is against.
+  - **Between communities:** a player's hit on another community's member or stand-in, or a killing blow, makes that
+    community's people hold a grudge against the player (`ScRelations.OnMemberHit`, saved by platform id). The faction
+    postfix answers 0 between them and that player (`ScRelations.GrudgePair`). `sc trust <member> [forgive]` shows or ends
+    it. Another community's members can be hurt (`ScTrust.PlayerMayHurt`); your own stay under `CommunityFriendlyFire`. A
+    wild survivor's grudge blocks only the hitter's community from recruiting them (`ScRelations.GrudgeBlocks` in
+    `CanRecruit`), and a hit closes only the hitter's community's favor (`ScTrust.CloseFavourForCommunity`).
+  - **For modders:** read or write a relation inside the scope of the community it is about. A new relation field goes in
+    `EncRel`/`InfRel`/`BandRel` with a property on the record, and in the `rel=` line (`ScRelations`).
 
 ## How it hangs together (for modders)
 

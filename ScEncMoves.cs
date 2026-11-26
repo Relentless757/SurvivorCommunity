@@ -225,10 +225,15 @@ namespace SurvivorCommunity
         public static string WhyHeld(Enclave e, World w)
         {
             if (e.Lost) return "their building is not in this world";
-            EnclaveRequest r = ScEncRequests.Of(e);
-            if (r != null && !r.IsOffered)
-                return r.Kind == EnclaveRequest.KindSiege ? "a siege of theirs is open (request #" + r.Id + ")" : "they have an accepted request (#" + r.Id + ", " + ScEncRequests.Describe(r) + ")";
-            if (ScEncCalls.Busy(e)) return "a radio call of theirs is on (" + e.CallKind + ")";
+            // round MP6 (part relations): any community's accepted request or radio call holds them (a world event: they move for all)
+            foreach (CommunityState cs in ScCommunities.All)
+                foreach (EnclaveRequest r in cs.EncRequests)
+                {
+                    if (r.EnclaveId != e.Id || r.IsOffered) continue;
+                    return r.Kind == EnclaveRequest.KindSiege ? "a siege of theirs is open (request #" + r.Id + ")" : "they have an accepted request (#" + r.Id + ", " + ScEncRequests.Describe(r) + ")";
+                }
+            for (int i = 0; i < e.Rels.Count; i++)
+                if (e.Rels.At(i).CallKind.Length > 0) return "a radio call of theirs is on (" + e.Rels.At(i).CallKind + ")";
             Outpost o = ScEncRaids.TargetOf(e);
             if (o != null) return "they are leaning on " + o.Name + " (outpost " + o.Id + ")";
             int enlisted = 0, missing = 0, raiding = 0, bodies = 0;
@@ -349,8 +354,19 @@ namespace SurvivorCommunity
             string oldName = e.PoiName, oldPrefab = e.Prefab;
             Vector3i oldKey = e.Poi;
             Vector3 oldCentre = e.Centre;
-            EnclaveRequest r = ScEncRequests.Of(e);
-            if (r != null && r.IsOffered) ScEncRequests.Withdraw(e, "they moved away");      // no loss: an offer they can't keep
+            // round MP6 (part relations): the other communities' view before the move (told: Friendly or Allied to it; known), and
+            // every community's open offer withdrawn - the move is a world event, each community hears it by its own standing
+            int scopeCid = ScRegistry.CurrentId;
+            var others = new List<int[]>();       // {community id, told 1/0, known 1/0}
+            foreach (CommunityState cs in ScCommunities.All)
+                using (ScRegistry.Use(cs.Id))
+                {
+                    EnclaveRequest r = ScEncRequests.Of(e);
+                    if (r != null && r.IsOffered) ScEncRequests.Withdraw(e, "they moved away");      // no loss: an offer they can't keep
+                    if (cs.Id == scopeCid) continue;
+                    string b2 = ScEnclaves.StandingKey(e);
+                    others.Add(new[] { cs.Id, b2 == "friendly" || b2 == "allied" ? 1 : 0, e.Known ? 1 : 0 });
+                }
             ScEnclavePeople.ReleaseVisit(e);
             int cleared;
             int released = ScEnclaves.MoveTo(e, to, told, player, out cleared);
@@ -385,12 +401,43 @@ namespace SurvivorCommunity
             }
             if (told) ScOutposts.NoteLedger(string.Format(Loc("scEncMoveLedger"), e.Name, oldName, e.PoiName));
             else if (wasKnown) ScOutposts.NoteLedger(string.Format(Loc("scEncMoveLedgerLeft"), e.Name, oldName));
+            // round MP6 (part relations): every other community hears it by its own view (MoveTo kept it known where told)
+            foreach (int[] o in others)
+                using (ScRegistry.Use(o[0]))
+                    TellMoved(e, reason, oldName, dir, o[1] == 1, o[2] == 1, ScPlayers.Anchor(o[0]));
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "' moved (" + ReasonWords(reason) + ") from " + oldName + " (" + oldPrefab + ") " + oldKey + " to " + e.PoiName
                       + " (" + e.Prefab + ", T" + e.Tier + ", " + e.Biome + ") " + e.Poi + ", " + dir + " - " + cause + "; "
                       + (told ? "told (" + band + "), their marker moved" : "off the map until found again (" + band + (wasKnown ? ", was known" : ", never found") + ")")
                       + "; " + released + " sleeper area(s) at the old building respawn after the loot respawn wait, " + cleared + " kept clear at the new one"
                       + (favours > 0 ? "; " + favours + " favour(s) point there now" : "") + (e.PeopleRolled ? "" : "; still being made: " + size + " in all"));
             ScRegistry.SaveAtomic();
+        }
+
+        /// <summary>
+        /// Round MP6 (part relations): Move's words for a community other than the one whose daily moved them (in its scope): told
+        /// (Friendly or Allied to it) - each of its players hears where they went, its ledger the facts; known only - "nobody knows
+        /// where they went"; never found - nothing.
+        /// </summary>
+        private static void TellMoved(Enclave e, string reason, string oldName, string dir, bool told, bool wasKnown, EntityPlayer anchor)
+        {
+            if (told)
+            {
+                string said = string.Format(Loc("scEncCallRadio"), e.Name, Loc(SaidKey(reason))) + " ";
+                EntityPlayer[] hear = ScPlayers.Community().ToArray();
+                for (int i = 0; i < hear.Length; i++)
+                {
+                    Vector3 from;
+                    string where = From(hear[i], out from) ? ScEnclaves.Where(from, e.Centre) : dir;
+                    ScCommunity.Tell(hear[i], said + string.Format(Loc("scEncMoveTold"), oldName, e.PoiName, where), "");
+                }
+                if (anchor != null) ScEncRadio.Say(e, ScEncRadio.MoveCall(SaidKey(reason)), anchor);
+                ScOutposts.NoteLedger(string.Format(Loc("scEncMoveLedger"), e.Name, oldName, e.PoiName));
+            }
+            else if (wasKnown)
+            {
+                ScPlayers.TellCommunityKey("scEncMoveLeft", "", e.Name, oldName);
+                ScOutposts.NoteLedger(string.Format(Loc("scEncMoveLedgerLeft"), e.Name, oldName));
+            }
         }
 
         // ------------------------------------------------------------------ the clock, the console ----

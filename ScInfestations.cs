@@ -31,9 +31,14 @@ namespace SurvivorCommunity
         public string How = "roll";
         /// <summary>The infestation it spread from (0 = none: the daily roll or the console).</summary>
         public int Source;
-        /// <summary>Known: its marker shows. KnownDay = the day it became known (-1 = not yet).</summary>
-        public bool Known;
-        public int KnownDay = -1;
+        /// <summary>
+        /// Known: its marker shows. KnownDay = the day it became known (-1 = not yet). Round MP6 (part relations): each
+        /// community's own (Rels; the properties read the row of the community in scope, ScRelations.Cid).
+        /// </summary>
+        public bool Known { get { return (Rels.Peek(ScRelations.Cid) ?? ScRelations.NoInf).Known; } set { Rels.Get(ScRelations.Cid).Known = value; } }
+        public int KnownDay { get { return (Rels.Peek(ScRelations.Cid) ?? ScRelations.NoInf).KnownDay; } set { Rels.Get(ScRelations.Cid).KnownDay = value; } }
+        /// <summary>Round MP6 (part relations): each community's knowledge of it (community 0's always there).</summary>
+        public readonly RelRows<InfRel> Rels = new RelRows<InfRel>();
         /// <summary>The special: its state, the room bringing it while Pending (that volume's BoxMin) and the class that came once Met.</summary>
         public SpecialState Special = SpecialState.None;
         public Vector3i SpecialHost;
@@ -151,9 +156,11 @@ namespace SurvivorCommunity
         private static bool nearHasHome;
         private static Vector3i nearHome;
         private static readonly List<NearNest> near = new List<NearNest>();
-        /// <summary>I3: the home block the tick last spotted nests near (homeChecked false: not yet this session).</summary>
-        private static bool homeChecked;
-        private static Vector3i homeCheckedAt;
+        /// <summary>
+        /// I3: the home block the tick last spotted nests near (none: not yet this session). Round MP6 (part relations): per
+        /// community (community id -> its home block when it last looked).
+        /// </summary>
+        private static readonly Dictionary<int, Vector3i> homeChecked = new Dictionary<int, Vector3i>();
 
         public static List<Infestation> All { get { return ScRegistry.Infestations; } }
 
@@ -174,7 +181,7 @@ namespace SurvivorCommunity
             version++;
             nearVersion = -1;
             near.Clear();
-            homeChecked = false;
+            homeChecked.Clear();              // round MP6 (part relations)
         }
 
         /// <summary>The registry was (re)loaded or reset (ScOutposts.OnRegistryChanged): ids squared, lookups rebuilt, markers restored on the next tick.</summary>
@@ -462,9 +469,10 @@ namespace SurvivorCommunity
         private static int SpotAllNearHome(EntityPlayer player)         // round MP0: any player (markers: the host's own only)
         {
             if (!ScConfig.InfestHomeKnown || !ScZone.HasHome) return 0;
-            if (homeChecked && homeCheckedAt == ScZone.Home) return 0;
-            homeChecked = true;
-            homeCheckedAt = ScZone.Home;
+            int cid = ScRegistry.CurrentId;         // round MP6 (part relations): the community in scope's home
+            Vector3i had;
+            if (homeChecked.TryGetValue(cid, out had) && had == ScZone.Home) return 0;
+            homeChecked[cid] = ScZone.Home;
             int n = 0, day = ScCommunity.Today;
             foreach (Infestation inf in All)
             {
@@ -700,6 +708,38 @@ namespace SurvivorCommunity
             int due, reset, left;
             Rearm(inf, pe.Pi, w, out due, out reset, out left);
             rooms = due + " cleared room(s) due again, " + reset + " reset" + (left > 0 ? ", " + left + " left as they are (a player within " + ScConfig.InfestRearmPlayerRange + " m)" : "");
+            // round MP6 (part relations): each community learns of it for itself (spread from one it knew, near its home, its radio) -
+            // the console's and a lost siege's only the community in scope. With one community: once, exactly as before
+            string heard;
+            if (how == "console" || how == "siege" || !ScRelations.Several) heard = Learn(inf, day, from, how, player);
+            else
+            {
+                heard = "";
+                int scopeCid = ScRegistry.CurrentId;
+                foreach (CommunityState cs in ScCommunities.All)
+                    using (ScRegistry.Use(cs.Id))
+                    {
+                        string h = Learn(inf, day, from, how, cs.Id == scopeCid ? player : ScPlayers.Anchor(cs.Id));
+                        if (inf.Known) heard += (heard.Length > 0 ? ";" : "") + (h.Length > 0 ? h : ", known") + " [" + cs.Label + "]";
+                    }
+            }
+            // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers). Round MP6
+            // (part relations): drawn for the host's own player's community (AddMarker reads its known flag)
+            if (player != null) AddMarker(inf, ScCommunity.LocalPlayer ?? player);
+            ScLog.Out("infestation #" + inf.Id + " at " + inf.PoiName + " (" + inf.Prefab + ", T" + inf.Tier + ") " + inf.Poi + " [" + how
+                      + (from != null ? " from #" + from.Id : "") + "]: " + rooms + "; special " + SpecialWord(inf)
+                      + (ScRelations.Several ? (heard.Length > 0 ? heard : ", not known yet") : (inf.Known ? heard : ", not known yet")));
+            ScRegistry.SaveAtomic();
+            return inf;
+        }
+
+        /// <summary>
+        /// Round MP6 (part relations): Infest's knowing, for the community in scope (as it always ran for the one community): the
+        /// console's and a lost siege's at once, one spread from a known one, one near home (I3), the radio's. Returns the log's
+        /// words ("" when it learned nothing).
+        /// </summary>
+        private static string Learn(Infestation inf, int day, Infestation from, string how, EntityPlayer player)
+        {
             string heard = "", spotted;
             if (how == "console")
             {
@@ -754,11 +794,7 @@ namespace SurvivorCommunity
                     }
                 }
             }
-            if (inf.Known && player != null) AddMarker(inf, player);       // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
-            ScLog.Out("infestation #" + inf.Id + " at " + inf.PoiName + " (" + inf.Prefab + ", T" + inf.Tier + ") " + inf.Poi + " [" + how
-                      + (from != null ? " from #" + from.Id : "") + "]: " + rooms + "; special " + SpecialWord(inf) + (inf.Known ? heard : ", not known yet"));
-            ScRegistry.SaveAtomic();
-            return inf;
+            return heard;
         }
 
         /// <summary>The nearest POI (by centre) within InfestSpreadRange of the source that the filter allows, infested from it. Null: none fits.</summary>
@@ -887,18 +923,23 @@ namespace SurvivorCommunity
             Restore(PoiOf(inf));
             if (how == "cleared")
             {
-                ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerCleared"), inf.PoiName));
-                // round MP0: a known one is the whole community's news; else every community player near it hears (the host alone
-                // in single player, as before)
-                // round MP4: by key (each player reads it in their own language)
-                if (inf.Known) ScPlayers.TellCommunityKey("scInfestCleared", "", inf.PoiName);
-                else
-                {
-                    List<EntityPlayer> all = ScPlayers.All;
-                    for (int i = 0; i < all.Count; i++)
-                        if (all[i] != null && ScPlayers.InCommunity(all[i]) && inf.DistanceXZ(all[i].position.x, all[i].position.z) <= ScConfig.InfestDiscoverRange)
-                            ScCommunity.TellKey(all[i], "scInfestCleared", "", inf.PoiName);
-                }
+                // round MP6 (part relations): each community - its ledger when it knew of it, its news (one community: once, as before)
+                foreach (CommunityState cs in ScRelations.Several ? ScCommunities.All : new[] { ScRegistry.Current })
+                    using (ScRegistry.Use(cs.Id))
+                    {
+                        if (inf.Known || !ScRelations.Several) ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerCleared"), inf.PoiName));
+                        // round MP0: a known one is the whole community's news; else every community player near it hears (the host alone
+                        // in single player, as before)
+                        // round MP4: by key (each player reads it in their own language)
+                        if (inf.Known) ScPlayers.TellCommunityKey("scInfestCleared", "", inf.PoiName);
+                        else
+                        {
+                            List<EntityPlayer> all = ScPlayers.All;
+                            for (int i = 0; i < all.Count; i++)
+                                if (all[i] != null && ScPlayers.InCommunity(all[i]) && inf.DistanceXZ(all[i].position.x, all[i].position.z) <= ScConfig.InfestDiscoverRange)
+                                    ScCommunity.TellKey(all[i], "scInfestCleared", "", inf.PoiName);
+                        }
+                    }
             }
             ScLog.Out("infestation #" + inf.Id + " at " + inf.PoiName + " ended (" + how + ") after " + Math.Max(0, ScCommunity.Today - inf.StartDay) + " day(s)"
                       + (inf.Special == SpecialState.Met ? "; its special was " + inf.SpecialClass : ""));
@@ -1267,7 +1308,7 @@ namespace SurvivorCommunity
             finally
             {
                 ready = true;
-                homeChecked = false;        // I3: the next tick spots the ones near home
+                homeChecked.Clear();        // I3: the next tick spots the ones near home (round MP6 (part relations): every community's)
             }
         }
 
@@ -1361,6 +1402,20 @@ namespace SurvivorCommunity
                     markersRestored = true;
                     RefreshMarkers(player);           // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers)
                 }
+                // round MP6 (part relations): each community with a player online spots near its own home and finds for itself (its
+                // scope, its anchor; the known flag is its own). With one community: once, the ticker's player, as before
+                ScRelations.ForEachOnline(player, Find);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("infest-tick", e);
+            }
+        }
+
+        /// <summary>Round MP6 (part relations): Tick's spotting and finding for the community in scope (its home, its players).</summary>
+        private static void Find(EntityPlayer player)
+        {
+            {
                 SpotAllNearHome(player);      // I3: once a session and when the home moves (cheap otherwise)
                 Vector3 at = player.position;
                 float range = ScConfig.InfestDiscoverRange;
@@ -1376,13 +1431,10 @@ namespace SurvivorCommunity
                     AddMarker(inf, ScCommunity.LocalPlayer);  // round MP5 (part W): the host's own map whoever found it (remote maps: ScMarkers)
                     ScCommunity.TellKey(finder, "scInfestFound", "ui_denied", inf.PoiName);
                     ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerFound"), inf.PoiName));
-                    ScLog.Out("infestation #" + inf.Id + " found at " + inf.PoiName + (ReferenceEquals(finder, player) ? "" : " by " + finder.PlayerDisplayName));
+                    ScLog.Out("infestation #" + inf.Id + " found at " + inf.PoiName + (ReferenceEquals(finder, player) ? "" : " by " + finder.PlayerDisplayName)
+                              + (ScRelations.Several ? " (" + ScRegistry.Current.Label + ")" : ""));      // round MP6 (part relations)
                     ScRegistry.SaveAtomic();
                 }
-            }
-            catch (Exception e)
-            {
-                ScLog.Once("infest-tick", e);
             }
         }
 
@@ -1411,6 +1463,12 @@ namespace SurvivorCommunity
         }
 
         private static void AddMarker(Infestation inf, EntityPlayer owner)
+        {
+            // round MP6 (part relations): this machine's own map shows its own player's community's view
+            using (ScRegistry.Use(owner)) AddMarkerScoped(inf, owner);
+        }
+
+        private static void AddMarkerScoped(Infestation inf, EntityPlayer owner)
         {
             try
             {
@@ -1452,11 +1510,12 @@ namespace SurvivorCommunity
         public static void RefreshMarkers(EntityPlayer owner)
         {
             if (owner == null) return;
-            foreach (Infestation inf in All)
-            {
-                if (inf.Known && ScConfig.Infestations) AddMarker(inf, owner);
-                else RemoveMarker(inf);
-            }
+            using (ScRegistry.Use(owner))        // round MP6 (part relations): the owner's community's view
+                foreach (Infestation inf in All)
+                {
+                    if (inf.Known && ScConfig.Infestations) AddMarker(inf, owner);
+                    else RemoveMarker(inf);
+                }
         }
 
         /// <summary>

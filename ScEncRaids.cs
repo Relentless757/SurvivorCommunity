@@ -153,7 +153,8 @@ namespace SurvivorCommunity
         public static Outpost TargetOf(Enclave e)
         {
             if (e == null) return null;
-            foreach (Outpost o in ScRegistry.Outposts)
+            // round MP6 (part relations): any community's outpost (a group leans on one outpost at a time in the whole world)
+            foreach (Outpost o in ScCommunities.AllOutposts())
                 if (o.RaidEnclave == e.Id && (ScOutpostRisk.HasDemand(o) || (ScOutpostRisk.UnderAttack(o) && o.AttackRaiders) || parties.ContainsKey(o.Id))) return o;
             return null;
         }
@@ -714,7 +715,9 @@ namespace SurvivorCommunity
         internal static void OnDenFalling(Enclave e)
         {
             if (e == null) return;
-            foreach (Outpost o in ScRegistry.Outposts)
+            // round MP6 (part relations): every community's outpost they lean on, each in its community's scope (its tells, its call)
+            foreach (Outpost o in new List<Outpost>(ScCommunities.AllOutposts()))
+            using (ScRegistry.Use(o))
             {
                 if (o.RaidEnclave != e.Id) continue;
                 Party party;

@@ -65,6 +65,18 @@ namespace SurvivorCommunity
             return StillHolds(npc);
         }
 
+        /// <summary>
+        /// Round MP6 (part relations): a per-player grudge cvar's player (%sc_hostile_&lt;player entity id&gt;; never the any-player
+        /// %sc_hostile itself). False for any other cvar.
+        /// </summary>
+        public static bool TryGrudgePlayer(string cvar, out int playerId)
+        {
+            playerId = -1;
+            if (cvar == null || cvar.Length <= HostilePrefix.Length || !cvar.StartsWith(HostilePrefix, StringComparison.Ordinal)) return false;
+            return int.TryParse(cvar.Substring(HostilePrefix.Length), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out playerId)
+                   && playerId > 0;
+        }
+
         /// <summary>This survivor is hostile to some player (turrets, POI security).</summary>
         public static bool IsHostileToAny(Entity e)
         {
@@ -84,6 +96,14 @@ namespace SurvivorCommunity
         {
             if (IsHostileTo(npc, player)) return Trust.Hostile;
             // round MP2 (E9): the value, not the presence - a client's copy keeps the 0 a clear sent it (ScCommunity.ClearSynced)
+            // round MP6 (part relations): on a server with several communities, the player's own community's favour decides (the
+            // body's sc_favourDone says some community's is done); with one community, and on a client, as before
+            if (ScRelations.Several && npc != null && player != null)
+            {
+                CommunityState cs = ScCommunities.ById(ScPlayers.CommunityOf(player));
+                Prospect own;
+                return cs != null && cs.Prospects.TryGetValue(npc.entityId, out own) && own.Done ? Trust.Friendly : Trust.Neutral;
+            }
             if (npc != null && npc.Buffs != null && npc.Buffs.GetCustomVar("sc_favourDone") > 0f) return Trust.Friendly;
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
             return p != null && p.Done ? Trust.Friendly : Trust.Neutral;
@@ -102,7 +122,15 @@ namespace SurvivorCommunity
             // your own people: friendly fire decides (before the hire test - a member who ever followed carries Owner)
             // round MP2 (E9): sc_member by its value (a client's copy keeps the 0 a clear sent it)
             if (ScRegistry.GetMember(npc.entityId) != null
-                || (npc.Buffs != null && (npc.Buffs.HasCustomVar(ScRadio.StandInCvar) || npc.Buffs.GetCustomVar("sc_member") > 0f))) return ScConfig.CommunityFriendlyFire;
+                || (npc.Buffs != null && (npc.Buffs.HasCustomVar(ScRadio.StandInCvar) || npc.Buffs.GetCustomVar("sc_member") > 0f)))
+            {
+                // round MP6 (part relations): another community's people are not yours - a hit lands, and draws her community's
+                // grudge (the user's decision 4, ScRelations.OnMemberHit). With one community every member is yours, as before
+                int theirs = ScRelations.MemberSideCid(npc);
+                if (theirs < 0) theirs = ScRelations.MemberCid(npc.entityId);
+                if (theirs >= 0 && theirs != ScRelations.PlayerCid(player)) return true;
+                return ScConfig.CommunityFriendlyFire;
+            }
             return ScCommunity.HiredBy(npc) <= 0;
         }
 
@@ -134,9 +162,9 @@ namespace SurvivorCommunity
                 // that close is the quest op (NetPackageScQuestOp); a remote hitter is not 'except' (null), so theirs closes too, and
                 // one away closes it with their next journal report (ScQuestNet)
                 if (player is EntityPlayerLocal) ScQuests.CloseFavour(player, p.Id, false);
-                // MP6 (part relations): this closes every player's copy of the favour quest, another community's too - only the
-                // hitter's community's should close (its prospect is the one removed below)
-                ScTalkContext.CloseFavourForOthers(p.Id, false, player as EntityPlayerLocal);
+                // round MP6 (part relations): the hitter's community's copies only - another community's favour for them goes on
+                // (with one community: every player's, as before)
+                CloseFavourForCommunity(p.Id, false, player as EntityPlayerLocal, hitters.Id);
                 hitters.Prospects.Remove(p.Id);                     // round MP6 (core fix): the table it was found in
                 // round MP6 (core fix): the body's favour marks stay while another community still courts them
                 if (ScRegistry.GetProspect(npc.entityId) == null)
@@ -149,6 +177,41 @@ namespace SurvivorCommunity
             // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
             ScCommunity.TellKey(player, "scTrustHostile", "", name);
             ScLog.Out(name + " (" + npc.entityId + ") is hostile to " + player.EntityName + " for good" + (p != null ? " - their favour is off" : ""));
+        }
+
+        /// <summary>
+        /// Round MP6 (part relations): ScTalkContext.CloseFavourForOthers for one community's players only - a favour another
+        /// community courts the same survivor with goes on (the user's decision 2). With one community: every player's, exactly
+        /// CloseFavourForOthers.
+        /// </summary>
+        public static void CloseFavourForCommunity(int prospectId, bool completed, EntityPlayer except, int cid)
+        {
+            if (!ScRelations.Several)
+            {
+                ScTalkContext.CloseFavourForOthers(prospectId, completed, except);
+                return;
+            }
+            try
+            {
+                if (!ScCommunity.IsHost || prospectId == 0) return;
+                EntityPlayer[] to = ScPlayers.Community(cid).ToArray();        // copied: a close may re-enter code that walks the list
+                for (int i = 0; i < to.Length; i++)
+                {
+                    EntityPlayer pl = to[i];
+                    if (pl == null || ReferenceEquals(pl, except)) continue;
+                    if (pl is EntityPlayerLocal)
+                    {
+                        if (ScQuests.FindFavour(pl, prospectId) != null) ScQuests.CloseFavour(pl, prospectId, completed);
+                        continue;
+                    }
+                    if (!ScNet.ClientMatches(pl)) continue;
+                    ScQuestNet.CloseFavourFor(pl, prospectId, completed);
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("trust-close-community", e);
+            }
         }
 
         /// <summary>sc trust: forgives (testing). Clears this player's grudge, and the any-player marker when no other is left.</summary>

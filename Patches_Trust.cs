@@ -30,6 +30,11 @@ namespace SurvivorCommunity
     ///
     /// Round 29b (3.4): the same postfix shows ScRunnerCall every landed hit first, so a supply runner with a handheld radio
     /// hurt by a raider or a zombie radios for help (its own tests: a runner's body, an enemy's hit).
+    ///
+    /// Round MP6 (part relations): an enclave turned hostile is hostile to the community that turned it (HostilePair finds the
+    /// other side's community: ScRelations.SideCid); a player's hit on another community's member or stand-in makes that
+    /// community's people hold a grudge against the player (ScRelations.OnMemberHit), and the faction check answers 0 between
+    /// them and that player (ScRelations.GrudgePair).
     /// </summary>
     public static class Patches_Trust
     {
@@ -64,6 +69,9 @@ namespace SurvivorCommunity
                 // E2: a body of an enclave turned hostile against a player, one of the community or a player's companion, in
                 // either order (one volatile read while no enclave is hostile; then two cvar reads and a set hit)
                 if (ScEnclavePeople.AnyHostile && ScEnclavePeople.HostilePair(self, target)) { __result = 0f; return; }
+                // round MP6 (part relations): a member or stand-in of a community that holds a grudge against this player (they hit
+                // one of its people: the user's decision 4), in either order (one volatile read while no community holds one)
+                if (ScRelations.AnyGrudge && ScRelations.GrudgePair(self, target)) { __result = 0f; return; }
                 EntityPlayer p = self as EntityPlayer;
                 EntityAlive npc = target;
                 if (p == null)
@@ -104,6 +112,9 @@ namespace SurvivorCommunity
                     if (ScEnclavePeople.OnHitBy(__instance, p)) return;
                     // E13a: one of a band's people - the whole drifter band turns, not a wild survivor's grudge
                     if (ScBands.OnHitBy(__instance, p)) return;
+                    // round MP6 (part relations): a member or stand-in - another community's draws her community's grudge (the
+                    // user's decision 4); one's own is friendly fire, as before (never a wild survivor's grudge either way)
+                    if (ScRelations.OnMemberHit(__instance, p)) return;
                     ScTrust.OnHitBy(__instance, p);
                 }
                 catch (Exception e)

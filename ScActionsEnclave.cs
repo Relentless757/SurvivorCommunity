@@ -592,7 +592,8 @@ namespace SurvivorCommunity
     /// sends the sender the NPC's facts again (ScTalkContext.SendFactsAfter, ahead of this answer) and answers. Items: a hand-over
     /// left the client's bag before the request (the stacks in its strings); a refusal keeps nothing and the client gives them
     /// back; a give (the threat's bundles) is the answer's give hint. Every op is Community access: the community's standing,
-    /// known flags and requests are shared (Stage 1); MP6: per community.
+    /// known flags and requests are shared (Stage 1). Round MP6 (part relations): the sender's community's (Dispatch's scope:
+    /// the relation properties read its row).
     ///
     /// Ops (ints unless marked s:; npc = the NPC's entity id):
     ///   enc.threat   npc                      "I'm not asking." - their bundles (hint give), the enclave hostile after its grace.
@@ -737,8 +738,11 @@ namespace SurvivorCommunity
         {
             EntityAlive npc = Npc(sender, args);
             EncPerson p = ScEnclavePeople.PersonOf(npc);
-            // MP6: any community player may send them home (one shared community; their enlistment counts the community's followers)
-            if (npc == null || p == null || !p.Enlisted || !ScEnclaveDeals.GoHome(npc, "the player sent them home")) { reply.Fail(""); return; }
+            // MP6: any community player may send them home (one shared community; their enlistment counts the community's followers).
+            // Round MP6 (part relations): a player of the community they are enlisted with (another community's player may not)
+            if (npc == null || p == null || !p.Enlisted) { reply.Fail(""); return; }
+            if (ScRelations.Several && ScRelations.CommunityOfPlayerEntity(p.EnlistedBy) != ScRegistry.CurrentId) { reply.Fail(""); return; }
+            if (!ScEnclaveDeals.GoHome(npc, "the player sent them home")) { reply.Fail(""); return; }
             reply.Done();
             ScTalkContext.SendFactsAfter(sender, npc);
         }

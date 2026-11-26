@@ -158,6 +158,7 @@
     <Compile Include="ScPoiIndex.cs" />
     <Compile Include="ScEnclaveNames.cs" />
     <Compile Include="ScEnclaves.cs" />
+    <Compile Include="ScRelations.cs" />     <!-- round MP6 (part relations): relation rows per community, hostility between communities -->
     <Compile Include="ScEnclavePeople.cs" />
     <Compile Include="ScEnclaveDeals.cs" />
     <Compile Include="ScEncRequests.cs" />

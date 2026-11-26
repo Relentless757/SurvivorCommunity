@@ -270,7 +270,7 @@ namespace SurvivorCommunity
         {
             EntityAlive npc = TalkNpc(sender, args.Int(0, -1));
             if (npc == null) { reply.Fail(""); return; }                    // the old row: silent without a body
-            Prospect p = ScRegistry.GetProspect(npc.entityId);
+            Prospect p = ScRegistry.OwnProspect(npc.entityId);      // round MP6 (part relations): the sender's community's own favour
             // a client's journal verdict: its POI favour quest is past the clearing - what ScFavourDone's requirement marks on the
             // host when the row is evaluated (the host's own requirements did it already: nothing new for it)
             if (p != null && !p.Done && p.Favour == FavourKind.Poi && args.Int(1, 0) != 0 && !(sender is EntityPlayerLocal))
@@ -294,7 +294,7 @@ namespace SurvivorCommunity
         [ScAction("favour.start", ScActionAccess.Community)]
         private static void FavourStart(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
         {
-            Prospect p = ScRegistry.GetProspect(args.Int(0, -1));
+            Prospect p = ScRegistry.OwnProspect(args.Int(0, -1));      // round MP6 (part relations): the sender's community's own
             int kind = args.Int(1, 0);
             if (p == null || (int)p.Favour != kind || (p.Favour == FavourKind.Supplies && p.Done)) { reply.Fail("scFavourGone"); return; }
             if (!FavourInReach(sender, args.Int(0, -1))) { reply.Fail(""); return; }       // round MP2 (review members MINOR 5)
@@ -311,7 +311,7 @@ namespace SurvivorCommunity
         private static void FavourPoiCleared(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
         {
             int npcId = args.Int(0, -1);
-            Prospect p = ScRegistry.GetProspect(npcId);
+            Prospect p = ScRegistry.OwnProspect(npcId);      // round MP6 (part relations): the sender's community's own
             if (p == null || p.Favour != FavourKind.Poi) { reply.Fail(""); return; }
             if (!FavourInReach(sender, npcId)) { reply.Fail(""); return; }                  // round MP2 (review members MINOR 5)
             if (!p.Done)
@@ -349,7 +349,7 @@ namespace SurvivorCommunity
         [ScAction("favour.items", ScActionAccess.Community)]
         private static void FavourItems(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
         {
-            Prospect p = ScRegistry.GetProspect(args.Int(0, -1));
+            Prospect p = ScRegistry.OwnProspect(args.Int(0, -1));      // round MP6 (part relations): the sender's community's own
             bool silent;
             string why = HandOverRefusal(sender, p, args.Int(1, 0) != 0, out silent);
             if (why != null) { reply.Fail(silent ? "" : why); return; }      // the old action said nothing for a favour not open
@@ -361,7 +361,7 @@ namespace SurvivorCommunity
         private static void FavourGiven(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
         {
             int npcId = args.Int(0, -1);
-            Prospect p = ScRegistry.GetProspect(npcId);
+            Prospect p = ScRegistry.OwnProspect(npcId);      // round MP6 (part relations): the sender's community's own
             bool silent;
             // checked again: another player may have done this favour, or filled the roster, since step 1 - the items go back
             string why = HandOverRefusal(sender, p, args.Int(1, 0) != 0, out silent);

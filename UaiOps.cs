@@ -1362,7 +1362,7 @@ namespace UAI
             BandPerson p = ScBands.PersonOf(_context.Self);
             if (p == null) return 1f;
             Band b = ScBands.ById(p.BandId);
-            return b != null && !b.Engaged ? 0f : 1f;
+            return b != null && !b.EngagedAny ? 0f : 1f;      // round MP6 (part relations): engaged with any community
         }
     }
 

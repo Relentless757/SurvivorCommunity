@@ -2921,6 +2921,15 @@ namespace SurvivorCommunity
             if (p.Count < 2) { Output("[SC] usage: sc trust <id|name> [forgive] - " + ScTrust.Report()); return; }
             EntityAlive e = FindBodyNpc(p[1]);
             if (e == null) { Output("[SC] no loaded NPC '" + p[1] + "'"); return; }
+            // round MP6 (part relations): a member or stand-in of another community - her community's grudge against you (forgive: off)
+            int theirs = ScRelations.MemberSideCid(e);
+            if (theirs >= 0 && ScRelations.Several && theirs != ScPlayers.CommunityOf(lp))
+            {
+                if (p.Count >= 3 && p[2].Equals("forgive", StringComparison.OrdinalIgnoreCase))
+                    Output("[SC] " + (ScRelations.Forgive(theirs, ScPlayers.IdOf(lp)) ? "community " + theirs + "'s people forgive you" : "community " + theirs + "'s people held no grudge against you"));
+                else Output("[SC] " + e.EntityName + " (" + e.entityId + ") is of community " + theirs + ": " + (ScRelations.HoldsGrudge(theirs, lp) ? "its people hold a grudge against you" : "no grudge against you"));
+                return;
+            }
             if (!ScTrust.Subject(e)) { Output("[SC] " + e.EntityName + " (" + e.entityId + ") has no trust: a member, stand-in, hired companion, raider, trader or not a survivor"); return; }
             if (p.Count >= 3 && p[2].Equals("forgive", StringComparison.OrdinalIgnoreCase))
             {

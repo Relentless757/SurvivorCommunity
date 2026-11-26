@@ -185,9 +185,12 @@ namespace SurvivorCommunity
         public static string TradeRefusal(EntityAlive npc, EntityPlayer player)
         {
             if (npc == null) return null;
-            if (ScEnclavePeople.IsHostileBody(npc)) return "their enclave turned hostile to you";
+            // round MP6 (part relations): hostile to this player's community (its own cvar; on the server its own row)
+            if (ScEnclavePeople.IsHostileBodyTo(npc, player)) return "their enclave turned hostile to you";
             Enclave e = ScEnclavePeople.EnclaveOf(ScEnclavePeople.PersonOf(npc));
-            if (e != null && e.IsHostile) return e.Hostile ? "one of a raider enclave" : "their enclave is hostile to you";
+            bool hostile;
+            using (ScRegistry.Use(player)) hostile = e != null && e.IsHostile;
+            if (hostile) return e.Hostile ? "one of a raider enclave" : "their enclave is hostile to you";
             if (ScXnpc.IsRaider(npc)) return "a raider";
             if (ScTrust.IsHostileTo(npc, player)) return "they hold a grudge against you";
             return null;

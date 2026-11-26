@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -134,8 +135,36 @@ namespace SurvivorCommunity
         /// <summary>On every body: its enclave's id and its person's id ('%': synced to clients, which X9 and X10 read).</summary>
         public const string EncCvar = "%sc_enc";
         public const string PersonCvar = "%sc_encp";
-        /// <summary>On every body of an enclave turned hostile (X9 hides talk, X10 turrets shoot: both run on clients too).</summary>
+        /// <summary>
+        /// On every body of an enclave turned hostile (X9 hides talk, X10 turrets shoot: both run on clients too). Round MP6 (part
+        /// relations): community 0's - each community the group turned on has its own (HostileCvarFor).
+        /// </summary>
         public const string HostileCvar = "%sc_enchostile";
+        /// <summary>Round MP6 (part relations): the hostile cvars of communities 1+ ("%sc_enchostile_&lt;id&gt;"), cached.</summary>
+        private static readonly Dictionary<int, string> hostileCvars = new Dictionary<int, string>();
+
+        /// <summary>
+        /// Round MP6 (part relations): the cvar a body of a group turned hostile to community cid carries: community 0's is the old
+        /// %sc_enchostile (a one-community game is unchanged), another's %sc_enchostile_&lt;id&gt; - one per community, no limit.
+        /// </summary>
+        public static string HostileCvarFor(int cid)
+        {
+            if (cid <= 0) return HostileCvar;
+            lock (hostileCvars)
+            {
+                string name;
+                if (!hostileCvars.TryGetValue(cid, out name)) hostileCvars[cid] = name = HostileCvar + "_" + cid.ToString(CultureInfo.InvariantCulture);
+                return name;
+            }
+        }
+
+        /// <summary>Round MP6 (part relations): the enclave cvars a body sheds when it leaves its group (every community's hostile cvar too).</summary>
+        private static List<string> SyncedCvars()
+        {
+            var l = new List<string> { EncCvar, PersonCvar, HostileCvar };
+            foreach (CommunityState cs in ScCommunities.All) if (cs.Id > 0) l.Add(HostileCvarFor(cs.Id));
+            return l;
+        }
         /// <summary>The AI package added at spawn (the class's list never has it; a body is never reloaded, so once is enough).</summary>
         public const string Package = "SCEnclave";
         private const string Salt = "sc.encpeople.v1";
@@ -171,8 +200,12 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, Visit> visits = new Dictionary<int, Visit>();
         /// <summary>Bodies with %sc_enc that a chunk or a save brought back (the framework PostInit postfix): removed on the next tick.</summary>
         public static readonly HashSet<int> Orphans = new HashSet<int>();
-        /// <summary>Enclaves turned hostile whose grace is over: what the faction postfix reads (any thread). Swapped whole.</summary>
-        private static volatile HashSet<int> hostileActive = new HashSet<int>();
+        /// <summary>
+        /// Enclaves turned hostile whose grace is over: what the faction postfix reads (any thread). Swapped whole. Round MP6 (part
+        /// relations): by (community id, enclave id) (HostileKey), and the enclave ids alone (toward any community).
+        /// </summary>
+        private static volatile HashSet<long> hostileActive = new HashSet<long>();
+        private static volatile HashSet<int> hostileIds = new HashSet<int>();
         private static volatile bool anyHostile;
         private static int capturingId = -1;
         private static World hooked;
@@ -218,8 +251,10 @@ namespace SurvivorCommunity
             areas.Clear();
             Orphans.Clear();
             vetoIds = new Dictionary<int, KeyValuePair<int, ulong>>();
-            hostileActive = new HashSet<int>();
+            hostileActive = new HashSet<long>();
+            hostileIds = new HashSet<int>();
             anyHostile = false;
+            ScRelations.Reset();              // round MP6 (part relations): the faction snapshots start over with the world
             capturingId = -1;
             biomeSpawn = refusedThisUpdate = WildSpotNoted = false;
             wildRefused = 0;
@@ -345,22 +380,57 @@ namespace SurvivorCommunity
             return e != null && e.Buffs != null && e.Buffs.HasCustomVar(EncCvar);
         }
 
-        /// <summary>A body of an enclave turned hostile (the synced cvar: X9 asks on any machine - no talk from the moment it turns).</summary>
+        /// <summary>
+        /// A body of an enclave turned hostile (the synced cvar: X9 asks on any machine - no talk from the moment it turns). Round
+        /// MP6 (part relations): to any community (on a client: its own - the only one it knows).
+        /// </summary>
         public static bool IsHostileBody(Entity e)
         {
             EntityAlive a = e as EntityAlive;
-            return a != null && a.Buffs != null && a.Buffs.GetCustomVar(HostileCvar) > 0f;
+            if (a == null || a.Buffs == null) return false;
+            if (!ScRegistry.Loaded) return a.Buffs.GetCustomVar(HostileCvarFor(ScRegistry.MirroredCommunity)) > 0f;
+            CommunityState[] all = ScCommunities.Array;
+            for (int i = 0; i < all.Length; i++) if (a.Buffs.GetCustomVar(HostileCvarFor(all[i].Id)) > 0f) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Round MP6 (part relations): a body of an enclave turned hostile to this player's community (X9's talk prompt, greetings,
+        /// voice lines - the synced cvar, any machine). No player: to any community. With one community: IsHostileBody, as before.
+        /// </summary>
+        public static bool IsHostileBodyTo(Entity e, EntityPlayer viewer)
+        {
+            int cid = ScRelations.PlayerCid(viewer);
+            if (cid < 0) return IsHostileBody(e);
+            EntityAlive a = e as EntityAlive;
+            return a != null && a.Buffs != null && a.Buffs.GetCustomVar(HostileCvarFor(cid)) > 0f;
         }
 
         /// <summary>
         /// X10's turrets: a body of an enclave whose hostility is in force - on the host, once a threat's grace is over (the
         /// review's L2: the grace is for walking away from the talk, and turrets must not open fire in it); a client has no
-        /// registry and goes by the synced cvar alone.
+        /// registry and goes by the synced cvar alone. Round MP6 (part relations): toward any community.
         /// </summary>
         public static bool HostileNow(Entity e)
         {
             if (!IsHostileBody(e)) return false;
             return !ScCommunity.IsHost || HostileBodyNow((EntityAlive)e);
+        }
+
+        /// <summary>
+        /// Round MP6 (part relations): HostileNow toward community cid (a turret's owner's: ScRelations.OwnerCid) - its hostile cvar,
+        /// and on the host its hostility in force for that community.
+        /// </summary>
+        public static bool HostileNowFor(Entity e, int cid)
+        {
+            EntityAlive a = e as EntityAlive;
+            if (a == null || a.Buffs == null || cid < 0 || a.Buffs.GetCustomVar(HostileCvarFor(cid)) <= 0f) return false;
+            if (!ScCommunity.IsHost) return true;
+            if (a is EntityPlayer) return false;
+            float id = a.Buffs.GetCustomVar(EncCvar);
+            if (id <= 0f || !hostileActive.Contains(HostileKey(cid, (int)id))) return false;
+            EncPerson p;
+            return !(bodies.TryGetValue(a.entityId, out p) && p.Leaving);
         }
 
         /// <summary>
@@ -453,10 +523,11 @@ namespace SurvivorCommunity
             {
                 if (!ScEnclaves.Ready || w == null || player == null || !ScRegistry.Loaded) return;
                 Hook(w);
-                EntityPlayerLocal lp = player as EntityPlayerLocal;
                 // E3: favour quests and a crashed session's hire squared with the records. Round MP0: the host's own journal and
-                // cvars. MP4: quests to the right player
-                if (lp != null) ScEnclaveDeals.SyncOnce(lp);
+                // cvars. MP4: quests to the right player. Round MP6 (part relations): the host's own player whichever community's
+                // pass this is, against its own community's favours
+                EntityPlayerLocal lp = ScRelations.Several ? ScCommunity.LocalPlayer : player as EntityPlayerLocal;
+                if (lp != null) using (ScRegistry.Use(lp)) ScEnclaveDeals.SyncOnce(lp);
                 SweepOrphans(w);
                 if (!ScConfig.Enclaves)
                 {
@@ -918,7 +989,9 @@ namespace SurvivorCommunity
             npc.SetSpawnerSource(EnumSpawnerSource.Dynamic);
             npc.Buffs.SetCustomVar(EncCvar, e.Id);
             npc.Buffs.SetCustomVar(PersonCvar, p.Id);
-            if (e.TurnedHostile) npc.Buffs.SetCustomVar(HostileCvar, 1f);
+            // round MP6 (part relations): every community the group turned on - each its own cvar
+            for (int i = 0; i < e.Rels.Count; i++)
+                if (e.Rels.At(i).TurnedHostile) npc.Buffs.SetCustomVar(HostileCvarFor(e.Rels.IdAt(i)), 1f);
             if (ScXnpc.IsRaider(npc))
             {
                 // a raider keeps its stars (ScShooting reads them); no skill bonuses or trait buffs, as for any raider
@@ -1549,6 +1622,13 @@ namespace SurvivorCommunity
                 if (npc == null || !bodies.TryGetValue(npc.entityId, out p) || p.EntityBorn != npc.WorldTimeBorn) return;   // an orphan: nobody's
                 // E3: one enlisted with the player died at their side - the hire undone first, quietly (the death tells)
                 bool wasEnlisted = p.Enlisted;
+                // round MP6 (part relations): the community they were out with - the enlisting player's, a missing person's search's
+                int withCid = wasEnlisted ? ScRelations.CommunityOfPlayerEntity(p.EnlistedBy) : -1;
+                if (withCid < 0 && p.Missing)
+                {
+                    EnclaveRequest search = ScEncSearch.RequestOf(p);
+                    if (search != null) withCid = search.CommunityId;
+                }
                 if (wasEnlisted) ScEnclaveDeals.EndEnlist(p, npc, null, "died", false);
                 // E5: one gone missing - found and waiting, or following the player home (the search undoes an escort's hire
                 // as the body goes: ScEncSearch.OnUnbodied); their request hears of the death after it is recorded
@@ -1558,7 +1638,7 @@ namespace SurvivorCommunity
                 // the corpse is left to vanilla (its loot, its despawn) and stays out of every save (the veto)
                 Unbody(p, false);
                 Enclave e = ScEnclaves.ById(p.EnclaveId);
-                if (e != null) Died(e, p, npc.entityThatKilledMe, true, wasEnlisted, wasMissing, wasRaiding);
+                if (e != null) Died(e, p, npc.entityThatKilledMe, true, wasEnlisted, wasMissing, wasRaiding, null, withCid);
                 if (wasMissing) ScEncSearch.OnDied(p, at);
             }
             catch (Exception ex)
@@ -1578,7 +1658,8 @@ namespace SurvivorCommunity
         /// raid was held) has no ledger line of their own - the raid's end writes one for its losses (ScEncRaids.OnDied counts
         /// them); how: the log's words for a death no body and no console caused.
         /// </summary>
-        private static void Died(Enclave e, EncPerson p, EntityAlive killer, bool real, bool wasEnlisted, bool wasMissing = false, bool raid = false, string how = null)
+        private static void Died(Enclave e, EncPerson p, EntityAlive killer, bool real, bool wasEnlisted, bool wasMissing = false, bool raid = false, string how = null,
+                                 int withCid = -1)      // round MP6 (part relations): the community they were out with (-1: the scope's)
         {
             bool wasLeader = p.IsLeader;
             p.State = EncPerson.StateDead;
@@ -1590,9 +1671,16 @@ namespace SurvivorCommunity
             if (!raid) ScOutposts.NoteLedger(string.Format(Localization.Get(wasEnlisted ? "scEncLedgerEnlistedDied" : "scEncLedgerDied"), p.Name, e.Name));
             // round MP0: one who was out with the community is everyone's news; else every community player near the enclave
             // round MP4: by key (each player reads it in their own language)
-            if (wasEnlisted || wasMissing) ScPlayers.TellCommunityKey("scEncDied", "", p.Name, e.Name);
-            else TellNearKey(e, "scEncDied", p.Name, e.Name);
-            if (wasEnlisted && ScConfig.EnclaveEnlistDeathPenalty > 0) ScEnclaves.AddStanding(e, -ScConfig.EnclaveEnlistDeathPenalty, p.Name + " died while enlisted with the player");
+            // round MP6 (part relations): the news and the penalty are the community's they were out with; a death at home is told to
+            // every community's players near them (with one community: as before)
+            using (withCid >= 0 ? ScRegistry.Use(withCid) : default(ScScope))
+            {
+                if (wasEnlisted || wasMissing) ScPlayers.TellCommunityKey("scEncDied", "", p.Name, e.Name);
+                if (wasEnlisted && ScConfig.EnclaveEnlistDeathPenalty > 0) ScEnclaves.AddStanding(e, -ScConfig.EnclaveEnlistDeathPenalty, p.Name + " died while enlisted with the player");
+            }
+            if (!wasEnlisted && !wasMissing)
+                foreach (CommunityState cs in ScRelations.Several ? ScCommunities.All : new[] { ScRegistry.Current })
+                    using (ScRegistry.Use(cs.Id)) TellNearKey(e, "scEncDied", p.Name, e.Name);
             ScEnclaveDeals.DropFavour(p, "they died");
             EntityPlayer by = KillerPlayer(killer);
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + (wasLeader ? "the leader " : "") + p.Name + " (p" + p.Id + ") died"
@@ -1614,7 +1702,10 @@ namespace SurvivorCommunity
                 ScLog.Out("enclave " + e.Id + " '" + e.Name + "': nobody made so far is alive - the rest of the group ("
                           + Math.Max(0, GroupSize(e) - PeopleOf(e).Count) + " more) is still to come, a new leader first");
             }
-            if (by != null && !e.IsHostile) ScEnclaves.TurnHostile(e, "kill");
+            // round MP6 (part relations): the killer's community's relation turns (the user's decision 1); a kill by no player turns none
+            if (by != null)
+                using (ScRegistry.Use(by))
+                    if (!e.IsHostile) ScEnclaves.TurnHostile(e, "kill");
             if (wasLeader) Succeed(e, p, living);
             ScRegistry.SaveAtomic();
         }
@@ -1729,8 +1820,7 @@ namespace SurvivorCommunity
         {
             if (npc != null)
             {
-                string[] synced = { EncCvar, PersonCvar, HostileCvar };
-                foreach (string cv in synced)
+                foreach (string cv in SyncedCvars())             // round MP6 (part relations): every community's hostile cvar too
                 {
                     if (!npc.Buffs.HasCustomVar(cv)) continue;
                     npc.Buffs.SetCustomVar(cv, 0f);
@@ -1756,8 +1846,7 @@ namespace SurvivorCommunity
         {
             if (npc != null && npc.Buffs != null)
             {
-                string[] synced = { EncCvar, PersonCvar, HostileCvar };
-                foreach (string cv in synced)
+                foreach (string cv in SyncedCvars())             // round MP6 (part relations): every community's hostile cvar too
                 {
                     if (!npc.Buffs.HasCustomVar(cv)) continue;
                     npc.Buffs.SetCustomVar(cv, 0f);
@@ -1843,11 +1932,23 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ hostility ----
 
-        /// <summary>Is this enclave's hostility on now (turned hostile, its grace over)? Thread-safe.</summary>
+        /// <summary>
+        /// Is this enclave's hostility on now (turned hostile, its grace over)? Thread-safe. Round MP6 (part relations): toward any
+        /// community (the bodies' own hostile behavior, UAI's ScEncHostile).
+        /// </summary>
         public static bool HostileActive(int enclaveId)
         {
-            return anyHostile && hostileActive.Contains(enclaveId);
+            return anyHostile && hostileIds.Contains(enclaveId);
         }
+
+        /// <summary>Round MP6 (part relations): this enclave's hostility toward community cid is on now. Thread-safe.</summary>
+        public static bool HostileActive(int cid, int enclaveId)
+        {
+            return anyHostile && hostileActive.Contains(HostileKey(cid, enclaveId));
+        }
+
+        /// <summary>Round MP6 (part relations): the faction lookup's key - (community id, enclave id).</summary>
+        private static long HostileKey(int cid, int enclaveId) { return ((long)cid << 32) | (uint)enclaveId; }
 
         /// <summary>Any enclave's hostility on: the faction postfix's first, cheapest test.</summary>
         public static bool AnyHostile { get { return anyHostile; } }
@@ -1855,67 +1956,93 @@ namespace SurvivorCommunity
         /// <summary>
         /// The faction postfix's widening (hot, O(1)): one side is a body of an enclave whose hostility is on and the other a
         /// player, one of the community (a member or a stand-in) or a companion following a player. Residents share the
-        /// survivors' faction (800), so without this they would watch such a body raid the base.
+        /// survivors' faction (800), so without this they would watch such a body raid the base. Round MP6 (part relations): the
+        /// other side's community (ScRelations.SideCid) is one the group turned on (the user's decision 1).
         /// </summary>
         public static bool HostilePair(EntityAlive a, EntityAlive b)
         {
             if (!anyHostile || a == null || b == null) return false;
-            return (HostileBodyNow(a) && Opposes(b)) || (HostileBodyNow(b) && Opposes(a));
+            return HostileBodyNow(a, b) || HostileBodyNow(b, a);
         }
 
-        private static bool HostileBodyNow(EntityAlive e)
+        /// <summary>Round MP6 (part relations): e is a body of an enclave whose hostility toward other's community is on.</summary>
+        private static bool HostileBodyNow(EntityAlive e, EntityAlive other)
         {
             EntityBuffs bf = e.Buffs;
             if (bf == null || e is EntityPlayer) return false;
             float id = bf.GetCustomVar(EncCvar);
-            if (id <= 0f || !hostileActive.Contains((int)id)) return false;
+            if (id <= 0f || !hostileIds.Contains((int)id)) return false;
+            int cid = ScRelations.SideCid(other);
+            if (cid < 0 || !hostileActive.Contains(HostileKey(cid, (int)id))) return false;
             // a follower the flip released walks home first (plan 2.8: "they leave you first"): no enemy of anyone until
             // they are back on their spot or gone (the E3 review's M1)
             EncPerson p;
             return !(bodies.TryGetValue(e.entityId, out p) && p.Leaving);
         }
 
-        private static bool Opposes(EntityAlive e)
+        /// <summary>X10 on the host: e is a body of an enclave whose hostility toward some community is on (and not walking home).</summary>
+        private static bool HostileBodyNow(EntityAlive e)
         {
-            if (e is EntityPlayer) return true;
             EntityBuffs bf = e.Buffs;
-            if (bf == null) return false;
-            if (bf.GetCustomVar("sc_member") > 0f || bf.HasCustomVar(ScRadio.StandInCvar)) return true;   // round MP2 (E9): the value (0 on a client once cleared)
-            int leader = ScCommunity.HiredBy(e);
-            if (leader <= 0) return false;
-            World w = ScCommunity.World;
-            // the player list, never World.GetEntity (it would finish a pending build inside the AI's frame: the review's L3)
-            return w != null && w.Players != null && w.Players.dict.ContainsKey(leader);
+            if (bf == null || e is EntityPlayer) return false;
+            float id = bf.GetCustomVar(EncCvar);
+            if (id <= 0f || !hostileIds.Contains((int)id)) return false;
+            EncPerson p;
+            return !(bodies.TryGetValue(e.entityId, out p) && p.Leaving);
         }
 
-        /// <summary>ScEnclaves.TurnHostile: the live bodies stamped (X9, X10), the grace set, the lookup rebuilt.</summary>
+        /// <summary>
+        /// ScEnclaves.TurnHostile: the live bodies stamped (X9, X10), the grace set, the lookup rebuilt. Round MP6 (part relations):
+        /// toward the community in scope - its row's grace, its cvar.
+        /// </summary>
         public static void OnTurnedHostile(Enclave e, float grace)
         {
             e.GraceUntil = Time.unscaledTime + Math.Max(0f, grace);
+            string cvar = HostileCvarFor(ScRelations.Cid);
             foreach (EncPerson p in bodies.Values)
             {
                 if (p.EnclaveId != e.Id) continue;
                 EntityAlive npc = BodyOf(p);
-                if (npc != null) npc.Buffs.SetCustomVar(HostileCvar, 1f);
+                if (npc != null) npc.Buffs.SetCustomVar(cvar, 1f);
             }
             RebuildHostile();
         }
 
-        /// <summary>The tick: a threat's grace that ended switches the enclave's hostility on.</summary>
+        /// <summary>The tick: a threat's grace that ended switches the enclave's hostility on (round MP6 (part relations): any community's).</summary>
         private static void Grace()
         {
             float t = Time.unscaledTime;
+            HashSet<long> on = hostileActive;
             foreach (Enclave e in ScEnclaves.All)
-                if (e.TurnedHostile && !e.Lost && t >= e.GraceUntil && !hostileActive.Contains(e.Id)) { RebuildHostile(); return; }
+            {
+                if (e.Lost) continue;
+                for (int i = 0; i < e.Rels.Count; i++)
+                {
+                    EncRel r = e.Rels.At(i);
+                    if (r.TurnedHostile && t >= r.GraceUntil && !on.Contains(HostileKey(e.Rels.IdAt(i), e.Id))) { RebuildHostile(); return; }
+                }
+            }
         }
 
         public static void RebuildHostile()
         {
-            var s = new HashSet<int>();
+            var s = new HashSet<long>();
+            var ids = new HashSet<int>();
             float t = Time.unscaledTime;
             if (ScConfig.Enclaves)
                 foreach (Enclave e in ScEnclaves.All)
-                    if (e.TurnedHostile && !e.Lost && t >= e.GraceUntil) s.Add(e.Id);
+                {
+                    if (e.Lost) continue;
+                    // round MP6 (part relations): each community the group turned on, once its grace is over
+                    for (int i = 0; i < e.Rels.Count; i++)
+                    {
+                        EncRel r = e.Rels.At(i);
+                        if (!r.TurnedHostile || t < r.GraceUntil) continue;
+                        s.Add(HostileKey(e.Rels.IdAt(i), e.Id));
+                        ids.Add(e.Id);
+                    }
+                }
+            hostileIds = ids;
             hostileActive = s;
             anyHostile = s.Count > 0;
         }
@@ -1933,21 +2060,28 @@ namespace SurvivorCommunity
         public static bool OnHitBy(EntityAlive npc, EntityPlayer player)
         {
             if (npc == null || npc.Buffs == null || !npc.Buffs.HasCustomVar(EncCvar)) return false;
+            using (ScRegistry.Use(player))       // round MP6 (part relations): the hitter's community's relation (decision 1)
+                OnHitByScoped(npc, player);
+            return true;
+        }
+
+        /// <summary>Round MP6 (part relations): OnHitBy inside the hitter's community's scope (its standing, warning clocks, hostility).</summary>
+        private static void OnHitByScoped(EntityAlive npc, EntityPlayer player)
+        {
             EncPerson p = PersonOf(npc);
             Enclave e = EnclaveOf(p);
-            if (e == null || player == null || e.IsHostile) return true;
+            if (e == null || player == null || e.IsHostile) return;
             float t = Time.unscaledTime;
-            if (e.LastHitAt >= 0f && t - e.LastHitAt < ScConfig.EnclaveHitDebounce) return true;
+            if (e.LastHitAt >= 0f && t - e.LastHitAt < ScConfig.EnclaveHitDebounce) return;
             e.LastHitAt = t;
             if (e.WarnedAt >= 0f && t - e.WarnedAt <= ScConfig.EnclaveWarnWindow)
             {
                 ScEnclaves.TurnHostile(e, player.EntityName + " hit " + p.Name + " again within " + Mathf.RoundToInt(ScConfig.EnclaveWarnWindow) + " s of the warning");
-                return true;
+                return;
             }
             e.WarnedAt = t;
             ScCommunity.TellKey(player, "scEncWarn", "ui_denied", p.Name);
             ScEnclaves.AddStanding(e, -ScConfig.EnclaveWarnPenalty, player.EntityName + " hit " + p.Name + " (a warning)");
-            return true;
         }
 
         /// <summary>The share of a threat's bundles that are the resource their kind lives on (the rest: any classic one).</summary>
@@ -1991,6 +2125,12 @@ namespace SurvivorCommunity
         public static void Threaten(EntityPlayer player, EntityAlive npc, List<ItemStack> toRemote = null)
         {
             if (!ScCommunity.IsHost || player == null) return;
+            using (ScRegistry.Use(player)) ThreatenScoped(player, npc, toRemote);     // round MP6 (part relations): the threatener's community
+        }
+
+        /// <summary>Round MP6 (part relations): Threaten inside the threatening player's community's scope (its hostility, its ledger).</summary>
+        private static void ThreatenScoped(EntityPlayer player, EntityAlive npc, List<ItemStack> toRemote)
+        {
             EncPerson p = PersonOf(npc);
             Enclave e = EnclaveOf(p);
             if (e == null || !p.IsLeader || e.IsHostile) return;

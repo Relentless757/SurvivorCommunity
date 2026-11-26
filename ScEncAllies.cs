@@ -71,7 +71,7 @@ namespace SurvivorCommunity
         /// one frame) tells one at most - the others stay due and tell on the next real day (the E6 review's L3; E1's radio
         /// does the same with radioFrame).
         /// </summary>
-        private static int revealFrame = -1;
+        private static readonly Dictionary<int, int> revealFrames = new Dictionary<int, int>();     // round MP6 (part relations): per community
 
         private static string Loc(string key) { return Localization.Get(key); }
 
@@ -356,7 +356,9 @@ namespace SurvivorCommunity
         /// clock (ScEncRequests.Now: a day further each "sc day"), the refills due move in; 3. each ally whose next word is due
         /// tells of the enclave nearest to them that the player does not know. ScDaily saves.
         /// </summary>
-        public static void Daily(int day, EntityPlayer player, StringBuilder summary)      // round MP0: the ticker's anchor - any server
+        // round MP6 (part relations): world - false for a community whose rollover did not run the world daily (the refills are the
+        // world's, run once in the world daily; the bundles and an ally's word are each community's: ScRelations.DailyCommunity)
+        public static void Daily(int day, EntityPlayer player, StringBuilder summary, bool world = true)      // round MP0: the ticker's anchor - any server
         {
             try
             {
@@ -383,11 +385,12 @@ namespace SurvivorCommunity
                     ScLog.Out("allies, day " + day + ": " + ScOutposts.Amounts(sent) + " into the stockpile from " + string.Join(", ", from.ToArray()));
                 }
                 int now = ScEncRequests.Now;
-                Refills(now, player, false, null);
+                if (world) Refills(now, player, false, null);
+                int cid = ScRegistry.CurrentId, rf;          // round MP6 (part relations): one word a frame for each community
                 foreach (Enclave e in ScEnclaves.All.ToArray())
                 {
-                    if (Time.frameCount == revealFrame) break;      // one word a frame (L3)
-                    if (IsAlly(e) && e.AllyRevealDay <= now && RevealFor(e, now, player)) revealFrame = Time.frameCount;
+                    if (revealFrames.TryGetValue(cid, out rf) && rf == Time.frameCount) break;      // one word a frame (L3)
+                    if (IsAlly(e) && e.AllyRevealDay <= now && RevealFor(e, now, player)) revealFrames[cid] = Time.frameCount;
                 }
             }
             catch (Exception ex)
@@ -501,23 +504,33 @@ namespace SurvivorCommunity
             {
                 if (e == null || !ScRegistry.Loaded) return;
                 Community c = ScRegistry.Community;
-                string band = ScEnclaves.StandingKey(e);
                 bool joined = cause == ScEnclaves.CauseJoined;
-                int loss = !joined && (band == "friendly" || band == "allied") ? Math.Max(0, ScConfig.EnclaveLostMorale) : 0;
-                if (joined && band == "allied" && e.Benefit.Length > 0) ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerLost"), e.Name, Name(e.Benefit)));
-                if (loss > 0)
-                {
-                    c.EnclaveLoss = Math.Min(MaxLoss, c.EnclaveLoss + loss);
-                    bool benefit = band == "allied" && e.Benefit.Length > 0;
-                    // round MP0: the whole community's news (the host alone in single player)
-                    if (benefit) ScPlayers.TellCommunityKey("scEncAllyFallen", "ui_denied", e.Name, loss, NameArg(e.Benefit));
-                    else ScPlayers.TellCommunityKey("scEncFriendFallen", "ui_denied", e.Name, loss);
-                    if (benefit) ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerLost"), e.Name, Name(e.Benefit)));
-                }
+                // round MP6 (part relations): each community they were Friendly or Allied to loses morale and hears it (its own standing;
+                // a group of a world event, whatever scope the fall came in). With one community: community 0, exactly as before
+                var parts = new List<string>();
+                foreach (CommunityState fcs in ScRelations.Several ? ScCommunities.All : new[] { ScRegistry.Current })
+                    using (ScRegistry.Use(fcs.Id))
+                    {
+                        Community fc = fcs.Community;
+                        string band = ScEnclaves.StandingKey(e);
+                        int loss = !joined && (band == "friendly" || band == "allied") ? Math.Max(0, ScConfig.EnclaveLostMorale) : 0;
+                        if (joined && band == "allied" && e.Benefit.Length > 0) ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerLost"), e.Name, Name(e.Benefit)));
+                        if (loss > 0)
+                        {
+                            fc.EnclaveLoss = Math.Min(MaxLoss, fc.EnclaveLoss + loss);
+                            bool benefit = band == "allied" && e.Benefit.Length > 0;
+                            // round MP0: the whole community's news (the host alone in single player)
+                            if (benefit) ScPlayers.TellCommunityKey("scEncAllyFallen", "ui_denied", e.Name, loss, NameArg(e.Benefit));
+                            else ScPlayers.TellCommunityKey("scEncFriendFallen", "ui_denied", e.Name, loss);
+                            if (benefit) ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerLost"), e.Name, Name(e.Benefit)));
+                        }
+                        if (ScRelations.Several && band == "neutral" && loss == 0) continue;
+                        parts.Add((ScRelations.Several ? fcs.Label + " " : "") + band
+                                  + (loss > 0 ? ": morale -" + loss + " (the Enclave lost part now -" + F(fc.EnclaveLoss) + ")" : joined ? ": no morale lost" : ""));
+                    }
                 int day = ScEncRequests.Now + Math.Max(0, ScConfig.EnclaveRefillDays);
                 c.EncRefills.Add(new EncRefill { Day = day, Poi = e.Poi, Name = e.Name });
-                ScLog.Out("enclave " + e.Id + " '" + e.Name + "' " + (joined ? "gone" : "lost") + " (" + cause + ", " + band + ")"
-                          + (loss > 0 ? ": morale -" + loss + " (the Enclave lost part now -" + F(c.EnclaveLoss) + ")" : joined ? ": no morale lost" : "")
+                ScLog.Out("enclave " + e.Id + " '" + e.Name + "' " + (joined ? "gone" : "lost") + " (" + cause + (parts.Count > 0 ? ", " + string.Join("; ", parts.ToArray()) : "") + ")"
                           + "; a new group moves in from day " + day + " on the request clock (" + c.EncRefills.Count + " refill(s) owed)");
                 ScRegistry.SaveAtomic();
             }
@@ -618,7 +631,11 @@ namespace SurvivorCommunity
             int n = 0;
             foreach (EncRefill r in ScRegistry.Community.EncRefills) { r.Day = Math.Max(0, r.Day - back); n++; }
             foreach (Enclave e in ScEnclaves.All)
-                if (e.AllyRevealDay > 0) { e.AllyRevealDay = Math.Max(0, e.AllyRevealDay - back); n++; }
+                for (int i = 0; i < e.Rels.Count; i++)      // round MP6 (part relations): every community's next ally reveal
+                {
+                    EncRel r = e.Rels.At(i);
+                    if (r.AllyRevealDay > 0) { r.AllyRevealDay = Math.Max(0, r.AllyRevealDay - back); n++; }
+                }
             return n;
         }
 

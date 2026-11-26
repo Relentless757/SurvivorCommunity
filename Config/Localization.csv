@@ -2171,3 +2171,6 @@ scEncEnlistFeeChanged,UI,Tooltip,,,,Their fee is {0} dukes now.
 # round MP5 (part R): the radio for every player
 scRadioTooFar,UI,Tooltip,,,,You are too far from the radio station. Go back to it and use it again.
 scRadioGone,UI,Tooltip,,,,That radio station is gone.
+# round MP6 (part relations) - grudges between communities
+scRelGrudgeHitter,UI,Tooltip,,,,{0}'s people won't forget that - they're hostile to you now.
+scRelGrudgeHit,UI,Tooltip,,,,{0} attacked {1} - our people will fight them on sight.

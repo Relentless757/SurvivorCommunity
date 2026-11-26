@@ -254,14 +254,15 @@ namespace SurvivorCommunity
                 ScGarrison.Tick(w, player);           // stand-ins at the staffed outpost the player is at, visit stamps
                 ScScouting.Tick(player);              // radio scouting marks: fade, restore after a load
                 // round MP6 (core): the world steps below (if (world)) run once, in the first community's pass.
-                // MP6 (part relations): ScEnclaves.Tick and ScInfestations.Tick set Known for whoever finds one - give them the
-                // finder's scope (they run in the first community's now)
+                // Round MP6 (part relations): ScEnclaves.Tick, ScInfestations.Tick and ScBands.Tick find (and bands engage) for each
+                // community with a player online, in its scope (ScRelations.ForEachOnline); the faction snapshots first
+                if (world) ScRelations.Tick();                   // round MP6 (part relations): players' and members' communities, the grudges online
                 if (world) ScEnclaves.Tick(w, player);           // enclaves found within reach, their markers restored after a load (E1)
                 if (world) ScEnclavePeople.Tick(w, player);      // their people: made, spawned near a player, gone when none is, the watchdog (E2)
                 if (world) ScEncDoors.Tick(w);                   // their building's locked doors unlocked, chunk by chunk as they load (round 32a)
                 if (world) ScBands.Tick(w, player);              // bands on the road: bodies near a player, their walk, camp, trouble, markers (E13a)
-                // MP6 (part relations): ScEncRequests and ScEncCalls run per community; their session state (ScEncCalls' sessions and
-                // callers by enclave id) is one for the world
+                // Round MP6 (part relations): ScEncRequests and ScEncCalls run per community - its requests, its calls (the call
+                // sessions and callers keyed by community and enclave); a siege and a missing person are one at a time in the world
                 ScEncRequests.Tick(w, player);        // their requests: the journal squared with the records once a session (E4)
                 ScEncCalls.Tick(w, player);           // allies' radio calls: a fighter's arrival and return after a load, a supply drop (E9)
                 if (world) ScInfestations.Tick(w, player);       // infestations found within reach, their markers restored after a load (I1)
@@ -661,10 +662,11 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round MP6 (core): the world daily for one day - the steps of the old daily that are the world's. Run calls it in their
         /// old place (summary: the rolling community's, as before).
-        /// MP6 (part relations): ScEnclaves.Daily (this community's radio reveal), ScEncRequests.Daily (the day's requests - per
-        /// community by the user's decision - besides the world's request clock) and ScEncAllies.Daily (allies' bundles into this
-        /// community's stockpile and summary, besides the world's refills) mix world and community work; they run once, in the
-        /// scope of the community whose rollover ran the world daily
+        /// Round MP6 (part relations): ScEnclaves.Daily (this community's radio reveal), ScEncRequests.Daily (the day's requests -
+        /// per community by the user's decision - besides the world's request clock) and ScEncAllies.Daily (allies' bundles into
+        /// this community's stockpile and summary, besides the world's refills) mix world and community work: here they run for
+        /// the community whose rollover ran the world daily; every other community's rollover that day runs their community halves
+        /// (ScRelations.DailyCommunity, from Run)
         /// </summary>
         public static void RunWorld(int day, EntityPlayer player, System.Text.StringBuilder summary)
         {
@@ -749,6 +751,9 @@ namespace SurvivorCommunity
                 // round MP6 (core): the world daily, where its steps always ran (RunWorld), for each world day claimed above
                 if (worldFrom >= 0)
                     for (int d = worldFrom; d <= day; d++) RunWorld(d, player, summary);
+                // round MP6 (part relations): another community's rollover ran today's world daily - this community's halves of its
+                // relation steps (radio reveal, requests, allies) run here, in their place (never with one community)
+                else if (ScRelations.Several) ScRelations.DailyCommunity(day, player, summary);
                 ScBaseAttack.Daily(day);                 // the Defence morale part fades
                 ScScan.Run(false);                     // beds / facilities / crops (unloaded chunks keep their last count)
                 ScStockpile.DailyConsume(day, summary);
