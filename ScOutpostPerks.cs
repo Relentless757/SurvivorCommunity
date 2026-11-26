@@ -116,8 +116,11 @@ namespace SurvivorCommunity
             TEFeatureStorage st = te != null ? te.GetSelfOrFeature<TEFeatureStorage>() : null;
             if (st == null) return 0;
             // round MP0 (the review of part 2, S6): not while a player has the box open - a client's open box sends its own copy
-            // back over the server's write (the bundles would be lost); the stash waits for the next visit tick
-            if (LockManager.Instance != null && LockManager.Instance.IsLockedServer(st, 0)) return 0;
+            // back over the server's write (the bundles would be lost); the stash waits for the next visit tick. Round MP5 (part
+            // O): MP3's one test for that (ScStorageServer.OpenBySomeone: LockManager's record of every open, or the server's own
+            // open flag), as every server-side writer of a box uses. No linked storage view ever shows a claim's own box
+            // (ScStorage.Linkable), so there is nothing to push to one; the bundles reach a player only through a vanilla open
+            if (ScStorageServer.OpenBySomeone(st)) return 0;
             int moved = 0;
             for (int r = 0; r < ScNames.ResourceCount; r++)
             {

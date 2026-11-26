@@ -25,6 +25,9 @@ namespace SurvivorCommunity
     ///              with none in range there is no raider demand.
     ///   Good news  a cache too big to carry: bundles wait at the outpost for the player (the claim's box).
     /// Host only. Attack entities and blood-moon presence are session state; everything else persists.
+    /// Round MP0: "the player at the outpost" is the community player nearest it (Closest). Round MP5 (part O, multiplayer): a
+    /// fight is sized by the players at it (GameStageAt), its tells reach everyone there (TellAtKey), and another live fight
+    /// holds it back only when the player here is in that fight (OtherFightHolds) - with one player online, all as before.
     /// </summary>
     public static class ScOutpostRisk
     {
@@ -39,6 +42,8 @@ namespace SurvivorCommunity
             public bool BloodMoonHere;
             /// <summary>Round MP0: the entity id of the community player who last stood there in the blood moon (told at its end).</summary>
             public int BloodMoonBy;
+            /// <summary>Round MP5 (part O): every community player who stood there in the blood moon (each told at its end).</summary>
+            public readonly HashSet<int> BloodMoonByAll = new HashSet<int>();
             /// <summary>E10: an enclave's raid found nobody who could come yet with the player there (ScEncRaids.SpawnParty's -1; the E11 review's L1).</summary>
             public bool Waited;
         }
@@ -155,6 +160,114 @@ namespace SurvivorCommunity
             return best;
         }
 
+        /// <summary>
+        /// Round MP5 (part O): the gamestage an outpost fight is sized by - the players in it, not the host's own. With one
+        /// community player online (single player; a server with one player) the anchor's, exactly as before. With more, the
+        /// living community players within the fight's range of the footprint (RescueTriggerRange * 2, where a fight is judged):
+        /// one player's own gamestage, several by vanilla's party rule (GameStageDefinition.CalcPartyLevel: the highest at full
+        /// weight, each next one at half the weight before); with nobody there (an unattended fight's size) the anchor's.
+        /// </summary>
+        internal static int GameStageAt(Outpost o, EntityPlayer anchor)
+        {
+            int own = 0;
+            try { own = anchor != null ? anchor.gameStage : 0; } catch (Exception) { }
+            try
+            {
+                List<EntityPlayer> mine = ScPlayers.Community();
+                if (o == null || mine.Count <= 1) return own;
+                float range = ScConfig.RescueTriggerRange * 2f;
+                var stages = new List<int>();
+                for (int i = 0; i < mine.Count; i++)
+                {
+                    EntityPlayer p = mine[i];
+                    if (p == null || p.IsDead() || ScOutposts.DistanceToBox(o, p.position) > range) continue;
+                    stages.Add(p.gameStage);
+                }
+                if (stages.Count == 0) return own;
+                return stages.Count == 1 ? stages[0] : GameStageDefinition.CalcPartyLevel(stages);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("risk-gamestage", e);
+                return own;
+            }
+        }
+
+        /// <summary>
+        /// Round MP5 (part O): the gamestage the day's raider roll reads (OutpostRaiderGamestage) - with one community player
+        /// online the anchor's, exactly as before; with more, the highest of the community's players online (the raiders size up
+        /// the community, wherever its players are).
+        /// </summary>
+        private static int CommunityGameStage(EntityPlayer anchor)
+        {
+            int own = 0;
+            try { own = anchor != null ? anchor.gameStage : 0; } catch (Exception) { }
+            try
+            {
+                List<EntityPlayer> mine = ScPlayers.Community();
+                if (mine.Count <= 1) return own;
+                int best = own;
+                for (int i = 0; i < mine.Count; i++) if (mine[i] != null && mine[i].gameStage > best) best = mine[i].gameStage;
+                return best;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("risk-gamestage-community", e);
+                return own;
+            }
+        }
+
+        /// <summary>
+        /// Round MP5 (part O): one live attack at a time, per player - whether another live fight (the home's horde, an enclave's
+        /// siege) holds this outpost's attack back. With one community player online any live one, exactly as before (that player
+        /// is in it: a home attack is live only while a player is near home). With more, only one the player at the outpost is in:
+        /// within the home fight's BaseAttackLeaveRange of the zone, or the siege's EnclaveSiegeArriveRange * 2 of its enclave (the
+        /// ranges those fights go on in). So a client standing at the outpost while another player fights at home gets the
+        /// outpost's own fight, not an "unanswered" settlement at the deadline.
+        /// </summary>
+        private static bool OtherFightHolds(EntityPlayer at)
+        {
+            bool home = ScBaseAttack.Live, siege = ScEncSiege.Live;
+            if (!home && !siege) return false;
+            if (at == null || ScPlayers.Community().Count <= 1) return true;
+            try
+            {
+                if (home && ScBaseAttack.OutsideZone(at.position) <= ScConfig.BaseAttackLeaveRange) return true;
+                if (siege)
+                {
+                    EnclaveRequest r = ScEncSiege.Open;
+                    Enclave e = r != null ? ScEnclaves.ById(r.EnclaveId) : null;
+                    if (e == null || e.DistanceXZ(at.position.x, at.position.z) <= ScConfig.EnclaveSiegeArriveRange * 2f) return true;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("risk-other-fight", ex);
+                return true;            // as before: any live fight holds it
+            }
+        }
+
+        /// <summary>
+        /// Round MP5 (part O): a tell to every community player at the outpost's fight (within RescueTriggerRange * 2 of its
+        /// footprint, alive or not, as the presence test reads them), and always to 'first' (the player the old tell went to). In
+        /// single player the one player, as before.
+        /// </summary>
+        private static void TellAtKey(Outpost o, EntityPlayer first, string key, string sound, params object[] args)
+        {
+            var to = new List<EntityPlayer>();
+            if (first != null) to.Add(first);
+            float range = ScConfig.RescueTriggerRange * 2f;
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p == null || to.Contains(p) || !ScPlayers.InCommunity(p) || ScOutposts.DistanceToBox(o, p.position) > range) continue;
+                to.Add(p);
+            }
+            for (int i = 0; i < to.Count; i++) ScCommunity.TellKey(to[i], key, sound, args);
+        }
+
         /// <summary>Game hours (rounded up) left until an open attack's deadline.</summary>
         internal static int HoursLeft(Outpost o)
         {
@@ -200,8 +313,8 @@ namespace SurvivorCommunity
                 World w = ScCommunity.World;
                 GameRandom rnd = w != null ? w.GetGameRandom() : null;
                 bool radio = ScOutposts.RadioOnlineAnywhere();   // (triumph fades in ScOutposts.Daily, with or without outposts)
-                int gs = 0;
-                try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }     // round MP0: the anchor's. MP5: gamestage of the players involved
+                // round MP0: the anchor's. Round MP5 (part O): the community's (the anchor's with one player online, as before)
+                int gs = CommunityGameStage(player);
                 var list = new List<Outpost>(ScRegistry.Outposts);
                 foreach (Outpost o in list)
                 {
@@ -281,7 +394,9 @@ namespace SurvivorCommunity
             l.Spawned = false;
             l.Waited = false;
             l.Ids.Clear();
-            if (radio) AddMarker(o, player);
+            // round MP5 (part O): the marker is the host's own map object whoever called it (a remote player's refusal or console
+            // line drew none there); remote players' come from ScMarkers. In single player LocalPlayer is the player, as before
+            if (radio) AddMarker(o, ScCommunity.LocalPlayer ?? player);
             Enclave by = raiders ? ScEncRaids.EnclaveOf(o) : null;
             if (player != null && radio)        // round MP0: the radio's call to every community player
             {
@@ -374,6 +489,7 @@ namespace SurvivorCommunity
                     {
                         L(o).BloodMoonHere = true;
                         L(o).BloodMoonBy = at.entityId;
+                        NoteVigil(o, L(o));             // round MP5 (part O): everyone standing there now, not only the nearest
                     }
                     if (!UnderAttack(o)) continue;
                     Live l = L(o);
@@ -388,8 +504,8 @@ namespace SurvivorCommunity
                             continue;
                         }
                         // one live attack at a time: an outpost next to a home (E5: or an enclave's siege) being fought waits
-                        // for that fight
-                        if (d <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(o.Flag) && !ScBaseAttack.Live && !ScEncSiege.Live) SpawnAttack(w, player, at, o);
+                        // for that fight. Round MP5 (part O): with several players, only for a fight the player here is in
+                        if (d <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(o.Flag) && !OtherFightHolds(at)) SpawnAttack(w, player, at, o);
                         continue;
                     }
                     if (w.worldTime >= o.AttackUntil) { Settle(o, player, true, "fought, not finished"); continue; }
@@ -418,8 +534,8 @@ namespace SurvivorCommunity
 
         private static int AttackerCount(Outpost o, EntityPlayer player)
         {
-            int gs = 0;
-            try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }     // round MP0: the anchor's. MP5: gamestage of the players involved
+            // round MP0: the anchor's. Round MP5 (part O): the players at the fight (GameStageAt: the anchor's with one player online)
+            int gs = GameStageAt(o, player);
             float n = (ScConfig.OutpostAttackBase + gs * ScConfig.OutpostAttackPerGamestage) * (1f + 0.1f * o.Tier) * ScOutpostPerks.ModeRisk(o);
             return Mathf.Clamp(Mathf.RoundToInt(n), 2, Math.Max(2, ScConfig.OutpostAttackMax));
         }
@@ -456,10 +572,10 @@ namespace SurvivorCommunity
         /// The raider band for the player's gamestage, 0..2 (T1 below 50, T2 below 100, T3 from 100): the thresholds the
         /// wild raider spawn groups scRaiderGroupGS01/GS50/GS100 stand for.
         /// </summary>
-        private static int RaiderBand(EntityPlayer player)
+        private static int RaiderBand(Outpost o, EntityPlayer player)
         {
-            int gs = 0;
-            try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }     // round MP0: the anchor's. MP5: gamestage of the players involved
+            // round MP0: the anchor's. Round MP5 (part O): the players at the fight (GameStageAt: the anchor's with one player online)
+            int gs = GameStageAt(o, player);
             return gs >= 100 ? 2 : gs >= 50 ? 1 : 0;
         }
 
@@ -482,7 +598,7 @@ namespace SurvivorCommunity
             try
             {
                 GameRandom rnd = w.GetGameRandom();
-                int band = RaiderBand(player);
+                int band = RaiderBand(o, player);
                 string group = o.AttackRaiders ? "raider classes T" + (band + 1) : ScConfig.DistressZombieGroup;
                 int count = AttackerCount(o, player);
                 float reach = Reach(o);
@@ -506,7 +622,7 @@ namespace SurvivorCommunity
                         ScRegistry.SaveAtomic();
                         return;
                     }
-                    ScCommunity.TellKey(here, "scEncRaidHere", "ui_denied", o.Name, came, by.Name);
+                    TellAtKey(o, here, "scEncRaidHere", "ui_denied", o.Name, came, by.Name);    // round MP5 (part O): everyone at the fight
                     ScLog.Out("attack at outpost " + o.Id + " (" + o.Name + "): " + came + " of enclave " + by.Id + " '" + by.Name + "'");
                     return;
                 }
@@ -536,7 +652,7 @@ namespace SurvivorCommunity
                     Settle(o, player, true, "no attackers");
                     return;
                 }
-                ScCommunity.TellKey(here, o.AttackRaiders ? "scRiskRaidHere" : "scRiskAttackHere", "ui_denied", o.Name, l.Ids.Count);
+                TellAtKey(o, here, o.AttackRaiders ? "scRiskRaidHere" : "scRiskAttackHere", "ui_denied", o.Name, l.Ids.Count);   // round MP5 (part O): everyone at the fight
                 ScLog.Out("attack at outpost " + o.Id + " (" + o.Name + "): " + l.Ids.Count + " " + (o.AttackRaiders ? "raider(s)" : "zombie(s)") + " from " + group);
             }
             catch (Exception e)
@@ -555,7 +671,7 @@ namespace SurvivorCommunity
             o.SecBonus = Math.Min(ScConfig.OutpostSecBonusMax, o.SecBonus + ScConfig.OutpostSecWinBonus);
             ScRegistry.Community.OutpostTriumph = Math.Min(10f, ScRegistry.Community.OutpostTriumph + ScConfig.OutpostWinMorale);
             ScLeadership.Count(ScLeadership.RescueEvent);
-            if (player != null) ScCommunity.TellKey(player, "scRiskHeld", "", o.Name);
+            if (player != null) TellAtKey(o, player, "scRiskHeld", "", o.Name);     // round MP5 (part O): everyone at the fight
             ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerHeld"), o.Name));
             ScLog.Out("outpost " + o.Id + " (" + o.Name + ") held against the attack");
             if (o.AttackRaiders) ScEncRaids.End(o, player, true, "won");       // E10: an enclave's raid - their losses, the rest home
@@ -591,7 +707,7 @@ namespace SurvivorCommunity
         private static string Guarded(Outpost o, EntityPlayer player, string why)
         {
             o.SecBonus = Math.Min(ScConfig.OutpostSecBonusMax, o.SecBonus + ScConfig.OutpostSecWinBonus * 0.5f);
-            if (player != null) ScCommunity.TellKey(player, "scRiskHeld", "", o.Name);
+            if (player != null) TellAtKey(o, player, "scRiskHeld", "", o.Name);     // round MP5 (part O): everyone who stood there
             ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerHeld"), o.Name));
             ScLog.Out("outpost " + o.Id + " (" + o.Name + ") held (" + why + ")");
             ScRegistry.SaveAtomic();
@@ -607,17 +723,43 @@ namespace SurvivorCommunity
                 Live l = L(o);
                 bool here = l.BloodMoonHere;
                 int by = l.BloodMoonBy;
+                var all = new List<int>(l.BloodMoonByAll);   // round MP5 (part O)
                 l.BloodMoonHere = false;                     // every blood moon starts from nobody there
                 l.BloodMoonBy = 0;
+                l.BloodMoonByAll.Clear();
                 if (o.State != OutpostState.Active) continue;
                 if (here)
                 {
-                    // round MP0: told to the community player who stood there (any of them), else the anchor
+                    // round MP0: told to the community player who stood there (any of them), else the anchor. Round MP5 (part O):
+                    // every one of them still online (the last nearest first), else the anchor - in single player the player
+                    if (player == null) continue;
+                    var told = new List<EntityPlayer>();
                     EntityPlayer stood = ScPlayers.ByEntity(by);
-                    if (player != null) ScCommunity.TellKey(stood != null ? stood : player, "scRiskSiegeHeldByYou", "", o.Name);
+                    if (stood != null) told.Add(stood);
+                    for (int i = 0; i < all.Count; i++)
+                    {
+                        EntityPlayer p = ScPlayers.ByEntity(all[i]);
+                        if (p != null && !told.Contains(p)) told.Add(p);
+                    }
+                    if (told.Count == 0) told.Add(player);
+                    for (int i = 0; i < told.Count; i++) ScCommunity.TellKey(told[i], "scRiskSiegeHeldByYou", "", o.Name);
                     continue;
                 }
                 Outcome(o, player, -ScConfig.OutpostSiegePenalty, false, "blood moon");
+            }
+        }
+
+        /// <summary>
+        /// Round MP5 (part O): the blood moon's vigil - every community player within OutpostStandInRange of the outpost now (alive
+        /// or not, as Closest reads them) is one who stood there; Siege tells each of them it held.
+        /// </summary>
+        private static void NoteVigil(Outpost o, Live l)
+        {
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p != null && ScPlayers.InCommunity(p) && ScOutposts.DistanceToBox(o, p.position) <= ScConfig.OutpostStandInRange) l.BloodMoonByAll.Add(p.entityId);
             }
         }
 
@@ -712,10 +854,14 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ player answers ----
 
-        public static bool PayDemand(Outpost o, EntityPlayerLocal player, out string message)
+        /// <summary>
+        /// The radio's "Pay" on a raider demand. Round MP5 (part O): any player (EntityPlayer, was EntityPlayerLocal), so a request
+        /// handler can pass its sender; it never reads the player beyond passing it on. Server only.
+        /// </summary>
+        public static bool PayDemand(Outpost o, EntityPlayer player, out string message)
         {
             message = null;
-            // round MP2: never on a client's copy (E10; the radio window that answers it opens on the host only until MP5)
+            // round MP2: never on a client's copy (E10)
             if (!ScRegistry.Loaded) { message = Localization.Get("scHostOnly"); return false; }
             if (o == null || !HasDemand(o)) { message = Localization.Get("scRiskNoDemand"); return false; }
             Community c = ScRegistry.Community;
@@ -735,7 +881,11 @@ namespace SurvivorCommunity
             return true;
         }
 
-        public static bool RefuseDemand(Outpost o, EntityPlayerLocal player, out string message)
+        /// <summary>
+        /// The radio's "Refuse": the raiders attack (the call goes to every community player, the attack marker to the host's own
+        /// map and through ScMarkers to everyone else's). Round MP5 (part O): any player, as PayDemand. Server only.
+        /// </summary>
+        public static bool RefuseDemand(Outpost o, EntityPlayer player, out string message)
         {
             message = null;
             if (!ScRegistry.Loaded) { message = Localization.Get("scHostOnly"); return false; }     // round MP2: as PayDemand (E10)

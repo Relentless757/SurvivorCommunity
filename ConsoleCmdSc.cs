@@ -2222,6 +2222,7 @@ namespace SurvivorCommunity
             {
                 case "list": OutpostList(); return;
                 case "yield": OutpostYield(); return;
+                case "who": OutpostWho(); return;       // round MP5 (part O): who counts as at each outpost, and its stand-ins
                 case "add":
                 {
                     if (pl == null) { Output("[SC] no player"); return; }
@@ -2371,9 +2372,8 @@ namespace SurvivorCommunity
                     Outpost o = OutpostArg(p);
                     if (o == null) return;
                     string msg;
-                    // round MP2: Repair takes the sender; PayDemand / RefuseDemand (the radio's demand answer) still take the host's own player - MP5: the radio for clients
-                    EntityPlayerLocal lpl = pl as EntityPlayerLocal;
-                    bool ok = sub == "pay" ? ScOutpostRisk.PayDemand(o, lpl, out msg) : sub == "refuse" ? ScOutpostRisk.RefuseDemand(o, lpl, out msg) : ScOutpostRisk.Repair(o, pl, out msg);
+                    // round MP2: Repair takes the sender. Round MP5 (part O): PayDemand / RefuseDemand take any player now - the sender too
+                    bool ok = sub == "pay" ? ScOutpostRisk.PayDemand(o, pl, out msg) : sub == "refuse" ? ScOutpostRisk.RefuseDemand(o, pl, out msg) : ScOutpostRisk.Repair(o, pl, out msg);
                     Output("[SC] " + (ok ? "" : "refused: ") + msg);
                     return;
                 }
@@ -2411,8 +2411,44 @@ namespace SurvivorCommunity
                     return;
                 }
                 default:
-                    Output("[SC] sc outpost list | add [row|scavenge] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | skip <member> | upgrade <id> | level <id> <1-3> | overrun <id>");
+                    Output("[SC] sc outpost list | who | add [row|scavenge] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | skip <member> | upgrade <id> | level <id> <1-3> | overrun <id>");
                     return;
+            }
+        }
+
+        /// <summary>
+        /// sc outpost who (round MP5, part O): for each held outpost, every community player online and their distance to its
+        /// footprint, with what that distance counts for - "here" (OutpostStandInRange: visit, stand-ins, blood-moon vigil),
+        /// "keeps" (1.8x: stand-ins stay), "fight" (RescueTriggerRange: an open attack comes; twice that: it is judged) - then each
+        /// staffer's stand-in, and an open attack's state and the gamestage it is sized by. A read; changes nothing.
+        /// </summary>
+        private static void OutpostWho()
+        {
+            World w = ScCommunity.World;
+            List<EntityPlayer> all = ScPlayers.All;
+            Output("[SC] " + all.Count + " player(s) online; ranges: here " + ScConfig.OutpostStandInRange + " m, keeps " + Mathf.RoundToInt(ScConfig.OutpostStandInRange * 1.8f)
+                   + " m, fight " + ScConfig.RescueTriggerRange + " m (judged within " + ScConfig.RescueTriggerRange * 2 + " m)");
+            foreach (Outpost o in ScOutposts.All)
+            {
+                if (!o.Holding) continue;
+                var who = new List<string>();
+                for (int i = 0; i < all.Count; i++)
+                {
+                    EntityPlayer p = all[i];
+                    if (p == null || !ScPlayers.InCommunity(p)) continue;
+                    float d = ScOutposts.DistanceToBox(o, p.position);
+                    string tag = d <= ScConfig.OutpostStandInRange ? "here" : d <= ScConfig.OutpostStandInRange * 1.8f ? "keeps" : d <= ScConfig.RescueTriggerRange * 2 ? "fight" : "away";
+                    who.Add((p.PlayerDisplayName ?? "?") + (p is EntityPlayerLocal ? " (host)" : "") + (p.IsDead() ? " (dead)" : "") + " " + Mathf.RoundToInt(d) + " m " + tag);
+                }
+                var standIns = new List<string>();
+                foreach (Member m in ScGarrison.Staff(o))
+                {
+                    EntityAlive s = m.StandInId >= 0 && w != null ? w.GetEntity(m.StandInId) as EntityAlive : null;
+                    standIns.Add(m.Name + ": " + (m.StandInId < 0 ? "no stand-in" : s == null ? "stand-in " + m.StandInId + " (not loaded or being built)" : "stand-in " + m.StandInId + (s.IsDead() ? " (dead)" : "")));
+                }
+                Output("[SC]   #" + o.Id + " " + o.Name + (ScZone.IsLoaded(o.Flag) ? "" : " (claim not loaded here)") + ": " + (who.Count > 0 ? string.Join(", ", who.ToArray()) : "nobody online")
+                       + (standIns.Count > 0 ? " | " + string.Join("; ", standIns.ToArray()) : " | no staff")
+                       + (ScOutpostRisk.UnderAttack(o) ? " | attack open, " + ScOutpostRisk.HoursLeft(o) + " h left, sized at gamestage " + ScOutpostRisk.GameStageAt(o, ScPlayers.Anchor()) : ""));
             }
         }
 

@@ -20,6 +20,8 @@ namespace SurvivorCommunity
     /// The quiet ClearSleepers re-arm is Patches_Quest; radio and favour picks skip outposts in ScRadio / ScSecurity.
     /// Enclave POIs (ScEnclaves, E1) get the same two: a box touching one counts as a claim (no trader quest, rally reset
     /// or vanilla respawn there), and a claim whose square would reach into one is refused.
+    /// Round MP5 (part O): the placement gate runs on the placing machine only, so a client gates its own claims from its copy
+    /// of the community (it used to place them unchecked); RemoveExtraLandClaims keeps the home and outposts on the server as before.
     /// </summary>
     public static class Patches_Outposts
     {
@@ -40,7 +42,29 @@ namespace SurvivorCommunity
         /// <summary>The home claim, or a held outpost's claim: never the one the claim limit drops.</summary>
         public static bool IsProtectedClaim(Vector3i p)
         {
+            // round MP5 (part O): a client's copy has no ScOutposts lookup tables (they are built on the server only) - its
+            // outposts list is read instead
+            if (ScMirror.Active) return (ScZone.HasHome && ScZone.Home == p) || ScOutposts.AtClaim(p) != null;
             return (ScZone.HasHome && ScZone.Home == p) || ScOutposts.IsOutpostClaim(p);
+        }
+
+        /// <summary>
+        /// Round MP5 (part O): ScEnclaves.BoxHitsEnclave / FirstIn for a client - its copy holds the enclaves (with their buildings)
+        /// but never the server's lookup tables, so the copy's list is walked the way ScEnclaves.Rebuild fills them (on with the
+        /// Enclaves setting, every enclave not lost; Lost is the server's session state and never in the copy, so a group whose
+        /// building this load could not find still refuses its old footprint here - rare). The first enclave whose building the
+        /// box touches, or null.
+        /// </summary>
+        private static Enclave EnclaveHitInCopy(Vector3i min, Vector3i max)
+        {
+            if (!ScConfig.Enclaves) return null;
+            foreach (Enclave e in ScRegistry.Enclaves)
+            {
+                if (e == null || e.Lost) continue;
+                int[] r = e.Box;
+                if (min.x <= r[1] && max.x >= r[0] && min.z <= r[3] && max.z >= r[2]) return e;
+            }
+            return null;
         }
 
         [HarmonyPatch(typeof(GameUtils), nameof(GameUtils.CheckForAnyPlayerHome), new Type[] { typeof(World), typeof(Vector3i), typeof(Vector3i) })]
@@ -121,18 +145,24 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!__result || !ScRegistry.Loaded || !ScCommunity.IsHost) return;
+                    if (!__result) return;
+                    // round MP5 (part O): the gate runs only on the placing machine (the server never asks it again, B X7), so a
+                    // client's own placement is gated too - from its copy of the community (ScMirror.Active: the home, the
+                    // outposts, the enclaves' buildings). The server and single player are unchanged (the real registry)
+                    bool copy = ScMirror.Active;
+                    if (!copy && (!ScRegistry.Loaded || !ScCommunity.IsHost)) return;
                     // an enclave's building is theirs (E1): no claim whose square reaches into it - checked before the
                     // claim list, which a player who never placed a claim does not have yet
                     int vr = ScZone.VanillaRadius;
                     Vector3i min = new Vector3i(blockPos.x - vr, blockPos.y, blockPos.z - vr), max = new Vector3i(blockPos.x + vr, blockPos.y, blockPos.z + vr);
-                    if (ScEnclaves.BoxHitsEnclave(min, max))
+                    Enclave hit = copy ? EnclaveHitInCopy(min, max) : null;
+                    if (copy ? hit != null : ScEnclaves.BoxHitsEnclave(min, max))
                     {
                         __result = false;
                         if (placingFrame == Time.frameCount && placingPlayer != null && Time.unscaledTime >= nextRefusalTip)
                         {
                             nextRefusalTip = Time.unscaledTime + 1f;
-                            Enclave en = ScEnclaves.FirstIn(min, max);
+                            Enclave en = copy ? hit : ScEnclaves.FirstIn(min, max);
                             // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
                             ScCommunity.TellKey(placingPlayer, "scEnclaveClaim", "ui_denied", en != null ? en.Name : "?", en != null ? en.PoiName : "?");
                             placingFrame = -1;
