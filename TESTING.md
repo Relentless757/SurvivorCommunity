@@ -96,6 +96,7 @@ standing <id> <points>`, `sc enclave request <id> offer <kind>`, `sc enclave spa
       their bag.
 - [ ] Two players enlist from the same enclave at once: one gets them, the other is refused and keeps the dukes.
 - [ ] A listen host with a client: the host's own talk as single player's while the client talks to another member.
+
 ## Round MP5 (part: R) (2026-11-26): the radio for every player
 
 Why: the radio station's window and the handheld Radio tab were the host's alone ("The community is managed by the host"
@@ -151,8 +152,15 @@ runner with a radio, a handheld radio in the client's bag)
 - [ ] One calls an ally's fighter: they come to that player, not the other; the other's panel shows the call on.
 - [ ] The host scouts or calls a contact: the client's map gets the markers; the client does: the host's map gets them.
 - [ ] Both press "On our way": the second is told they already answered.
-- [ ] A client refuses a raid demand: the raid starts (known gap: the radio's call about it is not told to the community
-      for a client's refusal until the merge).
+- [ ] A client refuses a raid demand: the raid starts, every community player gets the radio's call about it, and the
+      raiders' answer is heard (fixed at the merge).
+- [ ] Dedicated server, a client away from home with a handheld radio and the home station powered: a base attack's call,
+      its arrival and the fight's result are spoken on their radio (once each, also with two players away).
+- [ ] A client threatens an enclave leader: the bundles land in their bag (the overflow at their feet), the ledger line
+      shows, and the enclave turns hostile after the grace.
+- [ ] A client searches a missing survivor's remains: "found" the first time, "searched already" the second; remains no
+      search owns say "nothing" and go.
+
 ## Round MP5 (part: world) (2026-11-26): the world around any player - discovery, bands, arrivals, the home's fights
 
 Why: the world systems reasoned from one player, the "anchor" (the host's own player on a listen host, the owner or a player
@@ -220,6 +228,7 @@ Build `sc34_mp5w`, **not deployed**, untested in game.
       where THEY stand.
 - [ ] (With SurvivorOrigins) the host with one follower and the client with two: each one's Leadership follower count is
       their own (1 and 2), no longer the community's 3 on both.
+
 ## Round MP5 (part: N) (2026-11-26): physical runners for every player
 
 Why: a physical runner (a supply or mining run, a member walking to or from an outpost) was taken off the world and
@@ -272,6 +281,7 @@ state and who keeps her ("kept in reach (nearest NAME, N m)", "kept by nobody", 
       gamestage (log: "N players there"); when it is cleared both are told she is safe.
 - [ ] Two players with different view distances: a runner waiting at the gate comes in when either one stands at her post.
 - [ ] One player dies beside an online runner while the other stands near her too: she stays in the world.
+
 ## Round MP5 (part: outposts) (2026-11-26): outposts work for every player
 
 Why: a client standing at an attacked outpost got no fight while another player fought a horde at home, and the attack
@@ -365,6 +375,7 @@ server run them at the game's start as before. Build `sc34_mt1`, **deployed to 3
 - [ ] Two clients on the dedicated server: each client's log has the two `game start:` lines once. A listen host with a
       client: the host's log as single player's, the client's as above.
 - [ ] Leave the server and start single player in the same game session: single player's log has no `game start:` line.
+
 ## Round mt1 (part: H) (2026-11-25): a client's talk links a resident on the server, and sending a follower home reaches every client
 
 Why: on a dedicated server a client could not use a resident's 0-XNPCCore rows (Craft..., Pay / Gift..., Equipment...,
@@ -444,6 +455,7 @@ moves her on.
       crafted request) never ends A's talk hold, however old.
 - [ ] (review fix H-m5) A gives her an order (a work shift), then idles: B's talk never takes her over (a work shift does not
       yield); B reads the busy line.
+
 ## Round mt1 (part: G) (2026-11-25): a member's gear shows as she carries it, and she stays while you manage it
 
 Why: on a client the member panel's RANGED and MELEE showed items the client made itself (a new quality 1 copy every half
@@ -1258,6 +1270,7 @@ it rebuilds; `sc xnpc` (it runs on the server) counts `mp1-look-pushed`, `-answe
       were through). It should never switch twice, and never show a different look after that.
 - [ ] Joining a server without SC (or another SC version): the client log says `looks: the server does not send
       SurvivorCommunity's looks` and the client keeps its own looks, as before. Still connected.
+
 ## Round MP1 (part: mirror, 2026-11-23): clients see the community's data
 
 Why: on a client, the community window, the Home Status HUD, the Facilities tab and the talk card showed an empty community

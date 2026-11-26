@@ -1985,9 +1985,10 @@ namespace SurvivorCommunity
         /// The leader's "I'm not asking." (Q6 a; DialogActionScEncThreat): EnclaveThreatBundlesMin..Max Medium bundles of what
         /// they have - most of the resource their kind lives on, the rest any classic one - into the player's bag, the
         /// overflow at their feet; then the enclave is hostile for good, after EnclaveThreatGrace seconds so the dialog
-        /// closing is not a shot in the back. Host only.
+        /// closing is not a shot in the back. Host only. Round MP5 (merge): any player - a remote player's bundles go into
+        /// toRemote (enc.threat's answer puts them in their bag); the host's own player's into its bag, exactly as before.
         /// </summary>
-        public static void Threaten(EntityPlayerLocal player, EntityAlive npc)
+        public static void Threaten(EntityPlayer player, EntityAlive npc, List<ItemStack> toRemote = null)
         {
             if (!ScCommunity.IsHost || player == null) return;
             EncPerson p = PersonOf(npc);
@@ -2009,7 +2010,7 @@ namespace SurvivorCommunity
             for (int i = 0; i < counts.Length; i++)
             {
                 if (counts[i] <= 0) continue;
-                int g = ScStockpile.GiveBundles(null, (Resource)i, BundleSize.Medium, counts[i], player);
+                int g = ScStockpile.GiveBundles(null, (Resource)i, BundleSize.Medium, counts[i], player, toRemote);
                 given += g;
                 if (g > 0) parts.Add(g + " " + Localization.Get(ScNames.LocKey((Resource)i)));
             }

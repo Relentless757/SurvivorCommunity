@@ -344,16 +344,15 @@ namespace SurvivorCommunity
             int seen = args.Int(4, -1);
             if (d != null && seen >= 0 && d.Id != seen) { reply.Fail("scActionChanged"); return; }
             string msg;
-            // MP5 merge: ScOutpostRisk.PayDemand / RefuseDemand take EntityPlayerLocal (part O's file) - a remote refuser passes null,
-            // so the raid's radio call (StartAttack's tells to the community) and the raiders' spoken answer are skipped for them
-            EntityPlayerLocal lp = sender as EntityPlayerLocal;
+            // round MP5 (merge): PayDemand / RefuseDemand take any player (part O), so a client's refusal starts the raid with its
+            // radio call told to the community and the raiders' answer, as the host's does
             if (pay)
             {
-                if (ScOutpostRisk.PayDemand(d, lp, out msg)) reply.Done(msg ?? "");
+                if (ScOutpostRisk.PayDemand(d, sender, out msg)) reply.Done(msg ?? "");
                 else reply.Fail(msg ?? "");
                 return;
             }
-            if (ScOutpostRisk.RefuseDemand(d, lp, out msg)) reply.Done(msg ?? "");
+            if (ScOutpostRisk.RefuseDemand(d, sender, out msg)) reply.Done(msg ?? "");
             else reply.Fail(msg ?? "", "");
         }
 

@@ -21,7 +21,9 @@ namespace SurvivorCommunity
     ///   byte   flags     bit 0 lip sync (through Voice Control's player where it has one), bit 1 allow dead (a dying raider's
     ///                    last words), bit 2 forced (the console: the hearing rule ignored), bit 3 no handheld needed (a recall's
     ///                    answer: heard on the radio that sent it), bit 4 a runner's line (the radio's caption "{0} on the radio:"),
-    ///                    bit 5 in person allowed (a radio speaker whose body may stand near the player)
+    ///                    bit 5 in person allowed (a radio speaker whose body may stand near the player), bit 6 a horde warning
+    ///                    that may go on the player's radio (ScRadioTalk.FlagHordeRadio; round MP5, part R - the layout is
+    ///                    unchanged, the protocol counts it)
     ///   int32  npc       the speaker's entity id (-1: no body - a voice on the radio from afar)
     ///   string key       the clip's key: its file name in the voice folder (greet.member.3, scHordeGather_north)
     ///   string voice     the voice folder (male_White_Vane); "" for a line with no recording (its caption alone)

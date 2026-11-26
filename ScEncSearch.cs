@@ -861,15 +861,15 @@ namespace SurvivorCommunity
         {
             if (!ScCommunity.IsHost)
             {
-                // round MP5 (part E): a client's "Search the body" asks the server (enc.search), which searches for them
+                // round MP5 (part E; merge: part W's encremains.search is the one op): a client's "Search the body" asks the server
                 if (ScRegistry.Mirrored)
-                    ScActions.Request("enc.search", r => { if (!r.Ok && player != null) ScTalkContext.Tell(player, r, false); }, pos.x, pos.y, pos.z);
+                    ScActions.Request("encremains.search", r => { if (!r.Ok && player != null) ScTalkContext.Tell(player, r, false); }, pos.x, pos.y, pos.z);
                 return;
             }
             SearchAtFor(pos, player);
         }
 
-        /// <summary>Round MP5 (part E): SearchAt's work for any player (the host's own block activation, a client's enc.search).</summary>
+        /// <summary>Round MP5 (part E): SearchAt's work for any player (the host's own block activation, a client's encremains.search).</summary>
         internal static void SearchAtFor(Vector3i pos, EntityPlayer player)
         {
             if (!ScCommunity.IsHost || !ScRegistry.Loaded) return;

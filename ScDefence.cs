@@ -260,6 +260,9 @@ namespace SurvivorCommunity
             if (player != null)
             {
                 EntityPlayer[] to = ScPlayers.Community().ToArray();     // copied: Tell may re-enter code that reuses the list
+#if SC_V34
+                bool voicedRemote = false;      // round MP5 (merge): the radio's result went to the remote players away
+#endif
                 for (int i = 0; i < to.Length; i++)
                 {
                     bool atHome = ScBaseAttack.PlayerHome(to[i]);
@@ -270,9 +273,14 @@ namespace SurvivorCommunity
                     ScCommunity.TellKey(to[i], atHome ? "scDefNow" : "scDefRadio", result == Held ? "" : "ui_denied", Text(news));
 #if SC_V34
                     // vo4: the radio's result spoken too (the guard on watch, else someone at home), while you carry a handheld.
-                    // MP4: voices to clients (the host's own player only until then)
-                    EntityPlayerLocal lp = to[i] as EntityPlayerLocal;
-                    if (!atHome && lp != null) ScHordeVoice.SayAway(ScHordeVoice.ResultMoment(result), null, null, lp, false);
+                    // Round MP5 (merge): SayAway takes any player (part R) - the host's own is judged as before; the first remote
+                    // player away sends the line to every remote player away (once), so the rest are skipped
+                    bool local = to[i] is EntityPlayerLocal;
+                    if (!atHome && (local || !voicedRemote))
+                    {
+                        ScHordeVoice.SayAway(ScHordeVoice.ResultMoment(result), null, null, to[i], false);
+                        if (!local) voicedRemote = true;
+                    }
 #endif
                 }
             }

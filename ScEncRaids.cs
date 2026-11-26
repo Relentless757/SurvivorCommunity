@@ -1015,7 +1015,7 @@ namespace SurvivorCommunity
                 return;
             }
             string msg;
-            ScOutpostRisk.RefuseDemand(t, pl as EntityPlayerLocal, out msg);    // MP5 merge: ScOutpostRisk.RefuseDemand takes EntityPlayerLocal (part O / R: the radio's demand answer)
+            ScOutpostRisk.RefuseDemand(t, pl, out msg);    // round MP5 (merge): RefuseDemand takes any player (part O) - the sender
             into.Add("refused at once: " + msg);
         }
     }

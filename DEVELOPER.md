@@ -2870,8 +2870,8 @@ Round MP0 is the groundwork:
     dukes), `enc.gohome` (npc), `enc.recruit` (npc, journal: 1 when the client's POI favour quest is past its clearing; hints
     `fclose`/`fdone`), `enc.join` (npc), `enc.gift` (npc; s: the bundle), `enc.req` (npc, what: 1 accept, 2 decline, 3 think, 4
     can't do, 5 found, 6 cleared), `enc.reqgive` (npc; s: the stacks), `enc.reqgun` (npc; s: the gun), `enc.follow` (npc),
-    `enc.wait` (npc), `enc.search` (x, y, z: within 8 m of a remote sender), `enc.seen` (npc, what: 1 the infestation, 2 the
-    thanks; quiet). A reply line comes back as hints `rk` (the key, localized on the client) and `ri` (the specifics,
+    `enc.wait` (npc), `enc.seen` (npc, what: 1 the infestation, 2 the thanks; quiet); "Search the body" is part W's
+    `encremains.search`, which runs `ScEncSearch.SearchAtFor` for the sender. A reply line comes back as hints `rk` (the key, localized on the client) and `ri` (the specifics,
     URI-escaped, in the server's language).
   - **Items (round MP3's rule):** a hand-over leaves the client's bag first - the enlist fee by the currency's type, a gift's
     bundle and a request's bundles by type (`ScItemTx.TakeFromLocal`, the least overpay as the host's `Choose`), a generator
@@ -2879,8 +2879,7 @@ Round MP0 is the groundwork:
     the server checks it against the record now (the fee at the standing now, bundles of the asked resource covering the units,
     one generator, one gun that counts; co-op trust in the stacks themselves) and keeps it, or refuses and the client gives it
     back (`ScItemTx.GiveToLocal`: the bag, else the feet). The threat's bundles are made on the server and come back in the
-    answer (`ScStockpile.GiveBundles` with the remote list; MP5 merge: `ScEnclavePeople.Threaten` takes `EntityPlayerLocal`,
-    so `ScActionsEnclave.ThreatenRemote` is its twin for a client). A supplies favour's hand-over is round MP2's two steps, and
+    answer (`ScEnclavePeople.Threaten` takes any player and the remote list, which `ScStockpile.GiveBundles` fills). A supplies favour's hand-over is round MP2's two steps, and
     the row's recruit waits for it (`ScTalkContext.EncAfterHandOver`).
   - **Quests and tells:** a request a client accepts is theirs (`EnclaveRequest.AcceptedBy`: `ScQuestNet.StartRequestFor` sends
     them the quest, its closes and reshapes follow it); the join's and the recruit's favour quests close on the acting player's
@@ -2937,11 +2936,11 @@ Round MP0 is the groundwork:
     else on its radio while it carries a handheld (`ScRadioTalk.OnRemote`, `RadioHeard`). Speakers' and runners' radio lines
     were already sent to every community player (round MP4).
   - **Without an id on the record, after a load an ally's call comes to the anchor** (the save's `call=` has no caller).
-  - **MP5 merge:** `ScBaseAttack` (the call and the arrival) and `ScDefence` (the result) call `ScHordeVoice.SayAway` only
-    with the host's own player (`lp != null`); passing their player lets a dedicated server voice the radio from home (it
-    takes any player since MP5 and broadcasts once). `ScOutpostRisk.PayDemand` / `RefuseDemand` take `EntityPlayerLocal`:
-    a client's refusal passes null, so `StartAttack`'s radio call to the community and the raiders' spoken answer are
-    skipped for it. `NetPackageScVoice`'s layout comment should list `FlagHordeRadio`.
+  - **At the merge:** `ScBaseAttack` (the call and the arrival) and `ScDefence` (the result) pass their player to
+    `ScHordeVoice.SayAway`, so a dedicated server voices the radio from home too (the host's own player is judged as
+    before; the remote players away get the line once). `radio.demand` passes the sender to `ScOutpostRisk.PayDemand` /
+    `RefuseDemand` (any player since part O), so a client's refusal starts the raid with its radio call and the raiders'
+    answer, as the host's does.
   - **Known gaps:** a client's reasons and the barter / scout lines are the server's words (its language); a "missing
     person" request says "someone" on a client (enclave people are not in the copy). The handheld is trusted. A
     per-player request budget is still not kept. MP6: cooldowns, contacts, allies and the siege per community.
@@ -2985,10 +2984,9 @@ Round MP0 is the groundwork:
     must be alive within `RemainsReach` (8 m) of a remains block; its tell (`scEncRemainsNothing` / `Searched` / `Found`) is
     worked out from the search as it stood before (SearchAt still takes `EntityPlayerLocal`).
   - **Console:** `sc infest add|clear|spread|roll`, `sc band ...`, `sc enclave move <id> now` and `sc enclave raid <id> ...` act
-    for the sender (`ConsoleCmdSc.Me`). `sc enclave raid ... now` still refuses the demand through `ScOutpostRisk.RefuseDemand`
-    (`EntityPlayerLocal`: no voice for a client until the radio's round). `ScEncRaids.OnPaid(o, by)` takes the payer (optional).
-  - **Left as they were:** the horde's radio voice at home and away (`ScHordeVoice.SayAway`, the host's own player: the radio's
-    round), `sc enclave join` (`ScEncJoin.Command`, the dialog join's round), the late seed's view rule and `ScEnclaves.InView`
+    for the sender (`ConsoleCmdSc.Me`). `sc enclave raid ... now` refuses the demand for the sender through
+    `ScOutpostRisk.RefuseDemand`. `ScEncRaids.OnPaid(o, by)` takes the payer (optional).
+  - **Left as they were:** `sc enclave join` (`ScEncJoin.Command`, the dialog join's round), the late seed's view rule and `ScEnclaves.InView`
     (the server's loaded chunks already cover every remote player).
 - **Round MP5 (part N), physical runners around every player** (`ScRunners`, `ScRuns`, `ScMining`, `ScRunnerCall`, the
   distress functions of `ScRadio`, `ScGarrison`'s posting travel). A physical runner - a supply or mining run, a member

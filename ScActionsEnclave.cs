@@ -607,7 +607,7 @@ namespace SurvivorCommunity
     ///   enc.reqgun   npc; s: the gun          E4: a gun from the pick. Hints rk/ri.
     ///   enc.follow   npc                      E5: a missing survivor follows the sender home.
     ///   enc.wait     npc                      E5: they wait where they stand.
-    ///   enc.search   x, y, z                  E5: "Search the body" on their remains (within SearchRange of a remote sender).
+    ///   (E5's "Search the body" is part W's encremains.search, ScActionsWorld - round MP5 merge)
     ///   enc.seen     npc, what                the client's line showed: what 1 the offer's infestation (known now), 2 the
     ///                                         leader's thanks (spent). Quiet.
     /// </summary>
@@ -615,10 +615,6 @@ namespace SurvivorCommunity
     {
         public const int ReqAccept = 1, ReqDecline = 2, ReqThink = 3, ReqCantDo = 4, ReqFound = 5, ReqCleared = 6;
         public const int SeenInfestation = 1, SeenThanks = 2;
-        /// <summary>A remote sender's "Search the body" is within this many meters of the remains (the block's reach, and some slack).</summary>
-        private const float SearchRange = 8f;
-        /// <summary>The share of a threat's bundles that are the resource their kind lives on (ScEnclavePeople.Threaten's ThreatKindShare).</summary>
-        private const float ThreatKindShare = 0.65f;
 
         /// <summary>The NPC the request names: loaded and alive, and for a remote sender within talking reach. Null otherwise.</summary>
         private static EntityAlive Npc(EntityPlayer sender, ScActionArgs args)
@@ -685,8 +681,9 @@ namespace SurvivorCommunity
                 return;
             }
             var give = new List<ItemStack>();
-            // an exception after the bundles were made (the ledger, the hostility) still hands them over: never lost
-            try { ThreatenRemote(sender, npc, p, e, give); }
+            // an exception after the bundles were made (the ledger, the hostility) still hands them over: never lost.
+            // round MP5 (merge): ScEnclavePeople.Threaten takes any player and the list now - part E's twin went
+            try { ScEnclavePeople.Threaten(sender, npc, give); }
             catch (Exception ex) { ScLog.Once("enc-threat-remote", ex); }
             string hint = ScItemTx.StacksToHint(give);
             if (hint != null) reply.SetHint(ScEncTalk.HintGive, hint);
@@ -696,39 +693,6 @@ namespace SurvivorCommunity
                 foreach (ItemStack s in give) GameManager.Instance.ItemDropServer(s, sender.GetDropPosition(), Vector3.zero, -1, 60f);
             }
             reply.Done();
-        }
-
-        /// <summary>
-        /// ScEnclavePeople.Threaten for a remote player - MP5 merge: Threaten takes EntityPlayerLocal (part W's file), so this twin
-        /// gives the bundles into give (the answer's hint: the sender's machine puts them in its bag) instead of the local bag. The
-        /// same roll, ledger line, log and hostility after EnclaveThreatGrace.
-        /// </summary>
-        private static void ThreatenRemote(EntityPlayer player, EntityAlive npc, EncPerson p, Enclave e, List<ItemStack> give)
-        {
-            World w = ScCommunity.World;
-            GameRandom r = w != null ? w.GetGameRandom() : null;
-            int lo = Math.Max(0, ScConfig.EnclaveThreatBundlesMin), hi = Math.Max(lo, ScConfig.EnclaveThreatBundlesMax);
-            int n = r != null ? r.RandomRange(lo, hi + 1) : lo;
-            Resource main = ScEnclavePeople.KindResource(e.Kind, r);
-            var counts = new int[ScNames.ClassicCount];
-            for (int i = 0; i < n; i++)
-            {
-                Resource res = r == null || r.RandomFloat < ThreatKindShare ? main : (Resource)r.RandomRange(0, ScNames.ClassicCount);
-                counts[(int)res]++;
-            }
-            var parts = new List<string>();
-            int given = 0;
-            for (int i = 0; i < counts.Length; i++)
-            {
-                if (counts[i] <= 0) continue;
-                int g = ScStockpile.GiveBundles(null, (Resource)i, BundleSize.Medium, counts[i], player, give);
-                given += g;
-                if (g > 0) parts.Add(g + " " + Localization.Get(ScNames.LocKey((Resource)i)));
-            }
-            string what = parts.Count > 0 ? string.Join(", ", parts.ToArray()) : "0";
-            ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerThreat"), e.Name, what));
-            ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + player.EntityName + " threatened " + p.Name + " and took " + given + " medium bundle(s) (" + what + ")");
-            ScEnclaves.TurnHostile(e, "threatened by " + player.EntityName, ScConfig.EnclaveThreatGrace);
         }
 
         [ScAction("enc.enlist", ScActionAccess.Community)]
@@ -927,19 +891,6 @@ namespace SurvivorCommunity
             if (npc != null && ScEncSearch.WaitAt(sender, npc)) reply.Done();
             else reply.Fail("");
             ScTalkContext.SendFactsAfter(sender, npc);
-        }
-
-        [ScAction("enc.search", ScActionAccess.Community)]
-        private static void Search(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
-        {
-            Vector3i pos = args.Pos(0);
-            if (!(sender is EntityPlayerLocal))
-            {
-                Vector3 c = new Vector3(pos.x + 0.5f, pos.y + 0.5f, pos.z + 0.5f);
-                if ((c - sender.position).sqrMagnitude > SearchRange * SearchRange) { reply.Fail(""); return; }
-            }
-            ScEncSearch.SearchAtFor(pos, sender);         // its tells answer the sender
-            reply.Done();
         }
 
         [ScAction("enc.seen", ScActionAccess.Community, Quiet = true)]

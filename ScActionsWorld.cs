@@ -15,7 +15,7 @@ namespace SurvivorCommunity
     ///
     /// Ops (ints):
     ///   encremains.search  x, y, z   "Search the body" on a missing survivor's remains (BlockScEncRemains, E5): the open
-    ///                                search whose remains lie there turns to "Return to ..." (ScEncSearch.SearchAt). A remote
+    ///                                search whose remains lie there turns to "Return to ..." (ScEncSearch.SearchAtFor). A remote
     ///                                sender must stand within RemainsReach of the block, and the block must be the remains.
     /// </summary>
     public static class ScActionsWorld
@@ -35,39 +35,10 @@ namespace SurvivorCommunity
                 Vector3 c = new Vector3(pos.x + 0.5f, pos.y + 0.5f, pos.z + 0.5f);
                 if ((c - sender.position).sqrMagnitude > RemainsReach * RemainsReach) { reply.Fail(""); return; }
             }
-            // a remote sender's tell is worked out here, from the search as it stood before (SearchAt tells only this machine's
-            // own player while it takes EntityPlayerLocal; the host's own player is told inside it, exactly as before)
-            EnclaveRequest r = local == null ? RemainsRequest(pos) : null;
-            int stage = r != null ? r.Stage : -1;
-            ScEncSearch.SearchAt(pos, local);       // MP5 merge: ScEncSearch.SearchAt takes EntityPlayerLocal (its tells)
-            if (local == null && sender != null) TellRemote(sender, r, stage);
+            // round MP5 (merge): part E's SearchAtFor searches for any player and tells them itself (the host's own player
+            // exactly as before) - the one "Search the body" path; part E's own enc.search op went with the merge
+            ScEncSearch.SearchAtFor(pos, sender);
             reply.Done();
-        }
-
-        /// <summary>ScEncSearch.RemainsAt's own rule: the open search whose remains lie here (dead or searched), or null.</summary>
-        private static EnclaveRequest RemainsRequest(Vector3i pos)
-        {
-            foreach (EnclaveRequest q in ScRegistry.EncRequests)
-                if (q.Kind == EnclaveRequest.KindMissing && q.IsAccepted && q.HasSpot && q.Spot == pos
-                    && (q.Stage == ScEncSearch.StageDead || q.Stage == ScEncSearch.StageSearched)) return q;
-            return null;
-        }
-
-        /// <summary>SearchAt's three tells, for a remote sender: nobody's remains, searched already, or found now.</summary>
-        private static void TellRemote(EntityPlayer to, EnclaveRequest r, int stageBefore)
-        {
-            try
-            {
-                if (r == null) { ScCommunity.TellKey(to, "scEncRemainsNothing", ""); return; }
-                EncPerson p = ScEncSearch.PersonById(r.PersonId);
-                Enclave e = ScEnclaves.ById(r.EnclaveId);
-                string name = p != null ? p.Name : ScEncSearch.PersonName(r), enc = e != null ? e.Name : "";
-                ScCommunity.TellKey(to, stageBefore == ScEncSearch.StageSearched ? "scEncRemainsSearched" : "scEncRemainsFound", "", name, enc);
-            }
-            catch (Exception ex)
-            {
-                ScLog.Once("actions-remains-tell", ex);
-            }
         }
     }
 }

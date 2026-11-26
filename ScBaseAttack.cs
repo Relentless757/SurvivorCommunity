@@ -521,9 +521,9 @@ namespace SurvivorCommunity
                 ScPlayers.TellCommunityKey("scDefRadioCall", "ui_denied", c.AttackSize, Side(c.AttackBearing),
                                            Hours(c.AttackArrive > w.worldTime ? c.AttackArrive - w.worldTime : 0UL));
 #if SC_V34
-                // MP4: voices to clients (the host's own player only until then)
-                EntityPlayerLocal lp = player as EntityPlayerLocal;
-                if (lp != null) ScHordeVoice.SayAway(HordeMoment.Call, Side(c.AttackBearing), null, lp, false);   // vo4: and spoken, while you carry a handheld
+                // vo4: and spoken, while you carry a handheld. Round MP5 (merge): SayAway takes any player (part R) - the host's own
+                // is judged as before, the remote players away get the line once (a dedicated server too)
+                ScHordeVoice.SayAway(HordeMoment.Call, Side(c.AttackBearing), null, player, false);
 #endif
             }
             ScLog.Out("base attack called (" + why + "): " + c.AttackSize + " zombie(s) from the " + Side(c.AttackBearing)
@@ -593,9 +593,8 @@ namespace SurvivorCommunity
                 // round MP0: the radio's news to every community player
                 if (player != null) ScPlayers.TellCommunityKey("scDefRadioArrived", "ui_denied", left, Side(c.AttackBearing), Hours(span));
 #if SC_V34
-                // MP4: voices to clients (the host's own player only until then)
-                EntityPlayerLocal lp = player as EntityPlayerLocal;
-                if (lp != null) ScHordeVoice.SayAway(HordeMoment.Arrived, Side(c.AttackBearing), null, lp, false);   // vo4: and spoken, while you carry a handheld
+                // vo4: and spoken, while you carry a handheld. Round MP5 (merge): any player, as the call
+                if (player != null) ScHordeVoice.SayAway(HordeMoment.Arrived, Side(c.AttackBearing), null, player, false);
 #endif
             }
             ScLog.Out("base attack " + (handoff ? "handed to the defenders (the player left the fight)" : "arrives with the player away") + ": " + left + " zombie(s) from the "
