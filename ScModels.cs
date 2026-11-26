@@ -117,12 +117,17 @@ namespace SurvivorCommunity
     }
 
     /// <summary>One community member. The registry file is the source of truth; NPC cvars mirror it.</summary>
-    public sealed class Member
+    public sealed class Member : IScCommunityRecord      // round MP6 (core): a member belongs to one community
     {
         public const int SkillCount = 4;
         public const int MaxStars = 7;
 
         public int Id;
+        /// <summary>
+        /// Round MP6 (core): the community whose roster holds her (stamped by ScRecordTable when she is put in; cid= in the save).
+        /// Meaningless for an enclave or band person's Member (never in a roster).
+        /// </summary>
+        public int CommunityId { get; set; }
         public string Class = "";
         public string Name = "";
         /// <summary>Entity.WorldTimeBorn - a second identity key, so a reused entity id is never mistaken for the member.</summary>
@@ -374,9 +379,11 @@ namespace SurvivorCommunity
     }
 
     /// <summary>A wild NPC the player has talked to about joining; holds the favour they asked for.</summary>
-    public sealed class Prospect
+    public sealed class Prospect : IScCommunityRecord    // round MP6 (core): a prospect belongs to one community
     {
         public int Id;
+        /// <summary>Round MP6 (core): the community courting them (stamped by ScRecordTable; cid= in the save).</summary>
+        public int CommunityId { get; set; }
         public string Class = "";
         public string Name = "";
         public FavourKind Favour = FavourKind.None;
@@ -407,6 +414,10 @@ namespace SurvivorCommunity
 
     public sealed class Community
     {
+        /// <summary>Round MP6 (core): this community's id (its CommunityState's; written as cid= by the save, not a key of its own).</summary>
+        public int Id { get; internal set; }
+        /// <summary>Round MP6 (core): the community's name ("sc community new &lt;name&gt;"; "" for community 0). Saved as name= when set.</summary>
+        public string Name = "";
         public bool HasHome;
         public Vector3i Home;
         /// <summary>The owner's display name, for the console and the log (whoever last set the home).</summary>
@@ -482,15 +493,17 @@ namespace SurvivorCommunity
         public readonly Dictionary<long, int[]> ScanChunks = new Dictionary<long, int[]>();
         public bool HasScanHome;
         public Vector3i ScanHome;
-        /// <summary>Radio: world time the next air drop may be requested; day of the next survivor call; contact id counter.</summary>
+        /// <summary>Radio: world time the next air drop may be requested; day of the next survivor call.</summary>
         public ulong RadioNextDrop;
         public int RadioNextCallDay;
-        public int NextContactId;
+        /// <summary>Round MP6 (core): forwards to the world's contact id counter (ScWorldState: ids never collide between communities).</summary>
+        public int NextContactId { get { return ScRegistry.WorldState.NextContactId; } set { ScRegistry.WorldState.NextContactId = value; } }
         /// <summary>Radio blocks inside the home zone, remembered so outposts can check their power from anywhere.</summary>
         public readonly List<Vector3i> Radios = new List<Vector3i>();
         /// <summary>The last day the home radio had power: that day's outpost deliveries report in.</summary>
         public int RadioOnlineDay = -1;
-        public int NextOutpostId;
+        /// <summary>Round MP6 (core): forwards to the world's outpost id counter (ScWorldState).</summary>
+        public int NextOutpostId { get { return ScRegistry.WorldState.NextOutpostId; } set { ScRegistry.WorldState.NextOutpostId = value; } }
         /// <summary>
         /// Outpost economy: the last rollover could not pay the whole upkeep (run-down) or haulage (on foot). Round ie1: no debt
         /// is kept (UpkeepDebt / HaulDebt are gone): a flag holds until a day the stockpile pays in full.
@@ -550,36 +563,28 @@ namespace SurvivorCommunity
         public int BloodMoonHomeDay;
         /// <summary>What happened at home while the player was away with no working radio, told when they are back (ScDefence.News).</summary>
         public readonly List<string> AwayNews = new List<string>();
-        /// <summary>
-        /// Streamer names (ScStreamerNames, round 30): every list name given out in this save, in the order given (streamname=,
-        /// one line each). Never given again here, even after that NPC died; sc names reset clears it.
-        /// </summary>
-        public readonly List<string> StreamerNamesUsed = new List<string>();
-        /// <summary>
-        /// Enclaves (ScEnclaves, E1): the id counter; the seeding stamp enclaveseed=1:day:mode:seed:count (absent = never
-        /// seeded in this save: a new save gets its world-start seed, an existing one the late seed; count = the target that
-        /// run aimed at, which a raised config tops up); and the day the radio may next reveal one (enclaveradio=).
-        /// </summary>
-        public int NextEnclaveId;
-        public bool EnclaveSeeded;
-        public int EnclaveSeedDay;
-        public string EnclaveSeedMode = "";
-        public int EnclaveSeed;
-        public int EnclaveSeedCount;
+        // ---- round MP6 (core): the world's fields moved to ScWorldState (ScRegistry.WorldState, saved as [world]). These
+        // forwarding properties keep every call site as it was: each community reads and writes the one world record through
+        // them. Their meaning is documented on ScWorldState.
+        /// <summary>Round MP6 (core): forwards to the world (ScWorldState.StreamerNamesUsed).</summary>
+        public List<string> StreamerNamesUsed { get { return ScRegistry.WorldState.StreamerNamesUsed; } }
+        /// <summary>Round MP6 (core): forward to the world (ScWorldState: the enclave id counter and the seeding stamp).</summary>
+        public int NextEnclaveId { get { return ScRegistry.WorldState.NextEnclaveId; } set { ScRegistry.WorldState.NextEnclaveId = value; } }
+        public bool EnclaveSeeded { get { return ScRegistry.WorldState.EnclaveSeeded; } set { ScRegistry.WorldState.EnclaveSeeded = value; } }
+        public int EnclaveSeedDay { get { return ScRegistry.WorldState.EnclaveSeedDay; } set { ScRegistry.WorldState.EnclaveSeedDay = value; } }
+        public string EnclaveSeedMode { get { return ScRegistry.WorldState.EnclaveSeedMode; } set { ScRegistry.WorldState.EnclaveSeedMode = value ?? ""; } }
+        public int EnclaveSeed { get { return ScRegistry.WorldState.EnclaveSeed; } set { ScRegistry.WorldState.EnclaveSeed = value; } }
+        public int EnclaveSeedCount { get { return ScRegistry.WorldState.EnclaveSeedCount; } set { ScRegistry.WorldState.EnclaveSeedCount = value; } }
+        /// <summary>Enclaves (ScEnclaves, E1): the day this community's radio may next reveal one (enclaveradio=).</summary>
         public int EnclaveRadioDay;
-        /// <summary>Infestations (ScInfestations, I1): the id counter (infestid=).</summary>
-        public int NextInfestationId;
-        /// <summary>Enclave people (ScEnclavePeople, E2): the person id counter (encpersonid=), one for every enclave.</summary>
-        public int NextEncPersonId;
-        /// <summary>Bands on the road (ScBands, E13a): the band and band person id counters (bandid=, bandpersonid=).</summary>
-        public int NextBandId;
-        public int NextBandPersonId;
-        /// <summary>
-        /// Enclave requests (ScEncRequests, E4): the id counter (encrequestid=), and the request clock - the last day the
-        /// request pass ran (encreqday=; ahead of the world's day only after "sc day").
-        /// </summary>
-        public int NextEncRequestId;
-        public int EncRequestDay;
+        /// <summary>Round MP6 (core): forward to the world (ScWorldState: the infestation, enclave person, band and band person id counters).</summary>
+        public int NextInfestationId { get { return ScRegistry.WorldState.NextInfestationId; } set { ScRegistry.WorldState.NextInfestationId = value; } }
+        public int NextEncPersonId { get { return ScRegistry.WorldState.NextEncPersonId; } set { ScRegistry.WorldState.NextEncPersonId = value; } }
+        public int NextBandId { get { return ScRegistry.WorldState.NextBandId; } set { ScRegistry.WorldState.NextBandId = value; } }
+        public int NextBandPersonId { get { return ScRegistry.WorldState.NextBandPersonId; } set { ScRegistry.WorldState.NextBandPersonId = value; } }
+        /// <summary>Round MP6 (core): forward to the world (ScWorldState: the enclave request id counter and the request clock).</summary>
+        public int NextEncRequestId { get { return ScRegistry.WorldState.NextEncRequestId; } set { ScRegistry.WorldState.NextEncRequestId = value; } }
+        public int EncRequestDay { get { return ScRegistry.WorldState.EncRequestDay; } set { ScRegistry.WorldState.EncRequestDay = value; } }
         /// <summary>
         /// P2 (user, 2026-11-09: "Maximum requests for help should be limited to 3 per day"): the world's day the calls for help
         /// were last counted on and how many came that day - offers and siege calls (encoffers=day:n; EnclaveRequestMaxPerDay).
@@ -591,17 +596,15 @@ namespace SurvivorCommunity
         /// fired by the ticker.
         /// </summary>
         public ulong EncSiegeAt;
-        /// <summary>
-        /// E5 (ScEncSearch): a missing survivor's remains still in the world after their request closed (encremains=), taken
-        /// out once their chunk is loaded.
-        /// </summary>
-        public readonly List<Vector3i> EncRemains = new List<Vector3i>();
+        /// <summary>Round MP6 (core): forwards to the world (ScWorldState.EncRemains: a missing survivor's remains still to take out).</summary>
+        public List<Vector3i> EncRemains { get { return ScRegistry.WorldState.EncRemains; } }
         /// <summary>
         /// E6 (ScEncAllies): the Enclave lost morale part - EnclaveLostMorale for each Friendly or Allied group lost, fading a
-        /// point a day (encloss=); and the refills owed for lost groups, each due on a request-clock day (encrefill=).
+        /// point a day (encloss=).
         /// </summary>
         public float EnclaveLoss;
-        public readonly List<EncRefill> EncRefills = new List<EncRefill>();
+        /// <summary>Round MP6 (core): forwards to the world (ScWorldState.EncRefills: the refills owed for lost groups).</summary>
+        public List<EncRefill> EncRefills { get { return ScRegistry.WorldState.EncRefills; } }
 
         // ---- round m1f (2026-11-17): the Facilities tab and base defense BD1. Read and written by ScFacilityTab.ParseKey /
         // WriteKeys; every key is new in [community], so an older build ignores them and drops them at its next save.

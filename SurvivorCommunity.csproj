@@ -66,6 +66,7 @@
     <Compile Include="ScConfig.cs" />
     <Compile Include="ScModels.cs" />
     <Compile Include="ScRegistry.cs" />
+    <Compile Include="ScCommunities.cs" />     <!-- round MP6 (core): several communities - CommunityState, ScCommunities, the world record, scopes -->
     <Compile Include="ScZone.cs" />
     <Compile Include="ScNpc.cs" />
     <Compile Include="ScXnpc.cs" />

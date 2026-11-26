@@ -279,10 +279,14 @@ namespace SurvivorCommunity
                 if (cm == null) return;
                 if (cm.IsServer)
                 {
-                    // a client sends only Open, Held and TalkClosed (round mt1, part H: the last two)
-                    if (kind == KindOpen) ScTalkContext.OnTalkOpen(Sender, id, openFlags);
-                    else if (kind == KindHeld) ScTalkContext.OnTalkHeld(Sender, id, openFlags);
-                    else if (kind == KindTalkClosed) ScTalkContext.OnTalkClosed(Sender, id);
+                    // round MP6 (core): in the sender's community
+                    using (ScRegistry.Use(ScPlayers.CommunityOf(Sender)))
+                    {
+                        // a client sends only Open, Held and TalkClosed (round mt1, part H: the last two)
+                        if (kind == KindOpen) ScTalkContext.OnTalkOpen(Sender, id, openFlags);
+                        else if (kind == KindHeld) ScTalkContext.OnTalkHeld(Sender, id, openFlags);
+                        else if (kind == KindTalkClosed) ScTalkContext.OnTalkClosed(Sender, id);
+                    }
                     return;
                 }
                 if (kind == KindFacts) ScTalkContext.OnFacts(facts);

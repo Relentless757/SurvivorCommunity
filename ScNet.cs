@@ -117,6 +117,13 @@ namespace SurvivorCommunity
         internal static void OnClientHello(ClientInfo sender, int protocol, string build)
         {
             if (sender == null) return;
+            // round MP6 (core): in the sender's community (MP6 (part network): the snapshot sent below is still community 0's text,
+            // BuildText(true); only its derived block follows this scope)
+            using (ScRegistry.Use(ScPlayers.CommunityOf(sender))) ClientHello(sender, protocol, build);
+        }
+
+        private static void ClientHello(ClientInfo sender, int protocol, string build)
+        {
             clientProtocol[sender.entityId] = protocol;
             if (protocol != Protocol)
             {

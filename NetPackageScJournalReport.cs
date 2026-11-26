@@ -95,7 +95,7 @@ namespace SurvivorCommunity
             {
                 ConnectionManager cm = ScNet.Cm;
                 if (cm == null || !cm.IsServer) return;          // a report never lands on a client
-                ScQuestNet.OnReport(Sender, report);
+                using (ScRegistry.Use(ScPlayers.CommunityOf(Sender))) ScQuestNet.OnReport(Sender, report);   // round MP6 (core): in the sender's community
             }
             catch (Exception e)
             {

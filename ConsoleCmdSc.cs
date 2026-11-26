@@ -13,7 +13,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list | tab] | facility level <x y z> <1-5>, drinks [on|off], lightsout [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res|mine|clay> | run <id|name> <recall|home|skip|offline|hurt [share]>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name> [tone], paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | skip <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | overrun <id> | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home [set], dump, save, sleep, downed [id|name], down <id|name>, revive <id|name>, chat [<a> <b> [force] | meet <a> <b> | gather [end] | lines [id|name]], craft [table | station [radius] | <id|name> [spec <Specialty> | end]], ui [reset], xnpc [id|name], mags [id|name [trim [confirm]]], team [id|name [auto | hurt [share]]], meds [id|name [give]], retreat [id|name | shelters [n | rescan]], trust <id|name> [forgive], recruit <id|name>, names [reload | reset | test [n] [male|female]], noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan | watch fatigue, tower [info] | tower check [rot] | tower stamp [rot] | tower repaint [radius], bond [id|name [add <n> | set <n> | event <gift [points]|revive|bloodmoon|down|kill>] | decay], perks [id|name [apply]], party, traits [sim [n] | <id|name> [set <trait> [trait ...] [force] | add <trait> [force] | remove <trait>]], spec [sim [n] | <id|name> [set <Specialty> [stars] [force]]]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list | tab] | facility level <x y z> <1-5>, drinks [on|off], lightsout [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res|mine|clay> | run <id|name> <recall|home|skip|offline|hurt [share]>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name> [tone], paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | skip <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | overrun <id> | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home [set], dump, save, sleep, downed [id|name], down <id|name>, revive <id|name>, chat [<a> <b> [force] | meet <a> <b> | gather [end] | lines [id|name]], craft [table | station [radius] | <id|name> [spec <Specialty> | end]], ui [reset], xnpc [id|name], mags [id|name [trim [confirm]]], team [id|name [auto | hurt [share]]], meds [id|name [give]], retreat [id|name | shelters [n | rescan]], trust <id|name> [forgive], recruit <id|name>, names [reload | reset | test [n] [male|female]], noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan | watch fatigue, tower [info] | tower check [rot] | tower stamp [rot] | tower repaint [radius], bond [id|name [add <n> | set <n> | event <gift [points]|revive|bloodmoon|down|kill>] | decay], perks [id|name [apply]], party, traits [sim [n] | <id|name> [set <trait> [trait ...] [force] | add <trait> [force] | remove <trait>]], spec [sim [n] | <id|name> [set <Specialty> [stars] [force]]], community [list | new <name> | join <id> [player] | leave [player] | use [id]]"; }
         public override string getHelp() { return getDescription(); }
 
         /// <summary>
@@ -86,6 +86,170 @@ namespace SurvivorCommunity
             return true;
         }
 
+        // ---- round MP6 (core): several communities ----
+
+        /// <summary>Round MP6 (core): this console session's key for "sc community use": the typing player's platform id, "" with none.</summary>
+        private static string ConsoleKey()
+        {
+            return sender != null ? ScPlayers.IdOf(sender) : "";
+        }
+
+        /// <summary>
+        /// Round MP6 (core): the community a console command acts in - the one "sc community use" named for this console session
+        /// (while it exists), else the sender's own, else community 0 (telnet, the web console, a dedicated server's own console).
+        /// </summary>
+        private static int ConsoleCommunity()
+        {
+            int c;
+            var use = ScRegistry.WorldState.ConsoleUse;
+            if (use.Count > 0 && use.TryGetValue(ConsoleKey(), out c) && ScCommunities.ById(c) != null) return c;
+            return sender != null ? ScPlayers.CommunityOf(sender) : ScPlayers.SharedCommunity;
+        }
+
+        /// <summary>
+        /// Round MP6 (core): "sc community" (admin-only, as all of sc): list | new &lt;name&gt; | join &lt;id&gt; [player] | leave [player] |
+        /// use [id]. Membership is the server's map by platform id (saved); anyone not in it is in community 0. A player who
+        /// changes community leaves their followers to the community they belong to. "use" makes this console session act in a
+        /// community (until the world closes; "use" alone goes back to the sender's own).
+        /// </summary>
+        private static void CommunityCmd(List<string> p)
+        {
+            if (!ScRegistry.Loaded) { Output("[SC] the community data is not loaded here (sc community runs on the server)"); return; }
+            string verb = p.Count > 1 ? p[1].ToLowerInvariant() : "list";
+            switch (verb)
+            {
+                case "list":
+                {
+                    ScWorldState ws = ScRegistry.WorldState;
+                    Output("[SC] " + ScCommunities.Count + " communit" + (ScCommunities.Count == 1 ? "y" : "ies") + " (" + ws.Membership.Count
+                           + " player(s) recorded outside community 0; everyone else is in community 0); this command acts in " + ScRegistry.Current.Label);
+                    foreach (CommunityState cs in ScCommunities.All)
+                    {
+                        Community c = cs.Community;
+                        var names = new List<string>();
+                        foreach (EntityPlayer pl in ScPlayers.All)
+                            if (pl != null && ScPlayers.CommunityOf(pl) == cs.Id) names.Add(pl.PlayerDisplayName);
+                        int recorded = 0;
+                        foreach (int v in ws.Membership.Values) if (v == cs.Id) recorded++;
+                        Output("[SC]   " + cs.Id + ": " + (string.IsNullOrEmpty(c.Name) ? "(no name)" : c.Name)
+                               + " - owner " + (string.IsNullOrEmpty(c.Owner) && string.IsNullOrEmpty(c.OwnerId) ? "none" : (c.Owner.Length > 0 ? c.Owner : "?") + (c.OwnerId.Length > 0 ? " (" + c.OwnerId + ")" : ""))
+                               + ", " + cs.Members.Count + " member(s), " + cs.Outposts.Count + " outpost(s), " + (c.HasHome ? "home " + c.Home : "no home")
+                               + ", day " + c.LastDay + (cs.Id == ScPlayers.SharedCommunity ? "" : ", " + recorded + " player(s) recorded")
+                               + ", online: " + (names.Count > 0 ? string.Join(", ", names.ToArray()) : "nobody"));
+                    }
+                    if (ScRegistry.UnscopedReads > 0)
+                        Output("[SC] unscoped reads of the community seen so far: " + ScRegistry.UnscopedReads + " (each distinct one is in the log, \"[MP6 scope]\")");
+                    break;
+                }
+                case "new":
+                {
+                    string name = p.Count > 2 ? string.Join(" ", p.GetRange(2, p.Count - 2).ToArray()).Trim() : "";
+                    if (name.Length == 0) { Output("[SC] usage: sc community new <name> - the new community's owner is you (none from telnet)"); return; }
+                    string ownerId = sender != null ? ScPlayers.IdOf(sender) : "";
+                    CommunityState cs = ScCommunities.Create(name, ownerId, sender != null ? sender.PlayerDisplayName : "");
+                    ScRegistry.SaveAtomic();
+                    ScLog.Out("community " + cs.Id + " (" + name + ") created" + (ownerId.Length > 0 ? " - owner " + sender.PlayerDisplayName : " - no owner"));
+                    Output("[SC] " + cs.Label + " created, owner " + (sender != null ? sender.PlayerDisplayName : "none")
+                           + ". Nobody is in it yet: sc community join " + cs.Id + " [player] moves a player in.");
+                    break;
+                }
+                case "join":
+                case "leave":
+                {
+                    bool join = verb == "join";
+                    int cid = ScPlayers.SharedCommunity;
+                    if (join && (p.Count < 3 || !int.TryParse(p[2], out cid))) { Output("[SC] usage: sc community join <id> [player] (sc community list shows the ids)"); return; }
+                    if (ScCommunities.ById(cid) == null) { Output("[SC] there is no community " + cid + " (sc community list)"); return; }
+                    string arg = join ? (p.Count > 3 ? string.Join(" ", p.GetRange(3, p.Count - 3).ToArray()) : "") : (p.Count > 2 ? string.Join(" ", p.GetRange(2, p.Count - 2).ToArray()) : "");
+                    string pid, who;
+                    if (!CommunityPlayer(arg, out pid, out who))
+                    {
+                        Output("[SC] usage: sc community " + (join ? "join <id> [player]" : "leave [player]") + " - the player: a name or entity id of someone online, or a platform id (Steam_..., EOS_...); none: you");
+                        return;
+                    }
+                    int was = ScPlayers.CommunityOfId(pid);
+                    if (was == cid) { Output("[SC] " + who + " is already in " + ScCommunities.ById(cid).Label); return; }
+                    ScPlayers.SetCommunity(pid, cid);
+                    ScRegistry.SaveAtomic();
+                    // their followers stay with the community they belong to (members are a community's, not a player's)
+                    int followers = 0;
+                    CommunityState old = ScCommunities.ById(was);
+                    if (old != null)
+                        foreach (Member m in old.Members.Values)
+                            if ((m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) && string.Equals(m.LeaderId, pid, StringComparison.Ordinal)) followers++;
+                    ScLog.Out("community: " + who + " (" + pid + ") moved from community " + was + " to community " + cid);
+                    Output("[SC] " + who + " is now in " + ScCommunities.ById(cid).Label + " (was " + (old != null ? old.Label : "community " + was) + ")"
+                           + (followers > 0 ? "; their " + followers + " follower(s) stay members of " + (old != null ? old.Label : "it") : "")
+                           + ". A client's own copy stays community 0's until the per-community mirror: its requests are refused as stale meanwhile.");
+                    break;
+                }
+                case "use":
+                {
+                    string key = ConsoleKey();
+                    int cid;
+                    if (p.Count < 3 || p[2].Equals("none", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ScRegistry.WorldState.ConsoleUse.Remove(key);
+                        Output("[SC] this console acts in " + (sender != null ? "your own community (" + (ScCommunities.ById(ScPlayers.CommunityOf(sender)) ?? ScCommunities.Zero).Label + ")" : "community 0") + " again");
+                        return;
+                    }
+                    if (!int.TryParse(p[2], out cid) || ScCommunities.ById(cid) == null) { Output("[SC] usage: sc community use <id> | none - there is no community " + p[2]); return; }
+                    ScRegistry.WorldState.ConsoleUse[key] = cid;
+                    Output("[SC] this console now acts in " + ScCommunities.ById(cid).Label + " (until the world closes; sc community use none goes back)");
+                    break;
+                }
+                default:
+                    Output("[SC] usage: sc community [list | new <name> | join <id> [player] | leave [player] | use [id|none]]");
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Round MP6 (core): the player "sc community join/leave" moves - "" the sender; an entity id or a name of someone online
+        /// (exact, else the only one whose name contains it); else a platform id (Steam_..., EOS_...: a player offline).
+        /// </summary>
+        private static bool CommunityPlayer(string arg, out string pid, out string who)
+        {
+            pid = ""; who = "";
+            arg = (arg ?? "").Trim();
+            if (arg.Length == 0)
+            {
+                if (sender == null) return false;
+                pid = ScPlayers.IdOf(sender);
+                who = sender.PlayerDisplayName;
+                return pid.Length > 0;
+            }
+            EntityPlayer found = null;
+            int eid;
+            if (int.TryParse(arg, out eid)) found = ScPlayers.ByEntity(eid);
+            if (found == null)
+            {
+                EntityPlayer partial = null;
+                int partials = 0;
+                foreach (EntityPlayer pl in ScPlayers.All)
+                {
+                    if (pl == null || pl.PlayerDisplayName == null) continue;
+                    if (string.Equals(pl.PlayerDisplayName, arg, StringComparison.OrdinalIgnoreCase)) { found = pl; break; }
+                    if (pl.PlayerDisplayName.IndexOf(arg, StringComparison.OrdinalIgnoreCase) >= 0) { partial = pl; partials++; }
+                }
+                if (found == null && partials == 1) found = partial;
+            }
+            if (found != null)
+            {
+                pid = ScPlayers.IdOf(found);
+                who = found.PlayerDisplayName;
+                return pid.Length > 0;
+            }
+            PlatformUserIdentifierAbs uid;
+            if (arg.IndexOf('_') > 0 && PlatformUserIdentifierAbs.TryFromCombinedString(arg, out uid) && uid != null)
+            {
+                pid = uid.CombinedString ?? arg;
+                who = pid;
+                return pid.Length > 0;
+            }
+            return false;
+        }
+
         public override void Execute(List<string> _params, CommandSenderInfo _senderInfo)
         {
             // round 29b: which command the [SC console] lines below answer, and when (the log-only lines carry no timestamp)
@@ -95,11 +259,17 @@ namespace SurvivorCommunity
             if (senderRemote) ToLog("  (from " + (sender != null ? sender.PlayerDisplayName + ", entity " + sender.entityId : "a remote client with no player in the world") + ")");
             // round MP2 (review radials NIT 5): said to the admin too - the subcommands that need a player answer as on a server's own console
             if (senderRemote && sender == null) Output("[SC] (you have no player in the world yet: subcommands that act for a player answer as on the server's own console)");
+            // round MP6 (core): the command acts in the sender's community - or the one "sc community use <id>" named for this console
+            // (telnet, the web console and a dedicated server's own console: community 0 unless so named)
+            int scope = ConsoleCommunity();
+            if (ScCommunities.Count > 1) ToLog("  (in " + (ScCommunities.ById(scope) ?? ScCommunities.Zero).Label + ")");
             try
             {
+                using ScScope inScope = ScRegistry.Use(scope);     // round MP6 (core): ends with this block, an exception included
                 string sub = _params.Count > 0 ? _params[0].ToLowerInvariant() : "status";
                 switch (sub)
                 {
+                    case "community": case "communities": CommunityCmd(_params); break;   // round MP6 (core): list | new | join | leave | use
                     case "status": Status(); break;
                     case "members": MembersCmd(); break;
                     case "day": Day(); break;
@@ -363,6 +533,7 @@ namespace SurvivorCommunity
             Community c = ScRegistry.Community;
             c.LastDay++;
             ScTicker.SimulatedDay = c.LastDay;     // the ticker's resync back to the world's day is then ours, not a fault
+            ScTicker.SimulatedCommunity = ScRegistry.CurrentId;   // round MP6 (core): the community whose day it is (the console's scope)
             ScTicker.SimulatedFromDay = ScCommunity.World != null ? GameUtils.WorldTimeToDays(ScCommunity.World.worldTime) : -1;
             ScDaily.Run(c.LastDay, p);
             Output("[SC] simulated day " + c.LastDay + " - morale " + c.Morale);

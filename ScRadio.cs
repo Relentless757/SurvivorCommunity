@@ -5,9 +5,11 @@ using UnityEngine;
 namespace SurvivorCommunity
 {
     /// <summary>A survivor heard over the radio: simulated as a record at a real POI until its chunk loads, then spawned.</summary>
-    public sealed class Contact
+    public sealed class Contact : IScCommunityRecord      // round MP6 (core): a contact belongs to one community
     {
         public int Id;
+        /// <summary>Round MP6 (core): the community whose radio heard them (stamped by ScRecordList; cid= in the save).</summary>
+        public int CommunityId { get; set; }
         public string Class = "";
         public string Label = "";
         public Vector3i PoiKey;

@@ -19,9 +19,11 @@ namespace SurvivorCommunity
     }
 
     /// <summary>A cleared POI the community holds with a land claim; it sends bundles home at every rollover.</summary>
-    public sealed class Outpost
+    public sealed class Outpost : IScCommunityRecord      // round MP6 (core): an outpost belongs to one community
     {
         public int Id;
+        /// <summary>Round MP6 (core): the community that holds it (stamped by ScRecordList; cid= in the save).</summary>
+        public int CommunityId { get; set; }
         /// <summary>The land claim block the outpost was established on.</summary>
         public Vector3i Flag;
         /// <summary>The POI's footprint: min corner (PrefabInstance.boundingBoxPosition, the key used everywhere) and size.</summary>
@@ -218,6 +220,8 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The registry was (re)loaded or reset: rebuild the lookup tables and restore markers on the next tick.</summary>
+        // MP6 (part gates): this and its cascade read the community in scope (the load runs it in community 0's): the footprint
+        // index (Rebuild) needs every community's outposts (ScCommunities.AllOutposts), the id check every community's
         public static void OnRegistryChanged()
         {
             markersRestored = false;

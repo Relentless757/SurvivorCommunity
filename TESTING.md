@@ -40,6 +40,66 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+**Communities (round MP6)**
+
+- `sc community` lists the communities (id, name, owner, members, outposts, home, players online); `sc community new
+  <name>`, `join <id> [player]`, `leave [player]` and `use <id>|none` (this console acts in that community) make and fill a
+  second one. Admin only.
+
+## Round MP6 (part: core) (2026-11-26): one server can hold several communities
+
+Why: MP6 lets one server hold several communities. This part is the core the other MP6 parts build on. Each community has
+its own record, members, prospects, radio contacts, outposts and enclave requests. One world record holds every id counter,
+the enclaves' seeding, the request clock, refills, remains and streamer names. The ticker and the day rollover run per
+community. The save is a new file, `survivor_communities.txt`, and a save from before MP6 is migrated once. An admin's
+`sc community` makes a second community. With everyone in community 0 (no `sc community join`), single player, a listen
+host and a dedicated server must behave exactly as before. Build `sc34_mp6core`, **not deployed**, protocol 7 unchanged,
+untested in game. The save's migration and round trip were checked offline on 12 saves from before MP6.
+
+**Single player (nothing may change; the save migrates)**
+- [ ] Load a save from before MP6. The log says `registry: migrating survivor_community.txt to survivor_communities.txt - its
+      community becomes community 0`, then `registry loaded: ...` with the same counts as before. The community window,
+      members, stockpile, outposts, enclaves, requests, bands and infestations are as they were.
+- [ ] `sc save`. The save folder now has `survivor_communities.txt`, with `SCOM 2`, a `[world]` section (the id counters,
+      `enclaveseed=`, `encreqday=` ...), `[community]` with `cid=0` first, and `cid=0` opening each `[member]`, `[outpost]`,
+      `[contact]`, `[encrequest]` and `[prospect]`. `survivor_community.txt` is untouched (same date and size as before).
+- [ ] Quit and load again: no "migrating" line. Everything is as it was.
+- [ ] An older SC build on a copy of this save loads `survivor_community.txt` (the state from before MP6) and never writes
+      `survivor_communities.txt`.
+- [ ] A new game: `survivor_communities.txt` appears at the first save, and there is no `survivor_community.txt`.
+- [ ] A real day rollover and `sc day`: the ledger line, the daily tell and its sound are as before. So are the enclaves'
+      reveal, the requests, infestations, moves, bands and allies (the ledger's summary lists them in the same order).
+- [ ] `settime` back a day: one `the world day went backwards ...` warning, as before. `sc day`, then wait a second:
+      `sc day: the simulated day N is over - back to the world's day M`, as before.
+- [ ] `sc community` (or `sc community list`) lists one community: `0: (no name) - owner <you> ...`.
+
+**A dedicated server (one community)**
+- [ ] The migrated save on the dedicated server, one client: everything works as in round MP5, including the community
+      window, buttons, radials, dialogs, tells and markers. Every action works: the client's community (0) matches the server's.
+- [ ] The server log has no `[MP6 scope]` lines. They appear only while two or more communities exist.
+
+**Two communities (`sc community`, admin only)**
+- [ ] `sc community new Riverside`: `community 1 (Riverside) created, owner <you>. Nobody is in it yet ...`.
+      `sc community list` shows both communities. After `sc save` the file has `[community]` with `cid=1` and
+      `name=Riverside`, and `[world]` has `communityid=1`.
+- [ ] Single player or the listen host's own console: `sc community join 1`. Community 1 is empty with no home, and the
+      community window and `sc status` show it. The console says how many of your followers stay with community 0. Setting a
+      home from the claim radial sets community 1's. `sc community leave` takes you back to community 0, which is unchanged.
+- [ ] A community ticks only while one of its players is online: its day rollover (ledger, tell) runs then, from its own
+      `lastday`. A community that comes back online after days catches up as before, at most 60 days.
+- [ ] Dedicated server, telnet: `sc community join 1 <player>` moves the client into community 1. The client's own copy
+      is still community 0's until the per-community mirror, so its buttons answer "Your community changed since this was
+      shown. Try again in a moment." This is expected in this part. `sc community leave <player>` makes them work again.
+- [ ] Telnet: `sc community use 1`, then `sc status`, shows community 1. `sc community use none` goes back to community 0.
+- [ ] Save, quit and load: both communities, their names and owners, and the membership are kept. The log says
+      `registry loaded: ... (community 0; 2 communities, 1 player(s) outside community 0)`.
+- [ ] With two communities, the dedicated server's log has `[MP6 scope] community state read with no scope ...` lines, each
+      with a stack trace. They are the unscoped reads the other MP6 parts close. Keep them for those parts.
+      `sc community list` counts them.
+- Known gaps, for the other MP6 parts (not bugs of this part): community 1+ gets no enclave requests, radio reveals or allies
+  of its own, its steps that throttle on one static timer do not run, its members are not put to bed at night, and the
+  client's copy, markers and Craft from Storage stay community 0's.
+
 ## Round t107 (2026-11-26): a forced horde line typed by a client reaches that client
 
 `sc radio horde <moment> [side] [member] force` typed by a remote player used to be queued on the server's own radio (a

@@ -8,7 +8,9 @@ namespace SurvivorCommunity
     /// The acting player is the package's Sender - never a player id from the payload.
     /// Layout:
     ///   int32  request    the client's request id (echoed in the answer)
-    ///   int32  community  Stage 1: always 0 (ScPlayers.SharedCommunity)
+    ///   int32  community  Stage 1: always 0 (ScPlayers.SharedCommunity). Round MP6 (core): the community of the client's copy
+    ///                     (ScRegistry.CurrentId) - a staleness check only: the server acts in the sender's own community and refuses
+    ///                     a mismatch (scActionCommunityChanged). The layout is unchanged.
     ///   string op         the action's name (ScActionAttribute)
     ///   byte   n          then n int32s: the whole-number arguments
     ///   byte   m          then m strings: the string arguments

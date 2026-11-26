@@ -2158,6 +2158,7 @@ scActionFailed,UI,Tooltip,,,,"That did not work. The server's log has the detail
 scActionNoPlayer,UI,Tooltip,,,,"There is no player to act for."
 scActionNotReady,UI,Tooltip,,,,"The community's data is not loaded yet. Try again in a moment."
 scActionDead,UI,Tooltip,,,,You can't do that while dead.
+scActionCommunityChanged,UI,Tooltip,,,,"Your community changed since this was shown. Try again in a moment."
 scTalkBusyWith,UI,Tooltip,,,,{0} is busy with {1} right now. Ask again once they are done.
 scTalkBusy,UI,Tooltip,,,,{0} is busy with someone else right now. Ask again in a moment.
 scWorkHeldOther,UI,Tooltip,,,,They're talking with someone else right now. Try again once that talk is over.

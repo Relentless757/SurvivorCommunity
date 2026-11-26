@@ -107,7 +107,8 @@ NPCs but cannot manage a community (v2).
 - **Skills and traits (data).** Each survivor rolls 2 traits, starting stars in Cardio / Wits / Fighting /
   Shooting and a specialty (Medicine, Cooking, Mechanics, Gardening, Chemistry, Craftsmanship). Kills
   already earn Fighting / Shooting XP. Gameplay effects come with milestone 3.
-- **Persistence.** `<save>/survivor_community.txt` is the source of truth (atomic write, `.bak`).
+- **Persistence.** `<save>/survivor_communities.txt` is the source of truth (atomic write, `.bak`; `survivor_community.txt`
+  before round MP6, migrated once at load).
 - **Console:** `sc status | members | day | morale <n> | give <res> <n> | facility | drinks | relink | repost <member> | home | dump | save`.
 
 ## Milestone 2 - packing station, stockpile, daily needs
@@ -3105,6 +3106,73 @@ Round MP0 is the groundwork:
   for a forced horde line, and `RadioHeard` lets it go on the radio once out of earshot (`Line.Forced`). The package's layout
   is unchanged; an older client plays a forced line only by its normal rule. With no sender and no player of its own (a
   dedicated server's console or telnet) a forced line is not queued: the console says nobody there hears it.
+- **Round MP6 (part: core), several communities on one server:** the core every later MP6 part builds on. With everyone in
+  community 0, single player, a listen host and a dedicated server behave exactly as before.
+  - **`CommunityState`** (`ScCommunities.cs`): one per community. It holds the `Community` record (the community's own
+    fields, plus `Id` and `Name`), `Members`, `Prospects`, `Contacts`, `Outposts` and `EncRequests`. Records `Member`,
+    `Prospect`, `Contact`, `Outpost` and `EnclaveRequest` carry `CommunityId`. The containers (`ScRecordTable`,
+    `ScRecordList`) stamp it when a record goes in through their own indexer, `Add` or `Insert`, so it always names the
+    container that holds the record. `ScCommunities` has `All` (lowest id first), `ById`, `Create(name, ownerId, ownerName)`
+    (ids from the world counter), `Zero` (community 0 always exists), `AllMembers`/`AllOutposts` and `ForEach` (each
+    community inside its own scope) for world loops.
+  - **`ScRegistry.Current` and scopes:** `ScRegistry.Community`, `.Members`, `.Prospects`, `.Contacts`, `.Outposts` and
+    `.EncRequests` are read-only properties of `Current`, so existing code reads the community in scope.
+    `using (ScRegistry.Use(cid))` (also `Use(Member)`, `Use(Outpost)`, `Use(EntityPlayer)`) sets the scope until the
+    block ends, exceptions included. Scopes nest. Never keep one open across a coroutine's `yield`. `Current` resolves in this
+    order:
+    1. the innermost scope;
+    2. on a client, the mirrored community (`MirroredCommunity`, 0 for now);
+    3. on a host with a local player, that player's community;
+    4. else community 0.
+    With one community it is always community 0. While two or more communities exist, an unscoped read on a server with no
+    local player logs `[MP6 scope] ...` once per distinct stack trace (`sc community list` counts them). Main thread only.
+  - **Already scoped:** `ScActions.Dispatch` scopes every op to the sender's community. The `community` int in
+    `NetPackageScAction` is a staleness check only: a mismatch is refused with `scActionCommunityChanged`.
+    `Allowed`/`IsOwnerOrAdmin` check the sender's own community. Also scoped:
+    - the ticker (per community, see below);
+    - `ConsoleCmdSc.Execute` (the sender's community, or the one `sc community use` named; a playerless console uses
+      community 0);
+    - the server side of `NetPackageScTalkContext` and `NetPackageScJournalReport`, and the hello.
+  - **Global lookups never read the scope:** `GetMember`/`GetProspect` answer across every community (entity ids are
+    world-unique). So do `CommunityOfMember`, `ScCommunities.*` and `ScPlayers.CommunityOf`. `CountStatus`, `FollowerCount`
+    and `Members` stay per scope. Code that means "anyone's member" must loop over `ScCommunities.AllMembers()`, not
+    `ScRegistry.Members`.
+  - **The world record:** `ScRegistry.WorldState` (`ScWorldState`). It holds:
+    - every id counter (contact, outpost, enclave, infestation, enclave person, band, band person, enclave request, and the
+      new community counter), so ids never collide and old journal quests stay valid;
+    - the enclaves' seeding, the request clock (`EncRequestDay`), remains, refills and streamer names;
+    - the world daily's own day guard;
+    - the membership map.
+    `Community` keeps forwarding properties for the moved fields, so call sites are unchanged.
+  - **Membership:** `ScPlayers.CommunityOf(player)` reads a server map from platform id to community id. Anyone not in it is
+    in community 0. On a client, its own player is in the mirrored community. `InCommunity(p, c)`, `Community(c)`,
+    `TellCommunity`, `TellCommunityKey`, `OwnerOnline` and `Anchor(c)` default to the community in scope.
+    `Anchor(c)` is one of that community's players: the host's own player only if they belong to it, then its owner, then a
+    player at its home, then any of its players. It is null when none of them is online.
+  - **The ticker** runs every per-community step once for each community with a player online, inside its scope, with its
+    anchor. The world steps run once, in the first of those passes, in their old places: `ScEnclaves`, `ScEnclavePeople`,
+    `ScEncDoors`, `ScBands`, `ScInfestations`, `ScStreamerNames`, `ScSleep` and `ScPanelHold`. The per-viewer pushes
+    (`ScMirror`, `ScMarkers`, `ScCraftFromBase`) run in community 0's scope, as before.
+    `ScDaily.Run` is a community's daily, guarded by its own `LastDay`. Where the world steps always ran, it calls
+    `ScDaily.RunWorld` for every world day not run yet. That is guarded by `ScWorldState.LastDay`, so the first community
+    to roll a day over runs it.
+  - **The save:** `survivor_communities.txt` (header `SCOM 2`), written atomically as before. It holds:
+    - `[world]`: the world keys that used to sit in `[community]`, plus `lastday=` and `communityid=`;
+    - `[membership]`: one `player=<platform id>:<cid>` line per player outside community 0;
+    - one `[community]` per community, with `cid=` first and `name=`;
+    - `cid=` first in each `[member]`, `[prospect]`, `[contact]`, `[outpost]` and `[encrequest]`. A record with no `cid=` is
+      community 0's.
+    With only the old `survivor_community.txt`, the load migrates it: its community becomes community 0 (owner kept), its
+    world keys go to the world record, and every id counter keeps its value. The old file is never written again, so an
+    older build still loads the state from before MP6 and never touches the new file. A client's snapshot
+    (`BuildText(true)`) is still community 0's text in the old `SCOM 1` layout (`BuildLegacyText`).
+  - **`sc community`** (admin, as all of `sc`): `list`, `new <name>` (owner: the sender), `join <id> [player]`,
+    `leave [player]` (back to community 0), and `use <id>|none` (the console session acts in a community until the world
+    closes). The player is a name or entity id online, or a platform id. A player who changes community leaves their
+    followers with the community they belong to.
+  - **For modders:** read a community's state inside a scope. Entry points the core does not scope yet are marked
+    `// MP6 (part <relations|network|home|gates>): ...` (Harmony, UAI, blocks, engine events and queues). A new world loop
+    over "every member" uses `ScCommunities.AllMembers()`. A new id counter goes in `ScWorldState`.
 
 ## How it hangs together (for modders)
 

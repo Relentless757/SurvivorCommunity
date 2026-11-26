@@ -12,7 +12,7 @@ namespace SurvivorCommunity
     /// the world's day, ahead of it only after "sc day"). E5 adds the missing survivor (ScEncSearch), the infestation
     /// (ScEncInfest) and the siege (ScEncSiege): their fields are at the end, saved when set.
     /// </summary>
-    public sealed class EnclaveRequest
+    public sealed class EnclaveRequest : IScCommunityRecord      // round MP6 (core): a request belongs to one community
     {
         public const string KindResource = "resource", KindGenerator = "generator", KindGun = "gun";
         /// <summary>E5's kinds: a missing survivor and an infestation to clear (offered as E4's are), a siege (a call: never offered).</summary>
@@ -20,6 +20,8 @@ namespace SurvivorCommunity
         public const string StateOffered = "offered", StateAccepted = "accepted";
 
         public int Id;
+        /// <summary>Round MP6 (core): the community it was offered to (stamped by ScRecordList; cid= in the save).</summary>
+        public int CommunityId { get; set; }
         public int EnclaveId;
         public string Kind = KindResource;
         public string State = StateOffered;

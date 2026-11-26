@@ -267,7 +267,9 @@ namespace SurvivorCommunity
                 Purge();
                 int id = ++nextRequest;
                 pending[id] = new Pending { Callback = onResult, At = UnityEngine.Time.realtimeSinceStartup, Op = op };
-                ScNet.Cm.SendToServer(NetPackageManager.GetPackage<NetPackageScAction>().Setup(id, ScPlayers.SharedCommunity, op, args.Ints, args.Strs));
+                // round MP6 (core): the community this client's copy is of (ScRegistry.Current: the mirrored one) - the server only
+                // checks it against the sender's, it never picks the community
+                ScNet.Cm.SendToServer(NetPackageManager.GetPackage<NetPackageScAction>().Setup(id, ScRegistry.CurrentId, op, args.Ints, args.Strs));
             }
             catch (Exception e)
             {
@@ -324,7 +326,9 @@ namespace SurvivorCommunity
                 EntityPlayer p = ScPlayers.ByEntity(sender.entityId);
                 if (p == null) r = new ScActionReply().Fail("scActionNoPlayer");
                 else if (!ScNet.ClientMatches(p)) r = new ScActionReply().Fail("scNetMismatch");
-                else if (community != ScPlayers.SharedCommunity) r = new ScActionReply().Fail("scActionUnknown");   // Stage 2 adds communities
+                // round MP6 (core): the package's community is a staleness check - the client acted on a copy of another community
+                // than the sender's (they changed community since): refused with a reason, never a choice of community
+                else if (community != ScPlayers.CommunityOf(p)) r = new ScActionReply().Fail("scActionCommunityChanged");
                 else r = Dispatch(p, op, new ScActionArgs(ints, strs));
             }
             catch (Exception e)
@@ -354,28 +358,35 @@ namespace SurvivorCommunity
             }
             if (p == null) return r.Fail("scActionNoPlayer");
             if (!(p is EntityPlayerLocal) && p.IsDead()) return r.Fail("scActionDead");     // the review's m4: as the old UI implied
-            if (!Allowed(p, e.Access)) return r.Fail("scActionDenied");
-            try
+            // round MP6 (core): every op runs in the sender's community (one scope here covers every handler)
+            using (ScRegistry.Use(p))
             {
-                e.Handler(p, args ?? new ScActionArgs(null, null), r);
+                if (!Allowed(p, e.Access)) return r.Fail("scActionDenied");
+                try
+                {
+                    e.Handler(p, args ?? new ScActionArgs(null, null), r);
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("action-" + op, ex);
+                    r.Fail("scActionFailed");
+                    r.Hint = "";                // the review's n4: no follow-up from a half-run handler
+                }
+                if (ScConfig.Verbose && !e.Quiet)
+                    ScLog.Verbose("action " + op + " by " + p.PlayerDisplayName + ": " + (r.Ok ? "done" : "refused") + (string.IsNullOrEmpty(r.Message) ? "" : " (" + r.Message + ")"));
             }
-            catch (Exception ex)
-            {
-                ScLog.Once("action-" + op, ex);
-                r.Fail("scActionFailed");
-                r.Hint = "";                // the review's n4: no follow-up from a half-run handler
-            }
-            if (ScConfig.Verbose && !e.Quiet)
-                ScLog.Verbose("action " + op + " by " + p.PlayerDisplayName + ": " + (r.Ok ? "done" : "refused") + (string.IsNullOrEmpty(r.Message) ? "" : " (" + r.Message + ")"));
             return r;
         }
 
         // ------------------------------------------------------------------ permission (the server) ----
 
-        /// <summary>The Shared-mode permission matrix: a community player may run the community; Owner ops follow SharedOwnerOnly.</summary>
+        /// <summary>
+        /// The Shared-mode permission matrix: a community player may run the community; Owner ops follow SharedOwnerOnly. Round
+        /// MP6 (core): against the sender's own community (ScPlayers.CommunityOf), whatever the scope the caller is in.
+        /// </summary>
         public static bool Allowed(EntityPlayer p, ScActionAccess access)
         {
-            if (p == null || !ScPlayers.InCommunity(p)) return false;
+            if (p == null || ScCommunities.ById(ScPlayers.CommunityOf(p)) == null) return false;
             switch (access)
             {
                 case ScActionAccess.Community: return true;
@@ -408,13 +419,15 @@ namespace SurvivorCommunity
         /// <summary>
         /// The community's owner (by platform id), an admin, or anyone while the community has no owner yet. A save from before
         /// round MP0 knows its owner only by display name until they are online once (ScTicker backfills OwnerId): that name
-        /// counts then (the review's m3), as ScPlayers.OwnerOnline matches it.
+        /// counts then (the review's m3), as ScPlayers.OwnerOnline matches it. Round MP6 (core): the owner of the player's own
+        /// community, whatever the scope the caller is in.
         /// </summary>
         public static bool IsOwnerOrAdmin(EntityPlayer p)
         {
             if (p == null) return false;
             if (IsAdmin(p)) return true;
-            Community c = ScRegistry.Community;
+            CommunityState cs = ScCommunities.ById(ScPlayers.CommunityOf(p));
+            Community c = cs != null ? cs.Community : null;
             if (c == null) return true;
             if (!string.IsNullOrEmpty(c.OwnerId)) return string.Equals(ScPlayers.IdOf(p), c.OwnerId, StringComparison.Ordinal);
             if (!string.IsNullOrEmpty(c.Owner)) return string.Equals(p.PlayerDisplayName, c.Owner, StringComparison.Ordinal);

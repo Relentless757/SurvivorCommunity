@@ -178,7 +178,9 @@ namespace SurvivorCommunity
             try
             {
                 ConnectionManager cm = ScNet.Cm;
-                if (cm == null || cm.IsServer) return;          // the server's boxes are the truth: a view never lands there
+                // the server's boxes are the truth: a view never lands there. Round MP6 (core): so there is no server side to scope here -
+                // a client's storage requests are ScActions ops (ScStorageServer), which ScActions.Dispatch scopes from the sender
+                if (cm == null || cm.IsServer) return;
                 switch (kind)
                 {
                     case KindView:

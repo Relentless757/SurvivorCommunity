@@ -7,7 +7,21 @@ using System.Text;
 namespace SurvivorCommunity
 {
     /// <summary>
-    /// The community's source of truth: &lt;save&gt;/survivor_community.txt (atomic tmp + File.Replace + .bak).
+    /// The community's source of truth: &lt;save&gt;/survivor_communities.txt (atomic tmp + File.Replace + .bak). Round MP6 (core):
+    /// before MP6 it was &lt;save&gt;/survivor_community.txt (header SCOM 1, one community); a save with only that file is migrated
+    /// at load (its community becomes community 0, owner kept; its world keys go to [world]; every id counter keeps its value)
+    /// and the old file is never written again, so an older build still loads the pre-MP6 state and never touches the new file.
+    ///
+    /// Round MP6 (core) layout (header SCOM 2):
+    ///   [world]      lastday=N (the world daily's day guard) communityid=N (the community id counter) contactid= outpostid=
+    ///                enclaveid= enclaveseed= infestid= encpersonid= bandid= bandpersonid= encrequestid= encreqday= encremains=
+    ///                encrefill= cleanup= doomed= streamname=... - every world key below that used to sit in [community]
+    ///   [membership] player=platformid:cid, one line per player in a community other than 0 (anyone not listed is in 0)
+    ///   [community]  cid=N first, then name= (when set) and the community keys below; one section per community
+    ///   [member], [prospect], [contact], [outpost], [encrequest]: cid=N first, then the keys below (no cid: community 0)
+    ///   [enclave], [encperson], [infestation], [band], [bandperson]: world records, unchanged (their relation fields stay for now)
+    /// A client's snapshot (BuildText(true)) is still community 0's text in the SCOM 1 layout, exactly as before MP6.
+    /// The keys below are each section's, as before MP6 (SCOM 1):
     ///
     /// Lifecycle mirrors LandClaimUpgrade's registry: loaded from the PersistentPlayerList.ReadXML postfix
     /// (the players.xml directory IS the save directory), saved from the PersistentPlayerList.Write(string)
@@ -104,8 +118,13 @@ namespace SurvivorCommunity
     /// </summary>
     public static class ScRegistry
     {
-        public const string FileName = "survivor_community.txt";
-        private const string Header = "SCOM 1";
+        /// <summary>Round MP6 (core): the save file since MP6 (several communities, SCOM 2).</summary>
+        public const string FileName = "survivor_communities.txt";
+        /// <summary>Round MP6 (core): the file before MP6 (one community, SCOM 1): read once to migrate, never written again.</summary>
+        public const string LegacyFileName = "survivor_community.txt";
+        private const string Header = "SCOM 2";
+        /// <summary>Round MP6 (core): the old layout's header - a client's snapshot (community 0's text) still uses it.</summary>
+        private const string LegacyHeader = "SCOM 1";
         /// <summary>
         /// Round MP1: a client's snap= / postsnap= (BuildText(true)): the snapshot itself stays on the server, but its presence
         /// says the member is held offline (ScRunners.HeldOffline, IsPhysical, Commit's Garrison) - so it is there, as "-", which
@@ -113,13 +132,141 @@ namespace SurvivorCommunity
         /// </summary>
         public const string SnapStub = "-";
 
-        public static Community Community = new Community();
-        public static readonly Dictionary<int, Member> Members = new Dictionary<int, Member>();
-        public static readonly Dictionary<int, Prospect> Prospects = new Dictionary<int, Prospect>();
-        /// <summary>Survivors heard over the radio, not yet met (ScRadio).</summary>
-        public static readonly List<Contact> Contacts = new List<Contact>();
-        /// <summary>Cleared POIs held as outposts (ScOutposts), in establishment order.</summary>
-        public static readonly List<Outpost> Outposts = new List<Outpost>();
+        // ---- round MP6 (core): the community in scope. Community, Members, Prospects, Contacts, Outposts and EncRequests used to
+        // be the one community's containers; they are read-only properties of Current now, so every reference reads the
+        // community in scope. With one community (everyone in community 0) Current is always community 0.
+
+        /// <summary>The community in scope (see Current): its Community record (the community fields; the world's are WorldState's).</summary>
+        public static Community Community { get { return Current.Community; } }
+        /// <summary>The members of the community in scope, by entity id. GetMember answers across every community.</summary>
+        public static ScRecordTable<Member> Members { get { return Current.Members; } }
+        /// <summary>The prospects of the community in scope, by NPC entity id. GetProspect answers across every community.</summary>
+        public static ScRecordTable<Prospect> Prospects { get { return Current.Prospects; } }
+        /// <summary>Survivors heard over the radio of the community in scope, not yet met (ScRadio).</summary>
+        public static ScRecordList<Contact> Contacts { get { return Current.Contacts; } }
+        /// <summary>Cleared POIs the community in scope holds as outposts (ScOutposts), in establishment order.</summary>
+        public static ScRecordList<Outpost> Outposts { get { return Current.Outposts; } }
+        /// <summary>The enclaves' open requests to the community in scope (ScEncRequests, E4), in the order they were offered.</summary>
+        public static ScRecordList<EnclaveRequest> EncRequests { get { return Current.EncRequests; } }
+        /// <summary>
+        /// Round MP6 (core): the world record - every id counter, the enclaves' seeding, the request clock, refills, remains,
+        /// streamer names, the world daily's day guard and the membership map (ScWorldState). One per save.
+        /// </summary>
+        public static ScWorldState WorldState { get; private set; } = new ScWorldState();
+        /// <summary>
+        /// Round MP6 (core), client: the community this machine's copy is of (Current with no scope). 0 until the network part
+        /// sends another; back to 0 with the copy.
+        /// </summary>
+        public static int MirroredCommunity;
+
+        /// <summary>
+        /// Round MP6 (core): the community the registry's community properties read. In order: the top of the scope stack (Use);
+        /// on a client the mirrored community; on a host with a local player (single player, a listen host) that player's
+        /// community; else community 0 - and, while two or more communities exist, a diagnostic once per distinct stack trace
+        /// (a dedicated server has no viewer default: every read there should be scoped). With one community it is community 0
+        /// whatever the scope. Main thread only (another thread ignores the stack and gets the default).
+        /// </summary>
+        public static CommunityState Current
+        {
+            get
+            {
+                if (ScCommunities.Count == 1) return ScCommunities.Zero;      // one community: always it (nothing changes)
+                int n = scopeTop;
+                if (n > 0 && ThreadManager.IsMainThread())
+                {
+                    CommunityState cs = ScCommunities.ById(scopeStack[n - 1]);
+                    if (cs != null) return cs;
+                    ScLog.Once("mp6-scope-gone-" + scopeStack[n - 1], "a scope names community " + scopeStack[n - 1] + ", which does not exist - community 0 assumed");
+                    return ScCommunities.Zero;
+                }
+                return Unscoped();
+            }
+        }
+
+        /// <summary>Round MP6 (core): the id of the community in scope (Current.Id).</summary>
+        public static int CurrentId { get { return Current.Id; } }
+
+        /// <summary>
+        /// Round MP6 (core): makes cid the community in scope until the returned handle is disposed:
+        /// using (ScRegistry.Use(cid)) { ... }. Scopes nest; Dispose restores the previous one, exceptions included. Never keep a
+        /// scope open across a coroutine's yield. Main thread only: from another thread it does nothing (logged once).
+        /// </summary>
+        public static ScScope Use(int cid)
+        {
+            if (!ThreadManager.IsMainThread())
+            {
+                ScLog.Once("mp6-scope-offthread", "ScRegistry.Use called off the main thread - ignored (the registry is main-thread only)");
+                return default(ScScope);
+            }
+            if (scopeTop == scopeStack.Length)
+            {
+                var grown = new int[scopeStack.Length * 2];
+                Array.Copy(scopeStack, grown, scopeStack.Length);
+                scopeStack = grown;
+            }
+            int depth = scopeTop;
+            scopeStack[depth] = cid;
+            scopeTop = depth + 1;
+            return new ScScope(depth);
+        }
+
+        /// <summary>Round MP6 (core): the member's community (her record's CommunityId).</summary>
+        public static ScScope Use(Member m) { return Use(m != null ? m.CommunityId : ScPlayers.SharedCommunity); }
+
+        /// <summary>Round MP6 (core): the outpost's community (its record's CommunityId).</summary>
+        public static ScScope Use(Outpost o) { return Use(o != null ? o.CommunityId : ScPlayers.SharedCommunity); }
+
+        /// <summary>Round MP6 (core): the player's community (ScPlayers.CommunityOf; community 0 for null).</summary>
+        public static ScScope Use(EntityPlayer p) { return Use(ScPlayers.CommunityOf(p)); }
+
+        /// <summary>Round MP6 (core), ScScope.Dispose: back to the given depth (this scope and any inner one left open go).</summary>
+        internal static void PopScope(int depth)
+        {
+            if (depth >= 0 && depth < scopeTop) scopeTop = depth;
+        }
+
+        private static int[] scopeStack = new int[16];
+        private static int scopeTop;
+
+        /// <summary>Round MP6 (core): Current with nothing in scope and two or more communities (see Current).</summary>
+        private static CommunityState Unscoped()
+        {
+            if (!loaded) return ScCommunities.ById(MirroredCommunity) ?? ScCommunities.Zero;     // a client's copy (or no world)
+            EntityPlayerLocal local = ScCommunity.LocalPlayer;
+            if (local != null) return ScCommunities.ById(ScPlayers.CommunityOf(local)) ?? ScCommunities.Zero;
+            NoteUnscoped();
+            return ScCommunities.Zero;
+        }
+
+        /// <summary>Round MP6 (core): unscoped reads seen on a server with no local player while two or more communities exist.</summary>
+        public static int UnscopedReads { get { return unscopedReads; } }
+        private static int unscopedReads;
+        private static int diagSecond, diagBudget;
+        private static readonly HashSet<string> diagSeen = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>
+        /// Round MP6 (core): the diagnostic for an unscoped read - logged once per distinct stack trace, at most a few traces
+        /// taken a second and 200 logged in all, so a hot unscoped read costs a counter, not a stack walk each time.
+        /// </summary>
+        private static void NoteUnscoped()
+        {
+            try
+            {
+                unscopedReads++;
+                int now = Environment.TickCount;
+                if (now - diagSecond >= 1000 || now < diagSecond) { diagSecond = now; diagBudget = 4; }
+                if (diagBudget <= 0) return;
+                diagBudget--;
+                string trace = new System.Diagnostics.StackTrace(3, false).ToString();
+                lock (diagSeen)
+                {
+                    if (diagSeen.Count >= 200 || !diagSeen.Add(trace)) return;
+                }
+                ScLog.Warn("[MP6 scope] community state read with no scope while " + ScCommunities.Count + " communities exist - community 0 assumed. From:\n" + trace);
+            }
+            catch (Exception) { }   // a diagnostic never costs the read
+        }
+
         /// <summary>Groups of survivors holed up in POIs (ScEnclaves), in seeding order.</summary>
         public static readonly List<Enclave> Enclaves = new List<Enclave>();
         /// <summary>
@@ -129,8 +276,6 @@ namespace SurvivorCommunity
         public static readonly List<EncPerson> EncPeople = new List<EncPerson>();
         /// <summary>Infested POIs (ScInfestations), in the order they began.</summary>
         public static readonly List<Infestation> Infestations = new List<Infestation>();
-        /// <summary>The enclaves' open requests (ScEncRequests, E4), at most one per enclave, in the order they were offered.</summary>
-        public static readonly List<EnclaveRequest> EncRequests = new List<EnclaveRequest>();
         /// <summary>Bands on the road (ScBands, E13a), in the order they set out.</summary>
         public static readonly List<Band> Bands = new List<Band>();
         /// <summary>The bands' people (ScBands, E13a), in the order they were made. Never in Members, as EncPeople.</summary>
@@ -179,16 +324,40 @@ namespace SurvivorCommunity
 
         // ---- queries ----
 
+        /// <summary>
+        /// The member with this id, in any community (round MP6 (core): entity ids are world-unique, so this global index never
+        /// reads the scope; her record's CommunityId says whose she is). CountStatus, FollowerCount and Members stay per scope.
+        /// </summary>
         public static Member GetMember(int entityId)
         {
-            Member m;
-            return Members.TryGetValue(entityId, out m) ? m : null;
+            CommunityState[] all = ScCommunities.Array;
+            for (int i = 0; i < all.Length; i++)
+            {
+                Member m;
+                if (all[i].Members.TryGetValue(entityId, out m)) return m;
+            }
+            return null;
         }
 
+        /// <summary>
+        /// The prospect with this NPC id, in any community (round MP6 (core), as GetMember).
+        /// MP6 (part relations): two communities can court one NPC under one key - this answers the lowest community's.
+        /// </summary>
         public static Prospect GetProspect(int entityId)
         {
-            Prospect p;
-            return Prospects.TryGetValue(entityId, out p) ? p : null;
+            CommunityState[] all = ScCommunities.Array;
+            for (int i = 0; i < all.Length; i++)
+            {
+                Prospect p;
+                if (all[i].Prospects.TryGetValue(entityId, out p)) return p;
+            }
+            return null;
+        }
+
+        /// <summary>Round MP6 (core): the community whose roster holds this member id, or -1 (ScCommunities.CommunityOfMember).</summary>
+        public static int CommunityOfMember(int entityId)
+        {
+            return ScCommunities.CommunityOfMember(entityId);
         }
 
         public static int CountStatus(MemberStatus s)
@@ -213,43 +382,68 @@ namespace SurvivorCommunity
                 shuttingDown = false;
                 loaded = false;
                 degraded = false;
-                Community = new Community();
-                Members.Clear();
-                Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); EncRequests.Clear(); Bands.Clear(); BandPeople.Clear();
-                Cleanup.Clear();
-                Doomed.Clear();
+                ClearContainers();                     // round MP6 (core): community 0 alone, a fresh world record
                 if (string.IsNullOrEmpty(saveDir)) { ScLog.Warn("registry load: no save directory"); return; }
                 string real = Path.Combine(saveDir, FileName);
                 string bak = real + ".bak";
                 bool ok = false;
-                if (File.Exists(real)) ok = TryLoadFile(real);
-                if (!ok && File.Exists(bak))
+                // round MP6 (core): the new file (or its backup) when this save has one; else the old one-community file is migrated
+                // (its community becomes community 0, owner kept; world keys go to the world record; every id counter keeps its
+                // value). The old file is only ever read: SaveAtomic writes the new one.
+                if (File.Exists(real) || File.Exists(bak))
                 {
-                    ScLog.Warn("registry: primary file unreadable, loading the backup");
-                    degraded = true;
-                    Community = new Community();
-                    Members.Clear();
-                    Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); EncRequests.Clear(); Bands.Clear(); BandPeople.Clear();
-                    Cleanup.Clear();
-                Doomed.Clear();
-                    ok = TryLoadFile(bak);
+                    if (File.Exists(real)) ok = TryLoadFile(real);
+                    if (!ok && File.Exists(bak))
+                    {
+                        ScLog.Warn("registry: primary file unreadable, loading the backup");
+                        degraded = true;
+                        ClearContainers();
+                        ok = TryLoadFile(bak);
+                    }
                 }
-                if (!ok && !File.Exists(real) && !File.Exists(bak))
+                else
                 {
-                    ScLog.Out("registry: no " + FileName + " yet (first run in this save)");
+                    string legacy = Path.Combine(saveDir, LegacyFileName);
+                    string legacyBak = legacy + ".bak";
+                    if (File.Exists(legacy) || File.Exists(legacyBak))
+                    {
+                        ScLog.Out("registry: migrating " + LegacyFileName + " to " + FileName + " - its community becomes community 0 (the old file is left as it is)");
+                        if (File.Exists(legacy)) ok = TryLoadFile(legacy);
+                        if (!ok && File.Exists(legacyBak))
+                        {
+                            ScLog.Warn("registry: " + LegacyFileName + " unreadable, migrating its backup");
+                            degraded = true;
+                            ClearContainers();
+                            ok = TryLoadFile(legacyBak);
+                        }
+                    }
+                    else ScLog.Out("registry: no " + FileName + " yet (first run in this save)");
                 }
                 loaded = true;
-                foreach (var m in Members.Values) m.MissingDays = Math.Max(m.MissingDays, 0);
+                foreach (CommunityState cs in ScCommunities.All)
+                    foreach (var m in cs.Members.Values) m.MissingDays = Math.Max(m.MissingDays, 0);
                 WarnPreMigration();
-                ScRunners.OnRegistryLoaded();          // a runner left in the world by a crash resumes from its snapshot
-                ScOutposts.OnRegistryChanged();
-                ScLog.Out("registry loaded: " + Members.Count + " member(s), " + Prospects.Count + " prospect(s), " + Outposts.Count + " outpost(s), "
-                          + Enclaves.Count + " enclave(s) with " + EncPeople.Count + " person record(s) and " + EncRequests.Count + " open request(s), "
+                // round MP6 (core): community 0's scope, as before MP6 (no diagnostic).
+                // MP6 (part gates): both read the community in scope only - ScRunners.OnRegistryLoaded resumes community 0's runners,
+                // and ScOutposts.OnRegistryChanged indexes community 0's outposts, where the claim and seeding patches need the union
+                // of every community's (ScCommunities.AllOutposts)
+                using (Use(ScPlayers.SharedCommunity))
+                {
+                    ScRunners.OnRegistryLoaded();          // a runner left in the world by a crash resumes from its snapshot
+                    ScOutposts.OnRegistryChanged();
+                }
+                CommunityState c0 = ScCommunities.Zero;
+                int members = 0, prospects = 0, outposts = 0, requests = 0;
+                foreach (CommunityState cs in ScCommunities.All)
+                {
+                    members += cs.Members.Count; prospects += cs.Prospects.Count; outposts += cs.Outposts.Count; requests += cs.EncRequests.Count;
+                }
+                ScLog.Out("registry loaded: " + members + " member(s), " + prospects + " prospect(s), " + outposts + " outpost(s), "
+                          + Enclaves.Count + " enclave(s) with " + EncPeople.Count + " person record(s) and " + requests + " open request(s), "
                           + Infestations.Count + " infestation(s), " + Bands.Count + " band(s) on the road"
                           + (SaveIsNew ? " (a new save)" : "") + ", morale "
-                          + Community.Morale + (Community.HasHome ? ", home " + Community.Home : ", no home yet")
+                          + c0.Community.Morale + (c0.Community.HasHome ? ", home " + c0.Community.Home : ", no home yet")
+                          + (ScCommunities.Count > 1 ? " (community 0; " + ScCommunities.Count + " communities, " + WorldState.Membership.Count + " player(s) outside community 0)" : "")
                           + (degraded ? " (DEGRADED)" : ""));
             });
         }
@@ -284,7 +478,7 @@ namespace SurvivorCommunity
             {
                 int n = 0;
                 string sample = null;
-                foreach (var m in Members.Values)
+                foreach (var m in ScCommunities.AllMembers())        // round MP6 (core): every community's
                 {
                     if (!PredatesMigration(m)) continue;
                     n++;
@@ -343,6 +537,12 @@ namespace SurvivorCommunity
                 Band bd = null;
                 BandPerson bp = null;
                 int bad = 0;
+                // round MP6 (core): a [community] section's lines wait for its end, so its cid= picks the community whichever line it
+                // is on (none: community 0 - every old file's one community); sawWorld: the text has a [world] section (else it is an
+                // old file or a client's snapshot: the world's day guard is its community's)
+                List<KeyValuePair<string, string>> comm = null;
+                int commCid = ScPlayers.SharedCommunity;
+                bool sawWorld = false;
                 loadShootScale = 1;   // round fx1
                 for (int i = 1; i < lines.Length; i++)
                 {
@@ -352,8 +552,11 @@ namespace SurvivorCommunity
                     {
                         Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitPerson(ref ep); CommitInfestation(ref inf); CommitRequest(ref rq);
                         CommitBand(ref bd); CommitBandPerson(ref bp);
+                        bad += CommitCommunity(ref comm, commCid);      // round MP6 (core)
                         loadShootScale = 1;   // round fx1: a block without shootxp= was written before Shooting's thresholds grew
                         section = line.Trim('[', ']').ToLowerInvariant();
+                        if (section == "community") { comm = new List<KeyValuePair<string, string>>(); commCid = ScPlayers.SharedCommunity; }
+                        else if (section == "world") sawWorld = true;
                         if (section == "member") m = new Member();
                         else if (section == "prospect") p = new Prospect();
                         else if (section == "contact") ct = new Contact();
@@ -372,7 +575,10 @@ namespace SurvivorCommunity
                     string val = line.Substring(eq + 1).Trim();
                     try
                     {
-                        if (section == "community") ParseCommunity(key, val);
+                        // round MP6 (core): [community] waits for its end (CommitCommunity); [world] and [membership] are new
+                        if (section == "community" && comm != null) { if (key == "cid") commCid = I(val); else comm.Add(new KeyValuePair<string, string>(key, val)); }
+                        else if (section == "world") ParseWorld(key, val);
+                        else if (section == "membership") ParseMembership(key, val);
                         else if (section == "member" && m != null) ParseMember(m, key, val);
                         else if (section == "prospect" && p != null) ParseProspect(p, key, val);
                         else if (section == "contact" && ct != null) ParseContact(ct, key, val);
@@ -392,10 +598,12 @@ namespace SurvivorCommunity
                 }
                 Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitPerson(ref ep); CommitInfestation(ref inf); CommitRequest(ref rq);
                 CommitBand(ref bd); CommitBandPerson(ref bp);
+                bad += CommitCommunity(ref comm, commCid);      // round MP6 (core)
                 if (bad > 0) { degraded = true; ScLog.Warn("registry: " + bad + " unreadable line(s) skipped in " + path); }
                 DropStrayPeople();
                 DropStrayRequests();
                 DropStrayBandPeople();
+                AfterParse(sawWorld);                          // round MP6 (core)
                 return true;
             }
             catch (Exception e)
@@ -431,15 +639,18 @@ namespace SurvivorCommunity
         {
             if (loaded) return;
             mirrored = false;
+            MirroredCommunity = ScPlayers.SharedCommunity;     // round MP6 (core): the copy's community goes with it
             ClearContainers();
         }
 
+        /// <summary>
+        /// Every container emptied. Round MP6 (core): community 0 alone (fresh), a fresh world record, the world lists empty.
+        /// </summary>
         private static void ClearContainers()
         {
-            Community = new Community();
-            Members.Clear();
-            Prospects.Clear();
-            Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); EncRequests.Clear(); Bands.Clear(); BandPeople.Clear();
+            ScCommunities.Reset();
+            WorldState = new ScWorldState();
+            Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); Bands.Clear(); BandPeople.Clear();
             Cleanup.Clear();
             Doomed.Clear();
         }
@@ -459,7 +670,7 @@ namespace SurvivorCommunity
         {
             if (op != null)
             {
-                if (op.Id > 0 && !string.IsNullOrEmpty(op.Row)) Outposts.Add(op); else degraded = true;
+                if (op.Id > 0 && !string.IsNullOrEmpty(op.Row)) LoadTarget(op.CommunityId).Outposts.Add(op); else degraded = true;   // round MP6 (core): its community's
             }
             op = null;
         }
@@ -468,6 +679,7 @@ namespace SurvivorCommunity
         {
             switch (key)
             {
+                case "cid": o.CommunityId = I(val); break;              // round MP6 (core): its community (none: 0)
                 case "id": o.Id = I(val); break;
                 case "flag": { Vector3i v; if (TryVec(val, out v)) o.Flag = v; break; }
                 case "poi": { Vector3i v; if (TryVec(val, out v)) o.Poi = v; break; }
@@ -686,7 +898,7 @@ namespace SurvivorCommunity
         {
             if (rq != null)
             {
-                if (rq.Id > 0 && rq.EnclaveId > 0 && !string.IsNullOrEmpty(rq.Kind)) EncRequests.Add(rq); else degraded = true;
+                if (rq.Id > 0 && rq.EnclaveId > 0 && !string.IsNullOrEmpty(rq.Kind)) LoadTarget(rq.CommunityId).EncRequests.Add(rq); else degraded = true;   // round MP6 (core)
             }
             rq = null;
         }
@@ -696,6 +908,7 @@ namespace SurvivorCommunity
         {
             switch (key)
             {
+                case "cid": r.CommunityId = I(val); break;              // round MP6 (core): its community (none: 0)
                 case "id": r.Id = I(val); break;
                 case "enclave": r.EnclaveId = I(val); break;
                 case "kind": r.Kind = val.Trim().ToLowerInvariant(); break;
@@ -749,10 +962,11 @@ namespace SurvivorCommunity
         /// <summary>A request whose enclave is not in the file is dropped: a degraded load (its journal quest closes at the first tick).</summary>
         private static void DropStrayRequests()
         {
-            if (EncRequests.Count == 0) return;
             var ids = new HashSet<int>();
             foreach (Enclave e in Enclaves) ids.Add(e.Id);
-            int n = EncRequests.RemoveAll(r => !ids.Contains(r.EnclaveId));
+            int n = 0;
+            foreach (CommunityState cs in ScCommunities.All)          // round MP6 (core): every community's requests
+                if (cs.EncRequests.Count > 0) n += cs.EncRequests.RemoveAll(r => !ids.Contains(r.EnclaveId));
             if (n <= 0) return;
             degraded = true;
             ScLog.Warn("registry: " + n + " enclave request record(s) whose enclave is missing dropped");
@@ -902,7 +1116,7 @@ namespace SurvivorCommunity
 
         private static void CommitContact(ref Contact ct)
         {
-            if (ct != null && ct.Id > 0 && !string.IsNullOrEmpty(ct.Class)) Contacts.Add(ct);
+            if (ct != null && ct.Id > 0 && !string.IsNullOrEmpty(ct.Class)) LoadTarget(ct.CommunityId).Contacts.Add(ct);   // round MP6 (core)
             ct = null;
         }
 
@@ -910,6 +1124,7 @@ namespace SurvivorCommunity
         {
             switch (key)
             {
+                case "cid": ct.CommunityId = I(val); break;             // round MP6 (core): its community (none: 0)
                 case "id": ct.Id = I(val); break;
                 case "class": ct.Class = val; break;
                 case "label": ct.Label = val; break;
@@ -948,21 +1163,177 @@ namespace SurvivorCommunity
                     m.Snap = null;
                     m.Offline = false;
                 }
-                if (m.Id > 0) Members[m.Id] = m; else degraded = true;
+                if (m.Id > 0) LoadTarget(m.CommunityId).Members[m.Id] = m; else degraded = true;   // round MP6 (core): her community's
                 m = null;
             }
             if (p != null)
             {
-                if (p.Id > 0) Prospects[p.Id] = p; else degraded = true;
+                if (p.Id > 0) LoadTarget(p.CommunityId).Prospects[p.Id] = p; else degraded = true;   // round MP6 (core)
                 p = null;
             }
         }
 
-        private static void ParseCommunity(string key, string val)
+        /// <summary>
+        /// Round MP6 (core): the community a loaded record goes to - its cid= (none: community 0), made when the text has no
+        /// [community] for it yet (an edit; the community is then empty but its records stay theirs). A negative id is community 0.
+        /// </summary>
+        private static CommunityState LoadTarget(int cid)
         {
-            Community c = Community;
+            if (cid < 0)
+            {
+                degraded = true;
+                ScLog.Warn("registry: a record with community id " + cid + " - put in community 0");
+                cid = ScPlayers.SharedCommunity;
+            }
+            return ScCommunities.Ensure(cid);
+        }
+
+        /// <summary>
+        /// Round MP6 (core): one [community] section's lines, kept until its end, into the community its cid= names (none:
+        /// community 0 - every old file's one community; several old sections all go into it, as they always merged). Returns the
+        /// number of unreadable lines.
+        /// </summary>
+        private static int CommitCommunity(ref List<KeyValuePair<string, string>> lines, int cid)
+        {
+            if (lines == null) return 0;
+            List<KeyValuePair<string, string>> l = lines;
+            lines = null;
+            Community c = LoadTarget(cid).Community;
+            int bad = 0;
+            foreach (KeyValuePair<string, string> kv in l)
+            {
+                try { ParseCommunity(c, kv.Key, kv.Value); }
+                catch (Exception) { bad++; }
+            }
+            return bad;
+        }
+
+        /// <summary>
+        /// Round MP6 (core): the [community] keys that are the world's (the id counters, the seeding, the request clock, remains,
+        /// refills, the entity bookkeeping, streamer names): an old file's [community] held them, and a client's snapshot (the old
+        /// layout) still does. They are routed to the world record (ParseWorld) by name - no other [community] key shares one.
+        /// </summary>
+        private static bool IsWorldKey(string key)
+        {
             switch (key)
             {
+                case "contactid": case "outpostid": case "enclaveid": case "enclaveseed": case "infestid": case "encpersonid":
+                case "bandid": case "bandpersonid": case "encrequestid": case "encreqday": case "encremains": case "encrefill":
+                case "cleanup": case "doomed": case "streamname":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Round MP6 (core): one [world] line - the world record's keys (as ParseCommunity read them before MP6), plus lastday=
+        /// (the world daily's day guard) and communityid= (the community id counter).
+        /// </summary>
+        private static void ParseWorld(string key, string val)
+        {
+            ScWorldState ws = WorldState;
+            switch (key)
+            {
+                case "lastday": ws.LastDay = I(val); break;
+                case "communityid": ws.NextCommunityId = Math.Max(0, I(val)); break;
+                case "contactid": ws.NextContactId = I(val); break;
+                case "outpostid": ws.NextOutpostId = I(val); break;
+                // enclaves (E1): the id counter, the seeding stamp ver:day:mode:seed:count
+                case "enclaveid": ws.NextEnclaveId = I(val); break;
+                case "enclaveseed":
+                {
+                    string[] f = val.Split(':');
+                    if (f.Length >= 5 && I(f[0]) >= 1)
+                    {
+                        ws.EnclaveSeeded = true;
+                        ws.EnclaveSeedDay = I(f[1]);
+                        ws.EnclaveSeedMode = f[2];
+                        ws.EnclaveSeed = I(f[3]);
+                        ws.EnclaveSeedCount = Math.Max(0, I(f[4]));
+                    }
+                    break;
+                }
+                // infestations (I1): the id counter
+                case "infestid": ws.NextInfestationId = I(val); break;
+                // enclave people (E2): the person id counter
+                case "encpersonid": ws.NextEncPersonId = I(val); break;
+                // bands on the road (E13a): the band and band person id counters
+                case "bandid": ws.NextBandId = Math.Max(0, I(val)); break;
+                case "bandpersonid": ws.NextBandPersonId = Math.Max(0, I(val)); break;
+                // enclave requests (E4): the id counter, the request clock's last day
+                case "encrequestid": ws.NextEncRequestId = I(val); break;
+                case "encreqday": ws.EncRequestDay = I(val); break;
+                // E5: remains still to take out of the world
+                case "encremains":
+                    ws.EncRemains.Clear();
+                    foreach (string part in val.Split(';')) { Vector3i v; if (TryVec(part, out v) && !ws.EncRemains.Contains(v)) ws.EncRemains.Add(v); }
+                    break;
+                // E6: the refills owed (day:x,y,z:name;..)
+                case "encrefill":
+                    ws.EncRefills.Clear();
+                    foreach (string part in val.Split(';'))
+                    {
+                        string[] f = part.Split(new[] { ':' }, 3);
+                        Vector3i v;
+                        if (f.Length >= 2 && TryVec(f[1], out v)) ws.EncRefills.Add(new EncRefill { Day = Math.Max(0, I(f[0])), Poi = v, Name = f.Length > 2 ? f[2] : "" });
+                    }
+                    break;
+                case "cleanup":
+                    foreach (string part in val.Split(',')) { int id = I(part); if (id > 0) Cleanup.Add(id); }
+                    break;
+                case "doomed":
+                    foreach (string part in val.Split(',')) { int id = I(part); if (id > 0) Doomed.Add(id); }
+                    break;
+                // round 30: a streamer name given out in this save (ScStreamerNames), one line each, in the order given
+                case "streamname":
+                    if (val.Length > 0) ws.StreamerNamesUsed.Add(val);
+                    break;
+            }
+        }
+
+        /// <summary>Round MP6 (core): one [membership] line, player=platformid:cid (the id is split off at the last ':').</summary>
+        private static void ParseMembership(string key, string val)
+        {
+            if (key != "player") return;
+            int colon = val.LastIndexOf(':');
+            if (colon <= 0) throw new FormatException("membership: " + val);
+            string id = val.Substring(0, colon).Trim();
+            int cid;
+            if (id.Length == 0 || !int.TryParse(val.Substring(colon + 1).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out cid) || cid < 0)
+                throw new FormatException("membership: " + val);
+            if (cid == ScPlayers.SharedCommunity) WorldState.Membership.Remove(id);    // community 0 is everyone not listed
+            else WorldState.Membership[id] = cid;
+        }
+
+        /// <summary>
+        /// Round MP6 (core), after a parse: an old file (or a client's snapshot) had no [world], so the world daily's day guard is
+        /// its community's; the community id counter is past every community there is; a membership naming a community the text
+        /// does not have is dropped (that player is in community 0 again).
+        /// </summary>
+        private static void AfterParse(bool sawWorld)
+        {
+            ScWorldState ws = WorldState;
+            if (!sawWorld) ws.LastDay = ScCommunities.Zero.Community.LastDay;
+            foreach (CommunityState cs in ScCommunities.All)
+                if (cs.Id > ws.NextCommunityId) ws.NextCommunityId = cs.Id;
+            if (ws.Membership.Count == 0) return;
+            var gone = new List<string>();
+            foreach (KeyValuePair<string, int> kv in ws.Membership)
+                if (ScCommunities.ById(kv.Value) == null) gone.Add(kv.Key);
+            if (gone.Count == 0) return;
+            foreach (string id in gone) ws.Membership.Remove(id);
+            degraded = true;
+            ScLog.Warn("registry: " + gone.Count + " player(s) recorded in a community the file does not have - back in community 0");
+        }
+
+        private static void ParseCommunity(Community c, string key, string val)
+        {
+            // round MP6 (core): the target is the section's community (CommitCommunity); the world's keys go to the world record
+            if (IsWorldKey(key)) { ParseWorld(key, val); return; }
+            switch (key)
+            {
+                case "name": c.Name = val; break;                                 // round MP6 (core): the community's name
                 case "home": { Vector3i v; if (TryVec(val, out v)) { c.Home = v; c.HasHome = true; } break; }
                 case "owner": c.Owner = val; break;
                 case "ownerid": c.OwnerId = val; break;                          // round MP0
@@ -994,13 +1365,11 @@ namespace SurvivorCommunity
                     break;
                 case "radiodrop": { ulong u; if (ulong.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) c.RadioNextDrop = u; break; }
                 case "radiocall": c.RadioNextCallDay = I(val); break;
-                case "contactid": c.NextContactId = I(val); break;
                 case "radios":
                     c.Radios.Clear();
                     foreach (string part in val.Split(';')) { Vector3i v; if (part.Length > 0 && TryVec(part, out v) && !c.Radios.Contains(v)) c.Radios.Add(v); }
                     break;
                 case "radioday": c.RadioOnlineDay = I(val); break;
-                case "outpostid": c.NextOutpostId = I(val); break;
                 // "upkeepdebt" / "hauldebt" are no longer read (round ie1: no debt; an old save's is forgiven, the flags below stay)
                 case "rundown": c.OutpostRunDown = val == "1"; break;
                 case "onfoot": c.OutpostOnFoot = val == "1"; break;
@@ -1097,32 +1466,8 @@ namespace SurvivorCommunity
                 case "rationday": c.RationDay = I(val); break;
                 // round m1f: the Facilities tab's sites, Lights out, the last attack, the Guard Towers (keys an older build ignores)
                 case "scansites": case "lightsout": case "lastattack": case "towers": ScFacilityTab.ParseKey(c, key, val); break;
-                // enclaves (E1): the id counter, the seeding stamp ver:day:mode:seed:count, the day of the next radio reveal
-                case "enclaveid": c.NextEnclaveId = I(val); break;
-                case "enclaveseed":
-                {
-                    string[] f = val.Split(':');
-                    if (f.Length >= 5 && I(f[0]) >= 1)
-                    {
-                        c.EnclaveSeeded = true;
-                        c.EnclaveSeedDay = I(f[1]);
-                        c.EnclaveSeedMode = f[2];
-                        c.EnclaveSeed = I(f[3]);
-                        c.EnclaveSeedCount = Math.Max(0, I(f[4]));
-                    }
-                    break;
-                }
+                // enclaves (E1): the day of the next radio reveal (round MP6 (core): the id counter and the seeding are ParseWorld's)
                 case "enclaveradio": c.EnclaveRadioDay = I(val); break;
-                // infestations (I1): the id counter
-                case "infestid": c.NextInfestationId = I(val); break;
-                // enclave people (E2): the person id counter
-                case "encpersonid": c.NextEncPersonId = I(val); break;
-                // bands on the road (E13a): the band and band person id counters
-                case "bandid": c.NextBandId = Math.Max(0, I(val)); break;
-                case "bandpersonid": c.NextBandPersonId = Math.Max(0, I(val)); break;
-                // enclave requests (E4): the id counter, the request clock's last day
-                case "encrequestid": c.NextEncRequestId = I(val); break;
-                case "encreqday": c.EncRequestDay = I(val); break;
                 // P2: the world's day of the last call for help and how many came that day
                 case "encoffers":
                 {
@@ -1130,23 +1475,10 @@ namespace SurvivorCommunity
                     if (dn.Length == 2) { c.EncOfferDay = I(dn[0]); c.EncOffersToday = Math.Max(0, I(dn[1])); }
                     break;
                 }
-                // E5: the world time today's siege call is due (0: none), remains still to take out of the world
+                // E5: the world time today's siege call is due (0: none) (round MP6 (core): the remains are ParseWorld's)
                 case "encsiegeat": { ulong u; if (ulong.TryParse(val.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) c.EncSiegeAt = u; break; }
-                case "encremains":
-                    c.EncRemains.Clear();
-                    foreach (string part in val.Split(';')) { Vector3i v; if (TryVec(part, out v) && !c.EncRemains.Contains(v)) c.EncRemains.Add(v); }
-                    break;
-                // E6: the Enclave lost morale part (fades a point a day), the refills owed (day:x,y,z:name;..)
+                // E6: the Enclave lost morale part (fades a point a day) (round MP6 (core): the refills owed are ParseWorld's)
                 case "encloss": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f) && !float.IsNaN(f)) c.EnclaveLoss = Math.Max(0f, Math.Min(ScEncAllies.MaxLoss, f)); break; }
-                case "encrefill":
-                    c.EncRefills.Clear();
-                    foreach (string part in val.Split(';'))
-                    {
-                        string[] f = part.Split(new[] { ':' }, 3);
-                        Vector3i v;
-                        if (f.Length >= 2 && TryVec(f[1], out v)) c.EncRefills.Add(new EncRefill { Day = Math.Max(0, I(f[0])), Poi = v, Name = f.Length > 2 ? f[2] : "" });
-                    }
-                    break;
                 case "stock":
                     foreach (string part in val.Split(','))
                     {
@@ -1167,16 +1499,6 @@ namespace SurvivorCommunity
                     c.Ledger.Clear();
                     foreach (string part in val.Split(';')) if (part.Length > 0) c.Ledger.Add(part.Replace("\\n", "\n"));
                     break;
-                case "cleanup":
-                    foreach (string part in val.Split(',')) { int id = I(part); if (id > 0) Cleanup.Add(id); }
-                    break;
-                case "doomed":
-                    foreach (string part in val.Split(',')) { int id = I(part); if (id > 0) Doomed.Add(id); }
-                    break;
-                // round 30: a streamer name given out in this save (ScStreamerNames), one line each, in the order given
-                case "streamname":
-                    if (val.Length > 0) c.StreamerNamesUsed.Add(val);
-                    break;
             }
         }
 
@@ -1191,6 +1513,7 @@ namespace SurvivorCommunity
         {
             switch (key)
             {
+                case "cid": m.CommunityId = I(val); break;              // round MP6 (core): her community (none: 0)
                 case "id": m.Id = I(val); break;
                 case "class": m.Class = val; break;
                 case "name": m.Name = val; break;
@@ -1379,6 +1702,7 @@ namespace SurvivorCommunity
         {
             switch (key)
             {
+                case "cid": p.CommunityId = I(val); break;              // round MP6 (core): their community (none: 0)
                 case "id": p.Id = I(val); break;
                 case "class": p.Class = val; break;
                 case "name": p.Name = val; break;
@@ -1410,7 +1734,7 @@ namespace SurvivorCommunity
 
         // ---- save ----
 
-        /// <summary>Atomic write. Host only. Never throws.</summary>
+        /// <summary>Atomic write. Host only. Never throws. Round MP6 (core): survivor_communities.txt - never the old file.</summary>
         public static void SaveAtomic()
         {
             try
@@ -1431,7 +1755,13 @@ namespace SurvivorCommunity
                 File.WriteAllText(tmp, text);
                 if (File.Exists(real)) File.Replace(tmp, real, bak);
                 else File.Move(tmp, real);
-                ScLog.Verbose("registry saved: " + Members.Count + " member(s), " + Prospects.Count + " prospect(s)");
+                if (ScConfig.Verbose)
+                {
+                    int members = 0, prospects = 0;
+                    foreach (CommunityState cs in ScCommunities.All) { members += cs.Members.Count; prospects += cs.Prospects.Count; }
+                    ScLog.Verbose("registry saved: " + members + " member(s), " + prospects + " prospect(s)"
+                                  + (ScCommunities.Count > 1 ? " in " + ScCommunities.Count + " communities" : ""));
+                }
             }
             catch (Exception e)
             {
@@ -1441,454 +1771,588 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The registry as text (the file's format, read back by ParseText). Main thread. Round MP1: forClients is a client's
-        /// snapshot (NetPackageScState): it leaves out what a client must not get or does not need - platform ids (ownerid=,
-        /// leader=), the server's cleanup bookkeeping and streamer names, the members' entity snapshots (snap= and postsnap= become
-        /// "-", which keeps their meaning: the member is held offline), handed items, worn pieces, ammo and magazines, the
-        /// enclaves' trade stock, and the enclaves' and bands' people. Throws on a bad record (SaveAtomic logs it).
+        /// The registry as text (read back by ParseText). Main thread. Round MP6 (core): the save (forClients false) is the SCOM 2
+        /// layout - [world], [membership], one [community] per community, cid= on each community's records (BuildSaveText); a
+        /// client's snapshot (forClients true, NetPackageScState) is still community 0's text in the old SCOM 1 layout, exactly as
+        /// before MP6 (BuildLegacyText). Round MP1: forClients leaves out what a client must not get or does not need - platform
+        /// ids (ownerid=, leader=), the server's cleanup bookkeeping and streamer names, the members' entity snapshots (snap= and
+        /// postsnap= become "-", which keeps their meaning: the member is held offline), handed items, worn pieces, ammo and
+        /// magazines, the enclaves' trade stock, and the enclaves' and bands' people. Throws on a bad record (SaveAtomic logs it).
         /// </summary>
         public static string BuildText(bool forClients)
         {
+            // MP6 (part network): the snapshot is community 0's, whichever community the client is in
+            return forClients ? BuildLegacyText(ScCommunities.Zero, true) : BuildSaveText();
+        }
+
+        /// <summary>
+        /// Round MP6 (core): one community's text in the old one-community layout (SCOM 1, the world keys inside [community], no
+        /// cid=) - byte for byte what BuildText wrote before MP6 for that community and the world. A client's snapshot is
+        /// community 0's (forClients); forClients false gives the old save file's text (a check that the migration kept
+        /// everything: it reads back as the same registry).
+        /// </summary>
+        internal static string BuildLegacyText(CommunityState cs, bool forClients)
+        {
             var sb = new StringBuilder();
+            sb.AppendLine(LegacyHeader);
+            sb.AppendLine(forClients ? "# SurvivorCommunity registry - the server's snapshot for a client" : "# SurvivorCommunity registry - edit only with the game closed");
+            sb.AppendLine("[community]");
+            WriteCommunityKeys(sb, cs.Community, forClients, true);
+            WriteRecords(sb, new[] { cs }, forClients, false);
+            return sb.ToString();
+        }
+
+        /// <summary>Round MP6 (core): the save file's text (SCOM 2): [world], [membership], every [community], then the records.</summary>
+        private static string BuildSaveText()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(Header);
+            sb.AppendLine("# SurvivorCommunity registry - edit only with the game closed");
+            ScWorldState ws = WorldState;
+            sb.AppendLine("[world]");
+            sb.AppendLine("lastday=" + ws.LastDay.ToString(CultureInfo.InvariantCulture));
+            if (ws.NextCommunityId > 0) sb.AppendLine("communityid=" + ws.NextCommunityId.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("contactid=" + ws.NextContactId);
+            sb.AppendLine("outpostid=" + ws.NextOutpostId);
+            WriteEnclaveIds(sb, ws);
+            WriteWorldIds(sb, ws);
+            WriteRemains(sb, ws);
+            WriteRefills(sb, ws);
+            WriteBookkeeping(sb, ws, false);
+            if (ws.Membership.Count > 0)
             {
-                sb.AppendLine(Header);
-                sb.AppendLine(forClients ? "# SurvivorCommunity registry - the server's snapshot for a client" : "# SurvivorCommunity registry - edit only with the game closed");
-                Community c = Community;
+                sb.AppendLine("[membership]");
+                var ids = new List<string>(ws.Membership.Keys);
+                ids.Sort(StringComparer.Ordinal);
+                foreach (string id in ids) sb.AppendLine("player=" + Clean(id) + ":" + ws.Membership[id].ToString(CultureInfo.InvariantCulture));
+            }
+            IReadOnlyList<CommunityState> all = ScCommunities.All;
+            foreach (CommunityState cs in all)
+            {
                 sb.AppendLine("[community]");
-                if (c.HasHome) sb.AppendLine("home=" + Vec(c.Home));
-                sb.AppendLine("owner=" + Clean(c.Owner));
-                if (!forClients && !string.IsNullOrEmpty(c.OwnerId)) sb.AppendLine("ownerid=" + Clean(c.OwnerId));   // round MP0; MP1: never to a client
-                sb.AppendLine("morale=" + c.Morale);
-                sb.AppendLine("lastday=" + c.LastDay);
-                sb.AppendLine("lowmorale=" + c.LowMoraleDays);
-                sb.AppendLine("threat=" + c.ThreatMemberId);
-                sb.AppendLine("hungry=" + (c.Hungry ? 1 : 0));
-                sb.AppendLine("deathpenalty=" + c.DeathPenalty.ToString("0.###", CultureInfo.InvariantCulture));
-                sb.AppendLine("ammoopen=" + c.AmmoOpenPoints);
-                sb.AppendLine("ammoopened=" + c.AmmoOpened);
-                sb.AppendLine("ammoshort=" + (c.AmmoShort ? 1 : 0));
-                sb.AppendLine("medsrestocked=" + c.MedsRestocked);
-                sb.AppendLine("beds=" + c.Beds);
-                sb.AppendLine("facilities=" + c.Facilities);
-                sb.AppendLine("crops=" + c.Crops);
-                if (c.HasScanHome) sb.AppendLine("scanhome=" + Vec(c.ScanHome));
-                if (c.ScanChunks.Count > 0)
+                sb.AppendLine("cid=" + cs.Id.ToString(CultureInfo.InvariantCulture));
+                if (!string.IsNullOrEmpty(cs.Community.Name)) sb.AppendLine("name=" + Clean(cs.Community.Name));
+                WriteCommunityKeys(sb, cs.Community, false, false);
+            }
+            WriteRecords(sb, all, false, true);
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Round MP6 (core): a [community] section's keys, as BuildText wrote them before MP6 (the section header is the caller's).
+        /// legacy: the old layout - the world's keys (contactid=, outpostid=, enclaveid= ... streamname=) in their old places;
+        /// otherwise they are [world]'s and left out here.
+        /// </summary>
+        private static void WriteCommunityKeys(StringBuilder sb, Community c, bool forClients, bool legacy)
+        {
+            if (c.HasHome) sb.AppendLine("home=" + Vec(c.Home));
+            sb.AppendLine("owner=" + Clean(c.Owner));
+            if (!forClients && !string.IsNullOrEmpty(c.OwnerId)) sb.AppendLine("ownerid=" + Clean(c.OwnerId));   // round MP0; MP1: never to a client
+            sb.AppendLine("morale=" + c.Morale);
+            sb.AppendLine("lastday=" + c.LastDay);
+            sb.AppendLine("lowmorale=" + c.LowMoraleDays);
+            sb.AppendLine("threat=" + c.ThreatMemberId);
+            sb.AppendLine("hungry=" + (c.Hungry ? 1 : 0));
+            sb.AppendLine("deathpenalty=" + c.DeathPenalty.ToString("0.###", CultureInfo.InvariantCulture));
+            sb.AppendLine("ammoopen=" + c.AmmoOpenPoints);
+            sb.AppendLine("ammoopened=" + c.AmmoOpened);
+            sb.AppendLine("ammoshort=" + (c.AmmoShort ? 1 : 0));
+            sb.AppendLine("medsrestocked=" + c.MedsRestocked);
+            sb.AppendLine("beds=" + c.Beds);
+            sb.AppendLine("facilities=" + c.Facilities);
+            sb.AppendLine("crops=" + c.Crops);
+            if (c.HasScanHome) sb.AppendLine("scanhome=" + Vec(c.ScanHome));
+            if (c.ScanChunks.Count > 0)
+            {
+                var sm = new StringBuilder();
+                foreach (int[] e in c.ScanChunks.Values)
                 {
-                    var sm = new StringBuilder();
-                    foreach (int[] e in c.ScanChunks.Values)
-                    {
-                        if (sm.Length > 0) sm.Append(';');
-                        sm.Append(e[0].ToString(CultureInfo.InvariantCulture)).Append(':').Append(e[1].ToString(CultureInfo.InvariantCulture)).Append(':')
-                          .Append(e[2]).Append(':').Append(e[3]).Append(':').Append(e[4]);
-                    }
-                    sb.AppendLine("scanmap=" + sm);
+                    if (sm.Length > 0) sm.Append(';');
+                    sm.Append(e[0].ToString(CultureInfo.InvariantCulture)).Append(':').Append(e[1].ToString(CultureInfo.InvariantCulture)).Append(':')
+                      .Append(e[2]).Append(':').Append(e[3]).Append(':').Append(e[4]);
                 }
-                sb.AppendLine("radiodrop=" + c.RadioNextDrop.ToString(CultureInfo.InvariantCulture));
-                sb.AppendLine("radiocall=" + c.RadioNextCallDay);
-                sb.AppendLine("contactid=" + c.NextContactId);
-                if (c.Radios.Count > 0)
+                sb.AppendLine("scanmap=" + sm);
+            }
+            sb.AppendLine("radiodrop=" + c.RadioNextDrop.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("radiocall=" + c.RadioNextCallDay);
+            if (legacy) sb.AppendLine("contactid=" + c.NextContactId);        // round MP6 (core): the world's (in [world] since MP6)
+            if (c.Radios.Count > 0)
+            {
+                var rd = new StringBuilder();
+                foreach (Vector3i v in c.Radios) { if (rd.Length > 0) rd.Append(';'); rd.Append(Vec(v)); }
+                sb.AppendLine("radios=" + rd);
+            }
+            sb.AppendLine("radioday=" + c.RadioOnlineDay);
+            if (legacy) sb.AppendLine("outpostid=" + c.NextOutpostId);        // round MP6 (core): the world's
+            sb.AppendLine("rundown=" + (c.OutpostRunDown ? 1 : 0));
+            sb.AppendLine("onfoot=" + (c.OutpostOnFoot ? 1 : 0));
+            sb.AppendLine("outpostloss=" + c.OutpostLoss.ToString("0.###", CultureInfo.InvariantCulture));
+            if (c.Scouts.Count > 0) sb.AppendLine("scouts=" + ScScouting.Encode(c.Scouts));   // already sanitised: ';' and '|' separate
+            sb.AppendLine("scoutday=" + c.RadioNextScoutDay);
+            if (c.Relays.Count > 0)
+            {
+                var rl = new StringBuilder();
+                foreach (Vector3i v in c.Relays) { if (rl.Length > 0) rl.Append(';'); rl.Append(Vec(v)); }
+                sb.AppendLine("relays=" + rl);
+            }
+            sb.AppendLine("barterday=" + c.RadioNextBarterDay);
+            if (c.OutpostTriumph > 0f) sb.AppendLine("triumph=" + c.OutpostTriumph.ToString("0.##", CultureInfo.InvariantCulture));
+            if (c.NoiseEvents > 0f) sb.AppendLine("noiseev=" + c.NoiseEvents.ToString("0.###", CultureInfo.InvariantCulture));
+            if (c.Attention > 0f) sb.AppendLine("attention=" + c.Attention.ToString("0.###", CultureInfo.InvariantCulture));
+            if (c.NoiseStamp > 0UL) sb.AppendLine("noisestamp=" + c.NoiseStamp.ToString(CultureInfo.InvariantCulture));
+            if (c.AttackState != 0)
+                sb.AppendLine("baseattack=" + c.AttackState + ":" + c.AttackArrive.ToString(CultureInfo.InvariantCulture) + ":" + c.AttackStarted.ToString(CultureInfo.InvariantCulture)
+                              + ":" + c.AttackBearing + ":" + c.AttackSize + ":" + c.AttackSpawned + ":" + c.AttackKilled + ":" + c.AttackAmmoRounds + ":" + c.AttackAmmoPoints);
+            if (c.AttackNotBefore > 0UL) sb.AppendLine("attacknext=" + c.AttackNotBefore.ToString(CultureInfo.InvariantCulture));
+            if (c.DefenceTriumph > 0f) sb.AppendLine("defended=" + c.DefenceTriumph.ToString("0.##", CultureInfo.InvariantCulture));
+            if (c.WatchPosts.Count > 0)
+            {
+                var wp = new StringBuilder();
+                foreach (Vector3i v in c.WatchPosts) { if (wp.Length > 0) wp.Append(';'); wp.Append(Vec(v)); }
+                sb.AppendLine("watchposts=" + wp);
+            }
+            if (c.AttackWarned > 0) sb.AppendLine("attackwarn=" + c.AttackWarned);
+            if (c.AttackState != 0 && (c.AttackAwayEnd > 0UL || c.AttackHeard > 0))
+                sb.AppendLine("attackaway=" + c.AttackAwaySince.ToString(CultureInfo.InvariantCulture) + ":" + c.AttackAwayEnd.ToString(CultureInfo.InvariantCulture)
+                              + ":" + c.AttackAwayBase + ":" + c.AttackHeard);
+            if (c.AttackAwayUsed) sb.AppendLine("awayused=1");
+            if (c.DefenceLoss > 0f) sb.AppendLine("defloss=" + c.DefenceLoss.ToString("0.##", CultureInfo.InvariantCulture));
+            if (c.HomeDefences > 0) sb.AppendLine("homedef=" + c.HomeDefences);
+            if (c.ScanDefences.Count > 0)
+            {
+                var sd = new StringBuilder();
+                foreach (KeyValuePair<long, int> kv in c.ScanDefences)
                 {
-                    var rd = new StringBuilder();
-                    foreach (Vector3i v in c.Radios) { if (rd.Length > 0) rd.Append(';'); rd.Append(Vec(v)); }
-                    sb.AppendLine("radios=" + rd);
+                    if (kv.Value <= 0) continue;
+                    if (sd.Length > 0) sd.Append(';');
+                    sd.Append(WorldChunkCache.extractX(kv.Key).ToString(CultureInfo.InvariantCulture)).Append(':')
+                      .Append(WorldChunkCache.extractZ(kv.Key).ToString(CultureInfo.InvariantCulture)).Append(':').Append(kv.Value);
                 }
-                sb.AppendLine("radioday=" + c.RadioOnlineDay);
-                sb.AppendLine("outpostid=" + c.NextOutpostId);
-                sb.AppendLine("rundown=" + (c.OutpostRunDown ? 1 : 0));
-                sb.AppendLine("onfoot=" + (c.OutpostOnFoot ? 1 : 0));
-                sb.AppendLine("outpostloss=" + c.OutpostLoss.ToString("0.###", CultureInfo.InvariantCulture));
-                if (c.Scouts.Count > 0) sb.AppendLine("scouts=" + ScScouting.Encode(c.Scouts));   // already sanitised: ';' and '|' separate
-                sb.AppendLine("scoutday=" + c.RadioNextScoutDay);
-                if (c.Relays.Count > 0)
+                if (sd.Length > 0) sb.AppendLine("scandef=" + sd);
+            }
+            if (c.BloodMoonHomeDay > 0) sb.AppendLine("bmhome=" + c.BloodMoonHomeDay);
+            if (c.AwayNews.Count > 0)
+            {
+                var an = new StringBuilder();
+                foreach (string n in c.AwayNews) { if (an.Length > 0) an.Append(';'); an.Append(Clean(n)); }
+                sb.AppendLine("awaynews=" + an);
+            }
+            if (c.Thirsty) sb.AppendLine("thirsty=1");
+            if (c.HomeWater > 0) sb.AppendLine("homewater=" + c.HomeWater);
+            if (c.ScanWater.Count > 0)
+            {
+                var sw = new StringBuilder();
+                foreach (KeyValuePair<long, int> kv in c.ScanWater)
                 {
-                    var rl = new StringBuilder();
-                    foreach (Vector3i v in c.Relays) { if (rl.Length > 0) rl.Append(';'); rl.Append(Vec(v)); }
-                    sb.AppendLine("relays=" + rl);
+                    if (kv.Value <= 0) continue;
+                    if (sw.Length > 0) sw.Append(';');
+                    sw.Append(WorldChunkCache.extractX(kv.Key).ToString(CultureInfo.InvariantCulture)).Append(':')
+                      .Append(WorldChunkCache.extractZ(kv.Key).ToString(CultureInfo.InvariantCulture)).Append(':').Append(kv.Value);
                 }
-                sb.AppendLine("barterday=" + c.RadioNextBarterDay);
-                if (c.OutpostTriumph > 0f) sb.AppendLine("triumph=" + c.OutpostTriumph.ToString("0.##", CultureInfo.InvariantCulture));
-                if (c.NoiseEvents > 0f) sb.AppendLine("noiseev=" + c.NoiseEvents.ToString("0.###", CultureInfo.InvariantCulture));
-                if (c.Attention > 0f) sb.AppendLine("attention=" + c.Attention.ToString("0.###", CultureInfo.InvariantCulture));
-                if (c.NoiseStamp > 0UL) sb.AppendLine("noisestamp=" + c.NoiseStamp.ToString(CultureInfo.InvariantCulture));
-                if (c.AttackState != 0)
-                    sb.AppendLine("baseattack=" + c.AttackState + ":" + c.AttackArrive.ToString(CultureInfo.InvariantCulture) + ":" + c.AttackStarted.ToString(CultureInfo.InvariantCulture)
-                                  + ":" + c.AttackBearing + ":" + c.AttackSize + ":" + c.AttackSpawned + ":" + c.AttackKilled + ":" + c.AttackAmmoRounds + ":" + c.AttackAmmoPoints);
-                if (c.AttackNotBefore > 0UL) sb.AppendLine("attacknext=" + c.AttackNotBefore.ToString(CultureInfo.InvariantCulture));
-                if (c.DefenceTriumph > 0f) sb.AppendLine("defended=" + c.DefenceTriumph.ToString("0.##", CultureInfo.InvariantCulture));
-                if (c.WatchPosts.Count > 0)
+                if (sw.Length > 0) sb.AppendLine("scanwater=" + sw);
+            }
+            if (c.DewLevels.Count > 0)
+            {
+                var dl = new StringBuilder();
+                foreach (KeyValuePair<Vector3i, int> kv in c.DewLevels)
                 {
-                    var wp = new StringBuilder();
-                    foreach (Vector3i v in c.WatchPosts) { if (wp.Length > 0) wp.Append(';'); wp.Append(Vec(v)); }
-                    sb.AppendLine("watchposts=" + wp);
+                    if (kv.Value <= 1) continue;
+                    if (dl.Length > 0) dl.Append(';');
+                    dl.Append(Vec(kv.Key)).Append(':').Append(kv.Value);
                 }
-                if (c.AttackWarned > 0) sb.AppendLine("attackwarn=" + c.AttackWarned);
-                if (c.AttackState != 0 && (c.AttackAwayEnd > 0UL || c.AttackHeard > 0))
-                    sb.AppendLine("attackaway=" + c.AttackAwaySince.ToString(CultureInfo.InvariantCulture) + ":" + c.AttackAwayEnd.ToString(CultureInfo.InvariantCulture)
-                                  + ":" + c.AttackAwayBase + ":" + c.AttackHeard);
-                if (c.AttackAwayUsed) sb.AppendLine("awayused=1");
-                if (c.DefenceLoss > 0f) sb.AppendLine("defloss=" + c.DefenceLoss.ToString("0.##", CultureInfo.InvariantCulture));
-                if (c.HomeDefences > 0) sb.AppendLine("homedef=" + c.HomeDefences);
-                if (c.ScanDefences.Count > 0)
-                {
-                    var sd = new StringBuilder();
-                    foreach (KeyValuePair<long, int> kv in c.ScanDefences)
-                    {
-                        if (kv.Value <= 0) continue;
-                        if (sd.Length > 0) sd.Append(';');
-                        sd.Append(WorldChunkCache.extractX(kv.Key).ToString(CultureInfo.InvariantCulture)).Append(':')
-                          .Append(WorldChunkCache.extractZ(kv.Key).ToString(CultureInfo.InvariantCulture)).Append(':').Append(kv.Value);
-                    }
-                    if (sd.Length > 0) sb.AppendLine("scandef=" + sd);
-                }
-                if (c.BloodMoonHomeDay > 0) sb.AppendLine("bmhome=" + c.BloodMoonHomeDay);
-                if (c.AwayNews.Count > 0)
-                {
-                    var an = new StringBuilder();
-                    foreach (string n in c.AwayNews) { if (an.Length > 0) an.Append(';'); an.Append(Clean(n)); }
-                    sb.AppendLine("awaynews=" + an);
-                }
-                if (c.Thirsty) sb.AppendLine("thirsty=1");
-                if (c.HomeWater > 0) sb.AppendLine("homewater=" + c.HomeWater);
-                if (c.ScanWater.Count > 0)
-                {
-                    var sw = new StringBuilder();
-                    foreach (KeyValuePair<long, int> kv in c.ScanWater)
-                    {
-                        if (kv.Value <= 0) continue;
-                        if (sw.Length > 0) sw.Append(';');
-                        sw.Append(WorldChunkCache.extractX(kv.Key).ToString(CultureInfo.InvariantCulture)).Append(':')
-                          .Append(WorldChunkCache.extractZ(kv.Key).ToString(CultureInfo.InvariantCulture)).Append(':').Append(kv.Value);
-                    }
-                    if (sw.Length > 0) sb.AppendLine("scanwater=" + sw);
-                }
-                if (c.DewLevels.Count > 0)
-                {
-                    var dl = new StringBuilder();
-                    foreach (KeyValuePair<Vector3i, int> kv in c.DewLevels)
-                    {
-                        if (kv.Value <= 1) continue;
-                        if (dl.Length > 0) dl.Append(';');
-                        dl.Append(Vec(kv.Key)).Append(':').Append(kv.Value);
-                    }
-                    if (dl.Length > 0) sb.AppendLine("dewlevels=" + dl);
-                }
-                if (c.DrinksLeft > 0f) sb.AppendLine("drinks=" + c.DrinksLeft.ToString("0.#", CultureInfo.InvariantCulture));
-                if (c.DrinksDay >= 0) sb.AppendLine("drinksday=" + c.DrinksDay);
-                if (c.FeastLeft > 0f) sb.AppendLine("feast=" + c.FeastLeft.ToString("0.#", CultureInfo.InvariantCulture));   // round fd1
-                if (c.FeastDay >= 0) sb.AppendLine("feastday=" + c.FeastDay);
-                if (c.FeastMorale != 0) sb.AppendLine("feastmorale=" + c.FeastMorale);
-                if (c.FeastStamina != 0) sb.AppendLine("feaststamina=" + c.FeastStamina);
-                if (c.RationLeft > 0f) sb.AppendLine("ration=" + c.RationLeft.ToString("0.#", CultureInfo.InvariantCulture));
-                if (c.RationDay >= 0) sb.AppendLine("rationday=" + c.RationDay);
-                ScFacilityTab.WriteKeys(c, sb);       // round m1f: scansites=, lightsout=, lastattack=, towers=
-                sb.AppendLine("enclaveid=" + c.NextEnclaveId);
-                if (c.EnclaveSeeded)
-                    sb.AppendLine("enclaveseed=1:" + c.EnclaveSeedDay + ":" + Clean(c.EnclaveSeedMode).Replace(":", "") + ":"
-                                  + c.EnclaveSeed.ToString(CultureInfo.InvariantCulture) + ":" + c.EnclaveSeedCount);
-                sb.AppendLine("enclaveradio=" + c.EnclaveRadioDay);
-                sb.AppendLine("infestid=" + c.NextInfestationId);
-                sb.AppendLine("encpersonid=" + c.NextEncPersonId);
-                if (c.NextBandId > 0) sb.AppendLine("bandid=" + c.NextBandId.ToString(CultureInfo.InvariantCulture));
-                if (c.NextBandPersonId > 0) sb.AppendLine("bandpersonid=" + c.NextBandPersonId.ToString(CultureInfo.InvariantCulture));
-                sb.AppendLine("encrequestid=" + c.NextEncRequestId);
-                if (c.EncRequestDay > 0) sb.AppendLine("encreqday=" + c.EncRequestDay.ToString(CultureInfo.InvariantCulture));
-                if (c.EncOffersToday > 0) sb.AppendLine("encoffers=" + c.EncOfferDay.ToString(CultureInfo.InvariantCulture) + ":" + c.EncOffersToday.ToString(CultureInfo.InvariantCulture));   // P2
-                if (c.EncSiegeAt > 0) sb.AppendLine("encsiegeat=" + c.EncSiegeAt.ToString(CultureInfo.InvariantCulture));
-                if (c.EncRemains.Count > 0)
-                {
-                    var rm = new StringBuilder();
-                    foreach (Vector3i v in c.EncRemains) { if (rm.Length > 0) rm.Append(';'); rm.Append(Vec(v)); }
-                    sb.AppendLine("encremains=" + rm);
-                }
-                if (c.EnclaveLoss > 0f) sb.AppendLine("encloss=" + c.EnclaveLoss.ToString("0.##", CultureInfo.InvariantCulture));
-                if (c.EncRefills.Count > 0)
-                {
-                    var rf = new StringBuilder();
-                    foreach (EncRefill r in c.EncRefills)
-                    {
-                        if (rf.Length > 0) rf.Append(';');
-                        rf.Append(r.Day.ToString(CultureInfo.InvariantCulture)).Append(':').Append(Vec(r.Poi)).Append(':').Append(Clean(r.Name));
-                    }
-                    sb.AppendLine("encrefill=" + rf);
-                }
-                var st = new StringBuilder();
-                for (int i = 0; i < ScNames.ResourceCount; i++) { if (i > 0) st.Append(','); st.Append(ScNames.ResourceKeys[i]).Append(':').Append(c.Stock[i]); }
-                sb.AppendLine("stock=" + st);
-                if (c.Deaths.Count > 0)
-                {
-                    var d = new StringBuilder();
-                    for (int i = 0; i < c.Deaths.Count && i < 5; i++) { if (i > 0) d.Append(';'); d.Append(c.Deaths[i].Key).Append(':').Append(Clean(c.Deaths[i].Value)); }
-                    sb.AppendLine("deaths=" + d);
-                }
-                if (c.Ledger.Count > 0)
-                {
-                    var l = new StringBuilder();
-                    for (int i = 0; i < c.Ledger.Count && i < 7; i++) { if (i > 0) l.Append(';'); l.Append(Clean(c.Ledger[i]).Replace("\n", "\\n")); }
-                    sb.AppendLine("ledger=" + l);
-                }
-                if (!forClients && Cleanup.Count > 0)       // round MP1: server bookkeeping (entity ids), never a client's
-                {
-                    var cl = new StringBuilder();
-                    foreach (int id in Cleanup) { if (cl.Length > 0) cl.Append(','); cl.Append(id); }
-                    sb.AppendLine("cleanup=" + cl);
-                }
-                if (!forClients && Doomed.Count > 0)        // round MP1: the same
-                {
-                    var dm = new StringBuilder();
-                    foreach (int id in Doomed) { if (dm.Length > 0) dm.Append(','); dm.Append(id); }
-                    sb.AppendLine("doomed=" + dm);
-                }
-                // round 30: the streamer names given out in this save, one line each (ScStreamerNames cleans a name of every
-                // separator first, so Clean() is only a guard here)
-                if (!forClients)                            // round MP1: the server's list, not shown on a client
-                    foreach (string n in c.StreamerNamesUsed)
-                    {
-                        string sn = Clean(n);
-                        if (sn.Length > 0) sb.AppendLine("streamname=" + sn);
-                    }
-                foreach (var m in Members.Values)
+                if (dl.Length > 0) sb.AppendLine("dewlevels=" + dl);
+            }
+            if (c.DrinksLeft > 0f) sb.AppendLine("drinks=" + c.DrinksLeft.ToString("0.#", CultureInfo.InvariantCulture));
+            if (c.DrinksDay >= 0) sb.AppendLine("drinksday=" + c.DrinksDay);
+            if (c.FeastLeft > 0f) sb.AppendLine("feast=" + c.FeastLeft.ToString("0.#", CultureInfo.InvariantCulture));   // round fd1
+            if (c.FeastDay >= 0) sb.AppendLine("feastday=" + c.FeastDay);
+            if (c.FeastMorale != 0) sb.AppendLine("feastmorale=" + c.FeastMorale);
+            if (c.FeastStamina != 0) sb.AppendLine("feaststamina=" + c.FeastStamina);
+            if (c.RationLeft > 0f) sb.AppendLine("ration=" + c.RationLeft.ToString("0.#", CultureInfo.InvariantCulture));
+            if (c.RationDay >= 0) sb.AppendLine("rationday=" + c.RationDay);
+            ScFacilityTab.WriteKeys(c, sb);       // round m1f: scansites=, lightsout=, lastattack=, towers=
+            if (legacy) WriteEnclaveIds(sb, WorldState);                   // round MP6 (core): enclaveid=, enclaveseed= (the world's)
+            sb.AppendLine("enclaveradio=" + c.EnclaveRadioDay);
+            if (legacy) WriteWorldIds(sb, WorldState);                     // round MP6 (core): infestid= ... encreqday= (the world's)
+            if (c.EncOffersToday > 0) sb.AppendLine("encoffers=" + c.EncOfferDay.ToString(CultureInfo.InvariantCulture) + ":" + c.EncOffersToday.ToString(CultureInfo.InvariantCulture));   // P2
+            if (c.EncSiegeAt > 0) sb.AppendLine("encsiegeat=" + c.EncSiegeAt.ToString(CultureInfo.InvariantCulture));
+            if (legacy) WriteRemains(sb, WorldState);                      // round MP6 (core): encremains= (the world's)
+            if (c.EnclaveLoss > 0f) sb.AppendLine("encloss=" + c.EnclaveLoss.ToString("0.##", CultureInfo.InvariantCulture));
+            if (legacy) WriteRefills(sb, WorldState);                      // round MP6 (core): encrefill= (the world's)
+            var st = new StringBuilder();
+            for (int i = 0; i < ScNames.ResourceCount; i++) { if (i > 0) st.Append(','); st.Append(ScNames.ResourceKeys[i]).Append(':').Append(c.Stock[i]); }
+            sb.AppendLine("stock=" + st);
+            if (c.Deaths.Count > 0)
+            {
+                var d = new StringBuilder();
+                for (int i = 0; i < c.Deaths.Count && i < 5; i++) { if (i > 0) d.Append(';'); d.Append(c.Deaths[i].Key).Append(':').Append(Clean(c.Deaths[i].Value)); }
+                sb.AppendLine("deaths=" + d);
+            }
+            if (c.Ledger.Count > 0)
+            {
+                var l = new StringBuilder();
+                for (int i = 0; i < c.Ledger.Count && i < 7; i++) { if (i > 0) l.Append(';'); l.Append(Clean(c.Ledger[i]).Replace("\n", "\\n")); }
+                sb.AppendLine("ledger=" + l);
+            }
+            if (legacy) WriteBookkeeping(sb, WorldState, forClients);      // round MP6 (core): cleanup=, doomed=, streamname= (the world's)
+        }
+
+        /// <summary>
+        /// Round MP6 (core): every record section, in the order BuildText wrote them before MP6: the given communities' members,
+        /// contacts and outposts, the world's enclaves and their people, the communities' requests, the world's infestations,
+        /// bands and band people, the communities' prospects. withCid: a cid= line opens each community record (the SCOM 2 save).
+        /// </summary>
+        private static void WriteRecords(StringBuilder sb, IReadOnlyList<CommunityState> communities, bool forClients, bool withCid)
+        {
+            foreach (CommunityState cs in communities)
+                foreach (var m in cs.Members.Values)
                 {
                     sb.AppendLine("[member]");
+                    if (withCid) sb.AppendLine("cid=" + cs.Id.ToString(CultureInfo.InvariantCulture));     // round MP6 (core): her community
                     WriteMemberFields(sb, m, forClients);
                 }
-                foreach (var ct in Contacts)
-                {
-                    sb.AppendLine("[contact]");
-                    sb.AppendLine("id=" + ct.Id);
-                    sb.AppendLine("class=" + Clean(ct.Class));
-                    sb.AppendLine("label=" + Clean(ct.Label));
-                    sb.AppendLine("poi=" + Vec(ct.PoiKey));
-                    sb.AppendLine("poiname=" + Clean(ct.PoiName));
-                    sb.AppendLine("spawn=" + Vec(ct.Spawn));
-                    sb.AppendLine("day=" + ct.Day);
-                    sb.AppendLine("expire=" + ct.ExpireDay);
-                    if (ct.Loadout != null) sb.AppendLine("loadout=" + Clean(ct.Loadout.Encode()));
-                }
-                foreach (var o in Outposts)
-                {
-                    sb.AppendLine("[outpost]");
-                    sb.AppendLine("id=" + o.Id);
-                    sb.AppendLine("flag=" + Vec(o.Flag));
-                    sb.AppendLine("poi=" + Vec(o.Poi));
-                    sb.AppendLine("size=" + Vec(o.Size));
-                    sb.AppendLine("prefab=" + Clean(o.Prefab));
-                    sb.AppendLine("name=" + Clean(o.Name));
-                    sb.AppendLine("row=" + Clean(o.Row));
-                    var wt = new StringBuilder();
-                    for (int i = 0; i < ScNames.ResourceCount; i++)
-                    {
-                        if (o.Weight[i] <= 0f) continue;
-                        if (wt.Length > 0) wt.Append(',');
-                        wt.Append(ScNames.ResourceKeys[i]).Append(':').Append(o.Weight[i].ToString("0.###", CultureInfo.InvariantCulture));
-                    }
-                    if (wt.Length > 0) sb.AppendLine("weight=" + wt);
-                    sb.AppendLine("tier=" + o.Tier);
-                    sb.AppendLine("day=" + o.Day);
-                    sb.AppendLine("pending=" + string.Join(",", Array.ConvertAll(o.Pending, x => x.ToString(CultureInfo.InvariantCulture))));
-                    sb.AppendLine("last=" + string.Join(",", Array.ConvertAll(o.LastYield, x => x.ToString(CultureInfo.InvariantCulture))));   // round ie1: whole units (an older build reads them as floats)
-                    sb.AppendLine("state=" + o.State);
-                    sb.AppendLine("lost=" + o.LostDay);
-                    sb.AppendLine("level=" + o.Level);
-                    sb.AppendLine("mode=" + o.Mode);
-                    if (o.AttackUntil > 0) sb.AppendLine("attack=" + o.AttackUntil.ToString(CultureInfo.InvariantCulture) + ":" + (o.AttackRaiders ? 1 : 0));
-                    if (o.DamagedUntil >= 0) sb.AppendLine("damaged=" + o.DamagedUntil);
-                    if (o.SecBonus > 0f) sb.AppendLine("secbonus=" + o.SecBonus.ToString("0.##", CultureInfo.InvariantCulture));
-                    if (o.DemandUntil >= 0) sb.AppendLine("demand=" + o.DemandUntil + ":" + o.DemandAmmo + ":" + o.DemandFood);
-                    sb.AppendLine("invest=" + string.Join(",", Array.ConvertAll(o.Invest, x => x.ToString(CultureInfo.InvariantCulture))));
-                    if (o.HasInvestBase) sb.AppendLine("investbase=" + string.Join(",", Array.ConvertAll(o.InvestBase, x => x.ToString(CultureInfo.InvariantCulture))));
-                    if (o.NeglectDay >= 0) sb.AppendLine("neglect=" + o.NeglectDay);
-                    if (o.AttackUntil > 0) sb.AppendLine("heard=" + (o.AttackHeard ? 1 : 0));
-                    if (o.StashTotal > 0) sb.AppendLine("stash=" + string.Join(",", Array.ConvertAll(o.Stash, x => x.ToString(CultureInfo.InvariantCulture))));
-                    sb.AppendLine("produced=" + o.Produced.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("levelday=" + o.LevelDay);
-                    sb.AppendLine("visit=" + o.LastVisitDay);
-                    if (o.RaidEnclave > 0) sb.AppendLine("raidenc=" + o.RaidEnclave.ToString(CultureInfo.InvariantCulture));
-                    if (o.RaidEnclave > 0 && o.RaidLost > 0) sb.AppendLine("raidlost=" + o.RaidLost.ToString(CultureInfo.InvariantCulture));
-                }
-                foreach (var en in Enclaves)
-                {
-                    sb.AppendLine("[enclave]");
-                    sb.AppendLine("id=" + en.Id);
-                    sb.AppendLine("name=" + Clean(en.Name));
-                    sb.AppendLine("poi=" + Vec(en.Poi));
-                    sb.AppendLine("size=" + Vec(en.Size));
-                    sb.AppendLine("prefab=" + Clean(en.Prefab));
-                    sb.AppendLine("poiname=" + Clean(en.PoiName));
-                    sb.AppendLine("biome=" + Clean(en.Biome));
-                    sb.AppendLine("row=" + Clean(en.Row));
-                    sb.AppendLine("tier=" + en.Tier);
-                    sb.AppendLine("hostile=" + (en.Hostile ? 1 : 0));
-                    sb.AppendLine("standing=" + en.Standing.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("known=" + (en.Known ? 1 : 0));
-                    sb.AppendLine("knownday=" + en.KnownDay.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("seeded=" + en.SeededDay + ":" + Clean(en.Mode));
-                    if (en.Kind.Length > 0) sb.AppendLine("kind=" + Clean(en.Kind));
-                    sb.AppendLine("turned=" + (en.TurnedHostile ? Math.Max(0, en.HostileDay) : -1).ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("people=" + (en.PeopleRolled ? 1 : 0));
-                    if (!forClients && en.Stock.Length > 0) sb.AppendLine("stock=" + en.Stock);   // base64url: never Clean()ed (it has no '=' or ';'); MP1: bulky, server-side trading
-                    if (en.LastRecruitDay >= 0) sb.AppendLine("recruited=" + en.LastRecruitDay.ToString(CultureInfo.InvariantCulture));
-                    if (en.NextRequestDay > 0) sb.AppendLine("nextreq=" + en.NextRequestDay.ToString(CultureInfo.InvariantCulture));
-                    if (en.Thanks.Length > 0) sb.AppendLine("thanks=" + Clean(en.Thanks));
-                    if (en.Benefit.Length > 0) sb.AppendLine("benefit=" + Clean(en.Benefit));
-                    if (en.AllyRevealDay > 0) sb.AppendLine("allyreveal=" + en.AllyRevealDay.ToString(CultureInfo.InvariantCulture));
-                    if (en.GiftDay > 0) sb.AppendLine("gift=" + en.GiftDay.ToString(CultureInfo.InvariantCulture));
-                    if (en.BarterDay > 0) sb.AppendLine("barter=" + en.BarterDay.ToString(CultureInfo.InvariantCulture));
-                    if (en.CallDay > 0) sb.AppendLine("callday=" + en.CallDay.ToString(CultureInfo.InvariantCulture));
-                    if (en.CallKind.Length > 0)
-                        sb.AppendLine("call=" + Clean(en.CallKind) + ":" + en.CallAt.ToString(CultureInfo.InvariantCulture) + ":" + en.CallPid.ToString(CultureInfo.InvariantCulture)
-                                      + ":" + en.CallUntil.ToString(CultureInfo.InvariantCulture));
-                    if (en.RaidDay > 0) sb.AppendLine("raidday=" + en.RaidDay.ToString(CultureInfo.InvariantCulture));
-                    if (en.RaidLost > 0) sb.AppendLine("raidlost=" + en.RaidLost.ToString(CultureInfo.InvariantCulture));
-                    if (en.MovedDay >= 0)
-                        sb.AppendLine("moved=" + en.MovedDay.ToString(CultureInfo.InvariantCulture) + ":" + Vec(en.MovedFrom) + ":"
-                                      + (en.MovedDead >= 0 ? en.MovedDead.ToString(CultureInfo.InvariantCulture) + ":" : "") + Clean(en.MovedFromName));
-                    if (en.LossDay >= 0) sb.AppendLine("lossday=" + en.LossDay.ToString(CultureInfo.InvariantCulture));
-                    if (en.NestDay >= 0) sb.AppendLine("nestday=" + en.NestDay.ToString(CultureInfo.InvariantCulture));
-                }
-                // round MP1: a client's snapshot has no enclave or band people (bulky, and nothing a client shows reads them yet)
-                foreach (var ep in forClients ? new List<EncPerson>() : EncPeople)
-                {
-                    sb.AppendLine("[encperson]");
-                    sb.AppendLine("pid=" + ep.Id);
-                    sb.AppendLine("enclave=" + ep.EnclaveId);
-                    sb.AppendLine("role=" + Clean(ep.Role));
-                    // E10: one out raiding is home in the file (bodies never outlive a load; an older build knows no "raiding")
-                    sb.AppendLine("state=" + Clean(ep.Raiding ? EncPerson.StateHome : ep.State));
-                    sb.AppendLine("died=" + ep.DiedDay.ToString(CultureInfo.InvariantCulture));
-                    if (ep.HasHome)
-                    {
-                        sb.AppendLine("spot=" + Vec(ep.Home));
-                        sb.AppendLine("yaw=" + ep.Yaw.ToString("0.#", CultureInfo.InvariantCulture));
-                    }
-                    sb.AppendLine("health=" + ep.Health.ToString("0.###", CultureInfo.InvariantCulture));
-                    if (ep.AmmoStart != null) sb.AppendLine("ammostart=" + Clean(ScAmmo.Encode(ep.AmmoStart, ep.AmmoStartMags)));
-                    if (ep.Enlisted)
-                        sb.AppendLine("enlisted=" + ep.EnlistedBy.ToString(CultureInfo.InvariantCulture) + ":" + ep.EnlistedUntil.ToString(CultureInfo.InvariantCulture)
-                                      + ":" + ep.EnlistedBody.ToString(CultureInfo.InvariantCulture));
-                    WriteMemberFields(sb, ep.Who, forClients);
-                }
-                foreach (var rq in EncRequests)
-                {
-                    sb.AppendLine("[encrequest]");
-                    sb.AppendLine("id=" + rq.Id);
-                    sb.AppendLine("enclave=" + rq.EnclaveId);
-                    sb.AppendLine("kind=" + Clean(rq.Kind));
-                    sb.AppendLine("state=" + Clean(rq.State));
-                    sb.AppendLine("offered=" + rq.OfferDay.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("lapse=" + rq.LapseDay.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("accepted=" + rq.AcceptDay.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("due=" + rq.DueDay.ToString(CultureInfo.InvariantCulture));
-                    if (rq.Units > 0) sb.AppendLine("res=" + ScNames.Key(rq.Res) + ":" + rq.Units);
-                    if (rq.QuestCode != 0) sb.AppendLine("quest=" + rq.QuestCode.ToString(CultureInfo.InvariantCulture));
-                    // round MP4: the accepting player's platform id (ScQuestNet) - never to a client, as ownerid= and leader=
-                    if (!forClients && !string.IsNullOrEmpty(rq.AcceptedBy)) sb.AppendLine("acceptedby=" + Clean(rq.AcceptedBy));
-                    if (rq.HasTarget) sb.AppendLine("target=" + Vec(rq.Target));
-                    if (rq.InfestationId >= 0) sb.AppendLine("infest=" + rq.InfestationId.ToString(CultureInfo.InvariantCulture));
-                    if (rq.PersonId >= 0) sb.AppendLine("person=" + rq.PersonId.ToString(CultureInfo.InvariantCulture));
-                    if (rq.Deadline > 0) sb.AppendLine("deadline=" + rq.Deadline.ToString(CultureInfo.InvariantCulture));
-                    // E5
-                    if (rq.Stage != 0) sb.AppendLine("stage=" + rq.Stage.ToString(CultureInfo.InvariantCulture));
-                    if (!string.IsNullOrEmpty(rq.TargetName)) sb.AppendLine("targetname=" + Clean(rq.TargetName));
-                    if (rq.HasSpot)
-                    {
-                        sb.AppendLine("spot=" + Vec(rq.Spot));
-                        sb.AppendLine("spotyaw=" + rq.SpotYaw.ToString("0.#", CultureInfo.InvariantCulture));
-                    }
-                    if (rq.EscortBy >= 0 || rq.EscortBody >= 0)
-                        sb.AppendLine("escort=" + rq.EscortBy.ToString(CultureInfo.InvariantCulture) + ":" + rq.EscortBody.ToString(CultureInfo.InvariantCulture));
-                    if (rq.SiegeSize > 0 || rq.SiegeStarted > 0)
-                        sb.AppendLine("siege=" + rq.SiegeSize.ToString(CultureInfo.InvariantCulture) + ":" + rq.SiegeSpawned.ToString(CultureInfo.InvariantCulture) + ":"
-                                      + rq.SiegeKilled.ToString(CultureInfo.InvariantCulture) + ":" + rq.SiegeStarted.ToString(CultureInfo.InvariantCulture));
-                }
-                foreach (var inf in Infestations)
-                {
-                    sb.AppendLine("[infestation]");
-                    sb.AppendLine("id=" + inf.Id);
-                    sb.AppendLine("poi=" + Vec(inf.Poi));
-                    sb.AppendLine("size=" + Vec(inf.Size));
-                    sb.AppendLine("prefab=" + Clean(inf.Prefab));
-                    sb.AppendLine("poiname=" + Clean(inf.PoiName));
-                    sb.AppendLine("tier=" + inf.Tier);
-                    sb.AppendLine("start=" + inf.StartDay.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("how=" + Clean(inf.How));
-                    sb.AppendLine("source=" + inf.Source);
-                    sb.AppendLine("known=" + (inf.Known ? 1 : 0));
-                    sb.AppendLine("knownday=" + inf.KnownDay.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("special=" + (inf.Special == SpecialState.Owed ? "owed" : inf.Special == SpecialState.Pending ? "pending:" + Vec(inf.SpecialHost)
-                                                : inf.Special == SpecialState.Met ? "met:" + Clean(inf.SpecialClass) : "none"));
-                    sb.AppendLine("spread=" + inf.LastSpreadDay.ToString(CultureInfo.InvariantCulture));
-                    if (inf.Rearmed.Count > 0)
-                    {
-                        var ra = new StringBuilder();
-                        foreach (Vector3i v in inf.Rearmed) { if (ra.Length > 0) ra.Append(';'); ra.Append(Vec(v)); }
-                        sb.AppendLine("rearm=" + ra);
-                    }
-                }
-                // E13a: bands on the road and their people (forward-only sections)
-                foreach (var bd in Bands)
-                {
-                    sb.AppendLine("[band]");
-                    sb.AppendLine("id=" + bd.Id.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("kind=" + Clean(bd.Kind));
-                    if (bd.Name.Length > 0) sb.AppendLine("name=" + Clean(bd.Name));
-                    sb.AppendLine("size=" + bd.Size.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("made=" + (bd.PeopleMade ? 1 : 0));
-                    sb.AppendLine("from=" + Vec(bd.From));
-                    sb.AppendLine("fromname=" + Clean(bd.FromName));
-                    sb.AppendLine("to=" + Vec(bd.To));
-                    sb.AppendLine("toname=" + Clean(bd.ToName));
-                    if (bd.ToEnclave > 0) sb.AppendLine("toenc=" + bd.ToEnclave.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("toat=" + Vec(bd.ToAt));
-                    sb.AppendLine("at=" + Vec(bd.At));
-                    sb.AppendLine("depart=" + bd.Depart.ToString(CultureInfo.InvariantCulture));
-                    if (bd.HasVia) sb.AppendLine("via=" + Vec(bd.Via));
-                    sb.AppendLine("day=" + bd.StartDay.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("known=" + (bd.Known ? 1 : 0));
-                    if (bd.KnownDay >= 0) sb.AppendLine("knownday=" + bd.KnownDay.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("seed=" + bd.Seed.ToString(CultureInfo.InvariantCulture));
-                    if (bd.Trust != 0) sb.AppendLine("trust=" + bd.Trust.ToString(CultureInfo.InvariantCulture));
-                    // a fight that is on (2) never outlives a load: its zombies are not saved
-                    if (bd.Trouble != 0) sb.AppendLine("trouble=" + (bd.Trouble == 2 ? 3 : bd.Trouble).ToString(CultureInfo.InvariantCulture));
-                    if (bd.Arrived) sb.AppendLine("arrived=1");
-                }
-                foreach (var bp in forClients ? new List<BandPerson>() : BandPeople)     // round MP1: as the enclave people
-                {
-                    sb.AppendLine("[bandperson]");
-                    sb.AppendLine("pid=" + bp.Id.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("band=" + bp.BandId.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("role=" + Clean(bp.Role));
-                    sb.AppendLine("state=" + Clean(bp.State));
-                    sb.AppendLine("died=" + bp.DiedDay.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("health=" + bp.Health.ToString("0.###", CultureInfo.InvariantCulture));
-                    WriteMemberFields(sb, bp.Who, forClients);
-                }
-                foreach (var p in Prospects.Values)
-                {
-                    sb.AppendLine("[prospect]");
-                    sb.AppendLine("id=" + p.Id);
-                    sb.AppendLine("class=" + Clean(p.Class));
-                    sb.AppendLine("name=" + Clean(p.Name));
-                    sb.AppendLine("favour=" + (p.Favour == FavourKind.Poi ? "poi" : (p.Favour == FavourKind.Supplies ? "supplies" : "none")));
-                    if (p.Favour == FavourKind.Poi)
-                    {
-                        sb.AppendLine("poi=" + Vec(p.PoiPos));
-                        sb.AppendLine("poiname=" + Clean(p.PoiName));
-                        sb.AppendLine("poisize=" + p.PoiWidth + "," + p.PoiDepth);
-                    }
-                    if (p.Favour == FavourKind.Supplies) sb.AppendLine("items=" + ScNames.Key(p.ItemCategory) + ":" + p.ItemCount);
-                    if (p.NpcPos != Vector3i.zero) sb.AppendLine("npcpos=" + Vec(p.NpcPos));
-                    if (p.Started) sb.AppendLine("started=1");
-                    sb.AppendLine("done=" + (p.Done ? 1 : 0));
-                    if (p.Look != null)
-                    {
-                        sb.AppendLine("look=" + Clean(p.Look.Encode()));
-                        sb.AppendLine("gear=" + Clean(p.Look.EncodeGear()));
-                    }
-                    if (p.Loadout != null) sb.AppendLine("loadout=" + Clean(p.Loadout.Encode()));
-                    if (p.EncPersonId > 0) sb.AppendLine("encp=" + p.EncPersonId.ToString(CultureInfo.InvariantCulture));
-                }
+            foreach (CommunityState cs in communities)
+                foreach (var ct in cs.Contacts) WriteContact(sb, ct, withCid ? cs.Id : -1);
+            foreach (CommunityState cs in communities)
+                foreach (var o in cs.Outposts) WriteOutpost(sb, o, withCid ? cs.Id : -1);
+            foreach (var en in Enclaves) WriteEnclave(sb, en, forClients);
+            // round MP1: a client's snapshot has no enclave or band people (bulky, and nothing a client shows reads them yet)
+            if (!forClients) foreach (var ep in EncPeople) WriteEncPerson(sb, ep, forClients);
+            foreach (CommunityState cs in communities)
+                foreach (var rq in cs.EncRequests) WriteRequest(sb, rq, forClients, withCid ? cs.Id : -1);
+            foreach (var inf in Infestations) WriteInfestation(sb, inf);
+            // E13a: bands on the road and their people (forward-only sections)
+            foreach (var bd in Bands) WriteBand(sb, bd);
+            if (!forClients) foreach (var bp in BandPeople) WriteBandPerson(sb, bp, forClients);     // round MP1: as the enclave people
+            foreach (CommunityState cs in communities)
+                foreach (var p in cs.Prospects.Values) WriteProspect(sb, p, withCid ? cs.Id : -1);
+        }
+
+        /// <summary>Round MP6 (core): enclaveid= and enclaveseed= ([world]; an old layout's [community]), as before MP6.</summary>
+        private static void WriteEnclaveIds(StringBuilder sb, ScWorldState ws)
+        {
+            sb.AppendLine("enclaveid=" + ws.NextEnclaveId);
+            if (ws.EnclaveSeeded)
+                sb.AppendLine("enclaveseed=1:" + ws.EnclaveSeedDay + ":" + Clean(ws.EnclaveSeedMode).Replace(":", "") + ":"
+                              + ws.EnclaveSeed.ToString(CultureInfo.InvariantCulture) + ":" + ws.EnclaveSeedCount);
+        }
+
+        /// <summary>Round MP6 (core): infestid=, encpersonid=, bandid=, bandpersonid=, encrequestid= and encreqday=, as before MP6.</summary>
+        private static void WriteWorldIds(StringBuilder sb, ScWorldState ws)
+        {
+            sb.AppendLine("infestid=" + ws.NextInfestationId);
+            sb.AppendLine("encpersonid=" + ws.NextEncPersonId);
+            if (ws.NextBandId > 0) sb.AppendLine("bandid=" + ws.NextBandId.ToString(CultureInfo.InvariantCulture));
+            if (ws.NextBandPersonId > 0) sb.AppendLine("bandpersonid=" + ws.NextBandPersonId.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("encrequestid=" + ws.NextEncRequestId);
+            if (ws.EncRequestDay > 0) sb.AppendLine("encreqday=" + ws.EncRequestDay.ToString(CultureInfo.InvariantCulture));
+        }
+
+        /// <summary>Round MP6 (core): encremains=, as before MP6.</summary>
+        private static void WriteRemains(StringBuilder sb, ScWorldState ws)
+        {
+            if (ws.EncRemains.Count > 0)
+            {
+                var rm = new StringBuilder();
+                foreach (Vector3i v in ws.EncRemains) { if (rm.Length > 0) rm.Append(';'); rm.Append(Vec(v)); }
+                sb.AppendLine("encremains=" + rm);
             }
-            return sb.ToString();
+        }
+
+        /// <summary>Round MP6 (core): encrefill=, as before MP6.</summary>
+        private static void WriteRefills(StringBuilder sb, ScWorldState ws)
+        {
+            if (ws.EncRefills.Count > 0)
+            {
+                var rf = new StringBuilder();
+                foreach (EncRefill r in ws.EncRefills)
+                {
+                    if (rf.Length > 0) rf.Append(';');
+                    rf.Append(r.Day.ToString(CultureInfo.InvariantCulture)).Append(':').Append(Vec(r.Poi)).Append(':').Append(Clean(r.Name));
+                }
+                sb.AppendLine("encrefill=" + rf);
+            }
+        }
+
+        /// <summary>Round MP6 (core): cleanup=, doomed= and streamname= (never to a client), as before MP6.</summary>
+        private static void WriteBookkeeping(StringBuilder sb, ScWorldState ws, bool forClients)
+        {
+            if (!forClients && Cleanup.Count > 0)       // round MP1: server bookkeeping (entity ids), never a client's
+            {
+                var cl = new StringBuilder();
+                foreach (int id in Cleanup) { if (cl.Length > 0) cl.Append(','); cl.Append(id); }
+                sb.AppendLine("cleanup=" + cl);
+            }
+            if (!forClients && Doomed.Count > 0)        // round MP1: the same
+            {
+                var dm = new StringBuilder();
+                foreach (int id in Doomed) { if (dm.Length > 0) dm.Append(','); dm.Append(id); }
+                sb.AppendLine("doomed=" + dm);
+            }
+            // round 30: the streamer names given out in this save, one line each (ScStreamerNames cleans a name of every
+            // separator first, so Clean() is only a guard here)
+            if (!forClients)                            // round MP1: the server's list, not shown on a client
+                foreach (string n in ws.StreamerNamesUsed)
+                {
+                    string sn = Clean(n);
+                    if (sn.Length > 0) sb.AppendLine("streamname=" + sn);
+                }
+        }
+
+        /// <summary>Round MP6 (core): one [contact] section, as BuildText wrote it inline before MP6 (cid &lt; 0: no cid= line, the old layout).</summary>
+        private static void WriteContact(StringBuilder sb, Contact ct, int cid)
+        {
+            sb.AppendLine("[contact]");
+            if (cid >= 0) sb.AppendLine("cid=" + cid.ToString(CultureInfo.InvariantCulture));     // round MP6 (core): its community
+            sb.AppendLine("id=" + ct.Id);
+            sb.AppendLine("class=" + Clean(ct.Class));
+            sb.AppendLine("label=" + Clean(ct.Label));
+            sb.AppendLine("poi=" + Vec(ct.PoiKey));
+            sb.AppendLine("poiname=" + Clean(ct.PoiName));
+            sb.AppendLine("spawn=" + Vec(ct.Spawn));
+            sb.AppendLine("day=" + ct.Day);
+            sb.AppendLine("expire=" + ct.ExpireDay);
+            if (ct.Loadout != null) sb.AppendLine("loadout=" + Clean(ct.Loadout.Encode()));
+        }
+
+        /// <summary>Round MP6 (core): one [outpost] section, as BuildText wrote it inline before MP6 (cid &lt; 0: no cid= line).</summary>
+        private static void WriteOutpost(StringBuilder sb, Outpost o, int cid)
+        {
+            sb.AppendLine("[outpost]");
+            if (cid >= 0) sb.AppendLine("cid=" + cid.ToString(CultureInfo.InvariantCulture));     // round MP6 (core): its community
+            sb.AppendLine("id=" + o.Id);
+            sb.AppendLine("flag=" + Vec(o.Flag));
+            sb.AppendLine("poi=" + Vec(o.Poi));
+            sb.AppendLine("size=" + Vec(o.Size));
+            sb.AppendLine("prefab=" + Clean(o.Prefab));
+            sb.AppendLine("name=" + Clean(o.Name));
+            sb.AppendLine("row=" + Clean(o.Row));
+            var wt = new StringBuilder();
+            for (int i = 0; i < ScNames.ResourceCount; i++)
+            {
+                if (o.Weight[i] <= 0f) continue;
+                if (wt.Length > 0) wt.Append(',');
+                wt.Append(ScNames.ResourceKeys[i]).Append(':').Append(o.Weight[i].ToString("0.###", CultureInfo.InvariantCulture));
+            }
+            if (wt.Length > 0) sb.AppendLine("weight=" + wt);
+            sb.AppendLine("tier=" + o.Tier);
+            sb.AppendLine("day=" + o.Day);
+            sb.AppendLine("pending=" + string.Join(",", Array.ConvertAll(o.Pending, x => x.ToString(CultureInfo.InvariantCulture))));
+            sb.AppendLine("last=" + string.Join(",", Array.ConvertAll(o.LastYield, x => x.ToString(CultureInfo.InvariantCulture))));   // round ie1: whole units (an older build reads them as floats)
+            sb.AppendLine("state=" + o.State);
+            sb.AppendLine("lost=" + o.LostDay);
+            sb.AppendLine("level=" + o.Level);
+            sb.AppendLine("mode=" + o.Mode);
+            if (o.AttackUntil > 0) sb.AppendLine("attack=" + o.AttackUntil.ToString(CultureInfo.InvariantCulture) + ":" + (o.AttackRaiders ? 1 : 0));
+            if (o.DamagedUntil >= 0) sb.AppendLine("damaged=" + o.DamagedUntil);
+            if (o.SecBonus > 0f) sb.AppendLine("secbonus=" + o.SecBonus.ToString("0.##", CultureInfo.InvariantCulture));
+            if (o.DemandUntil >= 0) sb.AppendLine("demand=" + o.DemandUntil + ":" + o.DemandAmmo + ":" + o.DemandFood);
+            sb.AppendLine("invest=" + string.Join(",", Array.ConvertAll(o.Invest, x => x.ToString(CultureInfo.InvariantCulture))));
+            if (o.HasInvestBase) sb.AppendLine("investbase=" + string.Join(",", Array.ConvertAll(o.InvestBase, x => x.ToString(CultureInfo.InvariantCulture))));
+            if (o.NeglectDay >= 0) sb.AppendLine("neglect=" + o.NeglectDay);
+            if (o.AttackUntil > 0) sb.AppendLine("heard=" + (o.AttackHeard ? 1 : 0));
+            if (o.StashTotal > 0) sb.AppendLine("stash=" + string.Join(",", Array.ConvertAll(o.Stash, x => x.ToString(CultureInfo.InvariantCulture))));
+            sb.AppendLine("produced=" + o.Produced.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("levelday=" + o.LevelDay);
+            sb.AppendLine("visit=" + o.LastVisitDay);
+            if (o.RaidEnclave > 0) sb.AppendLine("raidenc=" + o.RaidEnclave.ToString(CultureInfo.InvariantCulture));
+            if (o.RaidEnclave > 0 && o.RaidLost > 0) sb.AppendLine("raidlost=" + o.RaidLost.ToString(CultureInfo.InvariantCulture));
+        }
+
+        /// <summary>Round MP6 (core): one [enclave] section, as BuildText wrote it inline before MP6 (a world record: no cid).</summary>
+        private static void WriteEnclave(StringBuilder sb, Enclave en, bool forClients)
+        {
+            sb.AppendLine("[enclave]");
+            sb.AppendLine("id=" + en.Id);
+            sb.AppendLine("name=" + Clean(en.Name));
+            sb.AppendLine("poi=" + Vec(en.Poi));
+            sb.AppendLine("size=" + Vec(en.Size));
+            sb.AppendLine("prefab=" + Clean(en.Prefab));
+            sb.AppendLine("poiname=" + Clean(en.PoiName));
+            sb.AppendLine("biome=" + Clean(en.Biome));
+            sb.AppendLine("row=" + Clean(en.Row));
+            sb.AppendLine("tier=" + en.Tier);
+            sb.AppendLine("hostile=" + (en.Hostile ? 1 : 0));
+            sb.AppendLine("standing=" + en.Standing.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("known=" + (en.Known ? 1 : 0));
+            sb.AppendLine("knownday=" + en.KnownDay.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("seeded=" + en.SeededDay + ":" + Clean(en.Mode));
+            if (en.Kind.Length > 0) sb.AppendLine("kind=" + Clean(en.Kind));
+            sb.AppendLine("turned=" + (en.TurnedHostile ? Math.Max(0, en.HostileDay) : -1).ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("people=" + (en.PeopleRolled ? 1 : 0));
+            if (!forClients && en.Stock.Length > 0) sb.AppendLine("stock=" + en.Stock);   // base64url: never Clean()ed (it has no '=' or ';'); MP1: bulky, server-side trading
+            if (en.LastRecruitDay >= 0) sb.AppendLine("recruited=" + en.LastRecruitDay.ToString(CultureInfo.InvariantCulture));
+            if (en.NextRequestDay > 0) sb.AppendLine("nextreq=" + en.NextRequestDay.ToString(CultureInfo.InvariantCulture));
+            if (en.Thanks.Length > 0) sb.AppendLine("thanks=" + Clean(en.Thanks));
+            if (en.Benefit.Length > 0) sb.AppendLine("benefit=" + Clean(en.Benefit));
+            if (en.AllyRevealDay > 0) sb.AppendLine("allyreveal=" + en.AllyRevealDay.ToString(CultureInfo.InvariantCulture));
+            if (en.GiftDay > 0) sb.AppendLine("gift=" + en.GiftDay.ToString(CultureInfo.InvariantCulture));
+            if (en.BarterDay > 0) sb.AppendLine("barter=" + en.BarterDay.ToString(CultureInfo.InvariantCulture));
+            if (en.CallDay > 0) sb.AppendLine("callday=" + en.CallDay.ToString(CultureInfo.InvariantCulture));
+            if (en.CallKind.Length > 0)
+                sb.AppendLine("call=" + Clean(en.CallKind) + ":" + en.CallAt.ToString(CultureInfo.InvariantCulture) + ":" + en.CallPid.ToString(CultureInfo.InvariantCulture)
+                              + ":" + en.CallUntil.ToString(CultureInfo.InvariantCulture));
+            if (en.RaidDay > 0) sb.AppendLine("raidday=" + en.RaidDay.ToString(CultureInfo.InvariantCulture));
+            if (en.RaidLost > 0) sb.AppendLine("raidlost=" + en.RaidLost.ToString(CultureInfo.InvariantCulture));
+            if (en.MovedDay >= 0)
+                sb.AppendLine("moved=" + en.MovedDay.ToString(CultureInfo.InvariantCulture) + ":" + Vec(en.MovedFrom) + ":"
+                              + (en.MovedDead >= 0 ? en.MovedDead.ToString(CultureInfo.InvariantCulture) + ":" : "") + Clean(en.MovedFromName));
+            if (en.LossDay >= 0) sb.AppendLine("lossday=" + en.LossDay.ToString(CultureInfo.InvariantCulture));
+            if (en.NestDay >= 0) sb.AppendLine("nestday=" + en.NestDay.ToString(CultureInfo.InvariantCulture));
+        }
+
+        /// <summary>Round MP6 (core): one [encperson] section, as BuildText wrote it inline before MP6 (a world record: no cid).</summary>
+        private static void WriteEncPerson(StringBuilder sb, EncPerson ep, bool forClients)
+        {
+            sb.AppendLine("[encperson]");
+            sb.AppendLine("pid=" + ep.Id);
+            sb.AppendLine("enclave=" + ep.EnclaveId);
+            sb.AppendLine("role=" + Clean(ep.Role));
+            // E10: one out raiding is home in the file (bodies never outlive a load; an older build knows no "raiding")
+            sb.AppendLine("state=" + Clean(ep.Raiding ? EncPerson.StateHome : ep.State));
+            sb.AppendLine("died=" + ep.DiedDay.ToString(CultureInfo.InvariantCulture));
+            if (ep.HasHome)
+            {
+                sb.AppendLine("spot=" + Vec(ep.Home));
+                sb.AppendLine("yaw=" + ep.Yaw.ToString("0.#", CultureInfo.InvariantCulture));
+            }
+            sb.AppendLine("health=" + ep.Health.ToString("0.###", CultureInfo.InvariantCulture));
+            if (ep.AmmoStart != null) sb.AppendLine("ammostart=" + Clean(ScAmmo.Encode(ep.AmmoStart, ep.AmmoStartMags)));
+            if (ep.Enlisted)
+                sb.AppendLine("enlisted=" + ep.EnlistedBy.ToString(CultureInfo.InvariantCulture) + ":" + ep.EnlistedUntil.ToString(CultureInfo.InvariantCulture)
+                              + ":" + ep.EnlistedBody.ToString(CultureInfo.InvariantCulture));
+            WriteMemberFields(sb, ep.Who, forClients);
+        }
+
+        /// <summary>Round MP6 (core): one [encrequest] section, as BuildText wrote it inline before MP6 (cid &lt; 0: no cid= line).</summary>
+        private static void WriteRequest(StringBuilder sb, EnclaveRequest rq, bool forClients, int cid)
+        {
+            sb.AppendLine("[encrequest]");
+            if (cid >= 0) sb.AppendLine("cid=" + cid.ToString(CultureInfo.InvariantCulture));     // round MP6 (core): its community
+            sb.AppendLine("id=" + rq.Id);
+            sb.AppendLine("enclave=" + rq.EnclaveId);
+            sb.AppendLine("kind=" + Clean(rq.Kind));
+            sb.AppendLine("state=" + Clean(rq.State));
+            sb.AppendLine("offered=" + rq.OfferDay.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("lapse=" + rq.LapseDay.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("accepted=" + rq.AcceptDay.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("due=" + rq.DueDay.ToString(CultureInfo.InvariantCulture));
+            if (rq.Units > 0) sb.AppendLine("res=" + ScNames.Key(rq.Res) + ":" + rq.Units);
+            if (rq.QuestCode != 0) sb.AppendLine("quest=" + rq.QuestCode.ToString(CultureInfo.InvariantCulture));
+            // round MP4: the accepting player's platform id (ScQuestNet) - never to a client, as ownerid= and leader=
+            if (!forClients && !string.IsNullOrEmpty(rq.AcceptedBy)) sb.AppendLine("acceptedby=" + Clean(rq.AcceptedBy));
+            if (rq.HasTarget) sb.AppendLine("target=" + Vec(rq.Target));
+            if (rq.InfestationId >= 0) sb.AppendLine("infest=" + rq.InfestationId.ToString(CultureInfo.InvariantCulture));
+            if (rq.PersonId >= 0) sb.AppendLine("person=" + rq.PersonId.ToString(CultureInfo.InvariantCulture));
+            if (rq.Deadline > 0) sb.AppendLine("deadline=" + rq.Deadline.ToString(CultureInfo.InvariantCulture));
+            // E5
+            if (rq.Stage != 0) sb.AppendLine("stage=" + rq.Stage.ToString(CultureInfo.InvariantCulture));
+            if (!string.IsNullOrEmpty(rq.TargetName)) sb.AppendLine("targetname=" + Clean(rq.TargetName));
+            if (rq.HasSpot)
+            {
+                sb.AppendLine("spot=" + Vec(rq.Spot));
+                sb.AppendLine("spotyaw=" + rq.SpotYaw.ToString("0.#", CultureInfo.InvariantCulture));
+            }
+            if (rq.EscortBy >= 0 || rq.EscortBody >= 0)
+                sb.AppendLine("escort=" + rq.EscortBy.ToString(CultureInfo.InvariantCulture) + ":" + rq.EscortBody.ToString(CultureInfo.InvariantCulture));
+            if (rq.SiegeSize > 0 || rq.SiegeStarted > 0)
+                sb.AppendLine("siege=" + rq.SiegeSize.ToString(CultureInfo.InvariantCulture) + ":" + rq.SiegeSpawned.ToString(CultureInfo.InvariantCulture) + ":"
+                              + rq.SiegeKilled.ToString(CultureInfo.InvariantCulture) + ":" + rq.SiegeStarted.ToString(CultureInfo.InvariantCulture));
+        }
+
+        /// <summary>Round MP6 (core): one [infestation] section, as BuildText wrote it inline before MP6 (a world record: no cid).</summary>
+        private static void WriteInfestation(StringBuilder sb, Infestation inf)
+        {
+            sb.AppendLine("[infestation]");
+            sb.AppendLine("id=" + inf.Id);
+            sb.AppendLine("poi=" + Vec(inf.Poi));
+            sb.AppendLine("size=" + Vec(inf.Size));
+            sb.AppendLine("prefab=" + Clean(inf.Prefab));
+            sb.AppendLine("poiname=" + Clean(inf.PoiName));
+            sb.AppendLine("tier=" + inf.Tier);
+            sb.AppendLine("start=" + inf.StartDay.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("how=" + Clean(inf.How));
+            sb.AppendLine("source=" + inf.Source);
+            sb.AppendLine("known=" + (inf.Known ? 1 : 0));
+            sb.AppendLine("knownday=" + inf.KnownDay.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("special=" + (inf.Special == SpecialState.Owed ? "owed" : inf.Special == SpecialState.Pending ? "pending:" + Vec(inf.SpecialHost)
+                                        : inf.Special == SpecialState.Met ? "met:" + Clean(inf.SpecialClass) : "none"));
+            sb.AppendLine("spread=" + inf.LastSpreadDay.ToString(CultureInfo.InvariantCulture));
+            if (inf.Rearmed.Count > 0)
+            {
+                var ra = new StringBuilder();
+                foreach (Vector3i v in inf.Rearmed) { if (ra.Length > 0) ra.Append(';'); ra.Append(Vec(v)); }
+                sb.AppendLine("rearm=" + ra);
+            }
+        }
+
+        /// <summary>Round MP6 (core): one [band] section, as BuildText wrote it inline before MP6 (a world record: no cid).</summary>
+        private static void WriteBand(StringBuilder sb, Band bd)
+        {
+            sb.AppendLine("[band]");
+            sb.AppendLine("id=" + bd.Id.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("kind=" + Clean(bd.Kind));
+            if (bd.Name.Length > 0) sb.AppendLine("name=" + Clean(bd.Name));
+            sb.AppendLine("size=" + bd.Size.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("made=" + (bd.PeopleMade ? 1 : 0));
+            sb.AppendLine("from=" + Vec(bd.From));
+            sb.AppendLine("fromname=" + Clean(bd.FromName));
+            sb.AppendLine("to=" + Vec(bd.To));
+            sb.AppendLine("toname=" + Clean(bd.ToName));
+            if (bd.ToEnclave > 0) sb.AppendLine("toenc=" + bd.ToEnclave.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("toat=" + Vec(bd.ToAt));
+            sb.AppendLine("at=" + Vec(bd.At));
+            sb.AppendLine("depart=" + bd.Depart.ToString(CultureInfo.InvariantCulture));
+            if (bd.HasVia) sb.AppendLine("via=" + Vec(bd.Via));
+            sb.AppendLine("day=" + bd.StartDay.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("known=" + (bd.Known ? 1 : 0));
+            if (bd.KnownDay >= 0) sb.AppendLine("knownday=" + bd.KnownDay.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("seed=" + bd.Seed.ToString(CultureInfo.InvariantCulture));
+            if (bd.Trust != 0) sb.AppendLine("trust=" + bd.Trust.ToString(CultureInfo.InvariantCulture));
+            // a fight that is on (2) never outlives a load: its zombies are not saved
+            if (bd.Trouble != 0) sb.AppendLine("trouble=" + (bd.Trouble == 2 ? 3 : bd.Trouble).ToString(CultureInfo.InvariantCulture));
+            if (bd.Arrived) sb.AppendLine("arrived=1");
+        }
+
+        /// <summary>Round MP6 (core): one [bandperson] section, as BuildText wrote it inline before MP6 (a world record: no cid).</summary>
+        private static void WriteBandPerson(StringBuilder sb, BandPerson bp, bool forClients)
+        {
+            sb.AppendLine("[bandperson]");
+            sb.AppendLine("pid=" + bp.Id.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("band=" + bp.BandId.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("role=" + Clean(bp.Role));
+            sb.AppendLine("state=" + Clean(bp.State));
+            sb.AppendLine("died=" + bp.DiedDay.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("health=" + bp.Health.ToString("0.###", CultureInfo.InvariantCulture));
+            WriteMemberFields(sb, bp.Who, forClients);
+        }
+
+        /// <summary>Round MP6 (core): one [prospect] section, as BuildText wrote it inline before MP6 (cid &lt; 0: no cid= line).</summary>
+        private static void WriteProspect(StringBuilder sb, Prospect p, int cid)
+        {
+            sb.AppendLine("[prospect]");
+            if (cid >= 0) sb.AppendLine("cid=" + cid.ToString(CultureInfo.InvariantCulture));     // round MP6 (core): its community
+            sb.AppendLine("id=" + p.Id);
+            sb.AppendLine("class=" + Clean(p.Class));
+            sb.AppendLine("name=" + Clean(p.Name));
+            sb.AppendLine("favour=" + (p.Favour == FavourKind.Poi ? "poi" : (p.Favour == FavourKind.Supplies ? "supplies" : "none")));
+            if (p.Favour == FavourKind.Poi)
+            {
+                sb.AppendLine("poi=" + Vec(p.PoiPos));
+                sb.AppendLine("poiname=" + Clean(p.PoiName));
+                sb.AppendLine("poisize=" + p.PoiWidth + "," + p.PoiDepth);
+            }
+            if (p.Favour == FavourKind.Supplies) sb.AppendLine("items=" + ScNames.Key(p.ItemCategory) + ":" + p.ItemCount);
+            if (p.NpcPos != Vector3i.zero) sb.AppendLine("npcpos=" + Vec(p.NpcPos));
+            if (p.Started) sb.AppendLine("started=1");
+            sb.AppendLine("done=" + (p.Done ? 1 : 0));
+            if (p.Look != null)
+            {
+                sb.AppendLine("look=" + Clean(p.Look.Encode()));
+                sb.AppendLine("gear=" + Clean(p.Look.EncodeGear()));
+            }
+            if (p.Loadout != null) sb.AppendLine("loadout=" + Clean(p.Loadout.Encode()));
+            if (p.EncPersonId > 0) sb.AppendLine("encp=" + p.EncPersonId.ToString(CultureInfo.InvariantCulture));
         }
 
         /// <summary>World shutdown: save, then latch and forget so the next world starts clean.</summary>
@@ -1907,12 +2371,8 @@ namespace SurvivorCommunity
                     mirrored = false;          // round MP1: a client's copy goes with the world (the containers are cleared below)
                     dirty = false;
                     SaveIsNew = false;
-                    Community = new Community();
-                    Members.Clear();
-                    Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); EncRequests.Clear(); Bands.Clear(); BandPeople.Clear();
-                    Cleanup.Clear();
-                Doomed.Clear();
+                    MirroredCommunity = ScPlayers.SharedCommunity;     // round MP6 (core)
+                    ClearContainers();         // round MP6 (core): community 0 alone, a fresh world record, the world lists empty
                     saveDir = null;
                     ScOutposts.OnRegistryChanged();
                     ScRunners.Reset();

@@ -10,6 +10,9 @@ namespace SurvivorCommunity
     /// Round MP0: it runs on any server - single player, a listen host, or a dedicated server with no local player. The
     /// player it passes down is ScPlayers.Anchor() (the host's own player whenever there is one, exactly as before); each
     /// tick that asks "is a player there" asks ScPlayers for any community player instead.
+    /// Round MP6 (core): the steps run once per community with a player online, lowest id first, each inside that community's
+    /// scope (ScRegistry.Use) with that community's anchor (ScPlayers.Anchor(cid)); the world steps run once, in the first of
+    /// those communities' passes, where they always ran in the order. With one community the tick is exactly as before.
     /// </summary>
     public static class ScTicker
     {
@@ -29,12 +32,31 @@ namespace SurvivorCommunity
         public static int SimulatedDay = -1;
         /// <summary>The world's day when "sc day" ran: the quiet resync needs both, so a real jump right after it still warns.</summary>
         public static int SimulatedFromDay = -1;
+        /// <summary>Round MP6 (core): the community "sc day" simulated a day for (its resync is the quiet one).</summary>
+        public static int SimulatedCommunity = ScPlayers.SharedCommunity;
+        /// <summary>Round MP6 (core): the communities with a player online this tick, lowest id first.</summary>
+        private static readonly List<int> online = new List<int>();
 
         public static void Reset()
         {
             nextTick = 0f;
             SimulatedDay = -1;
             SimulatedFromDay = -1;
+            SimulatedCommunity = ScPlayers.SharedCommunity;
+        }
+
+        /// <summary>Round MP6 (core): the communities with a player (alive or dead) in the world, lowest id first.</summary>
+        private static void OnlineCommunities(List<int> into)
+        {
+            into.Clear();
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i] == null) continue;
+                int c = ScPlayers.CommunityOf(all[i]);
+                if (!into.Contains(c)) into.Add(c);
+            }
+            into.Sort();
         }
 
         public static void OnGameUpdate()
@@ -58,41 +80,98 @@ namespace SurvivorCommunity
                 Patches_Npc.Patch_SetDead.ReleaseAll(false);
                 World w = ScCommunity.World;
                 if (w == null || !ScRegistry.Loaded) return;
-                // round MP1: the clients' copy of the registry - the last second's changes, at most once a second (its own try;
-                // nothing is built with no remote client, so single player is untouched)
-                ScMirror.ServerTick();
-                // round MP4 (part K): the community's map markers to remote clients (its own try; nothing is built with none)
-                ScMarkers.ServerTick();
-                // round MP4 (review cfs1 M1): the base's open boxes to remote clients, so their Craft from Storage leaves them out (its
-                // own try; nothing is built with none)
-                ScCraftFromBase.ServerTick();
+                // round MP6 (core): the three per-viewer pushes stay community 0's, as before MP6 (the snapshot is community 0's
+                // text: BuildText(true)). MP6 (part network): per community - each client gets its own community's
+                using (ScRegistry.Use(ScPlayers.SharedCommunity))
+                {
+                    // round MP1: the clients' copy of the registry - the last second's changes, at most once a second (its own try;
+                    // nothing is built with no remote client, so single player is untouched)
+                    ScMirror.ServerTick();
+                    // round MP4 (part K): the community's map markers to remote clients (its own try; nothing is built with none)
+                    ScMarkers.ServerTick();
+                    // round MP4 (review cfs1 M1): the base's open boxes to remote clients, so their Craft from Storage leaves them out (its
+                    // own try; nothing is built with none)
+                    ScCraftFromBase.ServerTick();
+                }
                 // round MP0: no longer the local player - a dedicated server has none. With nobody online there is nothing
-                // to tick (a dedicated server's world time stands still with no players)
-                EntityPlayer player = ScPlayers.Anchor();
-                if (player == null) return;
+                // to tick (a dedicated server's world time stands still with no players). Round MP6 (core): each community with a
+                // player online ticks, inside its own scope, with its own anchor; the world steps run in the first one's pass
+                OnlineCommunities(online);
+                if (online.Count == 0) return;
                 ScConfig.EnsureParsed();
-
                 int day = GameUtils.WorldTimeToDays(w.worldTime);
+                int first = -1;
+                EntityPlayer firstAnchor = null;
+                for (int i = 0; i < online.Count; i++)
+                {
+                    int cid = online[i];
+                    try
+                    {
+                        using (ScRegistry.Use(cid))
+                        {
+                            EntityPlayer player = ScPlayers.Anchor(cid);
+                            if (player == null) continue;
+                            bool world = first < 0;
+                            if (world) { first = cid; firstAnchor = player; }
+                            TickCommunity(w, player, cid, day, world);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        ScLog.Once("ticker", e);             // as before MP6: a fault ends this community's tick for this second
+                    }
+                }
+                // round MP6 (core): the world daily's day guard ahead of the world with no community going back to reset it (with one
+                // community it never is: the community's own rollover resets both)
+                if (first >= 0)
+                    using (ScRegistry.Use(first)) ScDaily.WorldDayBack(day, firstAnchor);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("ticker", e);
+            }
+        }
+
+        /// <summary>
+        /// Round MP6 (core): one community's tick, inside its scope (the caller's Use), with its anchor: its day rollover, then
+        /// every step in the order they always ran. world: this is the first community's pass - the world steps run in it (only),
+        /// in their old places. With one community this is exactly the old tick.
+        /// The steps whose throttle is one static (a "next tick" time: ScAmmo, ScLightsOut, ScWatchFatigue, ScActivities' buff
+        /// check, ScBond, ScMorale.SyncHud, ScRadio, ScMining, ScOutposts.Tick, ScHomeHold, ScGarrison, ScScouting, ScOutpostRisk,
+        /// ScBaseAttack, ScSiege, ScWatch, ScInvestigate, ScMissing) pass it in the first community's pass of the second only.
+        /// MP6 (part home): those throttles per community - else community 1+ never runs them
+        /// </summary>
+        private static void TickCommunity(World w, EntityPlayer player, int cid, int day, bool world)
+        {
+            {
                 Community c = ScRegistry.Community;
+                ScWorldState ws = ScRegistry.WorldState;
                 if (c.LastDay < 0)
                 {
                     c.LastDay = day;                       // baseline: the first observed day is not charged
+                    if (ws.LastDay < 0) ws.LastDay = day;  // round MP6 (core): the world daily's guard starts with it
                 }
                 else if (day < c.LastDay)
                 {
                     // the world clock went backwards (an older save loaded, or a time command): without this the
                     // community is frozen until the world catches up - no consumption, no morale, and supply
                     // runs never come home. "sc day" runs ahead of the world on purpose: its own day ending is no fault.
-                    if (c.LastDay == SimulatedDay && day == SimulatedFromDay) ScLog.Out("sc day: the simulated day " + c.LastDay + " is over - back to the world's day " + day);
+                    // Round MP6 (core): "sc day" ran for one community (SimulatedCommunity); the world's part (OnWorldDayBack and
+                    // the world daily's guard) goes back once, with the first community whose day goes back
+                    bool simulated = cid == SimulatedCommunity;
+                    if (simulated && c.LastDay == SimulatedDay && day == SimulatedFromDay) ScLog.Out("sc day: the simulated day " + c.LastDay + " is over - back to the world's day " + day);
                     else
                     {
-                        ScLog.Warn("the world day went backwards (" + c.LastDay + " -> " + day + "); resyncing the community to day " + day);
+                        ScLog.Warn("the world day went backwards (" + c.LastDay + " -> " + day + "); resyncing the community to day " + day
+                                   + (ScCommunities.Count > 1 ? " (" + ScRegistry.Current.Label + ")" : ""));
                         // E4/E6: the request clock and every forward-only enclave stamp follow a real jump back (never sc day's own end);
                         // within a second of "sc day" the community's day is still the simulated one: the world went back from its own
-                        // day (the E6 review's N1)
-                        ScEnclaves.OnWorldDayBack(day, c.LastDay == SimulatedDay && SimulatedFromDay >= 0 ? SimulatedFromDay : c.LastDay);
+                        // day (the E6 review's N1). Round MP6 (core): once for the world - while its guard is still ahead
+                        if (ws.LastDay > day)
+                            ScEnclaves.OnWorldDayBack(day, simulated && ws.LastDay == SimulatedDay && SimulatedFromDay >= 0 ? SimulatedFromDay : ws.LastDay);
                     }
-                    SimulatedDay = -1;
+                    if (ws.LastDay > day) ws.LastDay = day;         // round MP6 (core): the world daily follows
+                    if (simulated) SimulatedDay = -1;
                     c.LastDay = day;
                     foreach (var m in ScRegistry.Members.Values)
                         if (m.Status == MemberStatus.OnRun && m.RunEndDay > day) m.RunEndDay = day;   // land the runs that were already due
@@ -100,7 +179,7 @@ namespace SurvivorCommunity
                 }
                 else
                 {
-                    SimulatedDay = -1;      // the world has caught up with any simulated day: no resync of ours is coming
+                    if (cid == SimulatedCommunity) SimulatedDay = -1;      // the world has caught up with any simulated day: no resync of ours is coming
                     int guard = 0;
                     while (c.LastDay < day && guard++ < 60) { c.LastDay++; ScDaily.Run(c.LastDay, player); }
                 }
@@ -112,11 +191,13 @@ namespace SurvivorCommunity
                 ScAmmo.Tick(w);                       // every 5 s: each member's ammo into the record; resupply in the base / at an outpost
 #if SC_V34
                 ScWork.Sweep(player);                 // C1: work shifts whose member left, moved on or unloaded are dropped
-                ScPanelHold.Tick(w);                  // round mt1 (review fix G-m2): the server's backup of a remote player's member panel hold
+                if (world) ScPanelHold.Tick(w);       // round mt1 (review fix G-m2): the server's backup of a remote player's member panel hold (round MP6 (core): per player, once)
 #endif
                 ScDoors.Tick(w, player);              // shut the doors members opened once they are through
 #if SC_V34
-                ScSleep.Tick(w, player);              // round n06: the night lease - off-duty people sleep through 0-XNPCCore's routine
+                // round MP6 (core): world, once (it plans members and the enclaves' people together).
+                // MP6 (part home): it plans the members of the community in scope only - community 1+'s are never put to bed
+                if (world) ScSleep.Tick(w, player);   // round n06: the night lease - off-duty people sleep through 0-XNPCCore's routine
                 ScSocial.Tick(w, player);             // round U3: small talk, walking over to chat, the evening campfire (after the lease)
                 ScReach.Tick(w, player);              // round n08: watches 0-XNPCCore's melee-unreachable marks (measurement only)
 #endif
@@ -145,13 +226,20 @@ namespace SurvivorCommunity
                 ScHomeHold.Tick(w);                   // the home zone held loaded while a player is near (round hz)
                 ScGarrison.Tick(w, player);           // stand-ins at the staffed outpost the player is at, visit stamps
                 ScScouting.Tick(player);              // radio scouting marks: fade, restore after a load
-                ScEnclaves.Tick(w, player);           // enclaves found within reach, their markers restored after a load (E1)
-                ScEnclavePeople.Tick(w, player);      // their people: made, spawned near a player, gone when none is, the watchdog (E2)
-                ScEncDoors.Tick(w);                   // their building's locked doors unlocked, chunk by chunk as they load (round 32a)
-                ScBands.Tick(w, player);              // bands on the road: bodies near a player, their walk, camp, trouble, markers (E13a)
+                // round MP6 (core): the world steps below (if (world)) run once, in the first community's pass.
+                // MP6 (part relations): ScEnclaves.Tick and ScInfestations.Tick set Known for whoever finds one - give them the
+                // finder's scope (they run in the first community's now)
+                if (world) ScEnclaves.Tick(w, player);           // enclaves found within reach, their markers restored after a load (E1)
+                if (world) ScEnclavePeople.Tick(w, player);      // their people: made, spawned near a player, gone when none is, the watchdog (E2)
+                if (world) ScEncDoors.Tick(w);                   // their building's locked doors unlocked, chunk by chunk as they load (round 32a)
+                if (world) ScBands.Tick(w, player);              // bands on the road: bodies near a player, their walk, camp, trouble, markers (E13a)
+                // MP6 (part relations): ScEncRequests and ScEncCalls run per community; their session state (ScEncCalls' sessions and
+                // callers by enclave id) is one for the world
                 ScEncRequests.Tick(w, player);        // their requests: the journal squared with the records once a session (E4)
                 ScEncCalls.Tick(w, player);           // allies' radio calls: a fighter's arrival and return after a load, a supply drop (E9)
-                ScInfestations.Tick(w, player);       // infestations found within reach, their markers restored after a load (I1)
+                if (world) ScInfestations.Tick(w, player);       // infestations found within reach, their markers restored after a load (I1)
+                // MP6 (part gates): the flag queue keeps positions only - the first community's pass establishes every flag placed
+                // this second as its own; store the placer's community with each flag
                 ScOutposts.TickFlags(player);         // Outpost Claim Blocks placed since the last second establish themselves
                 ScOutpostRisk.Tick(w, player);        // attack fights and deadlines, blood-moon sieges
                 ScBaseAttack.Tick(w, player);         // the home's horde: the call at full attention, the arrival, the fight (with or without the player)
@@ -160,11 +248,7 @@ namespace SurvivorCommunity
                 ScInvestigate.Tick(w, player);        // round k4: idle intruders inside the base, and the residents who go to them
                 ScMissing.Tick(w, player);            // residents whose body is gone from the world (Call back)
                 ScEncJoin.Tick(w, player);            // a whole enclave that joined: their bodies walk off, each turns up at home when due (E12)
-                ScStreamerNames.Tick();               // round 30: the streamer names given in the last second into the save
-            }
-            catch (Exception e)
-            {
-                ScLog.Once("ticker", e);
+                if (world) ScStreamerNames.Tick();    // round 30: the streamer names given in the last second into the save (round MP6 (core): world)
             }
         }
 
@@ -511,7 +595,8 @@ namespace SurvivorCommunity
             if (cm != null && cm.CurrentMode == ProtocolManager.NetworkType.OfflineServer) return ScCommunity.LocalPlayer;
             if (!string.IsNullOrEmpty(m.LeaderId) && KnownPlayer(m.LeaderId)) return ScPlayers.ById(m.LeaderId);
             // no id, or one that is no player of this save (a solo game started as a server, a save played by another account):
-            // the host's own player, as before MP0 (null on a dedicated server)
+            // the host's own player, as before MP0 (null on a dedicated server).
+            // MP6 (part gates): whatever community the host's player is in - only one of the follower's community should be
             return ScCommunity.LocalPlayer;
         }
     }
@@ -519,15 +604,66 @@ namespace SurvivorCommunity
     /// <summary>
     /// The day rollover. In M1 it only keeps the ledger and the missing-member bookkeeping; consumption,
     /// morale, runs and specialties are added by the later milestones in this same method.
+    /// Round MP6 (core): split in two. Run is a community's daily (in its scope, its own Community.LastDay the guard): the
+    /// missing members, runs and outposts, then - where they always ran - the world daily (RunWorld: enclaves, their people,
+    /// requests, infestations, moves, bands, allies) for every world day not run yet (ScWorldState.LastDay, its own guard: the
+    /// first community to roll a day over runs it, inside its scope), then the base attack, the scan, the stockpile, Bond,
+    /// morale, the ledger and the tell. With one community the side effects come in exactly the old order.
     /// </summary>
     public static class ScDaily
     {
+        /// <summary>
+        /// Round MP6 (core): the world daily for one day - the steps of the old daily that are the world's. Run calls it in their
+        /// old place (summary: the rolling community's, as before).
+        /// MP6 (part relations): ScEnclaves.Daily (this community's radio reveal), ScEncRequests.Daily (the day's requests - per
+        /// community by the user's decision - besides the world's request clock) and ScEncAllies.Daily (allies' bundles into this
+        /// community's stockpile and summary, besides the world's refills) mix world and community work; they run once, in the
+        /// scope of the community whose rollover ran the world daily
+        /// </summary>
+        public static void RunWorld(int day, EntityPlayer player, System.Text.StringBuilder summary)
+        {
+            ScEnclaves.Daily(day, player);           // a powered radio picks up an enclave every few days (E1)
+            ScEnclavePeople.Daily(day);              // their people healed and their rounds refilled (E2)
+            ScEncRequests.Daily(day, player);        // offers lapse, accepted requests expire, the day's new requests (E4)
+            ScInfestations.Daily(day, player);       // cleared ones end, old ones may spread, the day's roll for a new one (I1)
+            ScEncMoves.Daily(day, player);           // a group that lost people, or has the dead next door, may move (E11)
+            ScBands.Daily(day, player);              // old trips end, the day's roll for a new band on the road (E13a)
+            ScEncAllies.Daily(day, player, summary); // allies' bundles, refills of lost enclaves, allies telling of more (E6)
+        }
+
+        /// <summary>
+        /// Round MP6 (core), ScTicker after the communities' passes (in the first one's scope): the world daily's guard ahead of
+        /// the world's day with no community whose day went back to reset it - reset it here (OnWorldDayBack, unless it is "sc
+        /// day"'s own simulated day ending). With one community it never is ahead by then.
+        /// </summary>
+        public static void WorldDayBack(int day, EntityPlayer player)
+        {
+            ScWorldState ws = ScRegistry.WorldState;
+            if (ws.LastDay <= day) return;
+            if (!(ws.LastDay == ScTicker.SimulatedDay && day == ScTicker.SimulatedFromDay))
+            {
+                ScLog.Warn("the world day went backwards (" + ws.LastDay + " -> " + day + "); resyncing the world daily to day " + day);
+                ScEnclaves.OnWorldDayBack(day, ws.LastDay);
+            }
+            ws.LastDay = day;
+            ScRegistry.SaveAtomic();
+        }
+
         public static void Run(int day, EntityPlayer player)
         {
             try
             {
                 Community c = ScRegistry.Community;
                 World w = ScCommunity.World;
+                // round MP6 (core): the world days this rollover runs (the world daily's own guard, claimed here so a fault below
+                // skips them for good, as a fault always skipped that day's world steps): with one community just this day
+                ScWorldState ws = ScRegistry.WorldState;
+                int worldFrom = -1;
+                if (ws.LastDay < day)
+                {
+                    worldFrom = ws.LastDay < 0 ? day : Math.Max(ws.LastDay + 1, day - 59);
+                    ws.LastDay = day;
+                }
                 var gone = new List<int>();
                 foreach (var m in ScRegistry.Members.Values)
                 {
@@ -564,13 +700,9 @@ namespace SurvivorCommunity
                 var summary = new System.Text.StringBuilder();
                 ScRuns.Resolve(day, player, summary);    // runs land first: the yield counts for today's needs
                 ScOutposts.Daily(day, player, summary);  // then the outposts' deliveries, upkeep and haulage
-                ScEnclaves.Daily(day, player);           // a powered radio picks up an enclave every few days (E1)
-                ScEnclavePeople.Daily(day);              // their people healed and their rounds refilled (E2)
-                ScEncRequests.Daily(day, player);        // offers lapse, accepted requests expire, the day's new requests (E4)
-                ScInfestations.Daily(day, player);       // cleared ones end, old ones may spread, the day's roll for a new one (I1)
-                ScEncMoves.Daily(day, player);           // a group that lost people, or has the dead next door, may move (E11)
-                ScBands.Daily(day, player);              // old trips end, the day's roll for a new band on the road (E13a)
-                ScEncAllies.Daily(day, player, summary); // allies' bundles, refills of lost enclaves, allies telling of more (E6)
+                // round MP6 (core): the world daily, where its steps always ran (RunWorld), for each world day claimed above
+                if (worldFrom >= 0)
+                    for (int d = worldFrom; d <= day; d++) RunWorld(d, player, summary);
                 ScBaseAttack.Daily(day);                 // the Defence morale part fades
                 ScScan.Run(false);                     // beds / facilities / crops (unloaded chunks keep their last count)
                 ScStockpile.DailyConsume(day, summary);
