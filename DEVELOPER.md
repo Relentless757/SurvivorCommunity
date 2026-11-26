@@ -2831,6 +2831,68 @@ Round MP0 is the groundwork:
     ends another player's talk hold (`ScWork.TalkHeldByOther`). **A player who leaves while she is down** marks the kept hold
     or shift (`Shift.OwnerGone`), and `Tick` ends it once she is up.
 
+- **Round MP5 (part E), enclave dialogs for every player** (`ScActionsEnclave`, `ScEncFacts`, `ScEncTalk`, `ScTalkContext`,
+  `NetPackageScTalkContext`, `DialogOpsEnclaves`, `DialogOpsEncRequests`): any community player talks to an enclave's people -
+  trade, "Can you come with me?", "Would you join us?" (with their favour), gifts, the threat, "Would your people join ours?",
+  the requests (accept, hand over, a gun from the pick, decline, think, give up, "I found ...", "I already took care of it."),
+  a missing survivor's follow and wait, and "Search the body" on their remains. The enclave's standing, trust, known flags,
+  requests and cooldowns stay the community's (Stage 1; `MP6:` markers where they become per community).
+  - **The host's own talk is unchanged:** every enclave operator keeps its code for the server (single player, the listen
+    host's own player) and runs it inline as before. The work of each action moved into cores both paths share
+    (`ScEncRequests.AcceptAs` / `DeclineAs` / `CantDoAs` / `FoundAs` / `ClearedAs` / `ThinkAs`, `ScEnclaveDeals.EnlistPaid`,
+    `ScEncSearch.FollowAt` / `WaitAt` / `SearchAtFor`, `ScEncJoin.Join` and `ScEnclaveDeals.Recruit` with an `EntityPlayer`),
+    and each returns the reply line's key and specifics instead of writing the host's `reply` static.
+  - **The talk's facts (version 3 of `NetPackageScTalkContext`; layout in its header):** when a client's talk opens, and
+    again after each of its enclave actions (`ScTalkContext.SendFactsAfter`, sent before that action's answer: the reliable
+    channel keeps order), the server adds what the enclave rows need (`ScEncFacts.Fill`, from the host's own requirement code
+    answered for that player): `EncFlags` (alive, leader / member / enlisted, leader talking, can trade, the show halves of
+    the enlist, recruit, gift and join rows, needs a favour, can give up, a thanks to spend, an infestation to make known),
+    the standing key, the kind, each greyed row's reason without the halves that read the player's own bag (the enlist fee's
+    dukes, the gift's bundles), the fee, the open request (id, state, kind, stage, resource, units), the found row's words,
+    a missing survivor's stage, where their leader is, and the line's tokens (`ScEncToken`: a localization key the client
+    localizes - the voiced request lines, the standing word, the kind - and the server's words for the specifics). The
+    favour row's roll (`ScEnclaveDeals.EnsureFavour`) happens there under the host's own rule. The tokens are made with no
+    side effect (`ScEncRequests.AskParts`, `WaitParts`, `NoneKey`); the line's own effects - the offer's infestation made
+    known, the leader's thanks spent - are the client's to report when its line shows them (`enc.seen`).
+  - **A client's rows** (`ScEncTalk`) read the facts and its own bag and journal (the dukes, the bundles carried, the
+    request's items, its gift and gun picks, its favour quest's verdict) and change nothing. Its line (`ScEncDialog.Fill` ->
+    `ScEncTalk.Fill`) fills the tokens in the host's order and `{where}` from its own position. A trade window's prices scale
+    by its copy of the enclave's standing (`ScEnclaveDeals.ScalePrice`: the body's `%sc_enc`).
+  - **The reply line:** an action whose next statement says the leader's answer (`{reqreply}`, `{giftreply}`) shows "..."
+    (`scEncReplyWait`) until the answer comes; then `ScTalkContext.RefillLine` swaps the statement on screen for a twin (the
+    same id, text, owner and rows - vanilla makes such statements itself for a quest offer), so the line panel fills it again
+    and its voice says it. The dialog's own statements are never written. A line filled before the facts came (a talk
+    reopened at a statement, after the trade window) is filled again when they land.
+  - **Ops** (`ScActionsEnclave`, Community access; ints unless marked s:; `npc` = the NPC's entity id, loaded, alive and within
+    `ScTalkContext.TalkRange` of a remote sender): `enc.threat` (npc; hint `give`: the bundles), `enc.enlist` (npc, paid; s: the
+    dukes), `enc.gohome` (npc), `enc.recruit` (npc, journal: 1 when the client's POI favour quest is past its clearing; hints
+    `fclose`/`fdone`), `enc.join` (npc), `enc.gift` (npc; s: the bundle), `enc.req` (npc, what: 1 accept, 2 decline, 3 think, 4
+    can't do, 5 found, 6 cleared), `enc.reqgive` (npc; s: the stacks), `enc.reqgun` (npc; s: the gun), `enc.follow` (npc),
+    `enc.wait` (npc), `enc.search` (x, y, z: within 8 m of a remote sender), `enc.seen` (npc, what: 1 the infestation, 2 the
+    thanks; quiet). A reply line comes back as hints `rk` (the key, localized on the client) and `ri` (the specifics,
+    URI-escaped, in the server's language).
+  - **Items (round MP3's rule):** a hand-over leaves the client's bag first - the enlist fee by the currency's type, a gift's
+    bundle and a request's bundles by type (`ScItemTx.TakeFromLocal`, the least overpay as the host's `Choose`), a generator
+    and a gun from their exact slot (`ScEncRequests.TakeForRequest`, `TakeGun`) - and travels encoded in the request's strings;
+    the server checks it against the record now (the fee at the standing now, bundles of the asked resource covering the units,
+    one generator, one gun that counts; co-op trust in the stacks themselves) and keeps it, or refuses and the client gives it
+    back (`ScItemTx.GiveToLocal`: the bag, else the feet). The threat's bundles are made on the server and come back in the
+    answer (`ScStockpile.GiveBundles` with the remote list; MP5 merge: `ScEnclavePeople.Threaten` takes `EntityPlayerLocal`,
+    so `ScActionsEnclave.ThreatenRemote` is its twin for a client). A supplies favour's hand-over is round MP2's two steps, and
+    the row's recruit waits for it (`ScTalkContext.EncAfterHandOver`).
+  - **Quests and tells:** a request a client accepts is theirs (`EnclaveRequest.AcceptedBy`: `ScQuestNet.StartRequestFor` sends
+    them the quest, its closes and reshapes follow it); the join's and the recruit's favour quests close on the acting player's
+    own journal (the quest op, or the reply's `fclose`), everyone else's through `ScTalkContext.CloseFavourForOthers`. Tells go
+    to the acting player by key. `sc enclave request <id> accept`, `sc enclave gift <id>` and `sc enclave join <id> now` act for
+    the player who typed them.
+  - **Known gaps:** the greyed rows' reasons, the request lines' specifics, the found row and `{joinfacts}` / `{terms}` /
+    `{benefit}` are the server's words (its language), as a tell's helper words are; the voiced keys and the standing and kind
+    words are the client's. A client's rows show what the facts said at the talk's open or its last action (a day passing in
+    the talk, another player's action meanwhile, can leave a row one step behind; every action checks everything again). A
+    hand-over whose answer never comes (a dropped connection) is lost to the player. Any community player may send an
+    enlisted person home or tell a missing survivor to wait (one shared community). Enclave containers still open for a client
+    (`Patches_Enclaves.Patch_ContainerLock` is host-only; not a dialog).
+
 ## How it hangs together (for modders)
 
 - NPCs are 0-XNPCCore's `EntityAliveSDXV4` survivors (SCore's legacy `EntityAliveSDX` still works for pack NPCs). A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars

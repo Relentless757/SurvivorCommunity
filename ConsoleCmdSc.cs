@@ -1980,7 +1980,7 @@ namespace SurvivorCommunity
                     Enclave e = EnclaveArg(p);
                     if (e == null) return;
                     if (!ScConfig.Enclaves || !ScEnclaves.Ready) { Output("[SC] enclaves are off in the config, or the world is still starting"); return; }
-                    ScEncRequests.Command(e, p, lines);
+                    ScEncRequests.Command(e, p, lines, Me);      // round MP5 (part E): an accepted request is the sender's
                     break;
                 }
                 // E5: the siege - its state, a call now (the pace ignored; the rules kept unless "force"), settled for testing
@@ -2027,7 +2027,7 @@ namespace SurvivorCommunity
                 {
                     Enclave e = EnclaveArg(p);
                     if (e == null) return;
-                    ScEncGifts.Command(e, p, lines);
+                    ScEncGifts.Command(e, p, lines, Me);         // round MP5 (part E): the sender's row
                     break;
                 }
                 case "barter":
@@ -2077,7 +2077,7 @@ namespace SurvivorCommunity
                     Enclave e = EnclaveArg(p);
                     if (e == null) return;
                     if (!ScEnclaves.Ready) { Output("[SC] the world is still starting"); return; }
-                    ScEncJoin.Command(e, p, lines);
+                    ScEncJoin.Command(e, p, lines, Me);          // round MP5 (part E): they join the sender
                     break;
                 }
                 // E12: everyone on the way to you from a group that joined; now: each may turn up at once (you still need to be home)

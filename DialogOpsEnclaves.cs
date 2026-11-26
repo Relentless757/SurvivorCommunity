@@ -4,9 +4,14 @@ using SurvivorCommunity;
 // The enclave people's dialog operators (E2, Config/dialogs.xml). Like DialogOps.cs: type="ScEncRole, SurvivorCommunity"
 // resolves to the GLOBAL class DialogRequirementScEncRole, so the operators live outside the namespace. They find the
 // person through the NPC the dialog passes (talkingTo: phases get the dialog's CurrentOwner) or else the player's
-// CurrentNPC cvar, then ScEnclavePeople's body lookup - one dictionary hit. Host only: a client keeps no enclave records.
+// CurrentNPC cvar, then ScEnclavePeople's body lookup - one dictionary hit. A client keeps no enclave people (round MP5,
+// part E: its paths read the talk's facts instead - below).
 // E3 adds trade, enlisting and recruiting (ScEnclaveDeals); E7 the leader's gift rows (ScEncGifts) and E12 the whole group's
 // join (ScEncJoin), both at the end of this file.
+// Round MP5 (part E): every community player talks to them. On the server (single player, the host's own player) every
+// operator runs as before. On a client a requirement reads the talk's facts (ScTalkContext: what the server's own requirement
+// code answered for that player at the talk's open and after each action; ScEncTalk) and the client's own bag and journal, and
+// changes nothing; an action is an ScActionsEnclave op (items leave the client's bag first and come back on a refusal).
 // A row's greyed text is its FIRST requirement's description
 // (DialogResponse.GetRequiredDescription), and a row's requirements stop at the first that fails (XUiC_DialogResponseEntry):
 // so a row that can grey with a reason lists value="show" (Hide) first, whose description is the reason, then value="open".
@@ -52,7 +57,16 @@ namespace SurvivorCommunity
         {
             voiceKey = null;
             if (string.IsNullOrEmpty(text) || text.IndexOf('{') < 0) return text;
-            if (!ScCommunity.IsHost) return ScBands.Fill(text, npc, player);    // round MP2: a client's band line, from the talk context (an enclave line stays as it is: MP5)
+            if (!ScCommunity.IsHost)
+            {
+                // round MP5 (part E): a client's enclave line, from the talk's facts (ScEncTalk.Fill); else a band's (round MP2). One of
+                // an enclave's people filled before their facts came (a talk reopened at a statement, after the trade window) is noted
+                // and filled again when they land (ScTalkContext.OnFacts)
+                string enc = ScEncTalk.Fill(text, npc, player, out voiceKey);
+                if (enc != null) return enc;
+                if (npc != null && npc.Buffs != null && npc.Buffs.GetCustomVar(ScEnclavePeople.EncCvar) > 0f) ScEncTalk.NoteUnfilled(npc.entityId);
+                return ScBands.Fill(text, npc, player);
+            }
             EncPerson p = ScEnclavePeople.PersonOf(npc);
             Enclave e = ScEnclavePeople.EnclaveOf(p);
             if (e == null) return ScBands.Fill(text, npc, player);          // E13a: one of a drifter band ({bandwhere}, {bandjoinfacts})
@@ -106,6 +120,7 @@ public class DialogRequirementScEncRole : BaseDialogRequirement
     {
         try
         {
+            if (!ScCommunity.IsHost) return ScEncTalk.Role(ScEncTalk.Of(player, talkingTo), (Value ?? "").Trim().ToLowerInvariant());    // round MP5 (part E)
             EncPerson p = ScEncDialog.PersonTalking(player, talkingTo);
             if (p == null) return false;
             string v = (Value ?? "").Trim().ToLowerInvariant();
@@ -124,6 +139,7 @@ public class DialogRequirementScEncCanTrade : BaseDialogRequirement
     {
         try
         {
+            if (!ScCommunity.IsHost) return ScEncTalk.Has(ScEncTalk.Of(player, talkingTo), ScTalkFacts.EncCanTrade);     // round MP5 (part E)
             EntityAlive npc;
             EncPerson p;
             return ScEncDialog.Talking(player, talkingTo, out npc, out p) && ScEnclaveDeals.CanTrade(p, npc);
@@ -143,10 +159,19 @@ public class DialogRequirementScEncEnlist : BaseDialogRequirement
     {
         try
         {
+            string v = (Value ?? "").Trim().ToLowerInvariant();
+            if (!ScCommunity.IsHost)
+            {
+                // round MP5 (part E): the facts, and the fee against this machine's own dukes
+                ScTalkFacts f = ScEncTalk.Of(player, talkingTo);
+                if (!ScEncTalk.Has(f, ScTalkFacts.EncAlive)) return false;
+                if (v == "show") return f.Enc(ScTalkFacts.EncEnlistShow);
+                if (v == "open") return ScEncTalk.EnlistWhy(f, player) == null;
+                return false;
+            }
             EntityAlive npc;
             EncPerson p;
             if (!ScEncDialog.Talking(player, talkingTo, out npc, out p)) return false;
-            string v = (Value ?? "").Trim().ToLowerInvariant();
             if (v == "show") return ScEnclaveDeals.CanAskEnlist(p);
             if (v == "open") return ScEnclaveDeals.EnlistBlocked(p, player) == null;
             return false;
@@ -162,17 +187,23 @@ public class DialogRequirementScEncEnlist : BaseDialogRequirement
     {
         try
         {
-            EntityAlive npc;
-            EncPerson p;
-            if (!ScEncDialog.Talking(player, null, out npc, out p)) return "";
+            EntityAlive npc = null;
+            EncPerson p = null;
+            ScTalkFacts f = null;
+            if (!ScCommunity.IsHost)
+            {
+                f = ScEncTalk.Of(player, null);       // round MP5 (part E)
+                if (!ScEncTalk.Has(f, ScTalkFacts.EncAlive)) return "";
+            }
+            else if (!ScEncDialog.Talking(player, null, out npc, out p)) return "";
             // the response binding asks every frame while the row shows greyed: the reason is worked out again at most
             // twice a second, or for another NPC (the E3 review's L1)
-            int id = npc != null ? npc.entityId : -1;
+            int id = f != null ? f.Npc : npc != null ? npc.entityId : -1;
             float t = UnityEngine.Time.unscaledTime;
             if (id == whyNpc && t - whyAt < 0.5f) return why;
             whyNpc = id;
             whyAt = t;
-            why = ScEnclaveDeals.EnlistBlocked(p, player) ?? "";
+            why = (f != null ? ScEncTalk.EnlistWhy(f, player) : ScEnclaveDeals.EnlistBlocked(p, player)) ?? "";
             return why;
         }
         catch (Exception e) { ScLog.Once("req-encenlist-why", e); return ""; }
@@ -191,6 +222,20 @@ public class DialogRequirementScEncRecruit : BaseDialogRequirement
     {
         try
         {
+            if (!ScCommunity.IsHost)
+            {
+                // round MP5 (part E): the server's verdicts; the favour also asks this machine's own journal
+                ScTalkFacts f = ScEncTalk.Of(player, talkingTo);
+                if (!ScEncTalk.Has(f, ScTalkFacts.EncAlive)) return false;
+                switch ((Value ?? "").Trim().ToLowerInvariant())
+                {
+                    case "show": return f.Enc(ScTalkFacts.EncRecruitShow);
+                    case "open": return f.EncRecruitWhy.Length == 0;
+                    case "favour": return ScEncTalk.NeedsFavour(f, player);
+                    case "ask": return f.EncRecruitWhy.Length > 0 || !ScEncTalk.NeedsFavour(f, player);
+                    default: return false;
+                }
+            }
             EntityAlive npc;
             EncPerson p;
             if (!ScEncDialog.Talking(player, talkingTo, out npc, out p)) return false;
@@ -214,6 +259,11 @@ public class DialogRequirementScEncRecruit : BaseDialogRequirement
     {
         try
         {
+            if (!ScCommunity.IsHost)
+            {
+                ScTalkFacts f = ScEncTalk.Of(player, null);       // round MP5 (part E): the server's reason, as it said it
+                return ScEncTalk.Has(f, ScTalkFacts.EncAlive) ? f.EncRecruitWhy : "";
+            }
             EntityAlive npc;
             EncPerson p;
             if (!ScEncDialog.Talking(player, null, out npc, out p)) return "";
@@ -240,12 +290,20 @@ public class DialogRequirementScEncFavour : BaseDialogRequirement
     {
         try
         {
+            string v = (Value ?? "").Trim().ToLowerInvariant();
+            if (!ScCommunity.IsHost)
+            {
+                // round MP5 (part E): the server rolled it (ScEncFacts: the same rule as here) - a read of the talk's view, no roll
+                ScTalkFacts f = ScEncTalk.Of(player, talkingTo);
+                Prospect cp = ScEncTalk.Has(f, ScTalkFacts.EncAlive) ? ScTalkContext.View(f.Npc) : null;
+                if (cp == null) return false;
+                return v == "poi" ? cp.Favour == FavourKind.Poi : v == "supplies" && cp.Favour == FavourKind.Supplies;
+            }
             EntityAlive npc;
             EncPerson p;
             if (!ScEncDialog.Talking(player, talkingTo, out npc, out p)) return false;
             Prospect pr = ScEnclaveDeals.EnsureFavour(p, npc);
             if (pr == null) return false;
-            string v = (Value ?? "").Trim().ToLowerInvariant();
             return v == "poi" ? pr.Favour == FavourKind.Poi : v == "supplies" && pr.Favour == FavourKind.Supplies;
         }
         catch (Exception e) { ScLog.Once("req-encfavour", e); return false; }
@@ -262,6 +320,11 @@ public class DialogRequirementScEncStanding : BaseDialogRequirement
     {
         try
         {
+            if (!ScCommunity.IsHost)
+            {
+                ScTalkFacts f = ScEncTalk.Of(player, talkingTo);      // round MP5 (part E): the standing the server said
+                return ScEncTalk.Has(f, ScTalkFacts.EncAlive) && f.EncStanding == (Value ?? "").Trim().ToLowerInvariant();
+            }
             Enclave e = ScEnclavePeople.EnclaveOf(ScEncDialog.PersonTalking(player, talkingTo));
             return e != null && ScEnclaves.StandingKey(e) == (Value ?? "").Trim().ToLowerInvariant();
         }
@@ -281,6 +344,7 @@ public class DialogActionScEncThreat : BaseDialogAction
     {
         try
         {
+            if (!ScCommunity.IsHost) { ScEncTalk.Threat(player, ScFavours.CurrentNpc(player)); return; }     // round MP5 (part E): enc.threat
             ScEnclavePeople.Threaten(player as EntityPlayerLocal, ScFavours.CurrentNpc(player));
         }
         catch (Exception e) { ScLog.Once("act-encthreat", e); }
@@ -294,7 +358,7 @@ public class DialogActionScEncEnlist : BaseDialogAction
     {
         try
         {
-            if (!ScCommunity.IsHost) return;
+            if (!ScCommunity.IsHost) { ScEncTalk.Enlist(player, ScFavours.CurrentNpc(player)); return; }    // round MP5 (part E): the fee from this bag, then enc.enlist
             string reason;
             if (!ScEnclaveDeals.Enlist(player as EntityPlayerLocal, ScFavours.CurrentNpc(player), out reason)) ScCommunity.Tell(player, reason, "ui_denied");
         }
@@ -309,7 +373,7 @@ public class DialogActionScEncGoHome : BaseDialogAction
     {
         try
         {
-            if (!ScCommunity.IsHost) return;
+            if (!ScCommunity.IsHost) { ScEncTalk.GoHome(player, ScFavours.CurrentNpc(player)); return; }   // round MP5 (part E): enc.gohome
             ScEnclaveDeals.GoHome(ScFavours.CurrentNpc(player), "the player sent them home");
         }
         catch (Exception e) { ScLog.Once("act-encgohome", e); }
@@ -323,7 +387,7 @@ public class DialogActionScEncRecruit : BaseDialogAction
     {
         try
         {
-            if (!ScCommunity.IsHost) return;
+            if (!ScCommunity.IsHost) { ScEncTalk.Recruit(player, ScFavours.CurrentNpc(player)); return; }  // round MP5 (part E): enc.recruit (after the row's hand-over)
             string reason;
             if (!ScEnclaveDeals.Recruit(player as EntityPlayerLocal, ScFavours.CurrentNpc(player), out reason)) ScCommunity.Tell(player, reason, "ui_denied");
         }
@@ -344,10 +408,19 @@ public class DialogRequirementScEncGift : BaseDialogRequirement
     {
         try
         {
+            string v = (Value ?? "").Trim().ToLowerInvariant();
+            if (!ScCommunity.IsHost)
+            {
+                // round MP5 (part E): the record's half from the facts, the bundles from this machine's own bag
+                ScTalkFacts f = ScEncTalk.Of(player, talkingTo);
+                if (!ScEncTalk.Has(f, ScTalkFacts.EncLeaderTalking)) return false;
+                if (v == "show") return f.Enc(ScTalkFacts.EncGiftShow);
+                if (v == "open") return ScEncTalk.GiftWhy(f, player) == null;
+                return false;
+            }
             Enclave e;
             EnclaveRequest r;
             if (!ScEncRequests.LeaderTalking(player, talkingTo, out e, out r)) return false;
-            string v = (Value ?? "").Trim().ToLowerInvariant();
             if (v == "show") return ScEncGifts.Shown(e);
             if (v == "open") return ScEncGifts.Blocked(e, player) == null;
             return false;
@@ -363,17 +436,23 @@ public class DialogRequirementScEncGift : BaseDialogRequirement
     {
         try
         {
-            Enclave e;
+            Enclave e = null;
             EnclaveRequest r;
-            if (!ScEncRequests.LeaderTalking(player, null, out e, out r)) return "";
+            ScTalkFacts f = null;
+            if (!ScCommunity.IsHost)
+            {
+                f = ScEncTalk.Of(player, null);       // round MP5 (part E)
+                if (!ScEncTalk.Has(f, ScTalkFacts.EncLeaderTalking)) return "";
+            }
+            else if (!ScEncRequests.LeaderTalking(player, null, out e, out r)) return "";
             // the response binding asks every frame while the row shows greyed: worked out again at most twice a second, or
             // for another enclave (a bag scan per resource)
-            int id = e.Id;
+            int id = f != null ? f.EncId : e.Id;
             float t = UnityEngine.Time.unscaledTime;
             if (id == whyNpc && t - whyAt < 0.5f) return why;
             whyNpc = id;
             whyAt = t;
-            why = ScEncGifts.WhyText(e, player);
+            why = f != null ? ScEncTalk.GiftWhyText(f, player) : ScEncGifts.WhyText(e, player);
             return why;
         }
         catch (Exception e) { ScLog.Once("req-encgift-why", e); return ""; }
@@ -390,7 +469,14 @@ public class DialogRequirementScEncGiftRow : BaseDialogRequirement
             Enclave e;
             EnclaveRequest r;
             int i;
-            if (!int.TryParse((Value ?? "").Trim(), out i) || !ScEncRequests.LeaderTalking(player, talkingTo, out e, out r)) return false;
+            if (!int.TryParse((Value ?? "").Trim(), out i)) return false;
+            if (!ScCommunity.IsHost)
+            {
+                // round MP5 (part E): this machine's own pick (ScEncTalk.GiftList built it from its own bag)
+                ScTalkFacts f = ScEncTalk.Of(player, talkingTo);
+                return ScEncTalk.Has(f, ScTalkFacts.EncLeaderTalking) && ScEncGifts.PickRowClient(i, player as EntityPlayerLocal, f.Npc, f.EncId, f.EncKind) != null;
+            }
+            if (!ScEncRequests.LeaderTalking(player, talkingTo, out e, out r)) return false;
             EntityAlive npc = talkingTo != null ? (EntityAlive)talkingTo : ScFavours.CurrentNpc(player);
             return ScEncGifts.PickRow(i, player, npc, e) != null;
         }
@@ -403,7 +489,11 @@ public class DialogActionScEncGiftList : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
     {
-        try { ScEncGifts.ActList(player); }
+        try
+        {
+            if (!ScCommunity.IsHost) { ScEncTalk.GiftList(player, ScFavours.CurrentNpc(player)); return; }    // round MP5 (part E): this machine's own bag
+            ScEncGifts.ActList(player);
+        }
         catch (Exception e) { ScLog.Once("act-encgiftlist", e); }
     }
 }
@@ -416,7 +506,9 @@ public class DialogActionScEncGift : BaseDialogAction
         try
         {
             int i;
-            if (int.TryParse((Value ?? "").Trim(), out i)) ScEncGifts.ActGive(player, i);
+            if (!int.TryParse((Value ?? "").Trim(), out i)) return;
+            if (!ScCommunity.IsHost) { ScEncTalk.Gift(player, ScFavours.CurrentNpc(player), i); return; }     // round MP5 (part E): the bundle from this bag, then enc.gift
+            ScEncGifts.ActGive(player, i);
         }
         catch (Exception e) { ScLog.Once("act-encgift", e); }
     }
@@ -436,10 +528,18 @@ public class DialogRequirementScEncJoin : BaseDialogRequirement
     {
         try
         {
+            string v = (Value ?? "").Trim().ToLowerInvariant();
+            if (!ScCommunity.IsHost)
+            {
+                ScTalkFacts f = ScEncTalk.Of(player, talkingTo);      // round MP5 (part E): the server's verdicts
+                if (!ScEncTalk.Has(f, ScTalkFacts.EncLeaderTalking)) return false;
+                if (v == "show") return f.Enc(ScTalkFacts.EncJoinShow);
+                if (v == "open") return f.EncJoinWhy.Length == 0;
+                return false;
+            }
             Enclave e;
             EnclaveRequest r;
             if (!ScEncRequests.LeaderTalking(player, talkingTo, out e, out r)) return false;
-            string v = (Value ?? "").Trim().ToLowerInvariant();
             if (v == "show") return ScEncJoin.Shown(e);
             if (v == "open") return ScEncJoin.Blocked(e, player) == null;
             return false;
@@ -455,6 +555,11 @@ public class DialogRequirementScEncJoin : BaseDialogRequirement
     {
         try
         {
+            if (!ScCommunity.IsHost)
+            {
+                ScTalkFacts f = ScEncTalk.Of(player, null);       // round MP5 (part E): the server's reason
+                return ScEncTalk.Has(f, ScTalkFacts.EncLeaderTalking) ? ScEncTalk.JoinWhyText(f) : "";
+            }
             Enclave e;
             EnclaveRequest r;
             if (!ScEncRequests.LeaderTalking(player, null, out e, out r)) return "";
@@ -478,7 +583,7 @@ public class DialogActionScEncJoin : BaseDialogAction
     {
         try
         {
-            if (!ScCommunity.IsHost) return;
+            if (!ScCommunity.IsHost) { ScEncTalk.Join(player, ScFavours.CurrentNpc(player)); return; }      // round MP5 (part E): enc.join
             string reason;
             if (!ScEncJoin.Join(player as EntityPlayerLocal, ScFavours.CurrentNpc(player), out reason)) ScCommunity.Tell(player, reason, "ui_denied");
         }

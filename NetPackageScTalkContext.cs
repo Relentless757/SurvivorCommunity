@@ -17,7 +17,7 @@ namespace SurvivorCommunity
     ///            grace after they closed) - about once a second (ScWork.RemoteBeat).
     ///   4 TalkClosed client to server: its talk with her is over (ScWork.RemoteClosed): the server ends the hold.
     /// Layout (all little-endian, BinaryWriter):
-    ///   byte   version      2 (round mt1: kinds 3 and 4, the facts' Linked bit; 1 before)
+    ///   byte   version      3 (round MP5: the facts' enclave block; 2 since round mt1: kinds 3 and 4, the facts' Linked bit; 1 before)
     ///   byte   kind         0 | 1 | 2 | 3 | 4
     ///   int32  id           the NPC's entity id (0, 1, 3, 4), or the prospect id (2)
     ///   kind 0: byte flags  bit 0: this player's journal holds this NPC's POI favour quest past its clearing
@@ -37,6 +37,19 @@ namespace SurvivorCommunity
     ///     byte   bandCome   0 not offered, 1 yes, 2 no
     ///     string bandWhere, bandJoinFacts, bandName, bandLeader (text in the server's language: MP4 moves tells to keys)
     ///     int32  bandCount
+    ///     round MP5 (part E), version 3: one of an enclave's people (ScTalkFacts.Enc*; ScEncFacts.Fill):
+    ///     int32  encFlags   ScTalkFacts.Enc* bits; 0: not an enclave body, and nothing more follows
+    ///     int32  encId
+    ///     string standing, kind
+    ///     string enlistWhy, recruitWhy, giftWhy, joinWhy (the server's part of each greyed row's reason, its language; "" passes)
+    ///     int32  enlistCost
+    ///     int32  reqId
+    ///     string reqState, reqKind, reqStage
+    ///     int32  reqRes, reqUnits
+    ///     string foundRow
+    ///     byte   search     0 none, 1 alive and waiting, 2 following
+    ///     bool   hasWhere, then (when true) float x, y, z: where their leader is
+    ///     byte   n tokens, then per token: string token, string key (localized on the client), string text (the server's words)
     /// Everything is captured in Setup*; write() only copies (it runs once per recipient on a network thread).
     /// </summary>
     public class NetPackageScTalkContext : NetPackage
@@ -44,9 +57,11 @@ namespace SurvivorCommunity
         public const byte KindOpen = 0, KindFacts = 1, KindClose = 2;
         /// <summary>Round mt1 (part H): a remote talker's hold - the client's heartbeat and its close.</summary>
         public const byte KindHeld = 3, KindTalkClosed = 4;
-        private const byte Version = 2;     // round mt1 (part H): 2 (kinds 3, 4 and the facts' Linked bit)
+        private const byte Version = 3;     // round mt1 (part H): 2 (kinds 3, 4 and the facts' Linked bit); round MP5 (part E): 3 (the facts' enclave block)
         /// <summary>A string is cut to this many characters (names and the band's facts are far shorter).</summary>
         private const int MaxString = 512;
+        /// <summary>Round MP5 (part E): at most this many enclave line tokens (the server sends about 15).</summary>
+        private const int MaxTokens = 40;
 
         private byte kind;
         private int id;
@@ -104,7 +119,7 @@ namespace SurvivorCommunity
         public override void read(PooledBinaryReader _reader)
         {
             BinaryReader r = _reader;
-            r.ReadByte();                     // version (2 since round mt1): a later layout bumps ScNet.Protocol as well
+            byte version = r.ReadByte();      // version (3 since round MP5): a later layout bumps ScNet.Protocol as well
             kind = r.ReadByte();
             id = r.ReadInt32();
             if (kind == KindOpen || kind == KindHeld) { openFlags = r.ReadByte(); return; }     // round mt1 (part H): Held's flags
@@ -137,7 +152,81 @@ namespace SurvivorCommunity
             f.BandName = Cut(r.ReadString());
             f.BandLeader = Cut(r.ReadString());
             f.BandCount = r.ReadInt32();
+            if (version >= 3) ReadEnclave(r, f);      // round MP5 (part E)
             facts = f;
+        }
+
+        /// <summary>Round MP5 (part E): the facts' enclave block (see the layout).</summary>
+        private static void ReadEnclave(BinaryReader r, ScTalkFacts f)
+        {
+            f.EncFlags = r.ReadInt32();
+            if (f.EncFlags == 0) return;
+            f.EncId = r.ReadInt32();
+            f.EncStanding = Cut(r.ReadString());
+            f.EncKind = Cut(r.ReadString());
+            f.EncEnlistWhy = Cut(r.ReadString());
+            f.EncRecruitWhy = Cut(r.ReadString());
+            f.EncGiftWhy = Cut(r.ReadString());
+            f.EncJoinWhy = Cut(r.ReadString());
+            f.EncEnlistCost = r.ReadInt32();
+            f.EncReqId = r.ReadInt32();
+            f.EncReqState = Cut(r.ReadString());
+            f.EncReqKind = Cut(r.ReadString());
+            f.EncReqStage = Cut(r.ReadString());
+            f.EncReqRes = r.ReadInt32();
+            f.EncReqUnits = r.ReadInt32();
+            f.EncFoundRow = Cut(r.ReadString());
+            f.EncSearch = r.ReadByte();
+            f.EncHasWhere = r.ReadBoolean();
+            if (f.EncHasWhere) f.EncWhere = new UnityEngine.Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
+            int n = r.ReadByte();
+            var list = new System.Collections.Generic.List<ScEncToken>(Math.Min(n, MaxTokens));
+            for (int i = 0; i < n; i++)
+            {
+                var t = new ScEncToken { Token = Cut(r.ReadString()), Key = Cut(r.ReadString()), Text = Cut(r.ReadString()) };
+                if (i < MaxTokens) list.Add(t);
+            }
+            f.EncTokens = list;
+        }
+
+        /// <summary>Round MP5 (part E): the facts' enclave block (see the layout).</summary>
+        private static void WriteEnclave(BinaryWriter w, ScTalkFacts f)
+        {
+            w.Write(f.EncFlags);
+            if (f.EncFlags == 0) return;
+            w.Write(f.EncId);
+            w.Write(Cut(f.EncStanding));
+            w.Write(Cut(f.EncKind));
+            w.Write(Cut(f.EncEnlistWhy));
+            w.Write(Cut(f.EncRecruitWhy));
+            w.Write(Cut(f.EncGiftWhy));
+            w.Write(Cut(f.EncJoinWhy));
+            w.Write(f.EncEnlistCost);
+            w.Write(f.EncReqId);
+            w.Write(Cut(f.EncReqState));
+            w.Write(Cut(f.EncReqKind));
+            w.Write(Cut(f.EncReqStage));
+            w.Write(f.EncReqRes);
+            w.Write(f.EncReqUnits);
+            w.Write(Cut(f.EncFoundRow));
+            w.Write((byte)Math.Max(0, Math.Min(255, f.EncSearch)));
+            w.Write(f.EncHasWhere);
+            if (f.EncHasWhere)
+            {
+                w.Write(f.EncWhere.x);
+                w.Write(f.EncWhere.y);
+                w.Write(f.EncWhere.z);
+            }
+            System.Collections.Generic.List<ScEncToken> list = f.EncTokens;
+            int n = list != null ? Math.Min(list.Count, MaxTokens) : 0;
+            w.Write((byte)n);
+            for (int i = 0; i < n; i++)
+            {
+                ScEncToken t = list[i] ?? new ScEncToken();
+                w.Write(Cut(t.Token));
+                w.Write(Cut(t.Key));
+                w.Write(Cut(t.Text));
+            }
         }
 
         public override void write(PooledBinaryWriter _writer)
@@ -179,6 +268,7 @@ namespace SurvivorCommunity
             w.Write(Cut(f.BandName));
             w.Write(Cut(f.BandLeader));
             w.Write(f.BandCount);
+            WriteEnclave(w, f);               // round MP5 (part E)
         }
 
         public override void ProcessPackage(World _world, GameManager _callbacks)

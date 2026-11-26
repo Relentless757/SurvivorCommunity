@@ -106,6 +106,13 @@ namespace SurvivorCommunity
     /// infestation to clear (ScEncInfest) join the daily roll (EnclaveRequestKindWeights, only where the enclave has someone
     /// who could go missing and a building to search, or an infestation near it), due EnclaveDueDaysSearch days after
     /// acceptance; the siege (ScEncSiege) has its own pace and is a call, never an offer.
+    ///
+    /// Round MP5 (part E): any community player talks to the leader. A client's rows read the talk's facts (ScEncFacts: the
+    /// request's state, kind and stage, the lines' keys and specifics) and its own bag; its actions are ScActionsEnclave's ops,
+    /// which run the same cores the host's actions do (AcceptAs, DeclineAs, CantDoAs, FoundAs, ClearedAs, ThinkAs) or their
+    /// item twins (GiveFor, GunFor: the client takes first, a refusal gives back), and answer with the reply line's key and
+    /// specifics. A request a client accepts is theirs (AcceptedBy: ScQuestNet sends them the quest). The records stay the
+    /// community's.
     /// </summary>
     public static class ScEncRequests
     {
@@ -741,7 +748,7 @@ namespace SurvivorCommunity
         /// their building is picked (ScEncSearch.Prepare; withdrawn when that cannot be), an infestation's target becomes
         /// known; both are due EnclaveDueDaysSearch days on, in their own journal quests (ScQuests.StartRequest).
         /// </summary>
-        public static bool Accept(EnclaveRequest r, EntityPlayerLocal player, string why)
+        public static bool Accept(EnclaveRequest r, EntityPlayer player, string why)     // round MP5 (part E): any player (was EntityPlayerLocal) - the quest is theirs
         {
             Enclave e = r != null ? ScEnclaves.ById(r.EnclaveId) : null;
             if (e == null || !r.IsOffered || !All.Contains(r)) return false;
@@ -762,8 +769,8 @@ namespace SurvivorCommunity
             r.DueDay = now + Math.Max(1, due) - 1;
             if (r.Kind == EnclaveRequest.KindInfestation) ScEncInfest.MakeKnown(r, player);     // E5: the leader told the player where
             string error = null;
-            // round MP4: the quest is the accepting player's (AcceptedBy) - the host's own journal as before (enclave dialogs are
-            // the host's until MP5), a client's through the quest op (ScQuestNet.StartRequestFor)
+            // round MP4: the quest is the accepting player's (AcceptedBy) - the host's own journal as before, a client's through the
+            // quest op (ScQuestNet.StartRequestFor). Round MP5 (part E): a client accepts in its own talk (enc.req), so that is theirs
             // review m2: nothing for the host's own (empty reads as the host's) - a save loaded under another platform id keeps its quest
             r.AcceptedBy = player is EntityPlayerLocal ? "" : ScPlayers.IdOf(player);
             Quest q = player != null ? ScQuestNet.StartRequestFor(player, e, r, WhatText(r), out error) : null;
@@ -1395,6 +1402,23 @@ namespace SurvivorCommunity
             return true;
         }
 
+        /// <summary>
+        /// Round MP5 (part E): LeaderTalking for a given body (a remote player's request names it: the server's copy of their
+        /// CurrentNPC cvar can lag) - the leader of that body, alive and at home, their enclave not hostile and on the map, and
+        /// its open request (null when none). False for anyone else. Server.
+        /// </summary>
+        internal static bool LeaderAt(EntityAlive npc, out Enclave e, out EnclaveRequest r)
+        {
+            e = null;
+            r = null;
+            EncPerson p = ScEnclavePeople.PersonOf(npc);
+            if (p == null || !p.Alive || !p.IsLeader || p.State != EncPerson.StateHome) return false;
+            e = ScEnclavePeople.EnclaveOf(p);
+            if (e == null || e.IsHostile || e.Lost) return false;
+            r = Of(e);
+            return true;
+        }
+
         /// <summary>The request's state for the dialog: "none", "offered" or "accepted".</summary>
         public static string StateWord(EnclaveRequest r) { return r == null ? "none" : r.State; }
 
@@ -1446,6 +1470,104 @@ namespace SurvivorCommunity
             return pick != null && i < pick.Rows.Count ? pick.Rows[i] : null;
         }
 
+        // ---- round MP5 (part E): a client's half - its own bag, the facts' request ----
+
+        /// <summary>Round MP5 (part E), client: PlayerHas for the facts' request (kind, resource, units), from this machine's own bag.</summary>
+        internal static bool ClientHas(EntityPlayerLocal pl, string kind, int res, int units)
+        {
+            if (pl == null) return false;
+            switch (kind)
+            {
+                case EnclaveRequest.KindResource: return Carried(pl, ClampRes(res)).Units >= Math.Max(1, units);
+                case EnclaveRequest.KindGenerator: { Held h; return FindGenerator(pl, out h); }
+                case EnclaveRequest.KindGun:
+                    foreach (Held h in Slots(pl)) if (IsGun(h.Stack.itemValue.ItemClass)) return true;
+                    return false;
+                default: return false;
+            }
+        }
+
+        private static Resource ClampRes(int res) { return (Resource)Mathf.Clamp(res, 0, ScNames.ResourceCount - 1); }
+
+        /// <summary>Round MP5 (part E), client: "Take one of these." - the pick of this machine's own guns for the talk with npcId (the facts' request reqId).</summary>
+        internal static void BuildPickClient(EntityPlayerLocal pl, int npcId, int reqId)
+        {
+            pick = pl != null && npcId > 0 ? new GunPick { PlayerId = pl.entityId, NpcId = npcId, RequestId = reqId, Rows = PickOf(Guns(pl)) } : null;
+        }
+
+        /// <summary>Round MP5 (part E), client: row i of the pick on screen (made again for another talk or request), or null.</summary>
+        internal static Gun PickRowClient(int i, EntityPlayerLocal pl, int npcId, int reqId)
+        {
+            if (pl == null || npcId <= 0 || i < 0) return null;
+            if (pick == null || pick.PlayerId != pl.entityId || pick.NpcId != npcId || pick.RequestId != reqId) BuildPickClient(pl, npcId, reqId);
+            return pick != null && i < pick.Rows.Count ? pick.Rows[i] : null;
+        }
+
+        /// <summary>
+        /// Round MP5 (part E), client: "I have it right here." - what the facts' request asks, out of this machine's own bag: the
+        /// bundles that cover the units with the least overpay (Choose, as the host's), taken by type (ScItemTx.TakeFromLocal), or
+        /// one generator from its exact slot. taken gets exactly what left (sent with enc.reqgive, given back on a refusal). False
+        /// when it is not carried: nothing left the bag (a short take is given back at once).
+        /// </summary>
+        internal static bool TakeForRequest(EntityPlayerLocal pl, string kind, int res, int units, List<ItemStack> taken)
+        {
+            if (pl == null || taken == null) return false;
+            if (kind == EnclaveRequest.KindGenerator)
+            {
+                Held h;
+                if (!FindGenerator(pl, out h)) return false;
+                ItemValue exact = h.Stack.itemValue.Clone();          // before the take: the toolbelt's SetItem clears the stack in place
+                if (!TakeOne(pl, h.Belt, h.Slot, exact)) return false;
+                taken.Add(new ItemStack(exact, 1));
+                return true;
+            }
+            if (kind != EnclaveRequest.KindResource) return false;
+            Resource rr = ClampRes(res);
+            Bundles take;
+            if (!Choose(Carried(pl, rr), Math.Max(1, units), out take)) return false;
+            BundleSize[] sizes = { BundleSize.Large, BundleSize.Medium, BundleSize.Small, BundleSize.Legacy };
+            int[] want = { take.Large, take.Medium, take.Small, take.Legacy };
+            for (int i = 0; i < 4; i++)
+            {
+                if (want[i] <= 0) continue;
+                ItemValue v = ScStockpile.BundleValue(rr, sizes[i]);
+                int type = v != null ? v.type : -1;
+                int got = type >= 0 ? ScItemTx.TakeFromLocal(pl, iv => iv != null && iv.type == type, want[i], taken) : 0;
+                if (got >= want[i]) continue;
+                if (taken.Count > 0) ScItemTx.GiveToLocal(pl, taken);
+                ScLog.Warn("enclave request: " + rr + " bundles came up short when taken (" + got + " of " + want[i] + " " + sizes[i] + ") - given back, not handed over");
+                taken.Clear();
+                return false;
+            }
+            return taken.Count > 0;
+        }
+
+        /// <summary>Round MP5 (part E), client: the pick row's gun out of its exact slot - still there, the same gun - as it was (wear, rounds), in taken.</summary>
+        internal static bool TakeGun(EntityPlayerLocal pl, Gun g, out ItemStack taken)
+        {
+            taken = null;
+            if (pl == null || g == null) return false;
+            ItemStack now = SlotStack(pl, g.Belt, g.Slot);
+            if (!Same(now, g.Value)) return false;
+            ItemValue exact = now.itemValue.Clone();
+            if (!TakeOne(pl, g.Belt, g.Slot, exact)) return false;
+            taken = new ItemStack(exact, 1);
+            return true;
+        }
+
+        /// <summary>Round MP5 (part E): the stack in one of the player's own slots (the toolbelt's or the bag's), or null.</summary>
+        private static ItemStack SlotStack(EntityPlayerLocal pl, bool belt, int slot)
+        {
+            if (pl == null || slot < 0) return null;
+            if (belt)
+            {
+                Inventory inv = pl.inventory;
+                return inv != null && slot < Math.Min(inv.SlotCount, inv.Length) ? inv.GetItem(slot) : null;
+            }
+            ItemStack[] items = pl.bag != null ? pl.bag.ItemGrid.items : null;
+            return items != null && slot < items.Length ? items[slot] : null;
+        }
+
         /// <summary>E5: the leader's row "I found &lt;name&gt;. I'm sorry." (its words through the row's binding, as the gun pick's).</summary>
         public const string FoundRowId = "scEncReqFound";
         private static int foundRowFor = -1;
@@ -1458,10 +1580,11 @@ namespace SurvivorCommunity
         /// </summary>
         public static void FillRow(XUiC_DialogResponseEntry entry, ref string value)
         {
-            if (entry == null || !entry.HasRequirement || !ScCommunity.IsHost) return;
+            // round MP5 (part E): a client's rows too - its own picks (built from its own bag), the found row from the talk's facts
+            if (entry == null || !entry.HasRequirement) return;
             DialogResponse resp = entry.CurrentResponse;
             string id = resp != null ? resp.ID : null;
-            if (id == FoundRowId) { value = FoundRow(); return; }
+            if (id == FoundRowId) { value = ScCommunity.IsHost ? FoundRow() : ScEncTalk.FoundRow(); return; }
             if (ScEncGifts.FillRow(id, ref value)) return;      // E7: a gift row (scEncGift0..3)
             if (id == null || id.Length != GunRowPrefix.Length + 1 || !id.StartsWith(GunRowPrefix, StringComparison.Ordinal)) return;
             int i = id[id.Length - 1] - '0';
@@ -1510,28 +1633,47 @@ namespace SurvivorCommunity
         /// <summary>E5: the leader with nothing to ask - their thanks for a request done while the player was away (once), else "nothing right now".</summary>
         private static string NoneText(Enclave e, out string key)
         {
-            key = "scEncReqNothingLine";
+            key = NoneKey(e);                 // round MP5 (part E): the key alone is NoneKey's (a client's facts carry it)
             if (string.IsNullOrEmpty(e.Thanks)) return Loc(key);
-            key = LineKey("scEncThanks", e.Thanks, ScEnclaves.StandingKey(e));
             string line = Loc(key);
             e.Thanks = "";
             ScRegistry.SaveAtomic();
             return line;
         }
 
+        /// <summary>Round MP5 (part E): {reqnone}'s line key with no side effect (NoneText spends the thanks when it is shown).</summary>
+        internal static string NoneKey(Enclave e)
+        {
+            return string.IsNullOrEmpty(e.Thanks) ? "scEncReqNothingLine" : LineKey("scEncThanks", e.Thanks, ScEnclaves.StandingKey(e));
+        }
+
         private static string AskText(Enclave e, out string key)
         {
-            key = "scEncReqGone";
-            EnclaveRequest r = Of(e);
-            if (r == null || !r.IsOffered) return Loc(key);
-            int search = Math.Max(1, ScConfig.EnclaveDueDaysSearch);
             string info;
+            EnclaveRequest known;
+            AskParts(e, out key, out info, out known);     // round MP5 (part E): the parts with no side effect (a client's facts carry them)
+            if (known != null) ScEncInfest.MakeKnown(known, ScCommunity.LocalPlayer);
+            return info == null ? Loc(key) : Loc(key) + " " + info;
+        }
+
+        /// <summary>
+        /// Round MP5 (part E): {reqask}'s line key and specifics (null: none, the key alone) with no side effect; makesKnown is the
+        /// offer whose infestation the line names - AskText makes it known when shown (a client: ScEncTalk's enc.seen).
+        /// </summary>
+        internal static void AskParts(Enclave e, out string key, out string info, out EnclaveRequest makesKnown)
+        {
+            key = "scEncReqGone";
+            info = null;
+            makesKnown = null;
+            EnclaveRequest r = Of(e);
+            if (r == null || !r.IsOffered) return;
+            int search = Math.Max(1, ScConfig.EnclaveDueDaysSearch);
             switch (r.Kind)
             {
                 // E5: who is missing is said once the player agrees (they go missing then); the infestation is named - and known now
                 case EnclaveRequest.KindMissing: info = string.Format(Loc("scEncReqOfferInfoMissing"), search, r.LapseDay); break;
                 case EnclaveRequest.KindInfestation:
-                    ScEncInfest.MakeKnown(r, ScCommunity.LocalPlayer);
+                    makesKnown = r;
                     info = string.Format(Loc("scEncReqOfferInfoInfest"), r.TargetName, ScEncInfest.WhereText(r, e), search, r.LapseDay);
                     break;
                 default:
@@ -1540,15 +1682,22 @@ namespace SurvivorCommunity
                     break;
             }
             key = LineKey("scEncAsk", r.Kind, ScEnclaves.StandingKey(e));
-            return Loc(key) + " " + info;
         }
 
         private static string WaitText(Enclave e, out string key)
         {
-            key = "scEncReqGone";
-            EnclaveRequest r = Of(e);
-            if (r == null || !r.IsAccepted) return Loc(key);
             string info;
+            WaitParts(e, out key, out info);    // round MP5 (part E)
+            return info == null ? Loc(key) : Loc(key) + " " + info;
+        }
+
+        /// <summary>Round MP5 (part E): {reqwait}'s line key and specifics (null: none, the key alone).</summary>
+        internal static void WaitParts(Enclave e, out string key, out string info)
+        {
+            key = "scEncReqGone";
+            info = null;
+            EnclaveRequest r = Of(e);
+            if (r == null || !r.IsAccepted) return;
             switch (r.Kind)
             {
                 case EnclaveRequest.KindMissing: info = ScEncSearch.WaitInfo(r); break;
@@ -1557,7 +1706,6 @@ namespace SurvivorCommunity
                 default: info = string.Format(Loc("scEncReqWaitInfo"), WhatText(r), r.DueDay); break;
             }
             key = LineKey("scEncWait", r.Kind, ScEnclaves.StandingKey(e));
-            return Loc(key) + " " + info;
         }
 
         /// <summary>The reply statement's line: the words of key (vo2: the name of its voice clip), then info, the specifics.</summary>
@@ -1592,18 +1740,32 @@ namespace SurvivorCommunity
             Enclave e;
             EnclaveRequest r;
             if (!Acting(player, out e, out r)) return;
-            if (r == null || !r.IsOffered) { SetReply(e, "scEncReqGone", ""); return; }
+            string key, info;
+            AcceptAs(player, e, r, out key, out info);      // round MP5 (part E): the core is any player's (enc.req)
+            SetReply(e, key, info);
+        }
+
+        /// <summary>
+        /// Round MP5 (part E): ActAccept's work for any player (the host's own action, a client's enc.req): the offer accepted -
+        /// the quest theirs - or an infestation cleared already done at once. key and info: the reply line ({reqreply}). True when
+        /// it went through.
+        /// </summary>
+        internal static bool AcceptAs(EntityPlayer player, Enclave e, EnclaveRequest r, out string key, out string info)
+        {
+            key = "scEncReqGone";
+            info = "";
+            if (r == null || !r.IsOffered) return false;
             string band = ScEnclaves.StandingKey(e);
-            if (r.Kind == EnclaveRequest.KindInfestation && ScEncInfest.IsCleared(r)) { DoneCleared(e, r, band); return; }
-            if (!Accept(r, player as EntityPlayerLocal, "the player said yes")) { SetReply(e, "scEncReqGone", ""); return; }
-            string info;
+            if (r.Kind == EnclaveRequest.KindInfestation && ScEncInfest.IsCleared(r)) return DoneClearedAs(e, r, band, out key, out info);
+            if (!Accept(r, player, "the player said yes")) return false;
             switch (r.Kind)
             {
                 case EnclaveRequest.KindMissing: info = string.Format(Loc("scEncReqAcceptInfoMissing"), ScEncSearch.PersonName(r), r.TargetName, r.DueDay); break;
                 case EnclaveRequest.KindInfestation: info = string.Format(Loc("scEncReqAcceptInfoInfest"), r.TargetName, r.DueDay); break;
                 default: info = string.Format(Loc("scEncReqAcceptInfo"), WhatText(r), r.DueDay); break;
             }
-            SetReply(e, LineKey("scEncAccepted", r.Kind, band), info);
+            key = LineKey("scEncAccepted", r.Kind, band);
+            return true;
         }
 
         /// <summary>
@@ -1615,10 +1777,22 @@ namespace SurvivorCommunity
             Enclave e;
             EnclaveRequest r;
             if (!Acting(player, out e, out r)) return;
-            if (r == null || r.Kind != EnclaveRequest.KindMissing || !r.IsAccepted || r.Stage != ScEncSearch.StageSearched) { SetReply(e, "scEncReqGone", ""); return; }
+            string key, info;
+            FoundAs(e, r, out key, out info);              // round MP5 (part E)
+            SetReply(e, key, info);
+        }
+
+        /// <summary>Round MP5 (part E): ActFound's work for any player; key and info the reply line. True when it went through.</summary>
+        internal static bool FoundAs(Enclave e, EnclaveRequest r, out string key, out string info)
+        {
+            key = "scEncReqGone";
+            info = "";
+            if (r == null || r.Kind != EnclaveRequest.KindMissing || !r.IsAccepted || r.Stage != ScEncSearch.StageSearched) return false;
             string band = ScEnclaves.StandingKey(e);
             int moved = Close(r, Done, "the player told them", GainFor(r), ScEncSearch.PersonName(r), EventFor(r));
-            SetReply(e, LineKey("scEncFound", r.Kind, band), Aside(moved));
+            key = LineKey("scEncFound", r.Kind, band);
+            info = Aside(moved);
+            return true;
         }
 
         /// <summary>
@@ -1631,15 +1805,28 @@ namespace SurvivorCommunity
             Enclave e;
             EnclaveRequest r;
             if (!Acting(player, out e, out r)) return;
-            if (r == null || r.Kind != EnclaveRequest.KindInfestation) { SetReply(e, "scEncReqGone", ""); return; }
-            if (!ScEncInfest.IsCleared(r)) { SetReply(e, "scEncReqNotCleared", ""); return; }
-            DoneCleared(e, r, ScEnclaves.StandingKey(e));
+            string key, info;
+            ClearedAs(e, r, out key, out info);            // round MP5 (part E)
+            SetReply(e, key, info);
         }
 
-        private static void DoneCleared(Enclave e, EnclaveRequest r, string band)
+        /// <summary>Round MP5 (part E): ActCleared's work for any player; key and info the reply line. True when it went through.</summary>
+        internal static bool ClearedAs(Enclave e, EnclaveRequest r, out string key, out string info)
+        {
+            key = "scEncReqGone";
+            info = "";
+            if (r == null || r.Kind != EnclaveRequest.KindInfestation) return false;
+            if (!ScEncInfest.IsCleared(r)) { key = "scEncReqNotCleared"; return false; }
+            return DoneClearedAs(e, r, ScEnclaves.StandingKey(e), out key, out info);
+        }
+
+        /// <summary>An infestation cleared already: done (round MP5, part E: the reply line in key and info, for any player).</summary>
+        private static bool DoneClearedAs(Enclave e, EnclaveRequest r, string band, out string key, out string info)
         {
             int moved = Close(r, Done, "the infestation was cleared already", GainFor(r), r.TargetName, EventFor(r));
-            SetReply(e, LineKey("scEncThanks", r.Kind, band), Aside(moved));
+            key = LineKey("scEncThanks", r.Kind, band);
+            info = Aside(moved);
+            return true;
         }
 
         /// <summary>
@@ -1686,6 +1873,94 @@ namespace SurvivorCommunity
             SetReply(e, LineKey("scEncThanks", r.Kind, band), Aside(moved));
         }
 
+        /// <summary>
+        /// Round MP5 (part E): "I have it right here." from a remote player (enc.reqgive) - their machine took what it hands over
+        /// (TakeForRequest) and sent it: checked here against the request now (its resource's bundles covering the units, or one
+        /// generator; co-op trust in the stacks, as every round MP3 take), then the request done as the host's ActGive does. key
+        /// and info: the reply line. False: nothing kept - the caller refuses, and the player's machine gives the items back.
+        /// </summary>
+        internal static bool GiveFor(EntityPlayer player, EntityAlive npc, List<ItemStack> stacks, out string key, out string info)
+        {
+            key = "scEncReqGone";
+            info = "";
+            Enclave e;
+            EnclaveRequest r;
+            if (!LeaderAt(npc, out e, out r) || r == null || (r.Kind != EnclaveRequest.KindResource && r.Kind != EnclaveRequest.KindGenerator)) return false;
+            if (stacks == null || stacks.Count == 0) { key = "scEncReqNotCarried"; return false; }
+            string band = ScEnclaves.StandingKey(e), what = WhatText(r);
+            if (r.Kind == EnclaveRequest.KindResource)
+            {
+                int got = 0;
+                foreach (ItemStack s in stacks)
+                {
+                    Resource rr;
+                    int u;
+                    if (!ScStockpile.IsBundle(s, out rr, out u) || rr != r.Res) { key = "scEncReqNotCarried"; return false; }
+                    got += u * s.count;
+                }
+                if (got < Math.Max(1, r.Units)) { key = "scEncReqNotCarried"; return false; }
+                if (got > r.Units) ScLog.Out("enclave request #" + r.Id + ": " + got + " " + ScNames.Key(r.Res) + " unit(s) handed over for " + r.Units + " (the rest a gift)");
+            }
+            else
+            {
+                ItemStack g = stacks[0];
+                if (stacks.Count != 1 || g.count != 1 || !IsGenerator(g.itemValue.ItemClass)) { key = "scEncReqNotCarried"; return false; }
+                string name = g.itemValue.ItemClass.GetLocalizedItemName();
+                if (!string.IsNullOrEmpty(name)) what = name;
+                ScLog.Out("enclave request #" + r.Id + ": " + g.itemValue.ItemClass.Name + " from " + player.EntityName + "'s own inventory");
+            }
+            int moved = Close(r, Done, "handed over in the talk", GainFor(r), what);
+            key = LineKey("scEncThanks", r.Kind, band);
+            info = Aside(moved);
+            return true;
+        }
+
+        /// <summary>
+        /// Round MP5 (part E): a gun pick row from a remote player (enc.reqgun) - their machine took that gun from its slot and sent
+        /// it: a gun that counts (IsGun), its points from its own tier and quality, the request done as the host's ActGiveGun does.
+        /// False: nothing kept (the player's machine gives the gun back).
+        /// </summary>
+        internal static bool GunFor(EntityPlayer player, EntityAlive npc, ItemStack gun, out string key, out string info)
+        {
+            key = "scEncReqGone";
+            info = "";
+            Enclave e;
+            EnclaveRequest r;
+            if (!LeaderAt(npc, out e, out r) || r == null || r.Kind != EnclaveRequest.KindGun) return false;
+            if (gun == null || gun.IsEmpty() || gun.count != 1 || !IsGun(gun.itemValue.ItemClass)) { key = "scEncReqNotCarried"; return false; }
+            ItemClass ic = gun.itemValue.ItemClass;
+            int tier = TierOf(ic), q = Math.Max(1, (int)gun.itemValue.Quality), points = GunPoints(tier, q);
+            string name = ic.GetLocalizedItemName();
+            if (string.IsNullOrEmpty(name)) name = Loc(ic.Name);
+            string band = ScEnclaves.StandingKey(e);
+            ScLog.Out("enclave request #" + r.Id + ": " + ic.Name + " (T" + tier + ", quality " + q + ") from " + player.EntityName + "'s own inventory - " + points + " point(s)");
+            int moved = Close(r, Done, "a gun handed over in the talk", points, string.Format(Loc("scEncReqGunWhat"), name, tier, q));
+            key = LineKey("scEncThanks", r.Kind, band);
+            info = Aside(moved);
+            return true;
+        }
+
+        /// <summary>
+        /// Round MP5 (part E): a remote player's line showed what the host's fill does as it shows it (enc.seen): what 1 - the offer's
+        /// infestation is known now (AskText's MakeKnown); what 2 - the leader's thanks are spent (NoneText's). True when it did.
+        /// </summary>
+        internal static bool SeenFor(EntityPlayer player, EntityAlive npc, int what)
+        {
+            Enclave e;
+            EnclaveRequest r;
+            if (!LeaderAt(npc, out e, out r)) return false;
+            if (what == 1)
+            {
+                if (r == null || !r.IsOffered || r.Kind != EnclaveRequest.KindInfestation) return false;
+                ScEncInfest.MakeKnown(r, player);
+                return true;
+            }
+            if (what != 2 || string.IsNullOrEmpty(e.Thanks)) return false;
+            e.Thanks = "";
+            ScRegistry.SaveAtomic();
+            return true;
+        }
+
         /// <summary>"Take one of these.": the pick of the guns the player carries (its rows' texts made now).</summary>
         public static void ActGunList(EntityPlayer player)
         {
@@ -1720,13 +1995,25 @@ namespace SurvivorCommunity
             Enclave e;
             EnclaveRequest r;
             if (!Acting(player, out e, out r)) return;
-            if (r == null || !r.IsOffered) { SetReply(e, "scEncReqGone", ""); return; }
+            string key, info;
+            DeclineAs(e, r, out key, out info);            // round MP5 (part E)
+            SetReply(e, key, info);
+        }
+
+        /// <summary>Round MP5 (part E): ActDecline's work for any player; key and info the reply line. True when it went through.</summary>
+        internal static bool DeclineAs(Enclave e, EnclaveRequest r, out string key, out string info)
+        {
+            key = "scEncReqGone";
+            info = "";
+            if (r == null || !r.IsOffered) return false;
             string band = ScEnclaves.StandingKey(e);
             // E5 (the review's N2): an infestation cleared while it was an offer is no work to refuse - it is done (the No row
             // hides then; this is a stale dialog's case)
-            if (ScEncInfest.IsCleared(r)) { DoneCleared(e, r, band); return; }
+            if (ScEncInfest.IsCleared(r)) return DoneClearedAs(e, r, band, out key, out info);
             int moved = Close(r, Declined, "the player said no");
-            SetReply(e, LineKey("scEncDeclined", r.Kind, band), Aside(moved));
+            key = LineKey("scEncDeclined", r.Kind, band);
+            info = Aside(moved);
+            return true;
         }
 
         /// <summary>
@@ -1737,12 +2024,20 @@ namespace SurvivorCommunity
         {
             Enclave e;
             EnclaveRequest r;
-            if (!Acting(player, out e, out r) || r == null || !r.IsOffered) return;
+            if (!Acting(player, out e, out r)) return;
+            ThinkAs(player, ScFavours.CurrentNpc(player), e, r);     // round MP5 (part E)
+        }
+
+        /// <summary>Round MP5 (part E): ActThink's work for any player: the leader's word as a tell and, as the talk closes, said aloud on the talker's machine.</summary>
+        internal static bool ThinkAs(EntityPlayer player, EntityAlive npc, Enclave e, EnclaveRequest r)
+        {
+            if (r == null || !r.IsOffered) return false;
             EncPerson leader = ScEnclavePeople.LeaderOf(e);
             string key = LineKey("scEncThink", r.Kind, ScEnclaves.StandingKey(e));
             ScCommunity.TellKey(player, "scEncReqThinkTell", "", leader != null ? leader.Name : e.Name, ScCommunity.LocArg(key), r.LapseDay);   // the word: a key
-            ScVoice.SayAfterTalkFor(player, ScFavours.CurrentNpc(player), key);   // round MP4: on the talker's machine (a remote one's on theirs)
+            ScVoice.SayAfterTalkFor(player, npc, key);   // round MP4: on the talker's machine (a remote one's on theirs)
             ScLog.Verbose("enclave request #" + r.Id + ": the player will think about it (the offer stands to the end of day " + r.LapseDay + ")");
+            return true;
         }
 
         /// <summary>"I can't do it.": the accepted request failed now - EnclaveLossFail by band (E5: only one that can be given up, CanGiveUp).</summary>
@@ -1751,10 +2046,22 @@ namespace SurvivorCommunity
             Enclave e;
             EnclaveRequest r;
             if (!Acting(player, out e, out r)) return;
-            if (r == null || !r.IsAccepted || !CanGiveUp(r)) { SetReply(e, "scEncReqGone", ""); return; }
+            string key, info;
+            CantDoAs(e, r, out key, out info);             // round MP5 (part E)
+            SetReply(e, key, info);
+        }
+
+        /// <summary>Round MP5 (part E): ActCantDo's work for any player; key and info the reply line. True when it went through.</summary>
+        internal static bool CantDoAs(Enclave e, EnclaveRequest r, out string key, out string info)
+        {
+            key = "scEncReqGone";
+            info = "";
+            if (r == null || !r.IsAccepted || !CanGiveUp(r)) return false;
             string band = ScEnclaves.StandingKey(e);
             int moved = Close(r, Failed, "the player gave it up");
-            SetReply(e, LineKey("scEncCantDo", r.Kind, band), Aside(moved));
+            key = LineKey("scEncCantDo", r.Kind, band);
+            info = Aside(moved);
+            return true;
         }
 
         // ------------------------------------------------------------------ console ----
@@ -1812,11 +2119,12 @@ namespace SurvivorCommunity
         /// where it can be given: CanOffer); a missing survivor's "fate alive|dead" settles the roll the next arrival makes; a
         /// siege is "sc enclave siege".
         /// </summary>
-        public static void Command(Enclave e, List<string> p, List<string> into)
+        public static void Command(Enclave e, List<string> p, List<string> into, EntityPlayer player = null)
         {
             EnclaveRequest r = Of(e);
             string verb = p.Count > 3 ? p[3].ToLowerInvariant() : "";
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            // round MP5 (part E): the player who typed it (ConsoleCmdSc.Me: an accepted request's quest is theirs), else the host's own
+            EntityPlayer pl = player ?? ScCommunity.LocalPlayer;
             switch (verb)
             {
                 case "":

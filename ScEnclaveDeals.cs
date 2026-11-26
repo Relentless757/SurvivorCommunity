@@ -39,6 +39,12 @@ namespace SurvivorCommunity
     /// person: the prospect and the favour quest's giver follow each new body (ParkedKey while they have none). The join
     /// costs EnclaveRecruitStanding at Neutral and Friendly, nothing at Allied. The person's own Member record joins
     /// (ScCommunity.Admit): the same face, weapons, rounds, skills, traits and name; they leave the enclave's records.
+    ///
+    /// Round MP5 (part E): any community player trades, enlists and recruits. A client's trade window scales its prices by its
+    /// copy of the enclave's standing (ScalePrice: the body's %sc_enc). A client's enlist fee leaves its own bag first and
+    /// enc.enlist brings it (EnlistPaid: the fee at the standing now, or refused and given back); its recruit is enc.recruit
+    /// (Recruit with the sender). The greyed rows' reasons come from the talk's facts (EnlistBlocked without the dukes,
+    /// RecruitBlocked, NeedsFavour from the record), the dukes from the client's own bag.
     /// </summary>
     public static class ScEnclaveDeals
     {
@@ -287,7 +293,15 @@ namespace SurvivorCommunity
             if (priceDepth != 1 || price <= 0 || xui == null || xui.Trader == null) return;
             EntityAlive t = xui.Trader.Trader as EntityAlive;
             if (t == null || t.Buffs == null || !t.Buffs.HasCustomVar(ScEnclavePeople.EncCvar)) return;
-            Enclave e = ScEnclavePeople.EnclaveOf(ScEnclavePeople.PersonOf(t));
+            Enclave e;
+            if (ScCommunity.IsHost) e = ScEnclavePeople.EnclaveOf(ScEnclavePeople.PersonOf(t));
+            else
+            {
+                // round MP5 (part E): a client trades too, and keeps no enclave people - the body's synced enclave id (%sc_enc) and this
+                // machine's copy of that enclave's record (its standing; the factors are the server's config)
+                int id = (int)t.Buffs.GetCustomVar(ScEnclavePeople.EncCvar);
+                e = id > 0 && ScRegistry.Ready ? ScEnclaves.ById(id) : null;
+            }
             if (e == null) return;
             float f = Factor(e, buy);
             if (f == 1f || f <= 0f) return;
@@ -359,35 +373,55 @@ namespace SurvivorCommunity
             return e != null && !p.IsLeader && p.State == EncPerson.StateHome && !e.IsHostile;
         }
 
-        /// <summary>Why they cannot come now (null when they can): one of theirs with you already, the follower limit, the dukes.</summary>
-        public static string EnlistBlocked(EncPerson p, EntityPlayer player)
+        /// <summary>
+        /// Why they cannot come now (null when they can): one of theirs with you already, the follower limit, the dukes. Round MP5
+        /// (part E): dukes false leaves the dukes out - a remote player's bag is their own machine's (their talk counts it, and
+        /// enc.enlist brings the fee they took).
+        /// </summary>
+        public static string EnlistBlocked(EncPerson p, EntityPlayer player, bool dukes = true)
         {
             if (!ScCommunity.IsHost) return Loc("scHostOnly");
             Enclave e = ScEnclavePeople.EnclaveOf(p);
             if (e == null) return Loc("scEncStays");
             if (EnlistedOf(e) != null) return Loc("scEncOneAlready");
+            // MP6: per player (MaxFollowers is per player in the plan; Stage 1 counts the community's followers)
             if (ScRegistry.FollowerCount + EnlistedCount() >= ScConfig.MaxFollowers) return Loc("scEncFollowersFull");
             int cost = EnlistCost(e);
-            if (cost > 0 && DukesCarried(player as EntityPlayerLocal) < cost) return string.Format(Loc("scEncNeedDukes"), cost);
+            if (dukes && cost > 0 && DukesCarried(player as EntityPlayerLocal) < cost) return string.Format(Loc("scEncNeedDukes"), cost);
             return null;
         }
 
         /// <summary>
         /// "Deal.": the fee paid, then SC's hire shape (ScCommunity.FollowInternal's: leader and owner - the Follow order, hired_*
         /// and the leader cache with them - and Persist) and the enlisted cvar on the body; the record enlisted until world time
-        /// now + EnclaveEnlistDays days. False with the reason (a tooltip) when it cannot be.
+        /// now + EnclaveEnlistDays days. False with the reason (a tooltip) when it cannot be. Round MP5 (part E): any player - the
+        /// host's own pays from its bag here (EnlistPaid with -1).
         /// </summary>
-        public static bool Enlist(EntityPlayerLocal player, EntityAlive npc, out string reason)
+        public static bool Enlist(EntityPlayer player, EntityAlive npc, out string reason)
+        {
+            return EnlistPaid(player, npc, -1, out reason);
+        }
+
+        /// <summary>
+        /// Round MP5 (part E): Enlist's work. paid -1: the fee comes from this machine's own player's bag (PayDukes, as before);
+        /// else the dukes a remote player's machine already took (enc.enlist) - they must be the fee at the standing now, or the
+        /// enlistment is refused (the caller's refusal gives them back) with the fee in the reason.
+        /// </summary>
+        internal static bool EnlistPaid(EntityPlayer player, EntityAlive npc, int paid, out string reason)
         {
             reason = null;
             EncPerson p = ScEnclavePeople.PersonOf(npc);
             Enclave e = ScEnclavePeople.EnclaveOf(p);
             World w = ScCommunity.World;
             if (player == null || w == null || e == null || npc.IsDead() || npc.WorldTimeBorn != p.EntityBorn || !CanAskEnlist(p)) { reason = Loc("scEncStays"); return false; }
-            reason = EnlistBlocked(p, player);
+            reason = EnlistBlocked(p, player, paid < 0);
             if (reason != null) return false;
             int cost = EnlistCost(e);
-            if (cost > 0 && !PayDukes(player, cost)) { reason = string.Format(Loc("scEncNeedDukes"), cost); return false; }
+            if (paid < 0)
+            {
+                if (cost > 0 && !PayDukes(player as EntityPlayerLocal, cost)) { reason = string.Format(Loc("scEncNeedDukes"), cost); return false; }
+            }
+            else if (paid != Math.Max(0, cost)) { reason = string.Format(Loc("scEncEnlistFeeChanged"), Math.Max(0, cost)); return false; }    // the standing moved since their talk read the fee
             int days = Math.Max(1, ScConfig.EnclaveEnlistDays);
             EnlistBody(p, npc, player, w.worldTime + (ulong)days * 24000UL);
             ScRegistry.SaveAtomic();
@@ -446,6 +480,10 @@ namespace SurvivorCommunity
         {
             ScCommunity.DropPath(npc);
             ScNpc.SetLeaderAndOwner(npc.entityId, player.entityId);
+            // round MP5 (part E): a remote player's hire - Leader and Owner force-sent, as ScCommunity.FollowInternal does (round mt1
+            // review H-m2): SCore writes them plainly (the slow bulk buff sync). Single player and the host: sent to nobody
+            if (npc.Buffs.HasCustomVar("Leader")) npc.Buffs.SetCustomVar("Leader", npc.Buffs.GetCustomVar("Leader"), true, CVarOperation.set, true);
+            if (npc.Buffs.HasCustomVar("Owner")) npc.Buffs.SetCustomVar("Owner", npc.Buffs.GetCustomVar("Owner"), true, CVarOperation.set, true);
             npc.Buffs.SetCustomVar("Persist", 1f);
             npc.Buffs.SetCustomVar(EnlistedCvar, 1f);
         }
@@ -686,6 +724,9 @@ namespace SurvivorCommunity
             return v != null && !v.IsEmpty() ? v : null;
         }
 
+        /// <summary>Round MP5 (part E): the trade currency for a client's enlist fee (ScEncTalk.Enlist) and the server's check of it (enc.enlist).</summary>
+        internal static ItemValue CurrencyValue() { return Currency(); }
+
         /// <summary>Dukes in the bag and on the toolbelt (where XUiM_PlayerInventory.RemoveItems takes them from).</summary>
         public static int DukesCarried(EntityPlayerLocal pl)
         {
@@ -750,7 +791,9 @@ namespace SurvivorCommunity
             if (e == null || npc == null) return Loc("scEncStays");
             string why;
             if (!ScCommunity.CanRecruit(npc, player, out why, true)) return Loc(why ?? "scNotHireable");
-            if (!ScZone.EnsureHome(player)) return Loc(ScZone.NeedHomeKey());
+            // round MP5 (part E): a remote player's talk never adopts their claim as the home (EnsureHomeFor: a read for them, the
+            // host's own EnsureHome as before - round MP2's MINOR 3)
+            if (!ScZone.EnsureHomeFor(player)) return Loc(ScZone.NeedHomeKey());
             if (!e.PeopleRolled) return Loc("scEncRecruitSettling");
             if (ScEnclavePeople.Living(e).Count - 1 < Math.Max(1, ScConfig.EnclaveRecruitMinLeft)) return Loc("scEncRecruitFew");
             int wait = CooldownLeft(e);
@@ -763,6 +806,9 @@ namespace SurvivorCommunity
         {
             Enclave e = ScEnclavePeople.EnclaveOf(p);
             if (e == null || ScEnclaves.StandingKey(e) != "neutral") return false;
+            // round MP5 (part E): a remote player's journal is their own machine's - the record alone here (the facts; their talk adds
+            // its journal, and enc.recruit marks a POI favour done on its verdict first, as member.join does)
+            if (player != null && !(player is EntityPlayerLocal)) { Prospect pr = ProspectByPerson(p.Id); return pr == null || !pr.Done; }
             return !ScFavours.CheckDone(npc, player, ProspectByPerson(p.Id));
         }
 
@@ -781,7 +827,7 @@ namespace SurvivorCommunity
         /// the enclave's records (ScEnclavePeople.LeaveEnclave); then the standing cost, the cooldown, a ledger line, the log,
         /// a save. False with the reason (a tooltip).
         /// </summary>
-        public static bool Recruit(EntityPlayerLocal player, EntityAlive npc, out string reason)
+        public static bool Recruit(EntityPlayer player, EntityAlive npc, out string reason)      // round MP5 (part E): any player (was EntityPlayerLocal)
         {
             reason = null;
             EncPerson p = ScEnclavePeople.PersonOf(npc);

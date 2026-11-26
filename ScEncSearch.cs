@@ -614,6 +614,13 @@ namespace SurvivorCommunity
             r = null;
             if (!ScCommunity.IsHost) return false;
             npc = talkingTo != null ? (EntityAlive)talkingTo : ScFavours.CurrentNpc(player);
+            return TalkingAt(npc, out p, out r);
+        }
+
+        /// <summary>Round MP5 (part E): Talking for a given body (a remote player's request names it) - a missing person's own body and their search. Server.</summary>
+        internal static bool TalkingAt(EntityAlive npc, out EncPerson p, out EnclaveRequest r)
+        {
+            r = null;
             p = ScEnclavePeople.PersonOf(npc);
             if (p == null || !p.Missing || npc.WorldTimeBorn != p.EntityBorn) return false;
             r = RequestOf(p);
@@ -626,12 +633,18 @@ namespace SurvivorCommunity
         /// </summary>
         public static void ActFollow(EntityPlayer player)
         {
-            EntityAlive npc;
+            if (!ScCommunity.IsHost) return;
+            FollowAt(player, ScFavours.CurrentNpc(player));     // round MP5 (part E): the core is any player's (enc.follow)
+        }
+
+        /// <summary>Round MP5 (part E): ActFollow's work for any player and the body they talk to. True when they follow now.</summary>
+        internal static bool FollowAt(EntityPlayer player, EntityAlive npc)
+        {
             EncPerson p;
             EnclaveRequest r;
-            if (!Talking(player, null, out npc, out p, out r) || r.Stage != StageAlive || npc.IsDead() || player == null) return;
+            if (!TalkingAt(npc, out p, out r) || r.Stage != StageAlive || npc.IsDead() || player == null) return false;
             Enclave e = ScEnclaves.ById(r.EnclaveId);
-            if (e == null) return;
+            if (e == null) return false;
             ScEnclaveDeals.Hire(npc, player);
             r.Stage = StageFollowing;
             r.EscortBy = player.entityId;
@@ -642,17 +655,28 @@ namespace SurvivorCommunity
             ScEncRequests.Reshape(r);
             ScRegistry.SaveAtomic();
             ScLog.Out(p.Name + " (p" + p.Id + ", entity " + npc.entityId + ") of " + e.Name + " follows " + player.EntityName + " home");
+            return true;
         }
 
         /// <summary>"Wait here for me.": they stop following and wait where they stand (StopEscort). Host only; checked again.</summary>
         public static void ActWait(EntityPlayer player)
         {
-            EntityAlive npc;
+            if (!ScCommunity.IsHost) return;
+            WaitAt(player, ScFavours.CurrentNpc(player));      // round MP5 (part E): the core is any player's (enc.wait)
+        }
+
+        /// <summary>
+        /// Round MP5 (part E): ActWait's work for any player and the body they talk to. True when they wait now. Any community
+        /// player may tell them to wait (the community's search; the tell goes to who said it).
+        /// </summary>
+        internal static bool WaitAt(EntityPlayer player, EntityAlive npc)
+        {
             EncPerson p;
             EnclaveRequest r;
-            if (!Talking(player, null, out npc, out p, out r) || r.Stage != StageFollowing) return;
+            if (!TalkingAt(npc, out p, out r) || r.Stage != StageFollowing) return false;
             StopEscort(r, p, npc, player, "the player told them to wait", "scEncSearchWaitTell");
             ScRegistry.SaveAtomic();
+            return true;
         }
 
         /// <summary>
@@ -834,6 +858,19 @@ namespace SurvivorCommunity
         /// owns (a world saved ahead of the registry) are taken away. Host only.
         /// </summary>
         public static void SearchAt(Vector3i pos, EntityPlayerLocal player)
+        {
+            if (!ScCommunity.IsHost)
+            {
+                // round MP5 (part E): a client's "Search the body" asks the server (enc.search), which searches for them
+                if (ScRegistry.Mirrored)
+                    ScActions.Request("enc.search", r => { if (!r.Ok && player != null) ScTalkContext.Tell(player, r, false); }, pos.x, pos.y, pos.z);
+                return;
+            }
+            SearchAtFor(pos, player);
+        }
+
+        /// <summary>Round MP5 (part E): SearchAt's work for any player (the host's own block activation, a client's enc.search).</summary>
+        internal static void SearchAtFor(Vector3i pos, EntityPlayer player)
         {
             if (!ScCommunity.IsHost || !ScRegistry.Loaded) return;
             EnclaveRequest r = RemainsAt(pos);
