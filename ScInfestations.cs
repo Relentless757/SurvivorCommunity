@@ -732,7 +732,7 @@ namespace SurvivorCommunity
             }
             // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers). Round MP6
             // (part relations): drawn for the host's own player's community (AddMarker reads its known flag)
-            if (player != null) AddMarker(inf, ScCommunity.LocalPlayer ?? player);
+            if (player != null) AddMarker(inf, ScMarkers.HostOwner());   // round MP6 (merge): the host's map only for the host's community (part N's HostOwner)
             ScLog.Out("infestation #" + inf.Id + " at " + inf.PoiName + " (" + inf.Prefab + ", T" + inf.Tier + ") " + inf.Poi + " [" + how
                       + (from != null ? " from #" + from.Id : "") + "]: " + rooms + "; special " + SpecialWord(inf)
                       + (ScRelations.Several ? (heard.Length > 0 ? heard : ", not known yet") : (inf.Known ? heard : ", not known yet")));
@@ -1435,7 +1435,7 @@ namespace SurvivorCommunity
                     if (finder == null) continue;
                     inf.Known = true;
                     inf.KnownDay = ScCommunity.Today;
-                    AddMarker(inf, ScCommunity.LocalPlayer);  // round MP5 (part W): the host's own map whoever found it (remote maps: ScMarkers)
+                    AddMarker(inf, ScMarkers.HostOwner());  // round MP6 (merge): HostOwner. Round MP5 (part W): the host's own map whoever found it (remote maps: ScMarkers)
                     ScCommunity.TellKey(finder, "scInfestFound", "ui_denied", inf.PoiName);
                     ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerFound"), inf.PoiName));
                     ScLog.Out("infestation #" + inf.Id + " found at " + inf.PoiName + (ReferenceEquals(finder, player) ? "" : " by " + finder.PlayerDisplayName)

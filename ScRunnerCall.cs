@@ -162,7 +162,7 @@ namespace SurvivorCommunity
         {
             result = null;
             // round MP5 (part N): the handheld this machine can read - this machine's own player's (null on a dedicated server)
-            EntityPlayerLocal lp = player as EntityPlayerLocal ?? ScCommunity.LocalPlayer;
+            EntityPlayerLocal lp = player as EntityPlayerLocal ?? ScMarkers.HostOwner();     // round MP6 (merge): the host only for the runner's community (HostOwner)
             if (!force)
             {
                 if (!ScConfig.RunnerCallsWhenAttacked) { ScHandheld.Count("attack call off"); result = "RunnerCallsWhenAttacked is off"; return false; }

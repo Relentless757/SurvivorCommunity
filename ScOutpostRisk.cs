@@ -410,7 +410,7 @@ namespace SurvivorCommunity
             l.Ids.Clear();
             // round MP5 (part O): the marker is the host's own map object whoever called it (a remote player's refusal or console
             // line drew none there); remote players' come from ScMarkers. In single player LocalPlayer is the player, as before
-            if (radio) AddMarker(o, ScCommunity.LocalPlayer ?? player);
+            if (radio) AddMarker(o, ScMarkers.HostOwner());   // round MP6 (merge): the host's map only for the host's community (part N's HostOwner)
             Enclave by = raiders ? ScEncRaids.EnclaveOf(o) : null;
             // round MP0: the radio's call to every community player. Round MP5 (review O-m1): on the radio alone - an attack typed on
             // a dedicated server's own console has no sender, and with nobody online the call reaches nobody anyway

@@ -1826,7 +1826,7 @@ namespace SurvivorCommunity
             b.KnownDay = ScCommunity.Today;
             // round MP0: the host's own only (AddMarker). Round MP4: remote players' come from ScMarkers (CollectMarkers). Round MP5
             // (part W): the host's own map whoever met them
-            AddMarker(b, ScCommunity.LocalPlayer);
+            AddMarker(b, ScMarkers.HostOwner());   // round MP6 (merge): the host's map only for the host's community (part N's HostOwner)
             // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
             ScCommunity.TellKey(player, b.IsRaiders ? "scBandSeenRaiders" : "scBandSeenDrifters", b.IsRaiders ? "ui_denied" : "", DestText(b));
             ScOutposts.NoteLedger(string.Format(Loc(b.IsRaiders ? "scBandLedgerRaiders" : "scBandLedgerDrifters"), DestText(b)));

@@ -310,7 +310,7 @@ namespace SurvivorCommunity
                 c.RadioNextCallDay = ScCommunity.Today + Math.Max(0, ScConfig.RadioCallDays);
                 // round MP5 (part R): the marker is this machine's own player's - a listen host's own map too when a client called
                 // (the client's comes from ScMarkers)
-                AddMarker(contact, player is EntityPlayerLocal ? player : ScCommunity.LocalPlayer);
+                AddMarker(contact, player is EntityPlayerLocal ? player : ScMarkers.HostOwner());   // round MP6 (merge): the host's map only for the host's community (part N's HostOwner)
                 ScRegistry.SaveAtomic();
                 ScCommunity.TellKey(player, "scRadioContact", "", contact.Label, contact.PoiName, Dist(centre));
                 ScLog.Out("radio contact" + (player != null && !(player is EntityPlayerLocal) ? " (called by " + player.PlayerDisplayName + ")" : "") + ": " + cls + (pair != null ? " (" + pair + ")" : "") + " at " + contact.PoiName + " " + contact.PoiKey + " (fades day " + contact.ExpireDay + ")");

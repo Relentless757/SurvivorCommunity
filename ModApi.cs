@@ -52,8 +52,8 @@ namespace SurvivorCommunity
                 LogFeatureHashes();
 #endif
                 // E6: a group lost (E2's Fall, any cause) costs morale when it was a friend, and owes a refill - once per process
-                // MP6 (part relations): an enclave falling concerns every community with a standing there (its morale loss and tell
-                // per community) while its refill is the world's - OnFallen runs once, in the scope of whatever raised it
+                // round MP6 (merge): an enclave falling concerns every community with a standing there - OnFallen walks them itself
+                // (part relations: each one's morale loss and tell) while its refill is the world's; it runs once
                 ScEnclaves.Fallen += ScEncAllies.OnFallen;
 
                 ModEvents.GameStarting.RegisterHandler((ref ModEvents.SGameStartingData _d) =>

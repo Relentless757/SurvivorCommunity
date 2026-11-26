@@ -2498,7 +2498,7 @@ namespace SurvivorCommunity
             // round MP6 (part relations): the relation keys are one community's row - community 0's in the save (each other
             // community's follows as a rel= line), the community in scope's in a client's snapshot (BuildText(true) run inside
             // ScRegistry.Use(cid) projects that community's standing, known flags, clocks and hostility into the keys it reads).
-            // MP6 (part network): build each community's snapshot inside ScRegistry.Use(cid) - WriteInfestation and WriteBand do the same
+            // round MP6 (merge): BuildClientText (part N) builds each community's snapshot inside ScRegistry.Use(cid) - WriteInfestation and WriteBand do the same
             EncRel rr = forClients ? (en.Rels.Peek(ScRelations.Cid) ?? ScRelations.NoEnc) : en.Rels.Zero;
             sb.AppendLine("[enclave]");
             sb.AppendLine("id=" + en.Id);

@@ -1412,7 +1412,7 @@ namespace SurvivorCommunity
                     if (finder == null) continue;
                     e.Known = true;
                     e.KnownDay = ScCommunity.Today;
-                    AddMarker(e, ScCommunity.LocalPlayer);    // round MP5 (part W): the host's own map whoever found it (none on a dedicated server; remote maps: ScMarkers)
+                    AddMarker(e, ScMarkers.HostOwner());    // round MP6 (merge): HostOwner. Round MP5 (part W): the host's own map whoever found it (none on a dedicated server; remote maps: ScMarkers)
                     // round MP4 (part: tells): this file's tells go by localization key (ScCommunity.TellKey / ScPlayers.TellCommunityKey), so each player reads them in their own language
                     ScCommunity.TellKey(finder, "scEnclaveFound", e.IsHostile ? "ui_denied" : "", e.Name, e.PoiName, ScCommunity.LocArg(StandingWordKey(e)));   // review tells m4
                     ScOutposts.NoteLedger(string.Format(Localization.Get("scEnclaveLedgerFound"), e.Name, e.PoiName));
@@ -1672,7 +1672,7 @@ namespace SurvivorCommunity
             e.Standing = Mathf.Clamp(e.Standing + delta, Math.Min(0, ScConfig.EnclaveStandingMin), 100);
             if (e.Standing == old) return;
             string after = StandingKey(e);
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            EntityPlayerLocal pl = ScMarkers.HostOwner();   // round MP6 (merge): the host's map only for the host's community (part N's HostOwner)
             if (after != before && e.Known && pl != null) AddMarker(e, pl);
             if (ledger) ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerStanding"), e.Name, (e.Standing > old ? "+" : "") + (e.Standing - old), StandingWord(e)));
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': standing " + old + " -> " + e.Standing + " (" + after + ", " + reason + ")");
@@ -1699,7 +1699,7 @@ namespace SurvivorCommunity
             e.TurnedHostile = true;
             e.HostileDay = ScCommunity.Today;
             ScEnclavePeople.OnTurnedHostile(e, grace);
-            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            EntityPlayerLocal pl = ScMarkers.HostOwner();   // round MP6 (merge): the host's map only for the host's community (part N's HostOwner)
             if (e.Known && pl != null) AddMarker(e, pl);
             ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerHostile"), e.Name));
             ScPlayers.TellCommunityKey("scEncTurnedHostile", "ui_denied", e.Name);    // round MP0: news for the whole community

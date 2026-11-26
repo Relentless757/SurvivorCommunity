@@ -17,7 +17,7 @@ namespace SurvivorCommunity
     public static class ScNet
     {
         /// <summary>Bump on any change to a NetPackageSc* layout or meaning.</summary>
-        public const int Protocol = 7;      // 1: MP0 (hello). 2: MP1 (NetPackageScState, NetPackageScLook, NetPackageScLookRequest). 3: MP2 (NetPackageScAction, NetPackageScResult, NetPackageScTalkContext). 4: MP3 (item stacks in actions, linked storage). 5: MP4 (NetPackageScMarkers, NetPackageScQuestOp, NetPackageScJournalReport, NetPackageScVoice, NetPackageScTell, NetPackageScOpenBoxes). 6: round mt1 (NetPackageScTalkContext version 2: held/closed, Linked; member.gearview). 7: MP5 (NetPackageScTalkContext version 3: the enclave block; NetPackageScVoice flag bit 6, FlagHordeRadio; the enc.*, radio.* and encremains.search ops)
+        public const int Protocol = 8;      // 1: MP0 (hello). 2: MP1 (NetPackageScState, NetPackageScLook, NetPackageScLookRequest). 3: MP2 (NetPackageScAction, NetPackageScResult, NetPackageScTalkContext). 4: MP3 (item stacks in actions, linked storage). 5: MP4 (NetPackageScMarkers, NetPackageScQuestOp, NetPackageScJournalReport, NetPackageScVoice, NetPackageScTell, NetPackageScOpenBoxes). 6: round mt1 (NetPackageScTalkContext version 2: held/closed, Linked; member.gearview). 7: MP5 (NetPackageScTalkContext version 3: the enclave block; NetPackageScVoice flag bit 6, FlagHordeRadio; the enc.*, radio.* and encremains.search ops). 8: MP6 (NetPackageScState version 2: the community id; per-community snapshots, markers and relation values)
 
         /// <summary>This build's id (the assembly's module version id, short) - logged beside a protocol mismatch.</summary>
         public static readonly string Build = MakeBuild();

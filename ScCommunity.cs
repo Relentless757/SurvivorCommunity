@@ -1498,7 +1498,7 @@ namespace SurvivorCommunity
             if (m == null || npc == null || npc.Buffs == null) return;
             // round MP2 (E9): the talk's member rows read it on every client. Round MP6 (part relations): her community's id + 1
             // (community 0's members: 1, as before) - the faction postfix and the gates find her community in one read.
-            // MP6 (part gates): Config/dialogs.xml's seven sc_member value="1" rows fail for a community 1+ member (value 2)
+            // round MP6 (merge): Config/dialogs.xml's member rows read ScOwnMember (part G), which reads this id + 1
             SetSynced(npc, "sc_member", m.CommunityId + 1f);
             if (owner != null) npc.Buffs.SetCustomVar("sc_owner", owner.entityId);
             Patches_VoiceControl.StripContract(npc);   // hired and billed before joining: members are never billed

@@ -345,7 +345,16 @@ namespace SurvivorCommunity
         /// <summary>ScSleep.Tick, every second: no attack open any more - the next one may tell its light sleepers again.</summary>
         public static void SleepTick()
         {
-            if (toldWoken.Count > 0 && !ScBaseAttack.Open) toldWoken.Clear();
+            if (toldWoken.Count == 0) return;
+            // round MP6 (merge): cleared once no community has an attack open (ScBaseAttack is per community since part H; this runs
+            // once, in the world pass). With one community: community 0's, as before
+            bool open = false;
+            foreach (CommunityState cs in ScCommunities.All)
+            {
+                using (ScRegistry.Use(cs.Id)) open = ScBaseAttack.Open;
+                if (open) break;
+            }
+            if (!open) toldWoken.Clear();
         }
 
         /// <summary>ScSleep: a light sleeper's lease closed for a horde on the base - logged, the player told once per attack.</summary>
