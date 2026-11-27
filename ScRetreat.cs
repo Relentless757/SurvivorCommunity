@@ -800,7 +800,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Her pair's gun with rounds in her stores, unless you ordered her melee weapon (then she would back off with it).</summary>
-        private static bool GunReady(EntityAlive e)
+        internal static bool GunReady(EntityAlive e)
         {
             if (ScArms.OrderedMelee(e)) return false;
             Loadout l = ScLoadout.Current(e);

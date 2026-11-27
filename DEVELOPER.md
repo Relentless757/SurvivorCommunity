@@ -3357,6 +3357,22 @@ Round MP0 is the groundwork:
     `ScPlayers.Nearest` takes a community filter.
   - **Not gated on the server:** SCore's own inventory screen for another community's member is refused by the opening
     machine (`Patches_MemberInv`); SCore's remote session on the server is not checked, so only an honest client is stopped.
+- **Round t2 (storage, upgrades, revive, cornered):**
+  - `Patch_CraftFromBase` sits on 0-SCore's three-argument `RemoteCraftingUtils.GetTileEntities(EntityAlive, float, bool)`, which
+    every count and take goes through (crafting with `forRepairs` false; an upgrade's or repair's count with false, its take with
+    true), so the boxes taken from are the boxes counted. It removes boxes the server says are open (a client), boxes locked
+    against the player (`ScStorageServer.LockedAgainst`: vanilla's `IsUserAllowed`, so a debug-menu client passes as it does
+    when opening one) and boxes on another community's ground (`ScGates.ForeignGroundAt`: `OutsiderAt` on the server, on a
+    client the derived block's `fgnd` - every other community's home rectangles and held outposts' footprints, sent only with
+    two or more communities), then adds the home's linked boxes inside the home zone (0-SCore's enemy rule by `forRepairs`).
+    0-SCore's drop box (`AddToNearbyContainer`) keeps its own range (`Patch_CraftFromBaseDropBox`).
+  - `UpgradeRepairFromStorage` (default true) answers true for 0-SCore's `BlockUpgradeRepair`/`ReadFromContainers` in its config
+    read (`Patch_UpgradeRepairFromStorage` on `Configuration.CheckFeatureStatus(string, string, bool)`). 0-SCore's repair code
+    then takes from storage; its own flaws (a partial count accepted, the bag counted twice in a take) are 0-SCore's.
+  - Another community's member: `HiddenRingEntry` leaves Voice Control's entries on while she is down (`ScDowned.IsDown`), so
+    anyone may revive her; nothing on the server stops a revive.
+  - `ScHealBackOff`: cornered at or below `CorneredHealBelow` with `ScRetreat.GunReady` and the pursuer within 2.5 m, she keeps
+    shooting (`ShootsInstead`) instead of starting a heal a hit would cut short.
 - **Round MP6 (review fixes):** the four reviews' fixes on the merged build. What a modder must know:
   - **The listen host's own markers** are drawn for the host's own player in the host's own community: the periodic and
     restore paths (`ScEnclaves`/`ScInfestations`' `RefreshMarkers`, `ScBands.UpdateMarkers`) take `ScCommunity.LocalPlayer`,

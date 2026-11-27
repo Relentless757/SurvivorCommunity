@@ -1433,6 +1433,12 @@ namespace SurvivorCommunity
         /// box linked storage links (ScCraftFromBase), wherever it stands in the base. false: 0-SCore's own range only.
         /// </summary>
         public static bool CraftFromBaseStorage = true;
+        /// <summary>
+        /// Round t2 (the user, 2026-11-27): block upgrades and repairs take their materials from storage too - SC switches on 0-SCore's
+        /// own BlockUpgradeRepair ReadFromContainers (shipped off) through its config read (Patch_UpgradeRepairFromStorage), and with
+        /// CraftFromBaseStorage the home's linked boxes count for them as for crafting. false: 0-SCore's own setting decides.
+        /// </summary>
+        public static bool UpgradeRepairFromStorage = true;
         public static readonly List<TraitDef> Traits = new List<TraitDef>();
 
         private static bool parsed;
@@ -1498,6 +1504,7 @@ namespace SurvivorCommunity
             Verbose = false;
             SharedOwnerOnly = false;          // round MP2
             CraftFromBaseStorage = true;      // round cfs1
+            UpgradeRepairFromStorage = true;  // round t2
             Traits.Clear();
             SurvivorLookChance = 0.5f;
             SurvivorGearSets.Clear();
@@ -2913,6 +2920,9 @@ namespace SurvivorCommunity
                 bool craftBase = CraftFromBaseStorage;     // round cfs1
                 if (p.Values.ContainsKey("CraftFromBaseStorage")) p.ParseBool("CraftFromBaseStorage", ref craftBase);
                 CraftFromBaseStorage = craftBase;
+                bool upgradeStorage = UpgradeRepairFromStorage;     // round t2
+                if (p.Values.ContainsKey("UpgradeRepairFromStorage")) p.ParseBool("UpgradeRepairFromStorage", ref upgradeStorage);
+                UpgradeRepairFromStorage = upgradeStorage;
 
                 string s;
                 if (p.Values.TryGetValue("BedBlocks", out s) && !string.IsNullOrEmpty(s)) { BedBlocks.Clear(); BedBlocks.AddRange(SplitList(s)); }

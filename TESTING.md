@@ -46,6 +46,44 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   <name>`, `join <id> [player]`, `leave [player]` and `use <id>|none` (this console acts in that community) make and fill a
   second one. Admin only.
 
+## Round t2 (2026-11-27): storage across communities, upgrades and repairs from storage, revive anyone, shoot when cornered
+
+Why: found on the dedicated server with two communities (the user's report, 2026-11-27).
+- Elisk (community 0), standing in TheElisk's claim (community 1), crafted with TheElisk's boxes, locked or not: 0-SCore's
+  Craft From Containers takes any box within its range and tests no lock. Now a box on another community's ground (its home
+  zone or a held outpost) and a box locked against you never count, for crafting, upgrades or repairs. (Opening a locked box
+  by hand with the debug menu on is the game's own debug rule; an unlocked box of another community still opens by hand.)
+- Upgrades and repairs never used storage: 0-SCore ships its "BlockUpgradeRepair ReadFromContainers" off. SC's new
+  UpgradeRepairFromStorage (default true) switches it on, and inside your home every linked box counts, as for crafting.
+  0-SCore's own repair code has two flaws the user will report to its author: a repair can come partly free, and it can take
+  a little too much from the bag.
+- TheElisk had no way to revive community 0's downed Ned: SC hid every Voice Control ring entry on another community's
+  member. While she is down, the Revive entry now shows for anyone.
+- Ned, at 33% with an auto shotgun, cornered by four zombies, stood bandaging with one at 1.1 m and went down. Cornered at or
+  below CorneredHealBelow with a gun ready and the enemy within 2.5 m, a member now keeps shooting (the heal would be cut
+  short) and looks again a moment later.
+
+Build `sc34_mp6t2`, **not deployed**, untested in game. With one community the only changes are the lock test on 0-SCore's
+own boxes, upgrades/repairs from storage, and the cornered rule.
+
+**One community (single player or the dedicated server)**
+- [ ] Crafting from storage works as before: boxes near you and, inside the home, every linked box of the base.
+- [ ] A box you locked with a password, opened by another player who does not know it (debug menu off): its contents do not
+      count for that player's crafting.
+- [ ] Upgrade a block (e.g. frame to wood) and repair a damaged one with the materials only in a box: they are taken from
+      the box. Inside the home a box anywhere in the base works; outside it, a box within 0-SCore's range (40 m). With
+      `UpgradeRepairFromStorage` false in SC's blocks.xml config, only the bag and toolbelt are used again.
+- [ ] A resident cornered at low health with a loaded gun and a zombie at arm's length keeps shooting; the log says `...
+      keeps shooting at N/M: a heal would be cut short (round t2)`. With the zombie a few meters off she still heals at once.
+
+**Two communities (dedicated server)**
+- [ ] Elisk (community 0) stands inside TheElisk's home (community 1) next to TheElisk's boxes, locked and unlocked: none of
+      their contents count for Elisk's crafting, upgrades or repairs. TheElisk's own crafting there still sees them.
+- [ ] The same next to one of community 1's held outposts.
+- [ ] Elisk can still open TheElisk's unlocked box by hand (E); a locked one only with the password (debug menu off).
+- [ ] Community 0's resident goes down: TheElisk (community 1) sees Revive on her (hold E / tap E) and revives her, and with a
+      bandage used on her too. On a standing member of community 0, TheElisk still sees none of Voice Control's entries.
+
 ## Round MP6 test fix t1 (2026-11-26): a downed member bleeds out by her own community's players
 
 Why: found on the dedicated server with two communities. A downed member bleeds out only while a player is alive, and

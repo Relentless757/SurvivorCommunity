@@ -244,6 +244,17 @@ namespace SurvivorCommunity
         /// Is this position another community's ground for the player - inside another community's home zone or one of its
         /// outposts? Server (a client knows its own community only, so it never answers true there). Never with one community.
         /// </summary>
+        /// <summary>
+        /// Round t2: a position on another community's ground (its home zone or a held outpost) for this player, on any machine - the
+        /// server answers OutsiderAt; a client reads the server's map of the other communities' ground (ScMirror's "fgnd"). Never with
+        /// one community.
+        /// </summary>
+        public static bool ForeignGroundAt(Vector3i pos, EntityPlayer player)
+        {
+            if (ScRegistry.Loaded) return OutsiderAt(pos, player);
+            return ScMirror.ForeignGroundAt(pos.x, pos.z);
+        }
+
         public static bool OutsiderAt(Vector3i pos, EntityPlayer player)
         {
             if (ScCommunities.Count <= 1 || player == null || !ScRegistry.Loaded) return false;

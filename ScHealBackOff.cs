@@ -181,7 +181,23 @@ namespace SurvivorCommunity
         /// </summary>
         private static bool FightsOn(EntityAlive e, State st, float waitSince)
         {
-            return st.FightOnWait >= 0f && Mathf.Abs(st.FightOnWait - waitSince) <= SameWait && AboveCorneredLine(e);
+            return st.FightOnWait >= 0f && Mathf.Abs(st.FightOnWait - waitSince) <= SameWait && (AboveCorneredLine(e) || ShootsInstead(e));
+        }
+
+        /// <summary>Round t2 (Ned, 2026-11-27): an enemy this close cuts a heal short - a bandage takes 2.5 s and a hit stops it.</summary>
+        private const float HealCutRange = 2.5f;
+
+        /// <summary>
+        /// Round t2 (Ned, 2026-11-27: at 33% with an auto shotgun with rounds, four zombies on him and no room to back off, he stood
+        /// bandaging with one at 1.1 m, was hit out of it and went down): cornered at or below CorneredHealBelow, with her gun ready
+        /// (rounds in her stores: ScRetreat.GunReady) and her pursuer within HealCutRange, she keeps shooting - the heal would be cut
+        /// short - and looks again in CorneredRecheckSeconds (healing at once when the enemy is farther or the gun is dry). A pure read.
+        /// </summary>
+        private static bool ShootsInstead(EntityAlive e)
+        {
+            if (e == null || !ScRetreat.GunReady(e)) return false;
+            float dist;
+            return Pursuer(e, out dist) != null && dist <= HealCutRange;
         }
 
         /// <summary>Round nc1 (D2): her health is above CorneredHealBelow (a cornered member fights on). A pure read.</summary>
@@ -317,7 +333,8 @@ namespace SurvivorCommunity
             {
                 // round nc1 (D2): cornered above CorneredHealBelow she fights on (no heal-now); the back-off is looked for again in
                 // CorneredRecheckSeconds, and at or below the line the next look heals her at once (below)
-                if (AboveCorneredLine(self))
+                bool above = AboveCorneredLine(self);
+                if (above || ShootsInstead(self))      // round t2: or a heal an enemy at arm's length would cut short, with a gun ready
                 {
                     bool first = st.FightOnWait < 0f || Mathf.Abs(st.FightOnWait - st.WaitSince) > SameWait;
                     st.FightOnWait = st.WaitSince;
@@ -328,9 +345,14 @@ namespace SurvivorCommunity
                     {
                         foughtOn++;
                         Patches_Xnpc.Count("heal-cornered-fights-on");
-                        Note(st, "CORNERED " + bound + " - fights on above " + Pct(ScConfig.CorneredHealBelow), now);
-                        ScLog.Out(ScMedic.BodyName(self) + " has no room to back off from " + Who(t) + " " + bound + " - " + ScMedic.She(self) + " keeps fighting at "
-                                  + self.Health + "/" + self.GetMaxHealth() + " and heals at once only at or below " + Pct(ScConfig.CorneredHealBelow) + " (round nc1, D2)");
+                        Note(st, above ? "CORNERED " + bound + " - fights on above " + Pct(ScConfig.CorneredHealBelow) : "CORNERED " + bound + " - keeps shooting, a heal would be cut short (t2)", now);
+                        if (above)
+                            ScLog.Out(ScMedic.BodyName(self) + " has no room to back off from " + Who(t) + " " + bound + " - " + ScMedic.She(self) + " keeps fighting at "
+                                      + self.Health + "/" + self.GetMaxHealth() + " and heals at once only at or below " + Pct(ScConfig.CorneredHealBelow) + " (round nc1, D2)");
+                        else
+                            ScLog.Out(ScMedic.BodyName(self) + " has no room to back off from " + Who(t) + " at " + dist.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                                      + " m " + bound + " - " + ScMedic.She(self) + " keeps shooting at " + self.Health + "/" + self.GetMaxHealth()
+                                      + ": a heal would be cut short (round t2)");
                     }
                     return false;
                 }

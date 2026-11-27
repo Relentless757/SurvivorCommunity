@@ -258,6 +258,30 @@ namespace SurvivorCommunity
             });
         }
 
+        /// <summary>Round t2: above 0 while 0-SCore's drop box fills nearby containers - it keeps 0-SCore's own range (no base boxes).</summary>
+        internal static int DropBoxDepth;
+
+        /// <summary>
+        /// Round t2 (the user's decision 3, found 2026-11-27): 0-SCore's container search tests no lock and no community - a box
+        /// locked against the player (vanilla's own test, IsUserAllowed: the owner, a password user, a debug-menu client) or on
+        /// another community's ground (its home or a held outpost: ScGates.ForeignGroundAt, the server's map on a client) leaves
+        /// the list, for crafting, upgrades and repairs alike (every count and take goes through the list). Nothing with one
+        /// community but the lock test.
+        /// </summary>
+        internal static void DropNotUsable(EntityPlayer player, List<TileEntity> list)
+        {
+            if (player == null || list == null || list.Count == 0) return;
+            PlatformUserIdentifierAbs me = ScStorageServer.UserIdOf(player);
+            for (int i = list.Count - 1; i >= 0; i--)
+            {
+                TileEntity te = list[i];
+                if (te == null) continue;
+                TileEntityComposite tc = te as TileEntityComposite;
+                TEFeatureStorage st = tc != null ? tc.GetFeature<TEFeatureStorage>() : null;
+                if ((st != null && ScStorageServer.LockedAgainst(st, me)) || ScGates.ForeignGroundAt(te.ToWorldPos(), player)) list.RemoveAt(i);
+            }
+        }
+
         /// <summary>Round MP4 review cfs1 M1, client: 0-SCore's own near boxes that are open on the server leave its list too.</summary>
         internal static void DropOpenOnServer(List<TileEntity> list)
         {
@@ -270,20 +294,25 @@ namespace SurvivorCommunity
         }
     }
 
-    /// <summary>Round cfs1: the hook on 0-SCore's container search (see ScCraftFromBase).</summary>
+    /// <summary>
+    /// Round cfs1: the hook on 0-SCore's container search (see ScCraftFromBase). Round t2: on the three-argument overload, which every
+    /// count and take goes through - crafting (the one-argument overload calls it with forRepairs false) and block upgrades and
+    /// repairs (their counts with false, their takes with true) - so the boxes taken from are the boxes counted: the removals
+    /// (open on the server, locked against the player, another community's ground) and the base's boxes apply to all of them.
+    /// </summary>
     [HarmonyPatch]
     public static class Patch_CraftFromBase
     {
         public static MethodBase Target()
         {
-            return AccessTools.DeclaredMethod(typeof(RemoteCraftingUtils), "GetTileEntities", new[] { typeof(EntityAlive) });
+            return AccessTools.DeclaredMethod(typeof(RemoteCraftingUtils), "GetTileEntities", new[] { typeof(EntityAlive), typeof(float), typeof(bool) });
         }
 
         [HarmonyPrepare]
         public static bool Prepare()
         {
             if (Target() != null) return true;
-            ScLog.Warn("craft from storage: 0-SCore's RemoteCraftingUtils.GetTileEntities(EntityAlive) was not found - the base's linked storage is not added to Craft from Storage");
+            ScLog.Warn("craft from storage: 0-SCore's RemoteCraftingUtils.GetTileEntities(EntityAlive, float, bool) was not found - the base's linked storage is not added to Craft from Storage, and other communities' and locked boxes are not left out");
             return false;
         }
 
@@ -291,7 +320,7 @@ namespace SurvivorCommunity
         public static MethodBase TargetMethod() { return Target(); }
 
         [HarmonyPostfix]
-        public static void Postfix(EntityAlive player, List<TileEntity> __result)
+        public static void Postfix(EntityAlive player, bool forRepairs, List<TileEntity> __result)
         {
             try
             {
@@ -300,13 +329,15 @@ namespace SurvivorCommunity
                 if (ScCraftFromBase.SuppressDepth > 0) { __result.Clear(); return; }
                 // review cfs1 M1: on a client, never a box the server says is open (0-SCore's own near ones too)
                 ScCraftFromBase.DropOpenOnServer(__result);
-                if (!ScConfig.CraftFromBaseStorage) return;
                 EntityPlayer p = player as EntityPlayer;
+                // round t2: never a box locked against the player or on another community's ground (0-SCore's own near ones too)
+                ScCraftFromBase.DropNotUsable(p, __result);
+                if (!ScConfig.CraftFromBaseStorage || ScCraftFromBase.DropBoxDepth > 0) return;     // round t2: the drop box keeps 0-SCore's range
                 if (p == null || !ScRegistry.Ready || !ScZone.HasHome) return;
                 if (!ScZone.Contains(p.GetBlockPosition())) return;
-                // 0-SCore's own rules: with an enemy near it returned none - none are added either; LandClaimPlayerOnly: only in the
-                // player's own claim (the review's MINOR)
-                if (RemoteCraftingUtils.CheckEnemyForCrafting() && RemoteCraftingUtils.IsEnemyNearby(player)) return;
+                // 0-SCore's own rules: with an enemy near it returned none - none are added either (round t2: its repair rule for an
+                // upgrade's or repair's take); LandClaimPlayerOnly: only in the player's own claim (the review's MINOR)
+                if ((forRepairs ? RemoteCraftingUtils.CheckEnemyForRepairing() : RemoteCraftingUtils.CheckEnemyForCrafting()) && RemoteCraftingUtils.IsEnemyNearby(player)) return;
                 if (RemoteCraftingUtils.CheckForLandClaimPlayer())
                 {
                     World w = ScCommunity.World;
@@ -319,6 +350,64 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("craft-from-base", e);
             }
+        }
+    }
+
+    /// <summary>
+    /// Round t2: 0-SCore's drop box (AddToNearbyContainer) fills the containers near it through the same search - it keeps 0-SCore's
+    /// own range (no base boxes added; the removals still apply: never into a locked or another community's box).
+    /// </summary>
+    [HarmonyPatch]
+    public static class Patch_CraftFromBaseDropBox
+    {
+        public static MethodBase Target()
+        {
+            return AccessTools.DeclaredMethod(typeof(RemoteCraftingUtils), "AddToNearbyContainer", new[] { typeof(EntityAlive), typeof(ItemStack), typeof(float) });
+        }
+
+        [HarmonyPrepare]
+        public static bool Prepare() { return Target() != null; }
+
+        [HarmonyTargetMethod]
+        public static MethodBase TargetMethod() { return Target(); }
+
+        [HarmonyPrefix]
+        public static void Prefix() { ScCraftFromBase.DropBoxDepth++; }
+
+        [HarmonyFinalizer]
+        public static void Finalizer() { if (ScCraftFromBase.DropBoxDepth > 0) ScCraftFromBase.DropBoxDepth--; }
+    }
+
+    /// <summary>
+    /// Round t2 (the user, 2026-11-27): UpgradeRepairFromStorage switches on 0-SCore's "BlockUpgradeRepair ReadFromContainers" (shipped
+    /// off) where 0-SCore reads it - its config read, Configuration.CheckFeatureStatus(class, feature, cvarFirst) - so its block
+    /// upgrade and repair patches take materials from storage. Only that one feature; every other answer is 0-SCore's.
+    /// </summary>
+    [HarmonyPatch]
+    public static class Patch_UpgradeRepairFromStorage
+    {
+        public static MethodBase Target()
+        {
+            return AccessTools.DeclaredMethod(typeof(Configuration), "CheckFeatureStatus", new[] { typeof(string), typeof(string), typeof(bool) });
+        }
+
+        [HarmonyPrepare]
+        public static bool Prepare()
+        {
+            if (Target() != null) return true;
+            ScLog.Warn("upgrade/repair from storage: 0-SCore's Configuration.CheckFeatureStatus(string, string, bool) was not found - UpgradeRepairFromStorage does nothing");
+            return false;
+        }
+
+        [HarmonyTargetMethod]
+        public static MethodBase TargetMethod() { return Target(); }
+
+        [HarmonyPostfix]
+        public static void Postfix(string strClass, string strFeature, ref bool __result)
+        {
+            if (__result || !ScConfig.UpgradeRepairFromStorage) return;
+            if (string.Equals(strFeature, "ReadFromContainers", StringComparison.Ordinal) && string.Equals(strClass, "BlockUpgradeRepair", StringComparison.Ordinal))
+                __result = true;
         }
     }
 }

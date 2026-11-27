@@ -50,6 +50,24 @@ namespace SurvivorCommunity
         /// </summary>
         private static readonly Dictionary<int, int> NoPlayers = new Dictionary<int, int>();     // before playerCommunity: initializers run in order
         private static volatile Dictionary<int, int> playerCommunity = NoPlayers;
+        /// <summary>
+        /// Round t2, client: the derived block's "fgnd" - the other communities' ground {xMin, xMax, zMin, zMax} (their home zones'
+        /// rectangles and held outposts' footprints), replaced whole per block. Empty with one community.
+        /// </summary>
+        private static readonly int[][] NoGround = new int[0][];
+        private static volatile int[][] foreignGround = NoGround;
+
+        /// <summary>Round t2, client: is this column on another community's ground (the server's last "fgnd")? Any thread.</summary>
+        public static bool ForeignGroundAt(int x, int z)
+        {
+            int[][] g = foreignGround;
+            for (int i = 0; i < g.Length; i++)
+            {
+                int[] r = g[i];
+                if (x >= r[0] && x <= r[1] && z >= r[2] && z <= r[3]) return true;
+            }
+            return false;
+        }
 
         /// <summary>Client: bumped at each snapshot or derived block received (the community window refreshes on a change).</summary>
         public static int Version { get; private set; }
@@ -196,12 +214,28 @@ namespace SurvivorCommunity
         {
             derived.Clear();
             playerCommunity = NoPlayers;          // round MP6 (part N)
+            foreignGround = NoGround;             // round t2
             if (string.IsNullOrEmpty(text)) return;
             foreach (string raw in text.Split('\n'))
             {
                 int eq = raw.IndexOf('=');
                 if (eq <= 0) continue;
                 derived[raw.Substring(0, eq)] = raw.Substring(eq + 1).TrimEnd('\r');
+            }
+            // round t2: "fgnd" = xMin:xMax:zMin:zMax;... - the other communities' ground (two or more communities only)
+            string fg;
+            if (derived.TryGetValue(ForeignGroundKey, out fg) && fg.Length > 0)
+            {
+                var rects = new List<int[]>();
+                foreach (string part in fg.Split(';'))
+                {
+                    string[] f = part.Split(':');
+                    int a, b, c, d;
+                    if (f.Length == 4 && int.TryParse(f[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out a) && int.TryParse(f[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out b)
+                        && int.TryParse(f[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out c) && int.TryParse(f[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out d))
+                        rects.Add(new[] { a, b, c, d });
+                }
+                foreignGround = rects.ToArray();
             }
             // round MP6 (part N): "pcom" = entityid:cid,... - the players online outside community 0 (two or more communities only)
             string pc;
@@ -220,6 +254,38 @@ namespace SurvivorCommunity
 
         /// <summary>Round MP6 (part N): the derived block's key for the players' communities (PlayerCommunity).</summary>
         private const string PlayerCommunitiesKey = "pcom";
+        /// <summary>Round t2: the derived block's key for the other communities' ground (ForeignGroundAt).</summary>
+        private const string ForeignGroundKey = "fgnd";
+
+        /// <summary>
+        /// Round t2, server: the "fgnd" value for community cid's clients - every OTHER community's home zone rectangles (ScZone.Rects
+        /// in its scope: an upgraded claim's pieces) and its held outposts' footprints, as xMin:xMax:zMin:zMax;... "" with one
+        /// community, so the block is as before. Main thread.
+        /// </summary>
+        private static string ForeignGround(int cid)
+        {
+            if (ScCommunities.Count < 2) return "";
+            var sb = new StringBuilder();
+            var rects = new List<int[]>();
+            foreach (CommunityState cs in ScCommunities.All)
+            {
+                if (cs.Id == cid) continue;
+                rects.Clear();
+                using (ScRegistry.Use(cs.Id))
+                {
+                    if (ScZone.HasHome) ScZone.Rects(rects);
+                    foreach (Outpost o in cs.Outposts) if (o.Holding) rects.Add(o.Box);
+                }
+                foreach (int[] r in rects)
+                {
+                    if (r == null || r.Length < 4) continue;
+                    if (sb.Length > 0) sb.Append(';');
+                    sb.Append(r[0].ToString(CultureInfo.InvariantCulture)).Append(':').Append(r[1].ToString(CultureInfo.InvariantCulture)).Append(':')
+                      .Append(r[2].ToString(CultureInfo.InvariantCulture)).Append(':').Append(r[3].ToString(CultureInfo.InvariantCulture));
+                }
+            }
+            return sb.ToString();
+        }
 
         /// <summary>
         /// The few live figures the server changes between saves (morale and moods every 5 s, the attention, the activities'
@@ -582,6 +648,8 @@ namespace SurvivorCommunity
             }
             if (missing.Length > 0) Kv(sb, "missing", missing.ToString());
             if (!string.IsNullOrEmpty(pcom)) Kv(sb, PlayerCommunitiesKey, pcom);     // round MP6 (part N): two or more communities only
+            string fgnd = ForeignGround(cid);
+            if (fgnd.Length > 0) Kv(sb, ForeignGroundKey, fgnd);                      // round t2: two or more communities only
             return sb.ToString();
         }
 
