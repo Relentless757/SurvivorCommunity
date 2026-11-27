@@ -65,14 +65,15 @@ Why: found on the dedicated server with two communities (the user's report, 2026
   be cut short) and looks again a moment later - for at most 10 s of that wait, then she heals as before.
 
 Build `sc34_mp6t2`, **not deployed**, untested in game. With one community the only changes are the lock test on 0-SCore's
-own boxes, upgrades/repairs from storage, and the cornered rule.
+own boxes, upgrades/repairs from storage, a box someone has open left out of a listen host's crafting, and the cornered rule.
 
 **One community (single player or the dedicated server)**
 - [ ] Crafting from storage works as before: boxes near you and, inside the home, every linked box of the base.
-- [ ] A box you locked with a password, opened by another player who does not know it (debug menu off): its contents do not
-      count for that player's crafting.
+- [ ] (A dedicated server or listen host with two players in the same community.) A box player A locked with a password: for
+      player B, who does not know it, its contents do not count for crafting (debug menu off - with it on, the game's own debug
+      rule lets B in, as it does when opening the box).
 - [ ] Upgrade a block (e.g. frame to wood) and repair a damaged one with the materials only in a box: they are taken from
-      the box. Inside the home a box anywhere in the base works; outside it, a box within 0-SCore's range (40 m). With
+      the box. Inside the home a box anywhere in the base works; outside it, a box near you (0-SCore's own range). With
       `UpgradeRepairFromStorage` false in SC's blocks.xml config, only the bag and toolbelt are used again.
 - [ ] A resident cornered at low health with a loaded gun and a zombie at arm's length keeps shooting; the log says `...
       keeps shooting at N/M: a heal would be cut short (round t2)`. With the zombie a few meters off she still heals at once.

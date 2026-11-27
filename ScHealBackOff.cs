@@ -70,6 +70,8 @@ namespace SurvivorCommunity
             public float WaitSince = -1f;
             /// <summary>Round t2 (review T2-m3): the wait whose "keeps shooting" line was logged, -1 none.</summary>
             public float ShootLoggedWait = -1f;
+            /// <summary>Round t2 (re-check T2R-M1): when that wait's first shoots-instead verdict came (the 10 s cap runs from it).</summary>
+            public float ShootSince = -1f;
             /// <summary>This episode was counted (heal-backoff) / got her clear (heal-backoff-clear).</summary>
             public bool Counted, ClearCounted;
             /// <summary>The heal-now verdict: for the wait that began at HealNowWait, until HealNowUntil, and why.</summary>
@@ -201,12 +203,14 @@ namespace SurvivorCommunity
         private static bool ShootsInstead(EntityAlive e, State st)
         {
             if (e == null || st == null || !ScRetreat.GunReady(e)) return false;
-            // review T2-M3: never past ShootInsteadMaxSeconds of this wait (then the heal comes, as before), and only at a pursuer she
-            // can see - one behind a door or a wall cannot cut the heal short
-            if (st.WaitSince < 0f || Time.time - st.WaitSince > ShootInsteadMaxSeconds) return false;
+            // review T2-M3: never past ShootInsteadMaxSeconds (then the heal comes, as before) - re-check T2R-M1: counted from this wait's
+            // first shoots-instead verdict, not the wait's start (a wait cornered above the line can last longer than that) - and only
+            // at a pursuer she can see (vanilla's own sight test: one behind a door or a wall cannot cut the heal short)
+            if (st.WaitSince < 0f) return false;
+            if (Mathf.Abs(st.ShootLoggedWait - st.WaitSince) <= SameWait && Time.time - st.ShootSince > ShootInsteadMaxSeconds) return false;
             float dist;
             EntityAlive t = Pursuer(e, out dist);
-            return t != null && dist <= HealCutRange && UAI.SCoreUtils.CanSee(e, t);
+            return t != null && dist <= HealCutRange && e.CanSee(t);
         }
 
         /// <summary>Round nc1 (D2): her health is above CorneredHealBelow (a cornered member fights on). A pure read.</summary>
@@ -352,6 +356,8 @@ namespace SurvivorCommunity
                     if (!above && Mathf.Abs(st.ShootLoggedWait - st.WaitSince) > SameWait)
                     {
                         st.ShootLoggedWait = st.WaitSince;
+                        st.ShootSince = now;                         // re-check T2R-M1: the cap's start
+                        Note(st, "CORNERED " + bound + " - keeps shooting, a heal would be cut short (t2)", now);     // re-check of T2-m3
                         ScLog.Out(ScMedic.BodyName(self) + " has no room to back off from " + Who(t) + " at " + dist.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
                                   + " m " + bound + " - " + ScMedic.She(self) + " keeps shooting at " + self.Health + "/" + self.GetMaxHealth()
                                   + ": a heal would be cut short (round t2)");
@@ -362,7 +368,7 @@ namespace SurvivorCommunity
                     {
                         foughtOn++;
                         Patches_Xnpc.Count("heal-cornered-fights-on");
-                        Note(st, above ? "CORNERED " + bound + " - fights on above " + Pct(ScConfig.CorneredHealBelow) : "CORNERED " + bound + " - keeps shooting, a heal would be cut short (t2)", now);
+                        if (above) Note(st, "CORNERED " + bound + " - fights on above " + Pct(ScConfig.CorneredHealBelow), now);
                         if (above)
                             ScLog.Out(ScMedic.BodyName(self) + " has no room to back off from " + Who(t) + " " + bound + " - " + ScMedic.She(self) + " keeps fighting at "
                                       + self.Health + "/" + self.GetMaxHealth() + " and heals at once only at or below " + Pct(ScConfig.CorneredHealBelow) + " (round nc1, D2)");

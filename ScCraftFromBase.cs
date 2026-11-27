@@ -253,6 +253,11 @@ namespace SurvivorCommunity
                     if ((new Vector2(pos.x + 0.5f, pos.z + 0.5f) - at).sqrMagnitude > range2) return;
                 }
                 if (ScStorageServer.LockedAgainst(st, me)) return;
+                // round t2 (re-check of T2-M1, T2-M2): the base's own boxes get the near list's tests too - on the host never a box
+                // someone has open (0-SCore's upgrade/repair takes never test it), and never another community's box (one of its
+                // players' boxes standing inside this home)
+                if (!client && ScStorageServer.OpenBySomeone(st)) return;
+                if (ScGates.ForeignBox(tc, player)) return;
                 if (claimContainersOnly && !w.IsMyLandProtectedBlock(pos, ppd)) return;
                 if (disabled != null && RemoteCraftingUtils.DisableSender(disabled, tc)) return;
                 into.Add(tc);

@@ -3372,9 +3372,14 @@ Round MP0 is the groundwork:
     then takes from storage; its own flaws (a partial count accepted, the bag counted twice in a take) are 0-SCore's.
   - Another community's member: `HiddenRingEntry` leaves Voice Control's entries on while she is down (`ScDowned.IsDown`), so
     anyone may revive her; nothing on the server stops a revive.
+  - The base's own boxes (`Fill`) get the same tests as 0-SCore's near list (open on the host, another community's box).
+  - Left as they are: when the boxes change between an upgrade's count and its take, 0-SCore's take can fall short and the
+    upgrade's materials are lost (0-SCore's own repair code; reported upstream by the user); the storage changes are not under
+    `SC_V34` (the 3.2 build is another branch); while another community's member is down every Voice Control entry is left on,
+    but Voice Control offers only Revive on a downed NPC.
   - `ScHealBackOff`: cornered at or below `CorneredHealBelow` with `ScRetreat.GunReady` and the pursuer within 2.5 m, she keeps
-    shooting (`ShootsInstead`) instead of starting a heal a hit would cut short - only at a pursuer she can see, and for at
-    most 10 s of the wait.
+    shooting (`ShootsInstead`) instead of starting a heal a hit would cut short - only at a pursuer she can see (vanilla's
+    `EntityAlive.CanSee`), and for at most 10 s from the wait's first such verdict.
 - **Round MP6 (review fixes):** the four reviews' fixes on the merged build. What a modder must know:
   - **The listen host's own markers** are drawn for the host's own player in the host's own community: the periodic and
     restore paths (`ScEnclaves`/`ScInfestations`' `RefreshMarkers`, `ScBands.UpdateMarkers`) take `ScCommunity.LocalPlayer`,
