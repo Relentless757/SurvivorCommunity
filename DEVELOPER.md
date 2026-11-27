@@ -2713,9 +2713,9 @@ Round MP0 is the groundwork:
   `RemoteCraftingUtils.GetTileEntities(EntityAlive)` - the one-argument overload that only its crafting paths call, for the
   ingredient counts (`SearchNearbyContainers`) and the taking (`ConsumeItem`) alike - adds, while the player stands inside the
   home zone, every box linked storage links there (`ScStorage.Linkable`, minus boxes locked against the player), ignoring
-  0-SCore's Distance and broadcast list. 0-SCore's enemy rule and its open-by-another-player skip still apply. Repairs, block
-  upgrades and the drop box use the three-argument overload and keep 0-SCore's range (hooking that one would let a repair
-  count base boxes it does not take from). On a client the zone comes from the mirror and the boxes are the client's loaded
+  0-SCore's Distance and broadcast list. 0-SCore's enemy rule and its open-by-another-player skip still apply. (Round t2 moved
+  the hook to the three-argument overload, which upgrades' and repairs' counts and takes use too - see "Round t2" below; the
+  drop box keeps 0-SCore's range.) On a client the zone comes from the mirror and the boxes are the client's loaded
   copies; 0-SCore's taking on a client writes the whole box back to the server (its own multiplayer model, unchanged here).
   `CraftFromBaseStorage` (default true) turns it off. (A client's open-box skip and range: round MP4 review fixes, below.)
 
@@ -3362,9 +3362,10 @@ Round MP0 is the groundwork:
     every count and take goes through (crafting with `forRepairs` false; an upgrade's or repair's count with false, its take with
     true), so the boxes taken from are the boxes counted. It removes boxes the server says are open (a client), boxes locked
     against the player (`ScStorageServer.LockedAgainst`: vanilla's `IsUserAllowed`, so a debug-menu client passes as it does
-    when opening one) and boxes on another community's ground (`ScGates.ForeignGroundAt`: `OutsiderAt` on the server, on a
-    client the derived block's `fgnd` - every other community's home rectangles and held outposts' footprints, sent only with
-    two or more communities), then adds the home's linked boxes inside the home zone (0-SCore's enemy rule by `forRepairs`).
+    when opening one), on the host boxes someone has open, and another community's boxes (`ScGates.ForeignBox`: on its ground
+    or owned by one of its players - the server reads its own map, a client the derived block's `fgnd`, every other community's
+    home rectangles and held outposts' footprints, and `fown`, whose box owners are another community's; both only with two
+    or more communities), then adds the home's linked boxes inside the home zone (0-SCore's enemy rule by `forRepairs`).
     0-SCore's drop box (`AddToNearbyContainer`) keeps its own range (`Patch_CraftFromBaseDropBox`).
   - `UpgradeRepairFromStorage` (default true) answers true for 0-SCore's `BlockUpgradeRepair`/`ReadFromContainers` in its config
     read (`Patch_UpgradeRepairFromStorage` on `Configuration.CheckFeatureStatus(string, string, bool)`). 0-SCore's repair code
@@ -3372,7 +3373,8 @@ Round MP0 is the groundwork:
   - Another community's member: `HiddenRingEntry` leaves Voice Control's entries on while she is down (`ScDowned.IsDown`), so
     anyone may revive her; nothing on the server stops a revive.
   - `ScHealBackOff`: cornered at or below `CorneredHealBelow` with `ScRetreat.GunReady` and the pursuer within 2.5 m, she keeps
-    shooting (`ShootsInstead`) instead of starting a heal a hit would cut short.
+    shooting (`ShootsInstead`) instead of starting a heal a hit would cut short - only at a pursuer she can see, and for at
+    most 10 s of the wait.
 - **Round MP6 (review fixes):** the four reviews' fixes on the merged build. What a modder must know:
   - **The listen host's own markers** are drawn for the host's own player in the host's own community: the periodic and
     restore paths (`ScEnclaves`/`ScInfestations`' `RefreshMarkers`, `ScBands.UpdateMarkers`) take `ScCommunity.LocalPlayer`,

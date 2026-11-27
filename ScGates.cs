@@ -241,20 +241,64 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round t2 (the user's decision, review T2-M2): another community's storage box for this player, on any machine - on its
+        /// ground (its home zone's rectangles or a held outpost's footprint) or owned by one of its players (the box's lock owner;
+        /// community 0 is everyone the membership map does not list). The server reads its own map (the other communities' ground
+        /// worked out once a frame: review T2-m5); a client the server's word (ScMirror's "fgnd" and "fown"). An unowned box off
+        /// any community's ground is nobody's. Never with one community.
+        /// </summary>
+        public static bool ForeignBox(TileEntity te, EntityPlayer player)
+        {
+            if (te == null || player == null) return false;
+            Vector3i pos = te.ToWorldPos();
+            PlatformUserIdentifierAbs owner = BoxOwner(te);
+            if (ScRegistry.Loaded)
+            {
+                if (ScCommunities.Count <= 1) return false;
+                int mine = ScPlayers.CommunityOf(player);
+                if (owner != null && ScPlayers.CommunityOfId(owner.CombinedString) != mine) return true;
+                System.Collections.Generic.List<int[]> rects = ForeignRectsFor(mine);
+                for (int i = 0; i < rects.Count; i++)
+                {
+                    int[] r = rects[i];
+                    if (pos.x >= r[0] && pos.x <= r[1] && pos.z >= r[2] && pos.z <= r[3]) return true;
+                }
+                return false;
+            }
+            return ScMirror.ForeignGroundAt(pos.x, pos.z) || (owner != null && ScMirror.ForeignOwner(owner.CombinedString));
+        }
+
+        /// <summary>Round t2: a storage box's owner (its lock's), or null (a POI's container, or no lock).</summary>
+        private static PlatformUserIdentifierAbs BoxOwner(TileEntity te)
+        {
+            try
+            {
+                TileEntityComposite tc = te as TileEntityComposite;
+                TEFeatureLockable lk = tc != null ? tc.GetFeature<TEFeatureLockable>() : null;
+                return lk != null ? lk.GetOwner() : null;
+            }
+            catch (Exception) { return null; }
+        }
+
+        // round t2 (review T2-m5): the other communities' ground for one community, worked out once a frame (server)
+        private static readonly System.Collections.Generic.List<int[]> foreignRects = new System.Collections.Generic.List<int[]>();
+        private static int foreignRectsFrame = -1, foreignRectsCid = -1;
+
+        private static System.Collections.Generic.List<int[]> ForeignRectsFor(int cid)
+        {
+            if (foreignRectsFrame != Time.frameCount || foreignRectsCid != cid)
+            {
+                foreignRectsFrame = Time.frameCount;
+                foreignRectsCid = cid;
+                ScMirror.ForeignRects(cid, foreignRects);
+            }
+            return foreignRects;
+        }
+
+        /// <summary>
         /// Is this position another community's ground for the player - inside another community's home zone or one of its
         /// outposts? Server (a client knows its own community only, so it never answers true there). Never with one community.
         /// </summary>
-        /// <summary>
-        /// Round t2: a position on another community's ground (its home zone or a held outpost) for this player, on any machine - the
-        /// server answers OutsiderAt; a client reads the server's map of the other communities' ground (ScMirror's "fgnd"). Never with
-        /// one community.
-        /// </summary>
-        public static bool ForeignGroundAt(Vector3i pos, EntityPlayer player)
-        {
-            if (ScRegistry.Loaded) return OutsiderAt(pos, player);
-            return ScMirror.ForeignGroundAt(pos.x, pos.z);
-        }
-
         public static bool OutsiderAt(Vector3i pos, EntityPlayer player)
         {
             if (ScCommunities.Count <= 1 || player == null || !ScRegistry.Loaded) return false;

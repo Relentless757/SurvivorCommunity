@@ -56,6 +56,22 @@ namespace SurvivorCommunity
         /// </summary>
         private static readonly int[][] NoGround = new int[0][];
         private static volatile int[][] foreignGround = NoGround;
+        /// <summary>
+        /// Round t2 (review T2-M2), client: the derived block's "fown" - whose boxes are another community's: '+' and the listed owners
+        /// (this client is in community 0: every player another community holds), or '-' and this community's own players (anyone
+        /// else - community 0 included - is another community's). Null: no list (one community).
+        /// </summary>
+        private sealed class OwnerList { public bool Listed; public HashSet<string> Ids; }
+        private static volatile OwnerList foreignOwners;
+
+        /// <summary>Round t2, client: is a box with this owner (a platform id) another community's (the server's last "fown")?</summary>
+        public static bool ForeignOwner(string ownerId)
+        {
+            OwnerList l = foreignOwners;
+            if (l == null || string.IsNullOrEmpty(ownerId)) return false;
+            bool inList = l.Ids.Contains(ownerId);
+            return l.Listed ? inList : !inList;
+        }
 
         /// <summary>Round t2, client: is this column on another community's ground (the server's last "fgnd")? Any thread.</summary>
         public static bool ForeignGroundAt(int x, int z)
@@ -82,6 +98,8 @@ namespace SurvivorCommunity
         {
             derived.Clear();
             playerCommunity = NoPlayers;          // round MP6 (part N)
+            foreignGround = NoGround;             // round t2 (review T2-m1)
+            foreignOwners = null;
             told = false;
             LastBytes = LastChars = 0;
             Version++;
@@ -215,6 +233,7 @@ namespace SurvivorCommunity
             derived.Clear();
             playerCommunity = NoPlayers;          // round MP6 (part N)
             foreignGround = NoGround;             // round t2
+            foreignOwners = null;
             if (string.IsNullOrEmpty(text)) return;
             foreach (string raw in text.Split('\n'))
             {
@@ -237,6 +256,14 @@ namespace SurvivorCommunity
                 }
                 foreignGround = rects.ToArray();
             }
+            // round t2 (review T2-M2): "fown" = +id,id... (those are another community's) or -id,id... (only those are this one's)
+            string fo;
+            if (derived.TryGetValue(ForeignOwnersKey, out fo) && fo.Length > 0 && (fo[0] == '+' || fo[0] == '-'))
+            {
+                var ids = new HashSet<string>(StringComparer.Ordinal);
+                foreach (string id in fo.Substring(1).Split(',')) if (id.Length > 0) ids.Add(id);
+                foreignOwners = new OwnerList { Listed = fo[0] == '+', Ids = ids };
+            }
             // round MP6 (part N): "pcom" = entityid:cid,... - the players online outside community 0 (two or more communities only)
             string pc;
             if (!derived.TryGetValue(PlayerCommunitiesKey, out pc) || pc.Length == 0) return;
@@ -256,6 +283,52 @@ namespace SurvivorCommunity
         private const string PlayerCommunitiesKey = "pcom";
         /// <summary>Round t2: the derived block's key for the other communities' ground (ForeignGroundAt).</summary>
         private const string ForeignGroundKey = "fgnd";
+        /// <summary>Round t2 (review T2-M2): the derived block's key for the other communities' box owners (ForeignOwner).</summary>
+        private const string ForeignOwnersKey = "fown";
+
+        /// <summary>
+        /// Round t2 (review T2-M2), server: the "fown" value for community cid's clients - '+' and every player another community holds
+        /// (cid 0), or '-' and cid's own players (anyone else is another community's). "" with one community. Main thread.
+        /// </summary>
+        private static string ForeignOwners(int cid)
+        {
+            if (ScCommunities.Count < 2) return "";
+            var sb = new StringBuilder();
+            bool zero = cid == ScPlayers.SharedCommunity;
+            sb.Append(zero ? '+' : '-');
+            bool any = false;
+            foreach (KeyValuePair<string, int> kv in ScRegistry.WorldState.Membership)
+            {
+                if (ScCommunities.ById(kv.Value) == null) continue;              // a community that is gone: community 0's (CommunityOfId)
+                if (zero ? kv.Value == ScPlayers.SharedCommunity : kv.Value != cid) continue;
+                if (any) sb.Append(',');
+                sb.Append(kv.Key);
+                any = true;
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Round t2: every OTHER community's ground for community cid - its home zone rectangles (ScZone.Rects in its scope: an upgraded
+        /// claim's pieces) and its held outposts' footprints, {xMin, xMax, zMin, zMax}. Empty with one community. Main thread.
+        /// </summary>
+        internal static void ForeignRects(int cid, List<int[]> into)
+        {
+            into.Clear();
+            if (ScCommunities.Count < 2) return;
+            var tmp = new List<int[]>();
+            foreach (CommunityState cs in ScCommunities.All)
+            {
+                if (cs.Id == cid) continue;
+                tmp.Clear();
+                using (ScRegistry.Use(cs.Id))
+                {
+                    if (ScZone.HasHome) ScZone.Rects(tmp);
+                    foreach (Outpost o in cs.Outposts) if (o.Holding) tmp.Add(o.Box);
+                }
+                foreach (int[] r in tmp) if (r != null && r.Length >= 4) into.Add(r);
+            }
+        }
 
         /// <summary>
         /// Round t2, server: the "fgnd" value for community cid's clients - every OTHER community's home zone rectangles (ScZone.Rects
@@ -267,22 +340,12 @@ namespace SurvivorCommunity
             if (ScCommunities.Count < 2) return "";
             var sb = new StringBuilder();
             var rects = new List<int[]>();
-            foreach (CommunityState cs in ScCommunities.All)
+            ForeignRects(cid, rects);
+            foreach (int[] r in rects)
             {
-                if (cs.Id == cid) continue;
-                rects.Clear();
-                using (ScRegistry.Use(cs.Id))
-                {
-                    if (ScZone.HasHome) ScZone.Rects(rects);
-                    foreach (Outpost o in cs.Outposts) if (o.Holding) rects.Add(o.Box);
-                }
-                foreach (int[] r in rects)
-                {
-                    if (r == null || r.Length < 4) continue;
-                    if (sb.Length > 0) sb.Append(';');
-                    sb.Append(r[0].ToString(CultureInfo.InvariantCulture)).Append(':').Append(r[1].ToString(CultureInfo.InvariantCulture)).Append(':')
-                      .Append(r[2].ToString(CultureInfo.InvariantCulture)).Append(':').Append(r[3].ToString(CultureInfo.InvariantCulture));
-                }
+                if (sb.Length > 0) sb.Append(';');
+                sb.Append(r[0].ToString(CultureInfo.InvariantCulture)).Append(':').Append(r[1].ToString(CultureInfo.InvariantCulture)).Append(':')
+                  .Append(r[2].ToString(CultureInfo.InvariantCulture)).Append(':').Append(r[3].ToString(CultureInfo.InvariantCulture));
             }
             return sb.ToString();
         }
@@ -650,6 +713,8 @@ namespace SurvivorCommunity
             if (!string.IsNullOrEmpty(pcom)) Kv(sb, PlayerCommunitiesKey, pcom);     // round MP6 (part N): two or more communities only
             string fgnd = ForeignGround(cid);
             if (fgnd.Length > 0) Kv(sb, ForeignGroundKey, fgnd);                      // round t2: two or more communities only
+            string fown = ForeignOwners(cid);
+            if (fown.Length > 0) Kv(sb, ForeignOwnersKey, fown);                      // round t2 (review T2-M2): two or more communities only
             return sb.ToString();
         }
 

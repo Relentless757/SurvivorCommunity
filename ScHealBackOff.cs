@@ -68,6 +68,8 @@ namespace SurvivorCommunity
         {
             /// <summary>The wait (ScMedic's heldSince) this episode belongs to, -1 none.</summary>
             public float WaitSince = -1f;
+            /// <summary>Round t2 (review T2-m3): the wait whose "keeps shooting" line was logged, -1 none.</summary>
+            public float ShootLoggedWait = -1f;
             /// <summary>This episode was counted (heal-backoff) / got her clear (heal-backoff-clear).</summary>
             public bool Counted, ClearCounted;
             /// <summary>The heal-now verdict: for the wait that began at HealNowWait, until HealNowUntil, and why.</summary>
@@ -181,8 +183,11 @@ namespace SurvivorCommunity
         /// </summary>
         private static bool FightsOn(EntityAlive e, State st, float waitSince)
         {
-            return st.FightOnWait >= 0f && Mathf.Abs(st.FightOnWait - waitSince) <= SameWait && (AboveCorneredLine(e) || ShootsInstead(e));
+            return st.FightOnWait >= 0f && Mathf.Abs(st.FightOnWait - waitSince) <= SameWait && (AboveCorneredLine(e) || ShootsInstead(e, st));
         }
+
+        /// <summary>Round t2 (review T2-M3): at most this long from the start of the wait she shoots instead of healing.</summary>
+        private const float ShootInsteadMaxSeconds = 10f;
 
         /// <summary>Round t2 (Ned, 2026-11-27): an enemy this close cuts a heal short - a bandage takes 2.5 s and a hit stops it.</summary>
         private const float HealCutRange = 2.5f;
@@ -193,11 +198,15 @@ namespace SurvivorCommunity
         /// (rounds in her stores: ScRetreat.GunReady) and her pursuer within HealCutRange, she keeps shooting - the heal would be cut
         /// short - and looks again in CorneredRecheckSeconds (healing at once when the enemy is farther or the gun is dry). A pure read.
         /// </summary>
-        private static bool ShootsInstead(EntityAlive e)
+        private static bool ShootsInstead(EntityAlive e, State st)
         {
-            if (e == null || !ScRetreat.GunReady(e)) return false;
+            if (e == null || st == null || !ScRetreat.GunReady(e)) return false;
+            // review T2-M3: never past ShootInsteadMaxSeconds of this wait (then the heal comes, as before), and only at a pursuer she
+            // can see - one behind a door or a wall cannot cut the heal short
+            if (st.WaitSince < 0f || Time.time - st.WaitSince > ShootInsteadMaxSeconds) return false;
             float dist;
-            return Pursuer(e, out dist) != null && dist <= HealCutRange;
+            EntityAlive t = Pursuer(e, out dist);
+            return t != null && dist <= HealCutRange && UAI.SCoreUtils.CanSee(e, t);
         }
 
         /// <summary>Round nc1 (D2): her health is above CorneredHealBelow (a cornered member fights on). A pure read.</summary>
@@ -334,11 +343,19 @@ namespace SurvivorCommunity
                 // round nc1 (D2): cornered above CorneredHealBelow she fights on (no heal-now); the back-off is looked for again in
                 // CorneredRecheckSeconds, and at or below the line the next look heals her at once (below)
                 bool above = AboveCorneredLine(self);
-                if (above || ShootsInstead(self))      // round t2: or a heal an enemy at arm's length would cut short, with a gun ready
+                if (above || ShootsInstead(self, st))  // round t2: or a heal an enemy at arm's length would cut short, with a gun ready
                 {
                     bool first = st.FightOnWait < 0f || Mathf.Abs(st.FightOnWait - st.WaitSince) > SameWait;
                     st.FightOnWait = st.WaitSince;
                     st.FightOnUntil = now + CorneredRecheckSeconds;
+                    // round t2 (review T2-m3): the "keeps shooting" line once per wait, also when the wait was first cornered above the line
+                    if (!above && Mathf.Abs(st.ShootLoggedWait - st.WaitSince) > SameWait)
+                    {
+                        st.ShootLoggedWait = st.WaitSince;
+                        ScLog.Out(ScMedic.BodyName(self) + " has no room to back off from " + Who(t) + " at " + dist.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                                  + " m " + bound + " - " + ScMedic.She(self) + " keeps shooting at " + self.Health + "/" + self.GetMaxHealth()
+                                  + ": a heal would be cut short (round t2)");
+                    }
                     st.OutcomeAt = now;                              // the review: Prune keeps a live fights-on state (120 s from the last look)
                     st.GainAt = 0f;                                  // standing and fighting is no back-off: F4's clock starts again at the next look
                     if (first)
@@ -349,10 +366,6 @@ namespace SurvivorCommunity
                         if (above)
                             ScLog.Out(ScMedic.BodyName(self) + " has no room to back off from " + Who(t) + " " + bound + " - " + ScMedic.She(self) + " keeps fighting at "
                                       + self.Health + "/" + self.GetMaxHealth() + " and heals at once only at or below " + Pct(ScConfig.CorneredHealBelow) + " (round nc1, D2)");
-                        else
-                            ScLog.Out(ScMedic.BodyName(self) + " has no room to back off from " + Who(t) + " at " + dist.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
-                                      + " m " + bound + " - " + ScMedic.She(self) + " keeps shooting at " + self.Health + "/" + self.GetMaxHealth()
-                                      + ": a heal would be cut short (round t2)");
                     }
                     return false;
                 }

@@ -49,19 +49,20 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 ## Round t2 (2026-11-27): storage across communities, upgrades and repairs from storage, revive anyone, shoot when cornered
 
 Why: found on the dedicated server with two communities (the user's report, 2026-11-27).
-- Elisk (community 0), standing in TheElisk's claim (community 1), crafted with TheElisk's boxes, locked or not: 0-SCore's
-  Craft From Containers takes any box within its range and tests no lock. Now a box on another community's ground (its home
-  zone or a held outpost) and a box locked against you never count, for crafting, upgrades or repairs. (Opening a locked box
-  by hand with the debug menu on is the game's own debug rule; an unlocked box of another community still opens by hand.)
+- Player A (community 0), standing in player B's home (community 1), crafted with B's boxes, locked or not: 0-SCore's Craft
+  From Containers takes any box within its range and tests no lock. Now another community's box (on its ground - its home zone
+  or a held outpost - or owned by one of its players) and a box locked against you never count, for crafting, upgrades or
+  repairs; nor, on a host, a box someone has open. (Opening a locked box by hand with the debug menu on is the game's own debug
+  rule; an unlocked box of another community still opens by hand.)
 - Upgrades and repairs never used storage: 0-SCore ships its "BlockUpgradeRepair ReadFromContainers" off. SC's new
   UpgradeRepairFromStorage (default true) switches it on, and inside your home every linked box counts, as for crafting.
   0-SCore's own repair code has two flaws the user will report to its author: a repair can come partly free, and it can take
   a little too much from the bag.
-- TheElisk had no way to revive community 0's downed Ned: SC hid every Voice Control ring entry on another community's
+- Player B had no way to revive community 0's downed resident: SC hid every Voice Control ring entry on another community's
   member. While she is down, the Revive entry now shows for anyone.
 - Ned, at 33% with an auto shotgun, cornered by four zombies, stood bandaging with one at 1.1 m and went down. Cornered at or
-  below CorneredHealBelow with a gun ready and the enemy within 2.5 m, a member now keeps shooting (the heal would be cut
-  short) and looks again a moment later.
+  below CorneredHealBelow with a gun ready and an enemy she can see within 2.5 m, a member now keeps shooting (the heal would
+  be cut short) and looks again a moment later - for at most 10 s of that wait, then she heals as before.
 
 Build `sc34_mp6t2`, **not deployed**, untested in game. With one community the only changes are the lock test on 0-SCore's
 own boxes, upgrades/repairs from storage, and the cornered rule.
@@ -77,12 +78,12 @@ own boxes, upgrades/repairs from storage, and the cornered rule.
       keeps shooting at N/M: a heal would be cut short (round t2)`. With the zombie a few meters off she still heals at once.
 
 **Two communities (dedicated server)**
-- [ ] Elisk (community 0) stands inside TheElisk's home (community 1) next to TheElisk's boxes, locked and unlocked: none of
-      their contents count for Elisk's crafting, upgrades or repairs. TheElisk's own crafting there still sees them.
-- [ ] The same next to one of community 1's held outposts.
-- [ ] Elisk can still open TheElisk's unlocked box by hand (E); a locked one only with the password (debug menu off).
-- [ ] Community 0's resident goes down: TheElisk (community 1) sees Revive on her (hold E / tap E) and revives her, and with a
-      bandage used on her too. On a standing member of community 0, TheElisk still sees none of Voice Control's entries.
+- [ ] Player A (community 0) stands inside player B's home (community 1) next to B's boxes, locked and unlocked: none of their
+      contents count for A's crafting, upgrades or repairs. B's own crafting there still sees them.
+- [ ] The same next to one of community 1's held outposts, and next to a box B placed out in the open (B owns it).
+- [ ] A can still open B's unlocked box by hand (E); a locked one only with the password (debug menu off).
+- [ ] Community 0's resident goes down: B (community 1) sees Revive on her (hold E / tap E) and revives her, and with a bandage
+      used on her too. On a standing member of community 0, B still sees none of Voice Control's entries.
 
 ## Round MP6 test fix t1 (2026-11-26): a downed member bleeds out by her own community's players
 

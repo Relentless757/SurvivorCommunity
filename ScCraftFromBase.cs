@@ -13,12 +13,13 @@ namespace SurvivorCommunity
     /// player - within its Distance (10 m as 0-SCore ships its blocks.xml) and, while its broadcast manager runs, only the boxes
     /// switched to broadcast. Inside the community's home zone SC adds every box linked storage links there (ScStorage.Linkable:
     /// player-placed storage, never the packing station or a land claim block's own storage), wherever it stands in the base.
-    /// - One hook: RemoteCraftingUtils.GetTileEntities(EntityAlive), the one-argument overload - 0-SCore's crafting paths and only
-    ///   they ask it: the ingredient counts (SearchNearbyContainers(player) and (player, item)) and the taking (ConsumeItem) alike,
-    ///   so what is counted is what can be taken. Block upgrades and repairs (they count AND take through the three-argument
-    ///   overload) and the drop box keep 0-SCore's own range - hooking the three-argument one would have let a repair count base
-    ///   boxes it then does not take from (free materials). The one-argument method is ~50 bytes of IL with a branch: above Mono's
-    ///   inlining limit, so the hook cannot be bypassed by an inlined copy.
+    /// - One hook (round t2): RemoteCraftingUtils.GetTileEntities(EntityAlive, float, bool), the three-argument overload every count
+    ///   and take goes through - crafting's counts and takes (the one-argument overload calls it with forRepairs false) and block
+    ///   upgrades' and repairs' (their counts with false, their takes with true) - so what is counted is what can be taken. Before
+    ///   t2 the hook sat on the one-argument overload and upgrades and repairs kept 0-SCore's own range. The drop box keeps 0-SCore's
+    ///   own range (Patch_CraftFromBaseDropBox). Round t2 also removes, from 0-SCore's own near boxes as well: another community's
+    ///   boxes (on its ground or owned by its players: ScGates.ForeignBox), boxes locked against the player, and on the host a box
+    ///   someone has open (0-SCore's repair takes never test it).
     /// - 0-SCore's own refusals stand: with an enemy near (BlockOnNearbyEnemies) it returned none, and none are added.
     /// - A box someone has open: on the server (the host's own crafting) 0-SCore skips it itself when it counts and takes
     ///   (IsLootContainerOpenByAnotherPlayer, from the server's LockManager). On a client that test is always false - a client
@@ -272,13 +273,18 @@ namespace SurvivorCommunity
         {
             if (player == null || list == null || list.Count == 0) return;
             PlatformUserIdentifierAbs me = ScStorageServer.UserIdOf(player);
+            bool host = ScCommunity.IsHost;
             for (int i = list.Count - 1; i >= 0; i--)
             {
                 TileEntity te = list[i];
                 if (te == null) continue;
                 TileEntityComposite tc = te as TileEntityComposite;
                 TEFeatureStorage st = tc != null ? tc.GetFeature<TEFeatureStorage>() : null;
-                if ((st != null && ScStorageServer.LockedAgainst(st, me)) || ScGates.ForeignGroundAt(te.ToWorldPos(), player)) list.RemoveAt(i);
+                if (st != null && ScStorageServer.LockedAgainst(st, me)) { list.RemoveAt(i); continue; }
+                // review T2-M1: on the host a box someone has open - 0-SCore's upgrade and repair takes never test it, and the other
+                // player's close would write their old copy back (the materials doubled). A client gets the server's word (DropOpenOnServer)
+                if (host && st != null && ScStorageServer.OpenBySomeone(st)) { list.RemoveAt(i); continue; }
+                if (ScGates.ForeignBox(te, player)) list.RemoveAt(i);
             }
         }
 
@@ -406,6 +412,8 @@ namespace SurvivorCommunity
         public static void Postfix(string strClass, string strFeature, ref bool __result)
         {
             if (__result || !ScConfig.UpgradeRepairFromStorage) return;
+            // review T2-m2: a client only on a server that runs SC (it sent the copy) - never switched on against a server without SC
+            if (!ScCommunity.IsHost && !ScRegistry.Mirrored) return;
             if (string.Equals(strFeature, "ReadFromContainers", StringComparison.Ordinal) && string.Equals(strClass, "BlockUpgradeRepair", StringComparison.Ordinal))
                 __result = true;
         }
