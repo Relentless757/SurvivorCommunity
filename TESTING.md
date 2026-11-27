@@ -64,7 +64,9 @@ Why: found on the dedicated server with two communities (the user's report, 2026
   below CorneredHealBelow with a gun ready and an enemy she can see within 2.5 m, a member now keeps shooting (the heal would
   be cut short) and looks again a moment later - for at most 10 s of that wait, then she heals as before.
 
-Build `sc34_mp6t2`, **not deployed**, untested in game. With one community the only changes are the lock test on 0-SCore's
+Build `sc34_mp6t2`, **deployed to 3.4 on 2026-11-27** (port-3.4 f667b40d, DLL 6e364c1d), untested in game. Every client needs
+this build too (the filter, the revive entry and the upgrade switch run on the client). With one community the only changes
+are the lock test on 0-SCore's
 own boxes, upgrades/repairs from storage, a box someone has open left out of a listen host's crafting, and the cornered rule.
 
 **One community (single player or the dedicated server)**
