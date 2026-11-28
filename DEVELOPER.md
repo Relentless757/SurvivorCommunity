@@ -3755,6 +3755,39 @@ Round MP0 is the groundwork:
     `scMp7FavourThanks`), so a refusal is never thanked first; their "Actually, I've already cleared that." has its own reply
     (`scMp7PoiClearedSt`) instead of the join's. The talk's "Ask to leave" hides where the window grays its button
     (`ScOwnerOrders`: the view is not `Gated`).
+- **Round nv1, gaps a body cannot walk through** (`ScStuck`; server-side, session only, nothing saved): a resident kept
+  walking into a hole one block high at the foot of a wall instead of the open door beside it. Why the planner sends her
+  there: the game's voxel grid (`AstarVoxelGrid`) makes a node wherever its ray from above finds a floor, and notes a blocked
+  head only by four short sphere casts at head height from the cell's center (`CalcBlockingFlags`). A half block
+  (`Path=scan`) or a corner piece over the hole has its inner face on that center line, so the casts start inside it and miss;
+  only a full cube over a cell (`PathType` 1) adds the node penalty that vanilla's no-break traversal and 0-XNPCCore's wall cost
+  act on. So the hole is a free lane along the wall's line for a path that may not break blocks.
+  - **Remembering** (`ScStuck.RememberSpot`): a walk that ends with no progress - the roam's no-gain or blocked end, the
+    watchdog's still or no-gain verdict (not in a fight, not while a held move back waits), a shelter walk's no-gain or
+    blocked end, a revive walk's no-gain end - puts the cell ahead of her and the cell she stood in on her base's list (a
+    community's id; -1 - the enclave's id for enclave people). The cell ahead: along her path within 2.5 m, the first low gap
+    (`LowGap`: her lower body cell free, the cell above blocking movement, a door never counts), else the cell 0.5 to 1.5 m
+    ahead. A low gap is remembered at once, with up to four low cells beside it over a floor (the rest of the opening); any
+    other cell on its second end there, at least 10 s apart; never a door's cell, nor while another body blocks her. One log
+    line when it is remembered. It goes 20 min after the last end at it; a low gap's cells go as soon as they are no longer low
+    (a block put in, or the one above taken away), with a log line once none is left.
+  - **Avoiding:** `ScStuck.PlannerMap` maps each body of a base seen in the last minute (the ticker's residents, the
+    watchdog's sample, enclave people) to its base's gap cells as graph-space boxes; it is rebuilt on the main thread and
+    swapped whole. Two postfixes on `Pathfinding.Path.CanTraverse` (`Patch_PlannerGrid`: the grid step, `Patch_PlannerLink`:
+    the extra links) turn true into false for a node in a box, whatever traversal provider the path has (vanilla's or
+    0-XNPCCore's, whose own checks are untouched). The body is the path's own (ASPPathFinder's callback's target), so zombies,
+    players and other NPCs are never refused anything; with no gap the map is null and the postfixes return at once. A
+    path's start and end nodes are asked with direction -1 and never refused, so a body standing in a gap gets out. A path
+    planned before a gap was known: the watchdog's sample drops it once per new path (at most every 30 s per member, and only
+    with the postfix in place), the roam marks its spot unreachable and pauses, an hr1 room or flight walk sets it aside
+    (`heal-walk-through-gap`). A destination behind a gap is reached the long way round, or the walk finds no path and its own
+    no-path handling picks another; a destination in a gap never passes `GoodPost` (two free cells).
+  - `sc xnpc` prints `gaps walked round (round nv1)` (each gap, the postfix, the bodies guarded, the steps refused) and
+    `sc xnpc <name>`'s post line ends with her base's gaps. Counters (`stuck rescue`): `gap remembered: too low`,
+    `gap remembered: stuck twice`, `gap: noted once`, `gap: stuck there again`, `gap: a path through it dropped`,
+    `gap gone: filled or opened`, `roam walk dropped: path through a gap`.
+  - Not done: refusing every low cell up front in the planner (a shape test there would read chunks on the path finder's
+    threads); a main-thread scan of the home zone could feed the same map later.
 
 ## How it hangs together (for modders)
 

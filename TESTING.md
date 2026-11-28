@@ -48,6 +48,57 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   retired ids; `owner <id> <player>` hands a community over; `mode <PerPlayer|PerParty> confirm` switches a save from before
   MP7 once.
 
+## Round nv1 (2026-11-27): a member stuck on a gap in a wall
+
+Why: on the dedicated server a resident kept walking into a hole one block high at the foot of a POI wall (both wall blocks
+at the floor broken, the wall above intact) instead of the open door beside it. Each roam that ended there marked only
+its own destination, so the next one, through the same hole, went the same way. The game's path planner takes such a hole
+for open along the wall's line when the block over it is a half block or a corner piece (see DEVELOPER.md, round nv1).
+Now a walk that ends with no progress remembers the cell ahead of her and where she stood, per base, for 20 minutes; the
+path planner refuses those cells on that base's survivors' paths, so they go round by the door. Build `sc34_nv1`,
+**not deployed**, untested in game. Server-side only (clients need nothing new; protocol unchanged); the save file is
+unchanged (the gaps are not saved). Two new patch targets: `Path::CanTraverse(GraphNode,int)` and
+`Path::CanTraverse(Connection)`.
+
+**The gap (single player or the dedicated server)**
+- [ ] Startup: `patch verification: all N targets patched` with no MISSING PATCH line (the two targets above are in it).
+- [ ] In a building of the home base, break the wall block at the floor next to a door and keep the block above it (a
+      brick half block or a corner piece gives the case from the report; a full cube above works too). Let the residents
+      roam by day. When one walks into the hole, within about 8 s (the roam) or 24 s (the watchdog) the log says once
+      `<name> got stuck walking into x, y, z from x, y, z (a roam walk; air under <block>: too low to walk through[, 2 cells
+      wide]) - the community's walks go round it for 20 min (round nv1)`.
+- [ ] After that line no member walks into that hole again: their walks to spots behind it go round by the door, and the
+      log no longer shows `roam walk to ... ended - no 1 m gain` again and again for spots behind the hole.
+- [ ] `sc xnpc` prints `gaps walked round (round nv1): 1 remembered: community 0: ...; planner postfix on, bodies it guards
+      N, steps refused N`; the steps refused go up while members walk near it. `sc xnpc <name>`'s post line ends with
+      `gaps walked round (round nv1): x, y, z (2 cells, too low, 19.x min)`.
+- [ ] The member who got stuck (or another one inside) walks out the long way, by the door, and does not stand pushing at
+      the hole. If the hole was her only way, she stays or stands (no teleport loop).
+- [ ] A member already walking toward the hole when it is remembered: her path is dropped and the next one goes round
+      (DebugLogging: `<name>'s path runs through the remembered gap at ... - dropped, the next one goes round it`).
+- [ ] Fill the hole with a block: within a second or two the log says `the gap at x, y, z is gone (<block> under <block>
+      now) - walks may go there again (round nv1)` (a hole two cells wide: once both are filled). The same when the block
+      above it is taken out instead (the hole becomes a doorway), and members then walk through it.
+- [ ] Leave the hole open and keep members away from it: 20 minutes after the last time anyone got stuck there, DebugLogging
+      says `the gap at ... is no longer avoided`; a member may try it once more and it is remembered again.
+- [ ] Zombies at the same hole behave as before (the planner refuses it only for the base's own survivors).
+- [ ] A member waiting at a door that opens slowly never logs a gap there; nor does a member wedged by another NPC or a
+      player, nor one stuck during a fight at home.
+- [ ] Not a low hole: a member that gets no progress twice at the same spot, 10 s or more apart, logs `(... no progress
+      there twice)` and the walks go round it; the first time only DebugLogging says `noted; a second time there makes it a
+      gap the walks go round`.
+- [ ] Round hr1: with a gap remembered between a hurt member and a room, a room or flight walk whose path runs through it
+      is set aside: `<name>'s path to the room at ... runs through the remembered gap at ... - set aside, the next step
+      (round nv1)`; `sc xnpc` counts `heal-walk-through-gap`.
+- [ ] A blood moon at home with a gap remembered: no frame drop compared with before (the planner postfix runs on every
+      path step of every path, and returns at once for zombies).
+
+**Dedicated server**
+- [ ] The same steps on the server: the lines are in the server log; a client with the previous build joins and plays as
+      before.
+- [ ] The report's case: break the block that was put in the hole again; the resident who used to get stuck there goes
+      round by the door after at most one try.
+
 ## Deployed 2026-11-27: round MP7 (community modes), round hr1 (healing and last stand), round lk1 (looks kept, falling trees)
 
 Installed in the 3.4 game (`port-3.4` 15e187ab, DLL 90907710); the dedicated server loads the same folder. **Protocol 9:

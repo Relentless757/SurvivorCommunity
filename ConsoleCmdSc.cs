@@ -3075,6 +3075,7 @@ namespace SurvivorCommunity
             Output("[SC] 0-XNPCCore survivor hooks (Patches_Xnpc): " + Patches_Xnpc.Report());
             Output("[SC] " + ScDialogPager.Report());           // round 28 (X3): the talk page's pager
             Output("[SC] stuck rescue (round 29b): " + ScStuck.Counters());
+            Output("[SC] gaps walked round (round nv1): " + ScStuck.GapReport());
             if (ScRegistry.Loaded) Output("[SC] ammo (D3): " + ScAmmo.Report());
 #if SC_V34
             Output("[SC] magazines put away and seated again on the draw (round lr1): " + ScMags.ReseatState + " - " + Patches_Xnpc.ReportPrefix("mag-"));

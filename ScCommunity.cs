@@ -527,8 +527,9 @@ namespace SurvivorCommunity
                 bool homeGround = (ScConfig.ResidentRoamZone || ScRetreat.Owns(npc)) && ScZone.DistanceOutside(pos) <= ScConfig.ResidentRoamZoneMargin;
                 if (away > farLimit && !(wide && ScBaseAttack.InDefenceArea(pos, ScBaseAttack.LeashExtra)) && !homeGround && !onShift) m.AwaySeconds++; else m.AwaySeconds = 0;
                 int noGain = ScConfig.StuckNoGain ? ScStuck.GainSeconds(m) : 0;
-                if (m.StillSeconds >= stuckLimit) Stuck(m, npc, "no progress for " + m.StillSeconds + " s" + (fighting ? ", fighting" : ""), fighting, now, onShift);
-                else if (noGain >= gainLimit) Stuck(m, npc, "no 1 m gain toward the path's end in " + noGain + " s of trying" + (fighting ? ", fighting" : ""), fighting, now, onShift);
+                // round nv1: the two walking verdicts (walking: true) remember the cell she could not get into
+                if (m.StillSeconds >= stuckLimit) Stuck(m, npc, "no progress for " + m.StillSeconds + " s" + (fighting ? ", fighting" : ""), fighting, now, onShift, true);
+                else if (noGain >= gainLimit) Stuck(m, npc, "no 1 m gain toward the path's end in " + noGain + " s of trying" + (fighting ? ", fighting" : ""), fighting, now, onShift, true);
                 else if (m.AwaySeconds >= 90) Stuck(m, npc, (int)away + " m from the post for " + m.AwaySeconds + " s" + (fighting ? ", fighting" : ""), fighting, now, onShift);
                 else ScStuck.NoVerdict(m);
             }
@@ -563,6 +564,10 @@ namespace SurvivorCommunity
             bool isStuck = npc.IsStuck;
             // round 29b: the seconds it tries to move without getting 1 m closer to where it is going (ScStuck; Watchdog's no-gain rule)
             ScStuck.SampleGain(m, npc, pos, mh, nav, mhFar || navBusy);
+            // round nv1: the body counts for its base's remembered gaps (the planner refuses them on its paths), and a new path that
+            // still runs through one is dropped
+            ScStuck.NoteBody(npc);
+            ScStuck.CheckPath(m, npc, nav);
             if (blockedTime || isStuck || ((mhFar || navBusy) && moved < 0.04f))
             {
                 if (m.StillSeconds == 0) m.StuckTicks0 = ticks;
@@ -606,8 +611,11 @@ namespace SurvivorCommunity
         /// give, the back-off), and so does the RepeatCount-th move back within RepeatWindowSeconds (with none to give, it is
         /// moved back as before, the limit backed off). Everything else - a fight included - is the old cure, Unstick.
         /// </summary>
-        private static void Stuck(Member m, EntityAlive npc, string why, bool fighting, float now, bool onShift = false)
+        private static void Stuck(Member m, EntityAlive npc, string why, bool fighting, float now, bool onShift = false, bool walking = false)
         {
+            // round nv1: a walking verdict out of a fight - the cell ahead of her on her path, before a move back drops the path
+            // (not again while a held move back waits: its path is gone)
+            if (walking && !fighting && !ScStuck.Held(m)) ScStuck.RememberSpot(npc, "the watchdog: " + why);
             // round 29b: a move back already held while the player watches only waits for them to look away (no second
             // Repost, no back-off each second meanwhile)
             if (ScStuck.Held(m))
@@ -899,7 +907,8 @@ namespace SurvivorCommunity
               .Append(", away ").Append(m.AwaySeconds).Append(" s, ")
               .Append(m.UnstickTimes.Count).Append(" move(s) back lately, limit x").Append(1 << m.StuckShift).Append(", checked on load=").Append(m.PostChecked)
               .Append(", not again: ").Append(m.BadPosts.Count > 0 ? string.Join(" ", ToStrings(m.BadPosts)) : "-")
-              .Append("; roam spots out of reach: ").Append(ScStuck.UnreachableLine(npc.entityId));
+              .Append("; roam spots out of reach: ").Append(ScStuck.UnreachableLine(npc.entityId))
+              .Append("; gaps walked round (round nv1): ").Append(ScStuck.GapLine(npc));
             return sb.ToString();
         }
 

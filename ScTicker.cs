@@ -487,6 +487,7 @@ namespace SurvivorCommunity
                 {
                     case MemberStatus.Resident:
                         if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);   // never a hidden resident
+                        ScStuck.NoteBody(npc);   // round nv1: every resident (on a shift, on watch, down too) - the planner refuses her base's gaps
 #if SC_V34
                         // round U2 (risks 1, 2 and the LOW ones): a downed resident is left as she lies until she is up or has bled out -
                         // no re-station (it drops a shift's or talk's link and may teleport her), no shift tick (D4: ScWork holds the
