@@ -2185,6 +2185,8 @@ These are the ones you are most likely to change. The file has many more.
 | `BackupKeepDistanceMax` | 2.5 | A member with a gun backs off from an enemy this close; farther off she shoots (the framework's own is 4) |
 | `BackOffNoPointSeconds` | 1 | With no spot to back off to she shoots this long, then tries again |
 | `StandOffShootSeconds` | 1.5 | A badly hurt member kiting shoots this long between two short steps back; a member whose back-off gained nothing shoots this long too |
+| `BackOffBaseMeters` / `BackOffPerShootingStar` | 8 / 2 | At home a member with a gun that has rounds backs off about the first plus the second per Shooting star (10 m at 1 star, 22 m at 7), running, on a real path inside the base; 0: the steps above only |
+| `BackOffHoldSeconds` | 8 | After a back-off, a heal or a reload at home she holds that spot this long and shoots from there, until a zombie comes within 3 m or her gun runs dry; 0: no hold |
 | `RetreatHome` | true | Badly hurt members with nothing to heal with stay in the base: they kite with a gun or shelter inside; false: they run as before |
 | `RetreatHealedAt` / `RetreatClearSeconds` / `RetreatMaxSeconds` | 0.45 / 20 / 120 | A retreat ends at this share of her health, or after this many seconds with no enemy about; a shelter also ends after the third once nothing has been after her for 5 s, no raider or bandit is about and no zombie that sees her is within 12 m (0: never by time) |
 | `StandOffMin` / `StandOffMax` | 8 / 15 | A badly hurt member with a gun backs off from a zombie within the first (meters), and keeps a step going to about the second |

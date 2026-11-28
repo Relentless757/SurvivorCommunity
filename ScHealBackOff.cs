@@ -916,7 +916,7 @@ namespace SurvivorCommunity
                         if (foeAt) { lastWhy = "an enemy within " + FlightClear.ToString("0", CultureInfo.InvariantCulture) + " m of it"; continue; }
                         Vector3i cell = new Vector3i(x, y, z);
                         string gw;
-                        if (ScStuck.Unreachable(self.entityId, cell) || !ScCommunity.GoodPost(w, cell, false, out gw)) { lastWhy = "not standable"; continue; }
+                        if (!ScBackOff.Standable(w, self, cell, out gw)) { lastWhy = gw; continue; }     // round cb1: the reason (a wreck beside it, a model under it)
                         float score = Mathf.Abs(FlightAngles[k]) / 30f + 2f * crowd;
                         if (score < best) { best = score; point = pc; }
                     }

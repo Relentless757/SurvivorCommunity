@@ -48,6 +48,82 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   retired ids; `owner <id> <player>` hands a community over; `mode <PerPlayer|PerParty> confirm` switches a save from before
   MP7 once.
 
+## Round cb1 (2026-11-28): no corners, no vehicles, shelter walks that keep going
+
+Why: members at home fighting groups of zombies (single player) ended up pinned in corners or against a wrecked pickup truck,
+one on the truck's bed; two of them did not switch to their guns. From the log:
+- **Not switching to the gun was right**: both had no rounds left and the stockpile had no ammo ("needs ammo at home but the
+  stockpile has none"); the posture said "nothing to shoot with - melee is all she has". The last stand never draws an empty
+  gun (it keeps the melee weapon); only its log line said "the gun for 6 s". Nothing told you she was out of ammo.
+- **The shelter cascade**: a sheltering member's walk gives up on a spot after 3 s blocked, but the game's blocked clock is never
+  reset for a new path - pressed against the truck, she failed six spots in 0.3 s and then held where she stood.
+- **Walls**: a shelter spot's "walls" counted furniture and containers at head height (a leaning coffin, a wardrobe), so a spot
+  hemmed in by clutter could pass as a 7-of-8-walls shelter. A truck wreck itself never counted (its hull reads as air).
+- **Blocked swings**: in a last stand her swing was refused three times (a block in her swing) and she stood 28.9 s by the truck.
+
+What changes, for members at home (the home zone and its 8 m margin):
+- **Shelter walks keep going**: each new spot gets its own 3 s of "blocked" (the old path is dropped, the clock starts again).
+- **Walls**: furniture, containers (coffins, cabinets), multi-blocks, wrecks and decoration models are obstacles, not walls (the
+  wall test looks past them); fences, bars and glass still count.
+- **Real floor only**: SC never sends or holds her on top of a model (a bed, a table, a truck's bed) or inside a wreck's hull. The
+  "not standable" reason in the back-off lines now says what stood there (`in or beside abandonedPickupTruck01... at ...`).
+- **Step to open ground** (new action ScStepClear, at a run, at most 3.5 m): when her swing is refused in a last stand with her
+  target in reach, she steps to open floor with a clear swing at it; when she stands on a model or in a wreck's hull in a fight
+  for 1.5 s, she steps down. Every enemy 1.5 m off the landing, none on the way; the next step waits 4 s.
+- **Out of ammo**: one tell per episode - `<name> has no ammo left for the <gun> and can only fight in melee. Pack ammo at the
+  packing station so the stockpile can resupply.`
+- **Back-offs run** (the user: "run rather than briskly walk"): every back-off at home runs at her run speed (0-XNPCCore's own
+  back-off walks at 2.4 m/s). The heal back-offs, room and flight walks and the shelter walk already ran.
+- **Back-offs go far** (the user: "much further away, distance based on shooting skill"): with a gun that has rounds she backs off
+  about `BackOffBaseMeters` + `BackOffPerShootingStar` x her Shooting stars (8 + 2 per star: 10 m at 1 star, 22 m at 7), on a
+  real path inside the base, never past her engage range or gun range minus 1 m; too far: the farthest point she can reach,
+  else the old 10/6/3 m steps. 1-star members keep the 10 m steps.
+- **Hold after a back-off, a heal or a reload** (the user: "they shouldn't run right back to the zombies"): she holds the spot
+  `BackOffHoldSeconds` (8 s) and shoots from there - KITE, no MELEE, no investigate walk, no defense walk, no walk back to her
+  post - until an enemy comes within 3 m, her gun runs dry or the time passes. Only with a gun that has rounds; the last stand
+  keeps its own rules.
+
+New settings (Config/blocks.xml, after `StandOffShootSeconds`): `BackOffBaseMeters` 8, `BackOffPerShootingStar` 2,
+`BackOffHoldSeconds` 8 (0 turns each part off).
+
+Build `sc34_cb1`, not deployed, untested in game. Server-side only. `sc xnpc <id>`'s back-off line shows `FAR`, `at a run` and
+`STEPPING`; `sc xnpc` counts `backoff-run`, `backoff-far*`, `step-*`, `posture-hold`, `posture-no-ammo-tell`.
+
+**Shelter walks (single player, at home)**
+- [ ] `sc team <name> hurt 0.2` with no meds, her pressed against a truck wreck or a wall with zombies coming: each failed spot
+      says `is blocked (3 s on this walk)` at least 3 s after the one before (never several in the same second), and she reaches
+      a spot or holds only after real tries.
+- [ ] `sc retreat shelters rescan`: the scan line ends `N wall ray(s) passed furniture, a container or a wreck - obstacles, not
+      walls (round cb1)`; `sc retreat shelters 20` no longer lists a spot among coffins or wardrobes in the open yard as 6+ walls.
+
+**Floors and steps (single player, at home)**
+- [ ] A resident on a truck wreck's bed or on a table in a fight (lure her up, or wait for it in a fight by the truck): within about 2 s
+      `<name> steps to open ground at ...: she stands inside abandonedPickupTruck... in a fight at home` and she jumps down.
+- [ ] A last stand next to the truck where her swing is refused: `cannot swing in her last stand: ... - nothing to shoot with (no
+      rounds): she keeps her melee weapon; she steps to open ground first (round cb1)` (or `the gun for 6 s` with rounds), then
+      `steps to open ground ... with a clear swing at ...` and she swings from there. No 28 s standing by the truck.
+- [ ] A back-off by the truck: when no point works, `last: not standable (in or beside abandonedPickupTruck... at ...)`.
+
+**Out of ammo (single player)**
+- [ ] A member at home whose gun has no rounds and an empty stockpile, a zombie on her: one tell `... has no ammo left for the
+      ... and can only fight in melee ...` and `has no rounds left for her ... in a fight at home - melee only` in the log, once;
+      give her ammo, let her run dry again two minutes later: one more tell.
+
+**Back-offs run, far, then hold (single player, at home)**
+- [ ] A healthy 1-star member with a gun and rounds, one zombie walking at her in the yard: she backs off running (not walking)
+      `inside the base: ... at a run`; she then shoots.
+- [ ] The same with a 4-star or better Shooting member (`sc xp <name> shooting <n>` until 5 stars, or a recruit with Shooting 5): `backs off far
+      from ... to shoot: 18 m (18 m from her Shooting stars) ..., at a run on a real path inside the base (round cb1)`, then
+      `'s run back is N m on the navigator's path`; she ends about 18 m from it inside the base. A path that leaves the base or
+      runs past another zombie: `is set aside: ...` and the next pick.
+- [ ] After the run: `holds her spot after her run back: she shoots from here and lets them come ...`; she shoots, does not walk
+      back in, does not draw her melee weapon; `'s hold ends after ... s: an enemy reached her (within 3 m)` when one comes close,
+      or after 8 s with nothing near. An intruder after nobody during the hold: `no resident is free to go to it (<name>: holding
+      her spot after a back-off, a heal or a reload (round cb1))`.
+- [ ] After a heal in a fight (`sc team <name> hurt 0.5`) and after a reload: `holds her spot after her heal` / `... her reload`.
+- [ ] A member with no rounds: no hold line; she melees as before.
+- [ ] `BackOffBaseMeters` 0, `BackOffHoldSeconds` 0 in blocks.xml: k1's steps only (still at a run), no hold.
+
 ## Deployed 2026-11-27: round MP7 (community modes), round hr1 (healing and last stand), round lk1 (looks kept, falling trees)
 
 Installed in the 3.4 game (`port-3.4` 15e187ab, DLL 90907710); the dedicated server loads the same folder. **Protocol 9:

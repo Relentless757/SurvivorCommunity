@@ -2259,3 +2259,5 @@ scMp7FavourThanks,UI,Tooltip,,,,"{0} thanks you for the supplies. Once you have 
 scMp7PoiCleared_text,Dialog,Statement,,,,"You already did? Huh. I did wonder why it went so quiet over there. I owe you one - once you have a home, ask me again and I'll come."
 # round MP7 (re-check) - a party the community did not see made
 scMp7PartyUnverified,UI,Tooltip,,,,The community did not see how you joined this party: players you invite into it don't join a community. Leave the party and invite them again.
+# round cb1 - a member at home fights with melee only: her gun has no rounds left
+scCb1NoAmmoFight,UI,Tooltip,,,,"{0} has no ammo left for the {1} and can only fight in melee. Pack ammo at the packing station so the stockpile can resupply."

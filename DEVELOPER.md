@@ -3481,6 +3481,42 @@ Round MP0 is the groundwork:
     not used up; a reach wait on then ends. A walk counts toward `MaxWalksPerWait` once its path passes `CheckPath`; failed
     paths have their own cap (`MaxFailedWalksPerWait`, 8). The stand's hold also runs from her last use's start and while an
     item still heals her (`ScMedic.UsedOrWorking`). `ScHealBackOff.Forget` drops a body's state in `ScLooks.Forget`.
+- **Round cb1 (corners, vehicles, the shelter cascade; back-offs that run far and hold; server-side, members at home only):**
+  - `UAITaskRetreatSC` (UaiRetreat.cs): vanilla's `EntityMoveHelper.BlockedTime` is never reset for a new path, so "blocked 3 s"
+    is measured per walk (`Walk.BlockBase`, `BlockedOnWalk`) and `Go` drops the old path first (`ScCommunity.DropPath`, which also
+    clears the clock). Before, a body pressed against a truck failed every new spot on the next tick. The other walks never read
+    `BlockedTime` at a walk's start (ScHealBackOff and k1 use the gain tests and their deadlines).
+  - `ScShelter.Walls` reads block data only (entities never count); `ObstacleNotWall` (a model block that is a multi-block or one
+    of its cells, oversized, a terrain decoration or a `BlockCompositeTileEntity`, never a door) is passed, not counted - a
+    plain one-cell model (a fence segment, a post) still counts (hr1 decision 3). The scan logs how many rays passed one.
+  - Real floor only: `ScBackOff.Standable` (unreachable list + `GoodPost` relaxed) gives its reason in the back-off and flight
+    lines; `ScBackOff.OnObstacle` (feet inside an oversized hull, a colliding model in the feet cell, or a model under the feet;
+    doors are floor) keeps `ScShelter.PickIn`'s "Here" off models and turns its hold fallback into a step down (`StepSpot`).
+  - **ScStepClear** (SCResident, 8.55, `UAITaskStepClearSC`, `UAIConsiderationScStepClear`; state in `ScBackOff`): a step of
+    at most 3.5 m at her run to open ground (`StepSpot`: rings 1.5/2.5/3.5 m, 12 directions from straight away, `GoodPost` strict
+    then relaxed, every enemy 1.5 m off, a clear chest-high walk with a floor, and for a blocked swing a clear line to the
+    target). Asked (`RequestStep`, 4 s cooldown) by `ScArms.StandRefuse` with the target within `MeleeReach` and by
+    `ScPosture.StepOffCheck` (on a model or in a hull for 1.5 s in a fight). The stand's refusal line now says what she does
+    with no rounds (keeps the melee weapon; the stand never drew an empty gun).
+  - Run pace: `Patch_BoundUpdate` has a postfix (`RunPace`, same target, no new one) that sets the navigator's speed to
+    `ScRetreat.RunSpeed` every tick of a member's bounded run at home once the run's own path is there (`Last.StalePath`, the
+    path the last action left, is skipped) - 0-XNPCCore's task caps its own pace at `max_speed` 2.4.
+  - Far runs: `ScKiteWide` (SC's own action) is also the healthy member's shooting back-off at home (`ScBackOff.FarBand` in
+    `UAIConsiderationScPosture` action="wide": within `BackupKeepDistanceMax`, `AllowsBackOff`, `GunReady`; a far run is held to
+    its end, `FarRunning`) - 8.2 over BackupKeepDistance, whose own 0-4 m band would cut a far run. `BoundStart` asks `PickEx`
+    with `FarMeters` (`BackOffBaseMeters` + `BackOffPerShootingStar` x Shooting stars, capped by the engage range and the gun's
+    range minus 1 m and 30 m) for ScKiteWide runs only: `FarShares` 1, 0.75, 0.5 beyond k1's longest step (`CandidateFar`: no
+    straight-line test), then k1's steps. `BoundUpdate` checks a far run's path once it is there (`CheckLongPath`: inside the
+    base, passes no enemy after 2 m, ends 3 m farther from the threat and out of reach - a short end is the farthest she can
+    reach) and its deadline; 3 bad paths in 10 s turn far runs off for 10 s (`LongFailed`).
+  - Hold (`ScPosture`, `BackOffHoldSeconds`): a bounded home run that ended on its own with a gain (`BoundUpdate`), a reload's end
+    (`SdcsReloading` 1 to 0 in a fight) and a heal's end (`ScMedic.LastUseStart` newer, no use running) start it, with a gun with
+    rounds, not in a stand. While it holds `Want` gives KITE at once and no INVESTIGATE; `UAIConsiderationScNotRetreating` (the
+    defense, investigate, leash and Guard walks) and the approach gate answer 0; `ScInvestigate.NotFree` skips her. `CheckHold`
+    ends it: its time, an enemy after her within 3 m, a dry gun, the stand, away from home. Logged at its start and end.
+  - Out of ammo: `Want`'s "nothing to shoot with" with a pair gun sets `State.NoAmmoGun`; `TellNoAmmo` tells the community once per
+    episode (`scCb1NoAmmoFight`, at most every 120 s per member). New settings `BackOffBaseMeters`, `BackOffPerShootingStar`,
+    `BackOffHoldSeconds`; no new Harmony target, no `ScNet.Protocol` change; one new localization row.
 - **Round MP6 (review fixes):** the four reviews' fixes on the merged build. What a modder must know:
   - **The listen host's own markers** are drawn for the host's own player in the host's own community: the periodic and
     restore paths (`ScEnclaves`/`ScInfestations`' `RefreshMarkers`, `ScBands.UpdateMarkers`) take `ScCommunity.LocalPlayer`,

@@ -85,7 +85,9 @@ namespace UAI
         {
             try
             {
-                return (shelterOnly ? ScRetreat.Shelters(_context.Self) : ScRetreat.Owns(_context.Self)) ? 0f : 1f;
+                // round cb1 (item 3): also 0 while she holds her spot after a back-off, a heal or a reload (ScPosture.Holds) - no defense
+                // walk, investigate walk, leash or Guard walk back toward the fight until the hold ends
+                return (shelterOnly ? ScRetreat.Shelters(_context.Self) : ScRetreat.Owns(_context.Self) || ScPosture.Holds(_context.Self)) ? 0f : 1f;
             }
             catch (System.Exception e)
             {
@@ -140,10 +142,18 @@ namespace UAI
             public int DoorIndex;
             public Vector3 LastDoor;
             public bool HasDoor;
+            /// <summary>
+            /// Round cb1: the move helper's BlockedTime when this walk began (Go). Vanilla never resets BlockedTime for a new path,
+            /// so a body still pressed against a truck or a zombie failed every new spot on the next tick (six spots "blocked (3 s)"
+            /// in 0.3 s, then a hold where she stood).
+            /// </summary>
+            public float BlockBase;
         }
 
         private readonly Dictionary<int, Walk> walks = new Dictionary<int, Walk>();
         private const float NoProgressSeconds = 8f, ArriveXZ = 1f, ArriveDy = 1.5f, OffSpot = 1.5f, CheckSeconds = 2f, DoorSeconds = 0.5f;
+        /// <summary>Round cb1: a walk blocked this long (its own seconds, BlockedOnWalk) gives up on its spot.</summary>
+        private const float BlockedSeconds = 3f;
         /// <summary>Holding a fallback spot, she looks for a room again this often.</summary>
         private const float UpgradeSeconds = 10f;
 
@@ -197,8 +207,24 @@ namespace UAI
             wk.Prog.Clear();
             wk.GainAt = now;
             wk.Deadline = now + Mathf.Clamp(ScRunners.XZ(self.position, wk.Spot) * 1.5f + 10f, 15f, 60f);
+            // round cb1: the walk to a new spot starts clean - the old path (to the spot that just failed) goes, which also stops the
+            // move helper and clears its blocked clock, and this walk's blocked seconds count from here (BlockBase)
+            ScCommunity.DropPath(self);
+            wk.BlockBase = self.moveHelper != null ? self.moveHelper.BlockedTime : 0f;
             if (self.moveHelper != null) self.moveHelper.CanBreakBlocks = false;
             self.FindPath(wk.Spot, ScRetreat.RunSpeed(self), false, null);
+        }
+
+        /// <summary>
+        /// Round cb1: the seconds this walk has been blocked - the move helper's BlockedTime over what it was when the walk began
+        /// (its clock went back to 0 since: from 0). A pure read but for the base it resets.
+        /// </summary>
+        private static float BlockedOnWalk(EntityAlive self, Walk wk)
+        {
+            if (self.moveHelper == null) return 0f;
+            float b = self.moveHelper.BlockedTime;
+            if (b < wk.BlockBase) wk.BlockBase = 0f;
+            return b - wk.BlockBase;
         }
 
         private static bool Arrived(EntityAlive self, Vector3 spot)
@@ -279,7 +305,8 @@ namespace UAI
                     return;
                 }
                 string fail = noPath ? "has no path to it" : now > wk.Deadline ? "took too long" : null;
-                if (fail == null && self.moveHelper != null && self.moveHelper.BlockedTime > 3f) fail = "is blocked (3 s)";
+                // round cb1: blocked 3 s on THIS walk (was the move helper's own clock, never reset for a new spot)
+                if (fail == null && BlockedOnWalk(self, wk) > BlockedSeconds) fail = "is blocked (3 s on this walk)";
                 if (fail == null)
                 {
                     float d = Vector3.Distance(self.position, wk.Spot);

@@ -69,6 +69,21 @@ namespace SurvivorCommunity
         public static float BackOffNoPointSeconds = 1f;
         /// <summary>Round k1: a back-off that gained nothing - and round k5: a wide step that leaves the enemy inside StandOffMin - is followed by this long of shooting.</summary>
         public static float StandOffShootSeconds = 1.5f;
+        /// <summary>
+        /// Round cb1 (the user: "go much further away, distance based on shooting skill"): at home a member with a gun that has
+        /// rounds backs off to about BackOffBaseMeters + BackOffPerShootingStar x her Shooting stars (1 to 7: 10 to 22 m by
+        /// default) on a real path inside the base, at a run - never past her engage range or her gun's range minus 1 m. 0: k1's
+        /// steps only.
+        /// </summary>
+        public static float BackOffBaseMeters = 8f;
+        /// <summary>Round cb1: the meters each Shooting star adds to that run.</summary>
+        public static float BackOffPerShootingStar = 2f;
+        /// <summary>
+        /// Round cb1 (the user: "they shouldn't run right back to the zombies"): after a back-off, a heal or a reload at home she
+        /// holds her spot this many seconds while her gun has rounds - she shoots from there, no MELEE, no INVESTIGATE, no walk
+        /// to the fight - until an enemy reaches her (3 m). 0: no hold.
+        /// </summary>
+        public static float BackOffHoldSeconds = 8f;
         private static List<float> backOffStepList;
 
         /// <summary>BackOffSteps, parsed (lazily): 1 to 30 m each, longest first, no repeats; nothing readable keeps the default.</summary>
@@ -130,6 +145,9 @@ namespace SurvivorCommunity
             BackupKeepDistanceMax = 2.5f;
             BackOffNoPointSeconds = 1f;
             StandOffShootSeconds = 1.5f;
+            BackOffBaseMeters = 8f;                // round cb1
+            BackOffPerShootingStar = 2f;
+            BackOffHoldSeconds = 8f;
             // the per-world state of the feature: a new world starts with no retreats and no shelter cache
             ScRetreat.Reset();
             ScShelter.Reset();
@@ -171,6 +189,10 @@ namespace SurvivorCommunity
             ParseFloat(p, "BackupKeepDistanceMax", ref BackupKeepDistanceMax, 0.5f, 4f);
             ParseFloat(p, "BackOffNoPointSeconds", ref BackOffNoPointSeconds, 0.2f, 5f);
             ParseFloat(p, "StandOffShootSeconds", ref StandOffShootSeconds, 0f, 10f);
+            // round cb1: the shooting back-off's length and the hold after it
+            ParseFloat(p, "BackOffBaseMeters", ref BackOffBaseMeters, 0f, 30f);
+            ParseFloat(p, "BackOffPerShootingStar", ref BackOffPerShootingStar, 0f, 5f);
+            ParseFloat(p, "BackOffHoldSeconds", ref BackOffHoldSeconds, 0f, 30f);
         }
 
         /// <summary>Round k1: the back-off keys in one line (the load log).</summary>
@@ -181,7 +203,12 @@ namespace SurvivorCommunity
                    + "; members back off within " + F2(BackupKeepDistanceMax) + " m (0-XNPCCore's band is 4: the shot wins beyond)"
                    + "; no point: the shot takes " + F2(BackOffNoPointSeconds) + " s"
                    + "; a back-off that gains nothing (1.5 s in, or at its end: still within " + F2(BackupKeepDistanceMax) + " m or the gap not 1 m larger)"
-                   + " and a wide step that ends inside " + F2(StandOffMin) + " m are followed by " + F2(StandOffShootSeconds) + " s of shooting";
+                   + " and a wide step that ends inside " + F2(StandOffMin) + " m are followed by " + F2(StandOffShootSeconds) + " s of shooting"
+                   // round cb1
+                   + "; at home every back-off runs" + (BackOffBaseMeters > 0f ? ", and with a gun that has rounds it goes about " + F2(BackOffBaseMeters) + " m + "
+                      + F2(BackOffPerShootingStar) + " m per Shooting star on a real path (at most her engage or gun range - 1 m)" : "")
+                   + (BackOffHoldSeconds > 0f ? "; after a back-off, a heal or a reload she holds her spot " + F2(BackOffHoldSeconds) + " s (her gun with rounds; ends when one reaches her within 3 m)"
+                      : "; no hold after a back-off (BackOffHoldSeconds 0)");
         }
 
         /// <summary>Round rt1: the retreat keys in one line (the load log, sc retreat).</summary>

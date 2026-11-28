@@ -631,6 +631,11 @@
 	  and the shot (6) - she backs off rather than shooting at what comes within 8 m - under ScHealBackOff (8.3), ScRetreat and
 	  ScFleeHurt (8.5). It replaced rt1's ScStandOffHurt and its own walk (StandOffSC). Appended only where 0-XNPCCore's
 	  BackupKeepDistance runs that task (trap 4), so the task class exists.
+	  Round cb1 (the user: "run rather than briskly walk, and go much further away, distance based on shooting skill"): at home
+	  ScKiteWide is also the shooting back-off of a member who is not hurt - from an enemy within BackupKeepDistanceMax, her
+	  posture allowing a back-off, her pair's gun with rounds - and its run goes far (BackOffBaseMeters + BackOffPerShootingStar x
+	  her Shooting stars, on a real path inside the base) and is held to its end; 8.2 beats BackupKeepDistance (8), whose 0-4 m band
+	  would cut it short. Every bounded back-off at home runs (ScBackOff sets her run speed after the task's own 2.4 m/s pace).
 	-->
 	<conditional>
 		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;BackupKeepDistance&quot;]/task[@class=&quot;BackupFromTargetPaced, 1-XNPCVoiceControl&quot;]/@class') != null">
@@ -660,6 +665,31 @@
 		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcCore&quot;]/action[@name=&quot;Guard&quot;]/@name') != null">
 			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcCore']/action[@name='Guard']">
 				<consideration class="ScNotRetreating, SurvivorCommunity" />
+			</append>
+		</if>
+	</conditional>
+
+	<!--
+	  Round cb1 (2026-11-28, members pinned in corners and against a truck): SCResident's ScStepClear runs a short step to open
+	  ground that ScBackOff asked for - at most 3.5 m, at her run, to a real floor with no furniture or wreck beside it, every enemy
+	  1.5 m off it and none on the way, and (her swing blocked) a clear swing at her target from it. Asked when her swing is refused
+	  in a last stand with her target in reach (a truck, a fence or a block in her swing, not distance), or when she stands on a
+	  model or inside a wreck's hull (a truck's bed) in a fight at home for 1.5 s. Ends on arrival, after 3.5 s or with no path; the
+	  next waits 4 s. 8.55: over ScRetreat and ScFleeHurt (8.5: a sheltering member is stepped off a truck too), ScHealBackOff (8.3),
+	  ScRevive (8.25), ScKiteWide (8.2) and every fight action; under 0-XNPCCore's leave-area and flee (9), JumpDownOrder (10) and
+	  its busy action (12). SdcsMayAct first (a stunned or knocked-down member starts no walk). Only with 0-XNPCCore 3.4's packages.
+	-->
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcCore&quot;]') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SCResident']">
+				<action name="ScStepClear" weight="8.55" entity_filter="IsSelf">
+					<task class="StepClearSC, SurvivorCommunity" />
+					<consideration class="SdcsMayAct, NPCSdcsCharacters" />
+					<consideration class="ScIsMember, SurvivorCommunity" />
+					<consideration class="NotHasOrder, SCore" order="Stay" />
+					<consideration class="ScNotOnWatch, SurvivorCommunity" />
+					<consideration class="ScStepClear, SurvivorCommunity" />
+				</action>
 			</append>
 		</if>
 	</conditional>
