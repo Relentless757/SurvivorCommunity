@@ -118,6 +118,9 @@ namespace SurvivorCommunity
                 // round MP4 (review cfs1 M1): the base's open boxes to remote clients, so their Craft from Storage leaves them out (its
                 // own try; nothing is built with none)
                 ScCraftFromBase.ServerTick();
+                // round lk1: the looks of the bodies the world saves with no record of SC's, kept with the save (its own try; with
+                // nobody online too - a chunk that unloads as the last player leaves is noted, and saved here)
+                ScLookKeep.Tick(w);
                 // round MP0: no longer the local player - a dedicated server has none. With nobody online there is nothing
                 // to tick (a dedicated server's world time stands still with no players). Round MP6 (core): each community with a
                 // player online ticks, inside its own scope, with its own anchor; the world steps run in the first one's pass

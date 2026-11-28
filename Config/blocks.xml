@@ -611,6 +611,12 @@
 			<!-- Survivors in your community are safe from your own shots; everyone else is not. True lets you
 			     hurt your own people too. -->
 			<property name="CommunityFriendlyFire" value="false" />
+			<!-- Round lk1: whether a falling tree (one you or anyone fells) can hurt friendly survivors. False: it never does -
+			     your members, outpost and rescue stand-ins, prospects, a friendly enclave's people and any 0-XNPCCore survivor
+			     a player hired are spared. True: as in the vanilla game, a falling trunk crushes them as it crushes zombies and
+			     animals, for immersion. Raiders, bandits, hostile people and strangers nobody hired are always hit, and players
+			     never are (vanilla). Decided on the server (a dedicated server's or the host's config). -->
+			<property name="FallingTreesHurtSurvivors" value="false" />
 			<property name="SurvivorBaldChance" value="0.15" />
 			<property name="SurvivorFacialHairChance" value="0.4" />
 			<!-- Looks never rolled for survivors or raiders (new ones; a survivor already met keeps theirs, except a hair on

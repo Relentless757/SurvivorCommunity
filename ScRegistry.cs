@@ -15,7 +15,8 @@ namespace SurvivorCommunity
     /// Round MP6 (core) layout (header SCOM 2):
     ///   [world]      lastday=N (the world daily's day guard) communityid=N (the community id counter) contactid= outpostid=
     ///                enclaveid= enclaveseed= infestid= encpersonid= bandid= bandpersonid= encrequestid= encreqday= encremains=
-    ///                encrefill= cleanup= doomed= streamname=... - every world key below that used to sit in [community]
+    ///                encrefill= cleanup= doomed= streamname=... - every world key below that used to sit in [community];
+    ///                keptlook=... (round lk1)
     ///   [membership] player=platformid:cid, one line per player in a community other than 0 (anyone not listed is in 0)
     ///                round MP7 (part AP), PerPlayer/PerParty only: joined=platformid:admin|ally|party[:link] (how a player joined
     ///                their founded community) and optout=platformid:cid (a community they left: Leave sticks) - ScJoins
@@ -111,6 +112,10 @@ namespace SurvivorCommunity
     ///                badly hurt with no way to heal and is on her way home), written with the run's leg= keys while set.
     ///   Round 30 (ScStreamerNames; both games, a key an older build ignores and drops at its next save): [community]
     ///                streamname=Sarah, one line for each streamer name given out in this save, in the order given.
+    ///   Round lk1 (ScLookKeep; both games, a key an older build ignores and drops at its next save; [world] since MP6, never
+    ///                to a client): keptlook=id;class;day;look;gear, one line for each body the world saves with no record of SC's
+    ///                (an 0-XNPCCore hire, a stranger with a grudge): its entity id and class, the world day it was last seen loaded,
+    ///                Look.Encode and EncodeGear - the look it gets back at the next load.
     ///   Round op1 (ScGarrison's journeys; keys an older build ignores): [member] transit=leg:outpost:x,y,z:x,y,z:start:end:offline:name
     ///                (on the road to or from an outpost - MemberStatus.Transit), posted=N (posted, the body is the snapshot) and
     ///                postsnap=1:N:base64url (that snapshot, or a traveler's), each with status=Resident: an older build has a resident
@@ -920,6 +925,7 @@ namespace SurvivorCommunity
             Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); Bands.Clear(); BandPeople.Clear();
             Cleanup.Clear();
             Doomed.Clear();
+            ScLookKeep.Clear();               // round lk1: the kept looks
         }
 
         /// <summary>
@@ -1511,6 +1517,7 @@ namespace SurvivorCommunity
                 case "contactid": case "outpostid": case "enclaveid": case "enclaveseed": case "infestid": case "encpersonid":
                 case "bandid": case "bandpersonid": case "encrequestid": case "encreqday": case "encremains": case "encrefill":
                 case "cleanup": case "doomed": case "streamname":
+                case ScLookKeep.Key:        // round lk1: keptlook= (a legacy-layout text's [community] carries it too)
                     return true;
                 default:
                     return false;
@@ -1590,6 +1597,10 @@ namespace SurvivorCommunity
                 // round 30: a streamer name given out in this save (ScStreamerNames), one line each, in the order given
                 case "streamname":
                     if (val.Length > 0) ws.StreamerNamesUsed.Add(val);
+                    break;
+                // round lk1: the look of a body the world saves with no record of SC's (ScLookKeep), one line each
+                case ScLookKeep.Key:
+                    ScLookKeep.Parse(val);
                     break;
             }
         }
@@ -2520,6 +2531,8 @@ namespace SurvivorCommunity
                     string sn = Clean(n);
                     if (sn.Length > 0) sb.AppendLine("streamname=" + sn);
                 }
+            // round lk1: the looks of the bodies the world saves with no record of SC's (entity ids: server bookkeeping, never a client's)
+            if (!forClients) ScLookKeep.Write(sb);
         }
 
         /// <summary>Round MP6 (core): one [contact] section, as BuildText wrote it inline before MP6 (cid &lt; 0: no cid= line, the old layout).</summary>

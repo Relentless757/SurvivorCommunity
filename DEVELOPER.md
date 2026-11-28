@@ -1736,7 +1736,31 @@ vanilla's.
 - How: 0-XNPCCore builds and animates the body (its `EModelSdcsNpc` model and controller); this mod hands it the
   look before the first build (`Patches_Xnpc.cs`) and adds the few fixes it lacks for these classes
   (`Patches_Sdcs.cs`: the eyes, hit colliders shots can reach, the jump animation, the get-up, and freeing a
-  despawned body's meshes). Strangers that were never a prospect keep their face only for the session.
+  despawned body's meshes). Strangers that were never a prospect keep their face only for the session - unless the world
+  saves them (round lk1, below).
+- **Round lk1 (2026-11-27), looks kept for bodies without a record (`ScLookKeep`).** A player's 0-XNPCCore hire "re-rolled
+  their appearance and gear when reloading a save": SC dresses every body of its managed classes, whoever spawned it, and
+  keeps 0-XNPCCore's own look applier off them (the `SDCS Look` group removed in `Config/entityclasses.xml`, X1b), but
+  stored the look only in a member's or prospect's record (enclave, band and runner bodies are always re-made from
+  theirs). A body the world saves without a record - a hire (`Leader`), a stranger with a grudge or a console spawn
+  (`Persist`) - got a fresh roll from `ScLooks.ForEntity` at every load. Now `ScLookKeep` keeps, by entity id and class,
+  the session look of every loaded managed body that `IsSavedToFile` and has no record (every 5 s from `ScTicker`, players
+  online or not; at once when its chunk unloads, through `World.EntityUnloadedDelegates`; and at `WorldShuttingDown`), and
+  `ForEntity` reads it back after the records and the session (source `kept`). Saved as `[world]
+  keptlook=id;class;day;look;gear` (`ScRegistry.WriteBookkeeping`, never to a client; an older build ignores the key and
+  drops it at its next save). An entry goes when its body dies, joins, leaves the world any other way than with its saved
+  chunk, or is no longer saved; bodies not loaded keep theirs; past 1000 the longest-unseen go. The cvars could not do it:
+  a loaded body's cvars arrive in `ApplyToEntity`, after `Init` built the model (X1), while its entity id is set before.
+  The backstop: `ForEntity`'s roll is seeded by the entity id and the world's seed (`ScLooks.LookSeed`), so a body whose
+  kept line was lost (a crash between its chunk's save and the registry's, a `.bak` read back) rolls the same look again
+  while the config and packs are the same; the voice follows the look and the name. A save from before lk1 still re-rolls
+  such a body once (its old look was never written anywhere), then keeps it. Picking a hire up as an item and placing it
+  again makes a new entity id, so that body gets a new look (not covered). `sc xnpc` counts `lk1-look-kept`, `-updated`,
+  `-dropped` and `-restored`. Also round lk1: a startup warning when 0-XNPCCore is older than 3.4.06 final (probe:
+  `AvatarSdcsNpcController.SdcsMagStageForWrite`; its ModInfo cannot tell), and `FallingTreesHurtSurvivors` (false:
+  `EntityFallingTree.treeCanDamageEntity` answers false for members, stand-ins, prospects, a friendly enclave's people and
+  any `EntityAliveSDXV4` a player hired - `ScFallingTrees`; server only, as the tree's collision runs only where it is not
+  remote; `sc xnpc` counts `lk1-tree-spared`).
 - Their eyes track you like a player's. That needs one repair: the eye shader spins each eyeball about a pivot
   given in head-bone space, while the game re-roots every untagged skinned mesh of a non-player entity onto the
   pelvis - which slid the eyeballs out of the face. The mod tags the generated eye mesh the way vanilla's own

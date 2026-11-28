@@ -171,7 +171,10 @@ namespace SurvivorCommunity
         public static Look Pending;
         /// <summary>Round 31: the name of the known survivor whose look Pending is (ScSpawn.Create, ScRunners), for the hair color fix's log line; null for a stranger.</summary>
         public static string PendingName;
-        /// <summary>Looks of survivors that have no registry record (yet), by entity id. Session only.</summary>
+        /// <summary>
+        /// Looks of survivors that have no registry record (yet), by entity id. Session only - round lk1: ScLookKeep keeps those of
+        /// the bodies the world saves with the save.
+        /// </summary>
         private static readonly Dictionary<int, Look> session = new Dictionary<int, Look>();
         /// <summary>The entity class each session look was rolled for (an id can be reused by a stranger).</summary>
         private static readonly Dictionary<int, string> sessionClass = new Dictionary<int, string>();
@@ -199,6 +202,7 @@ namespace SurvivorCommunity
             pendingFaces.Clear();
 #endif
             ResetNet();     // round MP1: the looks this machine was sent or sent, and its open questions
+            ScLookKeep.Reset();     // round lk1: its timers and listener (the kept looks are the registry's)
         }
 
         /// <summary>Forgets a despawned/purged survivor's session look (entity ids are recycled).</summary>
@@ -257,8 +261,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The look for an entity that is initialising its player body: the pending spawn look, else the
-        /// registry record (reloads), else what this session rolled for it, else a fresh roll (a raider's clothes from
-        /// RaiderGearSets).
+        /// registry record (reloads), else what this session rolled for it, else (round lk1) the look ScLookKeep kept with the
+        /// save for a body with no record, else a fresh roll (a raider's clothes from RaiderGearSets).
         /// Round MP1: a client's copy (isEntityRemote) takes the look the server sent for it (OnLookReceived); without one -
         /// or with one only from an earlier copy of the body - the server is asked (AskFor), and until its answer the copy
         /// wears a placeholder: this machine's earlier look for the id, else a roll, as before MP1 (no paints: ScVanity rolls
@@ -300,12 +304,31 @@ namespace SurvivorCommunity
                         string was;
                         if (sessionClass.TryGetValue(e.entityId, out was) && !string.Equals(was, cls, StringComparison.OrdinalIgnoreCase)) look = null;   // recycled id
                     }
+                    // round lk1: a body the world saved with no record of SC's (an 0-XNPCCore hire, a stranger with a grudge, a console
+                    // spawn) wears the look it was kept with (ScLookKeep) - before this round it rolled a new one at every load.
+                    // The real registry only, as the records above
+                    if (look == null && ScRegistry.Loaded)
+                    {
+                        look = ScLookKeep.Find(e.entityId, cls);
+                        if (look != null) source = "kept";
+                    }
                 }
                 if (look == null)
                 {
                     source = remote ? "placeholder" : "roll";      // round MP1: a client's roll stands in until the server's look comes
                     World w = ScCommunity.World;
-                    look = Roll(ClassIsMale(cls), w != null ? w.GetGameRandom() : null, true, ScXnpc.IsRaiderClass(cls), ScLoadout.TierCap(cls));
+                    // round lk1: the roll is seeded by the body's entity id (LookSeed), which its save keeps: rolled again for the
+                    // same body - its kept look lost - it comes out the same while the config and the installed packs are unchanged
+                    GameRandom seeded = null;
+                    try
+                    {
+                        if (e != null && GameRandomManager.Instance != null) seeded = GameRandomManager.Instance.CreateGameRandom(LookSeed(w, e.entityId));
+                        look = Roll(ClassIsMale(cls), seeded ?? (w != null ? w.GetGameRandom() : null), true, ScXnpc.IsRaiderClass(cls), ScLoadout.TierCap(cls));
+                    }
+                    finally
+                    {
+                        if (seeded != null) GameRandomManager.Instance.FreeGameRandom(seeded);
+                    }
                 }
                 if (remote && source.StartsWith("server:", StringComparison.Ordinal)) Patches_Xnpc.Count("mp1-look-built-from-server");
                 else if (remote) Patches_Xnpc.Count("mp1-look-built-placeholder");
@@ -318,6 +341,25 @@ namespace SurvivorCommunity
                 if (look == null) look = new Look();
             }
             return look;
+        }
+
+        /// <summary>
+        /// Round lk1: the seed of a body's own roll (ForEntity) - its entity id and the world's seed, FNV-mixed as ScLoadout's
+        /// weapon seed is, with a salt of its own. The same body rolls the same look again, so one whose kept look (ScLookKeep) was
+        /// lost - a crash between its chunk's save and the registry's, a registry read back from its .bak - comes back as it was,
+        /// while the config and the installed packs are the same. (WorldTimeBorn, the weapons' second half, is read only after
+        /// the body is built.)
+        /// </summary>
+        internal static int LookSeed(World w, int entityId)
+        {
+            unchecked
+            {
+                ulong h = 14695981039346656037UL;
+                h = (h ^ (uint)entityId) * 1099511628211UL;
+                h = (h ^ (uint)(w != null ? w.Seed : 0)) * 1099511628211UL;
+                h = (h ^ 0x5C100Bu) * 1099511628211UL;      // "look": never the weapons' stream
+                return (int)(h ^ (h >> 32));
+            }
         }
 
         /// <summary>The look this NPC is wearing (null for pack NPCs with their own mesh).</summary>
@@ -337,6 +379,19 @@ namespace SurvivorCommunity
         public static void Remember(int entityId, Look look)
         {
             if (look != null) session[entityId] = look;
+        }
+
+        /// <summary>
+        /// Round lk1: the look this body wears this session (ForEntity's, a creator face, sc look / gear / paint, a wardrobe pick),
+        /// when it was given for this class; else null. ScLookKeep keeps it with the save for a body that has no record of SC's.
+        /// </summary>
+        internal static Look SessionLook(int entityId, string cls)
+        {
+            Look l;
+            if (!session.TryGetValue(entityId, out l) || l == null) return null;
+            string was;
+            if (sessionClass.TryGetValue(entityId, out was) && !string.Equals(was, cls, StringComparison.OrdinalIgnoreCase)) return null;   // recycled id
+            return l;
         }
 #if SC_V34
 

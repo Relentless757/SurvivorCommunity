@@ -991,6 +991,12 @@ namespace SurvivorCommunity
         /// <summary>Whether the player's own attacks can hurt members of their community. NPCs outside the
         /// community are always damageable; the NPC framework shields both, which this undoes.</summary>
         public static bool CommunityFriendlyFire = false;
+        /// <summary>
+        /// Round lk1: false (the default) - a falling tree never hurts a friendly survivor (members, stand-ins, prospects, a friendly
+        /// enclave's people, any 0-XNPCCore survivor a player hired; ScFallingTrees). True: vanilla, a falling trunk crushes them
+        /// as it crushes zombies and animals (never players, in vanilla too).
+        /// </summary>
+        public static bool FallingTreesHurtSurvivors = false;
         /// <summary>Vanilla armor sets (armor&lt;Set&gt;Helmet/Outfit/Gloves/Boots) a survivor may turn up wearing.</summary>
         public static readonly List<string> SurvivorGearSets = new List<string>();
         public static float SurvivorGearPieceChance = 0.8f;
@@ -1524,6 +1530,7 @@ namespace SurvivorCommunity
             CraftFromBaseStorage = true;      // round cfs1
             UpgradeRepairFromStorage = true;  // round t2
             Traits.Clear();
+            FallingTreesHurtSurvivors = false;    // round lk1
             SurvivorLookChance = 0.5f;
             SurvivorGearSets.Clear();
             SurvivorGearPieceChance = 0.8f;
@@ -2728,6 +2735,9 @@ namespace SurvivorCommunity
                 bool friendlyFire = CommunityFriendlyFire;
                 if (p.Values.ContainsKey("CommunityFriendlyFire")) p.ParseBool("CommunityFriendlyFire", ref friendlyFire);
                 CommunityFriendlyFire = friendlyFire;
+                bool treesHurt = FallingTreesHurtSurvivors;      // round lk1 (ScFallingTrees)
+                if (p.Values.ContainsKey("FallingTreesHurtSurvivors")) p.ParseBool("FallingTreesHurtSurvivors", ref treesHurt);
+                FallingTreesHurtSurvivors = treesHurt;
                 ParseFloat(p, "SurvivorGearPieceChance", ref SurvivorGearPieceChance, 0f, 1f);
                 bool alwaysChest = SurvivorGearAlwaysChest;
                 if (p.Values.ContainsKey("SurvivorGearAlwaysChest")) p.ParseBool("SurvivorGearAlwaysChest", ref alwaysChest);

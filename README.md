@@ -171,6 +171,8 @@ A survivor who is not in your community is **Neutral** toward you, and **Friendl
 - A hostile survivor attacks you on sight, cannot be talked to, drops any favor they offered and will never join you.
 - Your own members cannot be hurt by you (unless you turn on `CommunityFriendlyFire`), nor can hired companions, so a
   stray shot cannot turn them. Traders keep their protection.
+- A falling tree does not hurt your members, stand-ins, recruits, a friendly enclave's people or anyone's hired companion
+  (turn on `FallingTreesHurtSurvivors` for the vanilla crush). Raiders, bandits and strangers nobody hired are still hit.
 
 ### The snapshot card
 
@@ -1766,6 +1768,9 @@ You change their gear by dropping items on the slots (single player, or the host
 
 - Clothes come from vanilla's armor sets by tier (light sets likelier early, heavy ones later), or now and then a whole
   outfit from a supported armor pack, if installed.
+- **A look is kept.** Members, recruits, enclave and band people keep theirs in their records. A survivor the world saves
+  without one - a companion you hired the normal way, a survivor made with the console - keeps the face and clothes it
+  was given too, saved with the community's file. (Earlier builds gave such a survivor a new look at every load.)
 - **Wardrobe:** with 0-XNPCCore's Wardrobe ("Dress your hires") you can dress SC's people - members, recruits, enclave
   and band people, never raiders - in armor they carry. The pick is saved with them. "Back to my own" puts back what
   they wore before, until you reload the world; after a reload the piece they wear counts as their own.
@@ -1992,6 +1997,7 @@ These are the ones you are most likely to change. The file has many more.
 | `HomeKeepLoaded` / `HomeKeepLoadedRange` | true / 250 | Keep the home zone loaded while you are within this many meters |
 | `AutoHomeFirstClaim` | false | true: your first land claim becomes the home by itself, as before (false: you start a community from a claim's radial) |
 | `CommunityFriendlyFire` | false | true lets your shots hurt your own members |
+| `FallingTreesHurtSurvivors` | false | true lets a falling tree hurt friendly survivors (members, stand-ins, recruits, friendly enclave people, hired companions) as in the vanilla game |
 | `DefendBaseRadius` | 22 | Residents attack enemies inside the base within this many meters of their post (0: only what they see); beyond it a resident leaves an enemy alone unless it comes at her |
 | `MembersOpenOwnerLockedDoors` | true | Members open your locked doors |
 | `MembersOpenHatches` | true | Members open hatches and drawbridges |
