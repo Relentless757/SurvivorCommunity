@@ -1209,8 +1209,9 @@ namespace SurvivorCommunity
 #if SC_V34
             if (ScDowned.RefuseVerb(m)) { error = "scDownedBusy"; return false; }   // round U2: not while she is down (Follow ends a shift's link)
 #endif
-            // E3: an enclave's people enlisted with the player count toward the limit too
-            if (ScRegistry.FollowerCount + ScEnclaveDeals.EnlistedCount() >= ScConfig.MaxFollowers) { error = "scFollowersFull"; return false; }
+            // E3: an enclave's people enlisted with the player count toward the limit too. Round MP7 (part F): the asking player's own
+            // followers and enlisted people (per player in every mode; single player: the community's, as before)
+            if (ScFollowers.Full(player)) { error = "scFollowersFull"; return false; }
 #if SC_V34
             // round U6 (D12): 0-XNPCCore's party cap, shared with paid hires; MaxFollowers above stays SC's own lower cap (ScPartyCap)
             if (ScPartyCap.Refuses(m, npc, player, out error)) return false;     // round MP2: the player she would follow, remote ones included

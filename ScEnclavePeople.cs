@@ -40,6 +40,11 @@ namespace SurvivorCommunity
         /// them home; after a crash the player's hired_* for that body is cleared: ScEnclaveDeals.SyncOnce).
         /// </summary>
         public int EnlistedBy = -1;
+        /// <summary>
+        /// Round MP7 (part F): the enlister's platform id beside EnlistedBy ("" for none: a record from before round MP7, or no id
+        /// known) - whose follower limit they count against (ScFollowers). Saved as enlistedid= (never to a client).
+        /// </summary>
+        public string EnlistedById = "";
         public ulong EnlistedUntil;
         public int EnlistedBody = -1;
         public Member Who = new Member();
@@ -334,6 +339,7 @@ namespace SurvivorCommunity
                 {
                     p.State = EncPerson.StateHome;
                     p.EnlistedBy = -1;
+                    p.EnlistedById = "";                 // round MP7 (part F)
                     p.EnlistedUntil = 0;
                     homeAgain++;
                 }

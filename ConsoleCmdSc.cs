@@ -530,6 +530,7 @@ namespace SurvivorCommunity
             Output("[SC] members=" + ScRegistry.Members.Count + " (residents " + ScRegistry.CountStatus(MemberStatus.Resident)
                    + ", following " + ScRegistry.FollowerCount + ", on run " + ScRegistry.CountStatus(MemberStatus.OnRun)
                    + (arriving > 0 ? ", on the way " + arriving : "") + (transit > 0 ? ", to/from outposts " + transit : "") + ") prospects=" + ScRegistry.Prospects.Count);
+            Output("[SC] " + ScFollowers.Line(Me));     // round MP7 (part F): MaxFollowers is per player - the sender's own followers
             if (c.HasHome)
             {
                 int xMin, xMax, zMin, zMax;

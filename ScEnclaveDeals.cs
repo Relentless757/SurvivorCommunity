@@ -21,7 +21,8 @@ namespace SurvivorCommunity
     /// trader id, so X9 refuses their Trade and X14 keeps vanilla's turn-ins off them.
     ///
     /// Enlisting (Q8 a). "Can you come with me?" to a member of an enclave that is not hostile: EnclaveEnlistCost* dukes by
-    /// standing, for EnclaveEnlistDays days, one per enclave, counted toward MaxFollowers with the community's followers. The
+    /// standing, for EnclaveEnlistDays days, one per enclave, counted toward MaxFollowers with the community's followers (round
+    /// MP7 (part F): with the enlisting player's own followers - ScFollowers, per player in every mode). The
     /// body takes SC's hire shape (ScCommunity.FollowInternal's: leader and owner, the follow order, Persist) and the
     /// sc_enlisted cvar, which keeps Voice Control's contract and billing off it; the record says enlisted (by whom, until
     /// when). The E2 tick leaves an enlisted body alone (no despawn, no watchdog, no hold) but it stays in the chunk-save
@@ -405,8 +406,8 @@ namespace SurvivorCommunity
             Enclave e = ScEnclavePeople.EnclaveOf(p);
             if (e == null) return Loc("scEncStays");
             if (EnlistedOf(e) != null) return Loc("scEncOneAlready");
-            // MP6: per player (MaxFollowers is per player in the plan; Stage 1 counts the community's followers)
-            if (ScRegistry.FollowerCount + EnlistedCount() >= ScConfig.MaxFollowers) return Loc("scEncFollowersFull");
+            // round MP7 (part F): the asking player's own followers and enlisted people against MaxFollowers (per player, every mode)
+            if (ScFollowers.Full(player)) return Loc("scEncFollowersFull");
             int cost = EnlistCost(e);
             if (dukes && cost > 0 && DukesCarried(player as EntityPlayerLocal) < cost) return string.Format(Loc("scEncNeedDukes"), cost);
             return null;
@@ -463,6 +464,7 @@ namespace SurvivorCommunity
             Hire(npc, player);
             p.State = EncPerson.StateEnlisted;
             p.EnlistedBy = player.entityId;
+            p.EnlistedById = ScPlayers.IdOf(player);       // round MP7 (part F): whose follower limit they count against (saved)
             p.EnlistedBody = npc.entityId;
             p.EnlistedUntil = until;
             p.Leaving = false;
@@ -484,6 +486,7 @@ namespace SurvivorCommunity
             Unhire(npc, pl, npc != null ? npc.entityId : p.EnlistedBody);
             p.State = EncPerson.StateHome;
             p.EnlistedBy = -1;
+            p.EnlistedById = "";                           // round MP7 (part F)
             p.EnlistedBody = -1;
             p.EnlistedUntil = 0;
             Enclave e = ScEnclavePeople.EnclaveOf(p);
@@ -714,6 +717,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// People enlisted with the player now (MaxFollowers counts them with the community's followers). Round MP6 (fix R-m2): with
         /// the community in scope's players only - another community's enlisted people never use up this one's follower limit.
+        /// Round MP7 (part F): the follower limit's count in single player only; in multiplayer it is each player's own
+        /// (ScFollowers.Enlisted).
         /// </summary>
         public static int EnlistedCount()
         {

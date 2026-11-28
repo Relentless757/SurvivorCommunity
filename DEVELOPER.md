@@ -3406,6 +3406,22 @@ Round MP0 is the groundwork:
     until the next save; a band's `NextAssert` is one for the band, so only the first community's engagement asserts; a
     client's `ScTrust.TrustOf` reads `sc_favourDone`, which any community's finished favor sets; the door opener's scope
     fallback for a body that is no member (`ScDoors.OpenerCommunity`) is unused (only members and stand-ins reach it).
+- **Round MP7 (part F), follower limits per player** (`ScFollowers`; the user's decision 9): `MaxFollowers` is each player's
+  own limit in every community mode, Shared included; `MaxMembers` stays per community. `ScFollowers.Count(player)` is the
+  members following that player (`Following` or `PendingStation`) across every community's roster, matched by
+  `Member.LeaderId` (the leader's platform id, written by `Follow` and kept by the ticker's `NoteLeader`), plus the enclave
+  people that player enlisted. A follower with no leader id (a save from before MP0) counts for her live leader while her body
+  is loaded, else for whoever `ScTicker.LeaderToRestore` would give her to (the host's own player of her community, nobody on
+  a dedicated server). `EncPerson.EnlistedById` holds the enlister's platform id beside the entity id `EnlistedBy`: set by
+  `ScEnclaveDeals.EnlistBody` (paid enlistments and radio fighters), cleared with it, saved as `enlistedid=` after `enlisted=`
+  only while enlisted and never to a client (a load sends every enlisted person home, so it matters only to a save written
+  mid-enlistment). A record with no platform id falls back to the entity id while that player is online. `ScFollowers.Full`
+  gates `ScCommunity.Follow`, `ScEnclaveDeals.EnlistBlocked` and the radio fighter (`ScEncCalls.FollowersFull`, both in
+  `CanCall`, for the player at the radio, and on arrival, for the caller); `ScFollowers.Line` feeds `sc party` and
+  `sc status`. Always pass the player who asked (the action's sender), never the host's own player. Single player
+  (`OfflineServer`) keeps the old count (`ScRegistry.FollowerCount` + `ScEnclaveDeals.EnlistedCount`, the community's): its
+  one player leads every follower whatever leader id a save recorded. In Shared the community as a whole can now have more
+  followers out at once (one limit per player online).
 
 ## How it hangs together (for modders)
 

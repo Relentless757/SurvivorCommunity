@@ -51,7 +51,8 @@
 
 			<!-- roster -->
 			<property name="MaxMembers" value="12" />
-			<!-- how many members may follow you at once -->
+			<!-- how many members may follow you at once (enclave people you enlisted count too): each player's own limit in
+			     every community mode (round MP7), so in Shared each player online may lead this many -->
 			<property name="MaxFollowers" value="2" />
 			<!-- where residents idle: within this many blocks of the home land claim block -->
 			<property name="PostRadius" value="8" />
@@ -890,8 +891,8 @@
 			     Settings.xml Progression/PerkList, never past its PerkRankCap. On top of RangedPerStar / MeleePerStar: a 7-star shooter
 			     does 1.9x pistol damage instead of 1.6x. Perk books still add their own book perks. Ranks are only ever raised.
 			     SharePartyCap (round U6): "Come with me." (talk, voice, the community window) is refused while 0-XNPCCore's party is
-			     full (its Settings.xml PartyMaxMembers, 8: paid hires and your followers together). MaxFollowers stays the community's
-			     own, lower limit. false: only MaxFollowers.
+			     full (its Settings.xml PartyMaxMembers, 8: paid hires and your followers together). MaxFollowers stays SC's own,
+			     lower limit (yours, per player). false: only MaxFollowers.
 			     Every member keeps a Progression (0-XNPCCore's levels, perks and crafting skills on her) while MemberWeaponPerks or
 			     CraftSkillsEnabled is on; with both off she has none, as before round U5. -->
 			<property name="MemberBond" value="true" />

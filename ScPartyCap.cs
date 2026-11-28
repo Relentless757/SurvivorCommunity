@@ -98,7 +98,7 @@ namespace SurvivorCommunity
         /// <summary>sc party: 0-XNPCCore's party for you against its cap, SC's followers against MaxFollowers. A read.</summary>
         public static string Line(EntityPlayer player)
         {
-            string sc = "SC followers " + (ScRegistry.FollowerCount + ScEnclaveDeals.EnlistedCount()) + " of MaxFollowers " + ScConfig.MaxFollowers + " (enlisted enclave people count)";
+            string sc = ScFollowers.Line(player);     // round MP7 (part F): your own followers and enlisted people (per player)
             if (!Available) return sc + "; 0-XNPCCore's party cap: not in this 0-XNPCCore (older than 3.4.06)";
             try { return sc + "; " + PartyText(player) + "; SharePartyCap " + ScConfig.SharePartyCap + ", refusals this session " + refusals.ToString(CultureInfo.InvariantCulture); }
             catch (Exception e) { return sc + "; 0-XNPCCore's party: " + e.Message; }
