@@ -46,7 +46,7 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   <name>`, `join <id> [player]`, `leave [player]` and `use <id>|none` (this console acts in that community) make and fill a
   second one. Admin only. Round MP7 (core): the list shows the mode and marks a player's own relations `[personal]` and
   retired ids; `owner <id> <player>` hands a community over; `mode <PerPlayer|PerParty> confirm` switches a save from before
-  MP7 once. Round db1: `disband <id>` says what disbanding it would do, `disband <id> confirm` does it.
+  MP7 once. Round db1: `disband <id>` says what disbanding it would do, `disband <id> confirm` does it (`confirm force` with a member away: she goes with no body and her handed items are lost).
 
 ## Round db1 (2026-11-28): disbanding a community
 
@@ -55,19 +55,28 @@ wild, and its players keep its relations. Build `sc34_db1`, **not deployed**, un
 needs this build.** Checked offline: the save round trip on 12 saves (ALL PASS); a disband harness (1072 checks on the 11 saves
 with enclaves, 0 failures: PerPlayer, PerParty, Shared community 1, Shared community 0, single player, the copy of the
 relations, requests and favors passing on, the retire, the allies reconcile afterward, the refusals); the network harness (448
-checks, 0 failures).
+checks, 0 failures). Round db1 (review): the Fable review's fixes and the user's two decisions on it - every member home with
+her body loaded (the refusal names who is away; the console's `confirm force` goes anyway and lists the handed items lost), no
+disband in a blood moon, the former owner kept out of an ally's community, one save per disband, AutoHomeFirstClaim never
+restarting a disbanded community 0. The harness has 1259 checks on the 11 saves, 0 failures; round trip ALL PASS; network 448.
 
 **The button and the refusals**
-- [ ] The owner opens the community window and presses PLAYERS: **Disband community** is under the list. The first press shows
-      the hint (the members leave for the wild, outposts are abandoned, the stockpile is lost, storage stays, you keep your
-      relations); a second press within five seconds disbands. Wait five seconds instead: the hint goes and the button reads
+- [ ] The owner opens the community window and presses PLAYERS: **Disband community** is under the list. With everyone home,
+      the first press shows the hint (members back to the wild, outposts and the stockpile lost, storage and your relations
+      stay); a second press within five seconds disbands. Wait five seconds instead: the hint goes and the button reads
       Disband community again.
+- [ ] Round db1 (review): a member on a run, one posted at an outpost, one traveling, and a resident whose body is not loaded
+      (the owner far from home): the first press names each one with why ("Call everyone home first. Away: ..."), and no second
+      press counts. Bring them home (stand at the base): the first press shows the hint.
 - [ ] A player who is not the owner sees Leave community there, never Disband. PerParty: the party leader while the owner is
       away (the helper) sees no Disband either.
 - [ ] With an enclave siege called or live: refused, "Not while a siege is on". With a base attack live, or fought by the
-      defenders while you are away: "Not while the base is under attack". With a member down: "One of the members is down".
-- [ ] `sc community disband <id>` says what it would do and changes nothing; `sc community disband <id> confirm` disbands, with
-      the same refusals.
+      defenders while you are away: "Not while the base is under attack". During a blood moon: "Not during a blood moon". With a
+      member down: "One of the members is down".
+- [ ] `sc community disband <id>` says what it would do, lists any member away with her handed items, and changes nothing;
+      `sc community disband <id> confirm` disbands, with the same refusals (a member away: refused, listed). `... confirm force`
+      with a member away: it goes, the output says she is gone with no body and lists the items she was handed as lost.
+- [ ] One save for the whole disband: the log has no "registry saved" line per member (DebugLogging on), and no hitch.
 
 **PerPlayer or PerParty on the dedicated server**
 - [ ] Owner A has a follower, a member posted at an outpost (her stand-in there), residents at home, an outpost, a stockpile,
@@ -85,6 +94,9 @@ checks, 0 failures).
 - [ ] A founds again: the relations are there (standing, the enclaves known); a survivor whose favor was done offers "Join us".
 - [ ] PerPlayer: B is a land claim ally of another founder X - B joins X's community at once (or at their next login). B is only
       A's ally - B stays in their own relations until A founds again, then joins A's new community.
+- [ ] Round db1 (review): PerPlayer, A is also X's land claim ally. After A disbands, A is told they keep their own relations
+      ("... won't take you in until that link is made again") and stays on their own, also after a relog; A can found again
+      with the copied relations. A and X remove and make the ally link again: A joins X's community.
 - [ ] `sc community list`: the disbanded id under "retired" (community 0 is never retired: it shows A's own relations, or is
       free). The log has one line `community disbanded: ...` with the counts.
 
@@ -95,6 +107,9 @@ checks, 0 failures).
       players online listed), for nobody else. They disband: the members leave, the home is cleared, the stockpile is 0, the
       players stay in community 0 with its enclave standing, favors and accepted requests, and "Start a community here" starts
       it again.
+- [ ] Round db1 (review): with `AutoHomeFirstClaim` on, after community 0 was disbanded: talking to a survivor or opening the
+      window does not start it again at a claim (`sc save`: `noautohome=1` in the save); "Start a community here" does, and the
+      line goes.
 
 **Single player**
 - [ ] The owner sees the PLAYERS button (themselves listed) and Disband community. Shared: afterward the window shows an

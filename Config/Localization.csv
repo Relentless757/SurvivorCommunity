@@ -2276,4 +2276,16 @@ scDb1FavourYours,UI,Tooltip,,,,"The community is disbanded: {0}'s favor is yours
 scDb1FavourWithdrawn,UI,Tooltip,,,,"The community is disbanded: {0}'s favor went to another of its players, and your quest for it is closed."
 scUiDb1Disband,UI,Menu,,,,Disband community
 scUiDb1Confirm,UI,Menu,,,,Press again to disband
-scUiDb1Hint,UI,Menu,,,,"The members leave for the wild, outposts are abandoned and the stockpile is lost. Storage stays and you keep your relations. Press again to disband."
+scUiDb1Hint,UI,Menu,,,,"Members go back to the wild, outposts and the stockpile are lost; storage and your relations stay. Press again within 5 s."
+# round db1 (review) - who is away and the blood moon refusal and a partial disband and the former owner kept on their own
+scDb1BloodMoon,UI,Tooltip,,,,Not during a blood moon: wait for the morning.
+scDb1Away,UI,Tooltip,,,,Call everyone home first. Away: {0}.
+scDb1AwayOne,UI,Tooltip,,,,{0} ({1})
+scDb1AwayRun,UI,Tooltip,,,,on a run
+scDb1AwayPosted,UI,Tooltip,,,,posted at an outpost
+scDb1AwayTravel,UI,Tooltip,,,,traveling
+scDb1AwayUnloaded,UI,Tooltip,,,,not loaded: go home
+scDb1AwayMore,UI,Tooltip,,,,and {0} more
+scDb1AwayTell,UI,Tooltip,,,,Call everyone home first: {0} member(s) away ({1}).
+scDb1Partial,UI,Tooltip,,,,"The community is disbanded, but part of it failed (the server's log says what)."
+scDb1StayOwn,UI,Tooltip,,,,You keep your own relations: {0}'s community (your land claim ally's or your party's) won't take you in until that link is made again.

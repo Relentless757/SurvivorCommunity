@@ -523,13 +523,14 @@ namespace SurvivorCommunity
         /// (role=, ownops=: ScCommunityView.ReceiverLines) can differ from those sent before the body existed (their hello can come
         /// first, and ownops= and the helper role need the body): the client gets its community's block again with the new lines at
         /// once, not at the next due tick. Nothing when nothing was sent to it yet (the tick sends its whole copy), when its community
-        /// changed since (the tick's joiner path), when its lines are unchanged, or with the MP7 keys off. Main thread.
+        /// changed since (the tick's joiner path) or when its lines are unchanged (round db1 (review): with the MP7 keys off too). Main thread.
         /// </summary>
         public static void OnPlayerSpawned(ClientInfo ci)
         {
             try
             {
-                if (ci == null || !ScCommunity.IsHost || !ScRegistry.Loaded || !ScCommunityView.KeysOn) return;
+                // round db1 (review): n1 - not only while the MP7 keys are on: Shared with one community sends its owner dsb=1
+                if (ci == null || !ScCommunity.IsHost || !ScRegistry.Loaded) return;
                 string had;
                 int sent;
                 if (!sentReceiver.TryGetValue(ci.entityId, out had) || !sentCommunity.TryGetValue(ci.entityId, out sent)) return;
@@ -724,12 +725,13 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round MP7 (part U): community cid's block is unchanged since its last broadcast, but a client's own lines may not be (it became
-        /// the owner, a helper, an admin; its party leader changed): those clients get the block again with their new lines. Nothing
-        /// while the MP7 keys are off (Shared with one community). A joiner got this tick's copy already.
+        /// the owner, a helper, an admin; its party leader changed): those clients get the block again with their new lines (round db1
+        /// (review): with the MP7 keys off too - Shared with one community's owner's dsb=1). A joiner got this tick's copy already.
         /// </summary>
         private static void SendChangedRoles(int cid, List<ClientInfo> list, string block)
         {
-            if (!ScCommunityView.KeysOn) return;
+            // round db1 (review): n1 - not only while the MP7 keys are on: Shared with one community's owner gets dsb=1 (its own lines are
+            // compared below, so a client whose lines did not change gets nothing)
             for (int i = 0; i < list.Count; i++)
             {
                 ClientInfo ci = list[i];

@@ -142,7 +142,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round db1: Disband community (the owner's) - the first press says what it does and asks for a second within five seconds, the
         /// second sends community.disband. The server decides (ScMembership.DisbandAction: the owner or an admin, no siege or live
-        /// attack, no member down) and tells every player of the community; the window turns with the new copy.
+        /// attack, no member down) and tells every player of the community; the window turns with the new copy. Round db1 (review): the
+        /// first press asks the server (community.disband 0) whether it may be done now - its hint then, or the refusal naming the
+        /// members away (the user's decision 1: everyone home with her body loaded) or why not (a blood moon, a siege, an attack ...).
         /// </summary>
         private void OnDisbandCommunity()
         {
@@ -150,21 +152,60 @@ namespace SurvivorCommunity
             float now = Time.unscaledTime;
             if (now > confirmDisbandCommunityUntil)
             {
-                confirmDisbandCommunityUntil = now + 5f;
-                playersMessage = Localization.Get("scUiDb1Hint");
-                disbandCommunityHint = true;
-                RefreshBindingsSelfAndChildren();
+                // round db1 (review): the first press asks; the second counts only after a yes
+                confirmDisbandCommunityUntil = 0f;
+                ScActions.Request(ScMembership.OpDisband, r =>
+                {
+                    if (r.Ok)
+                    {
+                        confirmDisbandCommunityUntil = Time.unscaledTime + 5f;
+                        playersMessage = Localization.Get("scUiDb1Hint");
+                        disbandCommunityHint = true;
+                    }
+                    else
+                    {
+                        playersMessage = DisbandRefusal(r);
+                        disbandCommunityHint = false;
+                        PlaySound(r.Sound);
+                    }
+                    AfterReply();
+                }, 0);
                 return;
             }
             confirmDisbandCommunityUntil = 0f;
             disbandCommunityHint = false;
             ScActions.Request(ScMembership.OpDisband, r =>
             {
-                playersMessage = r.Ok ? "" : r.Text;
+                playersMessage = r.Ok ? r.Text : DisbandRefusal(r);      // round db1 (review): a done one's text is a partial warning, if any
                 PlaySound(r.Sound);
                 if (r.Ok) showPlayers = false;
                 AfterReply();
-            });
+            }, 1);
+        }
+
+        // round db1 (review): the refusal's words in this machine's language - for scDb1Away, the members away named with why
+        /// <summary>
+        /// Round db1 (review): a community.disband refusal as the panel shows it: scDb1Away names the members away from the reply's hint
+        /// (ScMembership.AwayHint: "why:name" entries and the count), each why in this machine's language; any other refusal as it is.
+        /// </summary>
+        private static string DisbandRefusal(ScActionReply r)
+        {
+            string list = r.HintStr(ScMembership.AwayHintKey, null);
+            if (list == null) return r.Text;
+            var parts = new List<string>();
+            foreach (string e in list.Split(','))
+            {
+                int c = e.IndexOf(':');
+                if (c <= 0) continue;
+                string why = e.Substring(0, c);
+                string key = why == ScMembership.AwayRun ? "scDb1AwayRun" : why == ScMembership.AwayPosted ? "scDb1AwayPosted"
+                           : why == ScMembership.AwayTravel ? "scDb1AwayTravel" : "scDb1AwayUnloaded";
+                parts.Add(string.Format(Localization.Get("scDb1AwayOne"), ScCommunityView.Unescape(e.Substring(c + 1)), Localization.Get(key)));
+            }
+            int total = r.HintInt(ScMembership.AwayCountKey, parts.Count);
+            string names = string.Join(", ", parts.ToArray());
+            if (total > parts.Count) names += " " + string.Format(Localization.Get("scDb1AwayMore"), total - parts.Count);
+            return string.Format(Localization.Get("scDb1Away"), names);
         }
 
         /// <summary>Leave community: the first press asks for a second within five seconds, the second sends community.leave.</summary>

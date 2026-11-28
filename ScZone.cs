@@ -169,6 +169,9 @@ namespace SurvivorCommunity
                 // round MP7 (core), the user's decision 3: a player's own relations (PerPlayer/PerParty) become a community only by
                 // Start a community here - never by this adoption
                 if (ScRegistry.Current.Personal) return false;
+                // round db1 (review): m5 - a disbanded community 0 starts again only by a player's choice (a radial's Start, sc home set),
+                // never by this adoption of whatever claim of theirs comes first
+                if (ScRegistry.CurrentId == ScPlayers.SharedCommunity && ScRegistry.WorldState.ZeroNoAutoHome) return false;
                 Vector3i lp;
                 if (!FirstOwnClaim(owner, out lp)) return false;
                 // round MP6 (fix G-m2): never another community's home or outpost ground (home.set's own refusal)
@@ -298,6 +301,8 @@ namespace SurvivorCommunity
                 if (id.Length > 0) c.OwnerId = id;
             }
             if (started) ScMembership.LockMode();
+            // round db1 (review): m5 - a player started community 0 again: AutoHomeFirstClaim may adopt for it once more
+            if (started && ScRegistry.CurrentId == ScPlayers.SharedCommunity) ScRegistry.WorldState.ZeroNoAutoHome = false;
         }
 
         public static bool HasHome { get { return ScRegistry.Community.HasHome; } }

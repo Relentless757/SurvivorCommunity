@@ -206,6 +206,12 @@ namespace SurvivorCommunity
         /// one-line tombstones ([world] retired=N) so the ids stay taken and the console can name them. Never run, never mirrored.
         /// </summary>
         public readonly SortedSet<int> Retired = new SortedSet<int>();
+        /// <summary>
+        /// Round db1 (review): m5 - Shared mode's community 0 was disbanded and nobody started it again yet: AutoHomeFirstClaim adopts no
+        /// claim for it (ScZone.EnsureHome) until a player starts it from a land claim's radial or sc home set (ScZone.SetHome clears
+        /// it). Saved as [world] noautohome=1 only while set.
+        /// </summary>
+        public bool ZeroNoAutoHome;
 
         // ---- round MP7 (part AP) ----
         /// <summary>
