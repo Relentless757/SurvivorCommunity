@@ -48,13 +48,20 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   retired ids; `owner <id> <player>` hands a community over; `mode <PerPlayer|PerParty> confirm` switches a save from before
   MP7 once.
 
+## Deployed 2026-11-27: round MP7 (community modes), round hr1 (healing and last stand), round lk1 (looks kept, falling trees)
+
+Installed in the 3.4 game (`port-3.4` 15e187ab, DLL 90907710); the dedicated server loads the same folder. **Protocol 9:
+every client needs this build.** The rounds below up to "Round hr1" are all in it: the MP7 core, parts F, AP and U, the
+review fixes (review AP/F, review U and the final checks: SC's own party invite record), round hr1 and round lk1. All are
+untested in game. Fable reviewed every part; the last checks found nothing above a nit.
+
 ## Round MP7 (review AP/F) (2026-11-27): forged party joins, the hand-over and the mode switch with allies
 
 Why: the Fable review of parts AP and F (0 blockers, 0 majors, 5 minors, 4 nits). A modified client could join a community
 by a forged party accept or auto join; a hand-over left a stale join record and did not bring the new owner's allies in; an
 admin-made community started from the radial skipped the allies and party; the mode switch skipped the leaving half for an
 ally the reconcile moved into another community; AutoParty repeated the mixed-party tells at every login. Build
-`sc34_mp7fixa`, **not deployed**, untested in game. Checked offline: the save round trip on 12 saves (ALL PASS) and the part
+`sc34_mp7fixa`, **deployed 2026-11-27** (in `port-3.4` 15e187ab), untested in game. Checked offline: the save round trip on 12 saves (ALL PASS) and the part
 AP harness, extended for the fixes (117 checks on each of the 12 saves, 0 failures). Round MP7 (final check): SC's own
 party invite ledger for the two majors of the final check (a listen host's own invites lost their community; a forged
 invite or accept, or a sweep of a member who got in so, still reached one); the harness covers them too (141 checks on each
@@ -100,7 +107,7 @@ no-community page's three lists page, so every player, enclave, favor and reques
 10, the server's at 64). An owner or admin whose first block came before the server had their body gets the owner's
 buttons at once. The talk's favor hand-over ends the talk and thanks from the server's answer, the personal "already
 cleared" reply is their own, the talk's "Ask to leave" hides where the window grays it. `fown` (which box owners are another
-community's) carries a hash of each platform id instead of the id. Build `sc34_mp7fixu`, **not deployed**, untested in
+community's) carries a hash of each platform id instead of the id. Build `sc34_mp7fixu`, **deployed 2026-11-27** (in `port-3.4` 15e187ab), untested in
 game. Checked offline: the save round trip on 12 saves (ALL PASS) and the network harness (448 checks, 0 failures: the
 snapshot text, the part U checks, and new ones for the hash, both fown lists, the role lines with no body, the true total).
 
@@ -130,7 +137,7 @@ always re-made from their records). A body the world saves without such a record
 stranger who holds a grudge, a console spawn - rolled a new look at every load. Now its look is kept in the community's
 save file (`[world] keptlook=` lines) and given back at the next load. Also: a falling tree no longer hurts friendly
 survivors (`FallingTreesHurtSurvivors`, false by default), and a startup warning names an 0-XNPCCore older than 3.4.06
-final. Build `sc34_lk1`, **not deployed**, untested in game. As a backstop the roll itself is seeded by the body's entity
+final. Build `sc34_lk1`, **deployed 2026-11-27** (in `port-3.4` 15e187ab), untested in game. As a backstop the roll itself is seeded by the body's entity
 id. Checked offline: the save round trip on 12 saves (ALL PASS: old saves load and save byte for byte as before), and a
 harness for the new lines, the seeded roll and the review fixes (28 checks on each of the 12 saves, 0 failures). `sc xnpc`
 counts `lk1-look-kept`, `lk1-look-updated`, `lk1-look-dropped`, `lk1-look-purged`, `lk1-look-restored` and
@@ -184,7 +191,7 @@ community join it on their own, and removing the ally takes them out. PerParty: 
 holding one of a community's players joins it, and leaving or being kicked from that party takes them out (never the
 founder); the party leader acts for an owner who is offline. A player an admin put in is never taken out by an ally or a
 party change, and Leave sticks: the reconcile and other players' party invites do not pull a player back into a community
-they left. Build `sc34_mp7ap`, **not deployed**, protocol 8 unchanged, untested in game. Checked offline: the save round
+they left. Build `sc34_mp7ap`, **deployed 2026-11-27** (in `port-3.4` 15e187ab), protocol 8 unchanged, untested in game. Checked offline: the save round
 trip on 12 saves (ALL PASS: old saves load and save byte for byte as before), and a harness for the allies and party logic
 and the new save lines (96 checks on each of the 12 saves, 0 failures). Every join and loss is logged as
 `community (allies): ...` or `community (party): ...`.
@@ -238,7 +245,7 @@ they see: the derived block's mode, role and players (protocol 9 at the merge), 
 the community window, a no-community page for a player with only their own relations, the owner's buttons and radial entries
 grayed or hidden by role, and talk rows that let a player with no community take, clear and hand in a wild survivor's favor
 ("Join us" opens once they have a home). Shared mode with one community looks and sends exactly what it did before.
-Build `sc34_mp7u`, **not deployed**, untested in game. Checked offline: the save round trip on 12 saves (ALL PASS; the save
+Build `sc34_mp7u`, **deployed 2026-11-27** (in `port-3.4` 15e187ab), untested in game. Checked offline: the save round trip on 12 saves (ALL PASS; the save
 is untouched), and a harness for the players list's text, the client's parse and reset, the view's rules per mode and role,
 the client's view from a block, and the server's keys (off with one Shared community, on in PerPlayer or with two
 communities; no platform id sent) - 418 checks, 0 failures.
@@ -304,7 +311,7 @@ In Shared mode nothing changes, except that moving the home never changes the ow
 mode). The allies (part A), parties (part P), per-player followers (part F) and the window and network keys (part U) come
 later: the radial's Start already uses the new `community.start`, but the window has no Leave button or no-community page
 yet, and a player with only their own relations cannot reach a wild survivor's favor rows in the talk yet (part U).
-Build `sc34_mp7core`, **not deployed**, protocol 8 unchanged (the merge sets 9), untested in game. Checked offline: the save
+Build `sc34_mp7core`, **deployed 2026-11-27** (in `port-3.4` 15e187ab), protocol 8 unchanged (the merge sets 9), untested in game. Checked offline: the save
 round trip on 12 saves from before MP6 (ALL PASS: old saves load and save byte for byte as before), and a harness for the
 mode lock, personal records in the save, the merge, the retire and Move with offline players (59 checks, 0 failures).
 After the core review (`review_mp7_core.md`, 11 minors and 8 nits): the round trip still ALL PASS (309 checks), the text of
@@ -410,7 +417,7 @@ two followers left every other player of the community with none. Now each playe
 mode, Shared included: the members following you (or heading home with you) plus the enclave people you enlisted (a paid
 enlistment or an ally's radio fighter). It is checked at "Come with me." (talk, voice, the community window's Follow me), at
 an enclave's "Can you come with me?" and at an ally's fighter call, and shown by `sc party` and `sc status`. `MaxMembers`
-stays per community. In single player nothing changes. Build `sc34_mp7f` (branch `mp7-f`), not merged, not deployed; it
+stays per community. In single player nothing changes. Build `sc34_mp7f` (branch `mp7-f`), **deployed 2026-11-27** (in `port-3.4` 15e187ab); it
 merges with the MP7 core. Setup: `MaxFollowers` 2 (the default); "A" and "B" are two players.
 
 **Single player (nothing may change)**
@@ -467,7 +474,7 @@ What changes, for members at home (the home zone and its 8 m margin; followers o
 - A console `sc down` test's revive no longer opens the re-down window (real downs keep it); `sc downed` shows FRAGILE.
 - `RegenCapShare` is 0.7 (was 0.6, the same as the heal line, so every fight began with a heal due).
 
-Build `sc34_hr1`, **not deployed**, untested in game. Server-side only (single player, a listen host or the dedicated server).
+Build `sc34_hr1`, **deployed 2026-11-27** (in `port-3.4` 15e187ab), untested in game. Server-side only (single player, a listen host or the dedicated server).
 
 **Safe rooms (`sc saferoom <name>`, single player)**
 - [ ] A resident standing in a closed room (all doors shut): `sc saferoom <name>` says `SAFE - a safe room: enclosed (N cells,
