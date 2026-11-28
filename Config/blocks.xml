@@ -1030,6 +1030,11 @@
 			<property name="TeamMedicalMult" value="0.5" />
 			<property name="TeamStarBase" value="0.85" />
 			<property name="TeamStarStep" value="0.15" />
+			<!-- Round wp1: with a melee weapon in her pair, each Fighting star above TeamStarBonusFrom multiplies her weight by
+			     1 + TeamStarBonus more (Fighting 4: x 1.5, so 1.45 becomes 2.18 and two walkers are a matched fight; Fighting 7:
+			     x 2.25). At or below TeamStarBonusFrom, and with no melee weapon, a member counts as before. TeamStarBonus 0: off. -->
+			<property name="TeamStarBonus" value="0.25" />
+			<property name="TeamStarBonusFrom" value="2" />
 			<property name="TeamWeaponMelee" value="1" />
 			<property name="TeamWeaponRanged" value="0.8" />
 			<property name="TeamWeaponBare" value="0.5" />
@@ -1044,9 +1049,19 @@
 			     stance (and TeamSwapHoldSeconds since her hand last changed); not for a target that needs the gun, nor a gun
 			     holder's one swap when her target comes within PostureMeleeDist meters (a matched fight: until then she keeps
 			     her gun and shoots; a marksman - Shooting her best skill - too, since round fd2). Round k4 retired TeamMeleeFirstSeconds and TeamNoSwingConfirmSeconds (and SurvivorGunFirst):
-			     a config that still sets one gets a warning at load and the key is ignored. -->
+			     a config that still sets one gets a warning at load and the key is ignored.
+			     Round wp1: in a matched fight only a clear shooter - Shooting stars at least TeamShooterMargin above her
+			     Fighting stars - keeps her gun until her target is within PostureMeleeDist; everyone else takes her melee weapon
+			     at once, at any distance, and walks to it (and holds no spot after a back-off, a heal or a reload). A gun with no
+			     rounds in it or her stores is no gun: her melee weapon at once, and no back-off of any kind while dry. -->
 			<property name="PostureDwellSeconds" value="5" />
 			<property name="PostureMeleeDist" value="4" />
+			<property name="TeamShooterMargin" value="2" />
+			<!-- Round wp1 (the user: "she approached zombies as if she was going to [swing], until I started attacking"): at
+			     home a resident fights a zombie inside the home zone within EngageWanderersWithin meters of her even when it is
+			     after nobody - round n08 left every such zombie alone, so she walked up to it and never swung. Farther ones are
+			     the intruder responders' (below); outside the zone a wanderer is still left alone. 0: n08's rule as it was. -->
+			<property name="EngageWanderersWithin" value="5" />
 			<!-- Round k4, intruders (the user, 2026-11-15: "If a zombie not engaged with any member or the player is inside the
 			     base, members should investigate"): an awake zombie or hostile animal inside the home zone (during a base attack
 			     the defended area) and on the base's levels that is after nobody gets

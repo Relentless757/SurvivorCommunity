@@ -1077,6 +1077,10 @@ namespace SurvivorCommunity
                 // R2 is a KITE sub-rule: another posture ends a cornered melee (MELEE wants that weapon anyway; the others leave the hand)
                 if (st.CorneredMelee && pv.P != Posture.Kite && !(pv.P == Posture.Investigate && pv.Kiting))
                     EndCornered(c, st, e, "the posture is " + ScPosture.Name(pv.P, pv.Kiting) + " now");
+                // round wp1 (decision 1: an empty gun is no gun): in a fight posture a gun with no rounds in it or her stores goes for
+                // her pair's melee weapon at once - no hand clock, no dwell, no 3 m wait for 0-XNPCCore's 2 s failover. HOLD (watch,
+                // Stay) keeps 0-XNPCCore's own failover; the stand above has its own dry rule
+                if ((pv.P == Posture.Melee || pv.P == Posture.Kite || pv.P == Posture.Investigate) && DryGunSwap(c, e, st, bout, now)) return false;
                 switch (pv.P)
                 {
                     case Posture.Melee: return MeleeHand(c, e, st, pv, bout, now);
@@ -1092,6 +1096,43 @@ namespace SurvivorCommunity
                 ScLog.Once("arms-hand", ex);
                 return true;
             }
+        }
+
+        /// <summary>
+        /// Round wp1 (the user: "When they have a gun with no ammo, they are just jogging around zombies and not attacking"): the gun
+        /// in her hand is dry for good (GunDry) and her pair has a melee weapon - SC's swap to it now, through 0-XNPCCore's own
+        /// equip (TakeMelee; a refused equip backs off as MELEE's swap does). Logged at each swap: one per dry episode, since nothing
+        /// draws a dry gun again. True when it took.
+        /// </summary>
+        private static bool DryGunSwap(AvatarSdcsNpcController c, EntityAlive e, Watch st, bool bout, float now)
+        {
+            if (bout || !HoldsRangedWeapon(e) || !GunDry(e)) return false;
+            Loadout l = ScLoadout.Current(e);
+            if (l == null || string.IsNullOrEmpty(l.Melee) || now < st.MeleeBackoffUntil) return false;
+            string gun = HeldItemName(e);
+            if (!TakeMelee(c, e, l, st, now)) return false;
+            ScPosture.NoteSwap(e, l.Melee, false, true);
+            JoinBout(c, e, l, now);                                              // no-op while dry (no gun to go back to)
+            Patches_Xnpc.Count("x5-dry-gun-melee");
+            ScLog.Out(ScRetreat.Name(e) + "'s " + gun + " is empty and " + ScRetreat.Her(e) + " stores hold no rounds for it - the " + l.Melee
+                      + " at once (round wp1: an empty gun is no gun - no hand clock, no back-offs while dry)");
+            return true;
+        }
+
+        /// <summary>
+        /// Round wp1 (decision 1): the gun in her hand - else her pair's gun - has no rounds in it or her stores, and no other gun of
+        /// hers does: an empty gun is no gun (no back-offs of any kind, melee at once). False with no gun at all. A read.
+        /// </summary>
+        internal static bool GunDry(EntityAlive e)
+        {
+            if (e == null || e.inventory == null) return false;
+            ItemValue hv = e.inventory.holdingItemItemValue;
+            ItemClass held = hv != null && !hv.IsEmpty() ? hv.ItemClass : null;
+            if (ScAmmo.RangedAction(held) == null) held = null;
+            if (held != null && ScAmmo.Rounds(e, held) > 0) return false;
+            ItemClass pair = ScAmmo.PairGun(e);
+            if (pair != null && (held == null || pair.Id != held.Id) && ScAmmo.Rounds(e, pair) > 0) return false;
+            return held != null || pair != null;
         }
 
         /// <summary>Round k4: MELEE (see Hand).</summary>
@@ -1121,9 +1162,10 @@ namespace SurvivorCommunity
                     return true;
                 }
                 if (pv.Waiting || l == null || string.IsNullOrEmpty(l.Melee) || now < st.MeleeBackoffUntil) return true;
-                if (!ScPosture.HandClockAllows(e, now)) { ScPosture.NoteHeld(e); return true; }
+                // round wp1 (decision 2): matched again moments ago - the swap does not wait for the hand clock
+                if (!pv.UrgentMelee && !ScPosture.HandClockAllows(e, now)) { ScPosture.NoteHeld(e); return true; }
                 if (!TakeMelee(c, e, l, st, now)) return true;
-                ScPosture.NoteSwap(e, l.Melee, false, false);
+                ScPosture.NoteSwap(e, l.Melee, false, pv.UrgentMelee);
                 JoinBout(c, e, l, now);
                 return false;
             }

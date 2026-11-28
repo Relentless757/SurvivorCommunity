@@ -874,7 +874,7 @@ namespace UAI
         }
 
         /// <summary>A new world: no latches carried over (entity ids are reused).</summary>
-        public static void ResetHunts() { huntUntil.Clear(); nextHuntPrune = 0f; }
+        public static void ResetHunts() { huntUntil.Clear(); nextHuntPrune = 0f; wanderLogged.Clear(); }     // round wp1: the once-log too
 
         private static bool Hunted(EntityAlive v)
         {
@@ -899,8 +899,43 @@ namespace UAI
             // the home attack's state read for one was an unscoped read (the answer was false for her either way)
             if (ScBaseAttack.WideDefence) return false;
             if (ScInvestigate.Responds(self, t)) return false;
-            return !HuntsSomeone(t);
+            if (!HuntsSomeone(t)) return !WandererInReach(self, t);     // round wp1
+            return false;
         }
+
+        /// <summary>
+        /// Round wp1 (the user: "She had her melee weapon out, but she didn't swing at all even though she approached zombies as
+        /// if she was going to, until I started attacking"). The cause was n08's leave-alone rule above: her fight's target
+        /// (ScTeam.Target, her own attack target first) walked her up to a zombie inside the base, but that zombie was after
+        /// nobody, so the MayEngage postfix refused every swing - until the player hit it and it hunted the player. Now a
+        /// wanderer inside the home zone within EngageWanderersWithin (5 m) of her is fought: she has walked up to it, or it
+        /// came to her. Farther ones and wanderers outside the zone are still left alone (ScInvestigate sends responders to the
+        /// rest). Logged once per member and zombie. 0 turns it off (n08's rule as it was).
+        /// </summary>
+        public static bool WandererInReach(EntityAlive self, EntityAlive t)
+        {
+            float d = ScConfig.EngageWanderersWithin;
+            if (d <= 0f || self == null || t == null) return false;
+            if ((t.position - self.position).sqrMagnitude > d * d) return false;      // cheap test first: runs per candidate target
+            if (!InHomeZoneOf(self, t)) return false;
+            long key = ((long)self.entityId << 32) | (uint)t.entityId;
+            if (wanderLogged.Count > 512) wanderLogged.Clear();
+            if (wanderLogged.Add(key))
+                ScLog.Out(ScRetreat.Name(self) + " fights " + t.EntityName + " (" + t.entityId + ") inside the base though it is after nobody: within "
+                          + d.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " m of " + ScRetreat.Her(self)
+                          + " (round wp1; round n08 left it alone: the walk up ended without a swing)");
+            return true;
+        }
+
+        /// <summary>Round wp1: t stands inside the home zone of self's own community (MP6: not the community in scope). A pure read.</summary>
+        public static bool InHomeZoneOf(EntityAlive self, EntityAlive t)
+        {
+            if (self == null || t == null) return false;
+            int cid = ScCommunities.Count < 2 ? ScPlayers.SharedCommunity : ScCommunities.CommunityOfMember(self.entityId);
+            return cid >= 0 && ScZone.ContainsFor(cid, t.GetBlockPosition());
+        }
+
+        private static readonly HashSet<long> wanderLogged = new HashSet<long>();
 
         /// <summary>
         /// The radius test of the residents' rule (Why, and so H1's HoldWhy): null when t is within DefendBaseRadius - with zone

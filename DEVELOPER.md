@@ -3595,6 +3595,30 @@ Round MP0 is the groundwork:
   - Out of ammo: `Want`'s "nothing to shoot with" with a pair gun sets `State.NoAmmoGun`; `TellNoAmmo` tells the community once per
     episode (`scCb1NoAmmoFight`, at most every 120 s per member). New settings `BackOffBaseMeters`, `BackOffPerShootingStar`,
     `BackOffHoldSeconds`; no new Harmony target, no `ScNet.Protocol` change; one new localization row.
+- **Round wp1 (weapon choice: melee when not overwhelmed, an empty gun is no gun; server-side, members only):**
+  - The cause of "she walked up and never swung": round n08's `UAIConsiderationScIntruder.LeavesAlone` (the MayEngage postfix's
+    gate on every attack of 0-XNPCCore's package) refused every swing at a zombie after nobody, while `ScTeam.Target` (her own
+    attack target first) still made it her fight's target and `MeleeApproach` walked her to it. `LeavesAlone` now answers false
+    for a wanderer inside her own community's home zone within `EngageWanderersWithin` (5 m) of her (`WandererInReach`,
+    `InHomeZoneOf` via `ScZone.ContainsFor`; logged once per member and zombie), and `ScTeam.Target` drops her own target when
+    `LeavesAlone` holds and it stands outside the zone (no more walking out to a wanderer she may not hit).
+  - An empty gun (`ScArms.GunDry`: the gun in hand, else her pair's gun, has no rounds in it or her stores, nor does another gun of
+    hers): `ScArms.Hand` swaps to the pair's melee weapon at once in MELEE, KITE and INVESTIGATE (`DryGunSwap`: no hand clock, no
+    3 m deferral to 0-XNPCCore's 2 s failover; HOLD keeps that failover, the stand its own dry rule). `UAIConsiderationScPosture`
+    keep/ranged/wide answer 0 for a dry member and `ScBackOff.BoundStart` ends a back-off that slips through (`backoff-dry-gun`).
+  - `ScPosture.MeleeWhy`: in a matched fight only `ClearShooter` (Shooting - Fighting >= `TeamShooterMargin`) keeps the gun until
+    `PostureMeleeDist`; round fd2's marksman distance rule and the generic "holding her gun" rule are gone (fd2's lone-enemy
+    marksman exception stays). `ScTeam.MatchedAgainWithin` (`Verdict.MatchedAgainAt`) makes the switch urgent for 3 s after the
+    verdict turns matched again, and `View.UrgentMelee` lets `MeleeHand` skip the hand clock. Round cb1's hold neither starts nor
+    goes on while `PrefersMelee` (`ScTeam.MeleeLedSafe`: melee-led, no melee-unsafe enemy counted, and no clear shooter).
+  - `ScTeam.FriendWeight`: x (1 + `TeamStarBonus` x max(0, Fighting - `TeamStarBonusFrom`)) with a melee weapon in her pair; the
+    detail text shows it. `Recount` logs a fight's F / T breakdown once at its start (`LogFight`, a second `Census` with detail,
+    at most once per 30 s per member, 8 items).
+  - The posture's lapse hold also bridges a target that died or left the world, up to `TeamRecountSeconds` + 0.3 s (the verdict's
+    nearest is the corpse until the next count); `Change` records the fight posture before a "no fight" gap (`GapFrom`), and a
+    fight back within 2 s keeps its dwell clock in the same stance or, in another stance, goes back to the old posture with the
+    new one pending (`posture-gap-bridged`). New settings `TeamShooterMargin`, `TeamStarBonus`, `TeamStarBonusFrom`,
+    `EngageWanderersWithin`; no new Harmony target, no `ScNet.Protocol` change, no localization row.
 - **Round MP6 (review fixes):** the four reviews' fixes on the merged build. What a modder must know:
   - **The listen host's own markers** are drawn for the host's own player in the host's own community: the periodic and
     restore paths (`ScEnclaves`/`ScInfestations`' `RefreshMarkers`, `ScBands.UpdateMarkers`) take `ScCommunity.LocalPlayer`,

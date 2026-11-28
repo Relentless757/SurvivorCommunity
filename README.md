@@ -477,6 +477,8 @@ The **Campfire** also hosts **Enact rationing**:
   past outside the base, or down in a cellar or mine (or up on a roof) more than 6 m below or above the base's posts, is
   still left alone. `InvestigateIntruders`, `InvestigateResponders`, `InvestigateRadius`, `InvestigateEnterMargin` and
   `InvestigateHeight` (section 20) tune it; `sc team` lists the intruders and who goes.
+- **A zombie inside the base within 5 m of a resident** is fought by her whether or not it is after anyone - she no
+  longer walks up to it and stands there until you hit it (`EngageWanderersWithin`, section 20).
 - Residents keep a leash: they will not chase an enemy far outside the base.
 - While you are within **250 m** of the base, the whole home zone stays loaded, so your people are not unloaded and rebuilt
   as you walk around the edge of your view distance.
@@ -1631,12 +1633,17 @@ catalog, and real armor pieces in their equipment slots.
   the base, the whole defended area). The fight is **matched** when her side is at least as strong as the enemies
   (a healthy member alone against one walker is; alone against a feral, or two members against four walkers, is not).
   Once matched it stays matched until her side drops below 80% of the enemies; once outmatched it takes two counts in a
-  row (about 2 seconds) to be matched again.
+  row (about 2 seconds) to be matched again. With a melee weapon, each Fighting star above 2 makes a member count a
+  quarter more (Fighting 4: one and a half times), so a good fighter alone is a match for two walkers.
 - **One posture per member** decides her weapon and her moves, and her weapon changes **at most once every 5 seconds**:
   - **Melee**: a matched fight, at least 60% health (melee again from 70%), a zombie she can swing at, not swarmed. She
-    fights with her melee weapon and never backs away; holding her gun she shoots until the zombie is within 4 m, then
-    switches once. A member whose best skill is Shooting does the same, even against a lone zombie that is a match for
-    her, and with her melee weapon in hand she draws her gun again once the zombie is past 5 m.
+    takes her melee weapon at once, however far off the zombie is, walks to it and never backs away. Only a **clear
+    shooter** - Shooting at least 2 stars above Fighting - keeps her gun until the zombie is within 4 m, then switches
+    once (and draws it again once the zombie is past 5 m). A member whose best skill is Shooting fights a lone zombie
+    this way even when the count calls it one too many for her. When a fight turns matched again, her switch to melee
+    comes at once.
+  - **An empty gun is no gun:** with no rounds left in her gun or her pack she takes her melee weapon at once, fights
+    like a melee member and never backs away to shoot.
   - **Kite**: any other fight with a gun that has ammo - more than her side can take, swarmed, hurt, raiders or anyone
     armed, a cop or a demolition zombie, a zombie past a resident's leash, your gun order. She shoots, backs off within
     2.5 m and never switches to melee up close (but see "cornered" above).
@@ -2173,7 +2180,10 @@ These are the ones you are most likely to change. The file has many more.
 | `TeamLowHealth` / `TeamLowHealthBack` | 0.6 / 0.7 | Below this share of her health a member uses the gun again; melee again from the second |
 | `TeamSwapHoldSeconds` | 5 | After any change of weapon, no other change for this many seconds (unless she cannot swing at the zombie) |
 | `PostureDwellSeconds` | 5 | A switch between melee and kite waits this long (a cop or a zombie she cannot reach: at once) |
-| `PostureMeleeDist` | 4 | In a matched fight a member holding her gun shoots until the zombie is this close (meters), then switches to melee once |
+| `PostureMeleeDist` | 4 | In a matched fight a clear shooter shoots until the zombie is this close (meters), then switches to melee once; everyone else switches at once |
+| `TeamShooterMargin` | 2 | A member whose Shooting stars are at least this many above her Fighting stars is a clear shooter: the only one who keeps her gun in a matched fight until the zombie is close |
+| `TeamStarBonus` / `TeamStarBonusFrom` | 0.25 / 2 | With a melee weapon, each Fighting star above the second number makes a member count this much more for her side (Fighting 4: 1.5 times); 0: off |
+| `EngageWanderersWithin` | 5 | At home a resident fights a zombie inside the base this close to her (meters) even when it is after nobody; 0: left alone (only the intruder responders go) |
 | `InvestigateIntruders` | true | A zombie inside the base that is after nobody gets residents sent to it; false: left alone |
 | `InvestigateResponders` / `InvestigateRadius` | 2 / 0 | How many residents go to each one, and from how far (meters; 0: anywhere in the home zone) |
 | `InvestigateEnterMargin` | 0 | How far outside the home zone (meters) an idle zombie still counts as inside; 0: inside only |

@@ -105,6 +105,24 @@ namespace SurvivorCommunity
         /// </summary>
         public static float PostureMeleeDist = 4f;
         /// <summary>
+        /// Round wp1 (the user: "Mia's fighting skill is 4, she still shoots 1 lone zombie"): a clear shooter - Shooting stars at
+        /// least this many above her Fighting stars - keeps her gun in a matched fight until her target is within PostureMeleeDist;
+        /// everyone else takes her melee weapon at once in a matched fight.
+        /// </summary>
+        public static int TeamShooterMargin = 2;
+        /// <summary>
+        /// Round wp1: F for a member with a melee weapon in her pair is also multiplied by 1 + TeamStarBonus per Fighting star above
+        /// TeamStarBonusFrom (Fighting 4: 1.45 x 1.5 = 2.18, two walkers matched); members at or below it count as before.
+        /// </summary>
+        public static float TeamStarBonus = 0.25f;
+        public static int TeamStarBonusFrom = 2;
+        /// <summary>
+        /// Round wp1 (the user: "she approached zombies as if she was going to [swing], until I started attacking"): at home a
+        /// resident fights a zombie inside the home zone that is within this many meters of her even when it is after nobody -
+        /// round n08 left those alone for every attack, so she walked up and never swung. 0: n08's rule as it was.
+        /// </summary>
+        public static float EngageWanderersWithin = 5f;
+        /// <summary>
         /// Round k4 (ScInvestigate; the user, 2026-11-15: "If a zombie not engaged with any member or the player is inside the
         /// base, members should investigate"): an awake enemy inside the home zone that is after nobody gets
         /// InvestigateResponders of the nearest free residents within InvestigateRadius (0: anywhere in the zone). The Fable review
@@ -213,6 +231,10 @@ namespace SurvivorCommunity
             TeamUnreachableSeconds = 45f;
             PostureDwellSeconds = 5f;
             PostureMeleeDist = 4f;
+            TeamShooterMargin = 2;                 // round wp1
+            TeamStarBonus = 0.25f;
+            TeamStarBonusFrom = 2;
+            EngageWanderersWithin = 5f;
             InvestigateIntruders = true;
             InvestigateResponders = 2;
             InvestigateRadius = 0f;
@@ -279,6 +301,11 @@ namespace SurvivorCommunity
             // round k4: the posture's hysteresis, and the investigation of idle intruders
             ParseFloat(p, "PostureDwellSeconds", ref PostureDwellSeconds, 0f, 60f);
             ParseFloat(p, "PostureMeleeDist", ref PostureMeleeDist, 1f, 15f);
+            // round wp1: who keeps the gun in a matched fight, Fighting stars in F, and wanderers within reach
+            ParseInt(p, "TeamShooterMargin", ref TeamShooterMargin, 0, 7);
+            ParseFloat(p, "TeamStarBonus", ref TeamStarBonus, 0f, 2f);
+            ParseInt(p, "TeamStarBonusFrom", ref TeamStarBonusFrom, 0, 7);
+            ParseFloat(p, "EngageWanderersWithin", ref EngageWanderersWithin, 0f, 15f);
             ParseBoolKey(p, "InvestigateIntruders", ref InvestigateIntruders);
             ParseInt(p, "InvestigateResponders", ref InvestigateResponders, 1, 10);
             ParseFloat(p, "InvestigateRadius", ref InvestigateRadius, 0f, 500f);

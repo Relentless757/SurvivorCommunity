@@ -1239,6 +1239,8 @@ namespace SurvivorCommunity
             if (self.isEntityRemote || !IsMember(self)) return true;
             EntityAlive t = UAI.UAIUtils.ConvertToEntityAlive(ctx.ActionData.Target);
             if (t == null || t == self) return true;                          // its own "no target" failure, as it is
+            // round wp1 (decision 1): an empty gun is no gun - no back-off of any kind while dry (the posture gate's second net)
+            if (ScArms.GunDry(self)) { Patches_Xnpc.Count("backoff-dry-gun"); EndAtOnce(ctx); return false; }
             float now = Time.time;
             if (now >= nextPrune) Prune(now);
             // the shot still has this beat: SCore starts a finished task again every other frame until the next decision

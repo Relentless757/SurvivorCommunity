@@ -52,6 +52,13 @@ namespace SurvivorCommunity
         private const float Eps = 0.001f;
         /// <summary>A live base attack's sweep reaches this far above and below the member (the zone is flat on the map).</summary>
         private const float WideHalfHeight = 40f;
+        /// <summary>
+        /// Round wp1 (decision 3): a member's F / T breakdown is logged at a fight's start (the first count with enemies in it), at
+        /// most once in this long - a zombie stepping in and out of TeamRadius starts a "fight" each time.
+        /// </summary>
+        private const float FightLogSeconds = 30f;
+        /// <summary>Round wp1 (decision 3): at most this many friends and enemies in that line (then "and N more").</summary>
+        private const int FightLogItems = 8;
 
         private sealed class Verdict
         {
@@ -72,6 +79,10 @@ namespace SurvivorCommunity
             public int Nearest = -1;
             /// <summary>Why she is not melee-led ("" when she is).</summary>
             public string Why = "";
+            /// <summary>Round wp1 (decision 2): when the fight last turned matched again (0 never) - ScPosture's switch to melee is prompt then.</summary>
+            public float MatchedAgainAt;
+            /// <summary>Round wp1 (decision 3): when her F breakdown was last logged at a fight's start (FightLogSeconds apart at most).</summary>
+            public float FightLoggedAt = -1000f;
         }
 
         /// <summary>One count over the area.</summary>
@@ -225,17 +236,41 @@ namespace SurvivorCommunity
                 }
                 else if (!wasMatched && v.Matched)
                 {
+                    v.MatchedAgainAt = now;                                                 // round wp1 (decision 2)
                     matchedAgain++;
                     Patches_Xnpc.Count("x5-team-matched-again");
                     ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + "): the fight is matched again (F " + F2(t.F) + " >= " + F2(ScConfig.TeamMargin) + " x T " + F2(t.T) + ", "
                                   + ScConfig.TeamLeaveRecounts + " recounts in a row)");
                 }
                 if (!wasLow && v.LowHp) Patches_Xnpc.Count("x5-team-low-health");
+                // round wp1 (decision 3): a fight's start (the first count with enemies) logs her F / T breakdown once - the Fighting
+                // stars' share in it shows; a second census only then, with its detail lines
+                if (newFight && t.T > 0f && now - v.FightLoggedAt >= FightLogSeconds)
+                {
+                    v.FightLoggedAt = now;
+                    LogFight(e, v);
+                }
             }
             catch (Exception ex)
             {
                 ScLog.Once("team-recount", ex);
             }
+        }
+
+        /// <summary>Round wp1 (decision 3): her verdict at a fight's start with its friends and enemies, one line (FightLogItems of them at most).</summary>
+        private static void LogFight(EntityAlive e, Verdict v)
+        {
+            var lines = new List<string>();
+            var t = new Tally();
+            Census(e, ref t, lines);
+            var sb = new System.Text.StringBuilder();
+            sb.Append(ScCommunity.DisplayName(e)).Append(" (id ").Append(e.entityId).Append("): a fight starts - F ").Append(F2(v.F)).Append(" / T ").Append(F2(v.T))
+              .Append(v.Matched ? " (matched" : " (outmatched").Append(v.MeleeLed ? ", melee-led)" : ": " + v.Why + ")").Append(':');
+            int n = Math.Min(lines.Count, FightLogItems);
+            for (int i = 0; i < n; i++) sb.Append(i == 0 ? " " : "; ").Append(lines[i].Trim());
+            if (lines.Count > n) sb.Append("; and ").Append(lines.Count - n).Append(" more");
+            sb.Append(" (round wp1)");
+            ScLog.Out(sb.ToString());
         }
 
         /// <summary>Why this member is not melee-led on this verdict, or null when she is (the order: what she is, then the fight).</summary>
@@ -486,8 +521,13 @@ namespace SurvivorCommunity
                     Loadout l = ScLoadout.Current(a);
                     bool melee = l != null && !string.IsNullOrEmpty(l.Melee), ranged = l != null && l.HasRanged;
                     float wf = melee ? ScConfig.TeamWeaponMelee : ranged ? ScConfig.TeamWeaponRanged : ScConfig.TeamWeaponBare;
-                    wgt = (ScConfig.TeamStarBase + ScConfig.TeamStarStep * stars) * hpF * wf;
-                    if (detail) how = "member " + stars + "* (" + F2(ScConfig.TeamStarBase + ScConfig.TeamStarStep * stars) + ") x HpF " + F2(hpF) + " (hp " + Pct(hp) + ") x "
+                    // round wp1 (decision 3; the user: "Mia's fighting skill is 4, she still shoots 1 lone zombie"): with a melee weapon
+                    // in her pair each Fighting star above TeamStarBonusFrom adds TeamStarBonus to her weight (Fighting 4: x 1.5, so
+                    // 1.45 becomes 2.18 and two walkers are matched); at or below it, and without a melee weapon, as before
+                    float sb = melee ? 1f + ScConfig.TeamStarBonus * Math.Max(0, stars - ScConfig.TeamStarBonusFrom) : 1f;
+                    wgt = (ScConfig.TeamStarBase + ScConfig.TeamStarStep * stars) * sb * hpF * wf;
+                    if (detail) how = "member " + stars + "* (" + F2(ScConfig.TeamStarBase + ScConfig.TeamStarStep * stars) + ")"
+                                      + (sb > 1f ? " x Fighting above " + ScConfig.TeamStarBonusFrom + "* " + F2(sb) : "") + " x HpF " + F2(hpF) + " (hp " + Pct(hp) + ") x "
                                       + (melee ? "melee in pair " : ranged ? "ranged only " : "no weapon ") + F2(wf);
                 }
                 if (ScMedic.IsUsing(a.entityId))
@@ -603,6 +643,20 @@ namespace SurvivorCommunity
             return v != null && v.MeleeLed;
         }
 
+        /// <summary>Round wp1 (decision 2): melee-led with no melee-unsafe enemy counted - ScPosture's "she prefers melee" (no cb1 hold). A pure read.</summary>
+        internal static bool MeleeLedSafe(EntityAlive e)
+        {
+            Verdict v = Fresh(e);
+            return v != null && v.MeleeLed && v.Unsafe == 0;
+        }
+
+        /// <summary>Round wp1 (decision 2): her fight turned matched again within the last seconds and still is. A pure read.</summary>
+        internal static bool MatchedAgainWithin(EntityAlive e, float seconds)
+        {
+            Verdict v = Fresh(e);
+            return v != null && v.Matched && v.MatchedAgainAt > 0f && Time.time - v.MatchedAgainAt <= seconds;
+        }
+
         /// <summary>No recount below the leave margin is pending: a fight about to stop being matched is not the moment to take the melee weapon.</summary>
         public static bool Steady(EntityAlive e)
         {
@@ -664,6 +718,10 @@ namespace SurvivorCommunity
             EntityAlive own = e.GetAttackTarget();
             if (own == null || own.IsDead()) own = e.GetRevengeTarget();
             if (own != null && own.IsDead()) own = null;
+            // round wp1: her own target is no fight target while round n08's rule leaves it alone outside the home zone - the
+            // posture's approach walked her up to it and the MayEngage postfix refused every swing. Inside the zone it stays:
+            // within EngageWanderersWithin of her she fights it (UAIConsiderationScIntruder.WandererInReach)
+            if (own != null && UAI.UAIConsiderationScIntruder.LeavesAlone(e, own) && !UAI.UAIConsiderationScIntruder.InHomeZoneOf(e, own)) own = null;
             // the Fable review: her own target outside the counted area (one she shoots from afar) gives way to the nearest
             // counted enemy she sees - else she would wait on the far one while a walker comes in next to her
             if (own != null && InArea(e, own)) return own;
