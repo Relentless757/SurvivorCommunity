@@ -139,9 +139,13 @@ Build `sc34_hr1`, **not deployed**, untested in game. Server-side only (single p
       she stops running and fights (`time to get clear ran out with an enemy at arm's length - she stops running and fights
       on`), and bandages in the first gap. Never more than 4 room or flight walks in one wait.
 - [ ] A room walk through a door: at the spot she waits up to 3 s for the door behind her to shut (verbose: `waits up to N s
-      for the door behind her to shut`), then heals there (`reached a safe room`) instead of `no safe room now`.
+      for the door behind her to shut`), then heals there (`reached a safe room`) instead of `no safe room now`. A zombie that
+      follows her in ends the wait at once when it comes within 3 m or can reach her (`stops waiting in the room ...`) - she
+      never stands still with it on her.
+- [ ] A zombie within 2.5 m that sees her but chases someone else: she keeps attacking it (no pause every second) and heals
+      once it leaves or dies; a zombie that turns on her later still gets her full time to back off.
 - [ ] A last stand survives a heal in a gap: after the bandage, still under 60% with zombies on her, no `last stand ends` line
-      for the next 15 s.
+      while the item's cooldown or effect runs (and 15 s after the bandage at least).
 - [ ] A close gun put away in a stand (`sc loadout <name> gunHandgunT1Pistol meleeWpnClubT1BaseballBat`, the bat in her hand):
       with a loaded pistol she draws it again (`... a close gun with a loaded magazine: back to shooting`) once 6 s have passed.
 - [ ] A zombie within 2.5 m that sees her but chases someone else still holds her bandage at home (`would use ... (nothing

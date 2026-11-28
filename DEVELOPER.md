@@ -3439,6 +3439,13 @@ Round MP0 is the groundwork:
     0-XNPCCore's magazine table cvar). The gap rule also covers "nothing after her within reach" at home, the safe room's near
     test is 2.5 m while she has a usable weapon, and `FightsInstead` is cached 0.25 s per body. Verdict keys carry the kind,
     not the enemy's id.
+  - The re-check's fixes: the wait at a room spot ends at once when the pursuer is within `ArriveLeaveDist` (3 m) or the gap
+    rule holds (asked every tick: with the door open the room test sees no enemy), and "leave" is that test, not the verdict's
+    key; the wait has its own 3 s (the walk's deadline is pushed to it, never past 12 s after the first walk). The gap hold
+    where nothing is after her (`ScMedic.GapOnlyHolds`) starts no reach wait - ScHealBackOff stays out and MedicMaxWait is
+    not used up; a reach wait on then ends. A walk counts toward `MaxWalksPerWait` once its path passes `CheckPath`; failed
+    paths have their own cap (`MaxFailedWalksPerWait`, 8). The stand's hold also runs from her last use's start and while an
+    item still heals her (`ScMedic.UsedOrWorking`). `ScHealBackOff.Forget` drops a body's state in `ScLooks.Forget`.
 - **Round MP6 (review fixes):** the four reviews' fixes on the merged build. What a modder must know:
   - **The listen host's own markers** are drawn for the host's own player in the host's own community: the periodic and
     restore paths (`ScEnclaves`/`ScInfestations`' `RefreshMarkers`, `ScBands.UpdateMarkers`) take `ScCommunity.LocalPlayer`,

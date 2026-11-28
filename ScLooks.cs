@@ -215,6 +215,7 @@ namespace SurvivorCommunity
             ScInvestigate.Forget(entityId);            // its intruder answer (round k4)
             ScMedic.Forget(entityId);                 // its medic clocks, wait and regeneration (round k2; not a use in progress)
             ScSafeRoom.Forget(entityId);              // round hr1: its cached safe-room verdict
+            ScHealBackOff.Forget(entityId);           // round hr1 (re-check): its heal-walk state and gap verdict
 #if SC_V34
             pendingFaces.Remove(entityId);             // a creator face still waiting for the body's next frame (X17)
             ScWardrobe.Forget(entityId);               // her pre-wardrobe gear snapshot (round n05)

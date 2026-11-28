@@ -136,7 +136,7 @@ namespace SurvivorCommunity
             /// Round hr1 (review HR1-M1): room and flight walks started in the wait that began at WalksWait (at most MaxWalksPerWait), and
             /// the wait whose MedicMaxWait ran out while the gap rule held the heal (TimedOutWait: no more walks in it - she fights).
             /// </summary>
-            public int Walks;
+            public int Walks, FailedWalks;                       // round hr1 (re-check HR1R-n1): walks whose path passed / failed
             public float WalksWait = -1f, TimedOutWait = -1f;
             /// <summary>
             /// Round hr1 (review HR1-M2): at a room walk's spot, not safe yet with a door passed on the way - she waits there until
@@ -151,6 +151,10 @@ namespace SurvivorCommunity
         private const int MaxWalksPerWait = 4;
         /// <summary>Round hr1 (review HR1-M2): at a room spot she waits up to this long for the door behind her to shut, testing this often.</summary>
         private const float ArriveWaitSeconds = 3f, ArriveTestSeconds = 0.5f;
+        /// <summary>Round hr1 (re-check HR1R-M1): a pursuer this close ends the wait at a room spot at once (she never stands still with it on her).</summary>
+        private const float ArriveLeaveDist = 3f;
+        /// <summary>Round hr1 (re-check HR1R-n1): room and flight walks whose path failed CheckPath, at most this many per wait (they do not count toward MaxWalksPerWait).</summary>
+        private const int MaxFailedWalksPerWait = 8;
         /// <summary>Round hr1 (review HR1-m7): the gap rule's verdict is kept this long per body (the consideration asks on every decision).</summary>
         private const float GapCacheSeconds = 0.25f;
 
@@ -202,6 +206,13 @@ namespace SurvivorCommunity
             nextPrune = 0f;
             scratchNear.Clear();
             scratchFoes.Clear();
+        }
+
+        /// <summary>Round hr1 (re-check HR1R-n4): a body SC lets go of (ScLooks.Forget; entity ids are recycled) - its state and gap verdict.</summary>
+        public static void Forget(int entityId)
+        {
+            states.Remove(entityId);
+            gapCache.Remove(entityId);
         }
 
         // ------------------------------------------------------------------ pure reads ----
@@ -742,8 +753,8 @@ namespace SurvivorCommunity
             st.Walking = true;
             st.WalkAt = now;
             // round hr1 (review HR1-M1): counted per wait - MaxWalksPerWait at most
-            if (Mathf.Abs(st.WalksWait - st.WaitSince) > SameWait) { st.WalksWait = st.WaitSince; st.Walks = 0; }
-            st.Walks++;
+            if (Mathf.Abs(st.WalksWait - st.WaitSince) > SameWait) { st.WalksWait = st.WaitSince; st.Walks = 0; st.FailedWalks = 0; }
+            // round hr1 (re-check HR1R-n1): counted once its path passes CheckPath (a failed one counts toward MaxFailedWalksPerWait)
             // a path is longer than the straight line: 1.4 x until the navigator has it (CheckPath)
             WalkClock(self, st, st.Step * 1.4f, now);
             if (!st.Counted)
@@ -768,6 +779,11 @@ namespace SurvivorCommunity
             if (Mathf.Abs(st.WalksWait - st.WaitSince) <= SameWait && st.Walks >= MaxWalksPerWait)
             {
                 why = st.Walks + " room or flight walk(s) this wait already (at most " + MaxWalksPerWait + ")";
+                return false;
+            }
+            if (Mathf.Abs(st.WalksWait - st.WaitSince) <= SameWait && st.FailedWalks >= MaxFailedWalksPerWait)
+            {
+                why = st.FailedWalks + " room or flight spot(s) with no usable path this wait (at most " + MaxFailedWalksPerWait + "; round hr1 re-check)";
                 return false;
             }
             return true;
@@ -799,7 +815,7 @@ namespace SurvivorCommunity
             Patches_Xnpc.Count("heal-timeout-fights-on");
             Note(st, "MedicMaxWait ran out in the fight - fights on, no more walks this wait (hr1)", now);
             ScLog.Out(ScMedic.BodyName(e) + "'s time to get clear ran out with an enemy at arm's length - " + ScMedic.She(e)
-                      + " stops running and fights on, and heals the moment a gap opens (no more walks this wait; round hr1 review)");
+                      + " stops running (no more walks this wait; 0-XNPCCore's roll at most) and fights on, and heals the moment a gap opens (round hr1 review)");   // round hr1 (re-check HR1R-n2)
         }
 
         /// <summary>
@@ -1002,6 +1018,7 @@ namespace SurvivorCommunity
                               + Mathf.Max(0f, st.WalkDeadline - now).ToString("0.#", CultureInfo.InvariantCulture) + " s from now (round hr1)");
             }
             finally { scratchFoes.Clear(); }
+            st.Walks++;                                              // round hr1 (re-check HR1R-n1): the walk counts once its path passed
             return true;
         }
 
@@ -1157,7 +1174,7 @@ namespace SurvivorCommunity
                     st.NextDoors = now + 0.5f;
                     ScDoors.TrackPassed(self, ref st.DoorPath, ref st.DoorIndex, ref st.LastDoor, ref st.HasDoor);
                 }
-                if (!st.PathChecked && !CheckPath(self, st, now)) { st.Walking = false; return false; }
+                if (!st.PathChecked && !CheckPath(self, st, now)) { st.Walking = false; st.FailedWalks++; return false; }   // round hr1 (re-check HR1R-n1): FailedWalks
                 if (now >= st.NextSafe)
                 {
                     st.NextSafe = now + 1f;
@@ -1174,18 +1191,36 @@ namespace SurvivorCommunity
                 // round hr1: a room walk's spot - heal there if it is a safe room now, else it is set aside and the next step comes
                 if (st.Kind == WalkRoom)
                 {
+                    // round hr1 (re-check HR1R-M1): she never stands waiting with the pursuer on her - it within ArriveLeaveDist, or the gap
+                    // rule holding (an enemy within 2.5 m sees her), ends the wait at once (the fight, the next step or the stand takes over).
+                    // Asked every tick, not only at the 0.5 s tests: while the door is open the room test sees no enemy at all
+                    string fw;
+                    bool leave = dist <= ArriveLeaveDist || FightsInstead(self, out fw);
+                    if (st.ArriveUntil > 0f && leave)
+                    {
+                        st.ArriveUntil = 0f;
+                        SetAside(st, now);
+                        Patches_Xnpc.Count("heal-room-wait-ended");
+                        ScLog.Out(ScMedic.BodyName(self) + " stops waiting in the room at " + ScRetreat.Cell(st.Point) + ": " + Who(t) + " is at " + dist.ToString("0.0", CultureInfo.InvariantCulture)
+                                  + " m - the next step (round hr1 re-check)");
+                        return false;
+                    }
                     // round hr1 (review HR1-M2): waiting at the spot for the door behind her - a fresh test every ArriveTestSeconds
                     if (st.ArriveUntil > 0f && now < st.NextArriveTest) return true;
                     if (st.ArriveUntil <= 0f) ScDoors.TrackPassed(self, ref st.DoorPath, ref st.DoorIndex, ref st.LastDoor, ref st.HasDoor);
                     string room, key;
                     // round hr1 (review HR1-m6): a fresh test here - the 1 s cache may hold a verdict taken outside the room
                     if (ScSafeRoom.SafeToHeal(self, true, out room, out key)) { st.ArriveUntil = 0f; SafeArrival(self, st, room, now, true); return false; }
-                    bool inside = key.StartsWith("unsafe:inside", StringComparison.Ordinal);   // an enemy in the room: leaving is right
-                    if (!inside && st.ArriveUntil <= 0f && st.HasDoor && Mathf.Min(now + ArriveWaitSeconds, st.WalkDeadline) > now + ArriveTestSeconds)
+                    // round hr1 (re-check HR1R-m1): "leave now" is the distance test above, not the verdict's key - with an inner door the
+                    // open-door fill is enclosed and a pursuer in the corridor reads "inside", though the door would shut it out. The wait
+                    // has its own ArriveWaitSeconds (the walk's deadline is pushed to it), never past WalkCapSeconds after the first walk
+                    float until = Mathf.Min(now + ArriveWaitSeconds, st.FirstWalkAt + WalkCapSeconds);
+                    if (!leave && st.ArriveUntil <= 0f && st.HasDoor && until > now + ArriveTestSeconds)
                     {
                         // ScDoors shuts a door she passed 2 s after it was tracked and once her path no longer runs through it: she
                         // stands at the spot (her path dropped) and the room is tested again until then
-                        st.ArriveUntil = Mathf.Min(now + ArriveWaitSeconds, st.WalkDeadline);
+                        st.ArriveUntil = until;
+                        if (st.WalkDeadline < until) st.WalkDeadline = until;    // MedicMaxWait waits for it too (bounded by the cap above)
                         st.NextArriveTest = now + ArriveTestSeconds;
                         ScCommunity.DropPath(self);
                         Patches_Xnpc.Count("heal-room-wait-door");
@@ -1193,7 +1228,7 @@ namespace SurvivorCommunity
                                       + (st.ArriveUntil - now).ToString("0.#", CultureInfo.InvariantCulture) + " s for the door behind " + ScMedic.HerObj(self) + " to shut (" + room + "; round hr1 review)");
                         return true;
                     }
-                    if (!inside && st.ArriveUntil > 0f && now < st.ArriveUntil) { st.NextArriveTest = now + ArriveTestSeconds; return true; }
+                    if (!leave && st.ArriveUntil > 0f && now < st.ArriveUntil) { st.NextArriveTest = now + ArriveTestSeconds; return true; }
                     st.ArriveUntil = 0f;
                     SetAside(st, now);
                     Patches_Xnpc.Count("heal-room-not-safe");
@@ -1212,6 +1247,7 @@ namespace SurvivorCommunity
                 st.Memory.Bad.Add(st.Point);
                 st.Memory.BadUntil.Add(now + 10f);
                 Patches_Xnpc.Count("heal-backoff-unreached");
+                if (st.Kind != WalkK1 && !st.PathChecked) st.FailedWalks++;          // round hr1 (re-check HR1R-n1)
                 return false;
             }
             return true;
@@ -1283,7 +1319,12 @@ namespace SurvivorCommunity
         internal static void Stopped(EntityAlive self)
         {
             State st;
-            if (states.TryGetValue(self.entityId, out st)) st.Walking = false;
+            if (states.TryGetValue(self.entityId, out st))
+            {
+                st.Walking = false;
+                st.StalePath = null;                                 // round hr1 (re-check HR1R-n4): no destructed path kept
+                st.ArriveUntil = 0f;                                 // round hr1 (re-check): a stopped walk waits at no spot
+            }
             ScCommunity.DropPath(self);
             if (self.moveHelper != null) self.moveHelper.CanBreakBlocks = true;
         }
@@ -1320,7 +1361,11 @@ namespace SurvivorCommunity
             if (now < st.HealNowUntil) return "HEALS NOW: " + st.HealNowWhy;
             float held;
             if (ScMedic.WaitingToHeal(e, out held) && FightsOn(e, st, now - held))
+            {
+                // round hr1 (re-check HR1R-n3): a timed-out wait is held by the gap rule alone, at any health
+                if (Mathf.Abs(st.TimedOutWait - (now - held)) <= SameWait) return "TIMED OUT - fights on until no enemy within " + HealCutRange.ToString("0.#", CultureInfo.InvariantCulture) + " m sees " + ScMedic.HerObj(e) + " (round hr1)";
                 return "CORNERED - fights on above " + Pct(ScConfig.CorneredHealBelow) + " (round nc1, D2)";
+            }
             if (now < st.ClearUntil) return "CLEAR - heals now";
             return "backs off to heal (round k2b)";
         }

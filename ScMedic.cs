@@ -179,6 +179,20 @@ namespace SurvivorCommunity
         public static bool IsUsing(int id) { return uses.ContainsKey(id); }
 
         /// <summary>
+        /// Round hr1 (re-check HR1R-m3, the last stand's hold): a use is running, an item still heals her, or her last use began at
+        /// most seconds ago (readyAt - Cooldown). A pure read.
+        /// </summary>
+        internal static bool UsedOrWorking(EntityAlive e, float seconds)
+        {
+            if (e == null) return false;
+            if (uses.ContainsKey(e.entityId)) return true;
+            try { if (e.Buffs != null && e.Buffs.GetCustomVar("medicalRegHealthAmount") > 0f) return true; }
+            catch (Exception) { }
+            float ready;
+            return readyAt.TryGetValue(e.entityId, out ready) && Time.time - (ready - Cooldown) <= seconds;
+        }
+
+        /// <summary>
         /// Round k2 (Fable review 8): is this body's medical use being held right now because an enemy after her is within
         /// MedicSafeDistance (TryHeal's HeldByReach), and for how long (seconds, 0 when not)? A pure read, main thread. A wait
         /// whose latest refusal is more than WaitStaleSeconds old counts as over.
@@ -274,6 +288,7 @@ namespace SurvivorCommunity
             heldLast.Clear();
 #if SC_V34
             gapLogged.Clear();                     // round hr1
+            gapOnlyAt.Clear();                     // round hr1 (re-check)
 #endif
             regenAt.Clear();
             regenWhy.Clear();
@@ -354,6 +369,7 @@ namespace SurvivorCommunity
             ClearWait(entityId);
 #if SC_V34
             gapLogged.Remove(entityId);           // round hr1
+            gapOnlyAt.Remove(entityId);           // round hr1 (re-check)
 #endif
             regenAt.Remove(entityId);
             regenWhy.Remove(entityId);
@@ -518,7 +534,13 @@ namespace SurvivorCommunity
             {
                 // round hr1 (review HR1-m5): at home the gap rule here too - an enemy within 2.5 m that sees her holds the use even when
                 // it is after someone else
-                if (bm != null && ScHealBackOff.AtHome(e) && GapHolds(e, pick, null, "nothing after " + HerObj(e) + " within " + F1(reach) + " m", waiting, since, now)) return true;
+                // round hr1 (re-check HR1R-m2): a hold of its own - no reach wait (ScHealBackOff stays out, her attack is not restarted, no
+                // MedicMaxWait used up); a reach wait that was on is over, so a pursuer that comes later starts a fresh one
+                if (bm != null && ScHealBackOff.AtHome(e) && GapOnlyHolds(e, pick, "nothing after " + HerObj(e) + " within " + F1(reach) + " m", now))
+                {
+                    if (waiting) ClearWait(e.entityId);
+                    return true;
+                }
                 if (waiting)
                 {
                     ClearWait(e.entityId);
@@ -611,6 +633,28 @@ namespace SurvivorCommunity
 
         /// <summary>Round hr1: body id -> the wait (heldSince) whose gap-rule line was logged (once per wait).</summary>
         private static readonly Dictionary<int, float> gapLogged = new Dictionary<int, float>();
+        /// <summary>Round hr1 (re-check HR1R-m2): body id -> the last check a gap-only hold held her (its line once per hold, WaitStaleSeconds apart).</summary>
+        private static readonly Dictionary<int, float> gapOnlyAt = new Dictionary<int, float>();
+
+        /// <summary>
+        /// Round hr1 (re-check HR1R-m2): the gap rule where nothing is after her within reach (an enemy within 2.5 m sees her but targets
+        /// someone else) - the use waits, but no reach wait starts: ScHealBackOff's action stays out (her attack goes on) and the
+        /// MedicMaxWait clock is not run. Logged once per hold. True: held.
+        /// </summary>
+        private static bool GapOnlyHolds(EntityAlive e, string pick, string pathWhy, float now)
+        {
+            string fw;
+            if (!ScHealBackOff.FightsInstead(e, out fw)) { gapOnlyAt.Remove(e.entityId); return false; }
+            float last;
+            bool first = !gapOnlyAt.TryGetValue(e.entityId, out last) || now - last > WaitStaleSeconds;
+            gapOnlyAt[e.entityId] = now;
+            if (first)
+            {
+                Patches_Xnpc.Count("heal-gap-held-only");
+                ScLog.Out(BodyName(e) + " would use " + pick + " now (" + pathWhy + ") but " + fw + " - " + She(e) + " fights and heals in a gap (round hr1, decision 6)");
+            }
+            return true;
+        }
 
         /// <summary>
         /// Round hr1 (the user's decision 6, "heal only in a gap"): at home a use that would start now (pathWhy: which path - the

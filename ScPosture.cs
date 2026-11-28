@@ -417,8 +417,15 @@ namespace SurvivorCommunity
                     noRoom = "nothing to heal with and the shelter walk found no spot (holds where " + ScRetreat.She(e) + " stands)";
                 // round hr1 (review HR1-m2): a stand holds through the item's cooldown after a heal in a gap (no wait then) while she is
                 // still at or under the heal line and the last "no room" verdict is recent
-                else if (st.Stand && e.GetMaxHealth() > 0 && e.Health <= e.GetMaxHealth() * ScMedic.HealBelow && ScHealBackOff.NoRoomRecently(e, StandKeepSeconds, out room))
-                    noRoom = "still hurt, no room to heal " + StandKeepSeconds.ToString("0", CultureInfo.InvariantCulture) + " s ago (" + room + ")";
+                else if (st.Stand && e.GetMaxHealth() > 0 && e.Health <= e.GetMaxHealth() * ScMedic.HealBelow)
+                {
+                    // round hr1 (re-check HR1R-m3): counted from the later of the last verdict and her last use's start, and held while an
+                    // item still heals her (the next wait starts only after the item's cooldown)
+                    if (ScHealBackOff.NoRoomRecently(e, StandKeepSeconds, out room))
+                        noRoom = "still hurt, no room to heal within the last " + StandKeepSeconds.ToString("0", CultureInfo.InvariantCulture) + " s (" + room + ")";
+                    else if (ScMedic.UsedOrWorking(e, StandKeepSeconds))
+                        noRoom = "still hurt after a heal in a gap (its item's cooldown or effect still running)";
+                }
             }
             int close = home && (noRoom != null || st.Stand) ? AfterHerWithin(e, StandRadius) : 0;
             st.StandReach = close > 0;
