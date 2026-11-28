@@ -389,7 +389,10 @@ namespace SurvivorCommunity
             if (ScRetreat.Owns(npc)) return "sheltering or kiting hurt";
             if (ScPosture.Holds(npc)) return "holding her spot after a back-off, a heal or a reload (round cb1)";
             int max = npc.GetMaxHealth();
-            if (max > 0 && (float)npc.Health / max < ScConfig.TeamLowHealth) return "hurt below " + F0(ScConfig.TeamLowHealth * 100f) + "%";
+            // round wp2 (1): her own hurt line (ScTeam.HurtLines: lower for a strong fighter)
+            float hurtOff, hurtOn;
+            ScTeam.HurtLines(m, out hurtOff, out hurtOn);
+            if (max > 0 && (float)npc.Health / max < hurtOff) return "hurt below " + F0(hurtOff * 100f) + "%";
             // round wp1 (review WP1-M2): an own target round n08 leaves her alone with (a wanderer she may not attack) is no fight -
             // she stood by it, "in another fight", and nobody went to the intruder (log: "Mia: in another fight; Holly: down").
             // Round wp1 (re-check WP1R-n4): the attack target and the revenge target each on its own (ScTeam.OwnFight); her attack

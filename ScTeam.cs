@@ -77,6 +77,8 @@ namespace SurvivorCommunity
             public int PlayersIn, PlayersFighting;
             /// <summary>The nearest counted enemy (her fight's target while she has none of her own: Target), -1 none.</summary>
             public int Nearest = -1;
+            /// <summary>Round wp2 (1): her own hurt lines at the last count - off below HurtOff, melee again from HurtOn (HurtLines).</summary>
+            public float HurtOff, HurtOn;
             /// <summary>Why she is not melee-led ("" when she is).</summary>
             public string Why = "";
             /// <summary>Round wp1 (decision 2): when the fight last turned matched again (0 never) - ScPosture's switch to melee is prompt then.</summary>
@@ -218,8 +220,10 @@ namespace SurvivorCommunity
                 }
                 float hp = HealthShare(e);
                 bool wasLow = v.LowHp;
-                if (hp < ScConfig.TeamLowHealth) v.LowHp = true;
-                else if (hp >= ScConfig.TeamLowHealthBack) v.LowHp = false;
+                // round wp2 (1): her own lines - lower for a strong fighter, and the way back always under the regeneration cap
+                HurtLines(m, out v.HurtOff, out v.HurtOn);
+                if (hp < v.HurtOff) v.LowHp = true;
+                else if (hp >= v.HurtOn) v.LowHp = false;
                 Loadout pair = ScLoadout.Current(e);
                 ItemClass gun = pair != null && pair.HasRanged ? ItemClass.GetItemClass(pair.Ranged, true) : null;
                 v.Gun = ScAmmo.RangedAction(gun) != null && ScAmmo.Rounds(e, gun) > 0;
@@ -290,7 +294,8 @@ namespace SurvivorCommunity
             if (ScArms.OrderedRanged(e)) return "you ordered her gun (by talking or the weapon toggle; order her melee weapon, or sc team " + e.entityId + " auto, to undo)";
             Loadout l = ScLoadout.Current(e);
             if (l == null || string.IsNullOrEmpty(l.Melee)) return "no melee weapon in her pair";
-            if (v.LowHp) return "hurt (" + Pct(HealthShare(e)) + " - melee again from " + Pct(ScConfig.TeamLowHealthBack) + ")";
+            if (v.LowHp) return "hurt (" + Pct(HealthShare(e)) + " - melee again from " + Pct(v.HurtOn) + "; off below " + Pct(v.HurtOff)
+                                + (v.HurtOff < ScConfig.TeamLowHealth - 0.001f ? " for Fighting " + m.Stars(Skill.Fighting) + "*" : "") + ")";     // round wp2 (1)
             if (v.RaiderFight) return "armed enemies in the fight (raiders, bandits: today's rules)";
             if (!v.Matched) return "outmatched (F " + F2(v.F) + " vs T " + F2(v.T) + ": matched again after " + ScConfig.TeamLeaveRecounts + " recounts at F >= "
                                    + F2(ScConfig.TeamMargin) + " T)";
@@ -429,7 +434,7 @@ namespace SurvivorCommunity
                 float own = FriendWeight(self, self, detail, out string ownHow);
                 t.F += own;
                 t.Friends++;
-                if (detail) lines.Add("  + " + Who(self) + " (herself) " + ownHow + " = " + F2(own));
+                if (detail) lines.Add("  + " + Who(self) + " (" + (ScRetreat.Male(self) ? "himself" : "herself") + ") " + ownHow + " = " + F2(own));   // round wp2: the pronoun
                 // round k1, the Fable review (F2a): the players who hit an enemy in this area lately - the only way a player counts
                 NoteFighting(at, wide, r2, now, detail);
                 for (int i = 0; i < near.Count; i++)
@@ -645,6 +650,28 @@ namespace SurvivorCommunity
             return v != null && v.MeleeLed;
         }
 
+        /// <summary>Round wp2 (1a): the way back to melee sits at least this far under RegenCapShare, so regeneration alone reaches it.</summary>
+        private const float RegenLineMargin = 0.05f;
+
+        /// <summary>
+        /// Round wp2 (1; the user: "Mia is still using a shotgun against few zombies. her Fighting skill is greater than her shooting
+        /// skill"): a member's own hurt lines. Off (not melee-led) below off, melee again from on. (b) Each Fighting star above
+        /// TeamStarBonusFrom lowers both by MeleeHurtPerStar: off = max(MeleeHurtFloor, TeamLowHealth - per x stars), on = off +
+        /// (TeamLowHealthBack - TeamLowHealth) - 60% / 65% at Fighting 1-2, 45% / 50% at 5, 35% / 40% at most. (a) The bug fix: on
+        /// is at most RegenCapShare - RegenLineMargin while regeneration runs (it stops at exactly the cap, 70% since hr1, which was
+        /// the old line: after any hit she stayed on the gun until a medical item), and off never above on. Her own stars only. A read.
+        /// </summary>
+        internal static void HurtLines(Member m, out float off, out float on)
+        {
+            int above = m != null ? Math.Max(0, m.Stars(Skill.Fighting) - ScConfig.TeamStarBonusFrom) : 0;
+            float gap = Mathf.Max(0f, ScConfig.TeamLowHealthBack - ScConfig.TeamLowHealth);
+            off = Mathf.Max(Mathf.Min(ScConfig.MeleeHurtFloor, ScConfig.TeamLowHealth), ScConfig.TeamLowHealth - ScConfig.MeleeHurtPerStar * above);
+            on = off + gap;
+            if (ScConfig.RegenOutOfCombat && ScConfig.RegenRatePerSecond > 0f && ScConfig.RegenCapShare > 0f)
+                on = Mathf.Min(on, Mathf.Max(0f, ScConfig.RegenCapShare - RegenLineMargin));
+            if (off > on) off = on;
+        }
+
         /// <summary>Round wp1 (decision 2): her fight turned matched again within the last seconds and still is. A pure read.</summary>
         internal static bool MatchedAgainWithin(EntityAlive e, float seconds)
         {
@@ -789,7 +816,8 @@ namespace SurvivorCommunity
         {
             lines.Add("[SC] team strength (round tm1, margins round k3): " + (ScConfig.TeamMelee ? "on" : "OFF (TeamMelee=false: no MELEE posture)") + "; matched at F >= "
                       + F2(ScConfig.TeamMargin) + " T (left below " + F2(ScConfig.TeamLeaveMargin) + " T), melee-led from " + Pct(ScConfig.TeamLowHealth) + " health (again from "
-                      + Pct(ScConfig.TeamLowHealthBack) + "); " + Report());
+                      + Pct(ScConfig.TeamLowHealthBack) + "; round wp2: both " + Pct(ScConfig.MeleeHurtPerStar) + " lower per Fighting star above "
+                      + ScConfig.TeamStarBonusFrom + ", the first down to " + Pct(ScConfig.MeleeHurtFloor) + ", the second under the regeneration cap); " + Report());
             lines.Add("[SC] you count " + F2(ScConfig.TeamPlayerWeight) + " only while you are fighting (round k1; only your hits count): you hit an enemy in a member's counted area "
                       + "in the last " + F2(ScConfig.TeamPlayerFightingSeconds) + " s (TeamPlayerFightingSeconds; a kill counts too) - an enemy merely after you does not; standing by, you count 0");
             lines.Add("[SC] postures (round k4): " + ScPosture.Report());

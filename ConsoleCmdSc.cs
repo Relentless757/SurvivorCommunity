@@ -3104,8 +3104,11 @@ namespace SurvivorCommunity
                 if (p.Count >= 3 && p[2].Equals("auto", StringComparison.OrdinalIgnoreCase)) lines.Add("[SC] " + ScTeam.ClearOrders(e));
                 else if (p.Count >= 3 && p[2].Equals("hurt", StringComparison.OrdinalIgnoreCase))
                 {
-                    // a test shortcut (as sc run hurt): her body's health to a share of her max, default just under TeamLowHealth
-                    float share = Mathf.Max(0.01f, ScConfig.TeamLowHealth - 0.05f);
+                    // a test shortcut (as sc run hurt): her body's health to a share of her max, default just under her own hurt line
+                    // (round wp2: ScTeam.HurtLines - lower for a strong fighter)
+                    float hurtOff, hurtOn;
+                    ScTeam.HurtLines(ScTeam.MemberOf(e), out hurtOff, out hurtOn);
+                    float share = Mathf.Max(0.01f, hurtOff - 0.05f);
                     if (p.Count >= 4 && !float.TryParse(p[3], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out share))
                     {
                         Output("[SC] sc team <id|name> hurt [share of max health, 0.01-1]");
@@ -3115,8 +3118,9 @@ namespace SurvivorCommunity
                     int max = e.GetMaxHealth();
                     e.Health = Mathf.Max(1, Mathf.RoundToInt(max * Mathf.Clamp(share, 0.01f, 1f)));
                     lines.Add("[SC] " + ScCommunity.DisplayName(e) + " is at " + e.Health + "/" + max + " hp - "
-                              + ((float)e.Health / max < ScConfig.TeamLowHealth ? "below TeamLowHealth (" + ScConfig.TeamLowHealth + "): not melee-led from the next count, again from " + ScConfig.TeamLowHealthBack
-                                 : "not below TeamLowHealth (" + ScConfig.TeamLowHealth + ")"));
+                              + ((float)e.Health / max < hurtOff ? "below her hurt line (" + hurtOff.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
+                                    + "): not melee-led from the next count, again from " + hurtOn.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
+                                 : "not below her hurt line (" + hurtOff.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + ")"));
                 }
                 else if (p.Count >= 3) { Output("[SC] sc team [id|name [auto | hurt [share]]]"); return; }
                 ScTeam.Describe(e, lines);

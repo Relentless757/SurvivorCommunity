@@ -1622,10 +1622,12 @@ catalog, and real armor pieces in their equipment slots.
   farther off. **At home they never back out of the base:** the step back (10, 6 or 3 m) always ends inside the home zone,
   on a floor with nothing in the way and out of every zombie's reach; with no such spot they shoot. A back-off that does
   not get them away - the zombie keeps pace, or several do - stops after about 1.5 seconds and they shoot instead, at
-  home and away. Cornered and reloading (or cornered for 3 seconds straight without one shot at the zombie), they
-  swing their melee weapon and stay on it until they have room again - never at a cop, an armed enemy or a zombie they
+  home and away. Tall grass and flowers count as open ground for the step back. Cornered and reloading (or cornered for
+  3 seconds straight without one shot at the zombie, or with a bow, a crossbow or a pipe gun fired and a zombie after
+  them within 2.5 m), they swing their melee weapon and stay on it until they have room again - never at a cop, an armed enemy or a zombie they
   cannot swing at; if no swing lands in 2.5 seconds (a fence or bars in the way) the gun comes back and they leave that
-  rule alone for 10 seconds. A badly hurt member with nothing to heal with keeps her distance from 8 m (section 4). Away from home they back off as the NPC framework does.
+  rule alone for 10 seconds. After a back-off, a reload or a heal they hold their spot only with no zombie after them
+  within 4.5 m. A badly hurt member with nothing to heal with keeps her distance from 8 m (section 4). Away from home they back off as the NPC framework does.
   `BackOffHome` and the other `BackOff...` settings (section 20) tune it.
 - **Team strength** (your members): each one weighs her side - her Fighting stars, health and weapon, the other members
   near her, and you (you count double, but only while you are fighting: you hit a zombie near her in the last 5 seconds -
@@ -1636,7 +1638,9 @@ catalog, and real armor pieces in their equipment slots.
   row (about 2 seconds) to be matched again. With a melee weapon, each Fighting star above 2 makes a member count a
   quarter more (Fighting 4: one and a half times), so a good fighter alone is a match for two walkers.
 - **One posture per member** decides her weapon and her moves, and her weapon changes **at most once every 5 seconds**:
-  - **Melee**: a matched fight, at least 60% health (melee again from 70%), a zombie she can swing at, not swarmed. She
+  - **Melee**: a matched fight, at least 60% health (melee again from 65%; a strong fighter stays in longer: each
+    Fighting star above 2 lowers both by 5 points, down to 35% / 40% - Fighting 5 is 45% / 50% - and regeneration alone
+    always brings her back), a zombie she can swing at, not swarmed. She
     fights with her melee weapon and never backs away. **Her own skill decides how:** with at least as many Fighting
     stars as Shooting stars she takes her melee weapon at once, however far off the zombie is, and walks to it; with
     more Shooting stars she keeps her gun until the zombie is within 4 m, then switches once (and draws it again once
@@ -2178,7 +2182,8 @@ These are the ones you are most likely to change. The file has many more.
 | `TeamMelee` | true | Members fight with their melee weapon in a fight their side can win (section 15); false: never - every fight with a gun is "kite" |
 | `TeamRadius` | 15 | How far around a member her side and the enemies are counted (meters) |
 | `TeamMargin` / `TeamLeaveMargin` | 1 / 0.8 | A fight is matched when her side is this many times the enemies; it stops being matched below the second |
-| `TeamLowHealth` / `TeamLowHealthBack` | 0.6 / 0.7 | Below this share of her health a member uses the gun again; melee again from the second |
+| `TeamLowHealth` / `TeamLowHealthBack` | 0.6 / 0.65 | Below this share of her health a member uses the gun again; melee again from the second (never above `RegenCapShare` - 0.05, so regeneration brings her back) |
+| `MeleeHurtPerStar` / `MeleeHurtFloor` | 0.05 / 0.35 | Each Fighting star above `TeamStarBonusFrom` lowers both lines by this much, the first never below the floor (Fighting 5: 45% / 50%); 0: everyone at the base lines |
 | `TeamSwapHoldSeconds` | 5 | After any change of weapon, no other change for this many seconds (unless she cannot swing at the zombie) |
 | `PostureDwellSeconds` | 5 | A switch between melee and kite waits this long (a cop or a zombie she cannot reach: at once) |
 | `PostureMeleeDist` | 4 | In a matched fight a member with more Shooting than Fighting stars shoots until the zombie is this close (meters), then switches to melee once; the others switch at once |

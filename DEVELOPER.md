@@ -3646,6 +3646,26 @@ Round MP0 is the groundwork:
     in another stance, goes back to the old posture (INVESTIGATE only while she still investigates) with the new one pending
     (`posture-gap-bridged`, a verbose line). New settings `TeamShooterMargin`, `TeamStarBonus`, `TeamStarBonusFrom`,
     `EngageWanderersWithin`; no new Harmony target, no `ScNet.Protocol` change, no localization row.
+- **Round wp2 (hurt lines by skill, no bow at point blank, the defense walk; server-side, members only):**
+  - `ScTeam.HurtLines(m, out off, out on)`: off = max(`MeleeHurtFloor`, `TeamLowHealth` - `MeleeHurtPerStar` x Fighting stars above
+    `TeamStarBonusFrom`), on = off + (`TeamLowHealthBack` - `TeamLowHealth`), on at most `RegenCapShare` - 0.05 while regeneration
+    runs (the bug: since hr1 regeneration stops at exactly 70%, the old line). `Recount` keeps them in `Verdict.HurtOff/HurtOn`
+    and `WhyNotLed` prints both; `ScInvestigate.NotFree` and `sc team <name> hurt` use her own line. Her own stars only.
+  - `ScPosture.StartHold` refuses a new or renewed hold with an enemy after her within `HoldStartClear` (4.5 m), any enemy within
+    `HoldBreakDist` (3 m) or while R2's cornered melee holds (`ScArms.CorneredMeleeOn`); counted `posture-hold-refused-close`.
+    Each hold drew a bow back at once (the hold's KITE is urgentGun). The callers' "her reload" etc. take the body's pronoun.
+  - `ScArms.KiteHand`: R2's trigger also fires for a spent slow gun (`SlowGunSpent`: `GunClass` StandSlow, `Meta` 0) with an enemy
+    after her within 2.5 m while cornered (`ScBackOff.NoPointFor` her target) - R2's own hold and ends, no wait for the reload
+    cvar; `x5-cornered-slow-melee`.
+  - `ScCommunity.Room` (air, or a block with `IsCollideMovement` false: grass, flowers), `StandableWalk`, `FindStandableWalk`,
+    `GoodPostWalk`: the back-offs (`Candidate`, `FloorUnderWalk`, `CandidateFar`, `ScBackOff.Standable`), the step to open ground
+    (`StepSpot`, `StepFloor`) and the heal back-off's flight points use them. Posts, shelters and the rest keep `Standable`
+    (air only). "last: no floor near her level" was only the 21st point's reason; the grass was every point's.
+  - `UAIConsiderationScCannotEngage` (ScDefendBase, ScEncDefendBase): 0 when `NearestEngageable` (alive, awake, not inert, an
+    enemy she sees and n08 does not leave her alone with, within 4 m, cached per UAI decision) is nearer than the walk's target;
+    `defend-yield-near`. The watchdog line showed the walk (5.2) beating MeleeApproach (5) toward another zombie while the near
+    one stood 0.4 m outside her knuckles' reach.
+  - New settings `MeleeHurtPerStar`, `MeleeHurtFloor`; `TeamLowHealthBack` default 0.65. No new Harmony target, no protocol change.
 - **Round MP6 (review fixes):** the four reviews' fixes on the merged build. What a modder must know:
   - **The listen host's own markers** are drawn for the host's own player in the host's own community: the periodic and
     restore paths (`ScEnclaves`/`ScInfestations`' `RefreshMarkers`, `ScBands.UpdateMarkers`) take `ScCommunity.LocalPlayer`,

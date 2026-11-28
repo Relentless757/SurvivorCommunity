@@ -987,6 +987,46 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Two blocks of air over something solid that is not water (water is a block in 3.2, not air).</summary>
+        /// <summary>
+        /// Round wp2 (2c; the back-offs' "none of 21 points works (... last: not standable (on treeTallGrassDiagonal))" in a grassy
+        /// yard): a cell a body walks through - air, or a block that does not collide with movement (tall grass, flowers, a bush:
+        /// Block.IsCollideMovement, the flag vanilla's own spawn and move tests read). Never water. Standable reads only air, so the
+        /// cell she stands in among grass failed and the one above it was "on" the grass. A read.
+        /// </summary>
+        public static bool Room(BlockValue b)
+        {
+            if (b.isair) return true;
+            if (b.isWater) return false;
+            Block bl = b.Block;
+            return bl != null && !bl.IsCollideMovement;
+        }
+
+        /// <summary>Round wp2 (2c): Standable with plants as room (Room) - the back-offs' and the steps' test. A floor that is itself a plant is no floor.</summary>
+        public static bool StandableWalk(World w, int x, int y, int z)
+        {
+            if (y < 2 || y > 250) return false;
+            BlockValue floor = w.GetBlock(new Vector3i(x, y - 1, z));
+            return Room(w.GetBlock(new Vector3i(x, y, z))) && Room(w.GetBlock(new Vector3i(x, y + 1, z))) && !Room(floor) && !floor.isWater;
+        }
+
+        /// <summary>Round wp2 (2c): FindStandable with plants as room (StandableWalk).</summary>
+        public static bool FindStandableWalk(World w, int x, int z, int yRef, out int y)
+        {
+            for (int step = 0; step <= 10; step++)
+            {
+                if (StandableWalk(w, x, yRef - step, z)) { y = yRef - step; return true; }
+                if (step > 0 && step <= 6 && StandableWalk(w, x, yRef + step, z)) { y = yRef + step; return true; }
+            }
+            y = yRef;
+            return false;
+        }
+
+        /// <summary>Round wp2 (2c): GoodPost with plants as room - a cell in tall grass over terrain is a real floor for a back-off or a step.</summary>
+        public static bool GoodPostWalk(World w, Vector3i p, bool strict, out string why)
+        {
+            return GoodPost(w, p, strict, true, true, out why);
+        }
+
         public static bool Standable(World w, int x, int y, int z)
         {
             if (y < 2 || y > 250) return false;
@@ -1052,15 +1092,21 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool GoodPost(World w, Vector3i p, bool strict, out string why)
         {
-            return GoodPost(w, p, strict, true, out why);
+            return GoodPost(w, p, strict, true, false, out why);
         }
 
         /// <summary>GoodPost; wrecks false: the oversized blocks are left to the caller (FindPost asks first).</summary>
         private static bool GoodPost(World w, Vector3i p, bool strict, bool wrecks, out string why)
         {
+            return GoodPost(w, p, strict, wrecks, false, out why);
+        }
+
+        /// <summary>GoodPost; round wp2 (2c): plants true counts walk-through plants as room (Room), for the back-offs and steps.</summary>
+        private static bool GoodPost(World w, Vector3i p, bool strict, bool wrecks, bool plants, out string why)
+        {
             why = null;
             if (w == null) { why = "no world"; return false; }
-            if (!Standable(w, p.x, p.y, p.z)) { why = "no room to stand (two air cells over a floor)"; return false; }
+            if (!(plants ? StandableWalk(w, p.x, p.y, p.z) : Standable(w, p.x, p.y, p.z))) { why = "no room to stand (two air cells over a floor)"; return false; }
             BlockValue floor = w.GetBlock(new Vector3i(p.x, p.y - 1, p.z));
             if (!SolidFloor(floor)) { why = "on " + BlockName(floor); return false; }
             string wreck;
@@ -1075,7 +1121,7 @@ namespace SurvivorCommunity
                     BlockValue a = w.GetBlock(new Vector3i(p.x + dx, p.y, p.z + dz));
                     BlockValue b = w.GetBlock(new Vector3i(p.x + dx, p.y + 1, p.z + dz));
                     if (IsFixture(a) || IsFixture(b)) { why = "next to " + BlockName(IsFixture(a) ? a : b); return false; }
-                    if (a.isair && b.isair && SolidFloor(w.GetBlock(new Vector3i(p.x + dx, p.y - 1, p.z + dz)))) open++;
+                    if ((plants ? Room(a) && Room(b) : a.isair && b.isair) && SolidFloor(w.GetBlock(new Vector3i(p.x + dx, p.y - 1, p.z + dz)))) open++;
                 }
             }
             if (open < MinOpenNeighbours) { why = "cramped (" + open + " of 8 neighbours open)"; return false; }

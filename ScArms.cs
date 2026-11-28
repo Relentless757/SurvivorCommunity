@@ -1324,7 +1324,7 @@ namespace SurvivorCommunity
             EntityAlive at = ActionTarget(e);
             sb.Append("; UAI action ").Append(act).Append(at != null ? " on " + at.EntityName + " (" + at.entityId + ")" : "");
             EntityAlive own = e.GetAttackTarget(), rev = e.GetRevengeTarget();
-            sb.Append("; her attack target ").Append(Who(own)).Append(", revenge ").Append(Who(rev));
+            sb.Append("; ").Append(ScRetreat.Her(e)).Append(" attack target ").Append(Who(own)).Append(", revenge ").Append(Who(rev));   // round wp2: the pronoun
             // the target
             sb.Append("; it is after ").Append(Who(t.GetAttackTarget())).Append(" (revenge ").Append(Who(t.GetRevengeTarget())).Append(")")
               .Append(", hunts someone: ").Append(YesNo(UAI.UAIConsiderationScIntruder.HuntsSomeone(t)));
@@ -1338,7 +1338,7 @@ namespace SurvivorCommunity
             // the posture
             string refused = ScPosture.RefusedWhy(e, t);
             sb.Append("; posture ").Append(ScPosture.Name(pv.P, pv.Kiting)).Append(pv.Waiting ? " (a switch waits)" : "").Append(pv.Stand ? " in a last stand" : "")
-              .Append(", refusal: ").Append(refused ?? "none").Append(", holds her spot: ").Append(YesNo(ScPosture.Holds(e)));
+              .Append(", refusal: ").Append(refused ?? "none").Append(", holds ").Append(ScRetreat.Her(e)).Append(" spot: ").Append(YesNo(ScPosture.Holds(e)));
             // 0-XNPCCore's swing checks
             float reach = XnpcMeleeRange(e);
             sb.Append("; in weapon reach: ").Append(reach > 0f ? YesNo(e.GetDistance(t) <= reach) + " (" + reach.ToString("0.0#", ic) + " m)" : "unread");
@@ -1420,6 +1420,38 @@ namespace SurvivorCommunity
                 return k == null ? "clear (or not probed)" : k.ToString() + " (0-XNPCCore's swing ray is blocked)";
             }
             catch (Exception ex) { ScLog.Once("arms-xnpc-block", ex); return "unread"; }
+        }
+
+        /// <summary>Round wp2 (2b): the enemy after her that makes a spent slow gun in KITE melee (meters).</summary>
+        private const float KiteSlowCloseDist = 2.5f;
+
+        /// <summary>Round wp2 (2b): the gun in her hand is a slow gun (GunClass: a bow, a crossbow, a pipe gun) whose loaded round is fired (Meta 0). A read.</summary>
+        private static bool SlowGunSpent(EntityAlive e, ItemValue held, ItemClass hg)
+        {
+            if (held == null || hg == null || held.Meta > 0) return false;
+            int mag;
+            float reload;
+            return GunClass(e, hg, out mag, out reload) == StandSlow;
+        }
+
+        /// <summary>Round wp2 (2b): an awake enemy whose attack or revenge target is her within r. A read (its own scratch list).</summary>
+        private static bool AfterHerWithin(EntityAlive e, float r)
+        {
+            World w = e.world;
+            if (w == null) return false;
+            nsNear.Clear();
+            try
+            {
+                w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(e.position, new Vector3(2f * r, 2f * r, 2f * r)), nsNear);
+                for (int i = 0; i < nsNear.Count; i++)
+                {
+                    EntityAlive a = nsNear[i] as EntityAlive;
+                    if (a == null || a == e || a.IsDead() || a.IsSleeping || (a.position - e.position).sqrMagnitude > r * r) continue;
+                    if ((a.GetAttackTarget() == e || a.GetRevengeTarget() == e) && EntityTargetingUtilities.IsEnemy(e, a)) return true;
+                }
+            }
+            finally { nsNear.Clear(); }
+            return false;
         }
 
         /// <summary>Round k4: MELEE (see Hand).</summary>
@@ -1518,13 +1550,18 @@ namespace SurvivorCommunity
             // and only once the hand clock allows. Neither trigger at a target she cannot swing at or a melee-unsafe one (R2Skip).
             bool noShot = !reloading && cornered && st.CorneredSince > 0f && now - Mathf.Max(st.CorneredSince, st.NoShotSince) >= KiteNoShotSeconds
                           && ScPosture.HandClockAllows(e, now);
-            bool trigger = cornered && (reloading || noShot);
+            // round wp2 (2b; the user: "I also noticed Dave using his Bow at melee range"): hr1's slow-gun rule in KITE - a slow gun
+            // (a bow, a crossbow, a pipe gun: GunClass) with its loaded round fired (its magazine empty in her hand), an enemy after
+            // her within KiteSlowCloseDist and no back-off point (cornered): melee until she has room, R2's own hold and ends - without
+            // waiting for 0-XNPCCore's reload to start. A close gun (magazine 5+) keeps shooting, as hr1 decided
+            bool slowSpent = !reloading && !noShot && cornered && SlowGunSpent(e, held, hg) && AfterHerWithin(e, KiteSlowCloseDist);
+            bool trigger = cornered && (reloading || noShot || slowSpent);
             string skip = trigger ? R2Skip(c, e, ct) : null;
             if (trigger && skip != null && ct != null && st.SkipNoted != ct.entityId)
             {
                 st.SkipNoted = ct.entityId;
                 Patches_Xnpc.Count("x5-cornered-skipped");
-                ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") is cornered and " + (reloading ? "reloading" : "has had no shot")
+                ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") is cornered and " + (reloading ? "reloading" : slowSpent ? "has fired " + ScRetreat.Her(e) + " slow gun" : "has had no shot")
                               + ", but no melee at " + ct.EntityName + " (" + ct.entityId + "): " + skip + " - the " + hg.GetItemName() + " stays (R2 skipped; F1)");
             }
             if (trigger && skip == null)
@@ -1533,9 +1570,10 @@ namespace SurvivorCommunity
                 if (ct != null) ScPosture.NoteSwapWatch(e, ct.entityId);           // 0-XNPCCore's refusal of the swap is read next tick
                 if (!st.CorneredMelee)
                 {
-                    Patches_Xnpc.Count(reloading ? "x5-cornered-reload-melee" : "x5-cornered-noshot-melee");
-                    ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") is cornered and " + (reloading ? "reloading" : "has had no shot for "
-                                  + KiteNoShotSeconds.ToString("0") + " s") + " - melee until " + ScRetreat.She(e)
+                    Patches_Xnpc.Count(reloading ? "x5-cornered-reload-melee" : slowSpent ? "x5-cornered-slow-melee" : "x5-cornered-noshot-melee");
+                    ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") is cornered and " + (reloading ? "reloading" : slowSpent
+                                  ? "has fired " + ScRetreat.Her(e) + " slow gun with an enemy after " + ScRetreat.HerObj(e) + " within " + KiteSlowCloseDist.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " m (round wp2)"
+                                  : "has had no shot for " + KiteNoShotSeconds.ToString("0") + " s") + " - melee until " + ScRetreat.She(e)
                                   + " has room to back off again (the " + hg.GetItemName() + " after; the re-review, R2)");
                 }
                 st.CorneredMelee = true;
@@ -1944,6 +1982,13 @@ namespace SurvivorCommunity
 
         /// <summary>Round k4: a ranged weapon in her hand (ScPosture). A read.</summary>
         internal static bool HoldsRanged(EntityAlive e) { return HoldsRangedWeapon(e); }
+
+        /// <summary>Round wp2 (2a): R2's cornered melee holds her now (melee until she has room) - ScPosture starts no hold then. A read.</summary>
+        internal static bool CorneredMeleeOn(EntityAlive e)
+        {
+            Watch st;
+            return e != null && watch.TryGetValue(e.entityId, out st) && st.CorneredMelee;
+        }
 
         /// <summary>Round k4: the item in her hand, or null (ScPosture's hand clock). A read.</summary>
         internal static string HeldName(EntityAlive e) { return HeldItemName(e); }

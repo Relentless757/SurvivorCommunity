@@ -48,6 +48,62 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   retired ids; `owner <id> <player>` hands a community over; `mode <PerPlayer|PerParty> confirm` switches a save from before
   MP7 once. Round db1: `disband <id>` says what disbanding it would do, `disband <id> confirm` does it (`confirm force` with a member away: she goes with no body and her handed items are lost).
 
+## Round wp2 (2026-11-28): melee when hurt by skill, no bow at point blank
+
+Why (single player, after wp1): "They appear to be behaving a lot better, but Mia is still using a shotgun against few zombies.
+her Fighting skill is greater than her shooting skill. I also noticed Dave using his Bow at melee range."
+- **Mia on the gun while hurt**: her posture said "hurt (51% - melee again from 70%)", 58%, 68%, even "70% - melee again from
+  70%". The hurt rule took melee away below 60% and gave it back at 70%, and since round hr1 regeneration stops at exactly 70%
+  (`RegenCapShare`): after any hit she stayed on the gun until she used a medical item. (Her "melee-unsafe (zombieFatCopFeral)"
+  lines are right: a fat cop always gets the gun.)
+- **Dave's bow up close**: cornered and outmatched in KITE, his hold after every reload ("holds his spot after his reload")
+  drew the bow back into the zombie's face and ended 0.4-0.8 s later ("an enemy reached him"), five times in 15 s. His back-offs
+  found "none of 21 points": in the grassy yard a cell in tall grass did not count as room to stand, and the cell above it was
+  "on treeTallGrassDiagonal".
+- **The watchdog line** (11:14:25): Dave with leather knuckles (reach 2.0 m), zombie 379 at 2.4 m, after Mia; MayEngage 0.95,
+  no block, sees it - but his UAI action was SC's defense walk (ScDefendBase) toward another zombie (378). MeleeAttack needs the
+  zombie in weapon reach, MeleeApproach (5) lost to the defense walk (5.2), which scores every intruder alike.
+
+What changes, for members:
+- **Hurt lines by her own Fighting stars**: off below 60%, melee again from 65% (`TeamLowHealth`, `TeamLowHealthBack`, was 70%);
+  each Fighting star above 2 lowers both by 5 points (`MeleeHurtPerStar`), the first never below 35% (`MeleeHurtFloor`) -
+  Fighting 5: off below 45%, on from 50%. The way back is always at least 5 points under the regeneration cap, so
+  regeneration alone brings her back to melee. The posture line says both: `hurt (44% - melee again from 50%; off below 45% for
+  Fighting 5*)`.
+- **No hold with a zombie close**: no hold after a back-off, a reload or a heal - new or renewed - with a zombie after her
+  within 4.5 m, any zombie within 3 m, or while her cornered melee (R2) holds.
+- **A slow gun cornered**: with a bow, crossbow or pipe gun fired (its round gone), a zombie after her within 2.5 m and no room
+  to back off, her melee weapon until she has room again (R2's rule and ends, without waiting for the reload). A close gun
+  (magazine 5+) keeps shooting.
+- **Grass is open ground** for the back-off steps, the far run, the step to open ground and the heal back-off (a block that does
+  not collide with movement: grass, flowers). Posts and shelters keep the old rule.
+- **The defense walk yields** to a nearer zombie within 4 m that she sees and may fight: the packs' own approach and swing (or
+  shot) take that one.
+- Pronouns: "holds his spot after his reload", "(himself)", "within 5 m of him", "no floor near his level".
+
+New settings (Config/blocks.xml, team section): `MeleeHurtPerStar` 0.05, `MeleeHurtFloor` 0.35; `TeamLowHealthBack` 0.65 (was 0.7).
+
+Build `sc34_wp2`, on branch `wp2`, not deployed, untested in game. Server-side only. `sc xnpc` counts `posture-hold-refused-close`,
+`x5-cornered-slow-melee`, `defend-yield-near`.
+
+**Hurt lines (single player, at home)**
+- [ ] A Fighting 5 member (Mia) at 55% in a matched fight: MELEE (no "hurt" line); `sc team <name> hurt 0.4`: `hurt (40% -
+      melee again from 50%; off below 45% for Fighting 5*)`, KITE; she regenerates to 50% out of combat and melees again.
+- [ ] A Fighting 1-2 member: off below 60%, on from 65%; after a fight at 62%, regeneration brings her to 65% and she melees.
+- [ ] `sc team <name> hurt` with no share sets her just under her own line (40% for Fighting 5).
+
+**No bow at point blank (single player, at home)**
+- [ ] A bow member (Dave) outmatched, a zombie after him at 2 m, no room to back off (in a corner): after the shot `is cornered
+      and has fired his slow gun with an enemy after him within 2.5 m (round wp2) - melee until he has room ...`; his melee weapon;
+      no `holds his spot after his reload` while the zombie is within 4.5 m.
+- [ ] A pistol or rifle member cornered the same way: she keeps shooting (R2's reload rule as before).
+- [ ] In a grassy yard: back-offs find points (`backs off from ... inside the base: 10 m ...`); `last: not standable (on
+      treeTallGrass...)` no longer ends every search.
+
+**The defense walk (single player, at home)**
+- [ ] Two zombies in the base, one after a member at 2-3 m from a resident with knuckles, the other 12 m off: the resident turns
+      to the near one and swings (no watchdog line naming it with `UAI action ScDefendBase on` the far one).
+
 ## Round wp1 (2026-11-28): melee when not overwhelmed, an empty gun is no gun
 
 Why (single player, at home): "When they have a gun with no ammo, they are just jogging around zombies and not attacking. Only

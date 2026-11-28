@@ -77,7 +77,18 @@ namespace SurvivorCommunity
         /// 0.5 / 0.6) - the MELEE posture needs 60% (research/combat/SC_VS_NPCCORE.md 4.1).
         /// </summary>
         public static float TeamLowHealth = 0.6f;
-        public static float TeamLowHealthBack = 0.7f;
+        /// <summary>
+        /// Round wp2 (1b): 0.65 (was 0.7) - and the line is never at or above RegenCapShare - 0.05 (ScTeam.HurtLines), so
+        /// regeneration alone gets her back to melee (since hr1 it stops at exactly 70%, and 70% was the old line).
+        /// </summary>
+        public static float TeamLowHealthBack = 0.65f;
+        /// <summary>
+        /// Round wp2 (1b; the user: "her Fighting skill is greater than her shooting skill" - Mia at 51-70% kept her shotgun):
+        /// each Fighting star above TeamStarBonusFrom lowers both hurt lines (TeamLowHealth, TeamLowHealthBack) by this, down to
+        /// MeleeHurtFloor for the first (the second keeps its gap above it). Fighting 5: off below 45%, melee again from 50%.
+        /// </summary>
+        public static float MeleeHurtPerStar = 0.05f;
+        public static float MeleeHurtFloor = 0.35f;
         /// <summary>
         /// Round k4: the one hand clock (ScPosture). After ANY change of what she holds - SC's swap or 0-XNPCCore's own - SC
         /// makes no swap for this long, and her posture does not switch between MELEE and KITE either (each swap can cost a
@@ -227,7 +238,9 @@ namespace SurvivorCommunity
             TeamHealthFloor = 0.5f;
             TeamHealthFullAt = 0.9f;
             TeamLowHealth = 0.6f;
-            TeamLowHealthBack = 0.7f;
+            TeamLowHealthBack = 0.65f;             // round wp2 (was 0.7)
+            MeleeHurtPerStar = 0.05f;
+            MeleeHurtFloor = 0.35f;
             TeamSwapHoldSeconds = 5f;
             TeamOverwhelmedExtra = 1;
             TeamUnreachableSeconds = 45f;
@@ -292,6 +305,8 @@ namespace SurvivorCommunity
             ParseFloat(p, "TeamHealthFullAt", ref TeamHealthFullAt, 0.1f, 1f);
             ParseFloat(p, "TeamLowHealth", ref TeamLowHealth, 0f, 1f);
             ParseFloat(p, "TeamLowHealthBack", ref TeamLowHealthBack, 0f, 1f);
+            ParseFloat(p, "MeleeHurtPerStar", ref MeleeHurtPerStar, 0f, 0.2f);      // round wp2: the hurt lines by her own Fighting stars
+            ParseFloat(p, "MeleeHurtFloor", ref MeleeHurtFloor, 0f, 1f);
             if (TeamLowHealthBack < TeamLowHealth)
             {
                 ScLog.Warn("config TeamLowHealthBack=" + TeamLowHealthBack + " is below TeamLowHealth=" + TeamLowHealth + " - set to TeamLowHealth");

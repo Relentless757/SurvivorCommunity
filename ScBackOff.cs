@@ -376,7 +376,8 @@ namespace SurvivorCommunity
             why = null;
             Vector3 p = me + d * s;
             int x = Mathf.FloorToInt(p.x), z = Mathf.FloorToInt(p.z), y;
-            if (!ScCommunity.FindStandable(w, x, z, yRef, out y) || Math.Abs(y - yRef) > MaxDy) { why = "no floor near her level"; return false; }
+            // round wp2 (2c): plants (tall grass) count as room - in a grassy yard every point failed "on treeTallGrass..."
+            if (!ScCommunity.FindStandableWalk(w, x, z, yRef, out y) || Math.Abs(y - yRef) > MaxDy) { why = "no floor near " + ScRetreat.Her(self) + " level"; return false; }
             pc = new Vector3(x + 0.5f, y, z + 0.5f);
             if (region == ScRetreat.Region.Leader)
             {
@@ -430,9 +431,9 @@ namespace SurvivorCommunity
                 if (x == lx && z == lz) continue;
                 lx = x;
                 lz = z;
-                if (ScCommunity.Standable(w, x, yPrev, z)) continue;
-                if (ScCommunity.Standable(w, x, yPrev - 1, z)) { yPrev--; continue; }
-                if (ScCommunity.Standable(w, x, yPrev + 1, z)) { yPrev++; continue; }
+                if (ScCommunity.StandableWalk(w, x, yPrev, z)) continue;                         // round wp2 (2c): plants are room
+                if (ScCommunity.StandableWalk(w, x, yPrev - 1, z)) { yPrev--; continue; }
+                if (ScCommunity.StandableWalk(w, x, yPrev + 1, z)) { yPrev++; continue; }
                 return false;
             }
             return Math.Abs(yEnd - yPrev) <= 1;
@@ -448,7 +449,7 @@ namespace SurvivorCommunity
             why = null;
             if (ScStuck.Unreachable(self.entityId, cell)) { why = "not standable (on " + ScRetreat.Her(self) + " unreachable list)"; return false; }
             string gw;
-            if (!ScCommunity.GoodPost(w, cell, false, out gw)) { why = "not standable (" + gw + ")"; return false; }
+            if (!ScCommunity.GoodPostWalk(w, cell, false, out gw)) { why = "not standable (" + gw + ")"; return false; }   // round wp2 (2c): plants are room
             return true;
         }
 
@@ -536,7 +537,7 @@ namespace SurvivorCommunity
             why = null;
             Vector3 p = me + d * s;
             int x = Mathf.FloorToInt(p.x), z = Mathf.FloorToInt(p.z), y;
-            if (!ScCommunity.FindStandable(w, x, z, yRef, out y) || Math.Abs(y - yRef) > FarMaxDy) { why = "no floor near her level"; return false; }
+            if (!ScCommunity.FindStandableWalk(w, x, z, yRef, out y) || Math.Abs(y - yRef) > FarMaxDy) { why = "no floor near " + ScRetreat.Her(self) + " level"; return false; }   // round wp2 (2c)
             pc = new Vector3(x + 0.5f, y, z + 0.5f);
             if (!UAI.UAIConsiderationScNotHomeMember.AtHome(pc)) { why = "outside the home zone + margin"; return false; }
             if (!Standable(w, self, new Vector3i(x, y, z), out why)) return false;
@@ -744,14 +745,14 @@ namespace SurvivorCommunity
                             float ang = (k % 2 == 1 ? 1f : -1f) * ((k + 1) / 2) * 30f;
                             Vector3 p = me + Quaternion.Euler(0f, ang, 0f) * dir0 * r;
                             int x = Mathf.FloorToInt(p.x), z = Mathf.FloorToInt(p.z), y;
-                            if (!ScCommunity.FindStandable(w, x, z, yRef, out y) || y - yRef > 1 || yRef - y > 3) continue;
+                            if (!ScCommunity.FindStandableWalk(w, x, z, yRef, out y) || y - yRef > 1 || yRef - y > 3) continue;   // round wp2 (2c)
                             Vector3i cell = new Vector3i(x, y, z);
                             Vector3 pc = new Vector3(x + 0.5f, y, z + 0.5f);
                             if (!UAI.UAIConsiderationScNotHomeMember.AtHome(pc)) { lastWhy = "outside the home zone + margin"; continue; }
                             if (bad != null && bad.Contains(cell)) { lastWhy = "a spot " + ScRetreat.She(self) + " could not reach"; continue; }
                             if (ScStuck.Unreachable(self.entityId, cell)) { lastWhy = "on " + ScRetreat.Her(self) + " unreachable list"; continue; }
                             string gw;
-                            if (!ScCommunity.GoodPost(w, cell, strict, out gw)) { lastWhy = gw; continue; }
+                            if (!ScCommunity.GoodPostWalk(w, cell, strict, out gw)) { lastWhy = gw; continue; }   // round wp2 (2c): plants are room
                             // round cb1 (review CB1-M2): the landing keeps StepEnemyClear from every enemy, "from" included; the walk is
                             // tested only against enemies AHEAD of her along it (as k1's Candidate), "from" among them - one at her elbow,
                             // or the one she steps away from, no longer fails every spot
@@ -845,8 +846,8 @@ namespace SurvivorCommunity
                 first = false;
                 bool ok = false;
                 for (int dy = 0; dy >= -down && !ok; dy--)
-                    if (ScCommunity.Standable(w, x, yPrev + dy, z)) { yPrev += dy; ok = true; }
-                if (!ok && ScCommunity.Standable(w, x, yPrev + 1, z)) { yPrev++; ok = true; }
+                    if (ScCommunity.StandableWalk(w, x, yPrev + dy, z)) { yPrev += dy; ok = true; }       // round wp2 (2c): plants are room
+                if (!ok && ScCommunity.StandableWalk(w, x, yPrev + 1, z)) { yPrev++; ok = true; }
                 if (!ok) return false;
             }
             return yEnd - yPrev <= 1 && yPrev - yEnd <= (first ? 3 : 1);
@@ -1040,7 +1041,7 @@ namespace SurvivorCommunity
                 int yRef0 = Mathf.FloorToInt(me0.y + 0.05f);
                 float now0 = Time.time;
                 Gather(self, threat, far + CrowdRadius + 2f);
-                farWhy = "no floor near her level";
+                farWhy = "no floor near " + ScRetreat.Her(self) + " level";   // round wp2: the pronoun
                 for (int fi = 0; fi < FarShares.Length; fi++)
                 {
                     float s = far * FarShares[fi];
@@ -1074,7 +1075,7 @@ namespace SurvivorCommunity
             Gather(self, threat, longest + CrowdRadius + 2f);
             int yRef = Mathf.FloorToInt(me.y + 0.05f);
             float now = Time.time;
-            string lastWhy = "no floor near her level";
+            string lastWhy = "no floor near " + ScRetreat.Her(self) + " level";   // round wp2: the pronoun
             int tried = 0;
             for (int si = 0; si < steps.Count; si++)
             {

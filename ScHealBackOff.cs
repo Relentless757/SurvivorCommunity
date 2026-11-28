@@ -898,7 +898,8 @@ namespace SurvivorCommunity
                         tried++;
                         Vector3 q = me + Quaternion.Euler(0f, FlightAngles[k], 0f) * away * s;
                         int x = Mathf.FloorToInt(q.x), z = Mathf.FloorToInt(q.z), y;
-                        if (!ScCommunity.FindStandable(w, x, z, yRef, out y) || Math.Abs(y - yRef) > 3) { lastWhy = "no floor near her level"; continue; }
+                        // round wp2 (2c): plants (tall grass) count as room, as in the back-offs
+                        if (!ScCommunity.FindStandableWalk(w, x, z, yRef, out y) || Math.Abs(y - yRef) > 3) { lastWhy = "no floor near " + ScRetreat.Her(self) + " level"; continue; }
                         Vector3 pc = new Vector3(x + 0.5f, y, z + 0.5f);
                         if (!UAI.UAIConsiderationScNotHomeMember.AtHome(pc)) { lastWhy = "outside the home zone + margin"; continue; }
                         if (ScRunners.XZ(pc, t.position) < meFromT + FlightGain) { lastWhy = "not " + FlightGain.ToString("0", CultureInfo.InvariantCulture) + " m farther from the threat"; continue; }

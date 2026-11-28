@@ -929,7 +929,7 @@ namespace UAI
             if (wanderLogged.Count > 512) wanderLogged.Clear();
             if (wanderLogged.Add(key))
                 ScLog.Out(ScRetreat.Name(self) + " may fight " + t.EntityName + " (" + t.entityId + ") inside the base though it is after nobody: within "
-                          + d.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " m of " + ScRetreat.Her(self)
+                          + d.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " m of " + ScRetreat.HerObj(self)      // round wp2: "of him", not "of his"
                           + " on " + ScRetreat.Her(self) + " floor (round wp1; round n08 left it alone)");
             return true;
         }
@@ -1257,7 +1257,65 @@ namespace UAI
             EntityAlive t = target as EntityAlive;
             if (t == null) return 0f;
             string why;
-            return ScEngage.Classify(_context.Self, t, out why) == ScEngage.Verdict.Approach ? 1f : 0f;
+            if (ScEngage.Classify(_context.Self, t, out why) != ScEngage.Verdict.Approach) return 0f;
+            // round wp2 (3; the watchdog: Dave "has not swung in 3.0 s at zombieArlene (379) at 2.4 m ... UAI action ScDefendBase on
+            // zombieArlene (378)" - his knuckles reach 2.0 m, so MeleeAttack on 379 scored 0 and the defense walk (5.2, every intruder
+            // scoring the same) beat MeleeApproach (5) on it and walked him toward the other one): the walk yields to a nearer enemy
+            // within DefendYieldDist that she sees and may fight - the packs' own approach and swing (or shot) take that one
+            EntityAlive self = _context.Self;
+            float nd2;
+            EntityAlive n = NearestEngageable(self, out nd2);
+            if (n != null && n != t && nd2 < (t.position - self.position).sqrMagnitude)
+            {
+                SurvivorCommunity.Patches_Xnpc.Count("defend-yield-near");
+                return 0f;
+            }
+            return 1f;
+        }
+
+        /// <summary>Round wp2 (3): a nearer enemy this close (meters) takes the defense walk's place.</summary>
+        private const float DefendYieldDist = 4f;
+        private struct NearAnswer { public float At; public int Id; public float D2; }
+        private static readonly Dictionary<int, NearAnswer> nearCache = new Dictionary<int, NearAnswer>();
+        private static readonly List<Entity> nearScratch = new List<Entity>();
+
+        /// <summary>
+        /// Round wp2 (3): the nearest enemy within DefendYieldDist of her that is alive, awake, not inert, in her sight (SCore's
+        /// CanSee, as the packs' approach needs) and one round n08 does not leave her alone with; null when none. One scan per body
+        /// per UAI decision (cached UAIBase.ActionChoiceDelay). A read.
+        /// </summary>
+        internal static EntityAlive NearestEngageable(EntityAlive self, out float d2)
+        {
+            d2 = float.MaxValue;
+            if (self == null || self.world == null) return null;
+            float now = Time.time;
+            NearAnswer na;
+            if (nearCache.TryGetValue(self.entityId, out na) && now - na.At < UAIBase.ActionChoiceDelay)
+            {
+                d2 = na.D2;
+                return na.Id >= 0 ? self.world.GetEntity(na.Id) as EntityAlive : null;
+            }
+            if (nearCache.Count > 256) nearCache.Clear();
+            EntityAlive best = null;
+            float r2 = DefendYieldDist * DefendYieldDist;
+            nearScratch.Clear();
+            try
+            {
+                self.world.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(self.position, new Vector3(2f * DefendYieldDist, 2f * DefendYieldDist, 2f * DefendYieldDist)), nearScratch);
+                for (int i = 0; i < nearScratch.Count; i++)
+                {
+                    EntityAlive a = nearScratch[i] as EntityAlive;
+                    if (a == null || a == self || a.IsDead() || a.IsSleeping) continue;
+                    float q = (a.position - self.position).sqrMagnitude;
+                    if (q > r2 || q >= d2 || !EntityTargetingUtilities.IsEnemy(self, a)) continue;
+                    if (global::Harmony.ZombieFeatures.InertEntity.IsInert(a) || UAIConsiderationScIntruder.LeavesAlone(self, a) || !SCoreUtils.CanSee(self, a)) continue;
+                    best = a;
+                    d2 = q;
+                }
+            }
+            finally { nearScratch.Clear(); }
+            nearCache[self.entityId] = new NearAnswer { At = now, Id = best != null ? best.entityId : -1, D2 = d2 };
+            return best;
         }
     }
 

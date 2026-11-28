@@ -676,12 +676,23 @@ namespace SurvivorCommunity
         private static void StartHold(EntityAlive e, State st, string why, float now, bool backOff = false)
         {
             if (ScConfig.BackOffHoldSeconds <= 0f || st.Stand) return;
+            // round wp2: the callers say "her reload", "her heal", "her back-off" - his for a man ("Dave holds his spot after her reload")
+            if (why != null && why.StartsWith("her ", StringComparison.Ordinal)) why = ScRetreat.Her(e) + why.Substring(3);
             // round cb1 (re-check CB1R-m3): the cap is per back-off - a reload or a heal after a hold that ran out starts none (a
             // back-off re-arms it, so does the melee stance)
             if (backOff) st.HoldSpent = false;
             else if (st.HoldSpent) return;
             if (!UAI.UAIConsiderationScNotHomeMember.AtHome(e.position) || !ScRetreat.GunReady(e)) return;
             if (PrefersMelee(st, now)) return;                                   // round wp1 (decision 2): no hold in a matched fight she melees
+            // round wp2 (2a; Dave with his bow: "holds his spot after his reload", then "an enemy reached him" 0.4-0.8 s later, five times
+            // in 15 s, and each hold drew the bow back at once): no hold - new or renewed - with an enemy after her within
+            // HoldStartClear (one that reaches her in the hold's first second), any enemy within HoldBreakDist, or while R2's cornered
+            // melee holds her (melee until she has room: a hold would draw the gun back into a zombie's face)
+            if (AfterHerWithin(e, HoldStartClear) > 0 || EnemyWithin(e, HoldBreakDist) || ScArms.CorneredMeleeOn(e))
+            {
+                Patches_Xnpc.Count("posture-hold-refused-close");
+                return;
+            }
             bool fresh = !(st.HoldSince > 0f && now < st.HoldUntil);
             // round cb1 (review CB1-m1): a renewal (each reload of a bow) extends the hold, but never past HoldCapShare x its time
             // from its start - "8 s" stays a limit; (review CB1-n3) a new hold with an enemy already within HoldBreakDist never starts
@@ -799,6 +810,29 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Round hr1: awake, living enemies within r whose attack or revenge target she is (SCore's IsEnemy, not inert). X5 only (a shared list).</summary>
+        /// <summary>Round wp2 (2a): a new or renewed hold needs no enemy after her within this (HoldBreakDist + 1.5 m: a zombie's second of walking).</summary>
+        private const float HoldStartClear = HoldBreakDist + 1.5f;
+
+        /// <summary>Round wp2 (2a): an awake enemy (after anyone) within r of her. A read.</summary>
+        private static bool EnemyWithin(EntityAlive e, float r)
+        {
+            World w = e.world;
+            if (w == null) return false;
+            standNear.Clear();
+            try
+            {
+                w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(e.position, new Vector3(2f * r, 2f * r, 2f * r)), standNear);
+                for (int i = 0; i < standNear.Count; i++)
+                {
+                    EntityAlive a = standNear[i] as EntityAlive;
+                    if (a == null || a == e || a.IsDead() || a.IsSleeping || (a.position - e.position).sqrMagnitude > r * r) continue;
+                    if (EntityTargetingUtilities.IsEnemy(e, a) && !global::Harmony.ZombieFeatures.InertEntity.IsInert(a)) return true;
+                }
+            }
+            finally { standNear.Clear(); }
+            return false;
+        }
+
         private static int AfterHerWithin(EntityAlive e, float r)
         {
             World w = e.world;

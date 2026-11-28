@@ -984,7 +984,9 @@
 			     matched fight a member is "melee-led",
 			     which the MELEE posture needs (round k4, below); she needs one attacker more (TeamOverwhelmedExtra) to count as
 			     overwhelmed. Never melee-led: below TeamLowHealth of her health (round k3: 60%, again from TeamLowHealthBack,
-			     70%), with no melee weapon, on a run, on a Stay order (supporting fire), asleep in bed, on watch, Cowardly (she
+			     65% since round wp2 - and each Fighting star above TeamStarBonusFrom lowers both by MeleeHurtPerStar, the first down
+			     to MeleeHurtFloor; the second always at least 5 points under RegenCapShare, so regeneration alone brings her back),
+			     with no melee weapon, on a run, on a Stay order (supporting fire), asleep in bed, on watch, Cowardly (she
 			     hangs back with her gun, and runs only from an outmatched fight; with no gun she runs as before), after you
 			     ordered her gun (the weapon menu or "use your ..."; ordering her melee weapon, or "sc team <name> auto", undoes
 			     it), or with raiders or any armed enemy in the fight. A zombie with a TeamGunTags tag (zombieCop) or a cop or
@@ -1041,7 +1043,9 @@
 			<property name="TeamHealthFloor" value="0.5" />
 			<property name="TeamHealthFullAt" value="0.9" />
 			<property name="TeamLowHealth" value="0.6" />
-			<property name="TeamLowHealthBack" value="0.7" />
+			<property name="TeamLowHealthBack" value="0.65" />   <!-- round wp2: was 0.7, the regeneration cap itself -->
+			<property name="MeleeHurtPerStar" value="0.05" />   <!-- round wp2: Fighting 5 is off below 45%, melee again from 50% -->
+			<property name="MeleeHurtFloor" value="0.35" />
 			<property name="TeamSwapHoldSeconds" value="5" />
 			<property name="TeamOverwhelmedExtra" value="1" />
 			<property name="TeamUnreachableSeconds" value="45" />
