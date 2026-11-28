@@ -48,10 +48,16 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   retired ids; `owner <id> <player>` hands a community over; `mode <PerPlayer|PerParty> confirm` switches a save from before
   MP7 once. Round db1: `disband <id>` says what disbanding it would do, `disband <id> confirm` does it (`confirm force` with a member away: she goes with no body and her handed items are lost).
 
+## Deployed 2026-11-28: rounds db1 (disband), wq1 (weapon quality), nv1 (wall gaps), md2 (medkit animation), cb1 (corners, back-offs)
+
+Installed in the 3.4 game (`port-3.4` 34a049c5, DLL ce9ff983); the dedicated server loads the same folder. **Protocol 10:
+every client needs this build.** The five rounds below, up to "Round cb1", are all in it, each with its Fable review fixes;
+the last checks found nothing above a minor. All are untested in game.
+
 ## Round db1 (2026-11-28): disbanding a community
 
 Why: the user's three decisions after testing MP7 - the owner (or an admin) disbands a community, its members go back to the
-wild, and its players keep its relations. Build `sc34_db1`, **not deployed**, untested in game. **Protocol 10: every client
+wild, and its players keep its relations. Build `sc34_db1`, **deployed 2026-11-28** (in `port-3.4` 34a049c5), untested in game. **Protocol 10: every client
 needs this build.** Checked offline: the save round trip on 12 saves (ALL PASS); a disband harness (1072 checks on the 11 saves
 with enclaves, 0 failures: PerPlayer, PerParty, Shared community 1, Shared community 0, single player, the copy of the
 relations, requests and favors passing on, the retire, the allies reconcile afterward, the refusals); the network harness (448
@@ -124,7 +130,7 @@ seeded roll that knew nothing of the weapon's real quality. Now the quality of e
 hand is recorded when a body becomes a member, and a weapon handed to her pair records its own; every copy keeps that.
 Members already in a save keep the seeded quality they have now. Review fixes (WQ1-m1, m2, n1, n2, n3): group joins of a
 loaded body record too, the record never overrides a work-kit tool, a refused swap records nothing, and names match
-case-insensitively. Build `sc34_wq1`, **not deployed**, untested in game.
+case-insensitively. Build `sc34_wq1`, **deployed 2026-11-28** (in `port-3.4` 34a049c5), untested in game.
 Checked offline: the save round trip on 12 saves (ALL PASS: old saves load and save byte for byte, also those with
 handed items), and a harness for the new `wq=` line (15 checks on each of the 7 saves with members, 2 on the other 5, 0
 failures).
@@ -159,7 +165,7 @@ review): a cell counts as too low only when a body's capsule really does not fit
 or a hanging light no longer do), only the first two cells ahead of her are looked at, a spot the blocks do not explain
 lasts 5 minutes and goes at once when a survivor walks through it, `sc stuck [list | clear]`, and the watchdog no longer
 drops flee or wander paths the planner cannot steer. Build `sc34_nv1`,
-**not deployed**, untested in game. Server-side only (clients need nothing new; protocol unchanged); the save file is
+**deployed 2026-11-28** (in `port-3.4` 34a049c5), untested in game. Server-side only (clients need nothing new; protocol unchanged); the save file is
 unchanged (the gaps are not saved). Two new patch targets: `Path::CanTraverse(GraphNode,int)` and
 `Path::CanTraverse(Connection)`.
 
@@ -318,7 +324,7 @@ What changes, for members at home (the home zone and its 8 m margin):
 New settings (Config/blocks.xml, after `StandOffShootSeconds`): `BackOffBaseMeters` 8, `BackOffPerShootingStar` 2,
 `BackOffHoldSeconds` 8 (0 turns each part off).
 
-Build `sc34_cb1`, not deployed, untested in game. Server-side only. `sc xnpc <id>`'s back-off line shows `FAR`, `at a run` and
+Build `sc34_cb1`, **deployed 2026-11-28** (in `port-3.4` 34a049c5), untested in game. Server-side only. `sc xnpc <id>`'s back-off line shows `FAR`, `at a run` and
 `STEPPING`; `sc xnpc` counts `backoff-run`, `backoff-far*`, `step-*`, `posture-hold`, `posture-no-ammo-tell`.
 
 **Shelter walks (single player, at home)**
