@@ -58,7 +58,7 @@ founder); the party leader acts for an owner who is offline. A player an admin p
 party change, and Leave sticks: the reconcile and other players' party invites do not pull a player back into a community
 they left. Build `sc34_mp7ap`, **not deployed**, protocol 8 unchanged, untested in game. Checked offline: the save round
 trip on 12 saves (ALL PASS: old saves load and save byte for byte as before), and a harness for the allies and party logic
-and the new save lines (88 checks on each of the 12 saves, 0 failures). Every join and loss is logged as
+and the new save lines (96 checks on each of the 12 saves, 0 failures). Every join and loss is logged as
 `community (allies): ...` or `community (party): ...`.
 
 **Single player (nothing may change)**
@@ -101,6 +101,8 @@ and the new save lines (88 checks on each of the 12 saves, 0 failures). Every jo
 - [ ] B (in A's community, in A's party) uses Leave (or `sc community leave <B>`); C accepts an invite into the same party:
       C joins, B stays out. B leaves the party and accepts A's invite again: B joins.
 - [ ] `sc community join 0 <E>` (an admin's join); E leaves A's party: E stays in (`... stays in it (joined by an admin)`).
+- [ ] With the game's `AutoParty` setting on: A starts a community; B (own relations) logs in and is put into the auto party:
+      B joins A's (as at an accept). B uses Leave and relogs: B is back in the auto party but stays out of A's community.
 
 ## Round MP7 (core) (2026-11-27): community modes, a player's own relations, founding, joining and leaving
 

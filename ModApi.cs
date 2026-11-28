@@ -824,6 +824,7 @@ namespace SurvivorCommunity
             // round MP7 (part AP): ScParties (PerParty) - an accepted invite brings players in, a leave or a kick takes the one who went
             // out (never the owner), a new leader may act for an absent owner; never the disconnect handler
             Add(t, "Party::ServerHandleAcceptInvite", AccessTools.Method(typeof(Party), "ServerHandleAcceptInvite", new[] { typeof(EntityPlayer), typeof(EntityPlayer) }));
+            Add(t, "Party::ServerHandleAutoJoinParty", AccessTools.Method(typeof(Party), "ServerHandleAutoJoinParty", new[] { typeof(EntityPlayer) }));   // AutoParty: as an accept
             Add(t, "Party::ServerHandleLeaveParty", AccessTools.Method(typeof(Party), "ServerHandleLeaveParty", new[] { typeof(EntityPlayer), typeof(int) }));
             Add(t, "Party::ServerHandleKickParty", AccessTools.Method(typeof(Party), "ServerHandleKickParty", new[] { typeof(int) }));
             Add(t, "Party::ServerHandleChangeLead", AccessTools.Method(typeof(Party), "ServerHandleChangeLead", new[] { typeof(EntityPlayer) }));

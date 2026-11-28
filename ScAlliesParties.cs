@@ -16,8 +16,9 @@ namespace SurvivorCommunity
     //   another player's party accept until the link is made again (the ally link removed and made again; their own party join).
     // - ScAllies (PerPlayer): the vanilla ally event (fires twice per change, once per side, never at load: idempotent) and the
     //   reconcile at load, at each spawn, at founding, after the mode switch and after a player leaves a community.
-    // - ScParties (PerParty): postfixes on Party.ServerHandleAcceptInvite, ServerHandleLeaveParty, ServerHandleKickParty and
-    //   ServerHandleChangeLead (never the disconnect handler: a disconnect changes nothing), and the founder's party at founding.
+    // - ScParties (PerParty): postfixes on Party.ServerHandleAcceptInvite, ServerHandleAutoJoinParty (AutoParty, as an accept),
+    //   ServerHandleLeaveParty, ServerHandleKickParty and ServerHandleChangeLead (never the disconnect handler: a disconnect
+    //   changes nothing), and the founder's party at founding.
     //   ScOwnerRule.PartyLeaderMayAct (ScMembership.cs) is the helper rule.
     // Shared mode: nothing here runs. Single player: no ally or party event ever fires (no other player), and the reconciles find
     // no ally. Server, main thread.
@@ -711,6 +712,25 @@ namespace SurvivorCommunity
             if (!On || members == null || string.IsNullOrEmpty(invitedPid)) return 0;
             ScJoins.ClearOptOuts(invitedPid);
             if (inviterNew) ScJoins.ClearOptOuts(inviterPid);
+            return Joined(invitedPid, inviterPid, members, leaderPid);
+        }
+
+        /// <summary>
+        /// After vanilla's AutoParty put the player into the server's one auto party (Party.ServerHandleAutoJoinParty, at their
+        /// spawn): handled as an accepted invite with no inviter (the party's community: the only one among the members, else the
+        /// leader's, else the lowest id; the same joins, opt-outs and tells). It is no act of their own - AutoParty does it at every
+        /// login - so their Leave opt-outs hold (a player who left a community is not pulled back in at their next login). Returns
+        /// how many joined.
+        /// </summary>
+        internal static int AutoJoined(string joinerPid, List<string> members, string leaderPid)
+        {
+            if (!On || members == null || string.IsNullOrEmpty(joinerPid)) return 0;
+            return Joined(joinerPid, "", members, leaderPid);
+        }
+
+        /// <summary>Accepted's and AutoJoined's joins and tells (the opt-outs already handled for the player's own act).</summary>
+        private static int Joined(string invitedPid, string inviterPid, List<string> members, string leaderPid)
+        {
             CommunityState target = ScJoins.FoundedOf(inviterPid);
             if (target == null)
             {
@@ -729,9 +749,10 @@ namespace SurvivorCommunity
                 foreach (string m in members)
                 {
                     if (string.IsNullOrEmpty(m) || ScJoins.FoundedOf(m) != null) continue;
-                    // MP7 (decision needed): the design's "Leave sticks" is written for PerPlayer; it is applied to parties too, or a
-                    // player who pressed Leave would be pulled straight back in by the next invite anyone in their party accepts.
-                    // Their own accept (or the invite that starts their party) ends it: joining a party is their own consent
+                    // round MP7 (part AP, decided at the merge - kept as built): the design's "Leave sticks" is written for PerPlayer; it is
+                    // applied to parties too, or a player who pressed Leave would be pulled straight back in by the next invite anyone in
+                    // their party accepts. Their own accept (or the invite that starts their party) ends it: joining a party is their own
+                    // consent (an AutoParty join is not)
                     if (ScJoins.OptedOut(m, target.Id))
                     {
                         ScLog.Out("community (party): " + ScJoins.NameOf(m) + " left " + target.Label + " earlier - not pulled back in by another player's party invite (their own next party join is)");
@@ -787,11 +808,11 @@ namespace SurvivorCommunity
                 ScLog.Out("community (party): " + who + " " + how + " the party - they own " + cs.Label + " and keep it (the others keep it too)");
                 return false;
             }
-            // MP7 (decision needed): the design says a leave or kick loses access "unless they are the owner". Two exceptions are
-            // built: (1) only when the party they left held another of their community's players - leaving a party of other
+            // round MP7 (part AP, decided at the merge - kept as built): the design says a leave or kick loses access "unless they are
+            // the owner". Two exceptions are built: (1) only when the party they left held another of their community's players - leaving a party of other
             // communities' players only (a mixed party) has nothing to do with theirs; (2) only a party-joined player - one an admin
             // placed (or placed before part AP, or by the mode switch) is kept, as the ally rule keeps admin-joined players (the
-            // design's risk 3). The strict reading would drop both tests.
+            // design's risk 3).
             bool held = false;
             if (before != null)
                 foreach (string m in before)
@@ -992,6 +1013,29 @@ namespace SurvivorCommunity
                 catch (Exception e)
                 {
                     ScLog.Once("mp7-party-kick", e);
+                }
+            }
+        }
+
+        // static void ServerHandleAutoJoinParty(EntityPlayer joiningEntity) - Party.cs:596: the AutoParty game setting puts every
+        // player into the server's one auto party at their spawn (a client's JoinAutoParty package, or the host's own spawn; also in
+        // single player, where the party holds only that player and nothing joins)
+        [HarmonyPatch(typeof(Party), nameof(Party.ServerHandleAutoJoinParty), new[] { typeof(EntityPlayer) })]
+        public static class Patch_AutoJoinParty
+        {
+            [HarmonyPostfix]
+            public static void Postfix(EntityPlayer joiningEntity)
+            {
+                try
+                {
+                    if (!ScCommunity.IsHost || !On || joiningEntity == null) return;
+                    Party party = joiningEntity.Party;
+                    if (party == null || !party.ContainsMember(joiningEntity)) return;     // a full party: nobody joined
+                    AutoJoined(ScPlayers.IdOf(joiningEntity), IdsOf(party.MemberList), ScPlayers.IdOf(party.Leader));
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("mp7-party-autojoin", e);
                 }
             }
         }

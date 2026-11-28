@@ -3518,20 +3518,19 @@ Round MP0 is the groundwork:
     allies in none join), at the mode switch (before its requests pass, so an owner's ally keeps their accepted requests) and
     right after a player leaves a founded community (`QueueReconcile`, on the main thread's next pass). The store is read
     through `ScAllies.AllyView` (platform id strings), which an offline harness can fill.
-  - **PerParty** (`ScParties`): Harmony postfixes on `Party.ServerHandleAcceptInvite`, `ServerHandleLeaveParty`,
-    `ServerHandleKickParty` and `ServerHandleChangeLead`, never `ServerHandleDisconnectParty` (a disconnect changes nothing;
+  - **PerParty** (`ScParties`): Harmony postfixes on `Party.ServerHandleAcceptInvite`, `ServerHandleAutoJoinParty`,
+    `ServerHandleLeaveParty`, `ServerHandleKickParty` and `ServerHandleChangeLead`, never `ServerHandleDisconnectParty` (a disconnect changes nothing;
     vanilla parties are session-only, the saved membership map stays the truth). The host's own players list calls the same
     statics, so a listen host is covered; single player never reaches them. Accept (`Accepted`): the party's community is the
     inviter's founded community, else the only one among the members, else the leader's, else the lowest id. Every member in
     none joins it unless they left it. A member in a founded community keeps it; when it is the invited player, both sides
     are told. Leave or kick (`Left`, the member list taken in a prefix): the player loses access when they joined by party
     and the party they left held another of their community's players, never the owner. Founding pulls in the founder's
-    party members in none. `ScOwnerRule.PartyLeaderMayAct` is the helper rule: the leader of a party holding one of the
+    party members in none. The `AutoParty` game setting's join (`AutoJoined`) counts as an accept with no inviter, except
+    that it never ends a Leave opt-out (it happens at every login, not by the player's choice). `ScOwnerRule.PartyLeaderMayAct` is the helper rule: the leader of a party holding one of the
     community's players, of the community themselves, while its owner is offline (checked inside, so the network's role key
     can ask it as is). A new leader who now acts for the owner is told (`scMp7PartyHelper`).
-  - **Left open:** the `AutoParty` game setting joins players through `ServerHandleAutoJoinParty`, which is not hooked, so
-    with it on only founding brings party members in. A kick is trusted as vanilla trusts it (the server never checks that
-    the kicker leads the party).
+  - **Left open:** a kick is trusted as vanilla trusts it (the server never checks that the kicker leads the party).
 
 ## How it hangs together (for modders)
 
