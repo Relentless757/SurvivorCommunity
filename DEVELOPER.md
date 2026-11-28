@@ -3608,8 +3608,10 @@ Round MP0 is the groundwork:
     works a shift; logged once per member and zombie as "may fight"). `ScTeam.Target` drops her own target whenever
     `LeavesAlone` holds (MayEngage is 0 for its approach, swing and shot), and `ScInvestigate.NotFree` no longer counts such a
     target as "in another fight", so she can be sent as the intruder's responder.
-  - **The no-swing watchdog** (`ScArms.NoSwingWatch`, X5, a read): the melee stance, a weapon that is not a gun in hand, her
-    target (attack, else revenge, else her UAI action's) alive within 3 m and `LastSwing` unchanged for 3 s - one line per target:
+  - **The no-swing watchdog** (`ScArms.NoSwingWatch`, X5, a read): a weapon that is not a gun in hand (fists too), any posture
+    (none included - the re-check, WP1R-m2), not asleep or down, an awake enemy within 3 m (`NoSwingTarget`: the nearest that is
+    the posture's target, after her, or her attack, revenge or action target, else the nearest; `IsEnemy` always - WP1R-m1) and
+    `LastSwing` unchanged for 3 s - one line per member at most every 20 s, never twice for one of her last 4 targets (WP1R-n1):
     her hand and `CurrentWeaponClass`, her UAI action and its target, whom the target is after, MayEngage's last raw (Voice
     Control) and final (SC) score for that pair (`Patch_MayEngage` notes them, `NoteEngage`), `LeavesAlone`, the posture, its
     refusal and hold, 0-XNPCCore's own reach (`SdcsMeleeRange.For`) and swing-block verdict (`SdcsMeleeReach.BlockKind`, both
@@ -3619,7 +3621,10 @@ Round MP0 is the groundwork:
     hers): `ScArms.Hand` swaps to the pair's melee weapon at once in MELEE, KITE and INVESTIGATE (`DryGunSwap`: no hand clock, no
     3 m deferral to 0-XNPCCore's 2 s failover; HOLD keeps that failover, the stand its own dry rule). `UAIConsiderationScPosture`
     keep/ranged/wide answer 0 for a dry member and `ScBackOff.BoundStart` ends a back-off that slips through (`backoff-dry-gun`).
-    The review: both back-off gates only with a melee weapon in her pair (`DryWithMelee`); `GunDry` is never true during
+    The review: both back-off gates only with a melee weapon in her pair (`DryWithMelee`) - with none she is still MELEE
+    ("nothing to shoot with", older than wp1), whose `AllowsBackOff` lets her back away only from a melee-unsafe or armed enemy,
+    and from any other she stands until 0-XNPCCore's dry failover gives her fists (the re-check, WP1R-m3: documented, not
+    changed - a back-off with an empty gun from a walker would only delay the fists); `GunDry` is never true during
     0-XNPCCore's reload (`SdcsReloading`) and is cached per body for 0.2 s; `DryGunSwap` needs two dry X5 ticks in a row.
   - `ScPosture.MeleeWhy`: in a matched fight a member melees at any distance only when `MeleeFirst` (decision m4, the user: her
     own skill decides - her own Fighting >= her own Shooting - `TeamShooterMargin`, default 0; was `ClearShooter`, Shooting -

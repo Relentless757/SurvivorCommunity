@@ -440,7 +440,10 @@ namespace SurvivorCommunity
             // member who shoots first keeps the hold to its own ends (an enemy within 3 m, its time), as before wp1
             ScTeam.GunNeed kind;
             bool mwSoft;
-            string mw = MeleeWhy(e, m, st, t, holdsGun, gunRounds, over, count, need, out kind, out mwSoft);
+            // round wp1 (re-check WP1R-n5): a refusal (ReachWhy) is remembered only on the branches that use this answer - not under
+            // a weapon order, KITE hurt or a hold, where MeleeWhy was never asked before wp1
+            bool remember = !ScRetreat.Kites(e) && !ScArms.OrderedMelee(e) && !(holding && gunRounds) && !(ScArms.OrderedRanged(e) && gunRounds);
+            string mw = MeleeWhy(e, m, st, t, holdsGun, gunRounds, over, count, need, remember, out kind, out mwSoft);
             st.MeleeByWhy = mw == null && MeleeFirst(m);
             st.MeleeByWhyAt = Time.time;
             if (ScRetreat.Kites(e)) { melee = false; urgent = urgentGun = true; why = "hurt with nothing to heal with, a gun with rounds: KITE's wide band (round k5, was rt1's stand-off)"; }
@@ -507,7 +510,7 @@ namespace SurvivorCommunity
         /// past her leash, out of reach). soft: only the gun holder's distance (PostureMeleeDist; 1 m more while already MELEE).
         /// </summary>
         private static string MeleeWhy(EntityAlive e, Member m, State st, EntityAlive t, bool holdsGun, bool gunRounds, bool over, int count, int need,
-                                       out ScTeam.GunNeed kind, out bool soft)
+                                       bool remember, out ScTeam.GunNeed kind, out bool soft)
         {
             kind = ScTeam.GunNeed.None;
             soft = false;
@@ -521,7 +524,7 @@ namespace SurvivorCommunity
             // health); hurt, armed enemies, orders and the rest still keep her gun
             bool loneMarksman = led != null && gunRounds && Marksman(m) && ScTeam.OutmatchedByLoneEnemy(e);
             if (led != null && !loneMarksman) return led;
-            string gunNeed = ScTeam.NeedsGun(e, t, !holdsGun, true, out kind);
+            string gunNeed = ScTeam.NeedsGun(e, t, !holdsGun, remember, out kind);
             if (gunNeed != null) return gunNeed;
             if (over) return "overwhelmed (" + count + " after " + ScRetreat.HerObj(e) + ", " + need + " in a matched fight)";
             // the Fable review of k3+k4 (F6): from her pair's gun, not her hand - the same verdict with either weapon in it.
@@ -1334,7 +1337,8 @@ namespace UAI
                 if (ScRetreat.Shelters(self)) return 0f;                            // rt1: sheltering (k1: only="shelter")
                 // round wp1 (decision 1): an empty gun is no gun - no BackupRanged, BackupKeepDistance or ScKiteWide for a member
                 // whose gun has no rounds in it or her stores (ScBackOff's start ends one that slips through); (review WP1-m5) only
-                // with a melee weapon in her pair to fight with instead
+                // with a melee weapon in her pair to fight with instead - with none, MELEE's AllowsBackOff still lets her back away
+                // from a melee-unsafe or armed enemy only (re-check WP1R-m3)
                 if (ScBackOff.IsMember(self) && ScArms.DryWithMelee(self)) return 0f;
                 if (what == Wide)
                 {

@@ -710,13 +710,13 @@ namespace SurvivorCommunity
         public static EntityAlive Target(EntityAlive e)
         {
             if (e == null) return null;
-            EntityAlive own = e.GetAttackTarget();
-            if (own == null || own.IsDead()) own = e.GetRevengeTarget();
-            if (own != null && own.IsDead()) own = null;
             // round wp1 (review WP1-M2): her own target is no fight target while round n08's rule leaves it alone - MayEngage is 0
             // for its approach, its swing and its shot, so a fight posture on it only left her standing with her weapon out (and
-            // ScInvestigate read her as "in another fight"). Within EngageWanderersWithin inside the zone LeavesAlone is false
-            if (own != null && UAI.UAIConsiderationScIntruder.LeavesAlone(e, own)) own = null;
+            // ScInvestigate read her as "in another fight"). Within EngageWanderersWithin inside the zone LeavesAlone is false.
+            // Round wp1 (re-check WP1R-n4): the attack target and the revenge target each on its own - a left-alone attack target
+            // no longer hides a zombie that just hit her
+            EntityAlive own = OwnFight(e, e.GetAttackTarget());
+            if (own == null) own = OwnFight(e, e.GetRevengeTarget());
             // the Fable review: her own target outside the counted area (one she shoots from afar) gives way to the nearest
             // counted enemy she sees - else she would wait on the far one while a walker comes in next to her
             if (own != null && InArea(e, own)) return own;
@@ -726,6 +726,12 @@ namespace SurvivorCommunity
             if (t == null || t.IsDead() || t.IsSleeping || t == own || !InArea(e, t)) return own;
             if (UAI.UAIConsiderationScIntruder.LeavesAlone(e, t)) return own;
             return UAI.SCoreUtils.CanSee(e, t) ? t : own;
+        }
+
+        /// <summary>Round wp1 (re-check WP1R-n4): a living target of hers that round n08 does not leave her alone with, else null. A read.</summary>
+        internal static EntityAlive OwnFight(EntityAlive e, EntityAlive t)
+        {
+            return t != null && !t.IsDead() && !UAI.UAIConsiderationScIntruder.LeavesAlone(e, t) ? t : null;
         }
 
         /// <summary>

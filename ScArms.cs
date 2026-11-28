@@ -126,7 +126,9 @@ namespace SurvivorCommunity
             /// </summary>
             public int NsTarget = -1;
             public float NsSince, NsUse, NsTick;
-            public bool NsLogged;
+            /// <summary>Round wp1 (re-check WP1R-n1): when her last line was written, and the targets it was written for (the last few).</summary>
+            public float NsLineAt = -1000f;
+            public readonly List<int> NsLoggedIds = new List<int>();
             /// <summary>
             /// Round k4, the Fable review of k3+k4 (F1): R2's "no shot" clocks, kept only over KITE's gun-in-hand ticks that follow
             /// one another (KiteTickAt: at most KiteTickGapSeconds apart, the same gun KiteGun, no hand change between). NoShotSince
@@ -1118,7 +1120,7 @@ namespace SurvivorCommunity
         {
             // round wp1 (review WP1-m6): dry on two X5 ticks in a row (GunDry itself is never true during a reload) - a one-tick
             // zero while a reload moves the last loose rounds is not "empty"
-            bool dry = !bout && HoldsRangedWeapon(e) && GunDry(e);
+            bool dry = !bout && HoldsRangedWeapon(e) && !Reloading(e) && GunDryNow(e);   // round wp1 (re-check WP1R-n6): two real reads, not the cache
             bool twice = dry && st.DrySeen;
             st.DrySeen = dry;
             if (!twice) return false;
@@ -1160,7 +1162,9 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round wp1 (review WP1-m5): dry (GunDry) and her pair has a melee weapon to fight with instead - only then are the
-        /// back-offs off. With no melee weapon she backs away as before (0-XNPCCore's failover gives her fists in time). A read.
+        /// back-offs off. Round wp1 (re-check WP1R-m3): with no melee weapon the posture is still MELEE ("nothing to shoot with",
+        /// older than wp1), whose AllowsBackOff lets her back away only from a melee-unsafe or armed enemy - that is what this
+        /// keeps; from any other she stands until 0-XNPCCore's dry failover gives her fists, then fights with them. A read.
         /// </summary>
         internal static bool DryWithMelee(EntityAlive e)
         {
@@ -1203,28 +1207,30 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round wp1 (review WP1-M1; the user: "She had her melee weapon out, but she didn't swing at all even though she approached
         /// zombies as if she was going to, until I started attacking"). The cause is not proven from the log: 0-XNPCCore's own
-        /// swing verdicts are verbose-only. This watchdog writes them down: a member in the melee stance (MELEE, INVESTIGATE with
-        /// the melee weapon) with a weapon that is not a gun in her hand and her target (her attack target, else her revenge
-        /// target, else her UAI action's) alive within MeleeReach, with no swing (LastSwing unchanged) for NoSwingWatchSeconds,
-        /// logs once per target what she holds, the target and whom it is after, and each gate's verdict. A read; X5 only.
+        /// swing verdicts are verbose-only. This watchdog writes them down: a member with a weapon that is not a gun in her hand
+        /// (a melee weapon or her fists) and an awake enemy within MeleeReach, with no swing (LastSwing unchanged) for
+        /// NoSwingWatchSeconds, logs what she holds, the target and whom it is after, and each gate's verdict. A read; X5 only.
+        /// Round wp1 (re-check WP1R-m2): whatever the posture - none included, the state round n08 leaves her in - not asleep or
+        /// down (a job tool in hand never gets here: Hand returns first). (WP1R-m1) The enemy watched is the nearest within 3 m
+        /// that is the posture's target, after her, or her attack, revenge or action target; else the nearest enemy within 3 m.
+        /// Never a friend (EntityTargetingUtilities.IsEnemy). (WP1R-n1) At most one line per NoSwingLineGapSeconds per member and
+        /// never twice for one of her last NoSwingRememberIds targets.
         /// </summary>
         private static void NoSwingWatch(AvatarSdcsNpcController c, EntityAlive e, Watch st, ScPosture.View pv, bool bout, float now)
         {
             try
             {
-                bool meleeStance = pv.P == Posture.Melee || (pv.P == Posture.Investigate && !pv.Kiting);
                 EntityAlive t = null;
                 float used = 0f;
-                if (meleeStance && !HoldsRangedWeapon(e) && HeldItemName(e) != null && LastSwing(e, out used))
-                {
-                    t = CurrentTarget(e);
-                    if (t == null) t = ActionTarget(e);
-                    if (t != null && (t.IsDead() || (t.position - e.position).sqrMagnitude > MeleeReach * MeleeReach)) t = null;
-                }
+                string pick = null;
+                bool armed = !HoldsRangedWeapon(e) && HeldItemName(e) != null && LastSwing(e, out used);
+#if SC_V34
+                if (armed && (ScSleep.IsAsleep(e) || ScDowned.IsDown(e))) armed = false;
+#endif
+                if (armed) t = NoSwingTarget(e, pv, out pick);
                 if (t == null) { st.NsTarget = -1; return; }
                 if (st.NsTarget != t.entityId || now - st.NsTick > KiteTickGapSeconds)
                 {
-                    if (st.NsTarget != t.entityId) st.NsLogged = false;
                     st.NsTarget = t.entityId;
                     st.NsSince = now;
                     st.NsUse = used;
@@ -1233,12 +1239,63 @@ namespace SurvivorCommunity
                 }
                 st.NsTick = now;
                 if (used != st.NsUse) { st.NsSince = now; st.NsUse = used; return; }   // she swung: the clock starts again
-                if (st.NsLogged || now - st.NsSince < NoSwingWatchSeconds) return;
-                st.NsLogged = true;
+                if (now - st.NsSince < NoSwingWatchSeconds) return;
+                if (now - st.NsLineAt < NoSwingLineGapSeconds || st.NsLoggedIds.Contains(t.entityId)) return;
+                st.NsLineAt = now;                                                   // before the line: a failing build retries 20 s later, not every tick
+                string line;
+                using (ScGates.ScopeOf(e)) line = NoSwingFacts(c, e, t, pv, bout, now - st.NsSince, pick);
+                ScLog.Out(line);
+                // round wp1 (re-check WP1R-n2): remembered only once the line is out
+                st.NsLoggedIds.Add(t.entityId);
+                if (st.NsLoggedIds.Count > NoSwingRememberIds) st.NsLoggedIds.RemoveAt(0);
                 Patches_Xnpc.Count("x5-noswing-watch");
-                using (ScGates.ScopeOf(e)) ScLog.Out(NoSwingFacts(c, e, t, pv, bout, now - st.NsSince));
             }
             catch (Exception ex) { ScLog.Once("arms-noswing-watch", ex); }
+        }
+
+        /// <summary>Round wp1 (re-check WP1R-n1): one watchdog line per member at most this often.</summary>
+        private const float NoSwingLineGapSeconds = 20f;
+        /// <summary>Round wp1 (re-check WP1R-n1): a member's last this many watched targets get no second line.</summary>
+        private const int NoSwingRememberIds = 4;
+        private static readonly List<Entity> nsNear = new List<Entity>();
+
+        /// <summary>
+        /// Round wp1 (re-check WP1R-m1): the enemy the watchdog watches - awake, alive, an enemy of hers, within MeleeReach; the
+        /// nearest of those that is the posture's target, after her, or her attack, revenge or action target, else the nearest
+        /// one. pick: which. A read (its own scratch list).
+        /// </summary>
+        private static EntityAlive NoSwingTarget(EntityAlive e, ScPosture.View pv, out string pick)
+        {
+            pick = null;
+            World w = e.world;
+            if (w == null) return null;
+            EntityAlive own = e.GetAttackTarget(), rev = e.GetRevengeTarget(), act = ActionTarget(e);
+            EntityAlive best = null;
+            bool bestPref = false;
+            float bestD2 = float.MaxValue;
+            float r2 = MeleeReach * MeleeReach;
+            nsNear.Clear();
+            try
+            {
+                w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(e.position, new Vector3(2f * MeleeReach, 2f * MeleeReach, 2f * MeleeReach)), nsNear);
+                for (int i = 0; i < nsNear.Count; i++)
+                {
+                    EntityAlive a = nsNear[i] as EntityAlive;
+                    if (a == null || a == e || a.IsDead() || a.IsSleeping) continue;
+                    float d2 = (a.position - e.position).sqrMagnitude;
+                    if (d2 > r2 || !EntityTargetingUtilities.IsEnemy(e, a)) continue;
+                    string why = a.entityId == pv.TargetId ? "the posture's target" : a.GetAttackTarget() == e ? "after her"
+                               : a == own ? "her attack target" : a == rev ? "her revenge target" : a == act ? "her action's target" : null;
+                    bool pref = why != null;
+                    if (best != null && (bestPref && !pref || (pref == bestPref && d2 >= bestD2))) continue;
+                    best = a;
+                    bestPref = pref;
+                    bestD2 = d2;
+                    pick = why ?? "an enemy within " + MeleeReach.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " m";
+                }
+            }
+            finally { nsNear.Clear(); }
+            return best;
         }
 
         /// <summary>The running UAI action's entity target, or null. A read.</summary>
@@ -1249,13 +1306,13 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Round wp1 (review WP1-M1): the watchdog's line - every gate MeleeAttack and MeleeApproach read, as far as SC can read them.</summary>
-        private static string NoSwingFacts(AvatarSdcsNpcController c, EntityAlive e, EntityAlive t, ScPosture.View pv, bool bout, float quiet)
+        private static string NoSwingFacts(AvatarSdcsNpcController c, EntityAlive e, EntityAlive t, ScPosture.View pv, bool bout, float quiet, string pick)
         {
             var ic = System.Globalization.CultureInfo.InvariantCulture;
             var sb = new System.Text.StringBuilder();
             float dist = (t.position - e.position).magnitude;
             sb.Append(ScRetreat.Name(e)).Append(" has not swung in ").Append(quiet.ToString("0.0", ic)).Append(" s at ").Append(t.EntityName).Append(" (").Append(t.entityId)
-              .Append(") at ").Append(dist.ToString("0.0", ic)).Append(" m (round wp1 review: the no-swing watchdog) -");
+              .Append(") at ").Append(dist.ToString("0.0", ic)).Append(" m, ").Append(pick ?? "-").Append(" (round wp1 review: the no-swing watchdog) -");
             // her hand and her action
             float wc = e.Buffs != null ? e.Buffs.GetCustomVar("CurrentWeaponClass") : -1f;
             sb.Append(" holds ").Append(HeldItemName(e) ?? "nothing").Append(" (CurrentWeaponClass ").Append(wc.ToString("0", ic)).Append(")");
@@ -1282,7 +1339,7 @@ namespace SurvivorCommunity
             // 0-XNPCCore's swing checks
             float reach = XnpcMeleeRange(e);
             sb.Append("; in weapon reach: ").Append(reach > 0f ? YesNo(e.GetDistance(t) <= reach) + " (" + reach.ToString("0.0#", ic) + " m)" : "unread");
-            sb.Append(", reach block: ").Append(XnpcReachBlock(e, t));
+            sb.Append(", reach block (0-XNPCCore's last verdict for this pair, of any age): ").Append(XnpcReachBlock(e, t));   // round wp1 (re-check WP1R-n2)
 #if SC_V34
             sb.Append(", unreachable mark: ").Append(YesNo(ScReach.Marked(e, t)));
 #endif
@@ -1331,7 +1388,9 @@ namespace SurvivorCommunity
             {
                 Type rt = typeof(AvatarSdcsNpcController).Assembly.GetType("SdcsMeleeRange", false);
                 xnpcRangeFor = rt != null ? AccessTools.DeclaredMethod(rt, "For", new[] { typeof(EntityAlive) }) : null;
-                xnpcBlockKind = AccessTools.DeclaredMethod(typeof(SdcsMeleeReach), "BlockKind", new[] { typeof(EntityAlive), typeof(EntityAlive) });
+                // round wp1 (re-check WP1R-n2): by name too, so a 0-XNPCCore without the type costs this read only, not the line
+                Type kt = typeof(AvatarSdcsNpcController).Assembly.GetType("SdcsMeleeReach", false);
+                xnpcBlockKind = kt != null ? AccessTools.DeclaredMethod(kt, "BlockKind", new[] { typeof(EntityAlive), typeof(EntityAlive) }) : null;
                 if (xnpcRangeFor == null || xnpcBlockKind == null)
                     ScLog.Warn("no-swing watchdog: 0-XNPCCore's SdcsMeleeRange.For or SdcsMeleeReach.BlockKind was not found - its line says \"unread\" there");
             }
@@ -1340,17 +1399,20 @@ namespace SurvivorCommunity
 
         private static float XnpcMeleeRange(EntityAlive e)
         {
-            BindXnpcDiag();
-            try { return xnpcRangeFor != null ? (float)xnpcRangeFor.Invoke(null, new object[] { e }) : -1f; }
+            try
+            {
+                BindXnpcDiag();                                                  // round wp1 (re-check WP1R-n2): inside the try
+                return xnpcRangeFor != null ? (float)xnpcRangeFor.Invoke(null, new object[] { e }) : -1f;
+            }
             catch (Exception ex) { ScLog.Once("arms-xnpc-range", ex); return -1f; }
         }
 
         private static string XnpcReachBlock(EntityAlive e, EntityAlive t)
         {
-            BindXnpcDiag();
-            if (xnpcBlockKind == null) return "unread";
             try
             {
+                BindXnpcDiag();                                                  // round wp1 (re-check WP1R-n2): inside the try
+                if (xnpcBlockKind == null) return "unread";
                 object k = xnpcBlockKind.Invoke(null, new object[] { e, t });
                 return k == null ? "clear (or not probed)" : k.ToString() + " (0-XNPCCore's swing ray is blocked)";
             }

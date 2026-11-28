@@ -68,13 +68,18 @@ What changes, for members:
   awake, on her floor, and not while she sleeps or works a shift. Farther ones are still the intruder responders'; outside the
   base a wanderer is still left alone. A zombie she is left alone with is no longer her fight's target, nor "another fight" that
   keeps her from being sent to an intruder.
-- **No-swing watchdog**: in the melee stance with her target within 3 m and no swing for 3 s, one line per target: `<name>
-  has not swung in N s at <zombie> ... (round wp1 review: the no-swing watchdog) - holds ..., UAI action ...; it is after ...;
-  MayEngage: Voice Control .. -> SC ..; posture ...; in weapon reach: ..., reach block: ..., unreachable mark: ..., sees it:
-  ...; stands in ... on ...`. **If she stands by a zombie without swinging, send that line.**
+- **No-swing watchdog**: a member with a melee weapon (or her fists) in hand, an awake enemy within 3 m and no swing for 3 s,
+  whatever her posture (none too), not asleep or down: `<name> has not swung in N s at <zombie> ... at N m, <after her | the
+  posture's target | ... | an enemy within 3 m> (round wp1 review: the no-swing watchdog) - holds ..., UAI action ...; it is
+  after ...; MayEngage: Voice Control .. -> SC ..; posture ...; in weapon reach: ..., reach block (...): ..., unreachable
+  mark: ..., sees it: ...; stands in ... on ...`. It watches the nearest enemy that is after her or her fight's target, else
+  the nearest enemy; never a friend. At most one line per member every 20 s, never twice for one of her last 4 zombies.
+  **If she stands by a zombie without swinging, send that line.**
 - **An empty gun is no gun**: no rounds in the gun or her stores - her melee weapon at once in a fight (no hand clock, no 3 m
   wait; never during a reload), and no back-off of any kind (BackupRanged, BackupKeepDistance, ScKiteWide) while dry - with a
-  melee weapon in her pair; with none she still backs away. Watch and Stay keep 0-XNPCCore's own failover.
+  melee weapon in her pair. With none she backs away only from a cop, a demolition zombie or an armed enemy (as before wp1);
+  from others she stands until 0-XNPCCore's dry failover gives her fists, then fights. Watch and Stay keep 0-XNPCCore's own
+  failover.
 - **Melee in a matched fight, by her own skill** (decision m4, the user's): with at least as many Fighting stars as Shooting
   stars (`TeamShooterMargin` 0) she takes her melee weapon at once, whatever the distance; with more Shooting stars she keeps
   her gun until the zombie is within 4 m, then swaps once, as before wp1. Her own stars only: a strong fighter beside her can
@@ -114,7 +119,12 @@ posture and hold lines below are verbose lines.
       (`sc xnpc` shows no new back-off for her; `backoff-dry-gun` only if one slipped through).
 - [ ] The same with a zombie after nobody inside the base: she attacks it once it is within 5 m (line above), without you.
 - [ ] Give her ammo: the gun comes back by the usual rules (KITE when outmatched).
-- [ ] A member with a gun, no rounds and no melee weapon: she still backs away; 0-XNPCCore gives her fists in time.
+- [ ] A member with a gun, no rounds and no melee weapon, a walker coming: no `is empty ... at once` line (SC has no melee
+      weapon to give her); she stands, and within a few seconds 0-XNPCCore gives her fists and she fights with them. Against a
+      cop or a demolition zombie she backs away instead.
+- [ ] A friend beside her within 3 m while she stands with her machete: no watchdog line names the friend.
+- [ ] After the fight, a wanderer n08 leaves her alone with, 2 m off, her posture none, machete out: within 3 s a watchdog line
+      (`posture none`, `n08 leaves it alone: yes`).
 - [ ] A bow member reloading her last arrows: no `is empty ... at once` line mid-reload.
 
 **Melee when not overwhelmed (single player, at home)**

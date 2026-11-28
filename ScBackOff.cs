@@ -1240,7 +1240,8 @@ namespace SurvivorCommunity
             EntityAlive t = UAI.UAIUtils.ConvertToEntityAlive(ctx.ActionData.Target);
             if (t == null || t == self) return true;                          // its own "no target" failure, as it is
             // round wp1 (decision 1): an empty gun is no gun - no back-off of any kind while dry (the posture gate's second net)
-            // (review WP1-m5) only with a melee weapon in her pair - with none she backs away as before
+            // (review WP1-m5) only with a melee weapon in her pair - with none, MELEE lets a back-off from a melee-unsafe or armed
+            // enemy through, as before wp1 (re-check WP1R-m3)
             if (ScArms.DryWithMelee(self)) { Patches_Xnpc.Count("backoff-dry-gun"); EndAtOnce(ctx); return false; }
             float now = Time.time;
             if (now >= nextPrune) Prune(now);

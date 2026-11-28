@@ -390,12 +390,14 @@ namespace SurvivorCommunity
             if (ScPosture.Holds(npc)) return "holding her spot after a back-off, a heal or a reload (round cb1)";
             int max = npc.GetMaxHealth();
             if (max > 0 && (float)npc.Health / max < ScConfig.TeamLowHealth) return "hurt below " + F0(ScConfig.TeamLowHealth * 100f) + "%";
-            EntityAlive own = npc.GetAttackTarget();
-            if (own == null || own.IsDead()) own = npc.GetRevengeTarget();
             // round wp1 (review WP1-M2): an own target round n08 leaves her alone with (a wanderer she may not attack) is no fight -
-            // she stood by it, "in another fight", and nobody went to the intruder (log: "Mia: in another fight; Holly: down")
-            if (own != null && !own.IsDead() && own != t && EntityTargetingUtilities.IsEnemy(npc, own)
-                && !UAI.UAIConsiderationScIntruder.LeavesAlone(npc, own)) return "in another fight";
+            // she stood by it, "in another fight", and nobody went to the intruder (log: "Mia: in another fight; Holly: down").
+            // Round wp1 (re-check WP1R-n4): the attack target and the revenge target each on its own (ScTeam.OwnFight); her attack
+            // target being this intruder still makes her free for it, as before
+            EntityAlive atk = npc.GetAttackTarget();
+            EntityAlive own = atk != null && !atk.IsDead() && atk == t ? null : ScTeam.OwnFight(npc, atk);
+            if (own == null && !(atk != null && !atk.IsDead() && atk == t)) own = ScTeam.OwnFight(npc, npc.GetRevengeTarget());
+            if (own != null && own != t && EntityTargetingUtilities.IsEnemy(npc, own)) return "in another fight";
             // the Fable review of k3+k4 (F7): a resident who does not roam the zone answers only within DefendBaseRadius of her
             // post, also while she answers - past it ScReturn's leash walks her back and the defense walk out again (pacing)
             if (!ScBaseAttack.WideDefence && !UAI.UAIConsiderationScIntruder.Roams(m)
