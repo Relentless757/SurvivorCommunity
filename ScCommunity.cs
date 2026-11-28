@@ -568,6 +568,8 @@ namespace SurvivorCommunity
             // still runs through one is dropped
             ScStuck.NoteBody(npc);
             ScStuck.CheckPath(m, npc, nav);
+            // round nv1 (review): m1 - walking through a remembered cell on her way, gaining, proves it passable: the gap goes
+            ScStuck.PassedThrough(m, npc, (mhFar || navBusy) && moved >= 0.04f);
             if (blockedTime || isStuck || ((mhFar || navBusy) && moved < 0.04f))
             {
                 if (m.StillSeconds == 0) m.StuckTicks0 = ticks;

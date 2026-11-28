@@ -3765,27 +3765,38 @@ Round MP0 is the groundwork:
   - **Remembering** (`ScStuck.RememberSpot`): a walk that ends with no progress - the roam's no-gain or blocked end, the
     watchdog's still or no-gain verdict (not in a fight, not while a held move back waits), a shelter walk's no-gain or
     blocked end, a revive walk's no-gain end - puts the cell ahead of her and the cell she stood in on her base's list (a
-    community's id; -1 - the enclave's id for enclave people). The cell ahead: along her path within 2.5 m, the first low gap
-    (`LowGap`: her lower body cell free, the cell above blocking movement, a door never counts), else the cell 0.5 to 1.5 m
-    ahead. A low gap is remembered at once, with up to four low cells beside it over a floor (the rest of the opening); any
-    other cell on its second end there, at least 10 s apart; never a door's cell, nor while another body blocks her. One log
-    line when it is remembered. It goes 20 min after the last end at it; a low gap's cells go as soon as they are no longer low
-    (a block put in, or the one above taken away), with a log line once none is left.
-  - **Avoiding:** `ScStuck.PlannerMap` maps each body of a base seen in the last minute (the ticker's residents, the
-    watchdog's sample, enclave people) to its base's gap cells as graph-space boxes; it is rebuilt on the main thread and
-    swapped whole. Two postfixes on `Pathfinding.Path.CanTraverse` (`Patch_PlannerGrid`: the grid step, `Patch_PlannerLink`:
+    community's id; -1 - the enclave's id for enclave people). The cell ahead (review: M1): one of the first two cells along
+    her path, within 1.5 m, that are not her own; the first is the cell she pushes at. Either is a low gap only when the
+    blocks and the body agree: `LowGap` (over that cell's floor height - a floor surface inside its own cell, terrain in a dip
+    or a slab, is the floor - a block that blocks movement within 1.75 m, the feet cell free, a door never counts) and
+    `BodyBlocked` (main thread: `Physics.CheckCapsule` of radius 0.25 at the cell's center, 0.3 to 1.75 m over the floor, on
+    the voxel grid's terrain-and-blocks mask 1073807360 - an arch's opening, a plate on the cell's edge or a trim leave it
+    clear). A low gap is remembered at once for 20 min, with up to four neighbors over a floor that pass both tests (the rest
+    of the opening); any other cell (the first cell ahead) on its second end there, at least 10 s apart, for 5 min; never a
+    door's cell, nor while another body blocks her. One log line when it is remembered. It goes that long after the last end
+    at it; a low gap's cells go as soon as `LowGap` fails (a block put in, or the one above taken away), with a log line once
+    none is left; any gap goes at once when a body of the base stands in one of its cells while walking and gaining on its
+    way (`PassedThrough`, from the watchdog's sample: wants to move, 0.2 m moved this second, no second without a gain
+    counted); `sc stuck clear` drops them all.
+  - **Avoiding:** `ScStuck.Planner` maps each body of a base seen in the last minute (the ticker's residents, the
+    watchdog's sample, enclave people) to its base's gap cells as graph-space boxes, with a box around all of them that lets a
+    node far from every base through before the body is looked up; it is rebuilt on the main thread and swapped whole. Two postfixes on `Pathfinding.Path.CanTraverse` (`Patch_PlannerGrid`: the grid step, `Patch_PlannerLink`:
     the extra links) turn true into false for a node in a box, whatever traversal provider the path has (vanilla's or
     0-XNPCCore's, whose own checks are untouched). The body is the path's own (ASPPathFinder's callback's target), so zombies,
     players and other NPCs are never refused anything; with no gap the map is null and the postfixes return at once. A
     path's start and end nodes are asked with direction -1 and never refused, so a body standing in a gap gets out. A path
-    planned before a gap was known: the watchdog's sample drops it once per new path (at most every 30 s per member, and only
-    with the postfix in place), the roam marks its spot unreachable and pauses, an hr1 room or flight walk sets it aside
+    planned before a gap was known: the watchdog's sample drops it once per new path (at most every 30 s per member, only
+    with the postfix in place, and only a path the planner can tie to its body - a single-target path without an ending
+    condition, or a multi-target one; flee, random and ending-condition paths carry no finder callback, so they are neither
+    refused nor dropped, or the same path would come back), the roam marks its spot unreachable and pauses, an hr1 room or flight walk sets it aside
     (`heal-walk-through-gap`). A destination behind a gap is reached the long way round, or the walk finds no path and its own
     no-path handling picks another; a destination in a gap never passes `GoodPost` (two free cells).
   - `sc xnpc` prints `gaps walked round (round nv1)` (each gap, the postfix, the bodies guarded, the steps refused) and
-    `sc xnpc <name>`'s post line ends with her base's gaps. Counters (`stuck rescue`): `gap remembered: too low`,
-    `gap remembered: stuck twice`, `gap: noted once`, `gap: stuck there again`, `gap: a path through it dropped`,
-    `gap gone: filled or opened`, `roam walk dropped: path through a gap`.
+    `sc xnpc <name>`'s post line ends with her base's gaps; `sc stuck [list | clear]` lists every spot (noted once too) or
+    drops them all. Counters (`stuck rescue`): `gap remembered: too low`, `gap remembered: stuck twice`, `gap: noted once`,
+    `gap: stuck there again`, `gap: a path through it dropped`, `gap gone: filled or opened`, `gap gone: walked through`,
+    `gaps cleared by sc stuck clear`, `roam walk dropped: path through a gap`. SC is 3.4-only (the 3.2 build is retired); the
+    planner targets were checked against 3.4's A* library.
   - Not done: refusing every low cell up front in the planner (a shape test there would read chunks on the path finder's
     threads); a main-thread scan of the home zone could feed the same map later.
 

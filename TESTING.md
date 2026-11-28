@@ -55,7 +55,11 @@ at the floor broken, the wall above intact) instead of the open door beside it. 
 its own destination, so the next one, through the same hole, went the same way. The game's path planner takes such a hole
 for open along the wall's line when the block over it is a half block or a corner piece (see DEVELOPER.md, round nv1).
 Now a walk that ends with no progress remembers the cell ahead of her and where she stood, per base, for 20 minutes; the
-path planner refuses those cells on that base's survivors' paths, so they go round by the door. Build `sc34_nv1`,
+path planner refuses those cells on that base's survivors' paths, so they go round by the door. Review fixes (round nv1
+review): a cell counts as too low only when a body's capsule really does not fit there (an arch, a plate on the cell's edge
+or a hanging light no longer do), only the first two cells ahead of her are looked at, a spot the blocks do not explain
+lasts 5 minutes and goes at once when a survivor walks through it, `sc stuck [list | clear]`, and the watchdog no longer
+drops flee or wander paths the planner cannot steer. Build `sc34_nv1`,
 **not deployed**, untested in game. Server-side only (clients need nothing new; protocol unchanged); the save file is
 unchanged (the gaps are not saved). Two new patch targets: `Path::CanTraverse(GraphNode,int)` and
 `Path::CanTraverse(Connection)`.
@@ -79,14 +83,24 @@ unchanged (the gaps are not saved). Two new patch targets: `Path::CanTraverse(Gr
 - [ ] Fill the hole with a block: within a second or two the log says `the gap at x, y, z is gone (<block> under <block>
       now) - walks may go there again (round nv1)` (a hole two cells wide: once both are filled). The same when the block
       above it is taken out instead (the hole becomes a doorway), and members then walk through it.
+- [ ] `sc stuck` (or `sc stuck list`) lists the gap with its cells and minutes left; `sc stuck clear` drops it at once
+      (`gaps cleared: 1 avoided gap(s) ...`), and members walk into the hole again (and it is remembered again).
+- [ ] An arch doorway (an arch shape in the upper cell of a 2-high doorway), a doorway with a thin plate or trim on the edge
+      of its upper cell, and a hanging light at head height: block a member's walk just before it with furniture until her
+      roam ends with no gain. No `too low to walk through` line for that doorway; at most `noted once` (DebugLogging), and
+      it is walked round only after a second end there, for 5 minutes.
+- [ ] A spot remembered by the second-end rule (`no progress there twice`): clear what blocked her, and the first time a
+      member walks through that cell on her way the log says `<name> walked through the remembered gap at ... - it is
+      passable, no longer avoided (round nv1 review)`. Untouched, it goes after 5 minutes.
+- [ ] A hole on a terrain floor whose surface sits low in its block (a dip): still `too low to walk through` at once.
 - [ ] Leave the hole open and keep members away from it: 20 minutes after the last time anyone got stuck there, DebugLogging
       says `the gap at ... is no longer avoided`; a member may try it once more and it is remembered again.
 - [ ] Zombies at the same hole behave as before (the planner refuses it only for the base's own survivors).
 - [ ] A member waiting at a door that opens slowly never logs a gap there; nor does a member wedged by another NPC or a
       player, nor one stuck during a fight at home.
 - [ ] Not a low hole: a member that gets no progress twice at the same spot, 10 s or more apart, logs `(... no progress
-      there twice)` and the walks go round it; the first time only DebugLogging says `noted; a second time there makes it a
-      gap the walks go round`.
+      there twice)` and the walks go round it for 5 minutes; the first time only DebugLogging says `noted; a second time there
+      makes it a gap the walks go round`.
 - [ ] Round hr1: with a gap remembered between a hurt member and a room, a room or flight walk whose path runs through it
       is set aside: `<name>'s path to the room at ... runs through the remembered gap at ... - set aside, the next step
       (round nv1)`; `sc xnpc` counts `heal-walk-through-gap`.
