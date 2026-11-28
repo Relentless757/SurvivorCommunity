@@ -98,7 +98,7 @@ What changes, for members:
 New settings (Config/blocks.xml, team section): `TeamStarBonus` 0.25, `TeamStarBonusFrom` 2, `TeamShooterMargin` 0,
 `EngageWanderersWithin` 5 (0 turns the star bonus and the wanderer rule off).
 
-Build `sc34_wp1`, on branch `wp1` (with the review's fixes: 0 blockers, 2 majors, 6 minors), not deployed, untested in game.
+Build `sc34_wp1` (with the review's fixes: 0 blockers, 2 majors, 6 minors), **deployed 2026-11-28** (`port-3.4` 7235ea33, DLL fb94c72f; protocol 10 unchanged), untested in game.
 Server-side only. `sc xnpc` counts `x5-dry-gun-melee`, `backoff-dry-gun`, `posture-gap-bridged`, `x5-noswing-watch`; the
 posture and hold lines below are verbose lines.
 
