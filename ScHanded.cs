@@ -63,11 +63,8 @@ namespace SurvivorCommunity
             return iv != null && !iv.IsEmpty() ? iv : null;
         }
 
-        /// <summary>
-        /// Stores a copy of this item in the slot (null: the slot holds nothing). Not saved here: the caller saves. Round wq1:
-        /// recordQuality false - the save being read (Read), which must not add a wq= line to a save that had none.
-        /// </summary>
-        public static void Put(Member m, int slot, ItemValue iv, bool recordQuality = true)
+        /// <summary>Stores a copy of this item in the slot (null: the slot holds nothing). Not saved here: the caller saves.</summary>
+        public static void Put(Member m, int slot, ItemValue iv)
         {
             if (m == null || slot < 0 || slot >= Count) return;
             if (iv == null || iv.IsEmpty())
@@ -81,10 +78,19 @@ namespace SurvivorCommunity
             }
             if (m.Handed == null) m.Handed = new ItemValue[Count];
             m.Handed[slot] = iv.Clone();
-            // round wq1: a weapon handed for her pair is the quality she has for it from now on - should this record go stale or be
-            // taken back, the copies SCore rebuilds keep that quality (ScLoadout.StableQuality), never the seeded one
-            if (recordQuality && (slot == Ranged || slot == Melee) && iv.ItemClass != null && iv.ItemClass.HasQuality)
-                ScLoadout.RecordQuality(m, iv.ItemClass.GetItemName(), iv.Quality);
+        }
+
+        /// <summary>
+        /// Round wq1: the weapon now stored in a pair slot is the quality she has for it from now on - should this record go stale
+        /// or be taken back, the copies SCore rebuilds keep that quality (ScLoadout.StableQuality), never the seeded one. Round
+        /// wq1 (review, WQ1-n1): called by ScArms only once the swap is committed (SetGuarded succeeded), so a refused swap
+        /// leaves no record; never while the save is read (an old save gains no wq= line).
+        /// </summary>
+        public static void RecordWeaponQuality(Member m, int slot)
+        {
+            if (slot != Ranged && slot != Melee) return;
+            ItemValue iv = Get(m, slot);
+            if (iv != null && iv.ItemClass != null && iv.ItemClass.HasQuality) ScLoadout.RecordQuality(m, iv.ItemClass.GetItemName(), iv.Quality);
         }
 
         public static bool Any(Member m)
@@ -449,7 +455,7 @@ namespace SurvivorCommunity
                 m.HandedSpare.Add(iv);
                 return;
             }
-            Put(m, slot, iv, false);     // round wq1: reading the save records no quality
+            Put(m, slot, iv);
         }
 
         /// <summary>A mod whose item no longer exists becomes an empty slot (the weapon itself keeps everything else).</summary>

@@ -1466,8 +1466,9 @@ namespace SurvivorCommunity
                 if (ScHanded.ForCopy(e, pair, iv.type) != null || WindowHolds(e, iv.type)) return false;
             }
             else if (!IsWorkKitItem(name) || (held && !IsKitOnly(e, name))) return false;
-            // round wq1: the quality she really had for it (recorded when she joined, or handed since) before the seeded one
-            int q = RecordedQuality(ScRegistry.GetMember(e.entityId), name);
+            // round wq1: the quality she really had for it (recorded when she joined, or handed since) before the seeded one.
+            // Round wq1 (review, WQ1-m2): pair weapons only - a work-kit tool keeps the kit's seeded quality
+            int q = pairWeapon ? RecordedQuality(ScRegistry.GetMember(e.entityId), name) : 0;
             if (q <= 0) q = StableQualityOf(e, iv.type, pairWeapon);
             if (iv.Quality == q) return false;
             iv.Quality = (ushort)q;
@@ -1534,7 +1535,8 @@ namespace SurvivorCommunity
         internal static bool RecordQuality(Member m, string item, int quality)
         {
             if (m == null || string.IsNullOrEmpty(item) || quality < 1 || quality > 6) return false;
-            if (m.WeaponQuality == null) m.WeaponQuality = new Dictionary<string, int>(StringComparer.Ordinal);
+            // round wq1 (review, WQ1-n2): case-insensitive, as IsPairWeapon and ScArms compare a pair token with an item name
+            if (m.WeaponQuality == null) m.WeaponQuality = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             int was;
             if (m.WeaponQuality.TryGetValue(item, out was) && was == quality) return false;
             m.WeaponQuality[item] = quality;
@@ -1581,9 +1583,11 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round wq1, ScCommunity.Admit (a body becoming a member - a recruit, a hire who joins, an enclave person recruited or
-        /// joining with their group): the quality of each of her pair weapons (CopyOf) and of the weapon in her hand into her
-        /// record, so the copies SCore rebuilds after a load keep it (StableQuality) rather than taking the seeded one. A weapon
-        /// she was handed as a member later records its own (ScHanded.Put). Logged with DebugLogging. Host only.
+        /// joining with their group) and, round wq1 (review, WQ1-m1), the group joins that walk a live body off as a husk
+        /// (ScEncJoin.JoinArriving, the band join in ScBands): the quality of each of her pair weapons (CopyOf) and of the weapon
+        /// in her hand into her record, so the copies SCore rebuilds after a load keep it (StableQuality) rather than taking the
+        /// seeded one. A weapon she was handed as a member later records its own (ScHanded.RecordWeaponQuality). Needs no
+        /// registry entry. Logged with DebugLogging. Host only.
         /// </summary>
         public static void RecordQualities(Member m, EntityAlive e)
         {
@@ -1598,10 +1602,13 @@ namespace SurvivorCommunity
                     {
                         ItemValue copy = CopyOf(e, item, held);
                         if (!QualityWeapon(copy)) continue;
-                        RecordQuality(m, item, copy.Quality);
-                        said.Add(item + " Q" + copy.Quality);
+                        string own = copy.ItemClass.GetItemName();      // round wq1 (review, WQ1-n2): the item's own name, as StableQuality looks it up
+                        RecordQuality(m, own, copy.Quality);
+                        said.Add(own + " Q" + copy.Quality);
                     }
-                if (QualityWeapon(held))
+                // round wq1 (review, WQ1-m2): the weapon in her hand, but never a work-kit tool that is not one of her pair (the kit
+                // keeps its seeded quality)
+                if (QualityWeapon(held) && (IsPairWeapon(pair, held.ItemClass) || !IsWorkKitItem(held.ItemClass.GetItemName())))
                 {
                     string name = held.ItemClass.GetItemName();
                     if (RecordQuality(m, name, held.Quality)) said.Add(name + " Q" + held.Quality + " (in hand)");

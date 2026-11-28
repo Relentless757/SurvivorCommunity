@@ -409,6 +409,7 @@ namespace SurvivorCommunity
             {
                 Loadout lo = ScLoadout.Current(body);
                 if (lo != null) m.Loadout = lo;
+                ScLoadout.RecordQualities(m, body);      // round wq1 (review, WQ1-m1): her weapons' qualities, before the body goes
                 m.Ammo = ScAmmo.Carried(body, out m.Mags);
                 m.Ranged = ScSkills.HoldsRanged(body);
                 if (p.IsLeader) DropStock(body, false);

@@ -1777,12 +1777,17 @@ vanilla's.
   the quality the weapon really had. As a hire nothing forced it (members only) and X13 kept the held gun's own
   `ItemValue`; as a member `AfterPostInit` runs `RestoreHeldGun` (X13, Q6) and then `ApplyWeaponMods`, whose
   `StableQuality` wrote the seed over it. Now `ScCommunity.Admit` (every path that makes a member from a body: a recruit,
-  a hire joining, an enclave person recruited or joining with the group) records the quality of each pair weapon and of
-  the held weapon (`ScLoadout.RecordQualities`: the copy in her hand, else her inventory window, toolbelt, bag), and
-  `ScHanded.Put` records a weapon handed for her pair (never while the save is read). `StableQuality` uses the recorded
-  quality before the seed; the canonical mods follow it (Quality - 1 slots). Saved as `[member] wq=name:q,name:q` (written
-  when set, never to a client; an older build ignores it). A member from before wq1, or one made without a body (an
-  enclave arriving, E12), has none and keeps the seeded quality, as before.
+  a hire joining, an enclave person recruited or joining with the group) and the group joins that walk a live body off as
+  a husk (`ScEncJoin.JoinArriving`, the band join; review WQ1-m1) record the quality of each pair weapon and of the held
+  weapon (`ScLoadout.RecordQualities`: the copy in her hand, else her inventory window, toolbelt, bag; under the item's
+  own name, case-insensitive; a held work-kit tool that is not one of her pair is left out), and
+  `ScHanded.RecordWeaponQuality` records a weapon handed for her pair once `ScArms`' swap is committed (never for a
+  refused swap, never while the save is read). `StableQuality` uses the recorded quality before the seed, for pair weapons
+  only (work-kit tools keep the kit's seeded quality, WQ1-m2); the canonical mods follow it (Quality - 1 slots). Saved as
+  `[member] wq=name:q,name:q` (written when set, never to a client; an older build ignores it). A member from before wq1,
+  or one whose group joined while her body was not loaded (E12, E13a), has none and keeps the seeded quality, as before.
+  Unchanged: an outpost or radio stand-in's copies stay random (`StableQuality` asks the body's own id;
+  `ScHanded.MemberOf` would cover it - review note WQ1-n4).
 - Their eyes track you like a player's. That needs one repair: the eye shader spins each eyeball about a pivot
   given in head-bone space, while the game re-roots every untagged skinned mesh of a non-player entity onto the
   pelvis - which slid the eyeballs out of the face. The mod tags the generated eye mesh the way vanilla's own
