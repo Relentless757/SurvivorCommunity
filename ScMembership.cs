@@ -425,8 +425,8 @@ namespace SurvivorCommunity
         /// display name online, else the id). In order:
         /// 1. their talk holds and work shifts end (ScWork.ForgetPlayer, the disconnect path);
         /// 2. decision 8, leaving a founded community: its requests they accepted pass to another online player of it (else
-        ///    withdrawn, no standing lost); its favors they hold stay its own - their journal copies close (MP7 (decision needed)
-        ///    in ReleaseFavours);
+        ///    withdrawn, no standing lost); its favors they hold stay its own - their journal copies close (see ReleaseFavours'
+        ///    decision-needed note);
         /// 3. their followers stay members of the old community and go home to it (stationed now, or resident when unloaded);
         /// 4. from a personal record into a community: the merge (Merge), then the record retires (Retire); to none: a fresh
         ///    personal record; else the map changes;
@@ -602,14 +602,16 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Decision 8's "held favors", leaving a founded community: a favor is the community's (Prospect), and its quest sits in the
-        /// taker's journal on their own machine; no server op starts a favor quest in another player's journal. MP7 (decision
-        /// needed): the closest safe behavior - the favor stays the community's (a done favor stays done), the mover's journal
+        /// taker's journal on their own machine; no server op starts a favor quest in another player's journal. The closest
+        /// safe behavior (MP7, decision needed) - the favor stays the community's (a done favor stays done), the mover's journal
         /// copy closes (removed), and when no other online player of the community holds its quest it is no longer "taken on"
         /// (Started false), so any of its players can take it up again at the survivor. An offline mover's copy closes with their
         /// next journal report (ScQuestNet.StaleFavours: not their new community's favor). Returns the copies closed.
         /// </summary>
         private static int ReleaseFavours(CommunityState old, string pid, EntityPlayer mover)
         {
+            // MP7 (decision needed): decision 8 passes "held favors" to another online player, but a favor quest can only be started by
+            // the taker's own dialog (no quest op starts one remotely) - so the favor stays the community's and is free to take on again
             if (mover == null || old.Prospects.Count == 0) return 0;
             int n = 0;
             bool host = mover is EntityPlayerLocal;
@@ -756,6 +758,8 @@ namespace SurvivorCommunity
                     if (!tr.Known) { tr.Known = true; tr.KnownDay = pr.KnownDay; }
                     else if (pr.KnownDay >= 0 && (tr.KnownDay < 0 || pr.KnownDay < tr.KnownDay)) tr.KnownDay = pr.KnownDay;
                 }
+                // MP7 (decision needed): "hostile only if both are" (MP7_DESIGN) ends the community's hostility here, which E2 made
+                // permanent; a raid demand or raid of that group on the community's outposts is left as it stands
                 if (tr.TurnedHostile && !pr.TurnedHostile)
                 {
                     tr.TurnedHostile = false;
@@ -794,6 +798,7 @@ namespace SurvivorCommunity
             // the record's own rows and hostility cvars go with it (Retire drops them)
             // wild survivors' grudges against the joining player (ScTrust's per-player cvar) - the community's relation wins; a body not
             // loaded keeps its cvar (only live bodies can be changed)
+            // MP7 (decision needed): ScTrust's grudge is per player and lives on the survivor's body - only loaded bodies can drop it
             World w = ScCommunity.World;
             if (mover != null && w != null && w.Entities != null)
             {

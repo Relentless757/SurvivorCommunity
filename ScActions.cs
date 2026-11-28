@@ -406,6 +406,8 @@ namespace SurvivorCommunity
         /// enlisting, joins, members, stations, radio, linked storage, the stockpile, outposts, runs) and every Owner op answers
         /// scNoCommunity: what needs a home or a community waits for their founding (DEVELOPER.md, the held rewards).
         /// </summary>
+        // MP7 (decision needed): enlisting an ally's fighter (enc.enlist) needs no home, but it is no relation op in the design's
+        // list, so it waits for the founding with the other community perks
         private static readonly HashSet<string> PersonalOps = new HashSet<string>(StringComparer.Ordinal)
         {
             "favour.start", "favour.poicleared", "favour.items", "favour.given",
