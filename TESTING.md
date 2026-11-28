@@ -356,6 +356,26 @@ Build `sc34_cb1`, not deployed, untested in game. Server-side only. `sc xnpc <id
 - [ ] A member with no rounds: no hold line; she melees as before.
 - [ ] `BackOffBaseMeters` 0, `BackOffHoldSeconds` 0 in blocks.xml: k1's steps only (still at a run), no hold.
 
+**Round cb1 (review) (2026-11-28, on `r28`): the Fable review's fixes (0 blockers, 2 majors, 8 minors)**
+- A run at home is held to its end even when the zombie goes out of sight on the way (SCore's CanSeeTarget is off ScKiteWide;
+  SC's "wide" consideration tests sight to START a run). A far point needs a line of fire to the zombie from it.
+- A run another action cuts short (a heal back-off, a step) that gained starts the hold too (`holds her spot after her back-off
+  (cut short)`; counted `backoff-cut`); a hold with no line of fire to her target for 2 s ends (`no line of fire to an enemy for
+  2 s`), so the defense walk takes her to it; a reload renews a hold up to 12 s from its start (1.5 x `BackOffHoldSeconds`), not
+  forever; a hold never starts with a zombie already within 3 m.
+- The step to open ground tests its walk only against zombies ahead of her (one at her elbow no longer fails every spot) and
+  may go down up to 3 cells at its first cell (off a cab or stacked coffins); a request she could not act on waits 4 s; she gets
+  KITE against the zombie she stepped off a model by (no melee walk back up); the shelter tries a step down twice, then holds.
+- The hold after a heal reads md2's real use start (a called-off use is no heal).
+- [ ] A far run whose path turns through a doorway: she runs to its end (`'s run back is N m ...`), no cut at the corner.
+- [ ] Every far point logged is one she can shoot the zombie from (stand there: a clear view of it).
+- [ ] A run cut by her heal back-off: `holds her spot after her back-off (cut short)` once she is clear.
+- [ ] Holding with the zombie round a corner: the hold ends after 2 s (`no line of fire`), and she walks to it as before.
+- [ ] A bow member shooting from a hold: `'s hold ends after` at most 12 s.
+- [ ] A last stand with two zombies at contact and her swing refused: `steps to open ground ... with a clear swing at ...` (no
+      longer `finds none ... an enemy at it or on the way`).
+- [ ] A call-off of her medkit use (md2): no `holds her spot after her heal` line.
+
 ## Deployed 2026-11-27: round MP7 (community modes), round hr1 (healing and last stand), round lk1 (looks kept, falling trees)
 
 Installed in the 3.4 game (`port-3.4` 15e187ab, DLL 90907710); the dedicated server loads the same folder. **Protocol 9:

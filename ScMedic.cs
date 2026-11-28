@@ -312,12 +312,13 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round cb1: when her last medical use began (Time.time), -1 with none this session - ScPosture's hold after a heal reads it
-        /// (a newer start with no use running: a heal just ended). A pure read.
+        /// (a newer start with no use running: a heal just ended). A pure read. Round cb1 (review CB1-m3, R28-m1): md2's lastUseAt
+        /// (set when a use begins, taken back when it is called off), not readyAt - Cooldown, which a call-off sets to its retry.
         /// </summary>
         internal static float LastUseStart(EntityAlive e)
         {
-            float ready;
-            return e != null && readyAt.TryGetValue(e.entityId, out ready) ? ready - Cooldown : -1f;
+            float at;
+            return e != null && lastUseAt.TryGetValue(e.entityId, out at) ? at : -1f;
         }
 
         /// <summary>

@@ -148,6 +148,8 @@ namespace SurvivorCommunity
             public float FarMeters, Deadline, LongFailAt, LongOffUntil;
             public int LongFails;
             public GamePath.PathEntity StalePath;
+            /// <summary>Round cb1 (review CB1-M1): the UAI action that runs this run (RunCutWithGain: another action took over).</summary>
+            public string Action = "";
         }
 
         private static readonly Dictionary<int, Last> lasts = new Dictionary<int, Last>();
@@ -493,11 +495,15 @@ namespace SurvivorCommunity
             return Mathf.Max(0f, Mathf.Min(d, cap));
         }
 
-        /// <summary>Round cb1: her far run against t is going (ScKiteWide's band keeps it to its end). A pure read.</summary>
+        /// <summary>
+        /// Round cb1: her ScKiteWide run at home against t is going (ScKiteWide's band keeps it to its end, sight or not). Round cb1
+        /// (review CB1-m8): every bounded ScKiteWide run at home, far or not - during "far runs off" too, so k1's steps keep the band.
+        /// A pure read.
+        /// </summary>
         internal static bool FarRunning(EntityAlive self, EntityAlive t)
         {
             Last l;
-            return self != null && t != null && lasts.TryGetValue(self.entityId, out l) && l.Running && l.Far && l.Target == t.entityId;
+            return self != null && t != null && lasts.TryGetValue(self.entityId, out l) && l.Running && l.Home && l.Wide && l.Target == t.entityId;
         }
 
         /// <summary>
@@ -520,7 +526,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round cb1: a far point s along d - a floor within FarMaxDy cells of her level, inside the base, a real floor she may be sent
-        /// to (Standable), no enemy within FarClear of it, and its straight line passing no other enemy ahead of her within PassClear.
+        /// to (Standable), no enemy within FarClear of it, a line of fire from it to the threat (round cb1 review), and its straight
+        /// line passing no other enemy ahead of her within PassClear.
         /// No clear-line or floor-under-walk test: the navigator's path is what she runs, checked once she has it (CheckLongPath).
         /// </summary>
         private static bool CandidateFar(World w, EntityAlive self, Vector3 me, Vector3 d, float s, int yRef, List<Vector3> foes, out Vector3 pc, out string why)
@@ -535,6 +542,10 @@ namespace SurvivorCommunity
             if (!Standable(w, self, new Vector3i(x, y, z), out why)) return false;
             for (int i = 0; i < foes.Count; i++)
                 if (ScRunners.XZ(foes[i], pc) < FarClear) { why = "an enemy within " + F1(FarClear) + " m of it"; return false; }
+            // round cb1 (review CB1-M1): she shoots from there - a clear line chest high from it to the threat's chest (foes[0]), over
+            // terrain and solid blocks (glass and bars stop it too, as SCore's shot test)
+            Vector3 chest = new Vector3(0f, WalkLineHeight, 0f);
+            if (foes.Count > 0 && !ScShelter.ClearLine(w, pc + chest, foes[0] + chest, true)) { why = "no line of fire to the threat from it"; return false; }
             Vector3 walk = pc - me;
             walk.y = 0f;
             float len = walk.magnitude;
@@ -715,7 +726,7 @@ namespace SurvivorCommunity
             dir0.Normalize();
             Vector3 up = new Vector3(0f, WalkLineHeight, 0f);
             Vector3 chest = from != null ? from.position + up : Vector3.zero;
-            GatherAll(self, maxR + 4f);
+            GatherAll(self, maxR + 4f, from);                                 // round cb1 (review CB1-M2): "from" apart
             string lastWhy = "no floor near " + ScRetreat.Her(self) + " level";
             try
             {
@@ -741,16 +752,33 @@ namespace SurvivorCommunity
                             if (ScStuck.Unreachable(self.entityId, cell)) { lastWhy = "on " + ScRetreat.Her(self) + " unreachable list"; continue; }
                             string gw;
                             if (!ScCommunity.GoodPost(w, cell, strict, out gw)) { lastWhy = gw; continue; }
-                            bool near = false;
-                            int crowd = 0;
+                            // round cb1 (review CB1-M2): the landing keeps StepEnemyClear from every enemy, "from" included; the walk is
+                            // tested only against enemies AHEAD of her along it (as k1's Candidate), "from" among them - one at her elbow,
+                            // or the one she steps away from, no longer fails every spot
+                            bool near = from != null && ScRunners.XZ(from.position, pc) < StepEnemyClear;
+                            int crowd = from != null && ScRunners.XZ(from.position, pc) < 3f ? 1 : 0;
+                            Vector3 sw = pc - me;
+                            sw.y = 0f;
+                            float slen = sw.magnitude;
+                            if (slen > 0.01f) sw /= slen;
+                            if (!near && from != null && slen > 0.01f)
+                            {
+                                // "from" too, only when the step would go through it (ahead of her along the walk)
+                                Vector3 vf = from.position - me;
+                                vf.y = 0f;
+                                if (Vector3.Dot(vf, sw) > PassAhead && ScRunners.PassDistance(me, pc, from.position) < StepWalkClear) near = true;
+                            }
                             for (int i = 0; i < enemies.Count && !near; i++)
                             {
                                 float fd = ScRunners.XZ(enemies[i], pc);
-                                if (fd < StepEnemyClear || ScRunners.PassDistance(me, pc, enemies[i]) < StepWalkClear) near = true;
-                                else if (fd < 3f) crowd++;
+                                if (fd < StepEnemyClear) { near = true; break; }
+                                Vector3 v = enemies[i] - me;
+                                v.y = 0f;
+                                if (slen > 0.01f && Vector3.Dot(v, sw) > PassAhead && ScRunners.PassDistance(me, pc, enemies[i]) < StepWalkClear) { near = true; break; }
+                                if (fd < 3f) crowd++;
                             }
-                            if (near) { lastWhy = "an enemy at it or on the way"; continue; }
-                            if (!FloorUnderWalk(w, me, pc, yRef, y)) { lastWhy = "no floor under the step"; continue; }
+                            if (near) { lastWhy = "an enemy at it or ahead on the way"; continue; }
+                            if (!StepFloor(w, me, pc, yRef, y)) { lastWhy = "no floor under the step"; continue; }
                             if (!ScShelter.ClearLine(w, me + up, pc + up, true)) { lastWhy = "a wall, door or glass in the way"; continue; }
                             if (needLine && !ScShelter.ClearLine(w, pc + up, chest, true)) { lastWhy = "no clear swing at " + Who(from) + " from there"; continue; }
                             float score = r + 2f * crowd;
@@ -769,8 +797,11 @@ namespace SurvivorCommunity
             return false;
         }
 
-        /// <summary>Round cb1: the awake, living enemies within r of her (SCore's IsEnemy, not inert) into the shared list - no threat first.</summary>
-        private static void GatherAll(EntityAlive self, float r)
+        /// <summary>
+        /// Round cb1: the awake, living enemies within r of her (SCore's IsEnemy, not inert) into the shared list - no threat first.
+        /// Round cb1 (review CB1-M2): but not "except" (the step tests that one apart).
+        /// </summary>
+        private static void GatherAll(EntityAlive self, float r, EntityAlive except = null)
         {
             enemies.Clear();
             World w = self.world;
@@ -782,12 +813,74 @@ namespace SurvivorCommunity
                 for (int i = 0; i < near.Count; i++)
                 {
                     EntityAlive a = near[i] as EntityAlive;
-                    if (a == null || a == self || a.IsDead() || a.IsSleeping) continue;
+                    if (a == null || a == self || a == except || a.IsDead() || a.IsSleeping) continue;
                     if (!EntityTargetingUtilities.IsEnemy(self, a) || global::Harmony.ZombieFeatures.InertEntity.IsInert(a)) continue;
                     enemies.Add(a.position);
                 }
             }
             finally { near.Clear(); }
+        }
+
+        /// <summary>
+        /// Round cb1 (review CB1-m7): FloorUnderWalk for a step - the first new cell may be up to 3 lower than hers (down off a truck's
+        /// bed or cab, stacked coffins), every later one within 1 cell of the last, and the landing within 1 of the last sample (3 down
+        /// when the step has no sample between).
+        /// </summary>
+        private static bool StepFloor(World w, Vector3 me, Vector3 pc, int yRef, int yEnd)
+        {
+            Vector3 walk = pc - me;
+            walk.y = 0f;
+            float len = walk.magnitude;
+            int n = Mathf.CeilToInt(len / FloorStep);
+            int yPrev = yRef, lx = Mathf.FloorToInt(me.x), lz = Mathf.FloorToInt(me.z);
+            bool first = true;
+            for (int k = 1; k < n; k++)
+            {
+                Vector3 q = me + walk * (k / (float)n);
+                int x = Mathf.FloorToInt(q.x), z = Mathf.FloorToInt(q.z);
+                if (x == lx && z == lz) continue;
+                lx = x;
+                lz = z;
+                int down = first ? 3 : 1;
+                first = false;
+                bool ok = false;
+                for (int dy = 0; dy >= -down && !ok; dy--)
+                    if (ScCommunity.Standable(w, x, yPrev + dy, z)) { yPrev += dy; ok = true; }
+                if (!ok && ScCommunity.Standable(w, x, yPrev + 1, z)) { yPrev++; ok = true; }
+                if (!ok) return false;
+            }
+            return yEnd - yPrev <= 1 && yPrev - yEnd <= (first ? 3 : 1);
+        }
+
+        /// <summary>Round cb1 (review CB1-m4): a body's step state goes with the body (ScPosture.Forget; entity ids are recycled).</summary>
+        internal static void ForgetStep(int entityId) { stepStates.Remove(entityId); }
+
+        /// <summary>
+        /// Round cb1 (review CB1-M1, part c): the X5 tick's look at her bounded run at home - another UAI action took over (its own end,
+        /// the gain test, the path check and its deadline clear Running in BoundUpdate first). The run is over; true when it gained
+        /// (out of its enemy's reach and GainNeed farther than at its start): she holds that spot. Counted backoff-cut. Main thread.
+        /// </summary>
+        internal static bool RunCutWithGain(EntityAlive e)
+        {
+            Last l;
+            if (e == null || !lasts.TryGetValue(e.entityId, out l) || !l.Running || !l.Bounded || !l.Home) return false;
+            float now = Time.time;
+            if (now - l.At < 0.5f) return false;                              // just started: its task may not be executing yet
+            UAI.Context ctx = e.utilityAIContext;
+            if (ctx == null) return false;
+            UAI.ActionData ad = ctx.ActionData;                               // a struct: a copy to read
+            if (ad.Executing && ad.Action != null && ad.Action.Name == l.Action)
+            {
+                EntityAlive at = UAI.UAIUtils.ConvertToEntityAlive(ad.Target);
+                if (at != null && at.entityId == l.Target) return false;      // still her run
+            }
+            l.Running = false;
+            l.StalePath = null;
+            Patches_Xnpc.Count("backoff-cut");
+            EntityAlive t = e.world != null ? e.world.GetEntity(l.Target) as EntityAlive : null;
+            if (t == null || t.IsDead()) return false;
+            float band = ScConfig.BackupKeepDistanceMax;
+            return (t.position - e.position).sqrMagnitude > band * band && ScRunners.XZ(e.position, t.position) >= l.GapAtStart + GainNeed;
         }
 
         private static StepState StepOf(int id)
@@ -807,6 +900,10 @@ namespace SurvivorCommunity
             if (self == null || self.isEntityRemote || !AppliesTo(self)) return false;
             float now = Time.time;
             StepState s = StepOf(self.entityId);
+            // round cb1 (review CB1-m4): a step past its deadline is over (its body unloaded mid-step), and a request ScStepClear did not
+            // take up in time (a higher action held her) waits StepCooldown as a step does
+            if (s.Walking && now > s.Deadline) { s.Walking = false; s.CooldownUntil = s.Deadline + StepCooldown; }
+            if (!s.Walking && s.WantedUntil > 0f && now >= s.WantedUntil) { s.CooldownUntil = Mathf.Max(s.CooldownUntil, s.WantedUntil + StepCooldown); s.WantedUntil = 0f; }
             if (s.Walking || now < s.WantedUntil) return true;
             if (now < s.CooldownUntil) return false;
             Vector3 spot;
@@ -1192,6 +1289,7 @@ namespace SurvivorCommunity
             bool longStep;
             if (PickEx(self, t, max, region, leader, l, far, out p, out step, out angle, out longStep, out why))
             {
+                l.Action = act != null ? act.Name : "";                       // round cb1 (review CB1-M1): RunCutWithGain's test
                 l.Home = region == ScRetreat.Region.Home;                    // round cb1: the run's pace and the hold after it
                 l.Far = far > 0f;
                 l.FarMeters = far;

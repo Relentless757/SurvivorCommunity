@@ -1414,8 +1414,13 @@ namespace SurvivorCommunity
             // a short step to open ground with a clear swing at it (ScStepClear), whatever she then holds. And the line says what she
             // really does: with no rounds the stand keeps her melee weapon (StandHand's "nothing to shoot: melee"), never an empty gun
             EntityAlive ct = CurrentTarget(e);
-            bool stepping = ct != null && (ct.position - e.position).sqrMagnitude <= MeleeReach * MeleeReach
-                            && ScBackOff.RequestStep(e, ct, true, ScRetreat.Her(e) + " swing is blocked in " + ScRetreat.Her(e) + " last stand (" + why + ")");
+            bool stepping = false;
+            if (ct != null && (ct.position - e.position).sqrMagnitude <= MeleeReach * MeleeReach)
+            {
+                // round cb1 (review CB1-m2): ScArms.Hand runs after the X5 tick's scope closed - the home zone is her community's
+                using (ScGates.ScopeOf(e))
+                    stepping = ScBackOff.RequestStep(e, ct, true, ScRetreat.Her(e) + " swing is blocked in " + ScRetreat.Her(e) + " last stand (" + why + ")");
+            }
             ItemClass gun = ScAmmo.PairGun(e);
             bool gunRounds = gun != null && ScAmmo.Rounds(e, gun) > 0;
             ScLog.Out(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") cannot swing in " + ScRetreat.Her(e) + " last stand: " + why + " - "

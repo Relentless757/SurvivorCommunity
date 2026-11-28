@@ -3574,6 +3574,19 @@ Round MP0 is the groundwork:
     rounds, not in a stand. While it holds `Want` gives KITE at once and no INVESTIGATE; `UAIConsiderationScNotRetreating` (the
     defense, investigate, leash and Guard walks) and the approach gate answer 0; `ScInvestigate.NotFree` skips her. `CheckHold`
     ends it: its time, an enemy after her within 3 m, a dry gun, the stand, away from home. Logged at its start and end.
+  - The Fable review's fixes (on `r28`): ScKiteWide no longer carries SCore's `CanSeeTarget` - `UAIConsiderationScPosture`
+    action="wide" makes the same test (not inert, `SCoreUtils.CanSee`) only to start a run, and `FarRunning` (every bounded
+    ScKiteWide run at home, `l.Home && l.Wide`, far or not) holds a going run to its end; `CandidateFar` needs a line of fire
+    (`ScShelter.ClearLine`, chest high, glass and bars stop it) from the point to the threat. `ScBackOff.RunCutWithGain` (X5,
+    `Last.Action` against `utilityAIContext.ActionData`) ends a run another action took over and starts the hold when it
+    gained. `CheckHold` ends a hold after 2 s with no line of fire to her target (`HoldBlindSeconds`); renewals cap at 1.5 x
+    `BackOffHoldSeconds` from its start; a hold never starts with an enemy within 3 m. `StepSpot` tests the walk only against
+    enemies ahead of her (the step's "from" too), and `StepFloor` lets the first cell be 3 down. `RequestStep` ends a step past
+    its deadline and cools an unserved request down; `ScPosture.Forget` drops the step state; a step off a model refuses its
+    target (`Refuse`: KITE against it for a while). `ScShelter.PickIn` tries a step down for at most 2 spots she failed nearby.
+    `StandRefuse`'s request runs in `ScGates.ScopeOf(e)`. `ScMedic.LastUseStart` reads md2's `lastUseAt`. Checked, not changed:
+    `EntityMoveHelper.StopMove` does call `ClearBlocked` (decompile line 331), so `DropPath` clears the blocked clock as the
+    comment says; a modded multi-block gate without the Door tag is passed as an obstacle (review n6).
   - Out of ammo: `Want`'s "nothing to shoot with" with a pair gun sets `State.NoAmmoGun`; `TellNoAmmo` tells the community once per
     episode (`scCb1NoAmmoFight`, at most every 120 s per member). New settings `BackOffBaseMeters`, `BackOffPerShootingStar`,
     `BackOffHoldSeconds`; no new Harmony target, no `ScNet.Protocol` change; one new localization row.

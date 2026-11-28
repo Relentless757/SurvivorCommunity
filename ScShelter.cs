@@ -111,6 +111,8 @@ namespace SurvivorCommunity
         private const int RoomFillsPerFrame = 1;
         /// <summary>Round hr1: the room pass looks at most this many candidates a frame (a candidate inside a room already filled costs one lookup).</summary>
         private const int RoomLooksPerFrame = 200;
+        /// <summary>Round cb1 (review CB1-m6): a step down off a model is tried for at most this many spots she then could not reach.</summary>
+        private const int StepDownTries = 2;
 
         /// <summary>
         /// Round MP6 (part H): one home's shelter cache - its candidates, the scan in progress and its clocks and figures. One per
@@ -563,7 +565,8 @@ namespace SurvivorCommunity
             EntityAlive t;
             bool hasThreat = ScRetreat.ThreatPlace(self, out threat, out t);
             Gather(self, me, MaxWalk + SpotEnemyClear);
-            // 1. her own cell, when it passes and the threat cannot see her (asleep in a bedroom when the zombie comes)
+            // 1. her own cell, when it passes and the threat cannot see her (asleep in a bedroom when the zombie comes - round cb1
+            // review: in her bed she stands on its model, so the cell beside it is taken instead)
             Vector3i own = World.worldToBlockPos(me);
             // round cb1: never a hold on top of a model (a bed, a truck's bed) or inside a wreck's hull - real floor only
             string onWhat;
@@ -599,7 +602,12 @@ namespace SurvivorCommunity
             // the hold below never pins her up there
             Vector3 down;
             string downWhy;
-            if (onObstacle && ScBackOff.StepSpot(self, hasThreat ? t : null, false, ScBackOff.StepMax, bad, out down, out downWhy))
+            // round cb1 (review CB1-m6): at most StepDownTries spots within reach of her she could not get to, then the hold below
+            int nearFails = 0;
+            if (onObstacle && bad != null)
+                for (int i = 0; i < bad.Count; i++)
+                    if (ScRunners.XZ(me, new Vector3(bad[i].x + 0.5f, me.y, bad[i].z + 0.5f)) <= ScBackOff.StepMax + 1f) nearFails++;
+            if (onObstacle && nearFails < StepDownTries && ScBackOff.StepSpot(self, hasThreat ? t : null, false, ScBackOff.StepMax, bad, out down, out downWhy))
             {
                 r.Kind = PickKind.Yard;
                 r.Spot = down;

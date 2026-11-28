@@ -636,6 +636,9 @@
 	  posture allowing a back-off, her pair's gun with rounds - and its run goes far (BackOffBaseMeters + BackOffPerShootingStar x
 	  her Shooting stars, on a real path inside the base) and is held to its end; 8.2 beats BackupKeepDistance (8), whose 0-4 m band
 	  would cut it short. Every bounded back-off at home runs (ScBackOff sets her run speed after the task's own 2.4 m/s pace).
+	  Round cb1 (review CB1-M1): SCore's CanSeeTarget is no longer on ScKiteWide - ScPosture action="wide" makes the same test
+	  (not inert, SCoreUtils.CanSee) to START a run, and a run at home going against that enemy is held to its end without it,
+	  so a path round a wall, a door or a truck no longer cuts it; far points need a line of fire to the threat instead.
 	-->
 	<conditional>
 		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;BackupKeepDistance&quot;]/task[@class=&quot;BackupFromTargetPaced, 1-XNPCVoiceControl&quot;]/@class') != null">
@@ -648,7 +651,6 @@
 					<consideration class="ScNotOnWatch, SurvivorCommunity" />
 					<consideration class="SelfNotHasCVar, SCore" cvar="CurrentWeaponClass" value="0" />
 					<consideration class="SelfNotHasBuff, SCore" buffs="SdcsIsHealing" />
-					<consideration class="CanSeeTarget, SCore" />
 					<consideration class="ScPosture, SurvivorCommunity" action="wide" />
 					<consideration class="ScBackOffRoom, SurvivorCommunity" reload="pass" />
 				</action>
