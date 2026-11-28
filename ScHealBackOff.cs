@@ -1199,6 +1199,10 @@ namespace SurvivorCommunity
                     if (st.ArriveUntil > 0f && leave)
                     {
                         st.ArriveUntil = 0f;
+                        // round hr1 (final check HR1F-m1): one last fresh test before she leaves - the door may have just shut with the
+                        // pursuer outside it (the test's own sight rules still refuse a pursuer that can see her)
+                        string lastRoom, lastKey;
+                        if (ScSafeRoom.SafeToHeal(self, true, out lastRoom, out lastKey)) { SafeArrival(self, st, lastRoom, now, true); return false; }
                         SetAside(st, now);
                         Patches_Xnpc.Count("heal-room-wait-ended");
                         ScLog.Out(ScMedic.BodyName(self) + " stops waiting in the room at " + ScRetreat.Cell(st.Point) + ": " + Who(t) + " is at " + dist.ToString("0.0", CultureInfo.InvariantCulture)
