@@ -144,6 +144,70 @@ unchanged (the gaps are not saved). Two new patch targets: `Path::CanTraverse(Gr
 - [ ] The report's case: break the block that was put in the hole again; the resident who used to get stuck there goes
       round by the door after at most one try.
 
+## Round md2 (2026-11-28): the medkit animation plays again
+
+Why: since round hr1 a member's first aid kit or bandage went into her hand and out again with no animation. Three causes:
+- hr1's 1.5 s cap from the trigger cut the use clip, which runs about 2.05 s from the trigger on 3.4's rig - the weapon came
+  back mid-wrap;
+- any clip already on the use layer (a reload's) counted as the use clip, and its end ended the use;
+- after a down and a revive, or a talk, 0-XNPCCore keeps her hand stowed (vanilla's hand in "bare" mode: the item is in the
+  slot but not in her hand), so the hold pose never came up and the trigger fired on a timeout into nothing (Holly: "trigger
+  at 0.50 s, hold pose timeout; ended by the 1.5 s cap (no clip seen)").
+
+What changes (all bodies SC heals; all server-side):
+- No item is taken while she is down, her ragdoll or get-up runs (and 1.5 s after it), she sits in a vehicle, or her hand
+  is switching or stowed. A stow nobody draws within 20 s (Voice Control's chat stow lasts up to 20 s after a talk; a
+  station or loot can last longer) - at once in a fight (hit in the last 5 s, a live target, or an enemy after her within
+  15 m): she draws it herself for the use, and the stow comes back after it while 0-XNPCCore still holds its chat stow.
+  Review fix: this is asked before the reach rules, so a "heal now" verdict or a timeout is not spent on a use that cannot
+  start, and her reach wait stays alive meanwhile (a call-off puts it back too).
+- The trigger fires only once the item is in her hand and the animator has shown its hold pose for 0.1 s. Not up within
+  1 s: the use is called off, the item goes back to her pack, and she tries again in 2 s (no item spent).
+- The use clip is a new state with a clip on the layer (not a hold pose, not a clip already there). Not started 0.8 s
+  after the trigger: one more trigger; then called off as above.
+- The use ends when the clip leaves its layer, or at the clip's own length (read live) + 0.25 s. **Final use time: the
+  clip's length, about 2.05 s from the trigger** (hr1's 1.5 s could not hold it). No use runs past 8 s.
+- Only hold type 64 (bandages, kits) has a verified use clip. Any other - painkillers are 16 - gets a plain 2.1 s use after
+  the trigger, logged once `medic: no clip for hold type 16 ...`; if a clip does play for it, `medic: hold type 16 ...
+  played the clip <name>` once, and the use ends with that clip.
+- Without the clip only (logged): she is about to go down (25% health or less AND hit in the last 3 s or an enemy after her
+  within 4 m; with no hold pose she ends it in 0.5 s), the clip failed 3 times in a row and no player is within 90 m, or
+  the hard stop: 6 call-offs of the same item, or 30 s since the first (a warning `... was called off N time(s) ...`).
+- A called-off item goes back to her pack - to the bag, not the window, while a player has her window open.
+- The trigger and the hold type reach every client through the avatar's own animation sync (as before hr1).
+
+**Single player (or the listen host's own view)**
+- [ ] `sc team <name> hurt 0.4`, no enemy near: within a second or two she takes the bandage or kit out, plays the whole
+      wrap, and her weapon comes back as it ends. Verbose: `medic: <id> finished <item> ... after 2.x s (trigger at 0.1x
+      s, the hold pose shown; ended by the clip leaving its layer (3P_Bandage_Use, 2.0x s))` - note the clip name and length.
+- [ ] `sc xnpc <name>` while she wraps: `medic: ... using <item> (clip 3P_Bandage_Use playing)`; after it, `md2: hand
+      <weapon> (ready)` and the counters.
+- [ ] Down and revive: `sc down <name>`, revive her, let her get up, open and close her inventory. Health stays low: no use
+      during the get-up; `<name> (id N) waits to use <item> at 10/162: her hand stowed (...)` while the hand is stowed; the
+      use starts once 0-XNPCCore draws (or after 20 s: `<name>'s hand has been stowed for 20 s - she draws to use ...`) and
+      the clip plays. No `uses ... without its clip` line.
+- [ ] A talk: open her talk, close it, hurt her: same as above - the clip plays once her hand is drawn, the stow comes back
+      after the use if Voice Control still holds it.
+- [ ] About to go down: hurt her to 20% with a zombie on her: the use goes on at once (`draws to use ... at once (about to go
+      down: ...)`); if the clip cannot play, `uses <item> without its clip: she is about to go down (...)`.
+- [ ] In a fight with her hand stowed (talk to her, close it, then let a zombie come at her; `sc team <name> hurt 0.4`):
+      no 20 s wait - `draws to use ... at once (in a fight: ...)`, and the clip plays once she is clear of the reach rules.
+- [ ] **Painkillers (hold type 16, never seen live):** take her kits and bandages away, give her `drugPainkillers`
+      (`MedicPainkillers` on), `sc team <name> hurt 0.4`. Read the lines: `no clip for hold type 16` once, then `finished
+      drugPainkillers ... ended by the 2.1 s timed use (no clip for hold type 16)` - or, if the rig has a clip for 16,
+      `hold type 16 ... played the clip <name>` and `ended by the clip leaving its layer (<name>, ...)`. Note which, and
+      whether the pills show in her hand.
+- [ ] In a vehicle seat: hurt and seated, she waits (`waits to use ... being seated`) and uses it after she gets off.
+- [ ] No `is called off` lines in ordinary uses. If any, note the reason (`the hold pose did not come up ...` names the hold
+      type the animator shows, `the use clip never started ...` the layer's state).
+
+**Listen host with a client, and the dedicated server**
+- [ ] The client watches a member heal: the item shows in her hand and the wrap plays on the client too (the trigger is
+      the server's, synced by the avatar controller).
+- [ ] After a talk on the client (Voice Control's chat stow), wait the 20 s: when she draws herself while the stow still
+      stands, SC sets `SdcsChatStowed` to 0 for the use (0-XNPCCore shows the stow on clients from it) and back to 1 after,
+      so the client should see the item and the wrap, then her hands stowed again. Note it if the client shows bare hands.
+
 ## Deployed 2026-11-27: round MP7 (community modes), round hr1 (healing and last stand), round lk1 (looks kept, falling trees)
 
 Installed in the 3.4 game (`port-3.4` 15e187ab, DLL 90907710); the dedicated server loads the same folder. **Protocol 9:
@@ -597,7 +661,8 @@ Build `sc34_hr1`, **deployed 2026-11-27** (in `port-3.4` 15e187ab), untested in 
 - [ ] The timeout: `uses ... now ... walking N s did not get her clear (MedicMaxWait from her first walk's start ...)` - and
       only with no zombie within 2.5 m that sees her; otherwise `would use ... but zombieBoe (id) at 1.x m sees her and she has
       ... - she fights instead and heals in a gap (round hr1, decision 6)`.
-- [ ] The use is quicker: with verbose logging, `medic: <id> finished <item> ... after 1.x s (trigger at 0.xx s, ...; ended by
+- [ ] (Round md2 replaced the 1.5 s cap: the use now lasts its clip, about 2.05 s from the trigger - see "Round md2" above.)
+      The use is quicker: with verbose logging, `medic: <id> finished <item> ... after 1.x s (trigger at 0.xx s, ...; ended by
       the clip left its layer)` - the bandage animation plays to its end and the weapon comes back as it finishes (no item
       vanishing mid-wrap). Note the trigger time: if it always says `hold pose timeout`, the 0.5 s wait before the clip is the
       rest of the use's length.
