@@ -149,9 +149,10 @@ namespace SurvivorCommunity
             return r != null && e != null && r.EnclaveId == e.Id;
         }
 
-        private static bool FollowersFull()
+        /// <summary>Round MP7 (part F): the player the fighter would join leads MaxFollowers already (their own count, ScFollowers).</summary>
+        private static bool FollowersFull(EntityPlayer player)
         {
-            return ScRegistry.FollowerCount + ScEnclaveDeals.EnlistedCount() >= ScConfig.MaxFollowers;
+            return ScFollowers.Full(player);
         }
 
         /// <summary>The fighter's rank: the class tier, then Fighting + Shooting stars, then the one made first.</summary>
@@ -214,7 +215,7 @@ namespace SurvivorCommunity
             {
                 EncPerson with = ScEnclaveDeals.EnlistedOf(e);
                 if (with != null) { why = string.Format(Loc("scEncCallWithYou"), with.Name); return false; }
-                if (FollowersFull()) { why = Loc("scEncFollowersFull"); return false; }
+                if (FollowersFull(who ?? ScCommunity.LocalPlayer)) { why = Loc("scEncFollowersFull"); return false; }    // round MP7 (part F): the caller's own
                 if (PickFighter(e) == null) { why = Loc(e.PeopleRolled || ScEnclavePeople.PeopleOf(e).Count > 0 ? "scEncCallNobody" : "scEncCallNotMet"); return false; }
             }
             else if (kind != Drop) { why = Loc("scInternal"); return false; }
@@ -420,7 +421,7 @@ namespace SurvivorCommunity
                 Cancel(e, player, with.Name + " of theirs is with you already");
                 return true;
             }
-            if (FollowersFull())
+            if (FollowersFull(player))      // round MP7 (part F): the caller's (CallerOf: the anchor when they are not online)
             {
                 if (resume) { ClearLive(e, player, "you lead all the followers you can", true); return true; }
                 Cancel(e, player, "you lead all the followers you can");

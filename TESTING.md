@@ -157,6 +157,43 @@ all 12 saves identical to MP6's, and the harness 72-74 checks per save on 5 save
       one), B's followers go home to community 0, and B's own relations show `[personal]` in `sc community list`.
 - [ ] The same command again, or on a new save: refused (`only a save that loaded with no mode= ... can be switched`).
 
+## Round MP7 (part F) (2026-11-27): MaxFollowers per player in every community mode
+
+Why: the user's decision 9. `MaxFollowers` (2) used to count the whole community's followers, so on a server one player's
+two followers left every other player of the community with none. Now each player has their own limit, in every community
+mode, Shared included: the members following you (or heading home with you) plus the enclave people you enlisted (a paid
+enlistment or an ally's radio fighter). It is checked at "Come with me." (talk, voice, the community window's Follow me), at
+an enclave's "Can you come with me?" and at an ally's fighter call, and shown by `sc party` and `sc status`. `MaxMembers`
+stays per community. In single player nothing changes. Build `sc34_mp7f` (branch `mp7-f`), not merged, not deployed; it
+merges with the MP7 core. Setup: `MaxFollowers` 2 (the default); "A" and "B" are two players.
+
+**Single player (nothing may change)**
+- [ ] Two members follow you; a third "Come with me." is refused: "You already have as many followers as you can lead."
+- [ ] One member follows you and you enlist one enclave person: a second member is refused, and with two members following,
+      the enclave's "Can you come with me?" row is greyed with "You have all the followers you can lead".
+- [ ] With two following, the radio's ally fighter call is refused the same way. Send one home: the call works again.
+- [ ] `sc party` and `sc status` show `SC followers N of MaxFollowers 2 (yours: members X + enlisted enclave people Y; ...)`,
+      N the same as before (all the community's followers and enlisted people).
+
+**One community on a dedicated server (the per-player count is the one change)**
+- [ ] A has two members following. B, in the same community, asks a third member: she follows B (before this round B was
+      refused). A third for A, or for B once B has two, is still refused.
+- [ ] A has one member following and enlists an enclave person: A is full, and B still has room for two.
+- [ ] A is full; B calls an ally's fighter at the radio: the call goes through and the fighter joins B. With B full too,
+      B's call is refused with "You have all the followers you can lead".
+- [ ] `sc party` and `sc status` typed by B count B's own followers only; typed at the server's own console (or telnet)
+      they say no player sent the command.
+- [ ] A logs off with a member following (she waits for A): B's count does not include her; A logs back in and still
+      cannot take a third.
+- [ ] A listen host: the host and a client each get their own two followers; the host's count never includes the
+      client's followers, and the other way round.
+
+**Community modes (after the MP7 core merges)**
+- [ ] Shared with two communities (`sc community new`, `join`): A (community 0) and B (community 1) each have their own two,
+      and neither's followers or enlisted people count for the other.
+- [ ] PerPlayer and PerParty: two players of one community each have their own two; a player who joins a community uses up
+      none of the others' room.
+
 ## Round t2 (2026-11-27): storage across communities, upgrades and repairs from storage, revive anyone, shoot when cornered
 
 Why: found on the dedicated server with two communities (the user's report, 2026-11-27).

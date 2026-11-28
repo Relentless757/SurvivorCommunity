@@ -495,5 +495,9 @@
   <ItemGroup>
     <Compile Include="ScActionsWorld.cs" />
   </ItemGroup>
+  <!-- round MP7 (part F): MaxFollowers per player in every community mode (members following you and enclave people you enlisted) -->
+  <ItemGroup>
+    <Compile Include="ScFollowers.cs" />
+  </ItemGroup>
 
 </Project>

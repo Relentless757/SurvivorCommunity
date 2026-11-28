@@ -1147,6 +1147,7 @@ namespace SurvivorCommunity
                     if (f.Length >= 3) ep.EnlistedBody = I(f[2]);
                     break;
                 }
+                case "enlistedid": ep.EnlistedById = val; break;   // round MP7 (part F): the enlister's platform id (a load sends them home anyway)
                 default: ParseMember(ep.Who, key, val); break;
             }
         }
@@ -2641,6 +2642,8 @@ namespace SurvivorCommunity
             if (ep.Enlisted)
                 sb.AppendLine("enlisted=" + ep.EnlistedBy.ToString(CultureInfo.InvariantCulture) + ":" + ep.EnlistedUntil.ToString(CultureInfo.InvariantCulture)
                               + ":" + ep.EnlistedBody.ToString(CultureInfo.InvariantCulture));
+            // round MP7 (part F): the enlister's platform id - only while enlisted, never to a client (as leader= and acceptedby=)
+            if (ep.Enlisted && !forClients && !string.IsNullOrEmpty(ep.EnlistedById)) sb.AppendLine("enlistedid=" + Clean(ep.EnlistedById));
             WriteMemberFields(sb, ep.Who, forClients);
         }
 
