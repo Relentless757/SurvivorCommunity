@@ -52,7 +52,7 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 ## Round en1 (2026-11-28): an ENCLAVES tab; a leaver keeps a copy
 
 Why (testing PerParty on the dedicated server): leaving the party seemed to wipe the enclaves the player knew, and the user asked
-for an ENCLAVES tab with a progress bar for the standing with each enclave. Build `sc34_en1`, not deployed, untested in game.
+for an ENCLAVES tab with a progress bar for the standing with each enclave. Build `sc34_en1`, **deployed 2026-11-28** (`port-3.4` a04e5930, DLL a0728784; **protocol 11: every client needs this build**), untested in game.
 **Protocol 11: every client needs this build.** Checked offline: the save round trip on 12 saves (ALL PASS); the disband harness
 extended (2184 checks, 0 failures: a leaver's copy in PerPlayer, PerParty, an admin's leave and a removed ally, Shared unchanged;
 the tab's levels, bars, order, badges and head counts, the derived keys and a client reading them); the network harness (459
