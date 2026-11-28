@@ -376,6 +376,17 @@ Build `sc34_cb1`, not deployed, untested in game. Server-side only. `sc xnpc <id
       longer `finds none ... an enemy at it or on the way`).
 - [ ] A call-off of her medkit use (md2): no `holds her spot after her heal` line.
 
+**Round cb1 (re-check) (2026-11-28, on `r28`): four minors and the nits**
+- Every bounded run at home has a deadline (a wedged k1 step under ScKiteWide ends: `backoff-timeout`).
+- The hold's 2 s "no line of fire" is geometry (terrain and solid blocks from her eye to her target's chest), not SCore's
+  view cone: a hold no longer ends because she faces along her path or another body stands in the way.
+- The 12 s cap is per back-off: once a hold runs out (its time, or blind), a reload or a heal starts none until she backs off
+  again, takes the melee stance or the fight ends.
+- A step off a model by her target: no melee walk to that target for 6 s (any weapon, rounds or not; KITE with rounds), not a
+  45-180 s refusal. Holds start after cut runs of ScKiteWide only.
+- [ ] A bow member: one hold up to 12 s, then reloads start no new one until her next back-off (`'s hold ends after 12.0 s`).
+- [ ] A member with no rounds steps off a truck bed by a zombie: `no melee walk to ... for 6 s`, and she is not walked back up.
+
 ## Deployed 2026-11-27: round MP7 (community modes), round hr1 (healing and last stand), round lk1 (looks kept, falling trees)
 
 Installed in the 3.4 game (`port-3.4` 15e187ab, DLL 90907710); the dedicated server loads the same folder. **Protocol 9:

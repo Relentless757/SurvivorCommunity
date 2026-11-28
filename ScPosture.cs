@@ -132,6 +132,14 @@ namespace SurvivorCommunity
             public float HoldUntil, HoldSince, UseSeen = -1f;
             /// <summary>Round cb1 (review CB1-M1, part d): when she last had a line of fire to her target while holding.</summary>
             public float HoldSightAt;
+            /// <summary>
+            /// Round cb1 (re-check CB1R-m3): her last hold ran out (its time or the blind end) - a reload or a heal starts no new one
+            /// until she backs off again or takes the melee stance (or the fight ends).
+            /// </summary>
+            public bool HoldSpent;
+            /// <summary>Round cb1 (re-check CB1R-m4): no melee walk to this target until StepOffUntil (she stepped off a model by it).</summary>
+            public int StepOffTarget = -1;
+            public float StepOffUntil;
             public string HoldWhy = "";
             public bool WasReloading;
             public int Holds;
@@ -180,6 +188,8 @@ namespace SurvivorCommunity
         private const float HoldCapShare = 1.5f;
         /// <summary>Round cb1 (review CB1-M1, part d): a hold with no line of fire to her target this long ends (the defense walk takes over).</summary>
         private const float HoldBlindSeconds = 2f;
+        /// <summary>Round cb1 (re-check CB1R-m4): after a step off a model, no melee walk to the target by it for this long.</summary>
+        private const float StepOffMarkSeconds = 6f;
         /// <summary>Round cb1 (point 4): on a model or in a wreck's hull this long without moving 1 m, in a fight at home: a step down.</summary>
         private const float StepStillSeconds = 1.5f;
         /// <summary>Round cb1 (point 1): the out-of-ammo tell comes again at most this often for one member.</summary>
@@ -256,7 +266,7 @@ namespace SurvivorCommunity
                 // 2b. round cb1 (item 3): a reload or a heal in a fight just ended - she holds her spot (a back-off's own end is
                 // ScBackOff's); then whatever ends a hold (an enemy within 3 m, a dry gun, its time, the stand, away from home)
                 // round cb1 (review CB1-M1, part c): her bounded run at home that another UAI action cut short holds too when it gained
-                if (ScBackOff.RunCutWithGain(e)) StartHold(e, st, "her back-off (cut short)", now);
+                if (ScBackOff.RunCutWithGain(e)) StartHold(e, st, "her back-off (cut short)", now, true);
                 bool reloading = ScBackOff.Reloading(e);
                 if (st.WasReloading && !reloading && IsFight(st.P)) StartHold(e, st, "her reload", now);
                 st.WasReloading = reloading;
@@ -274,6 +284,9 @@ namespace SurvivorCommunity
                 Posture want = Want(e, m, st, out why, out kiting, out soft, out native, out urgent, out urgentGun, out t);
                 // round hr1: the last stand (at home, two or more on her, no room to heal) - before the holds below, which may return
                 UpdateStand(e, st, want, t, now);
+                // round cb1 (re-check CB1R-m3, m4): the melee stance or the fight's end re-arms the hold; the fight's end drops the step-off mark
+                if (want == Posture.None || (IsFight(want) && !kiting)) st.HoldSpent = false;
+                if (want == Posture.None) st.StepOffUntil = 0f;
                 // round cb1: the out-of-ammo tell (point 1) and a step down off a model or out of a wreck's hull (point 4)
                 TellNoAmmo(e, m, st, want, now);
                 StepOffCheck(e, st, want, t, now);
@@ -419,6 +432,9 @@ namespace SurvivorCommunity
             kind = ScTeam.GunNeed.None;
             soft = false;
             if (!ScConfig.TeamMelee) return "team strength off (TeamMelee false: no MELEE posture)";
+            // round cb1 (re-check CB1R-m4): she just stepped off a model by this target - not into melee with it for a few seconds
+            if (t != null && t.entityId == st.StepOffTarget && Time.time < st.StepOffUntil)
+                return "she just stepped off where " + Who(t) + " stands - no melee walk to it for a few seconds (round cb1 re-check)";
             string led = ScTeam.NotLedWhy(e);
             // round fd2 (the user: "a lone enemy, or a fight she isn't outmatched in"): a marksman takes her melee weapon for
             // a lone enemy in reach even when the count calls one walker too many for her (Fighting 1 is parity at full
@@ -573,16 +589,20 @@ namespace SurvivorCommunity
         {
             State st;
             if (e == null || !states.TryGetValue(e.entityId, out st)) return;
-            StartHold(e, st, why, Time.time);
+            StartHold(e, st, why, Time.time, true);
         }
 
         /// <summary>
         /// Round cb1: the hold starts (or, already on, runs BackOffHoldSeconds from now) - at home, her pair's gun with rounds, not in a
         /// last stand (its own rules), BackOffHoldSeconds above 0. Logged once per hold, at its start.
         /// </summary>
-        private static void StartHold(EntityAlive e, State st, string why, float now)
+        private static void StartHold(EntityAlive e, State st, string why, float now, bool backOff = false)
         {
             if (ScConfig.BackOffHoldSeconds <= 0f || st.Stand) return;
+            // round cb1 (re-check CB1R-m3): the cap is per back-off - a reload or a heal after a hold that ran out starts none (a
+            // back-off re-arms it, so does the melee stance)
+            if (backOff) st.HoldSpent = false;
+            else if (st.HoldSpent) return;
             if (!UAI.UAIConsiderationScNotHomeMember.AtHome(e.position) || !ScRetreat.GunReady(e)) return;
             bool fresh = !(st.HoldSince > 0f && now < st.HoldUntil);
             // round cb1 (review CB1-m1): a renewal (each reload of a bow) extends the hold, but never past HoldCapShare x its time
@@ -605,12 +625,17 @@ namespace SurvivorCommunity
                           + F1(HoldBlindSeconds) + " s or " + F1(ScConfig.BackOffHoldSeconds) + " s pass (at most " + F1(HoldCapShare * ScConfig.BackOffHoldSeconds) + " s; round cb1)");
         }
 
-        /// <summary>Round cb1: the hold's ends - its time, away from home, a last stand, no gun with rounds, an enemy after her within HoldBreakDist. X5 only.</summary>
+        /// <summary>
+        /// Round cb1: the hold's ends - its time, away from home, a last stand, no gun with rounds, an enemy after her within
+        /// HoldBreakDist, and (review) no line of fire to her target for HoldBlindSeconds. X5 only.
+        /// </summary>
         private static void CheckHold(EntityAlive e, State st, float now)
         {
             if (st.HoldSince <= 0f) return;
             string end = null;
-            if (now >= st.HoldUntil) end = F1(ScConfig.BackOffHoldSeconds) + " s without anything reaching " + ScRetreat.HerObj(e);
+            bool spent = false;                                                // round cb1 (re-check CB1R-m3): it ran out
+            // round cb1 (re-check CB1R-n2): the hold's real length (a renewed one runs up to 1.5 x BackOffHoldSeconds)
+            if (now >= st.HoldUntil) { end = (now - st.HoldSince).ToString("0.0", CultureInfo.InvariantCulture) + " s without anything reaching " + ScRetreat.HerObj(e); spent = true; }
             else if (!UAI.UAIConsiderationScNotHomeMember.AtHome(e.position)) end = "away from home";
             else if (st.Stand) end = "her last stand";
             else if (!ScRetreat.GunReady(e)) end = ScRetreat.Her(e) + " gun has no rounds";
@@ -621,11 +646,15 @@ namespace SurvivorCommunity
                 // HoldBlindSeconds ends it, so the defense walk can take her to what she cannot hit
                 EntityAlive tgt = ScTeam.Target(e);
                 if (tgt == null) tgt = e.GetAttackTarget();
-                if (tgt != null && !tgt.IsDead() && UAI.SCoreUtils.CanSee(e, tgt)) st.HoldSightAt = now;
-                else if (now - st.HoldSightAt >= HoldBlindSeconds) end = "no line of fire to an enemy for " + F1(HoldBlindSeconds) + " s";
+                // round cb1 (re-check CB1R-m2): geometry, as the far points - terrain and solid blocks (glass and bars too) from her eye
+                // to its chest; not SCore's CanSee, whose view cone (past 10 m) and "a body in the way" ended holds she could shoot from
+                if (tgt != null && !tgt.IsDead() && ScShelter.ClearLine(e.world, e.getHeadPosition(), tgt.getChestPosition(), true)) st.HoldSightAt = now;
+                else if (now - st.HoldSightAt >= HoldBlindSeconds) { end = "no line of fire to an enemy for " + F1(HoldBlindSeconds) + " s"; spent = true; }
             }
             if (end == null) return;
             ScLog.Verbose(ScRetreat.Name(e) + "'s hold ends after " + (now - st.HoldSince).ToString("0.0", CultureInfo.InvariantCulture) + " s: " + end + " - the normal rules again (round cb1)");
+            // round cb1 (re-check CB1R-m3): a hold that ran out (its time, or blind) is spent until her next back-off or melee
+            if (spent) st.HoldSpent = true;
             st.HoldSince = 0f;
             st.HoldUntil = 0f;
         }
@@ -675,9 +704,19 @@ namespace SurvivorCommunity
             string what;
             if (!ScBackOff.OnObstacle(e.world, e.position, out what)) return;
             if (!ScBackOff.RequestStep(e, t, false, ScRetreat.She(e) + " stands " + what + " in a fight at home")) return;
-            // round cb1 (review CB1-m5): her target stands by what she stepped off - KITE against it (and no melee walk back in) for
-            // a while, as after a blocked swing, so the approach does not lift her onto it again
-            if (t != null && !t.IsDead() && (t.position - e.position).sqrMagnitude <= 25f) Refuse(e, st, t, "she stood " + what + " by it and stepped off (round cb1 review)", now, true);
+            // round cb1 (review CB1-m5, re-check CB1R-m4): her target stands by what she stepped off - no melee walk to it (any weapon,
+            // rounds or not: AllowsApproach) and, with a gun with rounds, KITE against it (MeleeWhy), for StepOffMarkSeconds, or until
+            // the fight ends - not a 45-180 s refusal, which also did nothing for a member who walks in with her melee weapon
+            if (t != null && !t.IsDead() && (t.position - e.position).sqrMagnitude <= 25f)
+            {
+                bool fresh = st.StepOffTarget != t.entityId || now >= st.StepOffUntil;
+                st.StepOffTarget = t.entityId;
+                st.StepOffUntil = now + StepOffMarkSeconds;
+                Patches_Xnpc.Count("posture-step-off-mark");
+                if (fresh)
+                    ScLog.Verbose(ScRetreat.Name(e) + ": no melee walk to " + Who(t) + " for " + F1(StepOffMarkSeconds) + " s - " + ScRetreat.She(e) + " stood " + what
+                                  + " by it and stepped off (round cb1 re-check)");
+            }
         }
 
         /// <summary>Round hr1: awake, living enemies within r whose attack or revenge target she is (SCore's IsEnemy, not inert). X5 only (a shared list).</summary>
@@ -971,6 +1010,9 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool AllowsApproach(EntityAlive self, EntityAlive t)
         {
+            // round cb1 (re-check CB1R-m4): no melee walk to the target she just stepped off a model by, whatever she holds
+            State sm;
+            if (t != null && self != null && states.TryGetValue(self.entityId, out sm) && sm.StepOffTarget == t.entityId && Time.time < sm.StepOffUntil) return false;
             View v;
             if (!Of(self, out v)) return true;
             bool unsafeTarget = t != null && (ScTeam.MeleeUnsafe(t) || ScTeam.Armed(t)) && ScArms.HasPairGun(self);
@@ -1186,7 +1228,7 @@ namespace UAI
                     bool runningOnT = wd.Executing && wd.Action != null && wd.Action.Name == ScBackOff.WideBackOffAction && ReferenceEquals(wd.Target, target);
                     // round cb1: a run at home against t goes on to its end (its own end, the gain test, the path check or its deadline) -
                     // round cb1 (review CB1-M1): sight or not, a path round a wall or a truck no longer cuts it
-                    if (runningOnT && ScBackOff.FarRunning(self, t)) return 1f;
+                    if (runningOnT && ScBackOff.WideRunning(self, t)) return 1f;
                     bool band;
                     // round k5: KITE's wide band - within StandOffMin, kept up to WideGap for the run already going against t
                     if (ScPosture.KitesWide(self))

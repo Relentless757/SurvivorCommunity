@@ -498,9 +498,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round cb1: her ScKiteWide run at home against t is going (ScKiteWide's band keeps it to its end, sight or not). Round cb1
         /// (review CB1-m8): every bounded ScKiteWide run at home, far or not - during "far runs off" too, so k1's steps keep the band.
-        /// A pure read.
+        /// Round cb1 (re-check CB1R-n3): named WideRunning (was FarRunning); every such run has a deadline (CB1R-m1). A pure read.
         /// </summary>
-        internal static bool FarRunning(EntityAlive self, EntityAlive t)
+        internal static bool WideRunning(EntityAlive self, EntityAlive t)
         {
             Last l;
             return self != null && t != null && lasts.TryGetValue(self.entityId, out l) && l.Running && l.Home && l.Wide && l.Target == t.entityId;
@@ -516,7 +516,7 @@ namespace SurvivorCommunity
         internal static bool FarBand(EntityAlive self, EntityAlive t, bool runningOnT)
         {
             if (self == null || t == null || !ScConfig.BackOffHome || ScConfig.BackOffBaseMeters <= 0f) return false;
-            if (!(runningOnT && FarRunning(self, t)))
+            if (!(runningOnT && WideRunning(self, t)))
             {
                 float band = ScConfig.BackupKeepDistanceMax;
                 if ((t.position - self.position).sqrMagnitude > band * band) return false;
@@ -863,7 +863,9 @@ namespace SurvivorCommunity
         internal static bool RunCutWithGain(EntityAlive e)
         {
             Last l;
-            if (e == null || !lasts.TryGetValue(e.entityId, out l) || !l.Running || !l.Bounded || !l.Home) return false;
+            // round cb1 (re-check CB1R-n1): ScKiteWide's runs only - BackupKeepDistance's own band cuts its runs at 3 m every time,
+            // and a hold the 3 m break ends a tick later is only noise
+            if (e == null || !lasts.TryGetValue(e.entityId, out l) || !l.Running || !l.Bounded || !l.Home || !l.Wide) return false;
             float now = Time.time;
             if (now - l.At < 0.5f) return false;                              // just started: its task may not be executing yet
             UAI.Context ctx = e.utilityAIContext;
@@ -1279,7 +1281,8 @@ namespace SurvivorCommunity
             float step, angle;
             string why;
             // round cb1 (item 2): ScKiteWide's run at home with a gun that has rounds goes far - FarMeters by her Shooting stars, on a
-            // real path; its band (FarBand) holds the run to its end. 0-XNPCCore's own two back-offs keep k1's steps (their 4 m and
+            // real path; ScKiteWide's band (FarBand to start, WideRunning while it goes) holds every run of it at home to its end or
+            // its deadline - round cb1 (re-check CB1R-n3). 0-XNPCCore's own two back-offs keep k1's steps (their 4 m and
             // 10 m bands would cut a far run short). The path the last action left is noted: neither the pace nor the path check
             // judges it
             float far = 0f;
@@ -1297,7 +1300,9 @@ namespace SurvivorCommunity
                 l.PathChecked = !longStep;
                 l.StalePath = stale;
                 l.RunCounted = false;
-                l.Deadline = longStep ? now + step / Mathf.Max(1f, ScConfig.RunnerRunMps) * 2f + 4f : 0f;    // until its path is known
+                // round cb1 (re-check CB1R-m1): every bounded run at home has a deadline (a far run's is re-set from its path), so a held
+                // k1 step under ScKiteWide that gets wedged ends too
+                l.Deadline = l.Home ? now + step / Mathf.Max(1f, ScConfig.RunnerRunMps) * 2f + 4f : 0f;
                 if (longStep)
                 {
                     farRuns++;
@@ -1418,7 +1423,7 @@ namespace SurvivorCommunity
                     Patches_Xnpc.Count("backoff-wide-shoot");
                 }
                 // round cb1 (item 3): a back-off at home that ended on its own with a gain - she holds that spot and shoots from it
-                if (gained && l.Bounded && l.Home) ScPosture.StartHold(self, l.Long ? "her run back" : "her back-off");
+                if (gained && l.Bounded && l.Home) ScPosture.StartHold(self, l.Long ? "her run back" : "her back-off");   // a back-off: re-arms (CB1R-m3)
                 return true;                                                  // its own Update stops it
             }
             // round cb1: a far run's path, once the navigator has it - unusable: set aside, the next decision picks again
@@ -1441,13 +1446,14 @@ namespace SurvivorCommunity
                     return false;
                 }
             }
-            // round cb1: a far run that takes much longer than its path's length at a run (pinned, pushed about) ends
-            if (l.Long && l.Deadline > 0f && now > l.Deadline)
+            // round cb1: a far run that takes much longer than its path's length at a run (pinned, pushed about) ends - round cb1
+            // (re-check CB1R-m1): every bounded run at home, far or not
+            if (l.Home && l.Deadline > 0f && now > l.Deadline)
             {
                 l.Running = false;
                 l.StalePath = null;
-                farTimeouts++;
-                Patches_Xnpc.Count("backoff-far-timeout");
+                if (l.Long) { farTimeouts++; Patches_Xnpc.Count("backoff-far-timeout"); }
+                else Patches_Xnpc.Count("backoff-timeout");
                 if (now >= l.NextLog)
                 {
                     l.NextLog = now + LogSeconds;

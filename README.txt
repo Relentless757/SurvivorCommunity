@@ -2349,7 +2349,7 @@ NPCs and voices
   steps above only
 - BackOffHoldSeconds = 8: After a back-off, a heal or a reload at home she holds that spot this long and shoots from
   there, until a zombie comes within 3 m, her gun runs dry or she has nothing in sight for 2 s (a reload renews it, up to
-  1.5 times this); 0: no hold
+  1.5 times this, once per back-off); 0: no hold
 - RetreatHome = true: Badly hurt members with nothing to heal with stay in the base: they kite with a gun or shelter
   inside; false: they run as before
 - RetreatHealedAt / RetreatClearSeconds / RetreatMaxSeconds = 0.45 / 20 / 120: A retreat ends at this share of her

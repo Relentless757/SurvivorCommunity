@@ -3587,6 +3587,11 @@ Round MP0 is the groundwork:
     `StandRefuse`'s request runs in `ScGates.ScopeOf(e)`. `ScMedic.LastUseStart` reads md2's `lastUseAt`. Checked, not changed:
     `EntityMoveHelper.StopMove` does call `ClearBlocked` (decompile line 331), so `DropPath` clears the blocked clock as the
     comment says; a modded multi-block gate without the Door tag is passed as an obstacle (review n6).
+    The re-check: every bounded home run has a deadline (`Last.Deadline` from its start, a far run's re-set from its path);
+    the hold's blind clock is `ScShelter.ClearLine` from her head to her target's chest; `State.HoldSpent` makes the cap per
+    back-off (a back-off's `StartHold(..., true)`, the melee stance or the fight's end re-arm it); the step-off mark is
+    `State.StepOffTarget`/`StepOffUntil` (6 s, read by `AllowsApproach` and `MeleeWhy`) instead of `Refuse`;
+    `RunCutWithGain` is for ScKiteWide's runs only; `FarRunning` is now `WideRunning`.
   - Out of ammo: `Want`'s "nothing to shoot with" with a pair gun sets `State.NoAmmoGun`; `TellNoAmmo` tells the community once per
     episode (`scCb1NoAmmoFight`, at most every 120 s per member). New settings `BackOffBaseMeters`, `BackOffPerShootingStar`,
     `BackOffHoldSeconds`; no new Harmony target, no `ScNet.Protocol` change; one new localization row.
