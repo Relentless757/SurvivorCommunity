@@ -3441,7 +3441,7 @@ Round MP0 is the groundwork:
   - The gap rule (`ScHealBackOff.FightsInstead`, t2's `ShootsInstead` widened at home): no use while an enemy within 2.5 m can see
     her (or she it) and she has a usable weapon (her pair's gun with rounds, or her melee weapon); no 10 s cap. `ScMedic.GapHolds`
     applies it at home on every path - the back-off's verdicts, the timeout, sheltering, on watch, a Stay - logging once per wait.
-  - `ScMedic`: a member's or stand-in's use lasts at most `MemberUseSeconds` (1.5 s) from the use trigger (3P_Bandage_Use is about
+  - `ScMedic` (replaced by round md2: the use lasts its clip): a member's or stand-in's use lasts at most `MemberUseSeconds` (1.5 s) from the use trigger (3P_Bandage_Use is about
     1.4 s; the use still ends when that clip leaves its layer first); the finish line (verbose) gives the trigger time, whether
     the hold pose showed, and what ended it. In a last stand no cloth bandage for a bleed.
   - `ScShelter`: after its seeds each scan runs a room pass - one `FillFrom` with doors as walls per new space, at most one fill a
@@ -3481,6 +3481,30 @@ Round MP0 is the groundwork:
     not used up; a reach wait on then ends. A walk counts toward `MaxWalksPerWait` once its path passes `CheckPath`; failed
     paths have their own cap (`MaxFailedWalksPerWait`, 8). The stand's hold also runs from her last use's start and while an
     item still heals her (`ScMedic.UsedOrWorking`). `ScHealBackOff.Forget` drops a body's state in `ScLooks.Forget`.
+- **Round md2 (the medical use's animation, `ScMedic`):** a use is driven by its clip, not by a time.
+  - No item is taken (`TryHeal` → `HandReady`) while she is down (`ScDowned.IsDown`), her ragdoll is not Off or ended less
+    than `GetUpSettleSeconds` (1.5 s) ago (`ragdollAt`, kept every frame in `Tick`), her `Hand` is switching, or it is
+    stowed (`Hand.IsHolstered`: `Hand.Item` is then the bare hand whatever the slot holds) for less than `StowWaitSeconds`
+    (20 s; the stow clock is `stowSince`/`stowSeen`). Past it - at once in a last resort - `Begin` draws it
+    (`Hand.SelectHoldingMode(Current)`, instant for an NPC, as 0-XNPCCore's own bandage does) and `Finish` → `RestoreStow`
+    puts it back while 0-XNPCCore's `SdcsChatStowed` or `SdcsHolsteredByOrder` cvar is set. Logged once per 10 s
+    (`medic-hand-not-ready`).
+  - `Advance`: the trigger (`FireTrigger`, `useItemHash` with netsync) only once `inventory.holdingItemItemValue` is the item
+    and the animator's `WeaponHoldType` its hold type for `HoldPoseSettleSeconds` (0.1 s); else `CancelUse` after
+    `HoldPoseWaitSeconds` (1 s): the item back via `Finish(false, true)`, `readyAt` = 2 s (10 s from `MaxCalledOff` in a row).
+    The use clip is the first state on `UpperBodyUseAndReload` with a clip that differs from the state at the trigger
+    (`PreState`; a clip named `*Hold*` becomes the new `PreState`). Not seen within `ClipStartWaitSeconds` (0.8 s): one more
+    trigger (`MaxTriggers` 2), then `CancelUse`. The use ends when the layer leaves that state, or at the clip's remaining
+    length (`clip.length / |speed x speedMultiplier|`) + `ClipEndMargin` (0.25 s); with no layer, `ClipFallbackSeconds`
+    (2.1 s) from the trigger. `MemberUseSeconds` and `TriggerTimeout` are gone; raiders and strangers follow the same rules.
+  - `NoClipOk` (logged, `medic-use-no-clip`): a last resort (`LastResort`: at or under 25% of max health and hit in the last
+    3 s - `hurtAt` from `lastHp` in `Tick` - or an attack or revenge target within 4 m), or `calledOff` >= 3 with no player
+    within 90 m. Low health alone is not a last resort: 0-XNPCCore revives at a few health.
+  - Clients: the trigger and `WeaponHoldType` reach them through `AvatarController.updateNetworkAnimData` (the NPC
+    controller's `Update` calls the base). On a client 0-XNPCCore keeps the hand stowed while `SdcsChatStowed` is set
+    (`HeldSyncRules.StowShowAction`), so a use she draws for during a chat stow may show bare hands there.
+  - `sc xnpc <name>`'s medic line: the use's clip or trigger count, her hand and what holds a use (`HandReadyText`), and the
+    counts (waits for the hand, called off, stowed hands drawn, used without the clip).
 - **Round MP6 (review fixes):** the four reviews' fixes on the merged build. What a modder must know:
   - **The listen host's own markers** are drawn for the host's own player in the host's own community: the periodic and
     restore paths (`ScEnclaves`/`ScInfestations`' `RefreshMarkers`, `ScBands.UpdateMarkers`) take `ScCommunity.LocalPlayer`,
