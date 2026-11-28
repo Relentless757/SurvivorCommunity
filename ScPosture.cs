@@ -284,9 +284,6 @@ namespace SurvivorCommunity
                 Posture want = Want(e, m, st, out why, out kiting, out soft, out native, out urgent, out urgentGun, out t);
                 // round hr1: the last stand (at home, two or more on her, no room to heal) - before the holds below, which may return
                 UpdateStand(e, st, want, t, now);
-                // round cb1 (re-check CB1R-m3, m4): the melee stance or the fight's end re-arms the hold; the fight's end drops the step-off mark
-                if (want == Posture.None || (IsFight(want) && !kiting)) st.HoldSpent = false;
-                if (want == Posture.None) st.StepOffUntil = 0f;
                 // round cb1: the out-of-ammo tell (point 1) and a step down off a model or out of a wreck's hull (point 4)
                 TellNoAmmo(e, m, st, want, now);
                 StepOffCheck(e, st, want, t, now);
@@ -304,6 +301,10 @@ namespace SurvivorCommunity
                         return;
                     }
                 }
+                // round cb1 (re-check CB1R-m3, m4): the melee stance or the fight's end re-arms the hold; the fight's end drops the step-off mark.
+                // Final check CB1F-m1: read after the target-lapse hold above, so a one-tick target flicker mid-fight (held there) clears neither
+                if (want == Posture.None || (IsFight(want) && !kiting)) st.HoldSpent = false;
+                if (want == Posture.None) st.StepOffUntil = 0f;
                 bool stanceFlip = IsFight(st.P) && IsFight(want) && GunStance(st.P, st.Kiting) != GunStance(want, kiting);
                 if (want == st.P && !stanceFlip)
                 {
