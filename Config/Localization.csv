@@ -2257,3 +2257,5 @@ scMp7Held_text,Dialog,Statement,,,,"I haven't forgotten what you did for me. Onc
 scUiPlNotListed,UI,Menu,,,,{0} more not listed
 scMp7FavourThanks,UI,Tooltip,,,,"{0} thanks you for the supplies. Once you have a home, ask them again and they'll come."
 scMp7PoiCleared_text,Dialog,Statement,,,,"You already did? Huh. I did wonder why it went so quiet over there. I owe you one - once you have a home, ask me again and I'll come."
+# round MP7 (re-check) - a party the community did not see made
+scMp7PartyUnverified,UI,Tooltip,,,,The community did not see how you joined this party: players you invite into it don't join a community. Leave the party and invite them again.

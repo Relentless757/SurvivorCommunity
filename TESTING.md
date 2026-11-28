@@ -58,7 +58,8 @@ ally the reconcile moved into another community; AutoParty repeated the mixed-pa
 AP harness, extended for the fixes (117 checks on each of the 12 saves, 0 failures). Round MP7 (final check): SC's own
 party invite ledger for the two majors of the final check (a listen host's own invites lost their community; a forged
 invite or accept, or a sweep of a member who got in so, still reached one); the harness covers them too (141 checks on each
-of the 12 saves, 0 failures; round trip ALL PASS).
+of the 12 saves, 0 failures; round trip ALL PASS). Round MP7 (re-check): verification chains only from a verified inviter
+or founder, and the reviewer's probes are in the harness (145 checks on each of the 12 saves, 0 failures).
 
 **Single player and Shared (nothing may change)**
 - [ ] As in the part AP steps below: no `community (allies)` or `community (party)` line, no new save line.
@@ -89,6 +90,8 @@ of the 12 saves, 0 failures; round trip ALL PASS).
       the game for the first time and accepts the automatic invite: they join the host's community.
 - [ ] A client with only their own relations invites the host (who owns a community); the host accepts from the players list:
       the client joins the host's community.
+- [ ] Round MP7 (re-check): three players in a party made by ordinary invites; the leader invites a fourth with only their own
+      relations: they join as before (each inviter's place is verified). No `scMp7PartyUnverified` tell appears in normal play.
 
 ## Round MP7 (review U) (2026-11-27): paging, a role at the first block, the talk's nits, no platform ids in fown
 

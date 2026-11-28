@@ -3648,8 +3648,13 @@ Round MP0 is the groundwork:
     Vanilla's party join itself is left alone. A counted join verifies that player's place in that party (by `PartyID`,
     and the inviter's when the invite started the party); every sweep (an accept, a founding, `OwnerHooks`) takes only
     verified members, and the inviter's or leader's community is the party's only when that player is verified, so a player
-    who got into a party any other way never joins nor steers a community through it until they leave it. A refused join
-    is warned about once per player per session. Accept: the party's community is the
+    who got into a party any other way never joins nor steers a community through it until they leave it. Round MP7
+    (re-check): verification chains only from a verified player - an accept counts only when the inviter's own place in the
+    party is verified or the invite starts the party (else the inviter is told once, `scMp7PartyUnverified`: leave and invite
+    again), and a founding or hand-over pulls the party in only when the founder's own place is verified. A client's invite
+    is recorded only when the invited player has no party (vanilla lists it only then); a forged auto join in the name of
+    a player already in the auto party changes nothing; a member left alone by a dissolving party loses their verified
+    place. A refused join is warned about once per sender, naming the package's real sender. Accept: the party's community is the
     inviter's founded community, else the only one among the members, else the leader's, else the lowest id. Every member in
     none joins it unless they left it. A member in a founded community keeps it; when it is the invited player, both sides
     are told. Leave or kick (`Left`, the member list taken in a prefix): the player loses access when they joined by party

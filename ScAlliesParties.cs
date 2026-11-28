@@ -771,8 +771,25 @@ namespace SurvivorCommunity
             if (!invitePending)
             {
                 Unverify(invitedPid);
-                WarnOnce(invitedPid, "accept", "community (party): " + ScJoins.NameOf(invitedPid) + " joined " + ScJoins.NameOf(inviterPid)
-                         + "'s party with no invite SC saw them get (a modified client?) - the party join stands, no community join (said once per player)");
+                // round MP7 (re-check): m2 + n3 - the package's real sender named (not the player it named), once per sender
+                int by = ActorNow();
+                WarnOnce("eid" + by, "accept", "community (party): " + ScJoins.NameOf(invitedPid) + " was put into " + ScJoins.NameOf(inviterPid)
+                         + "'s party with no invite SC saw them get, by a package from " + SenderName(by) + " (a modified client?) - the party join stands, no community join (said once per sender)");
+                return 0;
+            }
+            // round MP7 (re-check): G-M1 - the accept counts only when the inviter's own place in the party is verified (or their invite
+            // starts it): else one forged accept plus an ordinary invite to a second account would verify that account and sweep it in.
+            // A genuine invite refused so is told to the inviter once (m2: they would not know why nobody joins)
+            if (!inviterNew && !IsVerified(inviterPid, partyId))
+            {
+                Unverify(invitedPid);
+                if (warned.Add("unverified|" + inviterPid))
+                {
+                    ScLog.Warn("community (party): " + ScJoins.NameOf(invitedPid) + " accepted " + ScJoins.NameOf(inviterPid) + "'s invite, but " + ScJoins.NameOf(inviterPid)
+                               + " is in a party SC did not see them join - no community join until they leave it and invite again (said once per inviter)");
+                    EntityPlayer inviter = ScPlayers.ById(inviterPid);
+                    if (inviter != null) ScCommunity.TellKey(inviter, "scMp7PartyUnverified", "");
+                }
                 return 0;
             }
             Verify(invitedPid, partyId);
@@ -798,9 +815,11 @@ namespace SurvivorCommunity
             if (!On || members == null || string.IsNullOrEmpty(joinerPid)) return 0;
             if (!genuine)
             {
-                Unverify(joinerPid);
-                WarnOnce(joinerPid, "autojoin", "community (party): " + ScJoins.NameOf(joinerPid) + " was put into the auto party with the AutoParty setting off, or by "
-                         + "a package not their own (a modified client?) - the party join stands, no community join (said once per player)");
+                // round MP7 (re-check): m1 - no unverify here: a forged package in another member's name must not cost them their
+                // place (Patch_AutoJoinParty clears a stale entry only for a player the package put into the party); n3 - once per sender
+                int by = ActorNow();
+                WarnOnce("eid" + by, "autojoin", "community (party): " + ScJoins.NameOf(joinerPid) + " was put into the auto party with the AutoParty setting off, or by "
+                         + "a package from " + SenderName(by) + " (a modified client?) - the party join stands, no community join (said once per sender)");
                 return 0;
             }
             Verify(joinerPid, partyId);
@@ -892,6 +911,36 @@ namespace SurvivorCommunity
         private static void WarnOnce(string who, string kind, string line)
         {
             if (warned.Add(kind + "|" + (who ?? ""))) ScLog.Warn(line);
+        }
+
+        /// <summary>Round MP7 (re-check): m2 - a package's sender for the log: their name and entity id, "the host" or "nobody known".</summary>
+        private static string SenderName(int eid)
+        {
+            if (eid <= 0) return "nobody known";
+            EntityPlayer p = ScPlayers.ByEntity(eid);
+            if (p is EntityPlayerLocal) return "the host";
+            return (p != null ? p.PlayerDisplayName + " " : "") + "(entity " + eid + ")";
+        }
+
+        /// <summary>
+        /// Round MP7 (re-check): n2 - after a leave or a kick: each member who was in the party and is in none now (the last one of a
+        /// dissolving party leaves through EntityPlayer.LeaveParty, which SC does not hook) loses their verified place.
+        /// </summary>
+        private static void UnverifyPartyless(List<string> before)
+        {
+            if (before == null) return;
+            foreach (string m in before)
+            {
+                EntityPlayer p = ScPlayers.ById(m);
+                if (p != null && p.Party == null) Unverify(m);
+            }
+        }
+
+        /// <summary>Round MP7 (re-check): n1 - the player with this entity id is in no party (vanilla lists an invite only for such a player).</summary>
+        private static bool Partyless(int eid)
+        {
+            EntityPlayer p = ScPlayers.ByEntity(eid);
+            return p != null && p.Party == null;
         }
 
         /// <summary>Who acts for an accept or an auto join now: the package's sender, else the host's own player (its UI or spawn), else -1.</summary>
@@ -1048,6 +1097,15 @@ namespace SurvivorCommunity
         internal static int Founded(string founderPid, CommunityState cs, List<string> members, int partyId)
         {
             if (!On || cs == null || cs.Personal || members == null) return 0;
+            // round MP7 (re-check): G-M2 - only when the founder's own place in the party is verified (their own accept, or they
+            // started it): a player put into accomplices' party by a forged accept and then founding (or handed a community) pulls nobody
+            if (!IsVerified(founderPid, partyId))
+            {
+                if (members.Count > 1 && warned.Add("founder|" + founderPid))
+                    ScLog.Warn("community (party): " + ScJoins.NameOf(founderPid) + " has a community now, but SC did not see them join their party - its players are not pulled in "
+                               + "(leave it and invite them again; said once per player)");
+                return 0;
+            }
             int n = 0;
             foreach (string m in VerifiedOnly(members, partyId))
             {
@@ -1209,6 +1267,7 @@ namespace SurvivorCommunity
                     if (__state == null || player == null || !On) return;
                     if (player.Party != null && player.Party.ContainsMember(player)) return;   // still in it: nothing happened
                     Left(ScPlayers.IdOf(player), __state, "left");
+                    UnverifyPartyless(__state);             // round MP7 (re-check): n2
                 }
                 catch (Exception e)
                 {
@@ -1244,6 +1303,7 @@ namespace SurvivorCommunity
                     EntityPlayer p = ScPlayers.ByEntity(entityID);
                     if (p == null || (p.Party != null && p.Party.ContainsMember(p))) return;
                     Left(ScPlayers.IdOf(p), __state, "was kicked from");
+                    UnverifyPartyless(__state);             // round MP7 (re-check): n2
                 }
                 catch (Exception e)
                 {
@@ -1258,8 +1318,17 @@ namespace SurvivorCommunity
         [HarmonyPatch(typeof(Party), nameof(Party.ServerHandleAutoJoinParty), new[] { typeof(EntityPlayer) })]
         public static class Patch_AutoJoinParty
         {
+            /// <summary>Round MP7 (re-check): m1 - the player was in the auto party (id 1) already, before this call.</summary>
+            [HarmonyPrefix]
+            public static void Prefix(EntityPlayer joiningEntity, out bool __state)
+            {
+                __state = false;
+                try { __state = On && joiningEntity != null && joiningEntity.Party != null && joiningEntity.Party.PartyID == 1 && joiningEntity.Party.ContainsMember(joiningEntity); }
+                catch (Exception e) { ScLog.Once("mp7-party-autojoin-pre", e); }
+            }
+
             [HarmonyPostfix]
-            public static void Postfix(EntityPlayer joiningEntity)
+            public static void Postfix(EntityPlayer joiningEntity, bool __state)
             {
                 try
                 {
@@ -1269,7 +1338,13 @@ namespace SurvivorCommunity
                     // round MP7 (review AP/F): m4 - only with the game's AutoParty setting on (vanilla never checks it for the package);
                     // round MP7 (final check): M2 - and only for the joiner's own package, or the host's own spawn
                     bool own = packageSender != 0 ? packageSender == joiningEntity.entityId : joiningEntity is EntityPlayerLocal;
-                    AutoJoined(ScPlayers.IdOf(joiningEntity), IdsOf(party.MemberList), ScPlayers.IdOf(party.Leader), own && GameStats.GetBool(EnumGameStats.AutoParty), party.PartyID);
+                    // round MP7 (re-check): m1 - a package in the name of a player already in the auto party changes nothing in vanilla,
+                    // and nothing in SC either (their verified place stays). One that put the player into it, not by their own act or with
+                    // AutoParty off, clears any stale entry they had for this party id (party 1 outlives its members)
+                    if (__state && !own) return;
+                    bool genuine = own && GameStats.GetBool(EnumGameStats.AutoParty);
+                    if (!genuine) Unverify(ScPlayers.IdOf(joiningEntity));
+                    AutoJoined(ScPlayers.IdOf(joiningEntity), IdsOf(party.MemberList), ScPlayers.IdOf(party.Leader), genuine, party.PartyID);
                 }
                 catch (Exception e)
                 {
@@ -1294,7 +1369,10 @@ namespace SurvivorCommunity
                     ClientInfo ci = __instance != null ? __instance.Sender : null;
                     if (ci == null || !ScCommunity.IsHost) return;       // a client's machine, or the host's own (never a client's package)
                     packageSender = ci.entityId > 0 ? ci.entityId : -1;
-                    if (On && ___currentOperation == NetPackagePartyActions.PartyActions.SendInvite) NoteInvite(packageSender, ___invitedByEntityID, ___invitedEntityID);
+                    // round MP7 (re-check): n1 - and only when the invited player has no party (vanilla lists an invite only then), so no
+                    // stale pair waits in the ledger
+                    if (On && ___currentOperation == NetPackagePartyActions.PartyActions.SendInvite && Partyless(___invitedEntityID))
+                        NoteInvite(packageSender, ___invitedByEntityID, ___invitedEntityID);
                 }
                 catch (Exception e) { ScLog.Once("mp7-party-package-pre", e); }
             }
@@ -1324,7 +1402,7 @@ namespace SurvivorCommunity
                 {
                     if (_operation != NetPackagePartyActions.PartyActions.SendInvite || packageSender != 0 || !ScCommunity.IsHost || !On) return;
                     EntityPlayerLocal lp = ScCommunity.LocalPlayer;
-                    if (lp == null || lp.entityId != _invitedByEntityID) return;
+                    if (lp == null || lp.entityId != _invitedByEntityID || !Partyless(_invitedEntityID)) return;     // round MP7 (re-check): n1
                     NoteInvite(lp.entityId, _invitedByEntityID, _invitedEntityID);
                 }
                 catch (Exception e) { ScLog.Once("mp7-party-package-setup", e); }
