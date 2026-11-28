@@ -80,6 +80,19 @@ namespace SurvivorCommunity
             m.Handed[slot] = iv.Clone();
         }
 
+        /// <summary>
+        /// Round wq1: the weapon now stored in a pair slot is the quality she has for it from now on - should this record go stale
+        /// or be taken back, the copies SCore rebuilds keep that quality (ScLoadout.StableQuality), never the seeded one. Round
+        /// wq1 (review, WQ1-n1): called by ScArms only once the swap is committed (SetGuarded succeeded), so a refused swap
+        /// leaves no record; never while the save is read (an old save gains no wq= line).
+        /// </summary>
+        public static void RecordWeaponQuality(Member m, int slot)
+        {
+            if (slot != Ranged && slot != Melee) return;
+            ItemValue iv = Get(m, slot);
+            if (iv != null && iv.ItemClass != null && iv.ItemClass.HasQuality) ScLoadout.RecordQuality(m, iv.ItemClass.GetItemName(), iv.Quality);
+        }
+
         public static bool Any(Member m)
         {
             if (m == null) return false;

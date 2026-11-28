@@ -2074,6 +2074,7 @@ namespace SurvivorCommunity
                 ScLog.Warn(name + ": could not keep the handed " + token + " (" + why + ")");
                 return false;
             }
+            if (exact) ScHanded.RecordWeaponQuality(m, hslot);      // round wq1 (review, WQ1-n1): only once the swap is committed
             RetargetRemembered(npc, old, token);
             var back = new List<ItemStack>();
             // the handed item lives in the pair now; a non-member's mods come back, a member's stay on it (n12). Its own loose
@@ -2170,6 +2171,7 @@ namespace SurvivorCommunity
                     return ScMemberEquip.Text("scInvRefuseFailed", why ?? "?");
                 }
             }
+            if (handed != null) ScHanded.RecordWeaponQuality(m, hslot);   // round wq1 (review, WQ1-n1): only once the swap is committed
             // committed: every step below on its own, none throws out (the caller hands `back` to the cursor next)
             if (gun)
                 PanelStep("unload", () =>

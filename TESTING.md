@@ -48,6 +48,37 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   retired ids; `owner <id> <player>` hands a community over; `mode <PerPlayer|PerParty> confirm` switches a save from before
   MP7 once.
 
+## Round wq1 (2026-11-28): a recruit's weapon keeps its quality
+
+Why: a hire's Q6 crossbow came back Q1 at the first load after he joined the community. For a member, SC gives every copy
+of a rolled pair weapon one quality (SCore rebuilds the copies at a random one after each load), but that quality was a
+seeded roll that knew nothing of the weapon's real quality. Now the quality of each pair weapon and of the weapon in her
+hand is recorded when a body becomes a member, and a weapon handed to her pair records its own; every copy keeps that.
+Members already in a save keep the seeded quality they have now. Review fixes (WQ1-m1, m2, n1, n2, n3): group joins of a
+loaded body record too, the record never overrides a work-kit tool, a refused swap records nothing, and names match
+case-insensitively. Build `sc34_wq1`, **not deployed**, untested in game.
+Checked offline: the save round trip on 12 saves (ALL PASS: old saves load and save byte for byte, also those with
+handed items), and a harness for the new `wq=` line (15 checks on each of the 7 saves with members, 2 on the other 5, 0
+failures).
+
+**Single player**
+- [ ] Hire one of 0-XNPCCore's survivors the normal way and note their weapons' qualities (hold E, Equipment) just
+      before recruiting them (a weapon not in their hand was rolled again at the last load). Recruit them. With
+      DebugLogging the log says `<name> (id N): weapon qualities kept - <gun> Q<n>, <melee> Q<n>`; after `sc save` their
+      `[member]` has a `wq=` line with those qualities.
+- [ ] Save and quit, load: the same qualities on both weapons, in her hand and in the member panel. Load once more: the
+      same again.
+- [ ] Recruit a stranger whose rolled weapon is not Q1 (talk, do the favor, recruit): the same check across two loads.
+- [ ] Hand a member a better gun through the member panel: after a load she still holds it at its quality, and the
+      `wq=` line names it at that quality.
+- [ ] A member from a save before this round: her weapons keep the quality they have now (no `wq=` line is added by a
+      load and save alone).
+- [ ] The work kit tools of a new member keep a stable quality across loads, as before (the kit's seeded one, also for a
+      tool she held when she joined).
+- [ ] A whole enclave joins you while you are with them, so they walk off on their own from loaded bodies (E12): when
+      they turn up at home, each has the weapon qualities they carried when they walked off (their `wq=` lines). The same
+      for a drifter band that comes to your place.
+
 ## Deployed 2026-11-27: round MP7 (community modes), round hr1 (healing and last stand), round lk1 (looks kept, falling trees)
 
 Installed in the 3.4 game (`port-3.4` 15e187ab, DLL 90907710); the dedicated server loads the same folder. **Protocol 9:

@@ -210,6 +210,11 @@ namespace SurvivorCommunity
                 }
                 m.JoinDay = Today;
                 ScRegistry.Members[m.Id] = m;
+#if SC_V34
+                // round wq1: the quality her weapons really have, before anything re-arms her - a load would otherwise give
+                // every rebuilt copy her seeded quality (ScLoadout.StableQuality) instead
+                ScLoadout.RecordQualities(m, npc);
+#endif
                 ScTrust.StripOnJoin(npc);
                 // their favour quest ends with the join: one still open is waiting on "return to <name>" (completed),
                 // or the favour was skipped (`sc recruit`, removed)
