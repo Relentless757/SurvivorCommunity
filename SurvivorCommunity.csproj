@@ -137,6 +137,8 @@
     <Compile Include="Patches_Radio.cs" />
     <Compile Include="Patches_LandClaimModel.cs" />
     <Compile Include="ScLooks.cs" />
+    <Compile Include="ScLookKeep.cs" />                <!-- round lk1: the looks of record-less bodies kept with the save (both games) -->
+    <Compile Include="ScFallingTrees.cs" />            <!-- round lk1: falling trees spare friendly survivors (FallingTreesHurtSurvivors, both games) -->
     <Compile Include="NetPackageScLook.cs" />          <!-- round MP1 (looks) -->
     <Compile Include="NetPackageScLookRequest.cs" />   <!-- round MP1 (looks) -->
     <Compile Include="Patches_Sdcs.cs" />

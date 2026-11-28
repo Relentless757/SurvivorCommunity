@@ -48,6 +48,54 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   retired ids; `owner <id> <player>` hands a community over; `mode <PerPlayer|PerParty> confirm` switches a save from before
   MP7 once.
 
+## Round lk1 (2026-11-27): looks kept across reloads, falling trees
+
+Why: a player's 0-XNPCCore hire got a new face and new armor at every load. SC dresses every survivor body of its classes
+and keeps 0-XNPCCore's own look off them, but it kept the look only for members and prospects (enclave and band people are
+always re-made from their records). A body the world saves without such a record - a companion hired the normal way, a
+stranger who holds a grudge, a console spawn - rolled a new look at every load. Now its look is kept in the community's
+save file (`[world] keptlook=` lines) and given back at the next load. Also: a falling tree no longer hurts friendly
+survivors (`FallingTreesHurtSurvivors`, false by default), and a startup warning names an 0-XNPCCore older than 3.4.06
+final. Build `sc34_lk1`, **not deployed**, untested in game. As a backstop the roll itself is seeded by the body's entity
+id. Checked offline: the save round trip on 12 saves (ALL PASS: old saves load and save byte for byte as before), and a
+harness for the new lines and the seeded roll (21 checks on each of the 12 saves, 0 failures). `sc xnpc` counts
+`lk1-look-kept`, `lk1-look-updated`, `lk1-look-dropped`, `lk1-look-restored` and `lk1-tree-spared`.
+
+**Looks kept (single player)**
+- [ ] Hire one of 0-XNPCCore's survivors the normal way (not into the community). Note face, hair and armor. Within 5 s
+      `sc xnpc` counts `lk1-look-kept`; after `sc save` the save's `survivor_communities.txt` has a `keptlook=<id>;...`
+      line.
+- [ ] Save and quit, load: the hire has the same face, hair, eyes and armor. `sc xnpc` counts `lk1-look-restored`.
+- [ ] A survivor made with `sc spawn` (saved with the world, no record) and a raider made with `sc spawn hostile`: walk
+      away until their area unloads, save and quit, load, go back: same looks.
+- [ ] A wild stranger nobody hired or recruited: no `keptlook=` line for them (the world does not save them).
+- [ ] Dress the hire with 0-XNPCCore's Wardrobe; save and load: the piece is still worn.
+- [ ] A hire wearing a character-creator face: the same creator face after a load.
+- [ ] Recruit the hire into the community: their face does not change, and at the next save their `keptlook=` line is
+      gone (the member record keeps the look). Members, prospects and enclave people look the same after a load, as before.
+- [ ] Dismiss the hire through SCore and walk away until their area unloads: their line is gone at the next save.
+- [ ] A kept survivor dies: their line is gone at the next save.
+- [ ] The hire's voice is the same after the load (it follows the look and the name).
+- [ ] An old save from before this round with a hire: the first load still gives them a new look (nothing was kept);
+      every load after that keeps it.
+- [ ] The backstop: with the game closed, delete the hire's `keptlook=` line from `survivor_communities.txt` (a hire first
+      dressed by this build) and load: the same look again (the roll is seeded by the entity id), with the config unchanged.
+
+**Dedicated server**
+- [ ] A client hires a survivor; restart the server; the client sees the same look after rejoining.
+
+**0-XNPCCore version warning**
+- [ ] With 0-XNPCCore 3.4.06 final: no `0-XNPCCore is older than 3.4.06 final` line in the log.
+- [ ] With an older 0-XNPCCore (3.4.05): that warning once at startup.
+
+**Falling trees (`FallingTreesHurtSurvivors` false, the default)**
+- [ ] Fell a tree onto a following member, a resident, a prospect, a friendly enclave person and a hired 0-XNPCCore
+      survivor: none is hurt. `sc xnpc` counts `lk1-tree-spared`; with DebugLogging the log says `falling tree: <name> ...
+      is not hurt`.
+- [ ] Fell one onto a zombie, a raider and a stranger nobody hired: they are hurt as before. You are never hurt (vanilla).
+- [ ] Set `FallingTreesHurtSurvivors` true: a member under a falling tree is hurt again.
+- [ ] Dedicated server: a client fells a tree onto their hire: not hurt (the server decides).
+
 ## Round MP7 (part AP) (2026-11-27): land claim allies and parties bring players in and take them out
 
 Why: the MP7 core gave every player their own relations and a way to start a community, but only an admin could put a player

@@ -265,7 +265,7 @@ namespace SurvivorCommunity
                 if (records > 0 && ScRegistry.Loaded) ScRegistry.SaveAtomic();
                 Patches_Xnpc.Count("n05-wardrobe-worn");
                 ScLog.Out("wardrobe: " + npc.EntityName + " (" + npc.entityId + ") now wears ["
-                          + string.Join(", ", next.Gear) + "]" + (records == 0 ? " (a stranger: this session only)" : ""));
+                          + string.Join(", ", next.Gear) + "]" + (records == 0 ? " (no record of SC's: kept with the save while the world saves the body, round lk1)" : ""));
                 return true;
             }
             catch (Exception ex) { ScLog.Once("wardrobe-honor", ex); return false; }

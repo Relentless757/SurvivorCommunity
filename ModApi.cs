@@ -34,6 +34,9 @@ namespace SurvivorCommunity
                 PatchClassByClass(h);
                 try { VerifyPatches(h); }
                 catch (Exception e) { ScLog.Err("patch verification failed: " + e.Message); }
+                // round lk1: one plain warning when 0-XNPCCore is older than the 3.4.06 final SC is built against
+                try { WarnOldXnpc(); }
+                catch (Exception e) { ScLog.Err("0-XNPCCore version probe failed: " + e.Message); }
                 // round U2: 0-XNPCCore's downed state for SC's people at home - ON only when all five re-pointed calls were found
                 try { Patches_Downed.Settle(); }
                 catch (Exception e) { ScLog.Err("downed (round U2): " + e.Message + " - the feature is OFF"); }
@@ -181,6 +184,8 @@ namespace SurvivorCommunity
 #endif
                     // round 30 review M2: streamer names on bodies the save will not keep go back to the list, before the last save
                     ScStreamerNames.OnWorldShuttingDown();
+                    // round lk1: the kept looks squared with the bodies the world's save is about to write (its own try)
+                    ScLookKeep.OnWorldShuttingDown();
                     ScPortraits.Reset(); ScHomeLink.Reset(); ScHomeHold.Reset(); ScWeaponWarm.Reset(); ScRegistry.FlushAndReset();
                 });
                 ModEvents.GameShutdown.RegisterHandler((ref ModEvents.SGameShutdownData _d) => { ScPortraits.Reset(); ScRegistry.FlushAndReset(); });
@@ -297,6 +302,27 @@ namespace SurvivorCommunity
             // game's by now; no ally event fires at load)
             if (ScCommunity.IsHost) ScAllies.OnGameStartDone();
         }
+
+#if SC_V34
+        /// <summary>
+        /// Round lk1: one warning at startup when 0-XNPCCore is older than 3.4.06 final, the build SC is made and tested against.
+        /// ModInfo cannot tell (3.4.06 final's still says 3.4.05), so the probe is a method only 3.4.06 final has: X26's
+        /// AvatarSdcsNpcController.SdcsMagStageForWrite (its save-time stage of the held gun). Without it SC still runs, but the
+        /// parts that bind to 3.4.06 stay off and their MISSING PATCH lines above are expected. A later 0-XNPCCore that renamed
+        /// the method would warn here too, which the line says.
+        /// </summary>
+        private static void WarnOldXnpc()
+        {
+            if (Patches_Xnpc.MagStageForWriteTarget() != null) return;
+            Mod xnpc = ModManager.GetMod("0-XNPCCore");
+            string said = xnpc != null && !string.IsNullOrEmpty(xnpc.VersionString) ? xnpc.VersionString : "?";
+            ScLog.Warn("0-XNPCCore is older than 3.4.06 final (its ModInfo says " + said + ", and it has no AvatarSdcsNpcController.SdcsMagStageForWrite)"
+                       + " - SurvivorCommunity is built and tested against 0-XNPCCore 3.4.06 final. It runs, but what needs 3.4.06 can stay off"
+                       + " (such as the downed state at home, Bond, gifts, the equipment window, the held gun's save hand-off) and MISSING PATCH"
+                       + " lines above for 0-XNPCCore methods come from this. Please update 0-XNPCCore (or, if it is newer and renamed"
+                       + " that method, report it).");
+        }
+#endif
 
         private static bool DependenciesPresent()
         {
@@ -450,6 +476,8 @@ namespace SurvivorCommunity
             Add(t, "EntityAliveSDXV4::IsSavedToFile", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "IsSavedToFile", new Type[0]));
             // ScDoors.cs - members open (and shut) doors
             Add(t, "EntityMoveHelper::CheckForDoorAndOpen", AccessTools.Method(typeof(EntityMoveHelper), "CheckForDoorAndOpen", new Type[0]));
+            // round lk1 (ScFallingTrees.cs): a falling tree spares friendly survivors unless FallingTreesHurtSurvivors (both games)
+            Add(t, "EntityFallingTree::treeCanDamageEntity", ScFallingTrees.Target());
             Add(t, "SleeperEventData::Update", AccessTools.Method(typeof(SleeperEventData), "Update", new Type[0]));
             // Patches_QuestTitle.cs - per-POI favour quest title + marker
             Type[] binding = { typeof(string).MakeByRefType(), typeof(string) };
