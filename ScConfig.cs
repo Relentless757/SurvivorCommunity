@@ -992,8 +992,9 @@ namespace SurvivorCommunity
         /// community are always damageable; the NPC framework shields both, which this undoes.</summary>
         public static bool CommunityFriendlyFire = false;
         /// <summary>
-        /// Round lk1: false (the default) - a falling tree never hurts a friendly survivor (members, stand-ins, prospects, a friendly
-        /// enclave's people, any 0-XNPCCore survivor a player hired; ScFallingTrees). True: vanilla, a falling trunk crushes them
+        /// Round lk1: false (the default) - a falling tree never hurts a friendly survivor (members, stand-ins, prospects, the people of
+        /// an enclave that is not hostile, any 0-XNPCCore survivor a player hired; ScFallingTrees). Round lk1 (review): not hostile =
+        /// friendly or neutral. True: vanilla, a falling trunk crushes them
         /// as it crushes zombies and animals (never players, in vanilla too).
         /// </summary>
         public static bool FallingTreesHurtSurvivors = false;

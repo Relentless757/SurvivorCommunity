@@ -1616,9 +1616,10 @@ namespace SurvivorCommunity
             ScLooks.Apply(npc, look);
             ScRegistry.SaveAtomic();
             ScLog.Out("looks: " + name + " (" + npc.entityId + ") re-toned by sc look tone: " + old.Race + " -> " + look.Race + " (face " + look.Variant + " "
-                      + ScLooks.FaceRace(look.Variant) + ")" + (records == 0 ? ", no record (a stranger: this session only)" : ""));
+                      + ScLooks.FaceRace(look.Variant) + ")" + (records == 0 ? ", no record (kept with the save while the world saves the body)" : ""));   // round lk1 (review): ScLookKeep
             Output("[SC] " + name + " before: " + before);
-            Output("[SC] " + name + " after:  " + ScLooks.Describe(look) + (records == 0 ? " (a stranger with no record: kept this session only)" : " (saved)"));
+            // round lk1 (review): a record-less body's look is kept with the save (ScLookKeep) while the world saves the body
+            Output("[SC] " + name + " after:  " + ScLooks.Describe(look) + (records == 0 ? " (no record: kept with the save while the world saves the body)" : " (saved)"));
         }
 
         /// <summary>
