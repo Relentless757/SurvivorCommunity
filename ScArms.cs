@@ -1229,7 +1229,9 @@ namespace SurvivorCommunity
 #endif
                 if (armed) t = NoSwingTarget(e, pv, out pick);
                 if (t == null) { st.NsTarget = -1; return; }
-                if (st.NsTarget != t.entityId || now - st.NsTick > KiteTickGapSeconds)
+                // round wp1 (final check WP1F-m1): the clock starts when an enemy first comes within reach (or after a gap in the
+                // watch), not whenever the nearest one changes - in a scrum the nearest changes often, and the clock must run on
+                if (st.NsTarget < 0 || now - st.NsTick > KiteTickGapSeconds)
                 {
                     st.NsTarget = t.entityId;
                     st.NsSince = now;
@@ -1237,6 +1239,7 @@ namespace SurvivorCommunity
                     st.NsTick = now;
                     return;
                 }
+                st.NsTarget = t.entityId;
                 st.NsTick = now;
                 if (used != st.NsUse) { st.NsSince = now; st.NsUse = used; return; }   // she swung: the clock starts again
                 if (now - st.NsSince < NoSwingWatchSeconds) return;
