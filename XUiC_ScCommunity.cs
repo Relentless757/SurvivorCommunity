@@ -26,7 +26,8 @@ namespace SurvivorCommunity
     /// (XUiC_ScOutpostRow), the selected outpost and the network summary. ScCommunity.OpenOutposts opens the
     /// window straight onto it (the outpost claim's radial). The Facilities tab (btnTabFacilities, round m1f; it replaced
     /// round wl's Activities tab) swaps them for the home's facilities (ScFacilityTab) and the selected one with its actions:
-    /// XUiC_ScCommunityFacilities.cs, the other part of this class.
+    /// XUiC_ScCommunityFacilities.cs, the other part of this class. Round en1: the Enclaves tab (btnTabEnclaves) for the enclaves
+    /// the player's record knows (ScEnclaveList) and the selected one; a row clicked marks it on the map - XUiC_ScCommunityEnclaves.cs.
     /// </summary>
     // round MP7 (part U): the no-community page per mode for a personal record, the players list (name, role, online), Leave community
     // for non-owners and the owner's orders grayed by role - XUiC_ScCommunityPlayers.cs, the other part of this class
@@ -68,8 +69,8 @@ namespace SurvivorCommunity
         // ---- the Outposts tab ----
         /// <summary>Set before the window opens: 0 = members tab, -1 = the Outposts tab, n = that outpost selected.</summary>
         public static int PendingOutpost;
-        /// <summary>The left panel's tab (round wl added Activities, round m1f replaced it with Facilities): the detail panel follows it.</summary>
-        public enum Tab { Members, Outposts, Facilities }
+        /// <summary>The left panel's tab (round wl added Activities, round m1f replaced it with Facilities, round en1 added Enclaves): the detail panel follows it.</summary>
+        public enum Tab { Members, Outposts, Facilities, Enclaves }
         private Tab tab = Tab.Members;
         private XUiC_ScOutpostRow[] opRows;
         private readonly List<Outpost> opList = new List<Outpost>();
@@ -150,6 +151,7 @@ namespace SurvivorCommunity
                 HookOptional("btnTabOutposts", () => SetTab(Tab.Outposts));
                 // the Facilities tab (round m1f; it replaced round wl's Activities): the rows select, the buttons act or pick
                 InitFacilities();
+                InitEnclaves();                     // round en1: the ENCLAVES tab (and the no-community page's enclave rows)
                 HookOptional("btnOpPrev", () => TurnOutposts(-1));
                 HookOptional("btnOpNext", () => TurnOutposts(1));
                 HookOptional("btnOpTrack", OnOutpostTrack);
@@ -204,6 +206,7 @@ namespace SurvivorCommunity
                 assignOutpostId = -1;
                 tab = PendingOutpost != 0 ? Tab.Outposts : Tab.Members;
                 ResetFacilities();                  // round m1f
+                ResetEnclaves();                    // round en1
                 ResetPlayers();                     // round MP7 (part U)
                 if (PendingOutpost > 0) opSelectedId = PendingOutpost;
                 PendingOutpost = 0;
@@ -354,6 +357,7 @@ namespace SurvivorCommunity
             try { ScEconomy.DailyFlow(ScCommunity.Today + 1, dayGain, dayUse); }   // round fd2: the strip's daily net
             catch (Exception e) { ScLog.Once("community-daily-flow", e); }
             BuildFacilities();                      // round m1f: the Facilities tab (its count shows on the tab button)
+            BuildEnclaves();                        // round en1: the ENCLAVES tab and the no-community page's enclave list
             all.Clear();
             all.AddRange(ScRegistry.Members.Values);
             all.Sort((a, b) =>
@@ -575,9 +579,11 @@ namespace SurvivorCommunity
             tab = to;
             opMessage = "";
             facMessage = "";
+            encMessage = "";                        // round en1
             confirmDisbandUntil = 0f;
             if (to == Tab.Outposts) BuildOutposts();
             if (to == Tab.Facilities) BuildFacilities();
+            if (to == Tab.Enclaves) BuildEnclaves();
             RefreshBindingsSelfAndChildren();
         }
 
@@ -1294,6 +1300,7 @@ namespace SurvivorCommunity
             if (OutpostBinding(_bindingName, ref _value)) return true;
             if (StaffBinding(_bindingName, OutpostSelected, ref _value)) return true;
             if (FacilityBinding(_bindingName, ref _value)) return true;      // round m1f
+            if (EnclaveBinding(_bindingName, ref _value)) return true;       // round en1
             if (WorkBinding(_bindingName, sel, ref _value)) return true;     // C1
             switch (_bindingName)
             {

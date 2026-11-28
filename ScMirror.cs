@@ -839,6 +839,13 @@ namespace SurvivorCommunity
             if (fgnd.Length > 0) Kv(sb, ForeignGroundKey, fgnd);                      // round t2: two or more communities only
             string fown = ForeignOwners(cid);
             if (fown.Length > 0) Kv(sb, ForeignOwnersKey, fown);                      // round t2 (review T2-M2): two or more communities only
+            // round en1: the ENCLAVES tab - each enclave this community knows: its head count (encn.<id>) and a favor of one of its people
+            // (encf.<id>: 1 offered, 2 taken) - a client has neither the enclave people nor which enclave a favor's person is of
+            if (ScConfig.Enclaves)
+            {
+                try { ScEnclaveList.WriteDerived((k, v) => Kv(sb, k, v)); }
+                catch (Exception e) { ScLog.Once("mirror-derived-enclaves", e); }
+            }
             // round MP7 (part U): the mode (mode=, PerPlayer/PerParty only) and the community's players with their roles and online flags
             // (cpl=) - PerPlayer/PerParty, or two or more communities (ScCommunityView.KeysOn; the protocol is 9 from the merge). The
             // receiver's own role (role=, ownops=) follows the block per client (Send)

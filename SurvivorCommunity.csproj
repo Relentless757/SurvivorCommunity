@@ -164,6 +164,7 @@
     <Compile Include="ScPoiIndex.cs" />
     <Compile Include="ScEnclaveNames.cs" />
     <Compile Include="ScEnclaves.cs" />
+    <Compile Include="ScEnclaveList.cs" />   <!-- round en1: the community window's ENCLAVES tab - the entries, the derived keys, the map mark -->
     <Compile Include="ScRelations.cs" />     <!-- round MP6 (part relations): relation rows per community, hostility between communities -->
     <Compile Include="ScEnclavePeople.cs" />
     <Compile Include="ScEnclaveDeals.cs" />
@@ -493,6 +494,7 @@
   <ItemGroup Condition="'$(ScGame)'=='34'">
     <Compile Include="ScFacilityTab.cs" />
     <Compile Include="XUiC_ScCommunityFacilities.cs" />
+    <Compile Include="XUiC_ScCommunityEnclaves.cs" />   <!-- round en1: the ENCLAVES tab and the no-community page's enclave rows -->
     <Compile Include="ScLightsOut.cs" />
     <Compile Include="ScWatchFatigue.cs" />
     <Compile Include="ScSalvage.cs" />

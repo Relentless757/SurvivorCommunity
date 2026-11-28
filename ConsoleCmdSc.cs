@@ -231,6 +231,7 @@ namespace SurvivorCommunity
                            + (r.Withdrawn > 0 ? "; " + r.Withdrawn + " enclave request(s) they had taken on withdrawn (nobody else of it online)" : "")
                            + (r.FavoursClosed > 0 ? "; " + r.FavoursClosed + " favor quest(s) closed in their journal (the favors stay " + (from != null ? from.Label : "its") + "'s)" : "")
                            + (r.Merged ? "; merged: " + r.MergeNote : "")
+                           + (r.Copied ? "; " + ScMembership.CopyNote(r) : "")         // round en1: a leaver keeps a copy
                            + (r.Forgiven && to != null ? "; " + to.Label + "'s grudge against them dropped" : "")
                            + ". A client receives the new community's copy within a second.");
                     break;

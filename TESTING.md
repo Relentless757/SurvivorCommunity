@@ -46,7 +46,52 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   <name>`, `join <id> [player]`, `leave [player]` and `use <id>|none` (this console acts in that community) make and fill a
   second one. Admin only. Round MP7 (core): the list shows the mode and marks a player's own relations `[personal]` and
   retired ids; `owner <id> <player>` hands a community over; `mode <PerPlayer|PerParty> confirm` switches a save from before
-  MP7 once. Round db1: `disband <id>` says what disbanding it would do, `disband <id> confirm` does it (`confirm force` with a member away: she goes with no body and her handed items are lost).
+  MP7 once. Round db1: `disband <id>` says what disbanding it would do, `disband <id> confirm` does it (`confirm force` with a member away: she goes with no body and her handed items are lost). Round en1: `leave [player]`
+  in PerPlayer/PerParty gives the player their own relations with a copy of the community's (the output counts it).
+
+## Round en1 (2026-11-28): an ENCLAVES tab; a leaver keeps a copy
+
+Why (testing PerParty on the dedicated server): leaving the party seemed to wipe the enclaves the player knew, and the user asked
+for an ENCLAVES tab with a progress bar for the standing with each enclave. Build `sc34_en1`, not deployed, untested in game.
+**Protocol 11: every client needs this build.** Checked offline: the save round trip on 12 saves (ALL PASS); the disband harness
+extended (2184 checks, 0 failures: a leaver's copy in PerPlayer, PerParty, an admin's leave and a removed ally, Shared unchanged;
+the tab's levels, bars, order, badges and head counts, the derived keys and a client reading them); the network harness (459
+checks, 0 failures: a party leaver's snapshot carries the copy, the derived block the head counts).
+
+**A leaver keeps a copy**
+- [ ] PerParty: a player in a party's community (knowing some enclaves through it, with a scouting mark on the map) leaves the
+      party. They get "You no longer belong to ..." and "You keep a copy of what the community knew: N enclave(s) ...". Their
+      no-community page lists the same enclaves with the same standing, and the map keeps the enclave markers and the scouting
+      mark. The community's other players keep theirs.
+- [ ] Kicked from the party: the same.
+- [ ] Leave community (PerPlayer or PerParty): the same; the first press's hint says the copy is kept.
+- [ ] PerPlayer: the founder removes the player as a land claim ally: the same.
+- [ ] `sc community leave <player>`: the output ends with "a copy of its relations kept: N enclave(s), ...".
+- [ ] A group at war with the community is at war with the leaver too: its people attack them on sight.
+- [ ] The leaver joins again (a party invite, an ally link): the copy merges back, nothing lost.
+- [ ] Shared mode: a community 1 player who leaves is in community 0 as before, and community 0 gets none of community 1's
+      relations.
+- [ ] Expected, unchanged (round db1 review M1): a player already in another owner's party when their own community is disbanded
+      stays in their own relations. To join that community, they leave the party and join it again.
+
+**The ENCLAVES tab**
+- [ ] The community window has four tabs: MEMBERS, OUTPOSTS, FACILITIES and ENCLAVES, each with its count under the name. ENCLAVES
+      lists every enclave the community knows: Allied first, then Friendly, Neutral and hostile, the higher standing first and
+      the nearer first between equals.
+- [ ] Each row: the name; the level (Neutral gray, Friendly green, Allied blue, Hostile red); a bar with "12 / 30 to Friendly",
+      "42 / 70 to Allied", or "85 / 100 (the most)" once Allied; for a hostile group no bar, "Hostile for good: no standing to
+      earn". Under them: the kind, how many people, the distance and direction; on the right, a badge: Request open, Request
+      taken, Favor open, Favor taken or Under siege.
+- [ ] Raise a standing (a gift, a request done) and reopen the window: the bar and the points move, Friendly at 30, Allied at 70.
+- [ ] Click a row: the right panel shows it (standing, next level, where, the request or favor; the bar; what the level means and
+      their benefit), and a waypoint is set on it: the compass and the on-screen distance show it, and the map's waypoint list
+      has it. Click it again, or Remove map mark: the waypoint goes. Mark another: it is the tracked one, the first stays on the
+      map.
+- [ ] A client on the dedicated server sees the same rows and numbers as the host (the head counts too). Its waypoints are its own.
+- [ ] More than six enclaves: "Showing 6 of N" and the pager.
+- [ ] A player with only their own relations: the no-community page's enclave list has the same rows, six to a page. A click
+      marks the enclave (the row is lit while marked); a second click takes the mark away.
+- [ ] With AshfallUI the tab uses its art; with SteelUI or no UI mod, the vanilla look. The four tab names fit.
 
 ## Round wp2 (2026-11-28): melee when hurt by skill, no bow at point blank
 

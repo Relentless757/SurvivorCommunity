@@ -27,9 +27,10 @@ namespace SurvivorCommunity
     /// </summary>
     public partial class XUiC_ScCommunity
     {
-        /// <summary>The generator's row counts (PL_ROWS, NC_ENC_ROWS, NC_FAV_ROWS, NC_REQ_ROWS). Round MP7 (review U): n3 - 9 players (was 10): the
-        /// player's own role line got a third line and the list a pager.</summary>
-        public const int PlayerSlots = 9, NcEnclaveSlots = 8, NcFavourSlots = 5, NcRequestSlots = 3;
+        /// <summary>The generator's row counts (PL_ROWS, NC_FAV_ROWS, NC_REQ_ROWS). Round MP7 (review U): n3 - 9 players (was 10): the
+        /// player's own role line got a third line and the list a pager. Round en1: the no-community page's enclave rows are the ENCLAVES
+        /// tab's (XUiC_ScCommunityEnclaves.cs, EnclaveSlots, the generator's ENC_ROWS): NcEnclaveSlots is gone.</summary>
+        public const int PlayerSlots = 9, NcFavourSlots = 5, NcRequestSlots = 3;
         private const string TextBody = "226,220,208,255", TextOff = "130,124,112,255", TextGood = "142,208,108,255", TextGold = "206,178,120,255",
                              TextDim = "190,182,166,255", TextDanger = "240,150,130,255", TextAlly = "90,170,255,255", TextFriend = "140,220,120,255";
 
@@ -53,7 +54,6 @@ namespace SurvivorCommunity
         {
             public string A = "", B = "", C = "", Color = TextBody;
         }
-        private readonly List<NcRow> ncEnclaves = new List<NcRow>();
         private readonly List<NcRow> ncFavours = new List<NcRow>();
         private readonly List<NcRow> ncRequests = new List<NcRow>();
 
@@ -66,8 +66,9 @@ namespace SurvivorCommunity
             // round MP7 (review U): m1, m2 - the pagers
             HookOptional("btnPlPrev", () => TurnPage(ref plPage, -1, view.Players.Count, PlayerSlots));
             HookOptional("btnPlNext", () => TurnPage(ref plPage, 1, view.Players.Count, PlayerSlots));
-            HookOptional("btnNcEncPrev", () => TurnPage(ref ncEncPage, -1, ncEnclaves.Count, NcEnclaveSlots));
-            HookOptional("btnNcEncNext", () => TurnPage(ref ncEncPage, 1, ncEnclaves.Count, NcEnclaveSlots));
+            // round en1: the enclave rows are the ENCLAVES tab's list (encList), six to a page
+            HookOptional("btnNcEncPrev", () => TurnPage(ref ncEncPage, -1, encList.Count, EnclaveSlots));
+            HookOptional("btnNcEncNext", () => TurnPage(ref ncEncPage, 1, encList.Count, EnclaveSlots));
             HookOptional("btnNcFavPrev", () => TurnPage(ref ncFavPage, -1, ncFavours.Count, NcFavourSlots));
             HookOptional("btnNcFavNext", () => TurnPage(ref ncFavPage, 1, ncFavours.Count, NcFavourSlots));
             HookOptional("btnNcReqPrev", () => TurnPage(ref ncReqPage, -1, ncRequests.Count, NcRequestSlots));
@@ -235,36 +236,19 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The no-community page's rows (only for a personal record): the enclaves known, the favors, the requests. Round MP7 (review
-        /// U): m2 - every one (the pages show them a page at a time); requests taken on before offered ones.
+        /// The no-community page's rows (only for a personal record): the favors, the requests. Round MP7 (review U): m2 - every one
+        /// (the pages show them a page at a time); requests taken on before offered ones. Round en1: the enclaves known are the
+        /// ENCLAVES tab's list (BuildEnclaves, XUiC_ScCommunityEnclaves.cs), the same rows on this page.
         /// </summary>
         private void BuildNoCommunity()
         {
-            ncEnclaves.Clear();
             ncFavours.Clear();
             ncRequests.Clear();
-            if (!view.Personal || !ScRegistry.Ready) { ncEncPage = ncFavPage = ncReqPage = 0; return; }
+            if (!view.Personal || !ScRegistry.Ready) { ncFavPage = ncReqPage = 0; return; }
             try
             {
-                EntityPlayerLocal pl = Player;
-                Vector3 from = pl != null ? pl.position : Vector3.zero;
                 if (ScConfig.Enclaves)
                 {
-                    var known = new List<Enclave>();
-                    foreach (Enclave e in ScEnclaves.All) if (e.Known && !e.Lost) known.Add(e);
-                    known.Sort((a, b) => a.DistanceXZ(from.x, from.z).CompareTo(b.DistanceXZ(from.x, from.z)));
-                    for (int i = 0; i < known.Count; i++)
-                    {
-                        Enclave e = known[i];
-                        string band = ScEnclaves.StandingKey(e);
-                        ncEnclaves.Add(new NcRow
-                        {
-                            A = e.Name ?? "",
-                            B = ScEnclaves.StandingWord(e),
-                            C = ScEnclaves.Where(from, e.Centre),
-                            Color = band == "allied" ? TextAlly : band == "friendly" ? TextFriend : band == "hostile" ? TextDanger : TextDim
-                        });
-                    }
                     var open = new List<EnclaveRequest>();
                     foreach (EnclaveRequest r in ScEncRequests.All) if (r.Kind != EnclaveRequest.KindSiege) open.Add(r);
                     // round MP7 (review U): m2 - those taken on first (their delivery is what can be missed), then by the day that comes first
@@ -308,7 +292,6 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("community-window-nocommunity", e);
             }
-            ncEncPage = ClampPage(ncEncPage, ncEnclaves.Count, NcEnclaveSlots);      // round MP7 (review U): m2
             ncFavPage = ClampPage(ncFavPage, ncFavours.Count, NcFavourSlots);
             ncReqPage = ClampPage(ncReqPage, ncRequests.Count, NcRequestSlots);
         }
@@ -353,9 +336,9 @@ namespace SurvivorCommunity
         /// storagevisible, the PLAYERS button (playersbtnvisible, playersbtnlabel), showmorale / showplayers, playercount, playersyou,
         /// pl&lt;1..9&gt;&lt;visible|name|namecolor|role|dotcolor&gt;, plshowingtext / plpagevisible, leavecommunityvisible / label,
         /// playersmessage, the gray owner's orders (leavetextcolor, opdisbandcolor), and the no-community page (ncjoin, ncjoinicon,
-        /// ncencsummary, ncencempty, ncenc&lt;1..8&gt;, ncfav&lt;1..5&gt;, ncfavempty, ncreq&lt;1..3&gt;, ncreqempty - each row's
-        /// &lt;visible|a|b|c|color&gt; - and each list's &lt;ncenc|ncfav|ncreq&gt;&lt;showing|pagevisible&gt;). Round MP7 (review U): the pagers
-        /// replaced plmore, ncencmore, ncfavmore and ncreqmore. Round db1: disbandcommunityvisible / disbandcommunitylabel.
+        /// ncfav&lt;1..5&gt;, ncfavempty, ncreq&lt;1..3&gt;, ncreqempty - each row's &lt;visible|a|b|c|color&gt; - and each list's
+        /// &lt;ncfav|ncreq&gt;&lt;showing|pagevisible&gt;). Round MP7 (review U): the pagers replaced plmore, ncencmore, ncfavmore and ncreqmore.
+        /// Round db1: disbandcommunityvisible / disbandcommunitylabel. Round en1: the enclave list's (ncenc...) are EnclaveBinding's.
         /// </summary>
         private bool PlayersBinding(string name, ref string value)
         {
@@ -392,13 +375,9 @@ namespace SurvivorCommunity
                 // the no-community page
                 case "ncjoin": value = Localization.Get(view.Mode == ScCommunityMode.PerParty ? "scUiNcJoinParty" : "scUiNcJoinAlly"); return true;
                 case "ncjoinicon": value = view.Mode == ScCommunityMode.PerParty ? "ui_game_symbol_party" : "ui_game_symbol_allies"; return true;
-                case "ncencsummary": value = ncEnclaves.Count > 0 ? string.Format(Localization.Get("scUiNcEncSummary"), ncEnclaves.Count) : ""; return true;
-                case "ncencempty": value = (ncEnclaves.Count == 0).ToString(); return true;
                 case "ncfavempty": value = (ncFavours.Count == 0).ToString(); return true;
                 case "ncreqempty": value = (ncRequests.Count == 0).ToString(); return true;
                 // round MP7 (review U): m2 - each list's pager (they replaced ncencmore, ncfavmore and ncreqmore)
-                case "ncencshowing": value = Showing(ncEncPage, ncEnclaves.Count, NcEnclaveSlots); return true;
-                case "ncencpagevisible": value = (Pages(ncEnclaves.Count, NcEnclaveSlots) > 1).ToString(); return true;
                 case "ncfavshowing": value = Showing(ncFavPage, ncFavours.Count, NcFavourSlots); return true;
                 case "ncfavpagevisible": value = (Pages(ncFavours.Count, NcFavourSlots) > 1).ToString(); return true;
                 case "ncreqshowing": value = Showing(ncReqPage, ncRequests.Count, NcRequestSlots); return true;
@@ -424,7 +403,6 @@ namespace SurvivorCommunity
                 }
                 return false;
             }
-            if (NcRowBinding(name, "ncenc", NcEnclaveSlots, ncEnclaves, ncEncPage, ref value)) return true;
             if (NcRowBinding(name, "ncfav", NcFavourSlots, ncFavours, ncFavPage, ref value)) return true;
             if (NcRowBinding(name, "ncreq", NcRequestSlots, ncRequests, ncReqPage, ref value)) return true;
             return false;

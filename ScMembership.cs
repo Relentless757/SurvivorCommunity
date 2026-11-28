@@ -541,6 +541,12 @@ namespace SurvivorCommunity
             public string MergeNote = "";
             /// <summary>The new community's grudge against them was dropped.</summary>
             public bool Forgiven;
+            /// <summary>
+            /// Round en1: leaving a founded community for their own relations (PerPlayer/PerParty), they got a copy of its relations - the
+            /// enclave, infestation and band rows it had a saved value in, and its scouting marks (the user's decision 1, as a disband's copy).
+            /// </summary>
+            public bool Copied;
+            public int CopiedEnclaves, CopiedInfestations, CopiedBands, CopiedScouts;
         }
 
         /// <summary>
@@ -554,7 +560,8 @@ namespace SurvivorCommunity
         ///    decision-needed note);
         /// 3. their followers stay members of the old community and go home to it (stationed now, or resident when unloaded);
         /// 4. from a personal record into a community: the merge (Merge), then the record retires (Retire); to none: a fresh
-        ///    personal record; else the map changes;
+        ///    personal record - round en1: with a copy of the community's relations (SnapRelations / CopyRelations, as a disband's);
+        ///    else the map changes;
         /// 5. the new community's grudge against them ends;
         /// 6. tells to them and to both communities; the log; a save.
         /// Refused: a community that does not exist, the one they are in, a personal record as the target (PerPlayer/PerParty), and
@@ -623,14 +630,38 @@ namespace SurvivorCommunity
                 else if (target != null) ScPlayers.SetCommunity(platformId, target.Id);
                 else
                 {
-                    // none (PerPlayer/PerParty): a fresh, empty personal record
+                    // none (PerPlayer/PerParty): a personal record of their own
+                    // round en1: with a copy of the community's relations (the user's decision 1, 2026-11-28: as a disband's copy) - known
+                    // enclaves, standing, hostility and its clocks, infestations, band trust, scouting marks. Taken before the map changes;
+                    // the community keeps its own. It reaches here from Leave, an admin's leave, a removed ally and a party left or kicked
+                    // from (the only ways to none; a founded community is the only source: a personal record never leaves to none)
+                    RelSnap snap = old != null && !old.Personal ? SnapRelations(old) : null;
                     ScRegistry.WorldState.Membership.Remove(platformId);
                     int fresh = EnsurePersonal(mover, platformId, who);
                     target = ScCommunities.ById(fresh);
                     if (target == null)
                     {
                         // could not be made here (off the main thread): they are in none until the next ask makes one
-                        ScLog.Warn("community: no personal record could be made for " + who + " now - the next time the server asks, one is");
+                        ScLog.Warn("community: no personal record could be made for " + who + " now - the next time the server asks, one is"
+                                   + (snap != null ? " (without the copy of " + old.Label + "'s relations)" : ""));
+                    }
+                    else if (snap != null && target.Personal)
+                    {
+                        // its own try: the move is done by now (a failed copy is logged, the player keeps the record as far as it got)
+                        try
+                        {
+                            CopyRelations(snap, target);
+                            res.Copied = true;
+                            res.CopiedEnclaves = snap.Enc.Count;
+                            res.CopiedInfestations = snap.Inf.Count;
+                            res.CopiedBands = snap.Band.Count;
+                            res.CopiedScouts = snap.Scouts.Count;
+                        }
+                        catch (Exception ex)
+                        {
+                            ScLog.Once("en1-copy-" + ex.GetType().Name, ex);
+                            ScLog.Warn("community: " + who + "'s copy of " + old.Label + "'s relations failed partway - see the error above");
+                        }
                     }
                 }
                 res.To = target != null ? target.Id : ScPlayers.NoCommunity;
@@ -648,6 +679,7 @@ namespace SurvivorCommunity
                           + (res.FavoursClosed > 0 ? "; " + res.FavoursClosed + " favor quest(s) closed in their journal" : "")
                           + (res.Followers > 0 ? "; " + res.Followers + " follower(s) went home" : "")
                           + (res.Merged ? "; merged: " + res.MergeNote : "")
+                          + (res.Copied ? "; " + CopyNote(res) : "")       // round en1
                           + (res.Forgiven ? "; the new community's grudge against them dropped" : ""));
                 res.Ok = true;
             }
@@ -658,6 +690,13 @@ namespace SurvivorCommunity
                 res.Error = stage.Length == 0 ? "scActionFailed" : "the move failed after " + stage + " ran (see the log) - running it again finishes it";
             }
             return res;
+        }
+
+        /// <summary>Round en1: what a leaver's copy of the community's relations held, for the log and the console.</summary>
+        public static string CopyNote(MoveResult r)
+        {
+            return "a copy of its relations kept: " + r.CopiedEnclaves + " enclave(s), " + r.CopiedInfestations + " infestation(s), "
+                   + r.CopiedBands + " band(s), " + r.CopiedScouts + " scouting mark(s)";
         }
 
         /// <summary>
@@ -698,6 +737,9 @@ namespace SurvivorCommunity
                 if (leaving)
                 {
                     if (old != null) ScCommunity.TellKey(mover, reason == ByLeave ? "scMp7Left" : "scMp7LostAccess", reason == ByLeave ? "" : "ui_denied", Whose(old));
+                    // round en1: and what they keep (the enclaves they knew with it, their standing, the map marks)
+                    if (res.Copied && res.CopiedEnclaves + res.CopiedInfestations + res.CopiedBands + res.CopiedScouts > 0)
+                        ScCommunity.TellKey(mover, "scEn1KeptCopy", "", res.CopiedEnclaves);
                 }
                 else if (target != null)
                 {

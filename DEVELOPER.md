@@ -4073,6 +4073,33 @@ Round MP0 is the groundwork:
     next marker pass for the host's community; community 0's per-community session rows (`ScHomeState`) are not reset with it -
     the ones that hold anything recover by their own tests (a chunk observer must be released, never dropped).
 
+- **Round en1, an ENCLAVES tab; a leaver keeps a copy** (the user's two decisions of 2026-11-28, after testing PerParty). Protocol 11.
+  - **A leaver keeps a copy:** `ScMembership.Move` to none in PerPlayer/PerParty (Leave, an admin's `leave`, `ByAllyRemoved`,
+    `ByPartyLeft`: a party left or kicked from) gives the player's new record a copy of the community's relations, as a disband
+    does (`SnapRelations` before the map changes, `CopyRelations` into the record: standing, known, hostility and the war's cvars,
+    the clocks, infestations, band trust, scouting marks). The community keeps its own. `MoveResult.Copied` and its counts reach
+    the log and the console (`CopyNote`); the mover is told `scEn1KeptCopy`. Shared (a 1+ player goes back to community 0) is
+    unchanged. Joining again merges the copy back (`Merge`).
+  - **The tab** (`XUiC_ScCommunityEnclaves.cs`, the generator's `enclave_list`, `enclave_detail`, `enc_row`): `Tab.Enclaves`,
+    `btnTabEnclaves`; rows `btnEnc1..6` and the detail's `btnEncMark`. The no-community page's enclave list uses the same rows
+    (`ncenc`, `btnNcEnc1..6`), six to a page where it had eight plainer ones (`NcEnclaveSlots` is gone). Four tabs to a row are 94
+    wide, so each name sits over its count. Every existing control id is kept.
+  - **The entries** (`ScEnclaveList`): every enclave the record in scope knows and this load found; `Rank` (hostile, neutral,
+    friendly, allied by `ScEnclaves.StandingKey`'s bands), `NextAt` (30, 70, then the most there is, 100; none when hostile),
+    `FillOf` (the points over the next level's, as the text reads them); sorted by level, then standing, then distance to the
+    footprint. `People`: the living once the group was made, else `GroupSize`. Badges: a siege, a request taken, a favor taken,
+    a request open, a favor open, in that order. `Entries` holds the numbers (no Localization, so the offline harness builds it);
+    `Texts` adds the words.
+  - **The network:** the snapshot already carries the standing, kind, hostility, benefit and the community's requests. The
+    derived block adds, per known enclave, `encn.<id>=` (the head count: a client has no enclave people) and `encf.<id>=` (1
+    offered, 2 taken: a favor's enclave is its person's), from `ScEnclaveList.WriteDerived` in `ScMirror.BuildDerivedIn`.
+    `NetPackageScState` keeps its version byte; `ScNet.Protocol` is 11.
+  - **The map mark** (`ScEnclaveList.ToggleMark`): a vanilla waypoint, since SC's neutral and friendly enclave markers are
+    map-only. The waypoint goes on the building's center with the enclave's name and SC's enclave icon, and it is tracked (the
+    compass and the on-screen distance), the others untracked, as the map's own track button does it. A click on a marked
+    enclave removes its waypoint (found by spot and name). It is this machine's player's only, saved in their player data and
+    removable on the map. Nothing is sent to the server.
+
 ## How it hangs together (for modders)
 
 - NPCs are 0-XNPCCore's `EntityAliveSDXV4` survivors (SCore's legacy `EntityAliveSDX` still works for pack NPCs). A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars

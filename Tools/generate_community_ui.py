@@ -9,7 +9,7 @@ XUiC_ScMemberRow answer every binding and control here (the SurvivorCommunity se
     [cabin] COMMUNITY                                  [OPEN STORAGE] [x]
             <community name>
     +- FOOD -+- WATER -+- MEDICAL -+- MATERIALS -+- AMMO -+- FUEL -+- LUXURIES -+
-    +[MEMBERS n][OUTPOSTS 2/3][FACILITIES n]+- NAME --+ +- COMMUNITY MORALE -+
+    +[MEMBERS][OUTPOSTS][FACILITIES][ENCLAVES]+ NAME -+ +- COMMUNITY MORALE -+
     | [search][filter]| | role . status          | |  68 / 100  STEADY  |
     | [pic] NAME  stat| | [portrait] health bar  | |  [=========      ] |
     |  ... 6 rows     | |            morale bar  | |  What is affecting |
@@ -62,6 +62,13 @@ RULES THAT MATTER:
   of a founded community, in Leave community's place (an owner never has Leave); the first press's hint is {playersmessage}. The
   PLAYERS button and the players view also show for the owner in single player and in Shared with one community (XUiC_ScCommunity's
   View.PanelOn), where the list is otherwise off.
+- Round en1 (2026-11-28): a fourth tab, ENCLAVES (btnTabEnclaves, {tabenclaves}, {enclavecount}); four to a row the tabs are 94
+  wide, so each name sits over its count. The tab's left panel lists every enclave the player's record knows (ENC_ROWS rows of
+  enc_row: btnEnc1..6, paged by btnEncPrev / btnEncNext; the name over the standing level, a bar toward the next level with its
+  points - none for a hostile group, a line in its place - and the kind, size and distance with a request or favor badge); the
+  detail panel shows the selected one (four facts, the standing bar, what the level means) with btnEncMark. A row clicked marks
+  the enclave on the map (XUiC_ScCommunityEnclaves.cs, ScEnclaveList.cs). The no-community page's enclave list is the same rows
+  (ncenc, btnNcEnc1..6; a marked row is lit), six to a page where it had eight plainer ones.
 """
 
 import io
@@ -165,9 +172,14 @@ PAGER_W = 100                         # a pager's two buttons at a list's right 
 LEAVE_Y, LEAVE_H = 590, 48
 PL_BTN_W = 210
 NC_ROW_H, NC_ROW_GAP = 56, 6
-NC_ENC_ROWS, NC_ENC_TOP = 8, 90
+NC_ENC_TOP = 90                       # round en1: its rows are the ENCLAVES tab's (ENC_ROWS of enc_row)
 NC_FAV_ROWS, NC_FAV_TOP = 5, 56
 NC_REQ_ROWS, NC_REQ_TOP = 3, 436
+# round en1: the ENCLAVES tab's rows (XUiC_ScCommunity.EnclaveSlots) and the no-community page's, the bar in them, the detail's facts
+ENC_ROWS, ENC_ROW_H, ENC_ROW_GAP, ENC_BAR_H = 6, 76, 6, 14
+ENC_FACTS = 4
+ENC_ABOUT_Y, ENC_ABOUT_H = 392, 180
+ENC_MARK_W = 240
 # what a player with no community can do now: (icon, label key)
 NC_NOW = (("ui_game_symbol_talk", "scUiNcTalk"), ("ui_game_symbol_quest", "scUiNcFavors"), ("ui_game_symbol_map", "scUiNcMarkers"))
 
@@ -273,14 +285,16 @@ def member_row(i):
 
 TABS = (("btnTabMembers", "scUiMembers", "membercount", "tabmembers"),
         ("btnTabOutposts", "scUiOutposts", "outpostcount", "taboutposts"),
-        ("btnTabFacilities", "scUiFacilities", "facilitycount", "tabfacilities"))
+        ("btnTabFacilities", "scUiFacilities", "facilitycount", "tabfacilities"),
+        ("btnTabEnclaves", "scUiEnclaves", "enclavecount", "tabenclaves"))      # round en1
 
 
 def tabs():
-    """MEMBERS n | OUTPOSTS held/slots | FACILITIES entries: the active tab gets the selected plate over its button -
-    scui_tab_selected, its own name since 2026-10-13: the member rows' scui_row_selected is cut for 80-unit rows and
+    """MEMBERS n | OUTPOSTS held/slots | FACILITIES entries | ENCLAVES known: the active tab gets the selected plate over its
+    button - scui_tab_selected, its own name since 2026-10-13: the member rows' scui_row_selected is cut for 80-unit rows and
     read too heavy at 44 (user); AshfallUI ships the nav bar's selected plate under it.
-    Three to a row they are 128 wide, so the label is 15 px with its count in the last 34."""
+    Round en1: four to a row they are 94 wide, so the name (15 px) is centered on top and its count (14 px) under it - three
+    to a row they were 128 wide with the count in the last 34 beside the name."""
     w = (MEM_W - 40 - 8 * (len(TABS) - 1)) // len(TABS)
     o = []
     for i, (name, key, count, active) in enumerate(TABS):
@@ -289,8 +303,8 @@ def tabs():
               '<rect depth="0" pos="0,0" width="%d" height="%d" visible="{%s}">' % (MEM_W, 60, active),
               "\t" + plate("scui_tab_selected", x, -12, w, 44, depth=3),
               "</rect>",
-              centred(x + 8, -12, w - 46, 44, 15, TITLE, key=key, extra='upper_case="true"'),
-              centred(x + w - 40, -12, 34, 44, 15, GOLD, text="{%s}" % count, extra='justify="right"')]
+              label(x + 4, -15, w - 8, 20, 15, TITLE, key=key, extra='justify="center" upper_case="true"'),
+              label(x + 4, -35, w - 8, 18, 14, GOLD, text="{%s}" % count, extra='justify="center"')]
     return o
 
 
@@ -378,6 +392,57 @@ def facility_list():
     return o
 
 
+def enc_row(prefix, btn, k, x, y, w, panel_w, bar_w):
+    """Round en1: one enclave row - the ENCLAVES tab's (encrow, btnEnc) and the no-community page's (ncenc, btnNcEnc): a button the
+    row's size (a click marks the enclave on the map, or takes the mark away), its selected plate (the tab: the one selected; the
+    no-community page: the marked ones), the name over the standing level (right, in its color), the bar toward the next level and
+    its points (a hostile group: a line in their place), and the kind, size and distance under them with a request or favor badge on
+    the right."""
+    p = "%s%d" % (prefix, k)
+    bx = x + 12
+    o = ['<rect depth="1" pos="0,0" width="%d" height="%d" visible="{%svisible}">' % (panel_w, PAN_H, p),
+         "\t" + button("btn%s%d" % (btn, k), x, -y, w, ENC_ROW_H, sprite="scui_row", hover="scui_row_hover"),
+         '\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{%sselected}">' % (panel_w, PAN_H, p),
+         "\t\t" + plate("scui_row_selected", x, -y, w, ENC_ROW_H, depth=3),
+         "\t</rect>",
+         "\t" + label(bx, -(y + 6), w - 200, 24, 20, TITLE, text="{%sname}" % p, extra='upper_case="true"'),
+         "\t" + label(x + w - 176, -(y + 8), 164, 22, 17, "{%slevelcolor}" % p, text="{%slevel}" % p, extra='justify="right"'),
+         '\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{%sbarvisible}">' % (panel_w, PAN_H, p)]
+    o += ["\t\t" + line for line in bar(bx, -(y + 32), bar_w, ENC_BAR_H, "scui_fill_skill", p + "fill", depth=4)]
+    o += ["\t\t" + label(bx + bar_w + 10, -(y + 29), w - bar_w - 34, 20, 15, BODY, text="{%spoints}" % p),
+          "\t</rect>",
+          '\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{%snobarvisible}">' % (panel_w, PAN_H, p),
+          "\t\t" + label(bx, -(y + 29), w - 24, 20, 15, DANGER_TEXT, text="{%snobar}" % p),
+          "\t</rect>",
+          "\t" + label(bx, -(y + 52), w - 190, 20, 15, DIM, text="{%sinfo}" % p),
+          "\t" + label(x + w - 176, -(y + 52), 164, 20, 15, "{%sbadgecolor}" % p, text="{%sbadge}" % p, extra='justify="right"'),
+          "</rect>"]
+    return o
+
+
+def enclave_list():
+    """Round en1: the ENCLAVES tab's left panel - a summary line (how many, and that a click marks one), a page of ENC_ROWS rows
+    (enc_row; best level and standing first, then the nearest), the empty state and the pager."""
+    w = MEM_W - 40
+    o = [label(20, -70, w, 24, 17, DIM, text="{encsummary}")]
+    for k in range(1, ENC_ROWS + 1):
+        y = ROWS_TOP + (k - 1) * (ENC_ROW_H + ENC_ROW_GAP)
+        o += enc_row("encrow", "Enc", k, 20, y, w, MEM_W, 160)
+    fy = ROWS_TOP + ENC_ROWS * (ENC_ROW_H + ENC_ROW_GAP) + 4
+    o += ['<rect depth="1" pos="20,-%d" width="%d" height="%d" visible="{encempty}">' % (ROWS_TOP, w, 220),
+          "\t" + label(0, -12, w, 30, 24, TITLE, key="scUiEncNone", extra='upper_case="true"'),
+          "\t" + label(0, -52, w, 150, 18, BODY, key="scUiNcEncNone"),
+          "</rect>",
+          label(20, -(fy + 6), 260, 22, 17, DIM, text="{encshowingtext}"),
+          '<rect depth="2" pos="0,0" width="%d" height="%d" visible="{encpagevisible}">' % (MEM_W, PAN_H),
+          "\t" + button("btnEncPrev", MEM_W - 104, -fy, 38, 34),
+          "\t" + icon("ui_game_symbol_arrow_left", MEM_W - 85, -(fy + 17), 18, depth=4),
+          "\t" + button("btnEncNext", MEM_W - 58, -fy, 38, 34),
+          "\t" + icon("ui_game_symbol_arrow_right", MEM_W - 39, -(fy + 17), 18, depth=4),
+          "</rect>"]
+    return o
+
+
 def members():
     o = ['<rect depth="1" name="membersPanel" pos="%d,-%d" width="%d" height="%d" visible="{hascommunity}">' % (MEM_X, PAN_Y, MEM_W, PAN_H),
          "\t" + plate("scui_window", 0, 0, MEM_W, PAN_H)]
@@ -390,6 +455,9 @@ def members():
     o.append("\t</rect>")
     o.append('\t<rect depth="0" name="facilityList" pos="0,0" width="%d" height="%d" visible="{tabfacilities}">' % (MEM_W, PAN_H))
     o += ["\t\t" + t.replace("\n", "\n\t\t") for t in facility_list()]
+    o.append("\t</rect>")
+    o.append('\t<rect depth="0" name="enclaveList" pos="0,0" width="%d" height="%d" visible="{tabenclaves}">' % (MEM_W, PAN_H))   # round en1
+    o += ["\t\t" + t for t in enclave_list()]
     o += ["\t</rect>", "</rect>"]
     return o
 
@@ -614,6 +682,42 @@ def facility_detail():
     return o
 
 
+def enclave_detail():
+    """Round en1: the selected enclave - its name, its kind and size under it, the icon plate, four facts (standing, the next level,
+    where, a request or favor), the standing bar with its points (a hostile group: a line instead), what the level means and their
+    benefit, and Mark on map / Remove map mark (btnEncMark) with its outcome under it. With none known: the name is the tab's and the
+    text says what will show."""
+    tw = DET_W - 48
+    o = [label(24, -12, tw, 46, 40, TITLE, text="{encselname}", extra='upper_case="true"'),
+         icon("{encselicon}", 36, -72, 24),
+         label(54, -61, tw - 40, 24, 20, GOLD, text="{encselsub}"),
+         plate("scui_portrait", 24, -92, 176, 176, depth=1),
+         icon("{encselicon}", 112, -180, 96)]
+    for k in range(1, ENC_FACTS + 1):
+        y = 96 + (k - 1) * 42
+        o += ['<rect depth="1" pos="0,0" width="%d" height="%d" visible="{encselvisible}">' % (DET_W, PAN_H),
+              "\t" + label(224, -y, tw - 200, 18, 15, DIM, text="{encselfact%dlabel}" % k, extra='upper_case="true"'),
+              "\t" + label(224, -(y + 18), tw - 200, 22, 18, "{encselfact%dcolor}" % k, text="{encselfact%d}" % k),
+              "</rect>"]
+    o += [label(24, -290, tw, 24, 22, TITLE, key="scUiEncStandingHead", extra='upper_case="true"'),
+          plate("scui_divider", 24, -315, tw, 3, depth=1),
+          '<rect depth="1" pos="0,0" width="%d" height="%d" visible="{encselbarvisible}">' % (DET_W, PAN_H)]
+    o += ["\t" + line for line in bar(24, -330, tw, 20, "scui_fill_skill", "encselfill")]
+    o += ["\t" + label(24, -356, tw, 24, 18, BODY, text="{encselpoints}"),
+          "</rect>",
+          '<rect depth="1" pos="0,0" width="%d" height="%d" visible="{encselnobarvisible}">' % (DET_W, PAN_H),
+          "\t" + label(24, -334, tw, 44, 18, DANGER_TEXT, text="{encselnobar}"),
+          "</rect>",
+          label(24, -ENC_ABOUT_Y, tw, ENC_ABOUT_H, 16, BODY, text="{encselabout}"),
+          '<rect depth="1" pos="0,0" width="%d" height="%d" visible="{encselvisible}">' % (DET_W, PAN_H),
+          "\t" + label(24, -580, 240, 24, 22, TITLE, key="scUiOrders", extra='upper_case="true"'),
+          "\t" + button("btnEncMark", 24, -ORDER_Y, ENC_MARK_W, ORDER_H),
+          "\t" + centred(24, -ORDER_Y, ENC_MARK_W, ORDER_H, 17, BODY, text="{encmarklabel}", extra='justify="center" upper_case="true"'),
+          "</rect>",
+          label(24, -(RUN_Y + 2), tw, 32, 15, BODY, text="{encmessage}")]
+    return o
+
+
 def detail():
     o = ['<rect depth="1" name="detailPanel" pos="%d,-%d" width="%d" height="%d" visible="{hascommunity}">' % (DET_X, PAN_Y, DET_W, PAN_H),
          "\t" + plate("scui_window", 0, 0, DET_W, PAN_H),
@@ -625,6 +729,9 @@ def detail():
     o += ["\t</rect>",
           '\t<rect depth="0" name="facilityDetail" pos="0,0" width="%d" height="%d" visible="{tabfacilities}">' % (DET_W, PAN_H)]
     o += ["\t\t" + line.replace("\n", "\n\t\t") for line in facility_detail()]
+    o += ["\t</rect>",
+          '\t<rect depth="0" name="enclaveDetail" pos="0,0" width="%d" height="%d" visible="{tabenclaves}">' % (DET_W, PAN_H)]   # round en1
+    o += ["\t\t" + line for line in enclave_detail()]
     o += ["\t</rect>", "</rect>"]
     return o
 
@@ -756,10 +863,11 @@ def nocommunity():
           "\t\t" + plate("scui_window", 0, 0, DET_W, PAN_H),
           "\t\t" + label(24, -14, tw, 34, 28, TITLE, key="scUiNcEnclaves", extra='upper_case="true"'),
           "\t\t" + label(24, -54, tw, 22, 17, DIM, text="{ncencsummary}")]
-    for k in range(1, NC_ENC_ROWS + 1):
-        y = NC_ENC_TOP + (k - 1) * (NC_ROW_H + NC_ROW_GAP)
-        o += ["\t\t" + line for line in nc_row("ncenc", k, 24, y, tw, DET_W)]
-    ey = NC_ENC_TOP + NC_ENC_ROWS * (NC_ROW_H + NC_ROW_GAP)
+    # round en1: the ENCLAVES tab's rows (bar, kind and size, badge; a click marks the enclave on the map), six to a page
+    for k in range(1, ENC_ROWS + 1):
+        y = NC_ENC_TOP + (k - 1) * (ENC_ROW_H + ENC_ROW_GAP)
+        o += ["\t\t" + line for line in enc_row("ncenc", "NcEnc", k, 24, y, tw, DET_W, 220)]
+    ey = NC_ENC_TOP + ENC_ROWS * (ENC_ROW_H + ENC_ROW_GAP)
     o += ['\t\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{ncencempty}">' % (DET_W, PAN_H),
           "\t\t\t" + label(24, -(NC_ENC_TOP + 6), tw, 120, 18, BODY, key="scUiNcEncNone"),
           "\t\t</rect>",
@@ -851,8 +959,8 @@ def main():
         text = LEGACY.sub(lambda _m: block, text)
     with io.open(TARGET, "w", encoding="utf-8", newline="") as f:
         f.write(text)
-    print("generate_community_ui: wrote windowScCommunity %dx%d, %d member rows, %d outpost rows, %d facility rows, %d resources"
-          % (WIN_W, WIN_H, ROWS, OP_ROWS, FAC_ROWS, len(RESOURCES)))
+    print("generate_community_ui: wrote windowScCommunity %dx%d, %d member rows, %d outpost rows, %d facility rows, %d enclave rows, %d resources"
+          % (WIN_W, WIN_H, ROWS, OP_ROWS, FAC_ROWS, ENC_ROWS, len(RESOURCES)))
     assert ROWS_TOP + ROWS * (ROW_H + ROW_GAP) + 40 <= PAN_H, "member rows run past the panel"
     assert ROWS_TOP + OP_ROWS * (ROW_H + ROW_GAP) + 40 <= PAN_H, "outpost rows run past the panel"
     assert ROWS_TOP + FAC_ROWS * (FAC_ROW_H + FAC_ROW_GAP) + 40 <= PAN_H, "facility rows and their pager run past the panel"
@@ -876,10 +984,17 @@ def main():
     assert 54 + PL_YOU_H <= PL_TOP - 4, "the player's own role line runs into the players rows"
     assert PL_TOP + PL_ROWS * (PL_ROW_H + PL_ROW_GAP) + 4 + 34 <= LEAVE_Y - 4, "the players rows and their pager run into Leave community"
     assert LEAVE_Y + LEAVE_H + 8 + 44 <= PAN_H, "Leave community's answer runs past the panel"
-    assert NC_ENC_TOP + NC_ENC_ROWS * (NC_ROW_H + NC_ROW_GAP) + 36 + 60 <= PAN_H, "the enclave rows and their pager run past the panel"
+    assert NC_ENC_TOP + ENC_ROWS * (ENC_ROW_H + ENC_ROW_GAP) + 36 + 60 <= PAN_H, "the enclave rows and their pager run past the panel"
     assert NC_FAV_TOP + NC_FAV_ROWS * (NC_ROW_H + NC_ROW_GAP) + 28 <= NC_REQ_TOP - 38 - 2, "the favor rows and their pager run into the requests heading"
     assert NC_REQ_TOP + NC_REQ_ROWS * (NC_ROW_H + NC_ROW_GAP) + 30 + 40 <= PAN_H, "the request rows and their pager run past the panel"
     assert 404 + len(NC_NOW) * 48 + 6 + 120 <= PAN_H, "the no-community notes run past the panel"
+    # round en1: the ENCLAVES tab
+    assert ROWS_TOP + ENC_ROWS * (ENC_ROW_H + ENC_ROW_GAP) + 40 <= PAN_H, "the enclave rows and their pager run past the panel"
+    assert 52 + 20 <= ENC_ROW_H - 2, "an enclave row's last line runs out of its row"
+    assert (MEM_W - 40 - 8 * (len(TABS) - 1)) // len(TABS) >= 90, "a tab is too narrow for FACILITIES at 15 px"
+    assert 96 + (ENC_FACTS - 1) * 42 + 40 <= 290, "the enclave facts run into the standing heading"
+    assert 356 + 24 <= ENC_ABOUT_Y - 4, "the standing points run into the enclave's details"
+    assert ENC_ABOUT_Y + ENC_ABOUT_H <= 580 - 4, "the enclave's details run into the orders heading"
 
 
 if __name__ == "__main__":
