@@ -820,8 +820,9 @@
 			     MedicMaxWait: with HealBackOff, once she has been held this many seconds without getting clear (the
 			     back-off kept from running by another action, or slowed) she uses it anyway, at any health (0: at once, no
 			     back-off). Round hr1: at home, once a walk to heal has started, the wait runs out instead at the walk's
-			     path length over her run speed plus 2 s (at most 12 s after the first walk began), and every heal at home
-			     waits while an enemy within 2.5 m sees her and she has a usable weapon. Without it (and for a stand-in): once she has waited this
+			     path length over her run speed plus 2 s (at most 12 s after the first walk began) - this value then no longer
+			     bounds it - and every heal at home waits while an enemy within 2.5 m sees her and she has a usable weapon
+			     (a timeout held so ends her walking: she fights and heals in the first gap). Without it (and for a stand-in): once she has waited this
 			     many seconds and is under 25% health, she uses it anyway with the enemy still there (a heal now beats none);
 			     0: under 25% she never waits.
 			     Under 50% health a member also takes a first aid kit before a first aid bandage (not a key).

@@ -150,6 +150,8 @@ namespace SurvivorCommunity
         internal const float StandBackOffSeconds = 4f;
         /// <summary>Round hr1: in a stand no hand swap for this long while an enemy is in reach (the hand clock's own hold, longer).</summary>
         internal const float StandCommitSeconds = 6f;
+        /// <summary>Round hr1 (review HR1-m2): a stand holds this long after the last "no room" verdict while she is still hurt (the item's 12 s cooldown + 3 s).</summary>
+        private const float StandKeepSeconds = 15f;
         private static int stands;
         private static readonly List<Entity> standNear = new List<Entity>();
 
@@ -413,6 +415,10 @@ namespace SurvivorCommunity
                 if (ScHealBackOff.NoRoomNow(e, out room)) noRoom = "no room to heal: " + room;
                 else if (want == Posture.Shelter && ScRetreat.HoldsWithNoSpot(e) && !ScMedic.CanTreatSelf(e))
                     noRoom = "nothing to heal with and the shelter walk found no spot (holds where " + ScRetreat.She(e) + " stands)";
+                // round hr1 (review HR1-m2): a stand holds through the item's cooldown after a heal in a gap (no wait then) while she is
+                // still at or under the heal line and the last "no room" verdict is recent
+                else if (st.Stand && e.GetMaxHealth() > 0 && e.Health <= e.GetMaxHealth() * ScMedic.HealBelow && ScHealBackOff.NoRoomRecently(e, StandKeepSeconds, out room))
+                    noRoom = "still hurt, no room to heal " + StandKeepSeconds.ToString("0", CultureInfo.InvariantCulture) + " s ago (" + room + ")";
             }
             int close = home && (noRoom != null || st.Stand) ? AfterHerWithin(e, StandRadius) : 0;
             st.StandReach = close > 0;

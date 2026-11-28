@@ -516,6 +516,9 @@ namespace SurvivorCommunity
             EntityAlive t = NearestEnemy(e, reach, true, out dist);
             if (t == null)
             {
+                // round hr1 (review HR1-m5): at home the gap rule here too - an enemy within 2.5 m that sees her holds the use even when
+                // it is after someone else
+                if (bm != null && ScHealBackOff.AtHome(e) && GapHolds(e, pick, null, "nothing after " + HerObj(e) + " within " + F1(reach) + " m", waiting, since, now)) return true;
                 if (waiting)
                 {
                     ClearWait(e.entityId);
@@ -581,7 +584,13 @@ namespace SurvivorCommunity
                         : "held " + F1(waited) + " s and the back-off never ran (" + ScHealBackOff.NoRunWhy(e) + "; MedicMaxWait " + F1(ScConfig.MedicMaxWait) + " s)";
                 }
                 // round hr1 (decision 6): at home every heal path obeys the gap rule - the back-off's verdicts and the timeout too
-                if (home && GapHolds(e, pick, who, why, true, since, now)) return true;
+                if (home && GapHolds(e, pick, who, why, true, since, now))
+                {
+                    // round hr1 (review HR1-M1): a timeout the gap rule held ends the walking - she fights on, no more walks this wait,
+                    // and the last stand may start; she heals the moment the gap opens
+                    if (timeout) ScHealBackOff.TimedOutHeld(e, since);
+                    return true;
+                }
                 ClearWait(e.entityId);
                 if (timeout) Patches_Xnpc.Count("heal-now-timeout");
                 ScLog.Out(BodyName(e) + " uses " + pick + " now with " + who + " after " + HerObj(e) + ": " + why + (home ? " - no enemy within 2.5 m sees " + HerObj(e) + " (round hr1's gap)" : "") + " (round k2b)");
@@ -625,7 +634,7 @@ namespace SurvivorCommunity
             {
                 gapLogged[e.entityId] = since;
                 Patches_Xnpc.Count("heal-gap-held");
-                ScLog.Out(BodyName(e) + " would use " + pick + " now with " + who + " after " + HerObj(e) + " (" + pathWhy + ") but " + fw + " - " + She(e)
+                ScLog.Out(BodyName(e) + " would use " + pick + " now" + (who != null ? " with " + who + " after " + HerObj(e) : "") + " (" + pathWhy + ") but " + fw + " - " + She(e)
                           + " fights instead and heals in a gap (round hr1, decision 6)");
             }
             return true;

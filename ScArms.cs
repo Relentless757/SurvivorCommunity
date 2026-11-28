@@ -1311,7 +1311,9 @@ namespace SurvivorCommunity
                 // the loaded round in her hand, then melee for the rest of the stand; a fired slow gun reloads only with nobody in reach
                 wantGun = holdsPairGun && (!st.StandFired || !reach);
             }
-            else wantGun = (holdsPairGun && meta > 0) || !EnemyWithin(e, StandReloadClear);   // a close gun: shoot; empty, melee while one is within 2 m
+            // a close gun: shoot; empty, melee while one is within 2 m - round hr1 (review HR1-m3): not in hand, it is wanted while its
+            // magazine outside the hand is loaded (a close gun keeps shooting), else once nothing is within 2 m (its reload)
+            else wantGun = holdsPairGun ? meta > 0 || !EnemyWithin(e, StandReloadClear) : StoredRounds(e, gun) > 0 || !EnemyWithin(e, StandReloadClear);
             if (wantGun == holdsGun) return StandKeep(c, e, st, holdsGun, gunRounds, bout, ct, l, now);
             // a swap: the commitment holds it while an enemy is in reach - unless the gun ran dry or melee was just refused
             bool dry = holdsGun && meta <= 0;
@@ -1323,7 +1325,9 @@ namespace SurvivorCommunity
             }
             if (wantGun)
             {
-                string why = refusedNow ? st.StandRefusedWhy : pv.StandClass == StandSlow ? "nobody in reach: the " + l.Ranged + " to reload" : "nothing within " + StandReloadClear.ToString("0") + " m: back to the gun";
+                // round hr1 (review HR1-n2): a slow gun is only ever drawn after a refusal (the reasons below are a close gun's)
+                string why = refusedNow ? st.StandRefusedWhy : !hasMelee ? "no melee weapon: the gun" : StoredRounds(e, gun) > 0 ? "a close gun with a loaded magazine: back to shooting"
+                             : "nothing within " + StandReloadClear.ToString("0") + " m: back to the gun to reload";
                 if (bout)
                 {
                     // out of 0-XNPCCore's bout the way its own exit leaves it: the pair's gun restored
@@ -1341,11 +1345,32 @@ namespace SurvivorCommunity
             string mwhy = dry ? "the " + (held != null && held.ItemClass != null ? held.ItemClass.GetItemName() : "gun") + " is empty"
                                 + (pv.StandClass == StandSlow ? " (a slow gun: melee for the rest of the stand)" : " with an enemy within " + StandReloadClear.ToString("0") + " m (no reload)")
                          : pv.StandClass == StandSlow ? "a slow gun: melee for the rest of the stand" : "an enemy within " + StandReloadClear.ToString("0") + " m and the gun empty";
+            // round hr1 (review HR1-m4): no melee weapon (a dry gun and nothing else) - 0-XNPCCore's own tick, never a swap to nothing
+            if (!hasMelee || l == null) return true;
             if (now < st.MeleeBackoffUntil || !TakeMelee(c, e, l, st, now)) return true;      // the equip did not take: 0-XNPCCore's own tick
             ScPosture.NoteStandSwap(e, l.Melee, false, mwhy);
             JoinBout(c, e, l, now);
             st.StandInBout = CloseMelee(c);
             return false;
+        }
+
+        /// <summary>
+        /// Round hr1 (review HR1-m3): the rounds in her pair gun's magazine while it is out of her hand - the fullest copy in her stores
+        /// (ScAmmo.StoredMagazine, 0-XNPCCore's own dry read) or 0-XNPCCore's magazine table for that gun (its SdcsMagRounds cvar), 0
+        /// when neither says. With Locked &amp; Loaded a put-away gun holds no rounds (its magazine is in the bag): 0, and the gun comes
+        /// back only for a reload with nothing within 2 m. A read.
+        /// </summary>
+        private static int StoredRounds(EntityAlive e, ItemClass gun)
+        {
+            if (e == null || gun == null) return 0;
+            float n = 0f;
+            try
+            {
+                n = ScAmmo.StoredMagazine(e, gun);
+                if (e.Buffs != null) n = Mathf.Max(n, e.Buffs.GetCustomVar(NPCSdcsCharacters.Pure.GivenWeaponRules.TableRoundsCVar(gun.Id)));
+            }
+            catch (Exception ex) { ScLog.Once("arms-stored-rounds", ex); }
+            return Mathf.Max(0, Mathf.RoundToInt(n));
         }
 
         /// <summary>

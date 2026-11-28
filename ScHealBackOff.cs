@@ -132,7 +132,35 @@ namespace SurvivorCommunity
             public string NoRoomWhy = "";
             /// <summary>Round hr1: her last roll (0-XNPCCore's own, step 5) and the wait it was for; the wait whose gap-rule line was logged.</summary>
             public float RollAt, RollWait = -1f, GapLoggedWait = -1f;
+            /// <summary>
+            /// Round hr1 (review HR1-M1): room and flight walks started in the wait that began at WalksWait (at most MaxWalksPerWait), and
+            /// the wait whose MedicMaxWait ran out while the gap rule held the heal (TimedOutWait: no more walks in it - she fights).
+            /// </summary>
+            public int Walks;
+            public float WalksWait = -1f, TimedOutWait = -1f;
+            /// <summary>
+            /// Round hr1 (review HR1-M2): at a room walk's spot, not safe yet with a door passed on the way - she waits there until
+            /// ArriveUntil (ScDoors needs about 2 s to shut it), testing afresh from NextArriveTest every ArriveTestSeconds.
+            /// </summary>
+            public float ArriveUntil, NextArriveTest;
+            /// <summary>Round hr1 (review HR1-m1): the navigator's path when the walk began (an older task's): CheckPath never judges it.</summary>
+            public GamePath.PathEntity StalePath;
         }
+
+        /// <summary>Round hr1 (review HR1-M1): at most this many room and flight walks in one wait (a wait can pick spot after spot).</summary>
+        private const int MaxWalksPerWait = 4;
+        /// <summary>Round hr1 (review HR1-M2): at a room spot she waits up to this long for the door behind her to shut, testing this often.</summary>
+        private const float ArriveWaitSeconds = 3f, ArriveTestSeconds = 0.5f;
+        /// <summary>Round hr1 (review HR1-m7): the gap rule's verdict is kept this long per body (the consideration asks on every decision).</summary>
+        private const float GapCacheSeconds = 0.25f;
+
+        private sealed class GapVerdict
+        {
+            public float At;
+            public bool Fights;
+            public string Why;
+        }
+        private static readonly Dictionary<int, GapVerdict> gapCache = new Dictionary<int, GapVerdict>();
 
         /// <summary>Round nc1 (D2): a cornered member who fights on looks for room to back off again this often.</summary>
         private const float CorneredRecheckSeconds = 4f;
@@ -170,6 +198,7 @@ namespace SurvivorCommunity
             states.Clear();
             episodes = clears = cornered = keptUp = foughtOn = 0;
             roomWalks = flightWalks = rolls = safeHeals = noRoom = gapHolds = 0;      // round hr1
+            gapCache.Clear();                                                           // round hr1 (review HR1-m7)
             nextPrune = 0f;
             scratchNear.Clear();
             scratchFoes.Clear();
@@ -248,7 +277,8 @@ namespace SurvivorCommunity
         private static bool FightsOn(EntityAlive e, State st, float waitSince)
         {
             if (st.FightOnWait < 0f || Mathf.Abs(st.FightOnWait - waitSince) > SameWait) return false;
-            if (AboveCorneredLine(e)) return true;
+            // round hr1 (review HR1-M1): after a MedicMaxWait the gap rule held, only the gap rule holds her (no D2 line): a gap heals her
+            if (AboveCorneredLine(e) && Mathf.Abs(st.TimedOutWait - waitSince) > SameWait) return true;
             // round hr1 (decision 6): at home the gap rule (a gun or a melee weapon, no 10 s cap); away from home t2's gun rule as it was
             string why;
             return AtHome(e) ? FightsInstead(e, out why) : ShootsInstead(e, st);
@@ -271,17 +301,30 @@ namespace SurvivorCommunity
         {
             why = null;
             if (e == null) return false;
+            // round hr1 (review HR1-m7): kept GapCacheSeconds per body - Wanted asks on every decision of a cornered member
+            float now = Time.time;
+            GapVerdict gv;
+            if (gapCache.TryGetValue(e.entityId, out gv) && now - gv.At < GapCacheSeconds) { why = gv.Why; return gv.Fights; }
+            if (gv == null) gapCache[e.entityId] = gv = new GapVerdict();
+            gv.At = now;
+            gv.Fights = false;
+            gv.Why = null;
             string weapon = UsableWeapon(e);
             if (weapon == null) return false;
             float d;
             EntityAlive t = SeeingEnemy(e, HealCutRange, out d);
             if (t == null) return false;
             why = Who(t) + " at " + d.ToString("0.0", CultureInfo.InvariantCulture) + " m sees " + ScMedic.HerObj(e) + " and " + ScMedic.She(e) + " has " + weapon;
+            gv.Fights = true;
+            gv.Why = why;
             return true;
         }
 
+        /// <summary>Round hr1 (review HR1-m5): the gap rule's reach - ScSafeRoom's near test uses it too for a member with a usable weapon.</summary>
+        internal const float GapRange = HealCutRange;
+
         /// <summary>Round hr1: her usable weapon in a few words (her pair's gun with rounds, else her pair's melee weapon), null with none.</summary>
-        private static string UsableWeapon(EntityAlive e)
+        internal static string UsableWeapon(EntityAlive e)
         {
             Loadout l = ScLoadout.Current(e);
             if (l == null) return null;
@@ -443,6 +486,9 @@ namespace SurvivorCommunity
             var gone = new List<int>();
             foreach (var kv in states) if (!kv.Value.Walking && now - kv.Value.OutcomeAt > 120f && now >= kv.Value.HealNowUntil) gone.Add(kv.Key);
             foreach (int id in gone) states.Remove(id);
+            gone.Clear();                                            // round hr1 (review HR1-m7): the gap verdicts too
+            foreach (var kv in gapCache) if (now - kv.Value.At > 60f) gone.Add(kv.Key);
+            foreach (int id in gone) gapCache.Remove(id);
         }
 
         /// <summary>
@@ -520,24 +566,28 @@ namespace SurvivorCommunity
                 ScMedic.CheckSoon(self.entityId);
                 return false;
             }
-            Vector3 p;
-            float step, angle;
-            string why;
-            if (!ScBackOff.Pick(self, t, MaxStep, region, leader, st.Memory, out p, out step, out angle, out why))
+            Vector3 p = Vector3.zero;
+            float step = 0f, angle = 0f;
+            string why = null;
+            // round hr1 (review HR1-M1): once MedicMaxWait ran out in this wait with the gap rule holding her heal, no more walks - she
+            // fights (the cornered rules below, the last stand), and heals the moment a gap opens
+            bool walksOff = home && Mathf.Abs(st.TimedOutWait - st.WaitSince) <= SameWait;
+            if (walksOff) why = "MedicMaxWait ran out while an enemy within " + HealCutRange.ToString("0.#", CultureInfo.InvariantCulture) + " m saw " + ScMedic.HerObj(self) + ": no more walks this wait";
+            if (walksOff || !ScBackOff.Pick(self, t, MaxStep, region, leader, st.Memory, out p, out step, out angle, out why))
             {
                 // round hr1 (steps 3-5): at home, a walk into an enclosable room, a path-found flight point, 0-XNPCCore's roll - and
                 // only when none works the cornered rules below (and, with two or more on her, the last stand: ScPosture)
                 if (home)
                 {
-                    string roomWhy, flightWhy, rollWhy;
-                    if (StartRoomWalk(self, st, t, bound, now, out roomWhy)) return true;
-                    if (StartFlightWalk(self, st, t, dist, bound, now, out flightWhy)) return true;
+                    string roomWhy = why, flightWhy = why, rollWhy;
+                    if (!walksOff && StartRoomWalk(self, st, t, bound, now, out roomWhy)) return true;
+                    if (!walksOff && StartFlightWalk(self, st, t, dist, bound, now, out flightWhy)) return true;
                     if (TryRoll(self, st, t, dist, now, out rollWhy)) return false;
                     NoRoom(self, st, t, dist, why, roomWhy, flightWhy, rollWhy, now);
                 }
                 // round nc1 (D2): cornered above CorneredHealBelow she fights on (no heal-now); the back-off is looked for again in
                 // CorneredRecheckSeconds, and at or below the line the next look heals her at once (below)
-                bool above = AboveCorneredLine(self);
+                bool above = AboveCorneredLine(self) && !walksOff;   // round hr1 (review HR1-M1): after the timeout only the gap rule
                 // round hr1 (decision 6): at home the gap rule - a gun OR a melee weapon, no 10 s cap; away from home t2's gun rule
                 string fightWhy = null;
                 bool fights = home ? FightsInstead(self, out fightWhy) : ShootsInstead(self, st);
@@ -602,6 +652,8 @@ namespace SurvivorCommunity
             st.WalkNote = step.ToString("0", CultureInfo.InvariantCulture) + " m straight back";
             st.PathChecked = true;                                   // round hr1: a straight walk k1 already proved clear
             st.NoRoomWait = -1f;                                     // round hr1: room again - no last stand for this wait's verdict
+            st.NoRoomAt = 0f;                                        // round hr1 (review HR1-m2): nor for the stand's hold
+            st.ArriveUntil = 0f;                                     // round hr1 (review HR1-M2)
             WalkClock(self, st, step, now);                          // round hr1: MedicMaxWait from the first walk start
             Note(st, "backed off " + step.ToString("0", CultureInfo.InvariantCulture) + " m " + bound, now);
             if (!st.Counted)
@@ -683,9 +735,15 @@ namespace SurvivorCommunity
             st.FightOnWait = -1f;                                    // room again: the cornered rule's verdict goes
             st.FightOnUntil = 0f;
             st.NoRoomWait = -1f;                                     // and the last stand's
+            st.NoRoomAt = 0f;                                        // round hr1 (review HR1-m2): and the stand's hold
+            st.ArriveUntil = 0f;                                     // round hr1 (review HR1-M2): no wait at a spot yet
+            st.NextArriveTest = 0f;
             st.GainAt = 0f;                                          // F4's straight-line gain test is k1's (a path may first go sideways)
             st.Walking = true;
             st.WalkAt = now;
+            // round hr1 (review HR1-M1): counted per wait - MaxWalksPerWait at most
+            if (Mathf.Abs(st.WalksWait - st.WaitSince) > SameWait) { st.WalksWait = st.WaitSince; st.Walks = 0; }
+            st.Walks++;
             // a path is longer than the straight line: 1.4 x until the navigator has it (CheckPath)
             WalkClock(self, st, st.Step * 1.4f, now);
             if (!st.Counted)
@@ -695,7 +753,66 @@ namespace SurvivorCommunity
                 Patches_Xnpc.Count("heal-backoff");
             }
             if (self.moveHelper != null) self.moveHelper.CanBreakBlocks = false;
+            // round hr1 (review HR1-m1): the last action's path must not be judged as this walk's - the navigator is cleared first and
+            // CheckPath skips the path that was there (StalePath) and waits while the path thread still works on hers
+            GamePath.PathNavigate nav = self.getNavigator();
+            st.StalePath = nav != null ? nav.getPath() : null;
+            ScCommunity.DropPath(self);
             self.FindPath(p, ScRetreat.RunSpeed(self), false, null);
+        }
+
+        /// <summary>Round hr1 (review HR1-M1): she may start another room or flight walk in this wait (fewer than MaxWalksPerWait so far).</summary>
+        private static bool WalkAllowed(State st, out string why)
+        {
+            why = null;
+            if (Mathf.Abs(st.WalksWait - st.WaitSince) <= SameWait && st.Walks >= MaxWalksPerWait)
+            {
+                why = st.Walks + " room or flight walk(s) this wait already (at most " + MaxWalksPerWait + ")";
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Round hr1 (review HR1-M1): ScMedic's MedicMaxWait ran out for the wait that began at waitSince and the gap rule held the
+        /// heal (an enemy within 2.5 m sees her, she has a weapon). The walk ends, she fights on (FightOnWait: Wanted lets the fight
+        /// actions have her until the gap opens - ScMedic's next check then heals her), no more walks this wait (TimedOutWait), and
+        /// the "no room" verdict is set so the last stand can start with two or more on her. Written by ScMedic's check (the task's
+        /// state otherwise). Logged once per wait.
+        /// </summary>
+        internal static void TimedOutHeld(EntityAlive e, float waitSince)
+        {
+            if (e == null) return;
+            State st = StateOf(e.entityId);
+            float now = Time.time;
+            bool first = Mathf.Abs(st.TimedOutWait - waitSince) > SameWait;
+            st.TimedOutWait = waitSince;
+            st.Walking = false;
+            st.ArriveUntil = 0f;
+            st.FightOnWait = waitSince;
+            st.FightOnUntil = now + CorneredRecheckSeconds;
+            st.NoRoomWait = waitSince;
+            st.NoRoomAt = now;
+            st.NoRoomWhy = "MedicMaxWait ran out with an enemy within " + HealCutRange.ToString("0.#", CultureInfo.InvariantCulture) + " m that sees " + ScMedic.HerObj(e);
+            st.OutcomeAt = now;
+            if (!first) return;
+            Patches_Xnpc.Count("heal-timeout-fights-on");
+            Note(st, "MedicMaxWait ran out in the fight - fights on, no more walks this wait (hr1)", now);
+            ScLog.Out(ScMedic.BodyName(e) + "'s time to get clear ran out with an enemy at arm's length - " + ScMedic.She(e)
+                      + " stops running and fights on, and heals the moment a gap opens (no more walks this wait; round hr1 review)");
+        }
+
+        /// <summary>
+        /// Round hr1 (review HR1-m2): her last "no room" verdict at home is under seconds old (any wait) - the last stand holds through
+        /// the item's cooldown after a heal in a gap. A pure read.
+        /// </summary>
+        internal static bool NoRoomRecently(EntityAlive e, float seconds, out string why)
+        {
+            why = null;
+            State st;
+            if (e == null || !states.TryGetValue(e.entityId, out st) || st.NoRoomAt <= 0f || Time.time - st.NoRoomAt > seconds) return false;
+            why = st.NoRoomWhy;
+            return true;
         }
 
         /// <summary>
@@ -706,6 +823,7 @@ namespace SurvivorCommunity
         {
             why = null;
             if (!ScConfig.RetreatHome) { why = "no shelter scan (RetreatHome false)"; return false; }
+            if (!WalkAllowed(st, out why)) return false;                     // round hr1 (review HR1-M1)
             Vector3 spot;
             string note;
             if (!ScShelter.PickRoom(self, t, RoomWalkMax, LiveBad(st, now), out spot, out note)) { why = note; return false; }
@@ -728,6 +846,7 @@ namespace SurvivorCommunity
         {
             Vector3 p;
             string note;
+            if (!WalkAllowed(st, out why)) return false;                     // round hr1 (review HR1-M1)
             if (!PickFlight(self, t, st, now, out p, out note)) { why = note; return false; }
             why = null;
             BeginWalk(self, st, WalkFlight, p, note, bound, now);
@@ -828,7 +947,11 @@ namespace SurvivorCommunity
             GamePath.PathNavigate nav = self.getNavigator();
             GamePath.PathEntity path = nav != null ? nav.getPath() : null;
             if (path == null || !path.HasPoints() || path.getCurrentPathLength() <= 0) return true;    // still planning (no path at all: TickWalk's retry)
+            // round hr1 (review HR1-m1): not the path an earlier action left, nor one while the path thread still works on hers
+            if (ReferenceEquals(path, st.StalePath)) return true;
+            if (GamePath.PathFinderThread.Instance != null && GamePath.PathFinderThread.Instance.IsCalculatingPath(self.entityId)) return true;
             st.PathChecked = true;
+            st.StalePath = null;
             Vector3 end = path.GetEndPos();
             string kind = st.Kind == WalkRoom ? "room" : "flight point";
             if (ScRunners.XZ(end, st.Point) > PathReach || Mathf.Abs(end.y - st.Point.y) > 1.5f)
@@ -852,6 +975,15 @@ namespace SurvivorCommunity
                     Vector3 q = pt.projectedLocation;
                     len += Vector3.Distance(prev, q);
                     prev = q;
+                    // round hr1 (review HR1-n5): every walk stays inside the base (decision 2) - the path too, not only its end
+                    if (!UAI.UAIConsiderationScNotHomeMember.AtHome(q))
+                    {
+                        SetAside(st, now);
+                        Patches_Xnpc.Count("heal-walk-leaves-base");
+                        ScLog.Out(ScMedic.BodyName(self) + "'s path to the " + kind + " at " + ScRetreat.Cell(st.Point) + " leaves the base at " + ScRetreat.Cell(q)
+                                  + " - set aside, the next step (round hr1 review)");
+                        return false;
+                    }
                     if (len < PathPassFrom) continue;
                     for (int f = 0; f < scratchFoes.Count; f++)
                     {
@@ -1037,14 +1169,32 @@ namespace SurvivorCommunity
             EntityAlive t = Pursuer(self, out dist);
             if (t == null) { Clear(self, st, now); return false; }
             if (st.Kind == WalkK1 && now >= st.GainAt && st.GainAt > 0f && !Gained(self, st, t, dist, now)) return false;   // round hr1: F4 judges k1's straight steps
-            if (ScRunners.XZ(self.position, st.Point) <= ArriveXZ)
+            if (st.ArriveUntil > 0f || ScRunners.XZ(self.position, st.Point) <= ArriveXZ)
             {
                 // round hr1: a room walk's spot - heal there if it is a safe room now, else it is set aside and the next step comes
                 if (st.Kind == WalkRoom)
                 {
-                    ScDoors.TrackPassed(self, ref st.DoorPath, ref st.DoorIndex, ref st.LastDoor, ref st.HasDoor);
-                    string room;
-                    if (ScSafeRoom.SafeToHeal(self, out room)) { SafeArrival(self, st, room, now, true); return false; }
+                    // round hr1 (review HR1-M2): waiting at the spot for the door behind her - a fresh test every ArriveTestSeconds
+                    if (st.ArriveUntil > 0f && now < st.NextArriveTest) return true;
+                    if (st.ArriveUntil <= 0f) ScDoors.TrackPassed(self, ref st.DoorPath, ref st.DoorIndex, ref st.LastDoor, ref st.HasDoor);
+                    string room, key;
+                    // round hr1 (review HR1-m6): a fresh test here - the 1 s cache may hold a verdict taken outside the room
+                    if (ScSafeRoom.SafeToHeal(self, true, out room, out key)) { st.ArriveUntil = 0f; SafeArrival(self, st, room, now, true); return false; }
+                    bool inside = key.StartsWith("unsafe:inside", StringComparison.Ordinal);   // an enemy in the room: leaving is right
+                    if (!inside && st.ArriveUntil <= 0f && st.HasDoor && Mathf.Min(now + ArriveWaitSeconds, st.WalkDeadline) > now + ArriveTestSeconds)
+                    {
+                        // ScDoors shuts a door she passed 2 s after it was tracked and once her path no longer runs through it: she
+                        // stands at the spot (her path dropped) and the room is tested again until then
+                        st.ArriveUntil = Mathf.Min(now + ArriveWaitSeconds, st.WalkDeadline);
+                        st.NextArriveTest = now + ArriveTestSeconds;
+                        ScCommunity.DropPath(self);
+                        Patches_Xnpc.Count("heal-room-wait-door");
+                        ScLog.Verbose(ScMedic.BodyName(self) + " reached the room at " + ScRetreat.Cell(st.Point) + " - waits up to "
+                                      + (st.ArriveUntil - now).ToString("0.#", CultureInfo.InvariantCulture) + " s for the door behind " + ScMedic.HerObj(self) + " to shut (" + room + "; round hr1 review)");
+                        return true;
+                    }
+                    if (!inside && st.ArriveUntil > 0f && now < st.ArriveUntil) { st.NextArriveTest = now + ArriveTestSeconds; return true; }
+                    st.ArriveUntil = 0f;
                     SetAside(st, now);
                     Patches_Xnpc.Count("heal-room-not-safe");
                     ScLog.Out(ScMedic.BodyName(self) + " reached the room at " + ScRetreat.Cell(st.Point) + " but it is no safe room now (" + room + ") - the next step (round hr1)");

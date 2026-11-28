@@ -21,7 +21,8 @@ namespace SurvivorCommunity
     /// its top, correctly (zombies jump it).
     ///
     /// Safe = enclosed, no enemy (awake or asleep) in a room cell or the cell above one, no armed enemy (one holding a ranged
-    /// weapon) that can see her within ArmedSight, and no enemy within NearSight that can see her (vanilla's EntityAlive.CanSee:
+    /// weapon) that can see her within ArmedSight, and no enemy within NearSight (round hr1 review, HR1-m5: the gap rule's 2.5 m
+    /// while she has a usable weapon, so a safe room always passes the gap rule) that can see her (vanilla's EntityAlive.CanSee:
     /// through bars and glass). At most about 3,000 block reads (MaxCells x 6), only at a heal decision, cached CacheSeconds per
     /// body (SafeToHeal). ScShelter's scan uses the same fill with doors as walls (FillFrom, doorsAsWalls) for its room ids.
     /// sc saferoom &lt;name|id&gt; prints the verdict.
@@ -58,8 +59,10 @@ namespace SurvivorCommunity
             /// <summary>"safe", "open" (not enclosed) or "unsafe" (enclosed, an enemy) - and the detail for the log.</summary>
             public string Kind = "";
             public string Reason = "";
-            /// <summary>What the verdict is about, for the log's "once per change" (not the cell count): "open:sky", "unsafe:inside:705" ...</summary>
+            /// <summary>What the verdict is about, for the log's "once per change" (not the cell count): "open:sky", "unsafe:inside" ...</summary>
             public string Key = "";
+            /// <summary>Round hr1 (review HR1-m6): her feet cell when it was taken - the cache answers only for the same cell.</summary>
+            public Vector3i Cell;
         }
 
         private static readonly Vector3i[] Dirs = { new Vector3i(1, 0, 0), new Vector3i(-1, 0, 0), new Vector3i(0, 0, 1), new Vector3i(0, 0, -1), new Vector3i(0, 1, 0), new Vector3i(0, -1, 0) };
@@ -233,6 +236,7 @@ namespace SurvivorCommunity
             if (!ScCommunity.IsHost || e.isEntityRemote) { v.Reason = "not the server's body (the server decides)"; return v; }
             tests++;
             Vector3i feet = World.worldToBlockPos(e.position);
+            v.Cell = feet;                                         // round hr1 (review HR1-m6)
             doorScratch.Clear();
             FillResult f = FillFrom(w, feet, false, seen, doorScratch);
             v.Cells = seen.Count;
@@ -293,27 +297,29 @@ namespace SurvivorCommunity
                     if (seen.Contains(c) || seen.Contains(new Vector3i(c.x, c.y - 1, c.z)))
                     {
                         enemyInside++;
-                        key = "inside:" + a.entityId;
+                        key = "inside";                                // round hr1 (review HR1-n1): the kind, not the id (one line per change)
                         return Who(a) + " is inside" + (a.IsSleeping ? " (asleep)" : "") + " at " + Cell(c);
                     }
                 }
                 near.Clear();
+                // round hr1 (review HR1-m5): with a usable weapon the near test is the gap rule's 2.5 m (so a safe room contains it); without one, decision 3's 2 m
+                float nearR = ScHealBackOff.UsableWeapon(e) != null ? Mathf.Max(NearSight, ScHealBackOff.GapRange) : NearSight;
                 w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(e.position, new Vector3(2f * ArmedSight, 2f * ArmedSight, 2f * ArmedSight)), near);
                 for (int i = 0; i < near.Count; i++)
                 {
                     EntityAlive a = near[i] as EntityAlive;
                     if (!Foe(e, a) || a.IsSleeping) continue;
                     float d2 = (a.position - e.position).sqrMagnitude;
-                    if (d2 <= NearSight * NearSight && a.CanSee(e))
+                    if (d2 <= nearR * nearR && a.CanSee(e))
                     {
                         nearSees++;
-                        key = "near:" + a.entityId;
-                        return Who(a) + " at " + F1(Mathf.Sqrt(d2)) + " m sees " + ScRetreat.HerObj(e) + " (bars, glass or a gap: within " + F0(NearSight) + " m)";
+                        key = "near";
+                        return Who(a) + " at " + F1(Mathf.Sqrt(d2)) + " m sees " + ScRetreat.HerObj(e) + " (bars, glass or a gap: within " + F1(nearR) + " m)";
                     }
                     if (d2 <= ArmedSight * ArmedSight && HoldsGun(a) && a.CanSee(e))
                     {
                         armedSees++;
-                        key = "armed:" + a.entityId;
+                        key = "armed";
                         return Who(a) + ", armed, sees " + ScRetreat.HerObj(e) + " at " + F0(Mathf.Sqrt(d2)) + " m";
                     }
                 }
@@ -345,15 +351,33 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool SafeToHeal(EntityAlive e, out string text)
         {
+            string key;
+            return SafeToHeal(e, false, out text, out key);
+        }
+
+        /// <summary>
+        /// Round hr1 (review HR1-M2, HR1-m6): SafeToHeal with the verdict's key ("safe", "open:sky", "unsafe:inside" ...); fresh: a new
+        /// test whatever the cache holds (a room walk's arrival). The cache answers only for the cell the verdict was taken in.
+        /// </summary>
+        public static bool SafeToHeal(EntityAlive e, bool fresh, out string text, out string key)
+        {
             text = "";
+            key = "";
             if (e == null || !ScCommunity.IsHost || e.isEntityRemote) return false;
             float now = Time.time;
             if (now >= nextPrune) Prune(now);
             Verdict v;
-            if (cache.TryGetValue(e.entityId, out v) && now - v.At < CacheSeconds) { hits++; text = v.Reason; return v.Safe; }
+            if (!fresh && cache.TryGetValue(e.entityId, out v) && now - v.At < CacheSeconds && v.Cell == World.worldToBlockPos(e.position))
+            {
+                hits++;
+                text = v.Reason;
+                key = v.Key;
+                return v.Safe;
+            }
             v = Test(e);
             cache[e.entityId] = v;
             text = v.Reason;
+            key = v.Key;
             string had;
             if (!logged.TryGetValue(e.entityId, out had) || had != v.Key)
             {

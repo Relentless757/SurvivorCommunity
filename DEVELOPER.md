@@ -3427,6 +3427,18 @@ Round MP0 is the groundwork:
     revive (`Up`) sets 0-XNPCCore's `SdcsDownedRedown` back to 0 the way 0-XNPCCore sets it (synced). `sc downed` counts DOWN and
     FRAGILE members, names who can revive a downed one, and marks a test down.
   - `RegenCapShare` defaults to 0.7. No new Harmony targets, no `ScNet.Protocol` change, no new localization.
+  - The review's fixes: a MedicMaxWait timeout the gap rule holds calls `ScHealBackOff.TimedOutHeld` - the walk ends, she
+    fights on (`FightOnWait`; after a timeout only the gap rule holds her, not D2's line), no more walks in that wait
+    (`TimedOutWait`), and the "no room" verdict is set for the stand; room and flight walks are capped at `MaxWalksPerWait`
+    (4) per wait. At a room spot reached through a door she waits up to `ArriveWaitSeconds` (3 s, never past the walk's
+    deadline) testing afresh every 0.5 s (`ScSafeRoom.SafeToHeal(e, fresh, ...)`; the 1 s cache answers only for the same
+    feet cell) for `ScDoors` to shut it, leaving at once when an enemy is inside. `BeginWalk` drops the navigator's old path and
+    `CheckPath` skips it (`StalePath`) and waits while `PathFinderThread.IsCalculatingPath`; it also sets aside a path that
+    leaves the base. A stand holds through the item's cooldown (`NoRoomRecently`, 15 s, while she is at or under the heal line).
+    A close gun out of her hand is drawn again while its stored magazine is loaded (`StoredRounds`: `ScAmmo.StoredMagazine` or
+    0-XNPCCore's magazine table cvar). The gap rule also covers "nothing after her within reach" at home, the safe room's near
+    test is 2.5 m while she has a usable weapon, and `FightsInstead` is cached 0.25 s per body. Verdict keys carry the kind,
+    not the enemy's id.
 - **Round MP6 (review fixes):** the four reviews' fixes on the merged build. What a modder must know:
   - **The listen host's own markers** are drawn for the host's own player in the host's own community: the periodic and
     restore paths (`ScEnclaves`/`ScInfestations`' `RefreshMarkers`, `ScBands.UpdateMarkers`) take `ScCommunity.LocalPlayer`,

@@ -58,7 +58,7 @@ Why: two deaths at home on the dedicated server.
 
 What changes, for members at home (the home zone and its 8 m margin; followers out with you keep their field rules):
 - The heal order: in a **safe room** (an enclosed space of solid blocks, glass, bars and SHUT doors/hatches, no open sky, no
-  enemy inside, none armed in sight, none within 2 m that sees her) she heals at once. Otherwise a straight step back as
+  enemy inside, none armed in sight, none within 2 m - 2.5 m while she has a weapon - that sees her) she heals at once. Otherwise a straight step back as
   before, then a run INTO an enclosable room within 30 m (doors shut behind her, at least 2.5 m from any door), then a
   path-found point 8-20 m away inside the base, then 0-XNPCCore's own roll (with a zombie within 2 m; her own item after it,
   never 0-XNPCCore's free heal), then the last stand.
@@ -133,6 +133,20 @@ Build `sc34_hr1`, **not deployed**, untested in game. Server-side only (single p
 **Regeneration**
 - [ ] Out of combat a hurt resident regenerates up to 70% (`sc meds <name>`: `regen ... up to 70%`), and a fight that starts
       there does not start with a heal due (the heal line is 60%).
+
+**The review's fixes (same build)**
+- [ ] A fast zombie (a feral at night) keeps up with her on her walks to heal: when her time runs out with it at arm's length,
+      she stops running and fights (`time to get clear ran out with an enemy at arm's length - she stops running and fights
+      on`), and bandages in the first gap. Never more than 4 room or flight walks in one wait.
+- [ ] A room walk through a door: at the spot she waits up to 3 s for the door behind her to shut (verbose: `waits up to N s
+      for the door behind her to shut`), then heals there (`reached a safe room`) instead of `no safe room now`.
+- [ ] A last stand survives a heal in a gap: after the bandage, still under 60% with zombies on her, no `last stand ends` line
+      for the next 15 s.
+- [ ] A close gun put away in a stand (`sc loadout <name> gunHandgunT1Pistol meleeWpnClubT1BaseballBat`, the bat in her hand):
+      with a loaded pistol she draws it again (`... a close gun with a loaded magazine: back to shooting`) once 6 s have passed.
+- [ ] A zombie within 2.5 m that sees her but chases someone else still holds her bandage at home (`would use ... (nothing
+      after her within ...) but ...`); `sc saferoom <name>` with a zombie at 2.0-2.5 m behind bars says not safe while she has
+      a weapon.
 
 ## Round t2 (2026-11-27): storage across communities, upgrades and repairs from storage, revive anyone, shoot when cornered
 
