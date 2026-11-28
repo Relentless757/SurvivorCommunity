@@ -18,11 +18,14 @@ namespace SurvivorCommunity
     /// player, so a falling trunk could kill one.
     ///
     /// With FallingTreesHurtSurvivors false (the default) treeCanDamageEntity also answers false for a friendly survivor
-    /// (ProtectedAs): one of SC's members (any community), an outpost or rescue stand-in, a prospect, one of a friendly
-    /// enclave's people, and any 0-XNPCCore survivor (SCore's EntityAliveSDXV4) hired by a player. Never a player (vanilla
-    /// spares them already), a zombie, an animal, SC's raiders, 0-XNPCCore's bandits, an enclave turned hostile, or a
-    /// stranger nobody hired. The tree then never marks the survivor hit, so nothing else changes. True: vanilla, for
-    /// immersion. Server only (the postfix asks IsHost too). One target, listed in ModApi's ExpectedTargets. Both games.
+    /// (ProtectedAs): one of SC's members (any community), an outpost or rescue stand-in, a prospect, one of the people of an
+    /// enclave that is not hostile (friendly or neutral - round lk1 (review, LK1-n3): with several communities, an enclave
+    /// hostile to any one of them is not protected for any), and any 0-XNPCCore survivor (SCore's EntityAliveSDXV4) hired by a
+    /// player. Never a player (vanilla spares them already), a zombie, an animal, SC's raiders, 0-XNPCCore's bandits, or a
+    /// stranger nobody hired. Round lk1 (review, LK1-m2): a spared survivor goes into the tree's own hitEntities, as a hit one
+    /// does, so vanilla's first test refuses it from then on and the postfix decides once per tree and survivor (no damage
+    /// follows: only collidedWith deals it, after a true answer). True: vanilla, for immersion. Server only (the postfix asks
+    /// IsHost too). One target, listed in ModApi's ExpectedTargets. Both games.
     /// </summary>
     public static class ScFallingTrees
     {
@@ -45,10 +48,10 @@ namespace SurvivorCommunity
             if ((object)a == null || a is EntityPlayer || a.IsDead() || a.Buffs == null) return null;
             if (!ScNpc.IsFramework(a)) return null;                                   // zombies, animals, vanilla bandits and traders
             if (ScXnpc.IsRaiderClass(a.entityClass)) return null;                     // SC's raiders (bandit raiders too)
-            if (ScEnclavePeople.IsHostileBody(a)) return null;                        // an enclave turned hostile
+            if (ScEnclavePeople.IsHostileBody(a)) return null;                        // an enclave turned hostile (to any community)
             if (ScRegistry.GetMember(a.entityId) != null || ScXnpc.IsCommunity(a)) return "a member or a stand-in";
             if (ScRegistry.GetProspect(a.entityId) != null) return "a prospect";
-            if (ScEnclavePeople.IsEnclaveNpc(a)) return "one of an enclave's people";
+            if (ScEnclavePeople.IsEnclaveNpc(a)) return "one of an enclave's people";   // round lk1 (review, LK1-n3): friendly or neutral
             if (a is EntityAliveSDXV4 && HiredByPlayer(a)) return "hired by a player";
             return null;
         }
@@ -90,7 +93,7 @@ namespace SurvivorCommunity
 
             /// <summary>__0 the entity the tree touched (vanilla's _entity).</summary>
             [HarmonyPostfix]
-            public static void Postfix(Entity __0, ref bool __result)
+            public static void Postfix(EntityFallingTree __instance, Entity __0, ref bool __result)
             {
                 try
                 {
@@ -98,6 +101,9 @@ namespace SurvivorCommunity
                     string why = ProtectedAs(__0);
                     if (why == null) return;
                     __result = false;
+                    // round lk1 (review, LK1-m2): marked hit, as vanilla marks one it damages - every later collision of this tree with
+                    // the survivor is refused by vanilla's own first test, so this runs (and counts, and logs) once per tree and survivor
+                    if (__instance != null && __instance.hitEntities != null && !__instance.hitEntities.Contains(__0.entityId)) __instance.hitEntities.Add(__0.entityId);
                     Spared++;
                     Patches_Xnpc.Count("lk1-tree-spared");
                     ScLog.Verbose("falling tree: " + ScCommunity.DisplayName(__0 as EntityAlive) + " (id " + __0.entityId + ", " + why

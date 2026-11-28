@@ -132,8 +132,10 @@ save file (`[world] keptlook=` lines) and given back at the next load. Also: a f
 survivors (`FallingTreesHurtSurvivors`, false by default), and a startup warning names an 0-XNPCCore older than 3.4.06
 final. Build `sc34_lk1`, **not deployed**, untested in game. As a backstop the roll itself is seeded by the body's entity
 id. Checked offline: the save round trip on 12 saves (ALL PASS: old saves load and save byte for byte as before), and a
-harness for the new lines and the seeded roll (21 checks on each of the 12 saves, 0 failures). `sc xnpc` counts
-`lk1-look-kept`, `lk1-look-updated`, `lk1-look-dropped`, `lk1-look-restored` and `lk1-tree-spared`.
+harness for the new lines, the seeded roll and the review fixes (28 checks on each of the 12 saves, 0 failures). `sc xnpc`
+counts `lk1-look-kept`, `lk1-look-updated`, `lk1-look-dropped`, `lk1-look-purged`, `lk1-look-restored` and
+`lk1-tree-spared`. Review fixes (LK1-m1 to m3, n1 to n6): an entry of a body gone stays until the world's own save; a
+spared survivor is decided once per tree; the 1000 cap evicts gone and never-hired entries first.
 
 **Looks kept (single player)**
 - [ ] Hire one of 0-XNPCCore's survivors the normal way (not into the community). Note face, hair and armor. Within 5 s
@@ -145,10 +147,13 @@ harness for the new lines and the seeded roll (21 checks on each of the 12 saves
 - [ ] A wild stranger nobody hired or recruited: no `keptlook=` line for them (the world does not save them).
 - [ ] Dress the hire with 0-XNPCCore's Wardrobe; save and load: the piece is still worn.
 - [ ] A hire wearing a character-creator face: the same creator face after a load.
-- [ ] Recruit the hire into the community: their face does not change, and at the next save their `keptlook=` line is
-      gone (the member record keeps the look). Members, prospects and enclave people look the same after a load, as before.
-- [ ] Dismiss the hire through SCore and walk away until their area unloads: their line is gone at the next save.
-- [ ] A kept survivor dies: their line is gone at the next save.
+- [ ] Recruit the hire into the community: their face does not change, and after the world's own save their `keptlook=`
+      line is gone (the member record keeps the look). Members, prospects and enclave people look the same after a load, as
+      before.
+- [ ] Dismiss the hire through SCore and walk away until their area unloads, then come back after a save and reload: the
+      look is kept and their line stays (SCore sets the hire cvars to 0 but keeps them, so the world still saves the body).
+- [ ] A kept survivor dies: their line is still in the file after `sc save` alone, and gone after the world's own save
+      (the pause menu's save, or save and quit). `sc xnpc` counts `lk1-look-dropped`, then `lk1-look-purged`.
 - [ ] The hire's voice is the same after the load (it follows the look and the name).
 - [ ] An old save from before this round with a hire: the first load still gives them a new look (nothing was kept);
       every load after that keeps it.
@@ -163,10 +168,11 @@ harness for the new lines and the seeded roll (21 checks on each of the 12 saves
 - [ ] With an older 0-XNPCCore (3.4.05): that warning once at startup.
 
 **Falling trees (`FallingTreesHurtSurvivors` false, the default)**
-- [ ] Fell a tree onto a following member, a resident, a prospect, a friendly enclave person and a hired 0-XNPCCore
-      survivor: none is hurt. `sc xnpc` counts `lk1-tree-spared`; with DebugLogging the log says `falling tree: <name> ...
-      is not hurt`.
+- [ ] Fell a tree onto a following member, a resident, a prospect, a friendly or neutral enclave person and a hired
+      0-XNPCCore survivor: none is hurt. `sc xnpc` counts `lk1-tree-spared` once per tree and survivor; with DebugLogging
+      the log says `falling tree: <name> ... is not hurt`.
 - [ ] Fell one onto a zombie, a raider and a stranger nobody hired: they are hurt as before. You are never hurt (vanilla).
+- [ ] Fell two trees onto the same hire with DebugLogging on: one `falling tree: ...` line per tree, not one per frame.
 - [ ] Set `FallingTreesHurtSurvivors` true: a member under a falling tree is hurt again.
 - [ ] Dedicated server: a client fells a tree onto their hire: not hurt (the server decides).
 

@@ -1748,19 +1748,28 @@ vanilla's.
   online or not; at once when its chunk unloads, through `World.EntityUnloadedDelegates`; and at `WorldShuttingDown`), and
   `ForEntity` reads it back after the records and the session (source `kept`). Saved as `[world]
   keptlook=id;class;day;look;gear` (`ScRegistry.WriteBookkeeping`, never to a client; an older build ignores the key and
-  drops it at its next save). An entry goes when its body dies, joins, leaves the world any other way than with its saved
-  chunk, or is no longer saved; bodies not loaded keep theirs; past 1000 the longest-unseen go. The cvars could not do it:
-  a loaded body's cvars arrive in `ApplyToEntity`, after `Init` built the model (X1), while its entity id is set before.
-  The backstop: `ForEntity`'s roll is seeded by the entity id and the world's seed (`ScLooks.LookSeed`), so a body whose
-  kept line was lost (a crash between its chunk's save and the registry's, a `.bak` read back) rolls the same look again
-  while the config and packs are the same; the voice follows the look and the name. A save from before lk1 still re-rolls
-  such a body once (its old look was never written anywhere), then keeps it. Picking a hire up as an item and placing it
-  again makes a new entity id, so that body gets a new look (not covered). `sc xnpc` counts `lk1-look-kept`, `-updated`,
-  `-dropped` and `-restored`. Also round lk1: a startup warning when 0-XNPCCore is older than 3.4.06 final (probe:
+  drops it at its next save). SC's raiders are kept only when the world saves them (a console spawn); raid, den and wild
+  raiders never are. An entry whose body dies, joins, leaves the world any other way than with its saved chunk, or is no
+  longer saved is marked gone and removed at the world-save beat (the `PersistentPlayerList.Write` postfix, and
+  `WorldShuttingDown`), so a crash before the world's save keeps the look (review LK1-m1); bodies not loaded keep theirs.
+  Past 1000 the cap evicts gone entries first, then bodies with no hire link (the line's `;h`), then the longest-unseen,
+  never one seen in the current pass (LK1-m3). A change is written by the next registry save anyone makes, by
+  `ScLookKeep`'s own only after 30 s (LK1-n4). The cvars could not do it: a loaded body's cvars arrive in `ApplyToEntity`,
+  after `Init` built the model (X1), while its entity id is set before. The backstop: `ForEntity`'s roll is seeded by the
+  entity id and the world's seed (`ScLooks.LookSeed`), so a body whose kept line was lost (a crash between its chunk's
+  save and the registry's, a `.bak` read back) rolls the same look again while the config and packs are the same; the
+  voice follows the look and the name. A save from before lk1 still re-rolls such a body once (its old look was never
+  written anywhere), then keeps it. `sc xnpc` counts `lk1-look-kept`, `-updated`, `-dropped` and `-restored`. Also round
+  lk1: a startup warning when 0-XNPCCore is older than 3.4.06 final (probe:
   `AvatarSdcsNpcController.SdcsMagStageForWrite`; its ModInfo cannot tell), and `FallingTreesHurtSurvivors` (false:
-  `EntityFallingTree.treeCanDamageEntity` answers false for members, stand-ins, prospects, a friendly enclave's people and
-  any `EntityAliveSDXV4` a player hired - `ScFallingTrees`; server only, as the tree's collision runs only where it is not
-  remote; `sc xnpc` counts `lk1-tree-spared`).
+  `EntityFallingTree.treeCanDamageEntity` answers false for members, stand-ins, prospects, the people of an enclave that
+  is not hostile (to any community) and any `EntityAliveSDXV4` a player hired - `ScFallingTrees`; a spared survivor goes
+  into the tree's `hitEntities`, so it is decided once per tree; server only, as the tree's collision runs only where it
+  is not remote; `sc xnpc` counts `lk1-tree-spared`).
+- **Known gap (round lk1):** a hire picked up as an item (SCore's pickup) and placed again is a new entity id, so it gets
+  a new look. The route is known (SCore's pickup item carries every cvar: an `sc_lookid` cvar, the
+  `EntitySyncUtils.Collect` prefix keeping the entry, a `SetNPCItemValue` postfix moving it to the new id and rebuilding
+  once; a client's own pickup needs a net-synced cvar) and comes in a later round with its own review.
 - Their eyes track you like a player's. That needs one repair: the eye shader spins each eyeball about a pivot
   given in head-bone space, while the game re-roots every untagged skinned mesh of a non-player entity onto the
   pelvis - which slid the eyeballs out of the face. The mod tags the generated eye mesh the way vanilla's own

@@ -178,8 +178,9 @@ A survivor who is not in your community is Neutral toward you, and Friendly once
 - A hostile survivor attacks you on sight, cannot be talked to, drops any favor they offered and will never join you.
 - Your own members cannot be hurt by you (unless you turn on "CommunityFriendlyFire"), nor can hired companions, so a
   stray shot cannot turn them. Traders keep their protection.
-- A falling tree does not hurt your members, stand-ins, recruits, a friendly enclave's people or anyone's hired companion
-  (turn on "FallingTreesHurtSurvivors" for the vanilla crush). Raiders, bandits and strangers nobody hired are still hit.
+- A falling tree does not hurt your members, stand-ins, recruits, enclave people who aren't hostile or anyone's hired
+  companion (turn on "FallingTreesHurtSurvivors" for the vanilla crush). Raiders, bandits and strangers nobody hired are
+  still hit.
 
 The snapshot card
 ~~~~~~~~~~~~~~~~~
@@ -2094,7 +2095,7 @@ Community
   community from a claim's radial)
 - CommunityFriendlyFire = false: true lets your shots hurt your own members
 - FallingTreesHurtSurvivors = false: true lets a falling tree hurt friendly survivors (members, stand-ins, recruits,
-  friendly enclave people, hired companions) as in the vanilla game
+  enclave people who aren't hostile, hired companions) as in the vanilla game
 - DefendBaseRadius = 22: Residents attack enemies inside the base within this many meters of their post (0: only what
   they see); beyond it a resident leaves an enemy alone unless it comes at her
 - MembersOpenOwnerLockedDoors = true: Members open your locked doors

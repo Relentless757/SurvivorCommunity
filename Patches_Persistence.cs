@@ -45,6 +45,7 @@ namespace SurvivorCommunity
                     // WorldShuttingDown (our FlushAndReset: save, then clear + latch) fires BEFORE this write.
                     if (ScRegistry.IsShuttingDown) return;
                     if (!string.IsNullOrEmpty(filePath)) ScRegistry.SetDir(Path.GetDirectoryName(filePath));
+                    ScLookKeep.OnWorldSave();     // round lk1 (review, LK1-m1): kept looks of bodies gone go with the world's save
                     ScRegistry.SaveAtomic();
                 }
                 catch (Exception e)
