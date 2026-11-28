@@ -296,6 +296,8 @@ namespace SurvivorCommunity
             // round MP7 (part AP): PerPlayer - the land-claim allies reconciled with the communities at load (the ally store is the
             // game's by now; no ally event fires at load)
             if (ScCommunity.IsHost) ScAllies.OnGameStartDone();
+            // round MP7 (review AP/F): m5 - PerParty with the game's AutoParty setting on: one warning (everyone joins the first founder's)
+            if (ScCommunity.IsHost) ScParties.OnGameStartDone();
         }
 
         private static bool DependenciesPresent()

@@ -20,8 +20,9 @@ namespace SurvivorCommunity
     //   ServerHandleLeaveParty, ServerHandleKickParty and ServerHandleChangeLead (never the disconnect handler: a disconnect
     //   changes nothing), and the founder's party at founding.
     //   ScOwnerRule.PartyLeaderMayAct (ScMembership.cs) is the helper rule.
-    // Shared mode: nothing here runs. Single player: no ally or party event ever fires (no other player), and the reconciles find
-    // no ally. Server, main thread.
+    // Shared mode: nothing here runs. Single player: no ally event fires (no other player) and the reconciles find no ally; with
+    // the game's AutoParty setting it does reach ServerHandleAutoJoinParty, in a party of one, where nothing joins (round MP7
+    // (review AP/F): n3). Server, main thread.
 
     /// <summary>
     /// Round MP7 (part AP): how each player joined their founded community, and the communities they left (Leave sticks). Kept in
@@ -261,6 +262,50 @@ namespace SurvivorCommunity
             return pid;
         }
 
+        /// <summary>
+        /// Round MP7 (review AP/F): m2 - the player owns their community now (ScMembership.SetOwner's hand-over): an owner has no join
+        /// record (as Noted keeps it), so a stale "ally" or "party" one goes - else it would take a later owner's player out (the
+        /// next hand-over) or vanish only across a restart (Write drops an owner's line). A former owner keeps no record either: kept,
+        /// like a founder.
+        /// </summary>
+        internal static void OwnerSet(string pid)
+        {
+            if (string.IsNullOrEmpty(pid)) return;
+            Ws.JoinedHow.Remove(pid);
+            Ws.JoinedVia.Remove(pid);
+        }
+
+        /// <summary>
+        /// Round MP7 (review AP/F): m3 - a community that has its owner now (sc community owner's hand-over, or an admin-made community
+        /// started from the radial: ScMembership.Start's first branch), as at founding: PerPlayer - its owner's land-claim allies in
+        /// no community join it (ScAllies.Founded); PerParty - the party of its owner online (else of actor, when actor is of the
+        /// community: a party leader acting for an absent owner) brings its members in no community in (ScParties.OnFounded).
+        /// Nothing in Shared mode or for a personal record.
+        /// </summary>
+        internal static void OwnerHooks(CommunityState cs, EntityPlayer actor)
+        {
+            try
+            {
+                if (cs == null || cs.Personal || !ScMembership.Separate || ScCommunities.ById(cs.Id) == null) return;
+                string owner = cs.Community.OwnerId ?? "";
+                if (ScParties.On)
+                {
+                    EntityPlayer lead = owner.Length > 0 ? ScPlayers.ById(owner) : null;
+                    if (lead == null && actor != null && ScPlayers.CommunityOfId(ScPlayers.IdOf(actor)) == cs.Id) lead = actor;
+                    if (lead != null) ScParties.OnFounded(lead, cs);
+                }
+                if (ScAllies.On && owner.Length > 0)
+                {
+                    ScAllies.AllyView v = ScAllies.LiveView();
+                    if (v != null) ScAllies.Founded(owner, cs, v);
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("mp7-joins-ownerhooks", e);
+            }
+        }
+
         /// <summary>The founded community the player is in (server's map), or null - none, or a personal record.</summary>
         internal static CommunityState FoundedOf(string pid)
         {
@@ -339,6 +384,12 @@ namespace SurvivorCommunity
         /// <summary>PerPlayer, the registry loaded (ScMembership.Separate: the server's).</summary>
         internal static bool On { get { return ScMembership.Separate && ScMembership.Mode == ScCommunityMode.PerPlayer; } }
 
+        /// <summary>
+        /// Round MP7 (review AP/F): where the entry points get the ally store - the server's (AllyView.Live); an offline harness puts
+        /// its own here to drive the hooks (founding, the hand-over, the switch).
+        /// </summary>
+        internal static Func<AllyView> LiveView = AllyView.Live;
+
         // ------------------------------------------------------------------ the ally event ----
 
         private static bool subscribed;
@@ -387,7 +438,7 @@ namespace SurvivorCommunity
             try
             {
                 if (!ScCommunity.IsHost || !On) return;
-                AllyView v = AllyView.Live();
+                AllyView v = LiveView();
                 if (v == null) return;
                 if (made) Made(a, b, v);
                 else Gone(a, b, v);
@@ -571,7 +622,7 @@ namespace SurvivorCommunity
         {
             if (!loadDue || !ScRegistry.Loaded) return;
             if (!On) { loadDue = false; return; }
-            AllyView v = AllyView.Live();
+            AllyView v = LiveView();
             if (v == null) return;                     // owed still: the first spawn tries again
             loadDue = false;
             ReconcileAll(v, "at load");
@@ -587,7 +638,7 @@ namespace SurvivorCommunity
             {
                 if (!ScCommunity.IsHost || !On) return;
                 RunLoadReconcile();
-                AllyView v = AllyView.Live();
+                AllyView v = LiveView();
                 if (v != null && !string.IsNullOrEmpty(pid)) Reconcile(pid, v);
             }
             catch (Exception e)
@@ -621,7 +672,7 @@ namespace SurvivorCommunity
             try
             {
                 if (!On || founder == null || cs == null || cs.Personal) return 0;
-                AllyView v = AllyView.Live();
+                AllyView v = LiveView();
                 return v != null ? Founded(ScPlayers.IdOf(founder), cs, v) : 0;
             }
             catch (Exception e)
@@ -650,7 +701,7 @@ namespace SurvivorCommunity
             try
             {
                 if (!On) return;
-                AllyView v = AllyView.Live();
+                AllyView v = LiveView();
                 if (v != null) ReconcileAll(v, "after the mode switch");
             }
             catch (Exception e)
@@ -674,7 +725,7 @@ namespace SurvivorCommunity
                     try
                     {
                         if (!ScCommunity.IsHost || !On) return;
-                        AllyView v = AllyView.Live();
+                        AllyView v = LiveView();
                         if (v != null) Reconcile(pid, v);
                     }
                     catch (Exception e) { ScLog.Once("mp7-allies-queued", e); }
@@ -706,10 +757,18 @@ namespace SurvivorCommunity
         /// the lowest id. Every member in no community (a personal record, or no record) who did not leave that community joins it
         /// (merged). A member in a founded community keeps it; when it is the invited player, both sides are told they are in
         /// different communities. Returns how many joined.
+        /// Round MP7 (review AP/F): m4 - invitePending: the server knew of the invite, in either direction (Patch_AcceptInvite's prefix;
+        /// vanilla's AcceptInvite package never checks one was sent). Without it a modified client could join any community's party
+        /// and so the community: vanilla's party join stands, SC's community join does not happen (nothing changes, logged).
         /// </summary>
-        internal static int Accepted(string invitedPid, string inviterPid, bool inviterNew, List<string> members, string leaderPid)
+        internal static int Accepted(string invitedPid, string inviterPid, bool inviterNew, List<string> members, string leaderPid, bool invitePending)
         {
             if (!On || members == null || string.IsNullOrEmpty(invitedPid)) return 0;
+            if (!invitePending)
+            {
+                ScLog.Warn("community (party): " + ScJoins.NameOf(invitedPid) + " joined " + ScJoins.NameOf(inviterPid) + "'s party with no invite the server knew of (a modified client?) - the party join stands, no community join");
+                return 0;
+            }
             ScJoins.ClearOptOuts(invitedPid);
             if (inviterNew) ScJoins.ClearOptOuts(inviterPid);
             return Joined(invitedPid, inviterPid, members, leaderPid);
@@ -721,10 +780,17 @@ namespace SurvivorCommunity
         /// leader's, else the lowest id; the same joins, opt-outs and tells). It is no act of their own - AutoParty does it at every
         /// login - so their Leave opt-outs hold (a player who left a community is not pulled back in at their next login). Returns
         /// how many joined.
+        /// Round MP7 (review AP/F): m4 - autoPartyOn: the game's AutoParty setting (vanilla's JoinAutoParty package never checks it, and
+        /// party 1 is then just the first party made this session): off, the party join stands and nothing else happens (logged).
         /// </summary>
-        internal static int AutoJoined(string joinerPid, List<string> members, string leaderPid)
+        internal static int AutoJoined(string joinerPid, List<string> members, string leaderPid, bool autoPartyOn)
         {
             if (!On || members == null || string.IsNullOrEmpty(joinerPid)) return 0;
+            if (!autoPartyOn)
+            {
+                ScLog.Warn("community (party): " + ScJoins.NameOf(joinerPid) + " was put into the auto party while the AutoParty setting is off (a modified client?) - the party join stands, no community join");
+                return 0;
+            }
             return Joined(joinerPid, "", members, leaderPid);
         }
 
@@ -766,9 +832,19 @@ namespace SurvivorCommunity
             return n;
         }
 
+        /// <summary>Round MP7 (review AP/F): m5 - the player pairs already told they are in different communities this session.</summary>
+        private static readonly HashSet<string> toldPairs = new HashSet<string>(StringComparer.Ordinal);
+
+        private static string PairKey(string a, string b)
+        {
+            return string.CompareOrdinal(a, b) <= 0 ? a + "\n" + b : b + "\n" + a;
+        }
+
         /// <summary>
         /// The invited player keeps their founded community (mine): they are told for each other community in the party, and those
         /// communities' players in the party are told about them (decision 7: a mixed party is allowed and changes nothing).
+        /// Round MP7 (review AP/F): m5 - once per player pair per session (AutoParty joins at every login, and a client may send its
+        /// auto join again): a pair told already is skipped, and the player is told about a community only for a pair new to them.
         /// </summary>
         private static void TellDifferent(string pid, CommunityState mine, List<string> members)
         {
@@ -780,6 +856,7 @@ namespace SurvivorCommunity
                 if (string.IsNullOrEmpty(m) || string.Equals(m, pid, StringComparison.Ordinal)) continue;
                 CommunityState other = ScJoins.FoundedOf(m);
                 if (other == null || other.Id == mine.Id) continue;
+                if (!toldPairs.Add(PairKey(pid, m))) continue;
                 if (told.Add(other.Id))
                 {
                     if (me != null) ScCommunity.TellKey(me, "scMp7PartyOtherYou", "", ScMembership.Whose(other), ScMembership.Whose(mine));
@@ -907,6 +984,31 @@ namespace SurvivorCommunity
             return false;
         }
 
+        /// <summary>Round MP7 (review AP/F): m5 - ScMembership.OnRegistryLoaded: a new session (the mixed-party tells may come again).</summary>
+        internal static void OnRegistryLoaded()
+        {
+            toldPairs.Clear();
+        }
+
+        /// <summary>
+        /// Round MP7 (review AP/F): m5 - ModApi's game-start steps (server): PerParty with the game's AutoParty setting on puts every
+        /// player into one party at login, so every player with no community joins the first founder's community - and that merge
+        /// cannot be undone (Leave gives an empty record). Said once per load, so an admin knows.
+        /// </summary>
+        public static void OnGameStartDone()
+        {
+            try
+            {
+                if (ScCommunity.IsHost && On && GameStats.GetBool(EnumGameStats.AutoParty))
+                    ScLog.Warn("community mode PerParty with the game's AutoParty setting on: every player is put into one party at login, so everyone with no community joins "
+                               + "the first founder's community (their own relations merged for good; Leave gives them a fresh, empty record)");
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("mp7-party-start", e);
+            }
+        }
+
         /// <summary>The party members' platform ids (copied; no record is made here).</summary>
         private static List<string> IdsOf(List<EntityPlayer> list)
         {
@@ -922,30 +1024,44 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ the vanilla party's server handlers ----
         // Each runs on the server (a client's NetPackagePartyActions, or the host's own players list, XUiC_PlayersListEntry, which
-        // calls the same statics). Single player never reaches them (no other player to invite). Each acts only on the method's
-        // own player argument: a two-player party dissolving also removes the other player, who keeps their community.
+        // calls the same statics). Single player reaches only the auto join (AutoParty on: a party of one, nothing joins - round MP7
+        // (review AP/F): n3); the others need another player. Each acts only on the method's own player argument: a two-player
+        // party dissolving also removes the other player, who keeps their community.
 
         // static void ServerHandleAcceptInvite(EntityPlayer invitedBy, EntityPlayer invitedEntity) - Party.cs:428
         [HarmonyPatch(typeof(Party), nameof(Party.ServerHandleAcceptInvite), new[] { typeof(EntityPlayer), typeof(EntityPlayer) })]
         public static class Patch_AcceptInvite
         {
+            /// <summary>__state bits: the invite starts a party (the inviter's own act too), and the server knew of the invite.</summary>
+            private const int InviterNew = 1, InvitePending = 2;
+
             [HarmonyPrefix]
-            public static void Prefix(EntityPlayer invitedBy, out bool __state)
+            public static void Prefix(EntityPlayer invitedBy, EntityPlayer invitedEntity, out int __state)
             {
-                __state = false;
-                try { __state = On && invitedBy != null && invitedBy.Party == null; }       // the invite starts a party: the inviter's own act too
+                __state = 0;
+                try
+                {
+                    if (!On || invitedBy == null || invitedEntity == null) return;
+                    if (invitedBy.Party == null) __state |= InviterNew;
+                    // round MP7 (review AP/F): m4 - the invite was really sent: the server tracks each one (NetPackagePartyActions'
+                    // SendInvite: AddPartyInvite; the host's players list adds its own), in either direction (a mutual invite swaps the
+                    // roles); vanilla's own AcceptInvite checks only that the invited player has no party. Read here, before the
+                    // accept clears the invites (AddPlayer: RemoveAllPartyInvites); only SC's community join hangs on it
+                    if (invitedEntity.HasPendingPartyInvite(invitedBy.entityId) || invitedBy.HasPendingPartyInvite(invitedEntity.entityId)) __state |= InvitePending;
+                }
                 catch (Exception e) { ScLog.Once("mp7-party-accept-pre", e); }
             }
 
             [HarmonyPostfix]
-            public static void Postfix(EntityPlayer invitedBy, EntityPlayer invitedEntity, bool __state)
+            public static void Postfix(EntityPlayer invitedBy, EntityPlayer invitedEntity, int __state)
             {
                 try
                 {
                     if (!ScCommunity.IsHost || !On || invitedEntity == null) return;
                     Party party = invitedEntity.Party;
                     if (party == null || !party.ContainsMember(invitedEntity)) return;     // a full party: nobody joined
-                    Accepted(ScPlayers.IdOf(invitedEntity), ScPlayers.IdOf(invitedBy), __state, IdsOf(party.MemberList), ScPlayers.IdOf(party.Leader));
+                    Accepted(ScPlayers.IdOf(invitedEntity), ScPlayers.IdOf(invitedBy), (__state & InviterNew) != 0, IdsOf(party.MemberList), ScPlayers.IdOf(party.Leader),
+                             (__state & InvitePending) != 0);
                 }
                 catch (Exception e)
                 {
@@ -1031,7 +1147,8 @@ namespace SurvivorCommunity
                     if (!ScCommunity.IsHost || !On || joiningEntity == null) return;
                     Party party = joiningEntity.Party;
                     if (party == null || !party.ContainsMember(joiningEntity)) return;     // a full party: nobody joined
-                    AutoJoined(ScPlayers.IdOf(joiningEntity), IdsOf(party.MemberList), ScPlayers.IdOf(party.Leader));
+                    // round MP7 (review AP/F): m4 - only with the game's AutoParty setting on (vanilla never checks it for the package)
+                    AutoJoined(ScPlayers.IdOf(joiningEntity), IdsOf(party.MemberList), ScPlayers.IdOf(party.Leader), GameStats.GetBool(EnumGameStats.AutoParty));
                 }
                 catch (Exception e)
                 {

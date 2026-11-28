@@ -148,6 +148,7 @@ namespace SurvivorCommunity
                 // round MP7 (part AP): PerPlayer - the land-claim allies reconciled with the communities (no ally event fires at load):
                 // owed from here, run at GameStartDone or the first spawn (the game does not hold the ally store read here yet)
                 ScAllies.OnRegistryLoaded();
+                ScParties.OnRegistryLoaded();           // round MP7 (review AP/F): m5 - the mixed-party tells of a new session
             }
             catch (Exception e)
             {
@@ -459,6 +460,9 @@ namespace SurvivorCommunity
                     ScZone.SetHome(claim, sender);
                     ScRegistry.SaveAtomic();
                     ScLog.Out("community started: home set to " + claim + " by radial (Start a community here)" + (ScCommunities.Count > 1 ? " - " + cs.Label : "") + by);
+                    // round MP7 (review AP/F): m3 - an admin-made community (PerPlayer/PerParty) starts as a founding does: its owner's
+                    // allies and party in no community join it (nothing in Shared)
+                    ScJoins.OwnerHooks(cs, sender);
                     message = "scHomeStarted";
                     return true;
                 }
@@ -1092,10 +1096,14 @@ namespace SurvivorCommunity
             cs.Community.OwnerId = pid;
             cs.Community.Owner = online != null ? online.PlayerDisplayName ?? "" : who;
             if (Separate) ScRegistry.WorldState.Membership[pid] = cs.Id;
+            ScJoins.OwnerSet(pid);                      // round MP7 (review AP/F): m2 - an owner has no join record (a stale "ally" one goes)
             ScRegistry.SaveAtomic();
             if (online != null) ScCommunity.TellKey(online, "scMp7OwnerYou", "", Whose(cs));
             using (ScRegistry.Use(cs.Id)) ScPlayers.TellCommunityKey("scMp7OwnerTell", "", cs.Community.Owner);
             ScLog.Out("community: " + cs.Label + " handed over from " + before + " to " + who + " (" + pid + ") by an admin" + moved);
+            // round MP7 (review AP/F): m3 - the new owner's allies (PerPlayer) and party (PerParty) in no community join it now, as at a
+            // founding (not at their next spawn)
+            ScJoins.OwnerHooks(cs, online);
             ok = true;
             return cs.Label + " now belongs to " + who + " (was " + before + ")" + moved;
         }
@@ -1198,7 +1206,12 @@ namespace SurvivorCommunity
             {
                 EntityPlayer p = kv.Key;
                 string id = ScPlayers.IdOf(p);
-                if (id.Length == 0 || ScPlayers.CommunityOfId(id) != ScPlayers.NoCommunity) continue;      // still in it (an owner, a listed player)
+                // round MP7 (review AP/F): m1 - skipped only when still in the same community (an owner, a listed player, an owner's
+                // ally the reconcile kept in it): one the allies reconcile moved into another community gets the old one's leaving half
+                // too (its Move saw no old community: in a Separate mode they were already in none), told and given a record only when
+                // in none now
+                int now = ScPlayers.CommunityOfId(id);
+                if (id.Length == 0 || now == kv.Value) continue;
                 CommunityState old = ScCommunities.ById(kv.Value);
 #if SC_V34
                 ScWork.ForgetPlayer(p.entityId);
@@ -1210,6 +1223,7 @@ namespace SurvivorCommunity
                     released += ReleaseFavours(old, id, p);
                     StationFollowers(old, id, p);
                 }
+                if (now != ScPlayers.NoCommunity) continue;     // in another community now: Move told them they joined it
                 if (EnsurePersonal(p, id, null) != ScPlayers.NoCommunity) made++;
                 if (old != null) ScCommunity.TellKey(p, "scMp7LostAccess", "ui_denied", Whose(old));
             }
@@ -1263,22 +1277,21 @@ namespace SurvivorCommunity
         /// Round MP7 (part AP): PerParty's helper rule (decision 7) - true when player leads a vanilla party holding one of community
         /// cid's players, is of cid themselves (the server's map: the sender must be in this community) and cid's owner is offline
         /// (checked here too, so part U's role= can ask it as is). Founded communities only; false in every other mode.
+        /// Round MP7 (review AP/F): n4 - the leader being of cid, their party holds one of its players (them): the member walk that
+        /// could never fail is gone, and the cheap tests (mode, leads a party) come first - part U asks it for online players every
+        /// two seconds.
         /// </summary>
         public static bool PartyLeaderMayAct(EntityPlayer player, int cid)
         {
             try
             {
                 if (player == null || !ScMembership.Separate || ScMembership.Mode != ScCommunityMode.PerParty) return false;
+                Party party = player.Party;
+                if (party == null || !ReferenceEquals(party.Leader, player)) return false;
                 CommunityState cs = ScCommunities.ById(cid);
                 if (cs == null || cs.Personal) return false;
                 if (ScPlayers.CommunityOf(player) != cid) return false;
-                if (ScParties.OwnerOnline(cs)) return false;
-                Party party = player.Party;
-                if (party == null || party.MemberList == null || !ReferenceEquals(party.Leader, player)) return false;
-                List<EntityPlayer> members = party.MemberList;
-                for (int i = 0; i < members.Count; i++)
-                    if (members[i] != null && ScPlayers.CommunityOfId(ScPlayers.IdOf(members[i])) == cid) return true;
-                return false;
+                return !ScParties.OwnerOnline(cs);
             }
             catch (Exception e)
             {

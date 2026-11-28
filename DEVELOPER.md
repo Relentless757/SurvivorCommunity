@@ -3632,15 +3632,28 @@ Round MP0 is the groundwork:
   - **PerParty** (`ScParties`): Harmony postfixes on `Party.ServerHandleAcceptInvite`, `ServerHandleAutoJoinParty`,
     `ServerHandleLeaveParty`, `ServerHandleKickParty` and `ServerHandleChangeLead`, never `ServerHandleDisconnectParty` (a disconnect changes nothing;
     vanilla parties are session-only, the saved membership map stays the truth). The host's own players list calls the same
-    statics, so a listen host is covered; single player never reaches them. Accept (`Accepted`): the party's community is the
+    statics, so a listen host is covered; single player reaches only the auto join (a party of one, nothing joins). Accept
+    (`Accepted`) counts only when the server knew of the invite, in either direction (`EntityPlayer.HasPendingPartyInvite`,
+    read in the prefix before the accept clears it): vanilla's AcceptInvite package never checks one was sent, so a modified
+    client could otherwise join any community's party and with it the community (vanilla's party join itself is left alone).
+    The auto join counts only while the game's `AutoParty` setting is on. Accept: the party's community is the
     inviter's founded community, else the only one among the members, else the leader's, else the lowest id. Every member in
     none joins it unless they left it. A member in a founded community keeps it; when it is the invited player, both sides
     are told. Leave or kick (`Left`, the member list taken in a prefix): the player loses access when they joined by party
     and the party they left held another of their community's players, never the owner. Founding pulls in the founder's
     party members in none. The `AutoParty` game setting's join (`AutoJoined`) counts as an accept with no inviter, except
-    that it never ends a Leave opt-out (it happens at every login, not by the player's choice). `ScOwnerRule.PartyLeaderMayAct` is the helper rule: the leader of a party holding one of the
-    community's players, of the community themselves, while its owner is offline (checked inside, so the network's role key
-    can ask it as is). A new leader who now acts for the owner is told (`scMp7PartyHelper`).
+    that it never ends a Leave opt-out (it happens at every login, not by the player's choice). The "different communities"
+    tells come once per player pair per session (AutoParty joins at every login), and a load with PerParty and AutoParty both
+    on logs one warning: every player with no community joins the first founder's. `ScOwnerRule.PartyLeaderMayAct` is the
+    helper rule: the leader of a party, of the community themselves (so their party holds one of its players), while its
+    owner is offline (checked inside, cheapest tests first, so the network's role key can ask it as is). A new leader who
+    now acts for the owner is told (`scMp7PartyHelper`).
+  - **A community that has its owner now** (`ScJoins.OwnerHooks`): `sc community owner`'s hand-over and an admin-made community
+    started from the radial (`Start`'s first branch) run what founding runs - the owner's allies (PerPlayer) and the party of
+    the owner online (PerParty) in no community join it. The hand-over drops the new owner's join record (`ScJoins.OwnerSet`:
+    an owner has none; a former owner keeps none either, so they are kept like a founder). At the mode switch, an online
+    player the allies reconcile moves out of the community they were in gets that community's leaving half too (links,
+    favor quests, followers). `ScAllies.LiveView` is where the hooks get the ally store (an offline harness can set it).
   - **Left open:** a kick is trusted as vanilla trusts it (the server never checks that the kicker leads the party).
 - **Round MP7 (part U), what players see of the community modes** (`ScCommunityView`, `XUiC_ScCommunityPlayers.cs`, the
   generator, `Config/dialogs.xml`). Shared mode with one community sends and shows exactly what it did before.
