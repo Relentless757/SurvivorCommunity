@@ -905,27 +905,37 @@ namespace UAI
 
         /// <summary>
         /// Round wp1 (the user: "She had her melee weapon out, but she didn't swing at all even though she approached zombies as
-        /// if she was going to, until I started attacking"). The cause was n08's leave-alone rule above: her fight's target
-        /// (ScTeam.Target, her own attack target first) walked her up to a zombie inside the base, but that zombie was after
-        /// nobody, so the MayEngage postfix refused every swing - until the player hit it and it hunted the player. Now a
-        /// wanderer inside the home zone within EngageWanderersWithin (5 m) of her is fought: she has walked up to it, or it
-        /// came to her. Farther ones and wanderers outside the zone are still left alone (ScInvestigate sends responders to the
-        /// rest). Logged once per member and zombie. 0 turns it off (n08's rule as it was).
+        /// if she was going to, until I started attacking"). n08's leave-alone rule above refused every attack AND approach
+        /// (MeleeApproach carries MayEngage too) at a zombie after nobody. A possible part of that report, not its proven cause
+        /// (round wp1 review, WP1-M1: see ScArms' no-swing watchdog). Now a wanderer inside the home zone within
+        /// EngageWanderersWithin (5 m) of her is fought - it came to her, or she stands by it. Farther ones and wanderers outside
+        /// the zone are still left alone (ScInvestigate sends responders to the rest). 0 turns it off (n08's rule as it was).
+        /// Round wp1 (review WP1-m1): never a sleeper (a POI's sleeping zombie stays asleep), never one off her floor (more than
+        /// WanderLevelSpan above or below her: a cellar, a mine, a roof), and never while she sleeps or works a shift (n08's rule
+        /// for them, as before). Logged once per member and zombie as "may fight": MayEngage passes it, whether or not an attack
+        /// follows.
         /// </summary>
         public static bool WandererInReach(EntityAlive self, EntityAlive t)
         {
             float d = ScConfig.EngageWanderersWithin;
-            if (d <= 0f || self == null || t == null) return false;
+            if (d <= 0f || self == null || t == null || t.IsSleeping) return false;
             if ((t.position - self.position).sqrMagnitude > d * d) return false;      // cheap test first: runs per candidate target
+            if (Mathf.Abs(t.position.y - self.position.y) > WanderLevelSpan) return false;
+#if SC_V34
+            if (ScSleep.IsAsleep(self) || ScWork.OnShift(self.entityId)) return false;
+#endif
             if (!InHomeZoneOf(self, t)) return false;
             long key = ((long)self.entityId << 32) | (uint)t.entityId;
             if (wanderLogged.Count > 512) wanderLogged.Clear();
             if (wanderLogged.Add(key))
-                ScLog.Out(ScRetreat.Name(self) + " fights " + t.EntityName + " (" + t.entityId + ") inside the base though it is after nobody: within "
+                ScLog.Out(ScRetreat.Name(self) + " may fight " + t.EntityName + " (" + t.entityId + ") inside the base though it is after nobody: within "
                           + d.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " m of " + ScRetreat.Her(self)
-                          + " (round wp1; round n08 left it alone: the walk up ended without a swing)");
+                          + " on " + ScRetreat.Her(self) + " floor (round wp1; round n08 left it alone)");
             return true;
         }
+
+        /// <summary>Round wp1 (review WP1-m1): a wanderer within this many meters above or below her is on her floor (a step, a stair).</summary>
+        private const float WanderLevelSpan = 2.5f;
 
         /// <summary>Round wp1: t stands inside the home zone of self's own community (MP6: not the community in scope). A pure read.</summary>
         public static bool InHomeZoneOf(EntityAlive self, EntityAlive t)

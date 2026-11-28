@@ -504,8 +504,8 @@ Staying home, roaming and defending
   past outside the base, or down in a cellar or mine (or up on a roof) more than 6 m below or above the base's posts, is
   still left alone. "InvestigateIntruders", "InvestigateResponders", "InvestigateRadius", "InvestigateEnterMargin" and
   "InvestigateHeight" (section 20) tune it; "sc team" lists the intruders and who goes.
-- A zombie inside the base within 5 m of a resident is fought by her whether or not it is after anyone - she no longer
-  walks up to it and stands there until you hit it ("EngageWanderersWithin", section 20).
+- A zombie inside the base within 5 m of a resident, awake and on her floor, is fought by her whether or not it is after
+  anyone ("EngageWanderersWithin", section 20).
 - Residents keep a leash: they will not chase an enemy far outside the base.
 - While you are within 250 m of the base, the whole home zone stays loaded, so your people are not unloaded and rebuilt
   as you walk around the edge of your view distance.

@@ -118,8 +118,9 @@ namespace SurvivorCommunity
         public static int TeamStarBonusFrom = 2;
         /// <summary>
         /// Round wp1 (the user: "she approached zombies as if she was going to [swing], until I started attacking"): at home a
-        /// resident fights a zombie inside the home zone that is within this many meters of her even when it is after nobody -
-        /// round n08 left those alone for every attack, so she walked up and never swung. 0: n08's rule as it was.
+        /// resident fights a zombie inside the home zone, on her floor, that is within this many meters of her even when it is
+        /// after nobody - round n08 left those alone, even one at her elbow. A possible part of that report, not its proven cause
+        /// (round wp1 review, WP1-M1; ScArms' no-swing watchdog logs the facts). 0: n08's rule as it was.
         /// </summary>
         public static float EngageWanderersWithin = 5f;
         /// <summary>

@@ -1057,10 +1057,10 @@
 			<property name="PostureDwellSeconds" value="5" />
 			<property name="PostureMeleeDist" value="4" />
 			<property name="TeamShooterMargin" value="2" />
-			<!-- Round wp1 (the user: "she approached zombies as if she was going to [swing], until I started attacking"): at
-			     home a resident fights a zombie inside the home zone within EngageWanderersWithin meters of her even when it is
-			     after nobody - round n08 left every such zombie alone, so she walked up to it and never swung. Farther ones are
-			     the intruder responders' (below); outside the zone a wanderer is still left alone. 0: n08's rule as it was. -->
+			<!-- Round wp1: at home a resident fights a zombie inside the home zone, on her floor and awake, within
+			     EngageWanderersWithin meters of her even when it is after nobody - round n08 left every such zombie alone, even one
+			     at her elbow (not asleep in bed or on a work shift: n08's rule for them). Farther ones are the intruder responders'
+			     (below); outside the zone a wanderer is still left alone. 0: n08's rule as it was. -->
 			<property name="EngageWanderersWithin" value="5" />
 			<!-- Round k4, intruders (the user, 2026-11-15: "If a zombie not engaged with any member or the player is inside the
 			     base, members should investigate"): an awake zombie or hostile animal inside the home zone (during a base attack

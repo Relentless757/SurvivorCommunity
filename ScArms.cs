@@ -118,6 +118,15 @@ namespace SurvivorCommunity
             /// melee weapon / to the gun off this body until then (EquipBackoffSeconds), so a refused equip is not retried at 5 Hz.
             /// </summary>
             public float MeleeBackoffUntil, GunBackoffUntil;
+            /// <summary>Round wp1 (review WP1-m6): the last X5 tick saw the gun in her hand dry - DryGunSwap needs two in a row.</summary>
+            public bool DrySeen;
+            /// <summary>
+            /// Round wp1 (review WP1-M1): the no-swing watchdog - the target watched (-1 none), since when with no swing, the swing
+            /// marker then, the last tick, and whether this target's line was written.
+            /// </summary>
+            public int NsTarget = -1;
+            public float NsSince, NsUse, NsTick;
+            public bool NsLogged;
             /// <summary>
             /// Round k4, the Fable review of k3+k4 (F1): R2's "no shot" clocks, kept only over KITE's gun-in-hand ticks that follow
             /// one another (KiteTickAt: at most KiteTickGapSeconds apart, the same gun KiteGun, no hand change between). NoShotSince
@@ -1069,6 +1078,7 @@ namespace SurvivorCommunity
                 if (now >= nextPrune) Prune(now);
                 Watch st = WatchOf(e, now);
                 bool bout = CloseMelee(c);
+                NoSwingWatch(c, e, st, pv, bout, now);                               // round wp1 (review WP1-M1): a read, logs once per target
                 CorneredBoutEnded(c, st, e, bout);                                   // F1: 0-XNPCCore's own end of its bout ends R2
                 if (!bout) TidyCornered(c, st, e, now);
                 // round hr1: the last stand owns her hand (its weapon class, its commitment, its no-swing window) - not on watch or a
@@ -1106,7 +1116,12 @@ namespace SurvivorCommunity
         /// </summary>
         private static bool DryGunSwap(AvatarSdcsNpcController c, EntityAlive e, Watch st, bool bout, float now)
         {
-            if (bout || !HoldsRangedWeapon(e) || !GunDry(e)) return false;
+            // round wp1 (review WP1-m6): dry on two X5 ticks in a row (GunDry itself is never true during a reload) - a one-tick
+            // zero while a reload moves the last loose rounds is not "empty"
+            bool dry = !bout && HoldsRangedWeapon(e) && GunDry(e);
+            bool twice = dry && st.DrySeen;
+            st.DrySeen = dry;
+            if (!twice) return false;
             Loadout l = ScLoadout.Current(e);
             if (l == null || string.IsNullOrEmpty(l.Melee) || now < st.MeleeBackoffUntil) return false;
             string gun = HeldItemName(e);
@@ -1126,6 +1141,36 @@ namespace SurvivorCommunity
         internal static bool GunDry(EntityAlive e)
         {
             if (e == null || e.inventory == null) return false;
+            // round wp1 (review WP1-m6): never during 0-XNPCCore's reload (its rounds may sit between the stores and the magazine);
+            // (review WP1-n1) one answer per body per DryCacheSeconds - the UAI asks per candidate target per decision
+            if (Reloading(e)) return false;
+            float now = Time.time;
+            DryAnswer da;
+            if (dryCache.TryGetValue(e.entityId, out da) && now - da.At < DryCacheSeconds) return da.Dry;
+            if (dryCache.Count > 256) dryCache.Clear();
+            bool dry = GunDryNow(e);
+            dryCache[e.entityId] = new DryAnswer { At = now, Dry = dry };
+            return dry;
+        }
+
+        private struct DryAnswer { public float At; public bool Dry; }
+        private static readonly Dictionary<int, DryAnswer> dryCache = new Dictionary<int, DryAnswer>();
+        /// <summary>Round wp1 (review WP1-n1): GunDry's answer lives this long (one UAI decision).</summary>
+        private const float DryCacheSeconds = 0.2f;
+
+        /// <summary>
+        /// Round wp1 (review WP1-m5): dry (GunDry) and her pair has a melee weapon to fight with instead - only then are the
+        /// back-offs off. With no melee weapon she backs away as before (0-XNPCCore's failover gives her fists in time). A read.
+        /// </summary>
+        internal static bool DryWithMelee(EntityAlive e)
+        {
+            if (!GunDry(e)) return false;
+            Loadout l = ScLoadout.Current(e);
+            return l != null && !string.IsNullOrEmpty(l.Melee) && ItemClass.GetItemClass(l.Melee, true) != null;
+        }
+
+        private static bool GunDryNow(EntityAlive e)
+        {
             ItemValue hv = e.inventory.holdingItemItemValue;
             ItemClass held = hv != null && !hv.IsEmpty() ? hv.ItemClass : null;
             if (ScAmmo.RangedAction(held) == null) held = null;
@@ -1133,6 +1178,183 @@ namespace SurvivorCommunity
             ItemClass pair = ScAmmo.PairGun(e);
             if (pair != null && (held == null || pair.Id != held.Id) && ScAmmo.Rounds(e, pair) > 0) return false;
             return held != null || pair != null;
+        }
+
+        /// <summary>Round wp1 (review WP1-m3): a "matched again" swap to melee still waits this long after her last hand change.</summary>
+        private const float UrgentMeleeHandFloor = 1.5f;
+
+        // ------------------------------------------------------------------ the no-swing watchdog (round wp1 review) ----
+
+        /// <summary>Round wp1 (review WP1-M1): no swing for this long at a target in reach in the melee stance - the facts are logged.</summary>
+        private const float NoSwingWatchSeconds = 3f;
+
+        /// <summary>Round wp1 (review WP1-M1): MayEngage's last verdict per (member, target) - Voice Control's own score, SC's after the postfix.</summary>
+        private struct EngageSeen { public float Raw, Final, At; }
+        private static readonly Dictionary<long, EngageSeen> engageSeen = new Dictionary<long, EngageSeen>();
+
+        /// <summary>Round wp1 (review WP1-M1): Patch_MayEngage's note of one verdict for a member (the watchdog reads the last one). Main thread.</summary>
+        internal static void NoteEngage(EntityAlive self, EntityAlive t, float raw, float final)
+        {
+            if (self == null || t == null || self.isEntityRemote || ScRegistry.GetMember(self.entityId) == null) return;
+            if (engageSeen.Count > 1024) engageSeen.Clear();
+            engageSeen[((long)self.entityId << 32) | (uint)t.entityId] = new EngageSeen { Raw = raw, Final = final, At = Time.time };
+        }
+
+        /// <summary>
+        /// Round wp1 (review WP1-M1; the user: "She had her melee weapon out, but she didn't swing at all even though she approached
+        /// zombies as if she was going to, until I started attacking"). The cause is not proven from the log: 0-XNPCCore's own
+        /// swing verdicts are verbose-only. This watchdog writes them down: a member in the melee stance (MELEE, INVESTIGATE with
+        /// the melee weapon) with a weapon that is not a gun in her hand and her target (her attack target, else her revenge
+        /// target, else her UAI action's) alive within MeleeReach, with no swing (LastSwing unchanged) for NoSwingWatchSeconds,
+        /// logs once per target what she holds, the target and whom it is after, and each gate's verdict. A read; X5 only.
+        /// </summary>
+        private static void NoSwingWatch(AvatarSdcsNpcController c, EntityAlive e, Watch st, ScPosture.View pv, bool bout, float now)
+        {
+            try
+            {
+                bool meleeStance = pv.P == Posture.Melee || (pv.P == Posture.Investigate && !pv.Kiting);
+                EntityAlive t = null;
+                float used = 0f;
+                if (meleeStance && !HoldsRangedWeapon(e) && HeldItemName(e) != null && LastSwing(e, out used))
+                {
+                    t = CurrentTarget(e);
+                    if (t == null) t = ActionTarget(e);
+                    if (t != null && (t.IsDead() || (t.position - e.position).sqrMagnitude > MeleeReach * MeleeReach)) t = null;
+                }
+                if (t == null) { st.NsTarget = -1; return; }
+                if (st.NsTarget != t.entityId || now - st.NsTick > KiteTickGapSeconds)
+                {
+                    if (st.NsTarget != t.entityId) st.NsLogged = false;
+                    st.NsTarget = t.entityId;
+                    st.NsSince = now;
+                    st.NsUse = used;
+                    st.NsTick = now;
+                    return;
+                }
+                st.NsTick = now;
+                if (used != st.NsUse) { st.NsSince = now; st.NsUse = used; return; }   // she swung: the clock starts again
+                if (st.NsLogged || now - st.NsSince < NoSwingWatchSeconds) return;
+                st.NsLogged = true;
+                Patches_Xnpc.Count("x5-noswing-watch");
+                using (ScGates.ScopeOf(e)) ScLog.Out(NoSwingFacts(c, e, t, pv, bout, now - st.NsSince));
+            }
+            catch (Exception ex) { ScLog.Once("arms-noswing-watch", ex); }
+        }
+
+        /// <summary>The running UAI action's entity target, or null. A read.</summary>
+        private static EntityAlive ActionTarget(EntityAlive e)
+        {
+            UAI.Context ctx = e != null ? e.utilityAIContext : null;
+            return ctx != null ? UAI.UAIUtils.ConvertToEntityAlive(ctx.ActionData.Target) : null;
+        }
+
+        /// <summary>Round wp1 (review WP1-M1): the watchdog's line - every gate MeleeAttack and MeleeApproach read, as far as SC can read them.</summary>
+        private static string NoSwingFacts(AvatarSdcsNpcController c, EntityAlive e, EntityAlive t, ScPosture.View pv, bool bout, float quiet)
+        {
+            var ic = System.Globalization.CultureInfo.InvariantCulture;
+            var sb = new System.Text.StringBuilder();
+            float dist = (t.position - e.position).magnitude;
+            sb.Append(ScRetreat.Name(e)).Append(" has not swung in ").Append(quiet.ToString("0.0", ic)).Append(" s at ").Append(t.EntityName).Append(" (").Append(t.entityId)
+              .Append(") at ").Append(dist.ToString("0.0", ic)).Append(" m (round wp1 review: the no-swing watchdog) -");
+            // her hand and her action
+            float wc = e.Buffs != null ? e.Buffs.GetCustomVar("CurrentWeaponClass") : -1f;
+            sb.Append(" holds ").Append(HeldItemName(e) ?? "nothing").Append(" (CurrentWeaponClass ").Append(wc.ToString("0", ic)).Append(")");
+            UAI.Context ctx = e.utilityAIContext;
+            string act = ctx != null && ctx.ActionData.Action != null ? ctx.ActionData.Action.Name : "none";
+            EntityAlive at = ActionTarget(e);
+            sb.Append("; UAI action ").Append(act).Append(at != null ? " on " + at.EntityName + " (" + at.entityId + ")" : "");
+            EntityAlive own = e.GetAttackTarget(), rev = e.GetRevengeTarget();
+            sb.Append("; her attack target ").Append(Who(own)).Append(", revenge ").Append(Who(rev));
+            // the target
+            sb.Append("; it is after ").Append(Who(t.GetAttackTarget())).Append(" (revenge ").Append(Who(t.GetRevengeTarget())).Append(")")
+              .Append(", hunts someone: ").Append(YesNo(UAI.UAIConsiderationScIntruder.HuntsSomeone(t)));
+            // MayEngage
+            EngageSeen es;
+            if (engageSeen.TryGetValue(((long)e.entityId << 32) | (uint)t.entityId, out es))
+                sb.Append("; MayEngage: Voice Control ").Append(es.Raw.ToString("0.##", ic)).Append(" -> SC ").Append(es.Final.ToString("0.##", ic))
+                  .Append(" (").Append((Time.time - es.At).ToString("0.0", ic)).Append(" s ago)");
+            else sb.Append("; MayEngage: not asked for it lately");
+            sb.Append(", n08 leaves it alone: ").Append(YesNo(UAI.UAIConsiderationScIntruder.LeavesAlone(e, t)));
+            // the posture
+            string refused = ScPosture.RefusedWhy(e, t);
+            sb.Append("; posture ").Append(ScPosture.Name(pv.P, pv.Kiting)).Append(pv.Waiting ? " (a switch waits)" : "").Append(pv.Stand ? " in a last stand" : "")
+              .Append(", refusal: ").Append(refused ?? "none").Append(", holds her spot: ").Append(YesNo(ScPosture.Holds(e)));
+            // 0-XNPCCore's swing checks
+            float reach = XnpcMeleeRange(e);
+            sb.Append("; in weapon reach: ").Append(reach > 0f ? YesNo(e.GetDistance(t) <= reach) + " (" + reach.ToString("0.0#", ic) + " m)" : "unread");
+            sb.Append(", reach block: ").Append(XnpcReachBlock(e, t));
+#if SC_V34
+            sb.Append(", unreachable mark: ").Append(YesNo(ScReach.Marked(e, t)));
+#endif
+            sb.Append(", bout: ").Append(YesNo(bout));
+            string sr = SwapRefusal(c);
+            if (sr != null) sb.Append(" (its swap refused: ").Append(sr).Append(")");
+            sb.Append(", sees it: ").Append(YesNo(UAI.SCoreUtils.CanSee(e, t)));
+            bool canMove = true;
+            try { canMove = e.bodyDamage.CurrentStun.CanMove(); } catch (Exception) { }
+            sb.Append(", stunned: ").Append(YesNo(!canMove)).Append(", healing buff: ").Append(YesNo(e.Buffs != null && e.Buffs.HasBuff("SdcsIsHealing")));
+#if SC_V34
+            sb.Append(", on a work shift: ").Append(YesNo(ScWork.OnShift(e.entityId)));
+#endif
+            sb.Append(", hurt with no meds: ").Append(YesNo(ScRetreat.HurtNoMedsMember(e)));
+            // where she stands
+            if (e.world != null)
+            {
+                Vector3i bp = e.GetBlockPosition();
+                Block feet = e.world.GetBlock(bp).Block, under = e.world.GetBlock(bp - Vector3i.up).Block;
+                sb.Append("; stands in ").Append(feet != null ? feet.GetBlockName() : "?").Append(" on ").Append(under != null ? under.GetBlockName() : "?");
+            }
+            return sb.ToString();
+        }
+
+        private static string Who(EntityAlive a)
+        {
+            if (a == null) return "nobody";
+            return (a is EntityPlayer ? "you" : ScXnpc.IsBody(a) ? ScCommunity.DisplayName(a) : a.EntityName) + " (" + a.entityId + (a.IsDead() ? ", dead)" : ")");
+        }
+
+        private static string YesNo(bool b) { return b ? "yes" : "no"; }
+
+        private static MethodInfo xnpcRangeFor, xnpcBlockKind;
+        private static bool xnpcDiagBound;
+
+        /// <summary>
+        /// Round wp1 (review WP1-M1): 0-XNPCCore's own melee reach (internal SdcsMeleeRange.For) and its last swing-block verdict for
+        /// this pair (internal SdcsMeleeReach.BlockKind: a pure read of its episode, null = clear or never probed) - by name, for the
+        /// watchdog's line only; missing reads as "unread". Never called per tick.
+        /// </summary>
+        private static void BindXnpcDiag()
+        {
+            if (xnpcDiagBound) return;
+            xnpcDiagBound = true;
+            try
+            {
+                Type rt = typeof(AvatarSdcsNpcController).Assembly.GetType("SdcsMeleeRange", false);
+                xnpcRangeFor = rt != null ? AccessTools.DeclaredMethod(rt, "For", new[] { typeof(EntityAlive) }) : null;
+                xnpcBlockKind = AccessTools.DeclaredMethod(typeof(SdcsMeleeReach), "BlockKind", new[] { typeof(EntityAlive), typeof(EntityAlive) });
+                if (xnpcRangeFor == null || xnpcBlockKind == null)
+                    ScLog.Warn("no-swing watchdog: 0-XNPCCore's SdcsMeleeRange.For or SdcsMeleeReach.BlockKind was not found - its line says \"unread\" there");
+            }
+            catch (Exception ex) { ScLog.Once("arms-xnpc-diag", ex); }
+        }
+
+        private static float XnpcMeleeRange(EntityAlive e)
+        {
+            BindXnpcDiag();
+            try { return xnpcRangeFor != null ? (float)xnpcRangeFor.Invoke(null, new object[] { e }) : -1f; }
+            catch (Exception ex) { ScLog.Once("arms-xnpc-range", ex); return -1f; }
+        }
+
+        private static string XnpcReachBlock(EntityAlive e, EntityAlive t)
+        {
+            BindXnpcDiag();
+            if (xnpcBlockKind == null) return "unread";
+            try
+            {
+                object k = xnpcBlockKind.Invoke(null, new object[] { e, t });
+                return k == null ? "clear (or not probed)" : k.ToString() + " (0-XNPCCore's swing ray is blocked)";
+            }
+            catch (Exception ex) { ScLog.Once("arms-xnpc-block", ex); return "unread"; }
         }
 
         /// <summary>Round k4: MELEE (see Hand).</summary>
@@ -1162,8 +1384,10 @@ namespace SurvivorCommunity
                     return true;
                 }
                 if (pv.Waiting || l == null || string.IsNullOrEmpty(l.Melee) || now < st.MeleeBackoffUntil) return true;
-                // round wp1 (decision 2): matched again moments ago - the swap does not wait for the hand clock
-                if (!pv.UrgentMelee && !ScPosture.HandClockAllows(e, now)) { ScPosture.NoteHeld(e); return true; }
+                // round wp1 (decision 2): matched again moments ago - the swap does not wait for the hand clock; (review WP1-m3) but
+                // never within UrgentMeleeHandFloor of her last hand change
+                bool clockOk = pv.UrgentMelee ? now - ScPosture.HandChangedAt(e) >= UrgentMeleeHandFloor : ScPosture.HandClockAllows(e, now);
+                if (!clockOk) { ScPosture.NoteHeld(e); return true; }
                 if (!TakeMelee(c, e, l, st, now)) return true;
                 ScPosture.NoteSwap(e, l.Melee, false, pv.UrgentMelee);
                 JoinBout(c, e, l, now);

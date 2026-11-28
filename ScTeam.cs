@@ -236,7 +236,9 @@ namespace SurvivorCommunity
                 }
                 else if (!wasMatched && v.Matched)
                 {
-                    v.MatchedAgainAt = now;                                                 // round wp1 (decision 2)
+                    // round wp1 (decision 2); (review WP1-m3) only with enemies counted - "matched again" at T 0 is a fight's end, and
+                    // the next fight's first seconds must not skip the dwell and the hand clock
+                    if (t.T > 0f) v.MatchedAgainAt = now;
                     matchedAgain++;
                     Patches_Xnpc.Count("x5-team-matched-again");
                     ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + "): the fight is matched again (F " + F2(t.F) + " >= " + F2(ScConfig.TeamMargin) + " x T " + F2(t.T) + ", "
@@ -643,13 +645,6 @@ namespace SurvivorCommunity
             return v != null && v.MeleeLed;
         }
 
-        /// <summary>Round wp1 (decision 2): melee-led with no melee-unsafe enemy counted - ScPosture's "she prefers melee" (no cb1 hold). A pure read.</summary>
-        internal static bool MeleeLedSafe(EntityAlive e)
-        {
-            Verdict v = Fresh(e);
-            return v != null && v.MeleeLed && v.Unsafe == 0;
-        }
-
         /// <summary>Round wp1 (decision 2): her fight turned matched again within the last seconds and still is. A pure read.</summary>
         internal static bool MatchedAgainWithin(EntityAlive e, float seconds)
         {
@@ -718,10 +713,10 @@ namespace SurvivorCommunity
             EntityAlive own = e.GetAttackTarget();
             if (own == null || own.IsDead()) own = e.GetRevengeTarget();
             if (own != null && own.IsDead()) own = null;
-            // round wp1: her own target is no fight target while round n08's rule leaves it alone outside the home zone - the
-            // posture's approach walked her up to it and the MayEngage postfix refused every swing. Inside the zone it stays:
-            // within EngageWanderersWithin of her she fights it (UAIConsiderationScIntruder.WandererInReach)
-            if (own != null && UAI.UAIConsiderationScIntruder.LeavesAlone(e, own) && !UAI.UAIConsiderationScIntruder.InHomeZoneOf(e, own)) own = null;
+            // round wp1 (review WP1-M2): her own target is no fight target while round n08's rule leaves it alone - MayEngage is 0
+            // for its approach, its swing and its shot, so a fight posture on it only left her standing with her weapon out (and
+            // ScInvestigate read her as "in another fight"). Within EngageWanderersWithin inside the zone LeavesAlone is false
+            if (own != null && UAI.UAIConsiderationScIntruder.LeavesAlone(e, own)) own = null;
             // the Fable review: her own target outside the counted area (one she shoots from afar) gives way to the nearest
             // counted enemy she sees - else she would wait on the far one while a walker comes in next to her
             if (own != null && InArea(e, own)) return own;

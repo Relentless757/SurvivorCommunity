@@ -54,42 +54,56 @@ Why (single player, at home): "When they have a gun with no ammo, they are just 
 when I started attacking did they engage." Then: "She had her melee weapon out, but she didn't swing at all even though she
 approached zombies as if she was going to, until I started attacking." And: "Mia's fighting skill is 4, she still shoots 1 lone
 zombie inside the base. They don't seem to smartly swap to melee when they are no longer overwhelmed."
-- **The cause of "no swing"** was round n08's home rule: a resident leaves alone every zombie that is after nobody (unless she
-  is one of its two intruder responders). Her fight's target - her own attack target first - still walked her up to such a
-  zombie, but every swing was refused, until you hit it and it went after you. In the log Holly was down, so the zombies she
-  had drawn were after nobody, and Mia, "in another fight", was no responder.
+- **The cause of "no swing" is not proven.** Round n08's home rule (a resident leaves alone a zombie that is after nobody) also
+  stops her walking up to one, so it cannot be "walks up, then no swing"; and those zombies were on her. What is left, if she
+  walked up through 0-XNPCCore's melee approach: its swing checks that the approach does not have - in reach, a block in her
+  swing (her machete was refused twice earlier in the same yard, among tent walls and tall grass) and sight. Those are logged
+  only with 0-XNPCCore's verbose logging, so this round adds a **no-swing watchdog** line (below). Mia, "in another fight" with a
+  zombie n08 left her alone with, was also no responder (fixed).
 - Mia (Fighting 4) counted 1.45, so two walkers outmatched her; and in a matched fight anyone holding her gun kept it until the
   zombie was within 4 m. An empty gun waited out the 5 s hand clock and 0-XNPCCore's 2 s failover.
 
 What changes, for members:
-- **A zombie inside the base within 5 m of a resident is fought** whether or not it is after anyone (`EngageWanderersWithin`).
-  Farther ones are still the intruder responders'; outside the base a wanderer is still left alone, and her fight no longer
-  walks her to one out there.
+- **A zombie inside the base within 5 m of a resident is fought** whether or not it is after anyone (`EngageWanderersWithin`):
+  awake, on her floor, and not while she sleeps or works a shift. Farther ones are still the intruder responders'; outside the
+  base a wanderer is still left alone. A zombie she is left alone with is no longer her fight's target, nor "another fight" that
+  keeps her from being sent to an intruder.
+- **No-swing watchdog**: in the melee stance with her target within 3 m and no swing for 3 s, one line per target: `<name>
+  has not swung in N s at <zombie> ... (round wp1 review: the no-swing watchdog) - holds ..., UAI action ...; it is after ...;
+  MayEngage: Voice Control .. -> SC ..; posture ...; in weapon reach: ..., reach block: ..., unreachable mark: ..., sees it:
+  ...; stands in ... on ...`. **If she stands by a zombie without swinging, send that line.**
 - **An empty gun is no gun**: no rounds in the gun or her stores - her melee weapon at once in a fight (no hand clock, no 3 m
-  wait), and no back-off of any kind (BackupRanged, BackupKeepDistance, ScKiteWide) while dry. Watch and Stay keep 0-XNPCCore's
-  own failover.
+  wait; never during a reload), and no back-off of any kind (BackupRanged, BackupKeepDistance, ScKiteWide) while dry - with a
+  melee weapon in her pair; with none she still backs away. Watch and Stay keep 0-XNPCCore's own failover.
 - **Melee in a matched fight**: she takes her melee weapon at once, whatever the distance. Only a clear shooter (Shooting at
-  least `TeamShooterMargin`, 2, stars above Fighting) keeps her gun until the zombie is within 4 m. In a matched fight with no
-  melee-unsafe zombie a member who is no clear shooter holds no spot after a back-off, a heal or a reload (a hold ends when the
-  fight turns matched). Outmatched is KITE as before; raiders and anyone armed: as before.
-- **Matched again is prompt**: for 3 s after the count turns matched again (two counts in a row, as before) the switch to
-  melee skips the dwell and the hand clock.
+  least `TeamShooterMargin`, 2, stars above Fighting) keeps her gun until the zombie is within 4 m. While the team rule itself
+  says melee (matched, not swarmed, no zombie that needs the gun) she holds no spot after a back-off, a heal or a reload (a hold
+  ends then); swarmed in a matched fight, the hold after her back-off stays. Outmatched is KITE as before; raiders and anyone
+  armed: as before.
+- **Matched again is prompt**: for 3 s after the count turns matched again with zombies still counted (two counts in a row, as
+  before) the switch to melee skips the dwell, and the hand clock down to 1.5 s.
 - **Fighting stars count**: with a melee weapon in her pair, x (1 + `TeamStarBonus` per star above `TeamStarBonusFrom`): Fighting
   4 counts 2.18 (two walkers matched), 7 about 4.3; 1-2 stars as before. A fight's start logs her F / T breakdown (at most
   once in 30 s per member).
-- **No "none" between kills**: a fight posture whose target just died is held to the next team count (was: "no fight" for up to
-  a second after every kill); a fight back within 2 s of a gap keeps its stance and dwell (another stance waits for the dwell).
+- **No "none" between kills**: a fight posture whose target just died is held to the next team count, at most 2 s (was: "no
+  fight" for up to a second after every kill); a fight back within 2 s of a gap keeps its stance and dwell (another stance
+  waits for the dwell).
 
 New settings (Config/blocks.xml, team section): `TeamStarBonus` 0.25, `TeamStarBonusFrom` 2, `TeamShooterMargin` 2,
 `EngageWanderersWithin` 5 (0 turns the star bonus and the wanderer rule off).
 
-Build `sc34_wp1`, on branch `wp1`, not deployed, untested in game. Server-side only. `sc xnpc` counts `x5-dry-gun-melee`,
-`backoff-dry-gun`, `posture-gap-bridged`; the posture and hold lines below are verbose lines.
+Build `sc34_wp1`, on branch `wp1` (with the review's fixes: 0 blockers, 2 majors, 6 minors), not deployed, untested in game.
+Server-side only. `sc xnpc` counts `x5-dry-gun-melee`, `backoff-dry-gun`, `posture-gap-bridged`, `x5-noswing-watch`; the
+posture and hold lines below are verbose lines.
 
 **A zombie after nobody inside the base (single player, at home)**
 - [ ] A zombie wanders into the yard while a resident fights another one (or lure one in, then stand back without hitting it):
-      once it is within 5 m of her, `<name> (id N) fights <zombie> (<id>) inside the base though it is after nobody: within 5 m
-      of her (round wp1; ...)` once, and she swings at it without you attacking.
+      once it is within 5 m of her, `<name> (id N) may fight <zombie> (<id>) inside the base though it is after nobody: within 5 m
+      of her on her floor (round wp1; ...)` once, and she swings at it without you attacking. If she stands by it instead: the
+      no-swing watchdog line (send it).
+- [ ] A zombie after nobody 10 m off inside the base while she holds an old attack target on it: she is no longer "in another
+      fight" in the `investigate:` line; she (or another resident) is sent to it.
+- [ ] A sleeping POI zombie within 5 m of a resident's roam: no "may fight" line, it stays asleep.
 - [ ] A zombie wandering past just outside the base: no such line, she does not walk out to it.
 - [ ] `EngageWanderersWithin` 0: n08's rule as before (she leaves it alone unless she is a responder).
 
@@ -99,6 +113,8 @@ Build `sc34_wp1`, on branch `wp1`, not deployed, untested in game. Server-side o
       (`sc xnpc` shows no new back-off for her; `backoff-dry-gun` only if one slipped through).
 - [ ] The same with a zombie after nobody inside the base: she attacks it once it is within 5 m (line above), without you.
 - [ ] Give her ammo: the gun comes back by the usual rules (KITE when outmatched).
+- [ ] A member with a gun, no rounds and no melee weapon: she still backs away; 0-XNPCCore gives her fists in time.
+- [ ] A bow member reloading her last arrows: no `is empty ... at once` line mid-reload.
 
 **Melee when not overwhelmed (single player, at home)**
 - [ ] Mia-like (Fighting 4, Shooting 4 or less), one walker coming at her from 12 m inside the base: posture MELEE at once (`sc team <name>`:
@@ -110,7 +126,9 @@ Build `sc34_wp1`, on branch `wp1`, not deployed, untested in game. Server-side o
 - [ ] Outmatched, then the second zombie dies: within about 2 s `the fight is matched again ...`, and the posture line ends
       `- matched again: melee at once (round wp1)` with the swap right after (no 5 s wait).
 - [ ] A hold after a reload in an outmatched fight that turns matched: `'s hold ends after ... s: the fight is matched and she
-      prefers melee (round wp1)` (a clear shooter keeps holding).
+      prefers melee (round wp1)` (a clear shooter keeps holding). Matched but swarmed (3 on her): her back-off still holds.
+- [ ] Hit three zombies by a gun holder (not a clear shooter) that outnumber her: at most one swap to melee and back within
+      about 7 s, never two swaps within 1.5 s.
 - [ ] Kill zombies one after another: no `posture MELEE (was none for 0.x s)` lines between kills; `posture-lapse-held` counts up.
 
 ## Deployed 2026-11-28: rounds db1 (disband), wq1 (weapon quality), nv1 (wall gaps), md2 (medkit animation), cb1 (corners, back-offs)

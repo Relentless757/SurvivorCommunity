@@ -1193,16 +1193,18 @@ namespace SurvivorCommunity
                 try
                 {
                     EntityAlive self = _context != null ? _context.Self : null;
+                    float raw = __result;                        // round wp1 (review WP1-M1): for the no-swing watchdog
                     // round n08 (the user's rule): at home a resident fights only an enemy that is after somebody - Voice
                     // Control's own wild pass (an enemy within 5 m, a 10 s commitment) included
                     if (UAI.UAIConsiderationScIntruder.LeavesAlone(self, target as EntityAlive))
                     {
                         if (__result > 0f) Count("mayengage-home-wanderer");
                         __result = 0f;
+                        ScArms.NoteEngage(self, target as EntityAlive, raw, 0f);
                         return;
                     }
-                    if (__result > 0f) return;                   // Voice Control let it fight: its stick score stands
-                    if (!EngagesAtWill(self)) return;
+                    if (__result > 0f) { ScArms.NoteEngage(self, target as EntityAlive, raw, __result); return; }   // Voice Control let it fight: its stick score stands
+                    if (!EngagesAtWill(self)) { ScArms.NoteEngage(self, target as EntityAlive, raw, __result); return; }
                     // round nc3 (the user, 2026-11-21: "members continue engaging a zombie even if that zombie leaves the base,
                     // especially if they're attacking me" - Leo stopped shooting the zombies chasing the player the moment they
                     // followed the player out): nc1's 0 beyond DefendBaseRadius is gone - it gated every shot of 0-XNPCCore's
@@ -1212,6 +1214,7 @@ namespace SurvivorCommunity
                     // still left alone (LeavesAlone, above)
                     __result = RefusalPass;
                     Count("mayengage-pass");
+                    ScArms.NoteEngage(self, target as EntityAlive, raw, __result);
                 }
                 catch (Exception e)
                 {

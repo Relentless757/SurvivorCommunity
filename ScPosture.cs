@@ -70,6 +70,8 @@ namespace SurvivorCommunity
         /// kill dropped her to "no fight" for up to a second and back (TargetLapseSeconds bridged only a target still alive).
         /// </summary>
         private const float DeadLapseSlack = 0.3f;
+        /// <summary>Round wp1 (review WP1-n3): that hold never runs longer than this, whatever TeamRecountSeconds says.</summary>
+        private const float DeadLapseMax = 2f;
         /// <summary>Round wp1 (decision 4): a fight posture back within this long of a "no fight" gap is the same fight - its stance and dwell carry over.</summary>
         private const float ReentrySeconds = 2f;
         /// <summary>Round wp1 (decision 2): this long after her verdict turned matched again, the switch to MELEE is urgent (no dwell, no hand clock).</summary>
@@ -160,10 +162,14 @@ namespace SurvivorCommunity
             public string NoAmmoGun;
             public bool NoAmmoTold;
             public float NoAmmoToldAt = -1000f;
-            /// <summary>Round wp1 (decision 4): the fight posture and stance before the last "no fight" gap and when it began (GapFrom None: no gap).</summary>
+            /// <summary>Round wp1 (decision 4): the fight posture and stance before the last "no fight" gap and when it began (GapFrom None: no gap);
+            /// (review WP1-n2) its soft, runner and urgent-gun flags too, restored with it.</summary>
             public Posture GapFrom;
-            public bool GapKiting;
+            public bool GapKiting, GapSoft, GapNative, GapUrgentGun;
             public float GapAt;
+            /// <summary>Round wp1 (review WP1-m2): Want's last answer was MELEE by the team rule itself (MeleeWhy null), and when - cb1's hold reads it.</summary>
+            public bool MeleeByWhy;
+            public float MeleeByWhyAt;
             /// <summary>Round wp1 (decision 2): her verdict just turned matched again - the switch to MELEE and its swap are prompt.</summary>
             public bool UrgentMelee;
         }
@@ -310,7 +316,7 @@ namespace SurvivorCommunity
                 // posture, its stance and its target stay as they are (and fresh); only then does "no fight" take over
                 if (t != null) { st.TargetSeenAt = now; st.LapseHeld = false; }
                 else if (want == Posture.None && why == NoFightWhy && IsFight(st.P) && st.TargetSeenAt > 0f
-                         && now - st.TargetSeenAt < Mathf.Max(TargetLapseSeconds, ScConfig.TeamRecountSeconds + DeadLapseSlack))
+                         && now - st.TargetSeenAt < Mathf.Min(DeadLapseMax, Mathf.Max(TargetLapseSeconds, ScConfig.TeamRecountSeconds + DeadLapseSlack)))
                 {
                     EntityAlive last = Entity(e, st.TargetId);
                     // round wp1 (decision 4): a target that just died (or left the world) is bridged too, up to the next recount
@@ -332,8 +338,15 @@ namespace SurvivorCommunity
                 if (st.P == Posture.None && IsFight(want) && IsFight(st.GapFrom) && now - st.GapAt < ReentrySeconds
                     && GunStance(st.GapFrom, st.GapKiting) != GunStance(want, kiting) && !urgent && !DwellOver(st, now, st.Soft && !kiting))
                 {
-                    st.P = st.GapFrom;
+                    // round wp1 (review WP1-n2): its flags back too, and INVESTIGATE only while she still investigates (else its stance)
+                    Posture back = st.GapFrom == Posture.Investigate && want != Posture.Investigate ? (st.GapKiting ? Posture.Kite : Posture.Melee) : st.GapFrom;
+                    ScLog.Verbose(ScRetreat.Name(e) + ": posture " + Name(back, st.GapKiting) + " again after " + F1(now - st.GapAt) + " s with no target - "
+                                  + Name(want, kiting) + " waits for the dwell (round wp1)");
+                    st.P = back;
                     st.Kiting = st.GapKiting;
+                    st.Soft = st.GapSoft;
+                    st.NativeClose = st.GapNative;
+                    st.UrgentGun = st.GapUrgentGun;
                     st.Since = now;
                     st.Why = "the same fight after " + F1(now - st.GapAt) + " s with no target (round wp1)";
                     st.GapFrom = Posture.None;
@@ -395,6 +408,7 @@ namespace SurvivorCommunity
             kiting = soft = native = urgent = urgentGun = false;
             t = null;
             st.UrgentMelee = false;                                                  // round wp1: set below while matched again
+            st.MeleeByWhy = false;                                                   // round wp1 (review WP1-m2): set below with a target
             if (ScWatch.OnWatch(m)) { why = "on watch: " + ScRetreat.She(e) + " holds the post and keeps " + ScRetreat.Her(e) + " gun up"; return Posture.Hold; }
             if (e.Buffs != null && Mathf.RoundToInt(e.Buffs.GetCustomVar("CurrentOrder")) == OrderStay)
             {
@@ -419,10 +433,18 @@ namespace SurvivorCommunity
             int count = 0, need = 0;
             bool over = ScConfig.Overwhelmed && ScArms.IsOverwhelmed(e, out count, out need);   // X5 only: it recounts
             bool melee;
+            // round wp1 (review WP1-m2): the team rule's own answer, read once for every branch - MELEE by MeleeWhy (a matched fight,
+            // not swarmed, no target that needs the gun, not a clear shooter's distance) is what "she prefers melee" means for cb1's
+            // hold (PrefersMelee); the old proxy (melee-led and no clear shooter) missed swarmed and a target that needs the gun
+            ScTeam.GunNeed kind;
+            bool mwSoft;
+            string mw = MeleeWhy(e, m, st, t, holdsGun, gunRounds, over, count, need, out kind, out mwSoft);
+            st.MeleeByWhy = mw == null;
+            st.MeleeByWhyAt = Time.time;
             if (ScRetreat.Kites(e)) { melee = false; urgent = urgentGun = true; why = "hurt with nothing to heal with, a gun with rounds: KITE's wide band (round k5, was rt1's stand-off)"; }
             else if (ScArms.OrderedMelee(e)) { melee = true; why = "you ordered " + ScRetreat.Her(e) + " melee weapon"; }
             // round cb1 (item 3): she holds her spot - KITE with the gun (no MELEE once "matched" again), at once
-            else if (holding && gunRounds)
+            else if (holding && gunRounds && mw != null)                           // round wp1 (review WP1-m2): not once she prefers melee
             {
                 melee = false;
                 urgent = urgentGun = true;
@@ -431,8 +453,7 @@ namespace SurvivorCommunity
             else if (ScArms.OrderedRanged(e) && gunRounds) { melee = false; why = "you ordered " + ScRetreat.Her(e) + " gun"; }
             else
             {
-                ScTeam.GunNeed kind;
-                string mw = MeleeWhy(e, m, st, t, holdsGun, gunRounds, over, count, need, out kind, out soft);
+                soft = mwSoft;
                 if (mw == null)
                 {
                     melee = true;
@@ -654,7 +675,7 @@ namespace SurvivorCommunity
             if (backOff) st.HoldSpent = false;
             else if (st.HoldSpent) return;
             if (!UAI.UAIConsiderationScNotHomeMember.AtHome(e.position) || !ScRetreat.GunReady(e)) return;
-            if (PrefersMelee(e, ScTeam.MemberOf(e))) return;                     // round wp1 (decision 2): no hold in a matched fight she melees
+            if (PrefersMelee(st, now)) return;                                   // round wp1 (decision 2): no hold in a matched fight she melees
             bool fresh = !(st.HoldSince > 0f && now < st.HoldUntil);
             // round cb1 (review CB1-m1): a renewal (each reload of a bow) extends the hold, but never past HoldCapShare x its time
             // from its start - "8 s" stays a limit; (review CB1-n3) a new hold with an enemy already within HoldBreakDist never starts
@@ -690,7 +711,7 @@ namespace SurvivorCommunity
             else if (!UAI.UAIConsiderationScNotHomeMember.AtHome(e.position)) end = "away from home";
             else if (st.Stand) end = "her last stand";
             else if (!ScRetreat.GunReady(e)) end = ScRetreat.Her(e) + " gun has no rounds";
-            else if (PrefersMelee(e, ScTeam.MemberOf(e))) end = "the fight is matched and " + ScRetreat.She(e) + " prefers melee (round wp1)";
+            else if (PrefersMelee(st, now)) end = "the fight is matched and " + ScRetreat.She(e) + " prefers melee (round wp1)";
             else if (AfterHerWithin(e, HoldBreakDist) > 0) end = "an enemy reached " + ScRetreat.HerObj(e) + " (within " + F1(HoldBreakDist) + " m)";
             else
             {
@@ -838,12 +859,13 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Round wp1 (decision 2): her fight is matched (melee-led, no melee-unsafe enemy in it) and she is no clear shooter - her
-        /// preference is melee, so round cb1's hold neither starts nor goes on. A pure read.
+        /// Round wp1 (decision 2): her preference is melee, so round cb1's hold neither starts nor goes on. Round wp1 (review
+        /// WP1-m2): Want's last answer was MELEE by the team rule itself (MeleeWhy null: matched, not swarmed, no target that
+        /// needs the gun, no clear shooter's distance), fresh - so a back-off while swarmed in a matched fight still holds. A read.
         /// </summary>
-        private static bool PrefersMelee(EntityAlive e, Member m)
+        private static bool PrefersMelee(State st, float now)
         {
-            return m != null && ScTeam.MeleeLedSafe(e) && !ClearShooter(m);
+            return st.MeleeByWhy && now - st.MeleeByWhyAt <= FreshSeconds;
         }
 
         /// <summary>Shooting is her best skill: more stars than in Fighting, and at least as many as in every other skill.</summary>
@@ -864,7 +886,15 @@ namespace SurvivorCommunity
             // round wp1 (decision 4): a fight back within ReentrySeconds of a "no fight" gap, in the stance it had, keeps its dwell clock
             bool sameFight = was == Posture.None && IsFight(st.GapFrom) && now - st.GapAt < ReentrySeconds && GunStance(st.GapFrom, st.GapKiting) == GunStance(want, kiting);
             if (stanceFlip || (!IsFight(was) && IsFight(want) && !sameFight)) st.StanceSince = now;   // F8: only a new stance restarts the dwell
-            if (IsFight(was) && want == Posture.None) { st.GapFrom = was; st.GapKiting = wasKiting; st.GapAt = now; }
+            if (IsFight(was) && want == Posture.None)
+            {
+                st.GapFrom = was;
+                st.GapKiting = wasKiting;
+                st.GapSoft = st.Soft;                  // round wp1 (review WP1-n2): still the fight's (Update sets the new ones after Change)
+                st.GapNative = st.NativeClose;
+                st.GapUrgentGun = st.UrgentGun;
+                st.GapAt = now;
+            }
             else if (IsFight(want)) st.GapFrom = Posture.None;
             st.Waiting = false;
             st.PendingSince = 0f;
@@ -1297,8 +1327,9 @@ namespace UAI
                 }
                 if (ScRetreat.Shelters(self)) return 0f;                            // rt1: sheltering (k1: only="shelter")
                 // round wp1 (decision 1): an empty gun is no gun - no BackupRanged, BackupKeepDistance or ScKiteWide for a member
-                // whose gun has no rounds in it or her stores (ScBackOff's start ends one that slips through)
-                if (ScBackOff.IsMember(self) && ScArms.GunDry(self)) return 0f;
+                // whose gun has no rounds in it or her stores (ScBackOff's start ends one that slips through); (review WP1-m5) only
+                // with a melee weapon in her pair to fight with instead
+                if (ScBackOff.IsMember(self) && ScArms.DryWithMelee(self)) return 0f;
                 if (what == Wide)
                 {
                     if (t == null) return 0f;
