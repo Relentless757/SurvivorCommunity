@@ -90,7 +90,18 @@ namespace SurvivorCommunity
             public string LastMedic = "";
             public float LastBeganAt = -1000f;
             public readonly HashSet<int> Failed = new HashSet<int>();
+            /// <summary>Round hr1: a console "sc down" test knocked her down - its revive clears 0-XNPCCore's re-down window (Up).</summary>
+            public bool Console;
         }
+
+        /// <summary>
+        /// Round hr1 (the user's decision 7; Nora died through the window a console test opened): member id -> when "sc down" knocked
+        /// her down; the next Down record for her within ConsoleDownSeconds takes it (Down.Console). Host only, main thread.
+        /// </summary>
+        private static readonly Dictionary<int, float> consoleDowns = new Dictionary<int, float>();
+        private const float ConsoleDownSeconds = 10f;
+        /// <summary>Round hr1: re-down windows cleared after a console test's revive (sc downed).</summary>
+        private static int redownCleared;
 
         private static readonly Dictionary<int, Down> downs = new Dictionary<int, Down>();
         /// <summary>Medic body id -> the patient's member id.</summary>
@@ -116,6 +127,8 @@ namespace SurvivorCommunity
             near.Clear();
             seenDowns = revived = revivedByMedic = bledOut = unloaded = medicsSent = medicsLetGo = treatments = noMedic = 0;
             stationsDeferred = shiftsHeld = verbsRefused = fights = busyRestored = zeroHealthFixed = rebound = 0;
+            consoleDowns.Clear();                   // round hr1
+            redownCleared = 0;
         }
 
         // ------------------------------------------------------------------ reads (any caller, pure) ----
@@ -456,6 +469,13 @@ namespace SurvivorCommunity
                             // 0-XNPCCore's own "is down" was kept back for her only through the swap (Active) with DownedTell on
                             d = new Down { Id = m.Id, Name = m.Name, Body = e, Since = now, TellPending = Patches_Downed.Active && ScConfig.DownedTell };
                             downs[m.Id] = d;
+                            // round hr1: a console "sc down" test - its revive clears the re-down window
+                            float cAt;
+                            if (consoleDowns.TryGetValue(m.Id, out cAt))
+                            {
+                                consoleDowns.Remove(m.Id);
+                                d.Console = now - cAt <= ConsoleDownSeconds;
+                            }
                             seenDowns++;
                             // the U2+U4 integration fix: Bond's "down", unless 0-XNPCCore's hook (Voice Control's bridge) gave it
                             ScBond.NoteDowned(m.Id, "went down", false, now);
@@ -526,6 +546,15 @@ namespace SurvivorCommunity
             m.AwaySeconds = 0;
             revived++;
             if (by != null) revivedByMedic++;
+            // round hr1 (the user's decision 7): a console "sc down" test's revive opens no re-down window - 0-XNPCCore's clock is set
+            // back to 0 the way it sets it (synced to the clients); a real down keeps its window
+            if (d.Console && d.Body != null && d.Body.Buffs != null && d.Body.GetCVar(RedownCvar) > 0f)
+            {
+                d.Body.Buffs.SetCustomVar(RedownCvar, 0f, true, CVarOperation.set, true);
+                redownCleared++;
+                Patches_Xnpc.Count("downed-redown-cleared");
+                ScLog.Out(m.Name + "'s re-down window is cleared: that down was a console \"sc down\" test (a real down keeps 0-XNPCCore's window; round hr1)");
+            }
             // round nc1 (the user's decision D3: keep 0-XNPCCore's re-down window, but warn): a revive starts it - going down again
             // while it runs is a real death (DownedRules.EnterVerdict) - so the message says so, with what is left of it
             float fragile = FragileSeconds(d.Body);
@@ -881,9 +910,15 @@ namespace SurvivorCommunity
                 if (e == null || e.IsDead()) { output("[SC] " + t.Name + " is not loaded"); return; }
                 if (!ScCommunity.IsHost) { output("[SC] host only"); return; }
                 string r;
+                bool wasDown = IsDown(e);                // round hr1: a test's down is marked only when it really knocked her down
                 try { r = sub == "down" ? Api.Enter(e) : Api.Revive(e, "the console"); }
                 catch (Exception ex) { output("[SC] 0-XNPCCore's downed state is not there (" + ex.GetType().Name + ") - 3.4.06 or later is needed"); return; }
                 output("[SC] 0-XNPCCore: " + r);
+                if (sub == "down" && !wasDown && IsDown(e))
+                {
+                    consoleDowns[t.Id] = Time.time;
+                    output("[SC] a test down: " + t.Name + "'s revive (by you, a medic or sc revive) opens no re-down window (round hr1)");
+                }
                 return;
             }
             if (p.Count > 1)
@@ -897,14 +932,23 @@ namespace SurvivorCommunity
             output("[SC] settings: " + ScConfig.DownedLine());
             output("[SC] 0-XNPCCore: revive items " + Api.ReviveItemsText() + "; the 1 Hz tick counts the bleed only while a leader is present - SC's swap adds the "
                    + "community's own people while you are alive");
-            output("[SC] counters: downs " + seenDowns + ", back up " + revived + " (by a resident medic " + revivedByMedic + "), bled out " + bledOut
+            output("[SC] counters: downs " + seenDowns + ", back up " + revived + " (by a resident medic " + revivedByMedic + "), re-down windows cleared after a console test " + redownCleared + " (round hr1), bled out " + bledOut
                    + ", unloaded while down " + unloaded + " (kept down on the reload " + rebound + ")" + "; medics sent " + medicsSent + ", let go " + medicsLetGo + ", treatments " + treatments
                    + ", fights on the way " + fights + ", nobody to send " + noMedic + "; held: stationings " + stationsDeferred + ", shift/talk ticks " + shiftsHeld
                    + ", verbs refused " + verbsRefused + ", busy flag put back " + busyRestored + ", 0 health raised " + zeroHealthFixed + "; swaps: home eligible " + Patches_Downed.EligibleHome + ", home bleed ticks " + Patches_Downed.BleedHome
                    + ", tells (down " + Patches_Downed.TellsDown + ", warnings to you " + Patches_Downed.TellsHome + ")");
-            int n = 0;
-            foreach (Member m in ScRegistry.Members.Values) { Lines(m, output, false); n++; }
-            output("[SC] " + n + " member(s); sc downed <name> for one in full, sc down <name> / sc revive <name> to test");
+            int n = 0, nDown = 0, nFragile = 0;
+            foreach (Member m in ScRegistry.Members.Values)
+            {
+                Lines(m, output, false);
+                n++;
+                EntityAlive me = ScCommunity.FindNpc(m.Id);              // round hr1: the down and fragile counts
+                if (me == null || me.IsDead()) continue;
+                if (IsDown(me)) nDown++;
+                else if (FragileSeconds(me) > 0f) nFragile++;
+            }
+            output("[SC] " + n + " member(s), " + nDown + " DOWN, " + nFragile + " FRAGILE (a second down is a real death); sc downed <name> for one in full, sc down <name> / sc revive <name> to test"
+                   + " (a test down's revive opens no re-down window: round hr1)");
         }
 
         private static void Lines(Member m, Action<string> output, bool full)
@@ -928,7 +972,11 @@ namespace SurvivorCommunity
                     if (d.MedicId >= 0) sb.Append(", medic ").Append(d.MedicName).Append(d.Treating ? " treating (try " + d.Begins + ")" : " on the way");
                     else if (d.Home) sb.Append(d.ToldNoMedic ? ", nobody can come" : ", no medic yet");
                     if (d.Failed.Count > 0) sb.Append(", medics who could not: ").Append(d.Failed.Count);
+                    if (d.Console) sb.Append(", a console test (its revive opens no re-down window)");     // round hr1
                 }
+                // round hr1: who can revive her
+                sb.Append("; revive: any player (E, or ").Append(Api.ReviveItemsText()).Append(")")
+                  .Append(ScConfig.ResidentMedicsRevive ? ", or a resident medic (Medicine) at home carrying one" : "").Append(", or sc revive");
             }
             else
             {
@@ -940,7 +988,7 @@ namespace SurvivorCommunity
                 sb.Append("up, health ").Append(e.Health).Append('/').Append(e.GetMaxHealth()).Append("; a killing hit downs her: ").Append(how);
                 float grace = e.GetCVar("SdcsDownedGrace"), redown = e.GetCVar("SdcsDownedRedown");
                 if (grace > 0f) sb.Append("; grace ").Append(Secs(grace)).Append(" (invulnerable)");
-                if (redown > 0f) sb.Append("; a second down within ").Append(Secs(redown)).Append(" is a real death");
+                if (redown > 0f) sb.Append("; FRAGILE: a second down within ").Append(Secs(redown)).Append(" is a real death, nobody can revive it (0-XNPCCore's re-down window; round hr1)");
             }
             if (m.Specialty == Specialty.Medicine && (full || !down))
             {

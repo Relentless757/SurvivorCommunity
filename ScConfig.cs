@@ -1231,8 +1231,11 @@ namespace SurvivorCommunity
         public static bool RegenOutOfCombat = true;
         /// <summary>Health per second (0-XNPCCore's own level regeneration, its Settings.xml Progression/HealthRegenPerSecond).</summary>
         public static float RegenRatePerSecond = 0.2f;
-        /// <summary>The regeneration stops at this share of her max health; above it only items heal.</summary>
-        public static float RegenCapShare = 0.6f;
+        /// <summary>
+        /// The regeneration stops at this share of her max health; above it only items heal. Round hr1 (the user's decision 8): 0.7,
+        /// was 0.6 - equal to ScMedic.HealBelow, so every fight began with a heal due.
+        /// </summary>
+        public static float RegenCapShare = 0.7f;
         /// <summary>No regeneration while an awake enemy within this many meters of her is after her or can see her.</summary>
         public static float RegenEnemyRadius = 30f;
         /// <summary>
@@ -1578,7 +1581,7 @@ namespace SurvivorCommunity
             ScHealBackOff.Reset();                 // round k2b: the per-world back-off-to-heal state
             RegenOutOfCombat = true;
             RegenRatePerSecond = 0.2f;
-            RegenCapShare = 0.6f;
+            RegenCapShare = 0.7f;                  // round hr1 (decision 8): was 0.6, the heal line
             RegenEnemyRadius = 30f;
             RegenNearRadius = 12f;
             Overwhelmed = true;
@@ -3435,6 +3438,10 @@ namespace SurvivorCommunity
                       + F2(MedicSafeDistance + ScHealBackOff.ClearMargin) + " m, then uses it; with no room to back off she fights on above "
                       + MedsPct(CorneredHealBelow) + " (CorneredHealBelow, round nc1) and uses it at once below; sheltering, on watch or told to stay, at once;"
                       + " when it keeps up with her (the gap not 1 m larger in 2 s), or after " + F2(MedicMaxWait) + " s held without getting clear, anyway (HealBackOff, round k2b)"
+                      // round hr1: the heal order at home
+                      + "; at home (round hr1): in a safe room at once, else a straight step back, a room within 30 m, a flight point 8-20 m off, 0-XNPCCore's"
+                      + " roll, then the cornered rules / the last stand; MedicMaxWait from the first walk's start (its path over her run + 2 s, at most 12 s);"
+                      + " never a heal with an enemy within 2.5 m that sees her while she has a usable weapon; a use lasts 1.5 s"
                     : "no medical use while an enemy after her is within " + F2(MedicSafeDistance) + " m (after " + F2(MedicMaxWait) + " s under 25% health she uses it anyway)";
             string regen = RegenOutOfCombat && RegenRatePerSecond > 0f && RegenCapShare > 0f
                 ? "regeneration out of combat " + RegenRatePerSecond.ToString("0.###", CultureInfo.InvariantCulture) + " HP/s up to " + MedsPct(RegenCapShare)

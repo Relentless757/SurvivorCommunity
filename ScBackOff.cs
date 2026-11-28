@@ -224,7 +224,8 @@ namespace SurvivorCommunity
         {
             if (self == null || target == null) return false;
             if (TargetNoPoint(self, target)) return true;
-            return InBeat(self) && !(reloadPass && Reloading(self));
+            // round hr1: in a last stand no reload pass - its beat is the member's, one probe every StandBackOffSeconds
+            return InBeat(self) && !(reloadPass && Reloading(self) && !ScPosture.InStand(self));
         }
 
         /// <summary>
@@ -691,6 +692,14 @@ namespace SurvivorCommunity
         private static void MarkNoPoint(EntityAlive self, EntityAlive t, string why, float now, Last l)
         {
             noPointUntil[Key(self.entityId, t.entityId)] = now + ScConfig.BackOffNoPointSeconds;
+            // round hr1 (the last stand): "no point" is the member's for StandBackOffSeconds - one probe every 4 s, not one per target
+            // (Nora's back-off cycled 704, 706, 704 and the shot got only the gaps)
+            if (ScPosture.InStand(self))
+            {
+                noPointUntil[Key(self.entityId, t.entityId)] = now + ScPosture.StandBackOffSeconds;
+                HandToShot(self, t, ScPosture.StandBackOffSeconds);
+                Patches_Xnpc.Count("backoff-stand-no-point");
+            }
             noPoint++;
             Patches_Xnpc.Count("backoff-no-point");
             l.NoPointStreak = now - l.NoPointAt <= StreakSeconds ? l.NoPointStreak + 1 : 1;
@@ -706,7 +715,8 @@ namespace SurvivorCommunity
             if (now < l.NextLog) return;
             l.NextLog = now + LogSeconds;
             ScLog.Verbose(ScRetreat.Name(self) + " has no point " + (UAI.UAIConsiderationScNotHomeMember.AtHome(self.position) ? "inside the base" : "near you") + " to back off to from " + Who(t) + " (" + why + ") - the shot takes over for "
-                          + ScConfig.BackOffNoPointSeconds.ToString("0.#", CultureInfo.InvariantCulture) + " s (round k1)");
+                          + (ScPosture.InStand(self) ? ScPosture.StandBackOffSeconds.ToString("0.#", CultureInfo.InvariantCulture) + " s against every enemy (her last stand, round hr1)"
+                             : ScConfig.BackOffNoPointSeconds.ToString("0.#", CultureInfo.InvariantCulture) + " s") + " (round k1)");
         }
 
         /// <summary>A task that is done the moment it starts: SCore's updateAction resets it, and the next decision moves on.</summary>
@@ -780,6 +790,7 @@ namespace SurvivorCommunity
             float gap = ScRunners.XZ(self.position, t.position);
             if (!inBand && gap >= l.GapAtStart + GainNeed) return true;
             float secs = ScConfig.StandOffShootSeconds > 0f ? ScConfig.StandOffShootSeconds : ScConfig.BackOffNoPointSeconds;
+            if (ScPosture.InStand(self)) secs = Mathf.Max(secs, ScPosture.StandBackOffSeconds);     // round hr1: the stand's member-wide 4 s
             HandToShot(self, t, secs);
             noGain++;
             Patches_Xnpc.Count("backoff-no-gain");

@@ -53,6 +53,22 @@ namespace SurvivorCommunity
             public byte Source;
             /// <summary>The Fable review (finding 7): a door within DoorClear of it (NearDoor).</summary>
             public bool NearDoor;
+            /// <summary>
+            /// Round hr1: the enclosable room it stands in (this scan's room id, 1 and up - RoomInfo), -1 none (the fill with doors as
+            /// walls leaked: open sky, too big, outside the base), 0 not checked yet (or kept from an unloaded chunk).
+            /// </summary>
+            public int Room;
+        }
+
+        /// <summary>
+        /// Round hr1: one enclosable room of a scan - ScSafeRoom's fill from a candidate with every door and hatch as a wall stayed
+        /// inside MaxCells cells, the base and under a roof - its cell count and its doors (parent cells; their live state is read
+        /// at a pick: shut, the room is enclosed now).
+        /// </summary>
+        private sealed class RoomInfo
+        {
+            public int Id, Cells;
+            public List<Vector3i> Doors;
         }
 
         private struct Seed
@@ -87,6 +103,14 @@ namespace SurvivorCommunity
         /// </summary>
         private const float DoorClear = 2.5f;
         private const float DoorPenalty = 100f;
+        /// <summary>Round hr1: an enclosable room's spot scores this much better (lower) in the shelter pick...</summary>
+        private const float RoomBonus = 8f;
+        /// <summary>...and this much worse for each of its doors standing open now beyond the one she shuts behind her.</summary>
+        private const float OpenDoorPenalty = 3f;
+        /// <summary>Round hr1: the scan's room pass fills at most this many rooms a frame (one fill: at most about 3,000 block reads).</summary>
+        private const int RoomFillsPerFrame = 1;
+        /// <summary>Round hr1: the room pass looks at most this many candidates a frame (a candidate inside a room already filled costs one lookup).</summary>
+        private const int RoomLooksPerFrame = 200;
 
         /// <summary>
         /// Round MP6 (part H): one home's shelter cache - its candidates, the scan in progress and its clocks and figures. One per
@@ -106,6 +130,16 @@ namespace SurvivorCommunity
             public int SeedsTotal, LastSeeds, Frames, LastFrames, Scans;
             public double ScanMs, LastMs;
             public readonly int[] BySource = new int[6];
+            /// <summary>
+            /// Round hr1: the enclosable rooms of the last finished scan and of the scan in progress, the scan's cell -> room map (-1:
+            /// a cell a leaking fill passed - no second fill for a candidate in the same space), its room pass (after the seeds) and
+            /// where it is, the next room id and the fills it made.
+            /// </summary>
+            public Dictionary<int, RoomInfo> Rooms = new Dictionary<int, RoomInfo>();
+            public Dictionary<int, RoomInfo> NextRooms = new Dictionary<int, RoomInfo>();
+            public readonly Dictionary<Vector3i, int> RoomOf = new Dictionary<Vector3i, int>();
+            public bool RoomPass;
+            public int RoomIndex, NextRoomId = 1, RoomFills, LastRoomFills;
         }
         private static readonly ScHomeState<ShelterState> homes = new ScHomeState<ShelterState>();
 
@@ -140,6 +174,12 @@ namespace SurvivorCommunity
         private static double scanMs { get { return homes.Current.ScanMs; } set { homes.Current.ScanMs = value; } }
         private static double lastMs { get { return homes.Current.LastMs; } set { homes.Current.LastMs = value; } }
         private static int[] bySource { get { return homes.Current.BySource; } }
+        // round hr1: the room ids and door lists (one row per community, as above)
+        private static Dictionary<int, RoomInfo> rooms { get { return homes.Current.Rooms; } set { homes.Current.Rooms = value; } }
+        private static Dictionary<int, RoomInfo> nextRooms { get { return homes.Current.NextRooms; } set { homes.Current.NextRooms = value; } }
+        private static Dictionary<Vector3i, int> roomOf { get { return homes.Current.RoomOf; } }
+        private static readonly HashSet<Vector3i> roomCells = new HashSet<Vector3i>();
+        private static readonly Dictionary<int, int> openDoorsOf = new Dictionary<int, int>();
 
         public static void Reset()
         {
@@ -197,10 +237,12 @@ namespace SurvivorCommunity
                 sw.Reset();
                 sw.Start();
                 for (int i = 0; i < PerFrame && queue.Count > 0; i++) Evaluate(w, queue.Dequeue());
+                // round hr1: after the seeds, the room pass (a room id and door list for each candidate), then the scan is done
+                bool done = queue.Count == 0 && RoomStep(w);
                 sw.Stop();
                 scanMs += sw.Elapsed.TotalMilliseconds;
                 frames++;
-                if (queue.Count == 0) Finish(w, now);
+                if (done) Finish(w, now);
             }
             catch (Exception e)
             {
@@ -233,6 +275,13 @@ namespace SurvivorCommunity
             seedsTotal = 0;
             frames = 0;
             scanMs = 0;
+            // round hr1: the room pass starts afresh
+            homes.Current.RoomPass = false;
+            homes.Current.RoomIndex = 0;
+            homes.Current.NextRoomId = 1;
+            homes.Current.RoomFills = 0;
+            nextRooms = new Dictionary<int, RoomInfo>();
+            roomOf.Clear();
             // 1. beds and work stations (ScScan's last counts): the 8 columns round each, at its level
             var beds = new List<Vector3i>();
             var stations = new List<Vector3i>();
@@ -279,7 +328,87 @@ namespace SurvivorCommunity
             if (!ScCommunity.GoodPost(w, cell, false, out why)) return;
             int walls = Walls(w, cell);
             if (walls < Math.Max(1, ScConfig.ShelterWalls - 1) || next.Count >= MaxCands) return;   // too open even for the fallback
-            next.Add(new Cand { Cell = cell, Roofed = Roofed(w, cell), Walls = (byte)walls, Source = s.Source, NearDoor = NearDoor(w, cell) });
+            next.Add(new Cand { Cell = cell, Roofed = Roofed(w, cell), Walls = (byte)walls, Source = s.Source, NearDoor = NearDoor(w, cell) });   // round hr1: Room 0, the room pass fills it in
+        }
+
+        /// <summary>
+        /// Round hr1: the scan's room pass, after its seeds - each candidate gets the enclosable room it stands in (ScSafeRoom's fill
+        /// with every door and hatch as a wall: at most MaxCells cells, inside the base, no open sky), a candidate in a space a fill
+        /// already passed gets that fill's answer without a fill of its own, one with no roof none at all. At most RoomFillsPerFrame
+        /// fills and RoomLooksPerFrame candidates a frame. True once every candidate has its answer.
+        /// </summary>
+        private static bool RoomStep(World w)
+        {
+            ShelterState hs = homes.Current;
+            hs.RoomPass = true;
+            int fills = 0, looks = 0;
+            while (hs.RoomIndex < next.Count && looks < RoomLooksPerFrame)
+            {
+                Cand c = next[hs.RoomIndex];
+                looks++;
+                if (c.Room == 0)
+                {
+                    int id;
+                    if (!c.Roofed) c.Room = -1;                                  // nothing over it: open sky, no room
+                    else if (roomOf.TryGetValue(c.Cell, out id)) c.Room = id;
+                    else
+                    {
+                        if (fills >= RoomFillsPerFrame) break;                     // the next frame's
+                        fills++;
+                        c.Room = FillRoom(w, c.Cell);
+                    }
+                    next[hs.RoomIndex] = c;
+                }
+                hs.RoomIndex++;
+            }
+            return hs.RoomIndex >= next.Count;
+        }
+
+        /// <summary>Round hr1: one room fill from a candidate's cell (doors as walls); every cell it passed is mapped to its answer. The room id, or -1.</summary>
+        private static int FillRoom(World w, Vector3i cell)
+        {
+            ShelterState hs = homes.Current;
+            var doors = new List<Vector3i>();
+            ScSafeRoom.FillResult f = ScSafeRoom.FillFrom(w, cell, true, roomCells, doors);
+            hs.RoomFills++;
+            int id = -1;
+            if (f.Enclosed)
+            {
+                id = hs.NextRoomId++;
+                nextRooms[id] = new RoomInfo { Id = id, Cells = f.Cells, Doors = doors };
+            }
+            foreach (Vector3i c in roomCells) roomOf[c] = id;
+            roomCells.Clear();
+            return id;
+        }
+
+        /// <summary>Round hr1: how many of this room's doors stand open now (a door's live state; cached for one pick, openDoorsOf).</summary>
+        private static int OpenDoors(World w, int roomId)
+        {
+            int n;
+            if (openDoorsOf.TryGetValue(roomId, out n)) return n;
+            n = 0;
+            RoomInfo ri;
+            if (rooms.TryGetValue(roomId, out ri) && ri.Doors != null)
+            {
+                for (int i = 0; i < ri.Doors.Count; i++)
+                {
+                    BlockValue bv = w.GetBlock(ri.Doors[i]);
+                    Block b = bv.isair ? null : bv.Block;
+                    if (b != null && !b.IsMovementBlocked(w, ri.Doors[i], bv, BlockFace.None)) n++;
+                }
+            }
+            openDoorsOf[roomId] = n;
+            return n;
+        }
+
+        /// <summary>Round hr1: a candidate's room in a few words for a pick's note ("" with none).</summary>
+        private static string RoomText(World w, Cand c)
+        {
+            RoomInfo ri;
+            if (c.Room < 1 || !rooms.TryGetValue(c.Room, out ri)) return "";
+            int open = OpenDoors(w, c.Room);
+            return ", an enclosable room (" + ri.Cells + " cells, " + (ri.Doors != null ? ri.Doors.Count : 0) + " door(s)" + (open > 0 ? ", " + open + " open now" : ", all shut") + ")";
         }
 
         private static void Finish(World w, float now)
@@ -288,12 +417,18 @@ namespace SurvivorCommunity
             for (int i = 0; i < cands.Count && next.Count < MaxCands; i++)
             {
                 Cand c = cands[i];
-                if (!nextCells.Contains(c.Cell) && w.GetChunkSync(World.toChunkXZ(c.Cell.x), World.toChunkXZ(c.Cell.z)) == null) next.Add(c);
+                if (!nextCells.Contains(c.Cell) && w.GetChunkSync(World.toChunkXZ(c.Cell.x), World.toChunkXZ(c.Cell.z)) == null) { c.Room = 0; next.Add(c); }   // round hr1: its old room id means nothing in this scan
             }
             cands = next;
             next = new List<Cand>();
             nextCells.Clear();
             queued.Clear();
+            // round hr1: this scan's rooms (a candidate kept from an unloaded chunk had the last scan's room id: not checked again)
+            rooms = nextRooms;
+            nextRooms = new Dictionary<int, RoomInfo>();
+            roomOf.Clear();
+            homes.Current.LastRoomFills = homes.Current.RoomFills;
+            homes.Current.RoomPass = false;
             scanning = false;
             lastDone = now;
             nextScan = now + ScConfig.ShelterRescanSeconds;
@@ -302,14 +437,15 @@ namespace SurvivorCommunity
             lastFrames = frames;
             scans++;
             Array.Clear(bySource, 0, bySource.Length);
-            int rooms = 0;
+            int roomsN = 0;                                  // round hr1: renamed (rooms is the room table now)
             for (int i = 0; i < cands.Count; i++)
             {
                 bySource[cands[i].Source]++;
-                if (cands[i].Roofed && cands[i].Walls >= ScConfig.ShelterWalls) rooms++;
+                if (cands[i].Roofed && cands[i].Walls >= ScConfig.ShelterWalls) roomsN++;
             }
-            ScLog.Verbose("shelter scan: " + cands.Count + " candidate(s), " + rooms + " roofed with " + ScConfig.ShelterWalls + "+ walls, from " + lastSeeds + " seeds in "
-                          + lastMs.ToString("0.0", CultureInfo.InvariantCulture) + " ms over " + lastFrames + " frames (" + (now - started).ToString("0.0", CultureInfo.InvariantCulture) + " s)");
+            ScLog.Verbose("shelter scan: " + cands.Count + " candidate(s), " + roomsN + " roofed with " + ScConfig.ShelterWalls + "+ walls, from " + lastSeeds + " seeds in "
+                          + lastMs.ToString("0.0", CultureInfo.InvariantCulture) + " ms over " + lastFrames + " frames (" + (now - started).ToString("0.0", CultureInfo.InvariantCulture) + " s); "
+                          + rooms.Count + " enclosable room(s) from " + homes.Current.LastRoomFills + " fill(s) (round hr1)");
         }
 
         /// <summary>
@@ -467,6 +603,7 @@ namespace SurvivorCommunity
         private static bool BestCand(EntityAlive self, World w, Vector3 me, Vector3 threat, bool hasThreat, List<Vector3i> bad, bool needRoof, int minWalls, ref PickResult r)
         {
             var scored = new List<KeyValuePair<float, Cand>>();
+            openDoorsOf.Clear();                                   // round hr1: the doors' live state, read once per room per pick
             for (int i = 0; i < cands.Count; i++)
             {
                 Cand c = cands[i];
@@ -479,6 +616,9 @@ namespace SurvivorCommunity
                 if (EnemyNear(p, SpotEnemyClear) || Near(others, p, ReserveRadius)) continue;
                 float score = 3f * (8 - c.Walls) + (c.Roofed ? 0f : 20f) + walk - (hasThreat ? 0.5f * Mathf.Min(ScRunners.XZ(threat, p), 30f) : 0f)
                               - (Near(others, p, CompanyRadius) ? 2f : 0f) + (c.NearDoor ? DoorPenalty : 0f);
+                // round hr1: an enclosable room first (its doors shut, it is a safe room once nothing is inside), the fewer of its doors
+                // stand open now the better (she shuts the one she passes)
+                if (c.Room >= 1) score += -RoomBonus + OpenDoorPenalty * Mathf.Max(0, OpenDoors(w, c.Room) - 1);
                 scored.Add(new KeyValuePair<float, Cand>(score, c));
             }
             if (scored.Count == 0) return false;
@@ -495,9 +635,78 @@ namespace SurvivorCommunity
                 r.Source = SrcNames[c.Source];
                 r.Note = (c.Roofed ? "a room" : "a walled spot") + " " + SrcNames[c.Source] + " (" + c.Walls + " of 8 walls" + (c.Roofed ? ", roofed" : ", no roof")
                          + (c.NearDoor ? ", BESIDE A DOOR (no other was valid)" : "")
-                         + (hasThreat ? ", " + ScRunners.XZ(threat, r.Spot).ToString("0", CultureInfo.InvariantCulture) + " m from the threat" : "") + ")";
+                         + (hasThreat ? ", " + ScRunners.XZ(threat, r.Spot).ToString("0", CultureInfo.InvariantCulture) + " m from the threat" : "")
+                         + RoomText(w, c) + ")";                     // round hr1: its room
                 return true;
             }
+            return false;
+        }
+
+        /// <summary>
+        /// Round hr1 (step 3 of the heal order, ScHealBackOff): the spot for a hurt member's walk INTO an enclosable room within
+        /// maxWalk (XZ) - a candidate of the last scan in a room (Room 1 and up), at least DoorClear from every door (NearDoor: she
+        /// would hold a door open beside her), inside the base, not one she failed to reach this wait (bad, within 1.2 m), no enemy
+        /// within 4 m of it, not another's shelter spot, and a straight walk that never takes her nearer the threat than she is now
+        /// (PassClear at most). Best: the shortest walk, more walls, fewer open doors, farther from the threat. False with why. The
+        /// shelter task's spots and the shelter retreat are not touched. Main thread, a read.
+        /// </summary>
+        public static bool PickRoom(EntityAlive self, EntityAlive threat, float maxWalk, List<Vector3> bad, out Vector3 spot, out string note)
+        {
+            using (ScHomeScope.Of(self)) return PickRoomIn(self, threat, maxWalk, bad, out spot, out note);     // her own community's cache and zone
+        }
+
+        private static bool PickRoomIn(EntityAlive self, EntityAlive threat, float maxWalk, List<Vector3> bad, out Vector3 spot, out string note)
+        {
+            spot = Vector3.zero;
+            note = null;
+            World w = self != null ? self.world : null;
+            if (w == null) { note = "no world"; return false; }
+            if (scans == 0) { note = "the shelter scan has not run yet"; return false; }
+            Vector3 me = self.position;
+            Vector3 tp = threat != null ? threat.position : me;
+            float meFromThreat = threat != null ? ScRunners.XZ(me, tp) : 0f;
+            Gather(self, me, maxWalk + 6f);
+            openDoorsOf.Clear();
+            var scored = new List<KeyValuePair<float, Cand>>();
+            int inRooms = 0;
+            string lastWhy = "no candidate of the shelter scan stands in an enclosable room";
+            for (int i = 0; i < cands.Count; i++)
+            {
+                Cand c = cands[i];
+                if (c.Room < 1) continue;
+                inRooms++;
+                Vector3 p = new Vector3(c.Cell.x + 0.5f, c.Cell.y, c.Cell.z + 0.5f);
+                float walk = ScRunners.XZ(me, p);
+                if (walk > maxWalk) { lastWhy = "every room is farther than " + maxWalk.ToString("0", CultureInfo.InvariantCulture) + " m"; continue; }
+                if (c.NearDoor) { lastWhy = "a spot within " + DoorClear.ToString("0.#", CultureInfo.InvariantCulture) + " m of a door"; continue; }
+                if (!UAI.UAIConsiderationScNotHomeMember.AtHome(p)) { lastWhy = "outside the base"; continue; }
+                if (bad != null && NearAny(bad, p, 1.2f)) { lastWhy = "a room " + ScRetreat.She(self) + " already tried"; continue; }
+                if (threat != null && ScRunners.PassDistance(me, p, tp) < Mathf.Min(PassClear, meFromThreat - 0.25f)) { lastWhy = "the walk passes the threat"; continue; }
+                if (EnemyNear(p, 4f)) { lastWhy = "an enemy within 4 m of it"; continue; }
+                if (Near(others, p, ReserveRadius)) { lastWhy = "another member's spot"; continue; }
+                float score = walk + 3f * (8 - c.Walls) + OpenDoorPenalty * Mathf.Max(0, OpenDoors(w, c.Room) - 1)
+                              - (threat != null ? 0.3f * Mathf.Min(ScRunners.XZ(tp, p), 30f) : 0f);
+                scored.Add(new KeyValuePair<float, Cand>(score, c));
+            }
+            if (scored.Count == 0) { note = inRooms == 0 ? lastWhy : lastWhy + " (" + inRooms + " spot(s) in rooms looked at)"; return false; }
+            scored.Sort((a, b) => a.Key.CompareTo(b.Key));
+            for (int i = 0; i < scored.Count && i < 8; i++)
+            {
+                Cand c = scored[i].Value;
+                string why;
+                if (ScStuck.Unreachable(self.entityId, c.Cell) || !ScCommunity.GoodPost(w, c.Cell, false, out why)) { lastWhy = "not standable now"; continue; }
+                spot = new Vector3(c.Cell.x + 0.5f, c.Cell.y, c.Cell.z + 0.5f);
+                note = "a room " + SrcNames[c.Source] + " at " + c.Cell.x + " " + c.Cell.y + " " + c.Cell.z + ", " + ScRunners.XZ(me, spot).ToString("0", CultureInfo.InvariantCulture) + " m off ("
+                       + c.Walls + " of 8 walls" + RoomText(w, c) + (threat != null ? ", " + ScRunners.XZ(tp, spot).ToString("0", CultureInfo.InvariantCulture) + " m from the threat" : "") + ")";
+                return true;
+            }
+            note = lastWhy;
+            return false;
+        }
+
+        private static bool NearAny(List<Vector3> list, Vector3 p, float r)
+        {
+            for (int i = 0; i < list.Count; i++) if (ScRunners.XZ(list[i], p) <= r && Mathf.Abs(list[i].y - p.y) < 1.5f) return true;
             return false;
         }
 
@@ -607,15 +816,18 @@ namespace SurvivorCommunity
         /// <summary>The cache in one line (sc retreat, the fallback log line).</summary>
         public static string Summary()
         {
-            int rooms = 0, walled = 0;
+            int roomsN = 0, walled = 0;                               // round hr1: renamed (rooms is the room table now)
             for (int i = 0; i < cands.Count; i++)
             {
-                if (cands[i].Roofed && cands[i].Walls >= ScConfig.ShelterWalls) rooms++;
+                if (cands[i].Roofed && cands[i].Walls >= ScConfig.ShelterWalls) roomsN++;
                 else walled++;
             }
             float now = Time.unscaledTime;
             if (!ScConfig.RetreatHome) return "off (RetreatHome false: no shelter scan)";
-            string s = cands.Count + " shelter candidate(s): " + rooms + " roofed with " + ScConfig.ShelterWalls + "+ walls, " + walled + " walled or open-topped";
+            int inRooms = 0;                                          // round hr1: candidates in an enclosable room
+            for (int i = 0; i < cands.Count; i++) if (cands[i].Room >= 1) inRooms++;
+            string s = cands.Count + " shelter candidate(s): " + roomsN + " roofed with " + ScConfig.ShelterWalls + "+ walls, " + walled + " walled or open-topped; "
+                       + homes.Current.Rooms.Count + " enclosable room(s) (doors as walls), " + inRooms + " candidate(s) in one (round hr1)";
             if (scans == 0) s += scanning ? ", the first scan is running" : ", not scanned yet (the home must be loaded)";
             else s += ", last scan " + (now - lastDone).ToString("0", CultureInfo.InvariantCulture) + " s ago (" + lastSeeds + " seeds, " + lastMs.ToString("0.0", CultureInfo.InvariantCulture) + " ms over "
                       + lastFrames + " frames)" + (scanning ? ", a scan is running (" + queue.Count + " seeds left)" : ", next in " + Mathf.Max(0f, nextScan - now).ToString("0", CultureInfo.InvariantCulture) + " s");
@@ -639,6 +851,7 @@ namespace SurvivorCommunity
                 return ScRunners.XZ(at, a.Cell).CompareTo(ScRunners.XZ(at, b.Cell));
             });
             World w = ScCommunity.World;
+            openDoorsOf.Clear();                                      // round hr1: the doors' live state now
             for (int i = 0; i < sorted.Count && i < n; i++)
             {
                 Cand c = sorted[i];
@@ -646,6 +859,7 @@ namespace SurvivorCommunity
                 bool ok = w == null || ScCommunity.GoodPost(w, c.Cell, false, out why);
                 lines.Add("[SC]   " + c.Cell.x + " " + c.Cell.y + " " + c.Cell.z + ": " + (c.Roofed ? "roofed" : "NO ROOF") + ", " + c.Walls + " of 8 walls, " + SrcNames[c.Source]
                           + (c.NearDoor ? ", beside a door (taken last)" : "")
+                          + (w != null && c.Room >= 1 ? RoomText(w, c) + " #" + c.Room : c.Room < 0 ? ", no enclosable room" : "")     // round hr1
                           + (lp != null ? ", " + ScRunners.XZ(at, c.Cell).ToString("0", CultureInfo.InvariantCulture) + " m from you" : "") + (ok ? "" : " - NOT STANDABLE NOW (" + why + ")"));
             }
             if (sorted.Count > n) lines.Add("[SC]   ... " + (sorted.Count - n) + " more (sc retreat shelters <n>)");

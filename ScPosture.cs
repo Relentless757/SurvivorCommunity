@@ -115,6 +115,16 @@ namespace SurvivorCommunity
             public readonly Dictionary<int, Refusal> Refused = new Dictionary<int, Refusal>();
             /// <summary>Seconds spent in each posture this session (sc xnpc).</summary>
             public readonly float[] Seconds = new float[6];
+            /// <summary>
+            /// Round hr1: the last stand - on since StandSince, its weapon class (ScArms.StandClose / StandSlow / StandNoGun) and why;
+            /// since when its conditions have not held (StandOffSince, the leave's hysteresis); the enemies after her within
+            /// StandRadius at the last tick (StandReach: one at least - the commit clock's "an enemy in reach"); its swaps and the
+            /// stands this session.
+            /// </summary>
+            public bool Stand, StandReach;
+            public float StandSince, StandOffSince;
+            public int StandClass, StandSwaps, StandHeld, Stands;
+            public string StandWhy = "", StandGun = "";
         }
 
         /// <summary>One member's posture as the hand rule reads it.</summary>
@@ -125,7 +135,23 @@ namespace SurvivorCommunity
             /// <summary>A switch of stance waits for the dwell: the hand rule makes no swap meanwhile (it would only be undone).</summary>
             public bool Waiting;
             public int TargetId;
+            /// <summary>Round hr1: the last stand is on (since StandSince; StandClass: ScArms' weapon class) - ScArms.StandHand owns her hand.</summary>
+            public bool Stand;
+            public float StandSince;
+            public int StandClass;
         }
+
+        /// <summary>Round hr1: the last stand needs this many enemies after her within StandRadius (or overwhelmed).</summary>
+        private const int StandMin = 2;
+        private const float StandRadius = 3f;
+        /// <summary>Round hr1: a stand whose conditions have not held for this long ends (hysteresis); not at home or no fight ends it at once.</summary>
+        private const float StandLeaveSeconds = 1.5f;
+        /// <summary>Round hr1: in a stand both of 0-XNPCCore's back-offs are off member-wide this long at a time (one probe every 4 s).</summary>
+        internal const float StandBackOffSeconds = 4f;
+        /// <summary>Round hr1: in a stand no hand swap for this long while an enemy is in reach (the hand clock's own hold, longer).</summary>
+        internal const float StandCommitSeconds = 6f;
+        private static int stands;
+        private static readonly List<Entity> standNear = new List<Entity>();
 
         private static readonly Dictionary<int, State> states = new Dictionary<int, State>();
         private static readonly int[] entered = new int[6];
@@ -139,6 +165,8 @@ namespace SurvivorCommunity
             states.Clear();
             Array.Clear(entered, 0, entered.Length);
             swaps = urgentSwaps = flips = held = refusals = lapses = 0;
+            stands = 0;                                // round hr1
+            standNear.Clear();
             nextPrune = 0f;
         }
 
@@ -191,6 +219,8 @@ namespace SurvivorCommunity
                 bool kiting, soft, native, urgent, urgentGun;
                 EntityAlive t;
                 Posture want = Want(e, m, st, out why, out kiting, out soft, out native, out urgent, out urgentGun, out t);
+                // round hr1: the last stand (at home, two or more on her, no room to heal) - before the holds below, which may return
+                UpdateStand(e, st, want, t, now);
                 // round nc1 (the audit, item 11: the posture flickered to none and back in a fight): a fight posture whose target
                 // vanished from ScTeam.Target for a moment is held TargetLapseSeconds on its last target while that one lives - the
                 // posture, its stance and its target stay as they are (and fresh); only then does "no fight" take over
@@ -360,6 +390,158 @@ namespace SurvivorCommunity
             return null;
         }
 
+        /// <summary>
+        /// Round hr1 (research/combat/HR1_DESIGN.md, "Last stand"; Nora died at home with a crossbow and a sledge, seven zombies on
+        /// her, without one swing): the last stand's state, from the X5 tick (in her community's scope). On: at home (round hl1's
+        /// AtHome), in a fight posture or sheltering, StandMin or more enemies after her within StandRadius (or overwhelmed), and
+        /// no room - steps 2-5 of the heal order found nothing for her current wait (ScHealBackOff.NoRoomNow), or she has no heal
+        /// item and the shelter walk found nothing (holds where she stands). Off once that has not held for StandLeaveSeconds, at
+        /// once away from home or out of the fight. Its start puts both of 0-XNPCCore's back-offs off member-wide for
+        /// StandBackOffSeconds (ScBackOff keeps it so: one probe every 4 s); the hand is ScArms.StandHand's. Logged at its start
+        /// (with the weapon class: a modded gun in the wrong class shows) and its end.
+        /// </summary>
+        private static void UpdateStand(EntityAlive e, State st, Posture want, EntityAlive t, float now)
+        {
+            // a stand rides through a moment of "no fight" (ScTeam.Target's lease lapsing, as the lapse hold below) on its hysteresis
+            bool fight = IsFight(want) || want == Posture.Shelter || (want == Posture.None && st.Stand);
+            bool atHome = UAI.UAIConsiderationScNotHomeMember.AtHome(e.position);
+            bool home = fight && atHome;
+            // the cheap reads first: no room (steps 2-5) or the shelter's "nothing" - only then are the enemies on her counted
+            string room = null, noRoom = null;
+            if (home)
+            {
+                if (ScHealBackOff.NoRoomNow(e, out room)) noRoom = "no room to heal: " + room;
+                else if (want == Posture.Shelter && ScRetreat.HoldsWithNoSpot(e) && !ScMedic.CanTreatSelf(e))
+                    noRoom = "nothing to heal with and the shelter walk found no spot (holds where " + ScRetreat.She(e) + " stands)";
+            }
+            int close = home && (noRoom != null || st.Stand) ? AfterHerWithin(e, StandRadius) : 0;
+            st.StandReach = close > 0;
+            string why = null;
+            bool wanted = false;
+            if (noRoom != null)
+            {
+                int count = 0, need;
+                float ago;
+                bool over = ScConfig.Overwhelmed && ScArms.PeekOverwhelmed(e, out count, out need, out ago);   // the recount Want just made
+                if (close >= StandMin || over)
+                {
+                    wanted = true;
+                    why = (close >= StandMin ? close + " after " + ScRetreat.HerObj(e) + " within " + F1(StandRadius) + " m" : "overwhelmed (" + count + " after " + ScRetreat.HerObj(e) + ")")
+                          + ", " + noRoom;
+                }
+            }
+            if (wanted)
+            {
+                st.StandOffSince = 0f;
+                st.StandWhy = why;
+                if (!st.Stand) StartStand(e, st, t, now);
+                return;
+            }
+            if (!st.Stand) return;
+            if (!home) { EndStand(e, st, !atHome ? "away from home" : want == Posture.Hold ? "on watch or told to stay" : "no fight", now); return; }
+            if (st.StandOffSince <= 0f) { st.StandOffSince = now; return; }
+            if (now - st.StandOffSince >= StandLeaveSeconds)
+                EndStand(e, st, close < StandMin ? "fewer than " + StandMin + " after " + ScRetreat.HerObj(e) + " within " + F1(StandRadius) + " m" : "room to heal again (or healed)", now);
+        }
+
+        /// <summary>Round hr1: the stand starts - its weapon class and window (logged once), the back-offs off member-wide.</summary>
+        private static void StartStand(EntityAlive e, State st, EntityAlive t, float now)
+        {
+            st.Stand = true;
+            st.StandSince = now;
+            st.StandOffSince = 0f;
+            st.StandSwaps = 0;
+            st.StandHeld = 0;
+            st.Stands++;
+            stands++;
+            Patches_Xnpc.Count("stand-start");
+            Loadout l = ScLoadout.Current(e);
+            ItemClass gun = l != null && l.HasRanged ? ItemClass.GetItemClass(l.Ranged, true) : null;
+            int mag;
+            float reload;
+            st.StandClass = ScArms.GunClass(e, gun, out mag, out reload);
+            st.StandGun = gun != null ? gun.GetItemName() : "";
+            string cls = st.StandClass == ScArms.StandClose
+                ? "a CLOSE gun (magazine " + mag + (reload > 0f ? ", reload " + F1(reload) + " s" : "") + "): it keeps shooting and reloads only when empty with no enemy within 2 m (or no melee weapon)"
+                : st.StandClass == ScArms.StandSlow
+                ? "a SLOW gun (magazine " + mag + (reload > 0f ? ", reload " + F1(reload) + " s" : "") + "): its loaded round, then melee for the rest of the stand, no reload with an enemy within 3 m"
+                : "no gun with rounds";
+            string melee = l != null && !string.IsNullOrEmpty(l.Melee) && ItemClass.GetItemClass(l.Melee, true) != null ? l.Melee : null;
+            float apm;
+            string mw = melee != null ? "the " + melee + " (no-swing window " + F1(ScArms.NoSwingWindow(e, melee, out apm)) + " s from " + apm.ToString("0", CultureInfo.InvariantCulture) + " attacks/min)"
+                                      : "no melee weapon (the gun anyway)";
+            if (t != null) ScBackOff.HandToShot(e, t, StandBackOffSeconds);
+            ScLog.Out(ScRetreat.Name(e) + " makes a LAST STAND at home: " + st.StandWhy + ". " + (gun != null ? "The " + st.StandGun + " is " + cls : "No gun") + "; " + mw
+                      + "; " + F1(StandCommitSeconds) + " s on a weapon while an enemy is in reach; back-offs off for " + F1(StandBackOffSeconds) + " s at a time; a heal only in a gap (round hr1)");
+        }
+
+        /// <summary>Round hr1: the stand ends (logged with its length and swaps).</summary>
+        private static void EndStand(EntityAlive e, State st, string why, float now)
+        {
+            st.Stand = false;
+            st.StandOffSince = 0f;
+            Patches_Xnpc.Count("stand-end");
+            ScLog.Out(ScRetreat.Name(e) + "'s last stand ends after " + (now - st.StandSince).ToString("0.0", CultureInfo.InvariantCulture) + " s: " + why + " (" + st.StandSwaps
+                      + " weapon change(s), " + st.StandHeld + " held by the " + F1(StandCommitSeconds) + " s commitment; round hr1)");
+        }
+
+        /// <summary>Round hr1: awake, living enemies within r whose attack or revenge target she is (SCore's IsEnemy, not inert). X5 only (a shared list).</summary>
+        private static int AfterHerWithin(EntityAlive e, float r)
+        {
+            World w = e.world;
+            if (w == null) return 0;
+            int n = 0;
+            standNear.Clear();
+            try
+            {
+                w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(e.position, new Vector3(2f * r, 2f * r, 2f * r)), standNear);
+                for (int i = 0; i < standNear.Count; i++)
+                {
+                    EntityAlive a = standNear[i] as EntityAlive;
+                    if (a == null || a == e || a.IsDead() || a.IsSleeping || (a.position - e.position).sqrMagnitude > r * r) continue;
+                    if (a.GetAttackTarget() != e && a.GetRevengeTarget() != e) continue;
+                    if (!EntityTargetingUtilities.IsEnemy(e, a) || global::Harmony.ZombieFeatures.InertEntity.IsInert(a)) continue;
+                    n++;
+                }
+            }
+            finally { standNear.Clear(); }
+            return n;
+        }
+
+        /// <summary>Round hr1: she makes a last stand now (fresh). ScBackOff, ScMedic and ScArms read it. A pure read.</summary>
+        internal static bool InStand(EntityAlive e)
+        {
+            State st;
+            return e != null && states.TryGetValue(e.entityId, out st) && st.Stand && st.At > 0f && Time.time - st.At <= FreshSeconds;
+        }
+
+        /// <summary>Round hr1: ScArms.StandHand changed her weapon (why) and commits to it - logged, counted.</summary>
+        internal static void NoteStandSwap(EntityAlive e, string item, bool toGun, string why)
+        {
+            State st;
+            if (e == null || !states.TryGetValue(e.entityId, out st)) return;
+            float now = Time.time;
+            st.Hand = item;
+            st.HandSeen = true;
+            HandChanged(st, now);
+            st.Swaps++;
+            st.StandSwaps++;
+            swaps++;
+            Patches_Xnpc.Count(toGun ? "stand-swap-to-gun" : "stand-swap-to-melee");
+            ScLog.Out(ScRetreat.Name(e) + " commits to the " + item + " for " + F1(StandCommitSeconds) + " s in " + ScRetreat.Her(e) + " last stand: " + why + " (round hr1)");
+        }
+
+        /// <summary>Round hr1: the stand's commitment held a swap the weapon class wants (counted once per hold).</summary>
+        internal static void NoteStandHeld(EntityAlive e)
+        {
+            State st;
+            if (e == null || !states.TryGetValue(e.entityId, out st) || st.HeldNoted) return;
+            st.HeldNoted = true;
+            st.StandHeld++;
+            held++;
+            Patches_Xnpc.Count("stand-swap-held");
+        }
+
         /// <summary>Shooting is her best skill: more stars than in Fighting, and at least as many as in every other skill.</summary>
         private static bool Marksman(Member m)
         {
@@ -518,6 +700,9 @@ namespace SurvivorCommunity
             v.UrgentGun = st.UrgentGun;
             v.Waiting = st.Waiting;
             v.TargetId = st.TargetId;
+            v.Stand = st.Stand;                        // round hr1: the last stand
+            v.StandSince = st.StandSince;
+            v.StandClass = st.StandClass;
             return true;
         }
 
@@ -545,7 +730,11 @@ namespace SurvivorCommunity
         internal static bool HandClockAllows(EntityAlive e, float now)
         {
             State st;
-            return e == null || !states.TryGetValue(e.entityId, out st) || now - st.HandAt >= ScConfig.TeamSwapHoldSeconds;
+            if (e == null || !states.TryGetValue(e.entityId, out st)) return true;
+            // round hr1: in a last stand with an enemy in reach the one hand clock holds StandCommitSeconds (the commitment), so no
+            // rule's swap can fight the stand's
+            float hold = st.Stand && st.StandReach ? Mathf.Max(ScConfig.TeamSwapHoldSeconds, StandCommitSeconds) : ScConfig.TeamSwapHoldSeconds;
+            return now - st.HandAt >= hold;
         }
 
         /// <summary>A swing 0-XNPCCore refused at this target (or a path finding) is still remembered: why, else null. A pure read.</summary>
@@ -676,6 +865,11 @@ namespace SurvivorCommunity
                       + " - " + st.Why + (st.TargetId >= 0 ? "; target #" + st.TargetId + " at " + F1(st.TargetDist) + " m" : "")
                       + (st.NativeClose ? "; 0-XNPCCore's 3 m swap kept (a runner)" : "") + (st.UrgentGun ? "; the gun at once (" + ScRetreat.Her(e) + " target needs it)" : "")
                       + (KitesWide(e) ? "; the WIDE band: ScKiteWide backs " + ScRetreat.HerObj(e) + " off from what comes within " + F1(ScConfig.StandOffMin) + " m (round k5)" : ""));
+            if (st.Stand)                                                   // round hr1
+                lines.Add("[SC]   LAST STAND for " + (now - st.StandSince).ToString("0.0", CultureInfo.InvariantCulture) + " s - " + st.StandWhy + "; weapon class "
+                          + (st.StandClass == ScArms.StandClose ? "CLOSE" : st.StandClass == ScArms.StandSlow ? "SLOW" : "no gun") + (st.StandGun.Length > 0 ? " (" + st.StandGun + ")" : "")
+                          + "; " + st.StandSwaps + " weapon change(s), " + st.StandHeld + " held by the commitment (round hr1)");
+            else if (st.Stands > 0) lines.Add("[SC]   last stands this session: " + st.Stands + " (round hr1)");
             if (st.Waiting)
                 lines.Add("[SC]   waits to switch to " + Name(st.Pending, st.PendingKiting) + " (" + st.PendingWhy + ") for " + (now - st.PendingSince).ToString("0.0", CultureInfo.InvariantCulture)
                           + " s: a switch needs " + F1(ScConfig.PostureDwellSeconds) + " s in the stance (" + F1(now - st.StanceSince) + " s so far) and "
@@ -697,6 +891,7 @@ namespace SurvivorCommunity
             if (e == null || !states.TryGetValue(e.entityId, out st) || st.At <= 0f) return "posture (round k4): none yet";
             float now = Time.time;
             return "posture (round k4): " + Name(st.P, st.Kiting) + " " + (now - st.Since).ToString("0", CultureInfo.InvariantCulture) + " s" + (now - st.At > FreshSeconds ? " (STALE)" : "")
+                   + (st.Stand ? " LAST STAND " + (now - st.StandSince).ToString("0", CultureInfo.InvariantCulture) + " s" : "")        // round hr1
                    + (st.Waiting ? " (waits for " + Name(st.Pending, st.PendingKiting) + ")" : "") + " - " + st.Why
                    + "; hand changes " + st.HandChanges + " (" + Recent(st, now) + " in 3 min), SC swaps " + st.Swaps + ", switches " + st.Flips;
         }
@@ -729,7 +924,7 @@ namespace SurvivorCommunity
             return "now " + n[1] + " MELEE, " + n[2] + " KITE, " + n[3] + " HOLD, " + n[4] + " SHELTER, " + n[5] + " INVESTIGATE, " + n[0] + " none; this session "
                    + swaps + " swap(s) by SC (" + urgentSwaps + " at once: a target that needs the gun), " + held + " held by the hand clock, " + flips
                    + " MELEE/KITE switch(es), " + refusals + " refused swing(s) (0-XNPCCore's bout exits and swap refusals), " + lapses
-                   + " target lapse(s) held (round nc1) - counters posture-* in the hook list";
+                   + " target lapse(s) held (round nc1), " + stands + " last stand(s) (round hr1) - counters posture-* and stand-* in the hook list";
         }
     }
 }

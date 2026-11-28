@@ -134,6 +134,7 @@ namespace SurvivorCommunity
             ScRetreat.Reset();
             ScShelter.Reset();
             ScBackOff.Reset();
+            ScSafeRoom.Reset();                   // round hr1: the safe-room verdicts and counters
         }
 
         private static void ParseRetreat(DynamicProperties p)

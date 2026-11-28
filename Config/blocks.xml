@@ -819,7 +819,9 @@
 			     is unchanged. 1: she uses it at once whenever she is cornered (as before); 0: never while cornered.
 			     MedicMaxWait: with HealBackOff, once she has been held this many seconds without getting clear (the
 			     back-off kept from running by another action, or slowed) she uses it anyway, at any health (0: at once, no
-			     back-off). Without it (and for a stand-in): once she has waited this
+			     back-off). Round hr1: at home, once a walk to heal has started, the wait runs out instead at the walk's
+			     path length over her run speed plus 2 s (at most 12 s after the first walk began), and every heal at home
+			     waits while an enemy within 2.5 m sees her and she has a usable weapon. Without it (and for a stand-in): once she has waited this
 			     many seconds and is under 25% health, she uses it anyway with the enemy still there (a heal now beats none);
 			     0: under 25% she never waits.
 			     Under 50% health a member also takes a first aid kit before a first aid bandage (not a key).
@@ -839,7 +841,7 @@
 			<property name="CorneredHealBelow" value="0.35" />
 			<property name="RegenOutOfCombat" value="true" />
 			<property name="RegenRatePerSecond" value="0.2" />
-			<property name="RegenCapShare" value="0.6" />
+			<property name="RegenCapShare" value="0.7" />   <!-- round hr1: was 0.6 (the heal line: every fight began with a heal due) -->
 			<property name="RegenEnemyRadius" value="30" />
 			<property name="RegenNearRadius" value="12" />
 			<!-- Downed and revived (round U2, 0-XNPCCore 3.4.06). A killing hit knocks a member down instead of killing her: she

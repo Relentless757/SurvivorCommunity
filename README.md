@@ -2152,7 +2152,7 @@ These are the ones you are most likely to change. The file has many more.
 | `MemberRefuseCoins` | true | Members (and enclave people you enlisted) refuse coins as a gift |
 | `MemberWeaponPerks` | true | Shooting and Fighting stars give 0-XNPCCore's weapon perks (section 4) |
 | `RegenOutOfCombat` | true | Members regain health slowly with no enemy near; false: only items heal |
-| `RegenRatePerSecond` / `RegenCapShare` / `RegenEnemyRadius` | 0.2 / 0.6 / 30 | Health per second, the share of her health it stops at, and how far (meters) an awake enemy that is after her or sees her holds it |
+| `RegenRatePerSecond` / `RegenCapShare` / `RegenEnemyRadius` | 0.2 / 0.7 / 30 | Health per second, the share of her health it stops at, and how far (meters) an awake enemy that is after her or sees her holds it |
 | `RegenNearRadius` | 12 | Any awake enemy this close (meters) holds it too, after her or not; 0: only the ones after her or seeing her |
 | `DownedAtHome` | true | Residents at home and guards on watch go down at a killing hit instead of dying (section 4); false: they die at once, as before |
 | `ResidentMedicsRevive` | true | A resident with the Medicine specialty runs to a downed member at home and revives her from her own pack; false: you revive them yourself |

@@ -743,6 +743,16 @@ namespace SurvivorCommunity
             return Active(e, out st) && st.HasSpot && (st.SpotKind == ScShelter.PickKind.Walled || st.SpotKind == ScShelter.PickKind.Yard || st.SpotKind == ScShelter.PickKind.Hold);
         }
 
+        /// <summary>
+        /// Round hr1 (the last stand, ScPosture): sheltering, and the shelter walk found nothing - she holds where she stands (fallback
+        /// (c)). A pure read.
+        /// </summary>
+        internal static bool HoldsWithNoSpot(EntityAlive e)
+        {
+            State st;
+            return Active(e, out st) && st.Mode == Mode.Shelter && st.HasSpot && st.SpotKind == ScShelter.PickKind.Hold;
+        }
+
         /// <summary>The task could not reach the spot (no 1 m gain in 8 s, no path, out of time): marked, the next one is picked.</summary>
         internal static void SpotFailed(EntityAlive e, Vector3 spot, string why, bool unreachable)
         {
