@@ -48,6 +48,60 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   retired ids; `owner <id> <player>` hands a community over; `mode <PerPlayer|PerParty> confirm` switches a save from before
   MP7 once.
 
+## Round MP7 (part AP) (2026-11-27): land claim allies and parties bring players in and take them out
+
+Why: the MP7 core gave every player their own relations and a way to start a community, but only an admin could put a player
+into someone else's. Part AP adds the user's decisions 6 and 7. PerPlayer: a founder's land claim allies who have no
+community join it on their own, and removing the ally takes them out. PerParty: a player with no community who joins a party
+holding one of a community's players joins it, and leaving or being kicked from that party takes them out (never the
+founder); the party leader acts for an owner who is offline. A player an admin put in is never taken out by an ally or a
+party change, and Leave sticks: the reconcile and other players' party invites do not pull a player back into a community
+they left. Build `sc34_mp7ap`, **not deployed**, protocol 8 unchanged, untested in game. Checked offline: the save round
+trip on 12 saves (ALL PASS: old saves load and save byte for byte as before), and a harness for the allies and party logic
+and the new save lines (88 checks on each of the 12 saves, 0 failures). Every join and loss is logged as
+`community (allies): ...` or `community (party): ...`.
+
+**Single player (nothing may change)**
+- [ ] Shared, an existing save: everything plays as before. After `sc save` the file has no `joined=` or `optout=` line.
+- [ ] PerPlayer and PerParty, a new game: start a community as in the core's steps. The log has no `community (allies)` or
+      `community (party)` line.
+
+**One community on a dedicated server, Shared (nothing may change)**
+- [ ] Two players in community 0 become land claim allies, then remove the ally; they form a party, change the leader,
+      leave, kick. Nobody's community changes: no tell, no `community (allies)` or `community (party)` line.
+
+**PerPlayer on the dedicated server (`CommunityMode` PerPlayer, a new world)**
+- [ ] A starts a community. B (own relations, an enclave known) and A become land claim allies: B is told `You joined <A>'s
+      community.` and the merge line, A `<B> joined the community.` The log says `community (allies): <B> joined community 0
+      ... as the land claim ally of <A>`. After `sc save`, `[membership]` has `joined=<B's id>:ally:<A's id>`.
+- [ ] A removes B as an ally (or B removes A): B is told `You no longer belong to <A>'s community.` and has fresh own
+      relations. A request B had accepted passes to A (online); B's followers go home.
+- [ ] B allies with A while A has no community: nothing happens. A then starts one: B joins at once.
+- [ ] With B offline, A removes B as an ally: the log says B is out; at B's next login B has their own relations.
+- [ ] B is A's ally and in A's community; `sc community leave <B>` (or B's own Leave, part U's button): B is out and stays
+      out after a death and a relog. `sc save` shows `optout=<B's id>:0`. Remove the ally and make it again: B joins.
+- [ ] `sc community join 0 <C>` (C is not A's ally): `joined=<C's id>:admin`. A and C ally and remove it again: C stays.
+- [ ] A and D each start a community; B (own relations) allies with D, then with A: B joins D's (the first ally) and stays
+      there. D removes B: B is out of D's and joins A's at once (still A's ally).
+- [ ] `sc community owner 0 <C>`: B (A's ally, not C's) stays in the community (the link that brought B in still holds).
+- [ ] Save, quit and load: the `joined=` and `optout=` lines are kept and nothing moves (no `community (allies)` line).
+
+**PerParty on the dedicated server (`CommunityMode` PerParty, a new world)**
+- [ ] A starts a community and invites B (own relations) to a party; B accepts: B joins A's (tells, merge),
+      `joined=<B's id>:party`. B leaves the party: B is out. Again, and A kicks B: B is out.
+- [ ] A, B and C form a party before anyone has a community; A starts one: B and C join at once.
+- [ ] A (the founder) leaves the party or is kicked while B and C stay: everyone keeps the community. A logs off: nothing
+      changes either.
+- [ ] A offline, B is made the party's leader: B is told `You lead the party while <A> is away: the community owner's
+      actions are yours until they return.` B can move the home, disband an outpost and dismiss a member. A logs back in: B
+      is refused again (`Only the community's owner or an admin ...`).
+- [ ] D owns another community and joins A's party: D is told `Players of <A>'s community are in your party: you stay in
+      <D>'s community.`; A's players in the party `<D> joined your party but stays in <D>'s community.` Nothing else changes,
+      and D leaving that party changes nothing.
+- [ ] B (in A's community, in A's party) uses Leave (or `sc community leave <B>`); C accepts an invite into the same party:
+      C joins, B stays out. B leaves the party and accepts A's invite again: B joins.
+- [ ] `sc community join 0 <E>` (an admin's join); E leaves A's party: E stays in (`... stays in it (joined by an admin)`).
+
 ## Round MP7 (core) (2026-11-27): community modes, a player's own relations, founding, joining and leaving
 
 Why: MP6 let one server hold several communities, but every unlisted player was in community 0 and only an admin moved

@@ -3467,7 +3467,7 @@ Round MP0 is the groundwork:
     search and escort, sending an enlisted person home, a bundle opened, a withdrawal's refund). Every other Community op and
     every Owner op answers `scNoCommunity`. Talk, trade and markers need no op. The Owner rule (`ScOwnerRule.May`) is
     `SharedOwnerOnly` in Shared, the owner and admins in PerPlayer, and in PerParty also
-    `ScOwnerRule.PartyLeaderMayAct(player, cid)` while the owner is offline (false until part P fills it).
+    `ScOwnerRule.PartyLeaderMayAct(player, cid)` while the owner is offline (round MP7 (part AP), below).
   - **The ticker** runs a personal record as any community with its player online. Its relation steps run, its home steps
     skip by their own tests (no home, members, outposts or radio), and its pass carries the world steps when it is the
     first online.
@@ -3493,6 +3493,45 @@ Round MP0 is the groundwork:
     joined), `// MP7 (part P)` (`PartyLeaderMayAct`, party members joining at founding, the party postfixes calling `Move`) and
     `// MP7 (part U)` (the derived block's `mode=`, `role=` and `cpl=`, the window's no-community page and Leave button, the
     radial's role gating, the talk's `scNoCommunity` and favor rows).
+- **Round MP7 (part AP), land claim allies and parties:** `ScAlliesParties.cs` brings players in and out by the user's
+  decisions 6 and 7, always through `ScMembership.Move`. Shared mode never runs any of it; single player has no ally or
+  party event, and its reconciles find no ally.
+  - **How a player joined** (`ScJoins`, PerPlayer/PerParty): `Move` calls `ScJoins.Noted`, which records `admin`, `ally`
+    (with the founder whose ally link brought them in) or `party` for a player who joins a founded community they do not own
+    (`ScWorldState.JoinedHow`, `JoinedVia`; saved as `[membership] joined=pid:how[:link]`). An ally or party change only ever
+    takes out an `ally` or `party` player: an admin's join, and a player in a community from before part AP or the mode
+    switch (no record), are kept. Leave sticks: leaving a founded community by Leave or by an admin's move opts the player
+    out of it (`ScWorldState.OptOuts`, `optout=pid:cid`). The allies reconcile never pulls them back in until their ally link
+    with its owner is removed and made again; another player's party invite never does until they accept an invite
+    themselves (or start a party). Ids in these lines are escaped (`%`, `:`, `=`, `;`, line breaks as `%XX`). A save without
+    them writes nothing new.
+  - **PerPlayer** (`ScAllies`): `PersistentPlayerList.OnPersistentAllyChangeEvent` (static, subscribed once in `InitMod`,
+    acted on only on the server; vanilla raises it twice per change, once per side, after the store changed, never at load).
+    Now allies: when one side founded a community and the other is in none (own relations, or no record while offline),
+    the other joins it, merged (`Made`). An ally of two founders joins the first. No longer allies: an ally-joined player of
+    the community whose owner (or whose recorded link) this was loses access, unless still allied with its owner or their
+    link (`Gone`). So an admin's hand-over (`sc community owner`) does not drop the old owner's allies. After a loss the
+    reconcile runs for them at once, so another founder's ally joins that community. The reconcile (`Reconcile`: one player;
+    `ReconcileAll`: every listed player and every ally of a founded community's owner, offline included; the lowest
+    community id wins) runs at load (owed by `OnRegistryLoaded`, run at `GameStartDone` or the first spawn, since the game
+    holds the ally store only after the players.xml read that loads the registry), at each spawn, at founding (the founder's
+    allies in none join), at the mode switch (before its requests pass, so an owner's ally keeps their accepted requests) and
+    right after a player leaves a founded community (`QueueReconcile`, on the main thread's next pass). The store is read
+    through `ScAllies.AllyView` (platform id strings), which an offline harness can fill.
+  - **PerParty** (`ScParties`): Harmony postfixes on `Party.ServerHandleAcceptInvite`, `ServerHandleLeaveParty`,
+    `ServerHandleKickParty` and `ServerHandleChangeLead`, never `ServerHandleDisconnectParty` (a disconnect changes nothing;
+    vanilla parties are session-only, the saved membership map stays the truth). The host's own players list calls the same
+    statics, so a listen host is covered; single player never reaches them. Accept (`Accepted`): the party's community is the
+    inviter's founded community, else the only one among the members, else the leader's, else the lowest id. Every member in
+    none joins it unless they left it. A member in a founded community keeps it; when it is the invited player, both sides
+    are told. Leave or kick (`Left`, the member list taken in a prefix): the player loses access when they joined by party
+    and the party they left held another of their community's players, never the owner. Founding pulls in the founder's
+    party members in none. `ScOwnerRule.PartyLeaderMayAct` is the helper rule: the leader of a party holding one of the
+    community's players, of the community themselves, while its owner is offline (checked inside, so the network's role key
+    can ask it as is). A new leader who now acts for the owner is told (`scMp7PartyHelper`).
+  - **Left open:** the `AutoParty` game setting joins players through `ServerHandleAutoJoinParty`, which is not hooked, so
+    with it on only founding brings party members in. A kick is trusted as vanilla trusts it (the server never checks that
+    the kicker leads the party).
 
 ## How it hangs together (for modders)
 

@@ -214,7 +214,8 @@ namespace SurvivorCommunity
                     // round MP7 (core): the one move function (ScMembership.Move): talk holds and shifts end, the old community's requests
                     // pass to another of its players online (else withdrawn), followers go home to it, a personal record merges into the
                     // community joined, leave is community 0 (Shared) or a fresh personal record (PerPlayer/PerParty)
-                    // MP7 (part A): an admin's join is recorded as such (never undone by an ally change)
+                    // round MP7 (part AP): Move records an admin's join as such (ScJoins.Noted) - never undone by an ally or party change;
+                    // an admin's leave opts the player out of the community left (the allies reconcile does not pull them back in)
                     ScMembership.MoveResult r = ScMembership.Move(pid, cid, ScMembership.ByAdmin, who);
                     if (!r.Ok) { Output("[SC] " + ScActions.Localize(r.Error)); return; }
                     CommunityState from = ScCommunities.ById(r.From), to = ScCommunities.ById(r.To);
