@@ -312,6 +312,112 @@ merges with the MP7 core. Setup: `MaxFollowers` 2 (the default); "A" and "B" are
 - [ ] PerPlayer and PerParty: two players of one community each have their own two; a player who joins a community uses up
       none of the others' room.
 
+## Round hr1 (2026-11-27): run to heal, safe rooms, last stand
+
+Why: two deaths at home on the dedicated server.
+- Nora (Iron Crossbow and Iron Sledgehammer), surrounded at home by seven zombies, died without one swing and with at most a
+  few bolts. The crossbow stayed in her hand at point blank; her back-off tried one zombie after another and found no room;
+  the sledge came out, got 2.5 s to swing (one sledge swing takes 1.8 s), went away and stayed away 10 s; her heal waited 6 s
+  counted from the start of the wait, ran out while she was finally running, and she bandaged with a zombie at 2.5 m. A
+  console `sc down` test earlier had opened 0-XNPCCore's 600 s re-down window, so her next down was a real death.
+- Ned (auto shotgun) stood bandaging a bleed with a zombie at 1.1 m.
+
+What changes, for members at home (the home zone and its 8 m margin; followers out with you keep their field rules):
+- The heal order: in a **safe room** (an enclosed space of solid blocks, glass, bars and SHUT doors/hatches, no open sky, no
+  enemy inside, none armed in sight, none within 2 m - 2.5 m while she has a weapon - that sees her) she heals at once. Otherwise a straight step back as
+  before, then a run INTO an enclosable room within 30 m (doors shut behind her, at least 2.5 m from any door), then a
+  path-found point 8-20 m away inside the base, then 0-XNPCCore's own roll (with a zombie within 2 m; her own item after it,
+  never 0-XNPCCore's free heal), then the last stand.
+- **Heal only in a gap**: never with an enemy within 2.5 m that sees her while she has a gun with rounds or a melee weapon -
+  on every path, the timeout included. The timeout counts from her first walk (its path over her run speed + 2 s, at most
+  12 s), not from the start of the wait. A member's use lasts at most 1.5 s (was 2.5 s).
+- **Last stand** (two or more zombies on her within 3 m, or overwhelmed, and no room at all): back-offs off for 4 s at a time
+  for every enemy; a close gun (magazine 5+) keeps shooting and goes to melee only when empty with a zombie within 2 m; a slow
+  gun (magazine 2 or less: bows, crossbows, pipe guns, the double barrel) fires its loaded round, then melee for the rest of
+  the stand; 6 s on a weapon while an enemy is in reach; the no-swing window is sized to the weapon (about 4.5 s for a
+  sledge) and has no 10 s rest. Outside a stand R2 keeps its 10 s rest but uses the same weapon-sized window.
+- A console `sc down` test's revive no longer opens the re-down window (real downs keep it); `sc downed` shows FRAGILE.
+- `RegenCapShare` is 0.7 (was 0.6, the same as the heal line, so every fight began with a heal due).
+
+Build `sc34_hr1`, **not deployed**, untested in game. Server-side only (single player, a listen host or the dedicated server).
+
+**Safe rooms (`sc saferoom <name>`, single player)**
+- [ ] A resident standing in a closed room (all doors shut): `sc saferoom <name>` says `SAFE - a safe room: enclosed (N cells,
+      D door(s) shut) ...`. Open a door that leads outside: `NOT ENCLOSED - no room: open sky over ...`. Stand her in the
+      open yard: `NOT ENCLOSED`. A big hall or a roofed yard: `no room: more than 512 cells`.
+- [ ] A zombie inside her closed room (spawn one there): `ENCLOSED BUT NOT SAFE - ... zombieBoe (id) is inside`.
+- [ ] A zombie pressed against a window or bars within 2 m and looking at her: `... at 1.x m sees her (bars, glass or a gap:
+      within 2 m)`.
+- [ ] `sc team <name> hurt 0.5`, her in a closed room, spawn two zombies outside its shut door: she uses her bandage at once;
+      the log says `safe-room verdict: a safe room ...` and `uses ... at once ... (round hr1, step 1)`.
+
+**Run to heal (single player, at home)**
+- [ ] `sc team <name> hurt 0.5` with her in the yard backed against a wall, a closable room within 30 m, one zombie on her: she
+      runs into the room (`runs to a room ... (round hr1, step 3)`), the door shuts behind her, and she bandages there
+      (`reached a safe room ... heals there`). `sc retreat shelters` lists that room's spots as `an enclosable room (N cells, D
+      door(s), all shut)`.
+- [ ] The same with no closable room near: she runs to a point 8-20 m away around the corner (`runs to ... (a path, inside the
+      base) to heal (round hr1, step 4)`) and bandages once nothing after her is within 4 m. A point she cannot reach is set
+      aside (`... ends N m short - set aside, the next step`).
+- [ ] Wedged in a corner with no room and one zombie within 2 m: 0-XNPCCore's roll (`rolls clear (0-XNPCCore's own roll ...)`),
+      then her own bandage if nothing within 2.5 m sees her. Her pack loses the bandage; no free heal (`sc xnpc <id>` still
+      counts `x15-selfheal-skipped`).
+- [ ] With no room at all and two or more zombies on her: `finds no room to heal at home ...` once, then the last stand (below).
+- [ ] The timeout: `uses ... now ... walking N s did not get her clear (MedicMaxWait from her first walk's start ...)` - and
+      only with no zombie within 2.5 m that sees her; otherwise `would use ... but zombieBoe (id) at 1.x m sees her and she has
+      ... - she fights instead and heals in a gap (round hr1, decision 6)`.
+- [ ] The use is quicker: with verbose logging, `medic: <id> finished <item> ... after 1.x s (trigger at 0.xx s, ...; ended by
+      the clip left its layer)` - the bandage animation plays to its end and the weapon comes back as it finishes (no item
+      vanishing mid-wrap). Note the trigger time: if it always says `hold pose timeout`, the 0.5 s wait before the clip is the
+      rest of the use's length.
+
+**Last stand (single player, at home)**
+- [ ] `sc loadout <name> gunBowT1IronCrossbow meleeWpnSledgeT1IronSledgehammer`, `sc team <name> hurt 0.5`, back her into a
+      corner and spawn four or more zombies on her: the log says `makes a LAST STAND at home: N after her within 3 m, no room to
+      heal ... The gunBowT1IronCrossbow is a SLOW gun (magazine 1 ...); the meleeWpnSledgeT1IronSledgehammer (no-swing window
+      4.5 s from 34 attacks/min)`. She fires the loaded bolt, then takes the sledge (`commits to the ... for 6 s ...: the ... is
+      empty`) and swings, and keeps it for the rest of the stand.
+- [ ] A fence or bars between her and the zombies: `cannot swing in her last stand: no swing in 4.5 s ...` - the crossbow
+      for 6 s, then the sledge again (no 10 s rest).
+- [ ] Back-offs in the stand: at most one `has no point inside the base ... for 4 s against every enemy (her last stand, round
+      hr1)` every 4 s, not one per zombie.
+- [ ] A close gun (`sc loadout <name> gunShotgunT3AutoShotgun meleeWpnClubT1BaseballBat`): the stand's line says `a CLOSE gun
+      (magazine 16 ...)`; she keeps shooting and takes the bat only when the magazine is empty with a zombie within 2 m, back to
+      the shotgun (and its reload) once none is within 2 m - never sooner than 6 s after the last change while one is in reach.
+- [ ] In the stand she never bandages with a zombie within 2.5 m that sees her, and no cloth bandage for a bleed; in a gap she
+      heals (the kit first below 50%).
+- [ ] The stand ends `last stand ends after N s: ...` when the zombies are down to one or she has room again.
+- [ ] A follower out with you (away from home) in the same spot: no stand, no room walk - the old rules (`keeps shooting ...
+      (round t2)`).
+
+**The re-down window (single player)**
+- [ ] `sc down <name>`, then revive her (hold E): the log says `re-down window is cleared: that down was a console "sc down"
+      test`; `sc downed` shows her `up ...` with no FRAGILE, and `sc down <name>` again downs her (no real death).
+- [ ] A real down (let zombies down her), then revive her: `sc downed` shows `FRAGILE: a second down within N s is a real
+      death` and counts her under FRAGILE; a downed member's line names who can revive her.
+
+**Regeneration**
+- [ ] Out of combat a hurt resident regenerates up to 70% (`sc meds <name>`: `regen ... up to 70%`), and a fight that starts
+      there does not start with a heal due (the heal line is 60%).
+
+**The review's fixes (same build)**
+- [ ] A fast zombie (a feral at night) keeps up with her on her walks to heal: when her time runs out with it at arm's length,
+      she stops running and fights (`time to get clear ran out with an enemy at arm's length - she stops running and fights
+      on`), and bandages in the first gap. Never more than 4 room or flight walks in one wait.
+- [ ] A room walk through a door: at the spot she waits up to 3 s for the door behind her to shut (verbose: `waits up to N s
+      for the door behind her to shut`), then heals there (`reached a safe room`) instead of `no safe room now`. A zombie that
+      follows her in ends the wait at once when it comes within 3 m or can reach her (`stops waiting in the room ...`) - she
+      never stands still with it on her.
+- [ ] A zombie within 2.5 m that sees her but chases someone else: she keeps attacking it (no pause every second) and heals
+      once it leaves or dies; a zombie that turns on her later still gets her full time to back off.
+- [ ] A last stand survives a heal in a gap: after the bandage, still under 60% with zombies on her, no `last stand ends` line
+      while the item's cooldown or effect runs (and 15 s after the bandage at least).
+- [ ] A close gun put away in a stand (`sc loadout <name> gunHandgunT1Pistol meleeWpnClubT1BaseballBat`, the bat in her hand):
+      with a loaded pistol she draws it again (`... a close gun with a loaded magazine: back to shooting`) once 6 s have passed.
+- [ ] A zombie within 2.5 m that sees her but chases someone else still holds her bandage at home (`would use ... (nothing
+      after her within ...) but ...`); `sc saferoom <name>` with a zombie at 2.0-2.5 m behind bars says not safe while she has
+      a weapon.
+
 ## Round t2 (2026-11-27): storage across communities, upgrades and repairs from storage, revive anyone, shoot when cornered
 
 Why: found on the dedicated server with two communities (the user's report, 2026-11-27).

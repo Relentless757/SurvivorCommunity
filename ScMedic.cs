@@ -80,6 +80,8 @@ namespace SurvivorCommunity
 #if SC_V34
         /// <summary>3.4 (D2): what stops a bleed, cheapest first (0-XNPCCore's own order for a bleed, MedicRules.CheapestItem).</summary>
         public static readonly string[] BleedItems = { "medicalBandage", "medicalFirstAidBandage", "medicalFirstAidKit" };
+        /// <summary>Round hr1: what stops a bleed in a last stand - no cloth bandage (it heals nothing and costs the same use).</summary>
+        private static readonly string[] BleedItemsInStand = { "medicalFirstAidBandage", "medicalFirstAidKit" };
         /// <summary>3.4: every item a use here can put in the hand (a load finding one there gives the weapon back).</summary>
         private static readonly string[] UseItems = { "medicalFirstAidKit", "medicalFirstAidBandage", "medicalBandage", Painkillers };
         /// <summary>Round U4 (D9): painkillers, a member's last-resort heal (MedicPainkillers; they come as 0-XNPCCore gifts).</summary>
@@ -138,7 +140,19 @@ namespace SurvivorCommunity
             public bool Triggered;
             public int UseLayer = -2;               // animator layer the use clip plays on (-1: none, -2: not looked up)
             public bool SawClip;
+            /// <summary>Round hr1: when the use trigger fired, whether the hold pose showed first (else TriggerTimeout), and what ended it - for the log.</summary>
+            public float TriggerAt;
+            public bool Shown;
+            public string EndedBy = "";
         }
+
+        /// <summary>
+        /// Round hr1 (the user's decision 4): a member's (or stand-in's) use lasts at most this long from the use trigger (it was the
+        /// item's 2.5 s). The use clip, 3P_Bandage_Use on UpperBodyUseAndReload, runs about 1.4 s (measured live), and the use still
+        /// ends when that clip leaves its layer if that comes first - so 1.5 s keeps the clip whole: the effects and the weapon come
+        /// back as it ends. Raiders and strangers keep the item's own time.
+        /// </summary>
+        private const float MemberUseSeconds = 1.5f;
         private static readonly Dictionary<int, Use> uses = new Dictionary<int, Use>();
 
         /// <summary>The weapon a use took out of the hand and the item in the hand instead, for the held-gun save.</summary>
@@ -163,6 +177,20 @@ namespace SurvivorCommunity
 
         /// <summary>A medical use is in progress (ScRunners skips its periodic snapshot - a Write(false) would finish the use).</summary>
         public static bool IsUsing(int id) { return uses.ContainsKey(id); }
+
+        /// <summary>
+        /// Round hr1 (re-check HR1R-m3, the last stand's hold): a use is running, an item still heals her, or her last use began at
+        /// most seconds ago (readyAt - Cooldown). A pure read.
+        /// </summary>
+        internal static bool UsedOrWorking(EntityAlive e, float seconds)
+        {
+            if (e == null) return false;
+            if (uses.ContainsKey(e.entityId)) return true;
+            try { if (e.Buffs != null && e.Buffs.GetCustomVar("medicalRegHealthAmount") > 0f) return true; }
+            catch (Exception) { }
+            float ready;
+            return readyAt.TryGetValue(e.entityId, out ready) && Time.time - (ready - Cooldown) <= seconds;
+        }
 
         /// <summary>
         /// Round k2 (Fable review 8): is this body's medical use being held right now because an enemy after her is within
@@ -258,6 +286,10 @@ namespace SurvivorCommunity
             // round k2: the waits for an enemy in reach, and the regeneration's clocks, reasons and totals
             heldSince.Clear();
             heldLast.Clear();
+#if SC_V34
+            gapLogged.Clear();                     // round hr1
+            gapOnlyAt.Clear();                     // round hr1 (re-check)
+#endif
             regenAt.Clear();
             regenWhy.Clear();
             regenGained.Clear();
@@ -335,6 +367,10 @@ namespace SurvivorCommunity
             nextCheck.Remove(entityId);
             readyAt.Remove(entityId);
             ClearWait(entityId);
+#if SC_V34
+            gapLogged.Remove(entityId);           // round hr1
+            gapOnlyAt.Remove(entityId);           // round hr1 (re-check)
+#endif
             regenAt.Remove(entityId);
             regenWhy.Remove(entityId);
             regenGained.Remove(entityId);
@@ -401,7 +437,13 @@ namespace SurvivorCommunity
             if (e.emodel == null || e.emodel.IsRagdollActive || e.inventory == null) return;
             float ready;
             if (readyAt.TryGetValue(e.entityId, out ready) && now < ready) return;
-            if (e.GetCVar("SdcsAnimBusy") >= 0.5f) { xnpcBusyWaits++; return; }
+            if (e.GetCVar("SdcsAnimBusy") >= 0.5f)
+            {
+                // round hr1 (step 5): her wait stays fresh through 0-XNPCCore's roll, so its "heal now" verdict still names this wait after it
+                if (heldSince.ContainsKey(e.entityId) && ScHealBackOff.Rolling(e)) heldLast[e.entityId] = now;
+                xnpcBusyWaits++;
+                return;
+            }
             bool working = e.Buffs.GetCustomVar("medicalRegHealthAmount") > 0f;    // an item is already working
             bool member = ScXnpc.IsCommunity(e);                                    // round k2's rules: members and stand-ins
 
@@ -417,7 +459,8 @@ namespace SurvivorCommunity
                 // round U4 (D9): with no first aid kit or bandage left, a member's painkillers - her last resort
                 else if (member && ScConfig.MedicPainkillers && Count(e, Painkillers) > 0) pick = Painkillers;
             }
-            if (pick == null && bleeding && (low || !InFight(e))) pick = FirstCarried(e, BleedItems);
+            // round hr1: no cloth bandage for a bleed in a last stand (a heal item stops it too; the kit comes first below KitFirstBelow)
+            if (pick == null && bleeding && (low || !InFight(e))) pick = FirstCarried(e, member && ScPosture.InStand(e) ? BleedItemsInStand : BleedItems);
             if (pick == null) { ClearWait(e.entityId); return; }
             if (member && HeldByReach(e, pick, max, now)) return;
             if (!TakeOne(e, pick)) return;
@@ -489,6 +532,15 @@ namespace SurvivorCommunity
             EntityAlive t = NearestEnemy(e, reach, true, out dist);
             if (t == null)
             {
+                // round hr1 (review HR1-m5): at home the gap rule here too - an enemy within 2.5 m that sees her holds the use even when
+                // it is after someone else
+                // round hr1 (re-check HR1R-m2): a hold of its own - no reach wait (ScHealBackOff stays out, her attack is not restarted, no
+                // MedicMaxWait used up); a reach wait that was on is over, so a pursuer that comes later starts a fresh one
+                if (bm != null && ScHealBackOff.AtHome(e) && GapOnlyHolds(e, pick, "nothing after " + HerObj(e) + " within " + F1(reach) + " m", now))
+                {
+                    if (waiting) ClearWait(e.entityId);
+                    return true;
+                }
                 if (waiting)
                 {
                     ClearWait(e.entityId);
@@ -498,11 +550,24 @@ namespace SurvivorCommunity
                 return false;
             }
             string who = ScCommunity.ClassName(t) + " (" + t.entityId + ") at " + F1(dist) + " m";
-            // round k2b: where she cannot back off (sheltering in her room, on watch, on a Stay order) she uses it at once
+            // round hr1: a member at home (round hl1's AtHome) takes the heal order - a safe room at once, and the gap rule on every path
+            bool home = bm != null && ScHealBackOff.AtHome(e);
             string why;
+            if (home && ScSafeRoom.SafeToHeal(e, out why))
+            {
+                // round hr1 (step 1, decision 3): an enclosed room with no enemy inside, none armed in sight and none within 2 m that
+                // sees her - every hold is lifted (the gap rule's sight test is part of the safe-room test)
+                ClearWait(e.entityId);
+                Patches_Xnpc.Count("heal-now-saferoom");
+                ScLog.Out(BodyName(e) + " uses " + pick + " at once with " + who + " after " + HerObj(e) + ": " + why + " (round hr1, step 1)");
+                return false;
+            }
+            // round k2b: where she cannot back off (sheltering in her room, on watch, on a Stay order) she uses it at once
             bool shelter;
             if (bm != null && !ScHealBackOff.MayBackOff(e, bm, out why, out shelter))
             {
+                // round hr1 (decision 6): at home not with an enemy within 2.5 m that sees her while she has a usable weapon
+                if (home && GapHolds(e, pick, who, why, waiting, since, now)) return true;
                 ClearWait(e.entityId);
                 Patches_Xnpc.Count(shelter ? "heal-now-shelter" : "heal-now-post");
                 ScLog.Out(BodyName(e) + " uses " + pick + " at once with " + who + " after " + HerObj(e) + ": " + why + " (round k2b)");
@@ -525,18 +590,32 @@ namespace SurvivorCommunity
                 bool timeout = false;
                 if (!ScHealBackOff.HealNowFor(e, since, out why))
                 {
-                    if (waited < ScConfig.MedicMaxWait) return true;    // held: ScHealBackOff (8.3) walks her clear
+                    // round hr1: at home MedicMaxWait counts from the first walk start (the walk's path length over her run speed + 2 s,
+                    // at most 12 s), not the wait's start; before any walk, and away from home, as before
+                    bool walked = false;
+                    float until = home ? ScHealBackOff.TimeoutAt(e, since, out walked) : since + ScConfig.MedicMaxWait;
+                    if (now < until) return true;                       // held: ScHealBackOff (8.3) walks her clear
                     // round nc1 (D2): cornered above CorneredHealBelow she fights on - no "anyway" with the zombie on her
                     if (ScHealBackOff.CorneredFightsOn(e, since)) return true;
                     timeout = true;
                     // the Fable review (F8): "backing off" only when a back-off walk did start in this wait
-                    why = ScHealBackOff.BackedOffFor(e, since)
+                    why = walked
+                        ? "walking " + F1(waited) + " s did not get " + HerObj(e) + " clear (MedicMaxWait from " + Her(e) + " first walk's start: its path over " + Her(e) + " run + 2 s, at most 12 s; round hr1)"
+                        : ScHealBackOff.BackedOffFor(e, since)
                         ? "backing off " + F1(waited) + " s did not get " + HerObj(e) + " clear (MedicMaxWait " + F1(ScConfig.MedicMaxWait) + " s)"
                         : "held " + F1(waited) + " s and the back-off never ran (" + ScHealBackOff.NoRunWhy(e) + "; MedicMaxWait " + F1(ScConfig.MedicMaxWait) + " s)";
                 }
+                // round hr1 (decision 6): at home every heal path obeys the gap rule - the back-off's verdicts and the timeout too
+                if (home && GapHolds(e, pick, who, why, true, since, now))
+                {
+                    // round hr1 (review HR1-M1): a timeout the gap rule held ends the walking - she fights on, no more walks this wait,
+                    // and the last stand may start; she heals the moment the gap opens
+                    if (timeout) ScHealBackOff.TimedOutHeld(e, since);
+                    return true;
+                }
                 ClearWait(e.entityId);
                 if (timeout) Patches_Xnpc.Count("heal-now-timeout");
-                ScLog.Out(BodyName(e) + " uses " + pick + " now with " + who + " after " + HerObj(e) + ": " + why + " (round k2b)");
+                ScLog.Out(BodyName(e) + " uses " + pick + " now with " + who + " after " + HerObj(e) + ": " + why + (home ? " - no enemy within 2.5 m sees " + HerObj(e) + " (round hr1's gap)" : "") + " (round k2b)");
                 return false;
             }
             // round k2's rule, kept for a stand-in and with HealBackOff false
@@ -548,6 +627,59 @@ namespace SurvivorCommunity
                           + e.Health + "/" + max + " (under " + (DesperateBelow * 100f).ToString("0", System.Globalization.CultureInfo.InvariantCulture)
                           + "% after MedicMaxWait " + F1(ScConfig.MedicMaxWait) + " s: a heal now beats none)");
                 return false;
+            }
+            return true;
+        }
+
+        /// <summary>Round hr1: body id -> the wait (heldSince) whose gap-rule line was logged (once per wait).</summary>
+        private static readonly Dictionary<int, float> gapLogged = new Dictionary<int, float>();
+        /// <summary>Round hr1 (re-check HR1R-m2): body id -> the last check a gap-only hold held her (its line once per hold, WaitStaleSeconds apart).</summary>
+        private static readonly Dictionary<int, float> gapOnlyAt = new Dictionary<int, float>();
+
+        /// <summary>
+        /// Round hr1 (re-check HR1R-m2): the gap rule where nothing is after her within reach (an enemy within 2.5 m sees her but targets
+        /// someone else) - the use waits, but no reach wait starts: ScHealBackOff's action stays out (her attack goes on) and the
+        /// MedicMaxWait clock is not run. Logged once per hold. True: held.
+        /// </summary>
+        private static bool GapOnlyHolds(EntityAlive e, string pick, string pathWhy, float now)
+        {
+            string fw;
+            if (!ScHealBackOff.FightsInstead(e, out fw)) { gapOnlyAt.Remove(e.entityId); return false; }
+            float last;
+            bool first = !gapOnlyAt.TryGetValue(e.entityId, out last) || now - last > WaitStaleSeconds;
+            gapOnlyAt[e.entityId] = now;
+            if (first)
+            {
+                Patches_Xnpc.Count("heal-gap-held-only");
+                ScLog.Out(BodyName(e) + " would use " + pick + " now (" + pathWhy + ") but " + fw + " - " + She(e) + " fights and heals in a gap (round hr1, decision 6)");
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Round hr1 (the user's decision 6, "heal only in a gap"): at home a use that would start now (pathWhy: which path - the
+        /// back-off's verdict, the MedicMaxWait timeout, sheltering, on watch, told to stay) is held while an enemy within 2.5 m can
+        /// see her and she has a usable weapon (ScHealBackOff.FightsInstead) - she fights, and the next check (every second) heals
+        /// her in a gap. Her wait starts or goes on; the line is logged once per wait. True: held.
+        /// </summary>
+        private static bool GapHolds(EntityAlive e, string pick, string who, string pathWhy, bool waiting, float since, float now)
+        {
+            string fw;
+            if (!ScHealBackOff.FightsInstead(e, out fw)) return false;
+            if (!waiting)
+            {
+                heldSince[e.entityId] = now;
+                since = now;
+                Patches_Xnpc.Count("meds-use-held-reach");
+            }
+            heldLast[e.entityId] = now;
+            float had;
+            if (!gapLogged.TryGetValue(e.entityId, out had) || Mathf.Abs(had - since) > 0.05f)
+            {
+                gapLogged[e.entityId] = since;
+                Patches_Xnpc.Count("heal-gap-held");
+                ScLog.Out(BodyName(e) + " would use " + pick + " now" + (who != null ? " with " + who + " after " + HerObj(e) : "") + " (" + pathWhy + ") but " + fw + " - " + She(e)
+                          + " fights instead and heals in a gap (round hr1, decision 6)");
             }
             return true;
         }
@@ -588,7 +720,8 @@ namespace SurvivorCommunity
                 HoldType = ic.HoldType != null ? ic.HoldType.Value : 0,
                 Slot = e.inventory.holdingItemIdx,
                 Started = now,
-                Duration = Mathf.Clamp(delay > 0f ? delay : 2.5f, 1f, 6f),
+                // round hr1 (decision 4): 1.5 s for the community's own bodies (the clip is about 1.4 s), the item's time for the rest
+                Duration = Mathf.Clamp(ScXnpc.IsCommunity(e) ? MemberUseSeconds : (delay > 0f ? delay : 2.5f), 1f, 6f),
             };
             ItemStack held = e.inventory.GetItem(u.Slot);
             // the weapon's own ItemValue, not a copy (M11): Locked & Loaded's Inventory.SetItem prefix gives a seated
@@ -636,6 +769,8 @@ namespace SurvivorCommunity
                     if (ac != null) ac._setTrigger(AvatarController.useItemHash);
                     u.Triggered = true;
                     u.EndAt = now + u.Duration;          // the animation gets its whole length from the trigger
+                    u.TriggerAt = now;                   // round hr1: the use's timing for the finish line
+                    u.Shown = shown;
                 }
                 return;
             }
@@ -650,10 +785,10 @@ namespace SurvivorCommunity
                 {
                     bool playing = anim.anim.GetCurrentAnimatorClipInfoCount(u.UseLayer) > 0;
                     if (playing) u.SawClip = true;
-                    else if (u.SawClip) { Finish(e, u, true, false); return; }
+                    else if (u.SawClip) { u.EndedBy = "the clip left its layer"; Finish(e, u, true, false); return; }   // round hr1: EndedBy
                 }
             }
-            if (now >= u.EndAt) Finish(e, u, true, false);
+            if (now >= u.EndAt) { u.EndedBy = u.SawClip ? "the " + F1(u.Duration) + " s cap, the clip still on its layer" : "the " + F1(u.Duration) + " s cap (no clip seen)"; Finish(e, u, true, false); }
         }
 
         /// <summary>
@@ -676,7 +811,12 @@ namespace SurvivorCommunity
                 if (u.Displaced != null && !u.Displaced.IsEmpty()) Hold(e, u.Slot, u.Displaced.itemValue, u.Displaced.count);
                 else Hold(e, u.Slot, ItemValue.None, 0);
             }
-            ScLog.Verbose("medic: " + e.entityId + (completed ? " finished " : " stopped ") + u.Item + " at " + e.Health + "/" + e.GetMaxHealth());
+            // round hr1: the use's timing (decision 4's sync check: the hold pose wait, the trigger, what ended it)
+            float nowF = Time.time;
+            string timing = u.Triggered ? " after " + (nowF - u.Started).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s (trigger at "
+                                          + (u.TriggerAt - u.Started).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " s, " + (u.Shown ? "the hold pose shown" : "hold pose timeout")
+                                          + (string.IsNullOrEmpty(u.EndedBy) ? "" : "; ended by " + u.EndedBy) + ")" : "";
+            ScLog.Verbose("medic: " + e.entityId + (completed ? " finished " : " stopped ") + u.Item + " at " + e.Health + "/" + e.GetMaxHealth() + timing);
         }
 
         /// <summary>

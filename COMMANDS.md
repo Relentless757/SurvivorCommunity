@@ -240,6 +240,13 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   whether a back-off ran at all), `heal-now-shelter` (in her shelter room: at once), `heal-now-post` (on watch or told to
   stay: at once); and in `sc xnpc` only, `x5-heal-backoff-no-swap` (a weapon swap held while she backs off). `sc xnpc` also
   prints the back-off totals.
+- Round hr1 (at home): **`sc saferoom [id|name]`** — with no name the rule and the totals (tests, enclosed, safe, why not, block
+  reads); with one, her verdict now (a fresh test: SAFE, ENCLOSED BUT NOT SAFE or NOT ENCLOSED, the cell count, the doors shut
+  and open, the reason). `sc meds` adds the room walks, flight walks, rolls, safe-room heals, waits with no room and gap-rule
+  holds. Counters: `heal-now-saferoom`, `heal-room-walk`, `heal-flight-walk`, `heal-roll`, `heal-room-safe`,
+  `heal-room-not-safe`, `heal-walk-no-path`, `heal-walk-passes-enemy`, `heal-no-room-home`, `heal-gap-fights-instead`,
+  `heal-gap-held`, `saferoom-*`; the last stand's `stand-start`, `stand-end`, `stand-swap-*`, `x5-stand-*`,
+  `backoff-stand-no-point`; `downed-redown-cleared`. `sc team <name>` shows LAST STAND with its weapon class.
 
 ## Retreat *(rounds rt1, k5)*
 

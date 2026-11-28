@@ -156,7 +156,24 @@ namespace SurvivorCommunity
             /// </summary>
             public float CorneredLostAt;
             public bool CorneredLapse;
+            /// <summary>
+            /// Round hr1: the last stand's hand (StandHand) - the stand these belong to (ScPosture's StandSince); a slow gun's loaded
+            /// round fired (StandFired, from its magazine StandMeta); she was in 0-XNPCCore's bout (its own end of it is a refusal);
+            /// melee refused member-wide until StandRefusedUntil (a bout exit or the no-swing window: the gun for the commitment, no
+            /// per-target refusal, no 10 s rest), when and why; the no-swing clock (the melee weapon in hand since, its last swing).
+            /// </summary>
+            public float StandSince = -1f, StandRefusedUntil, StandRefusedAt = -100f, StandHeldAt, StandUse, StandTickAt;
+            public bool StandFired, StandInBout, StandSwung;
+            public int StandMeta = -1;
+            public string StandHeld, StandRefusedWhy;
         }
+
+        /// <summary>Round hr1: the last stand's weapon classes (ScPosture's View.StandClass): no gun with rounds, a close gun, a slow gun.</summary>
+        internal const int StandNoGun = 0, StandClose = 1, StandSlow = 2;
+        /// <summary>Round hr1: in a stand a close gun reloads only with no enemy within this; "an enemy in reach" for the commitment is within StandReach.</summary>
+        private const float StandReloadClear = 2f, StandReach = 3f;
+        /// <summary>Round hr1: the no-swing window's draw (the window is the larger of CorneredNoSwingSeconds and the draw plus two swings).</summary>
+        private const float NoSwingDraw = 1f;
 
         /// <summary>The Fable review of round tm1 (finding 7): how long the hand rule waits after an equip that did not take.</summary>
         private const float EquipBackoffSeconds = 10f;
@@ -225,6 +242,7 @@ namespace SurvivorCommunity
             watch.Clear();
             leads.Clear();
             near.Clear();
+            apmOf.Clear();                             // round hr1
             nextPrune = 0f;
             leadSwitches = leadBacks = leadRearmsHeld = 0;
             swapsKept = swapsUnknown = returnedStorage = returnedInventory = returnedGround = 0;
@@ -630,9 +648,11 @@ namespace SurvivorCommunity
                 return false;
             }
             st.CorneredLostAt = 0f;
-            if (NoSwing(st, e, now))
+            float apm;
+            float window = NoSwingWindow(e, HeldItemName(e), out apm);       // round hr1: sized to the weapon (was 2.5 s for all)
+            if (NoSwing(st, e, now, window))
             {
-                string why = "no swing in " + CorneredNoSwingSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s with " + ScRetreat.Her(e)
+                string why = "no swing in " + window.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s with " + ScRetreat.Her(e)
                              + " melee weapon (a fence, bars or a block in " + ScRetreat.Her(e) + " swing)";
                 Patches_Xnpc.Count("x5-cornered-noswing-end");
                 EndCornered(c, st, e, why);
@@ -676,7 +696,7 @@ namespace SurvivorCommunity
         /// lastUseTime on the held item's primary or power action (0-XNPCCore's power-swing patch reads the same marker);
         /// unreadable: never true. Keeps the clock in st. X5 only.
         /// </summary>
-        private static bool NoSwing(Watch st, EntityAlive e, float now)
+        private static bool NoSwing(Watch st, EntityAlive e, float now, float window)
         {
             float used;
             if (!LastSwing(e, out used)) return false;
@@ -693,7 +713,61 @@ namespace SurvivorCommunity
             if (used != st.CorneredUse) st.CorneredSwung = true;
             if (now - st.CorneredTickAt > KiteTickGapSeconds) st.CorneredHeldAt = now;   // R4: the clock restarts after a gap
             st.CorneredTickAt = now;
-            return !st.CorneredSwung && now - st.CorneredHeldAt >= CorneredNoSwingSeconds;
+            return !st.CorneredSwung && now - st.CorneredHeldAt >= window;            // round hr1: the weapon-sized window
+        }
+
+        /// <summary>
+        /// Round hr1 (the user's decision 5): the no-swing window for this melee weapon - the larger of CorneredNoSwingSeconds (2.5 s)
+        /// and a NoSwingDraw (1 s) draw plus two swings at the weapon's AttacksPerMinute (its own passive effect, the item's tags, as
+        /// vanilla's melee reads it): about 4.5 s for a sledgehammer (34 a minute), 3.3 s for a bat (52). apm: the rate read. A read.
+        /// </summary>
+        internal static float NoSwingWindow(EntityAlive e, string melee, out float apm)
+        {
+            apm = 60f;
+            ItemClass ic = string.IsNullOrEmpty(melee) ? null : ItemClass.GetItemClass(melee, true);
+            if (ic == null) return CorneredNoSwingSeconds;
+            if (!apmOf.TryGetValue(ic.Id, out apm))
+            {
+                try
+                {
+                    ItemValue held = e != null && e.inventory != null ? e.inventory.holdingItemItemValue : null;
+                    ItemValue iv = held != null && !held.IsEmpty() && held.type == ic.Id ? held : new ItemValue(ic.Id);
+                    FastTags<TagGroup.Global> tags = ItemActionAttack.PrimaryTag | ic.ItemTags;
+                    apm = EffectManager.GetValue(PassiveEffects.AttacksPerMinute, iv, 60f, null, null, tags);
+                }
+                catch (Exception ex) { ScLog.Once("arms-noswing-apm", ex); apm = 60f; }
+                if (apm < 1f) apm = 60f;
+                apmOf[ic.Id] = apm;                                      // one read per weapon type (X5 asks at 5 Hz)
+            }
+            return Mathf.Max(CorneredNoSwingSeconds, NoSwingDraw + 2f * 60f / apm);
+        }
+
+        /// <summary>Round hr1: AttacksPerMinute per melee weapon type, read once (NoSwingWindow).</summary>
+        private static readonly Dictionary<int, float> apmOf = new Dictionary<int, float>();
+
+        /// <summary>
+        /// Round hr1 (the last stand's weapon class, from her pair's gun): a CLOSE gun has a magazine of 5 or more (pistols, SMGs,
+        /// rifles, shotguns - vanilla's MagazineSize on the item, its mods counted when she holds it); a SLOW gun 2 or less (bows,
+        /// crossbows, pipe guns, the double barrel), or 3-4 with a Reload_time of 2.5 s or more. Reload_time decides only below 5:
+        /// vanilla gives 2.6 s to every shotgun and 4.1 s to the SMG, which are close guns. StandNoGun with no ranged action. A read.
+        /// </summary>
+        internal static int GunClass(EntityAlive e, ItemClass gun, out int mag, out float reload)
+        {
+            mag = 0;
+            reload = 0f;
+            ItemActionRanged ra = ScAmmo.RangedAction(gun);
+            if (ra == null) return StandNoGun;
+            try
+            {
+                ItemValue held = e != null && e.inventory != null ? e.inventory.holdingItemItemValue : null;
+                ItemValue iv = held != null && !held.IsEmpty() && held.type == gun.Id ? held : new ItemValue(gun.Id);
+                mag = (int)EffectManager.GetValue(PassiveEffects.MagazineSize, iv, ra.BulletsPerMagazine);
+            }
+            catch (Exception ex) { ScLog.Once("arms-gun-class", ex); mag = ra.BulletsPerMagazine; }
+            reload = ra.reloadingTime;
+            if (mag >= 5) return StandClose;
+            if (mag <= 2) return StandSlow;
+            return reload >= 2.5f ? StandSlow : StandClose;
         }
 
         /// <summary>The latest lastUseTime of the held item's first two actions (the swing and the power swing). False when unreadable. A read.</summary>
@@ -997,6 +1071,9 @@ namespace SurvivorCommunity
                 bool bout = CloseMelee(c);
                 CorneredBoutEnded(c, st, e, bout);                                   // F1: 0-XNPCCore's own end of its bout ends R2
                 if (!bout) TidyCornered(c, st, e, now);
+                // round hr1: the last stand owns her hand (its weapon class, its commitment, its no-swing window) - not on watch or a
+                // Stay (HOLD), and not against your weapon order (the posture's rules keep it)
+                if (pv.Stand && pv.P != Posture.Hold && pv.P != Posture.None && !OrderedMelee(e) && !OrderedRanged(e)) return StandHand(c, e, st, pv, bout, now);
                 // R2 is a KITE sub-rule: another posture ends a cornered melee (MELEE wants that weapon anyway; the others leave the hand)
                 if (st.CorneredMelee && pv.P != Posture.Kite && !(pv.P == Posture.Investigate && pv.Kiting))
                     EndCornered(c, st, e, "the posture is " + ScPosture.Name(pv.P, pv.Kiting) + " now");
@@ -1155,6 +1232,207 @@ namespace SurvivorCommunity
             }
             Patches_Xnpc.Count("x5-kite-keep-gun");
             return false;
+        }
+
+        /// <summary>
+        /// Round hr1 (the last stand, the user's decision 5): her hand while ScPosture says she makes a last stand. The weapon her
+        /// pair's gun class wants (GunClass): a CLOSE gun keeps shooting (0-XNPCCore's 3 m swap held) and goes to melee only when its
+        /// magazine is empty with an enemy within StandReloadClear (2 m) - back to the gun (and its reload) once none is; a SLOW gun
+        /// fires its loaded round, then melee for the rest of the stand (no reload with an enemy within StandReach); no melee weapon,
+        /// or melee refused, the gun anyway; nothing to shoot, melee. The commitment: no swap for StandCommitSeconds (6 s) since her
+        /// hand last changed while an enemy is within StandReach, unless the gun ran dry or melee was just refused. Melee rides in
+        /// 0-XNPCCore's bout (JoinBout): its own exit with her target in reach (a wall in her swing, unreachable) refuses melee, as
+        /// does no swing in the weapon's window (NoSwingWindow) - both member-wide for the commitment (the gun anyway), never per
+        /// target and with no 10 s R2 rest; its exit for a target gone or beyond 5 m is held. R2 is ended at the stand's start. True
+        /// runs 0-XNPCCore's own close-range tick, false skips it. X5 only.
+        /// </summary>
+        private static bool StandHand(AvatarSdcsNpcController c, EntityAlive e, Watch st, ScPosture.View pv, bool bout, float now)
+        {
+            if (st.StandSince != pv.StandSince)
+            {
+                // a new stand: its own clocks (and R2 gives way)
+                st.StandSince = pv.StandSince;
+                st.StandFired = false;
+                st.StandMeta = -1;
+                st.StandRefusedUntil = 0f;
+                st.StandRefusedAt = -100f;
+                st.StandRefusedWhy = null;
+                st.StandInBout = bout;
+                st.StandHeld = null;
+                st.StandHeldAt = 0f;
+                st.StandSwung = false;
+                st.StandTickAt = 0f;
+                if (st.CorneredMelee) EndCornered(c, st, e, "the last stand takes over (round hr1)");
+            }
+            Loadout l = ScLoadout.Current(e);
+            EntityAlive ct = CurrentTarget(e);
+            ItemClass gun = l != null && l.HasRanged ? ItemClass.GetItemClass(l.Ranged, true) : null;
+            if (ScAmmo.RangedAction(gun) == null) gun = null;
+            bool gunRounds = gun != null && ScAmmo.Rounds(e, gun) > 0;
+            bool hasMelee = l != null && !string.IsNullOrEmpty(l.Melee) && ItemClass.GetItemClass(l.Melee, true) != null;
+            bool holdsGun = HoldsRangedWeapon(e);
+            ItemValue held = e.inventory.holdingItemItemValue;
+            bool holdsPairGun = holdsGun && gun != null && held != null && held.type == gun.Id;
+            int meta = holdsGun && held != null ? held.Meta : -1;
+            bool reach = EnemyWithin(e, StandReach);
+            // 0-XNPCCore ended its bout itself with her target in reach - its verdict that she cannot swing there: the gun anyway
+            if (bout) st.StandInBout = true;
+            else if (st.StandInBout)
+            {
+                st.StandInBout = false;
+                if (ct != null && (ct.position - e.position).sqrMagnitude <= XnpcCloseExitDist * XnpcCloseExitDist) StandRefuse(e, st, BoutExitWhy(c, e, ct), now);
+            }
+            // the no-swing window on her melee weapon (sized to it)
+            if (!holdsGun && hasMelee && string.Equals(HeldItemName(e), l.Melee, StringComparison.OrdinalIgnoreCase))
+            {
+                float apm;
+                float window = NoSwingWindow(e, l.Melee, out apm);
+                if (now >= st.StandRefusedUntil && StandNoSwing(st, e, now, window))
+                {
+                    Patches_Xnpc.Count("x5-stand-noswing-exit");
+                    StandRefuse(e, st, "no swing in " + window.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s with " + ScRetreat.Her(e) + " " + l.Melee
+                                       + " (" + apm.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " attacks/min: a fence, bars or a block in " + ScRetreat.Her(e) + " swing)", now);
+                }
+            }
+            else st.StandHeldAt = 0f;
+            bool meleeOk = hasMelee && now >= st.StandRefusedUntil;
+            // the weapon the class wants
+            bool wantGun;
+            if (!gunRounds) wantGun = false;                                     // nothing to shoot: melee
+            else if (!meleeOk) wantGun = true;                                   // no melee weapon, or melee refused: the gun anyway
+            else if (pv.StandClass == StandSlow)
+            {
+                if (holdsPairGun)
+                {
+                    if (st.StandMeta >= 0 && meta < st.StandMeta) st.StandFired = true;   // its loaded round went
+                    if (meta <= 0) st.StandFired = true;
+                    st.StandMeta = meta;
+                }
+                // the loaded round in her hand, then melee for the rest of the stand; a fired slow gun reloads only with nobody in reach
+                wantGun = holdsPairGun && (!st.StandFired || !reach);
+            }
+            // a close gun: shoot; empty, melee while one is within 2 m - round hr1 (review HR1-m3): not in hand, it is wanted while its
+            // magazine outside the hand is loaded (a close gun keeps shooting), else once nothing is within 2 m (its reload)
+            else wantGun = holdsPairGun ? meta > 0 || !EnemyWithin(e, StandReloadClear) : StoredRounds(e, gun) > 0 || !EnemyWithin(e, StandReloadClear);
+            if (wantGun == holdsGun) return StandKeep(c, e, st, holdsGun, gunRounds, bout, ct, l, now);
+            // a swap: the commitment holds it while an enemy is in reach - unless the gun ran dry or melee was just refused
+            bool dry = holdsGun && meta <= 0;
+            bool refusedNow = now - st.StandRefusedAt < 0.5f;
+            if (reach && !dry && !refusedNow && now - ScPosture.HandChangedAt(e) < ScPosture.StandCommitSeconds)
+            {
+                ScPosture.NoteStandHeld(e);
+                return StandKeep(c, e, st, holdsGun, gunRounds, bout, ct, l, now);
+            }
+            if (wantGun)
+            {
+                // round hr1 (review HR1-n2): a slow gun is only ever drawn after a refusal (the reasons below are a close gun's)
+                string why = refusedNow ? st.StandRefusedWhy : !hasMelee ? "no melee weapon: the gun" : StoredRounds(e, gun) > 0 ? "a close gun with a loaded magazine: back to shooting"
+                             : "nothing within " + StandReloadClear.ToString("0") + " m: back to the gun to reload";
+                if (bout)
+                {
+                    // out of 0-XNPCCore's bout the way its own exit leaves it: the pair's gun restored
+                    if (!string.Equals(Remembered(c), l.Ranged, StringComparison.OrdinalIgnoreCase)) rememberedField.SetValue(c, l.Ranged);
+                    restoreHeld.Invoke(c, null);
+                    closeMeleeField.SetValue(c, false);
+                    closeSinceField.SetValue(c, 0f);
+                    st.StandInBout = false;
+                    if (!EquipTook(e, l.Ranged, "the stand's gun", ref st.GunBackoffUntil, now)) return false;
+                }
+                else if (now < st.GunBackoffUntil || !DrawGun(c, e, l, st, now)) return true;
+                ScPosture.NoteStandSwap(e, l.Ranged, true, why);
+                return false;
+            }
+            string mwhy = dry ? "the " + (held != null && held.ItemClass != null ? held.ItemClass.GetItemName() : "gun") + " is empty"
+                                + (pv.StandClass == StandSlow ? " (a slow gun: melee for the rest of the stand)" : " with an enemy within " + StandReloadClear.ToString("0") + " m (no reload)")
+                         : pv.StandClass == StandSlow ? "a slow gun: melee for the rest of the stand" : "an enemy within " + StandReloadClear.ToString("0") + " m and the gun empty";
+            // round hr1 (review HR1-m4): no melee weapon (a dry gun and nothing else) - 0-XNPCCore's own tick, never a swap to nothing
+            if (!hasMelee || l == null) return true;
+            if (now < st.MeleeBackoffUntil || !TakeMelee(c, e, l, st, now)) return true;      // the equip did not take: 0-XNPCCore's own tick
+            ScPosture.NoteStandSwap(e, l.Melee, false, mwhy);
+            JoinBout(c, e, l, now);
+            st.StandInBout = CloseMelee(c);
+            return false;
+        }
+
+        /// <summary>
+        /// Round hr1 (review HR1-m3): the rounds in her pair gun's magazine while it is out of her hand - the fullest copy in her stores
+        /// (ScAmmo.StoredMagazine, 0-XNPCCore's own dry read) or 0-XNPCCore's magazine table for that gun (its SdcsMagRounds cvar), 0
+        /// when neither says. With Locked &amp; Loaded a put-away gun holds no rounds (its magazine is in the bag): 0, and the gun comes
+        /// back only for a reload with nothing within 2 m. A read.
+        /// </summary>
+        private static int StoredRounds(EntityAlive e, ItemClass gun)
+        {
+            if (e == null || gun == null) return 0;
+            float n = 0f;
+            try
+            {
+                n = ScAmmo.StoredMagazine(e, gun);
+                if (e.Buffs != null) n = Mathf.Max(n, e.Buffs.GetCustomVar(NPCSdcsCharacters.Pure.GivenWeaponRules.TableRoundsCVar(gun.Id)));
+            }
+            catch (Exception ex) { ScLog.Once("arms-stored-rounds", ex); }
+            return Mathf.Max(0, Mathf.RoundToInt(n));
+        }
+
+        /// <summary>
+        /// Round hr1: the stand keeps her weapon - the gun with rounds: 0-XNPCCore's 3 m swap held (skip its tick); the melee weapon
+        /// in its bout: its exits judge (its exit for a target gone or beyond 5 m held); out of a bout with her target within 3 m,
+        /// into one. X5 only.
+        /// </summary>
+        private static bool StandKeep(AvatarSdcsNpcController c, EntityAlive e, Watch st, bool holdsGun, bool gunRounds, bool bout, EntityAlive ct, Loadout l, float now)
+        {
+            if (holdsGun)
+            {
+                if (!gunRounds) return true;                                     // dry for good: its failover and swap
+                Patches_Xnpc.Count("x5-stand-keep-gun");
+                return false;
+            }
+            if (bout)
+            {
+                if (ct == null || (ct.position - e.position).sqrMagnitude > XnpcCloseExitDist * XnpcCloseExitDist)
+                {
+                    ScPosture.NoteBoutHeld(e);
+                    return false;
+                }
+                return true;
+            }
+            if (ct != null && (ct.position - e.position).sqrMagnitude <= XnpcCloseEnterDist * XnpcCloseEnterDist && JoinBout(c, e, l, now)) st.StandInBout = true;
+            return true;
+        }
+
+        /// <summary>
+        /// Round hr1: melee is refused in the stand (0-XNPCCore's bout exit with her target in reach, or no swing in the window) - the
+        /// gun for StandCommitSeconds, member-wide: no per-target refusal and no R2RestSeconds rest. Logged once per refusal.
+        /// </summary>
+        private static void StandRefuse(EntityAlive e, Watch st, string why, float now)
+        {
+            st.StandRefusedUntil = now + ScPosture.StandCommitSeconds;
+            st.StandRefusedAt = now;
+            st.StandRefusedWhy = why;
+            st.StandHeldAt = 0f;
+            Patches_Xnpc.Count("x5-stand-melee-refused");
+            ScLog.Out(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") cannot swing in " + ScRetreat.Her(e) + " last stand: " + why + " - the gun for "
+                      + ScPosture.StandCommitSeconds.ToString("0") + " s, then melee again (no 10 s rest, no per-target refusal; round hr1)");
+        }
+
+        /// <summary>Round hr1: the stand's no-swing clock (as R2's NoSwing, its own fields): the melee weapon in hand for window with no swing.</summary>
+        private static bool StandNoSwing(Watch st, EntityAlive e, float now, float window)
+        {
+            float used;
+            if (!LastSwing(e, out used)) return false;
+            string held = HeldItemName(e);
+            if (st.StandHeldAt <= 0f || !string.Equals(held, st.StandHeld, StringComparison.OrdinalIgnoreCase))
+            {
+                st.StandHeldAt = now;
+                st.StandHeld = held;
+                st.StandUse = used;
+                st.StandSwung = false;
+                st.StandTickAt = now;
+                return false;
+            }
+            if (used != st.StandUse) st.StandSwung = true;
+            if (now - st.StandTickAt > KiteTickGapSeconds) st.StandHeldAt = now;      // a gap (a medical use) restarts the clock
+            st.StandTickAt = now;
+            return !st.StandSwung && now - st.StandHeldAt >= window;
         }
 
         /// <summary>Round k4: HOLD (see Hand) - on watch, or a Stay order.</summary>

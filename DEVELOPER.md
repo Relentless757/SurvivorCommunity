@@ -3380,6 +3380,72 @@ Round MP0 is the groundwork:
   - `ScHealBackOff`: cornered at or below `CorneredHealBelow` with `ScRetreat.GunReady` and the pursuer within 2.5 m, she keeps
     shooting (`ShootsInstead`) instead of starting a heal a hit would cut short - only at a pursuer she can see (vanilla's
     `EntityAlive.CanSee`), and for at most 10 s from the wait's first such verdict.
+- **Round hr1 (run to heal at home, safe rooms, last stand; all server-side, members at home only - round hl1's `AtHome`,
+  the home zone + `ResidentRoamZoneMargin`; followers away from home keep the old rules):**
+  - `ScSafeRoom` (new): a 3D breadth-first fill from her feet and head cells through every cell vanilla's
+    `Block.IsMovementBlocked` lets through (closed doors/hatches, glass, bars and fences are walls), all six neighbors, at
+    most `MaxCells` (512) cells, every cell inside the home zone + margin and under a roof (`World.IsOpenSkyAbove`), in loaded
+    chunks. Safe = enclosed, no enemy (awake or asleep) in a room cell or the cell above one, no armed enemy (a ranged weapon
+    in hand) that can see her within 25 m, none within 2 m that can see her. `SafeToHeal` caches it 1 s per body and logs a
+    changed verdict; `FillFrom(..., doorsAsWalls)` is shared with `ScShelter`; `sc saferoom [id|name]`.
+  - The heal order (`ScHealBackOff.StartWalk`, region Home): a safe room heals where she stands; else k1's straight point;
+    else a walk into an enclosable room within 30 m (`ScShelter.PickRoom`: a scan candidate in a room, 2.5 m from every door,
+    a walk that never takes her nearer the threat; `ScDoors.TrackPassed` shuts the doors she passes; heal on arrival if
+    `SafeToHeal`); else a flight point 8-20 m away on 12 directions (a standable floor inside the base, 4 m farther from
+    the threat, no enemy within 5 m) - both walks are checked on the navigator's real path (`CheckPath`: it must reach the
+    spot and pass no enemy, else the spot is set aside 10 s); else 0-XNPCCore's roll; else the cornered rules (nc1's D2) and
+    `NoRoom`, which the last stand reads (`NoRoomNow`).
+  - The roll (step 5): 0-XNPCCore's public `SdcsRollProbe.ProbeForHeal` and `AvatarSdcsNpcController.StartForcedRoll`, bound by
+    name (`XnpcRoll`; missing: step 5 off with one warning), only with an enemy within 2 m and a landing spot (5 m along the
+    heading) inside the base, at most once per 8 s. Not its heal sequence: X15 still skips `SdcsSelfHealScan` and nothing adds
+    `SdcsIsHealing`; the roll leaves a "heal now" verdict for the wait, and `ScMedic.TryHeal` keeps the wait fresh while
+    0-XNPCCore's busy flag is up for it (`ScHealBackOff.Rolling`).
+  - MedicMaxWait at home counts from the wait's first walk (`ScHealBackOff.TimeoutAt`/`WalkClock`: the walk's length - the path's
+    once known - over `RunnerRunMps` + 2 s, later walks may push it out, at most 12 s after the first began); before any walk
+    and away from home, `MedicMaxWait` from the wait's start as before.
+  - The gap rule (`ScHealBackOff.FightsInstead`, t2's `ShootsInstead` widened at home): no use while an enemy within 2.5 m can see
+    her (or she it) and she has a usable weapon (her pair's gun with rounds, or her melee weapon); no 10 s cap. `ScMedic.GapHolds`
+    applies it at home on every path - the back-off's verdicts, the timeout, sheltering, on watch, a Stay - logging once per wait.
+  - `ScMedic`: a member's or stand-in's use lasts at most `MemberUseSeconds` (1.5 s) from the use trigger (3P_Bandage_Use is about
+    1.4 s; the use still ends when that clip leaves its layer first); the finish line (verbose) gives the trigger time, whether
+    the hold pose showed, and what ended it. In a last stand no cloth bandage for a bleed.
+  - `ScShelter`: after its seeds each scan runs a room pass - one `FillFrom` with doors as walls per new space, at most one fill a
+    frame - giving each candidate a room id (`Cand.Room`: 1+, -1 none, 0 not checked) with the room's cell count and door list
+    (`RoomInfo`). `PickIn` scores an enclosable room 8 better and 3 worse per door standing open now beyond the one she shuts.
+  - The last stand (`ScPosture.UpdateStand`, X5 tick, in scope): at home, a fight posture or SHELTER, 2+ enemies after her within
+    3 m (or overwhelmed), and `NoRoomNow` (or sheltering with nothing to heal with on fallback (c)); ends 1.5 s after that stops
+    holding. Its start hands the shot a member-wide 4 s beat (`ScBackOff.HandToShot`); in a stand `MarkNoPoint` and the gain test
+    keep it member-wide for 4 s and `Blocked` has no reload pass. `ScArms.StandHand` owns her hand (not on watch/Stay or against
+    your weapon order): the pair gun's class (`GunClass`: magazine 5+ close, 2 or less slow, 3-4 by `Reload_time` 2.5 s - only
+    there, since vanilla gives every shotgun 2.6 s), a 6 s commitment on the one hand clock (`ScPosture.HandClockAllows` holds
+    `StandCommitSeconds` in a stand with an enemy in reach) broken by a dry gun or a refused swing, melee in 0-XNPCCore's bout,
+    and a refusal (its bout exit with the target in reach, or no swing within `NoSwingWindow` - 1 s plus two swings at the
+    weapon's `AttacksPerMinute`, at least 2.5 s) is member-wide for the 6 s: no per-target refusal, no R2 rest. R2's own no-swing
+    exit outside a stand uses the same weapon-sized window. Logged: the stand's start (with the weapon class) and end, each
+    commit, each refusal.
+  - `ScDowned`: `sc down` marks the member (`consoleDowns`); the Down record it makes takes the mark (`Down.Console`) and its
+    revive (`Up`) sets 0-XNPCCore's `SdcsDownedRedown` back to 0 the way 0-XNPCCore sets it (synced). `sc downed` counts DOWN and
+    FRAGILE members, names who can revive a downed one, and marks a test down.
+  - `RegenCapShare` defaults to 0.7. No new Harmony targets, no `ScNet.Protocol` change, no new localization.
+  - The review's fixes: a MedicMaxWait timeout the gap rule holds calls `ScHealBackOff.TimedOutHeld` - the walk ends, she
+    fights on (`FightOnWait`; after a timeout only the gap rule holds her, not D2's line), no more walks in that wait
+    (`TimedOutWait`), and the "no room" verdict is set for the stand; room and flight walks are capped at `MaxWalksPerWait`
+    (4) per wait. At a room spot reached through a door she waits up to `ArriveWaitSeconds` (3 s, never past the walk's
+    deadline) testing afresh every 0.5 s (`ScSafeRoom.SafeToHeal(e, fresh, ...)`; the 1 s cache answers only for the same
+    feet cell) for `ScDoors` to shut it, leaving at once when an enemy is inside. `BeginWalk` drops the navigator's old path and
+    `CheckPath` skips it (`StalePath`) and waits while `PathFinderThread.IsCalculatingPath`; it also sets aside a path that
+    leaves the base. A stand holds through the item's cooldown (`NoRoomRecently`, 15 s, while she is at or under the heal line).
+    A close gun out of her hand is drawn again while its stored magazine is loaded (`StoredRounds`: `ScAmmo.StoredMagazine` or
+    0-XNPCCore's magazine table cvar). The gap rule also covers "nothing after her within reach" at home, the safe room's near
+    test is 2.5 m while she has a usable weapon, and `FightsInstead` is cached 0.25 s per body. Verdict keys carry the kind,
+    not the enemy's id.
+  - The re-check's fixes: the wait at a room spot ends at once when the pursuer is within `ArriveLeaveDist` (3 m) or the gap
+    rule holds (asked every tick: with the door open the room test sees no enemy), and "leave" is that test, not the verdict's
+    key; the wait has its own 3 s (the walk's deadline is pushed to it, never past 12 s after the first walk). The gap hold
+    where nothing is after her (`ScMedic.GapOnlyHolds`) starts no reach wait - ScHealBackOff stays out and MedicMaxWait is
+    not used up; a reach wait on then ends. A walk counts toward `MaxWalksPerWait` once its path passes `CheckPath`; failed
+    paths have their own cap (`MaxFailedWalksPerWait`, 8). The stand's hold also runs from her last use's start and while an
+    item still heals her (`ScMedic.UsedOrWorking`). `ScHealBackOff.Forget` drops a body's state in `ScLooks.Forget`.
 - **Round MP6 (review fixes):** the four reviews' fixes on the merged build. What a modder must know:
   - **The listen host's own markers** are drawn for the host's own player in the host's own community: the periodic and
     restore paths (`ScEnclaves`/`ScInfestations`' `RefreshMarkers`, `ScBands.UpdateMarkers`) take `ScCommunity.LocalPlayer`,
