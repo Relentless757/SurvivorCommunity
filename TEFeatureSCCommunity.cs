@@ -179,19 +179,21 @@ namespace SurvivorCommunity
                 // round MP7 (part U): the community modes' view for this machine's player (the registry on the host, the derived block's
                 // role= / ownops= on a client): the owner's entries hide for a role they are not for (PerPlayer/PerParty), and a player
                 // with only their own relations has nothing to link. Shared mode's view has no role: every entry as before
-                ScCommunityView.View view = ScCommunityView.Take(_entityFocusing, false);
-                if (disband && view.Gated) return false;      // Disband outpost: the owner's order (outpost.disbandclaim, Owner access)
-                if (outpost || disband || opStorage) return isOutpost;
+                // round MP7 (review U): n7 - taken only by a branch that needs it (V), after that branch's own cheaper tests
+                ScCommunityView.View view = null;
+                ScCommunityView.View V() { return view ?? (view = ScCommunityView.Take(_entityFocusing, false)); }
+                // Disband outpost: the owner's order (outpost.disbandclaim, Owner access)
+                if (outpost || disband || opStorage) return isOutpost && !(disband && V().Gated);
                 // at an outpost it opens the HOME storage over the radio; with no home yet there is nothing to link (round
                 // 32a), unless AutoHomeFirstClaim makes this claim the home on the spot as before
-                if (storage) return !view.Personal && (isOutpost || ScZone.HasHome || ScConfig.AutoHomeFirstClaim);
+                if (storage) return (isOutpost || ScZone.HasHome || ScConfig.AutoHomeFirstClaim) && !V().Personal;
                 if (isOutpost) return false;                  // an outpost's claim never offers the home entries
                 bool isHome = ScZone.HasHome && ScZone.Home == _blockPos;
                 // round MP7 (part U): "Start a community here" for a personal record shows as before (it has no home) and asks
                 // community.start (ScActionsClaim.RequestHome) - hidden only for a player of a founded community that has no home yet
                 // and is not theirs to start (ScMembership.Start's Owner rule); "Set as community home" is the owner's order (home.set)
-                if (startHome) return !ScZone.HasHome && !view.Gated;        // round 32a: opt-in - the first home is started here
-                if (setHome) return ScZone.HasHome && !isHome && !view.Gated; // moving an existing home here
+                if (startHome) return !ScZone.HasHome && !V().Gated;        // round 32a: opt-in - the first home is started here
+                if (setHome) return ScZone.HasHome && !isHome && !V().Gated; // moving an existing home here
                 if (establish)
                 {
                     // a claim inside a real POI away from home (the gates and their reasons come on activation)

@@ -957,68 +957,68 @@
 						<rect depth="0" name="playersView" pos="0,0" width="428" height="696" visible="{showplayers}">
 							<label depth="4" pos="20,-14" width="318" height="34" font_size="28" text_key="scUiPlTitle" color="226,219,203,255" upper_case="true"/>
 							<label depth="4" pos="338,-18" width="70" height="30" font_size="26" text="{playercount}" color="206,178,120,255" justify="right"/>
-							<label depth="4" pos="20,-54" width="388" height="44" font_size="16" text="{playersyou}" color="206,178,120,255"/>
+							<label depth="4" pos="20,-54" width="388" height="64" font_size="16" text="{playersyou}" color="206,178,120,255"/>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl1visible}">
-								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-104" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-124" width="20" height="20" pivot="center" color="{pl1dotcolor}"/>
-								<label depth="4" pos="60,-112" width="178" height="24" font_size="19" text="{pl1name}" color="{pl1namecolor}"/>
-								<label depth="4" pos="248,-114" width="148" height="22" font_size="15" text="{pl1role}" color="190,182,166,255" justify="right"/>
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-122" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-142" width="20" height="20" pivot="center" color="{pl1dotcolor}"/>
+								<label depth="4" pos="60,-130" width="178" height="24" font_size="19" text="{pl1name}" color="{pl1namecolor}"/>
+								<label depth="4" pos="248,-132" width="148" height="22" font_size="15" text="{pl1role}" color="190,182,166,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl2visible}">
-								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-148" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-168" width="20" height="20" pivot="center" color="{pl2dotcolor}"/>
-								<label depth="4" pos="60,-156" width="178" height="24" font_size="19" text="{pl2name}" color="{pl2namecolor}"/>
-								<label depth="4" pos="248,-158" width="148" height="22" font_size="15" text="{pl2role}" color="190,182,166,255" justify="right"/>
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-166" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-186" width="20" height="20" pivot="center" color="{pl2dotcolor}"/>
+								<label depth="4" pos="60,-174" width="178" height="24" font_size="19" text="{pl2name}" color="{pl2namecolor}"/>
+								<label depth="4" pos="248,-176" width="148" height="22" font_size="15" text="{pl2role}" color="190,182,166,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl3visible}">
-								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-192" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-212" width="20" height="20" pivot="center" color="{pl3dotcolor}"/>
-								<label depth="4" pos="60,-200" width="178" height="24" font_size="19" text="{pl3name}" color="{pl3namecolor}"/>
-								<label depth="4" pos="248,-202" width="148" height="22" font_size="15" text="{pl3role}" color="190,182,166,255" justify="right"/>
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-210" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-230" width="20" height="20" pivot="center" color="{pl3dotcolor}"/>
+								<label depth="4" pos="60,-218" width="178" height="24" font_size="19" text="{pl3name}" color="{pl3namecolor}"/>
+								<label depth="4" pos="248,-220" width="148" height="22" font_size="15" text="{pl3role}" color="190,182,166,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl4visible}">
-								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-236" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-256" width="20" height="20" pivot="center" color="{pl4dotcolor}"/>
-								<label depth="4" pos="60,-244" width="178" height="24" font_size="19" text="{pl4name}" color="{pl4namecolor}"/>
-								<label depth="4" pos="248,-246" width="148" height="22" font_size="15" text="{pl4role}" color="190,182,166,255" justify="right"/>
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-254" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-274" width="20" height="20" pivot="center" color="{pl4dotcolor}"/>
+								<label depth="4" pos="60,-262" width="178" height="24" font_size="19" text="{pl4name}" color="{pl4namecolor}"/>
+								<label depth="4" pos="248,-264" width="148" height="22" font_size="15" text="{pl4role}" color="190,182,166,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl5visible}">
-								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-280" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-300" width="20" height="20" pivot="center" color="{pl5dotcolor}"/>
-								<label depth="4" pos="60,-288" width="178" height="24" font_size="19" text="{pl5name}" color="{pl5namecolor}"/>
-								<label depth="4" pos="248,-290" width="148" height="22" font_size="15" text="{pl5role}" color="190,182,166,255" justify="right"/>
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-298" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-318" width="20" height="20" pivot="center" color="{pl5dotcolor}"/>
+								<label depth="4" pos="60,-306" width="178" height="24" font_size="19" text="{pl5name}" color="{pl5namecolor}"/>
+								<label depth="4" pos="248,-308" width="148" height="22" font_size="15" text="{pl5role}" color="190,182,166,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl6visible}">
-								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-324" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-344" width="20" height="20" pivot="center" color="{pl6dotcolor}"/>
-								<label depth="4" pos="60,-332" width="178" height="24" font_size="19" text="{pl6name}" color="{pl6namecolor}"/>
-								<label depth="4" pos="248,-334" width="148" height="22" font_size="15" text="{pl6role}" color="190,182,166,255" justify="right"/>
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-342" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-362" width="20" height="20" pivot="center" color="{pl6dotcolor}"/>
+								<label depth="4" pos="60,-350" width="178" height="24" font_size="19" text="{pl6name}" color="{pl6namecolor}"/>
+								<label depth="4" pos="248,-352" width="148" height="22" font_size="15" text="{pl6role}" color="190,182,166,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl7visible}">
-								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-368" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-388" width="20" height="20" pivot="center" color="{pl7dotcolor}"/>
-								<label depth="4" pos="60,-376" width="178" height="24" font_size="19" text="{pl7name}" color="{pl7namecolor}"/>
-								<label depth="4" pos="248,-378" width="148" height="22" font_size="15" text="{pl7role}" color="190,182,166,255" justify="right"/>
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-386" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-406" width="20" height="20" pivot="center" color="{pl7dotcolor}"/>
+								<label depth="4" pos="60,-394" width="178" height="24" font_size="19" text="{pl7name}" color="{pl7namecolor}"/>
+								<label depth="4" pos="248,-396" width="148" height="22" font_size="15" text="{pl7role}" color="190,182,166,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl8visible}">
-								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-412" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-432" width="20" height="20" pivot="center" color="{pl8dotcolor}"/>
-								<label depth="4" pos="60,-420" width="178" height="24" font_size="19" text="{pl8name}" color="{pl8namecolor}"/>
-								<label depth="4" pos="248,-422" width="148" height="22" font_size="15" text="{pl8role}" color="190,182,166,255" justify="right"/>
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-430" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-450" width="20" height="20" pivot="center" color="{pl8dotcolor}"/>
+								<label depth="4" pos="60,-438" width="178" height="24" font_size="19" text="{pl8name}" color="{pl8namecolor}"/>
+								<label depth="4" pos="248,-440" width="148" height="22" font_size="15" text="{pl8role}" color="190,182,166,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl9visible}">
-								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-456" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-476" width="20" height="20" pivot="center" color="{pl9dotcolor}"/>
-								<label depth="4" pos="60,-464" width="178" height="24" font_size="19" text="{pl9name}" color="{pl9namecolor}"/>
-								<label depth="4" pos="248,-466" width="148" height="22" font_size="15" text="{pl9role}" color="190,182,166,255" justify="right"/>
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-474" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-494" width="20" height="20" pivot="center" color="{pl9dotcolor}"/>
+								<label depth="4" pos="60,-482" width="178" height="24" font_size="19" text="{pl9name}" color="{pl9namecolor}"/>
+								<label depth="4" pos="248,-484" width="148" height="22" font_size="15" text="{pl9role}" color="190,182,166,255" justify="right"/>
 							</rect>
-							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl10visible}">
-								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-500" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-520" width="20" height="20" pivot="center" color="{pl10dotcolor}"/>
-								<label depth="4" pos="60,-508" width="178" height="24" font_size="19" text="{pl10name}" color="{pl10namecolor}"/>
-								<label depth="4" pos="248,-510" width="148" height="22" font_size="15" text="{pl10role}" color="190,182,166,255" justify="right"/>
+							<label depth="4" pos="20,-528" width="288" height="22" font_size="16" text="{plshowingtext}" color="190,182,166,255"/>
+							<rect depth="2" pos="0,0" width="428" height="696" visible="{plpagevisible}">
+								<button depth="2" name="btnPlPrev" pos="324,-522" width="38" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_left" pos="343,-539" width="18" height="18" pivot="center" color="[white]"/>
+								<button depth="2" name="btnPlNext" pos="370,-522" width="38" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_right" pos="389,-539" width="18" height="18" pivot="center" color="[white]"/>
 							</rect>
-							<label depth="4" pos="20,-546" width="388" height="22" font_size="16" text="{plmore}" color="190,182,166,255"/>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{leavecommunityvisible}">
 								<button depth="2" name="btnLeaveCommunity" pos="20,-590" width="388" height="48" sprite="scui_btn_danger" hoversprite="scui_btn_danger" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 								<label depth="4" pos="20,-605" width="388" height="24" font_size="18" text="{leavecommunitylabel}" color="240,150,130,255" justify="center" upper_case="true"/>
@@ -1104,8 +1104,14 @@
 							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncencempty}">
 								<label depth="4" pos="24,-96" width="512" height="120" font_size="18" text_key="scUiNcEncNone" color="226,220,208,255"/>
 							</rect>
-							<label depth="4" pos="24,-586" width="512" height="22" font_size="17" text="{ncencmore}" color="190,182,166,255"/>
-							<label depth="4" pos="24,-616" width="512" height="60" font_size="16" text_key="scUiNcEncNote" color="190,182,166,255"/>
+							<label depth="4" pos="24,-590" width="412" height="22" font_size="17" text="{ncencshowing}" color="190,182,166,255"/>
+							<rect depth="2" pos="0,0" width="560" height="696" visible="{ncencpagevisible}">
+								<button depth="2" name="btnNcEncPrev" pos="452,-586" width="38" height="30" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_left" pos="471,-601" width="18" height="18" pivot="center" color="[white]"/>
+								<button depth="2" name="btnNcEncNext" pos="498,-586" width="38" height="30" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_right" pos="517,-601" width="18" height="18" pivot="center" color="[white]"/>
+							</rect>
+							<label depth="4" pos="24,-622" width="512" height="60" font_size="16" text_key="scUiNcEncNote" color="190,182,166,255"/>
 						</rect>
 						<rect depth="1" name="ncFavourPanel" pos="1048,-188" width="428" height="696">
 							<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="0,0" width="428" height="696"/>
@@ -1143,7 +1149,13 @@
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncfavempty}">
 								<label depth="4" pos="20,-62" width="388" height="90" font_size="17" text_key="scUiNcFavNone" color="226,220,208,255"/>
 							</rect>
-							<label depth="4" pos="20,-366" width="388" height="22" font_size="16" text="{ncfavmore}" color="190,182,166,255"/>
+							<label depth="4" pos="20,-369" width="288" height="22" font_size="16" text="{ncfavshowing}" color="190,182,166,255"/>
+							<rect depth="2" pos="0,0" width="428" height="696" visible="{ncfavpagevisible}">
+								<button depth="2" name="btnNcFavPrev" pos="324,-366" width="38" height="28" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_left" pos="343,-380" width="18" height="18" pivot="center" color="[white]"/>
+								<button depth="2" name="btnNcFavNext" pos="370,-366" width="38" height="28" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_right" pos="389,-380" width="18" height="18" pivot="center" color="[white]"/>
+							</rect>
 							<label depth="4" pos="20,-398" width="388" height="26" font_size="22" text_key="scUiNcRequests" color="226,219,203,255" upper_case="true"/>
 							<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="20,-426" width="388" height="3"/>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncreq1visible}">
@@ -1167,8 +1179,14 @@
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncreqempty}">
 								<label depth="4" pos="20,-442" width="388" height="60" font_size="17" text_key="scUiNcReqNone" color="226,220,208,255"/>
 							</rect>
-							<label depth="4" pos="20,-622" width="388" height="22" font_size="16" text="{ncreqmore}" color="190,182,166,255"/>
-							<label depth="4" pos="20,-648" width="388" height="40" font_size="15" text_key="scUiNcFavNote" color="190,182,166,255"/>
+							<label depth="4" pos="20,-624" width="288" height="22" font_size="16" text="{ncreqshowing}" color="190,182,166,255"/>
+							<rect depth="2" pos="0,0" width="428" height="696" visible="{ncreqpagevisible}">
+								<button depth="2" name="btnNcReqPrev" pos="324,-622" width="38" height="26" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_left" pos="343,-635" width="18" height="18" pivot="center" color="[white]"/>
+								<button depth="2" name="btnNcReqNext" pos="370,-622" width="38" height="26" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_right" pos="389,-635" width="18" height="18" pivot="center" color="[white]"/>
+							</rect>
+							<label depth="4" pos="20,-652" width="388" height="40" font_size="15" text_key="scUiNcFavNote" color="190,182,166,255"/>
 						</rect>
 					</rect>
 					<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="24,-892" width="58" height="28"/>
@@ -1877,68 +1895,70 @@
 						<rect depth="0" name="playersView" pos="0,0" width="428" height="696" visible="{showplayers}">
 							<label depth="4" pos="20,-14" width="318" height="34" font_size="28" text_key="scUiPlTitle" color="255,255,255,255" upper_case="true"/>
 							<label depth="4" pos="338,-18" width="70" height="30" font_size="26" text="{playercount}" color="222,206,163,255" justify="right"/>
-							<label depth="4" pos="20,-54" width="388" height="44" font_size="16" text="{playersyou}" color="222,206,163,255"/>
+							<label depth="4" pos="20,-54" width="388" height="64" font_size="16" text="{playersyou}" color="222,206,163,255"/>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl1visible}">
-								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-104" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-124" width="20" height="20" pivot="center" color="{pl1dotcolor}"/>
-								<label depth="4" pos="60,-112" width="178" height="24" font_size="19" text="{pl1name}" color="{pl1namecolor}"/>
-								<label depth="4" pos="248,-114" width="148" height="22" font_size="15" text="{pl1role}" color="180,180,180,255" justify="right"/>
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-122" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-142" width="20" height="20" pivot="center" color="{pl1dotcolor}"/>
+								<label depth="4" pos="60,-130" width="178" height="24" font_size="19" text="{pl1name}" color="{pl1namecolor}"/>
+								<label depth="4" pos="248,-132" width="148" height="22" font_size="15" text="{pl1role}" color="180,180,180,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl2visible}">
-								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-148" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-168" width="20" height="20" pivot="center" color="{pl2dotcolor}"/>
-								<label depth="4" pos="60,-156" width="178" height="24" font_size="19" text="{pl2name}" color="{pl2namecolor}"/>
-								<label depth="4" pos="248,-158" width="148" height="22" font_size="15" text="{pl2role}" color="180,180,180,255" justify="right"/>
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-166" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-186" width="20" height="20" pivot="center" color="{pl2dotcolor}"/>
+								<label depth="4" pos="60,-174" width="178" height="24" font_size="19" text="{pl2name}" color="{pl2namecolor}"/>
+								<label depth="4" pos="248,-176" width="148" height="22" font_size="15" text="{pl2role}" color="180,180,180,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl3visible}">
-								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-192" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-212" width="20" height="20" pivot="center" color="{pl3dotcolor}"/>
-								<label depth="4" pos="60,-200" width="178" height="24" font_size="19" text="{pl3name}" color="{pl3namecolor}"/>
-								<label depth="4" pos="248,-202" width="148" height="22" font_size="15" text="{pl3role}" color="180,180,180,255" justify="right"/>
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-210" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-230" width="20" height="20" pivot="center" color="{pl3dotcolor}"/>
+								<label depth="4" pos="60,-218" width="178" height="24" font_size="19" text="{pl3name}" color="{pl3namecolor}"/>
+								<label depth="4" pos="248,-220" width="148" height="22" font_size="15" text="{pl3role}" color="180,180,180,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl4visible}">
-								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-236" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-256" width="20" height="20" pivot="center" color="{pl4dotcolor}"/>
-								<label depth="4" pos="60,-244" width="178" height="24" font_size="19" text="{pl4name}" color="{pl4namecolor}"/>
-								<label depth="4" pos="248,-246" width="148" height="22" font_size="15" text="{pl4role}" color="180,180,180,255" justify="right"/>
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-254" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-274" width="20" height="20" pivot="center" color="{pl4dotcolor}"/>
+								<label depth="4" pos="60,-262" width="178" height="24" font_size="19" text="{pl4name}" color="{pl4namecolor}"/>
+								<label depth="4" pos="248,-264" width="148" height="22" font_size="15" text="{pl4role}" color="180,180,180,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl5visible}">
-								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-280" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-300" width="20" height="20" pivot="center" color="{pl5dotcolor}"/>
-								<label depth="4" pos="60,-288" width="178" height="24" font_size="19" text="{pl5name}" color="{pl5namecolor}"/>
-								<label depth="4" pos="248,-290" width="148" height="22" font_size="15" text="{pl5role}" color="180,180,180,255" justify="right"/>
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-298" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-318" width="20" height="20" pivot="center" color="{pl5dotcolor}"/>
+								<label depth="4" pos="60,-306" width="178" height="24" font_size="19" text="{pl5name}" color="{pl5namecolor}"/>
+								<label depth="4" pos="248,-308" width="148" height="22" font_size="15" text="{pl5role}" color="180,180,180,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl6visible}">
-								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-324" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-344" width="20" height="20" pivot="center" color="{pl6dotcolor}"/>
-								<label depth="4" pos="60,-332" width="178" height="24" font_size="19" text="{pl6name}" color="{pl6namecolor}"/>
-								<label depth="4" pos="248,-334" width="148" height="22" font_size="15" text="{pl6role}" color="180,180,180,255" justify="right"/>
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-342" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-362" width="20" height="20" pivot="center" color="{pl6dotcolor}"/>
+								<label depth="4" pos="60,-350" width="178" height="24" font_size="19" text="{pl6name}" color="{pl6namecolor}"/>
+								<label depth="4" pos="248,-352" width="148" height="22" font_size="15" text="{pl6role}" color="180,180,180,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl7visible}">
-								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-368" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-388" width="20" height="20" pivot="center" color="{pl7dotcolor}"/>
-								<label depth="4" pos="60,-376" width="178" height="24" font_size="19" text="{pl7name}" color="{pl7namecolor}"/>
-								<label depth="4" pos="248,-378" width="148" height="22" font_size="15" text="{pl7role}" color="180,180,180,255" justify="right"/>
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-386" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-406" width="20" height="20" pivot="center" color="{pl7dotcolor}"/>
+								<label depth="4" pos="60,-394" width="178" height="24" font_size="19" text="{pl7name}" color="{pl7namecolor}"/>
+								<label depth="4" pos="248,-396" width="148" height="22" font_size="15" text="{pl7role}" color="180,180,180,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl8visible}">
-								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-412" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-432" width="20" height="20" pivot="center" color="{pl8dotcolor}"/>
-								<label depth="4" pos="60,-420" width="178" height="24" font_size="19" text="{pl8name}" color="{pl8namecolor}"/>
-								<label depth="4" pos="248,-422" width="148" height="22" font_size="15" text="{pl8role}" color="180,180,180,255" justify="right"/>
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-430" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-450" width="20" height="20" pivot="center" color="{pl8dotcolor}"/>
+								<label depth="4" pos="60,-438" width="178" height="24" font_size="19" text="{pl8name}" color="{pl8namecolor}"/>
+								<label depth="4" pos="248,-440" width="148" height="22" font_size="15" text="{pl8role}" color="180,180,180,255" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl9visible}">
-								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-456" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-476" width="20" height="20" pivot="center" color="{pl9dotcolor}"/>
-								<label depth="4" pos="60,-464" width="178" height="24" font_size="19" text="{pl9name}" color="{pl9namecolor}"/>
-								<label depth="4" pos="248,-466" width="148" height="22" font_size="15" text="{pl9role}" color="180,180,180,255" justify="right"/>
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-474" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-494" width="20" height="20" pivot="center" color="{pl9dotcolor}"/>
+								<label depth="4" pos="60,-482" width="178" height="24" font_size="19" text="{pl9name}" color="{pl9namecolor}"/>
+								<label depth="4" pos="248,-484" width="148" height="22" font_size="15" text="{pl9role}" color="180,180,180,255" justify="right"/>
 							</rect>
-							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl10visible}">
-								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-500" width="388" height="40"/>
-								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-520" width="20" height="20" pivot="center" color="{pl10dotcolor}"/>
-								<label depth="4" pos="60,-508" width="178" height="24" font_size="19" text="{pl10name}" color="{pl10namecolor}"/>
-								<label depth="4" pos="248,-510" width="148" height="22" font_size="15" text="{pl10role}" color="180,180,180,255" justify="right"/>
+							<label depth="4" pos="20,-528" width="288" height="22" font_size="16" text="{plshowingtext}" color="180,180,180,255"/>
+							<rect depth="2" pos="0,0" width="428" height="696" visible="{plpagevisible}">
+								<button depth="2" name="btnPlPrev" pos="324,-522" width="38" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="324,-522" width="38" height="34"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_left" pos="343,-539" width="18" height="18" pivot="center" color="[white]"/>
+								<button depth="2" name="btnPlNext" pos="370,-522" width="38" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="370,-522" width="38" height="34"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_right" pos="389,-539" width="18" height="18" pivot="center" color="[white]"/>
 							</rect>
-							<label depth="4" pos="20,-546" width="388" height="22" font_size="16" text="{plmore}" color="180,180,180,255"/>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{leavecommunityvisible}">
 								<button depth="2" name="btnLeaveCommunity" pos="20,-590" width="388" height="48" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="96,40,40,255" hovercolor="140,56,56,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="228,18,21,255" pos="20,-590" width="388" height="48"/>
@@ -2027,8 +2047,16 @@
 							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncencempty}">
 								<label depth="4" pos="24,-96" width="512" height="120" font_size="18" text_key="scUiNcEncNone" color="255,255,255,255"/>
 							</rect>
-							<label depth="4" pos="24,-586" width="512" height="22" font_size="17" text="{ncencmore}" color="180,180,180,255"/>
-							<label depth="4" pos="24,-616" width="512" height="60" font_size="16" text_key="scUiNcEncNote" color="180,180,180,255"/>
+							<label depth="4" pos="24,-590" width="412" height="22" font_size="17" text="{ncencshowing}" color="180,180,180,255"/>
+							<rect depth="2" pos="0,0" width="560" height="696" visible="{ncencpagevisible}">
+								<button depth="2" name="btnNcEncPrev" pos="452,-586" width="38" height="30" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="452,-586" width="38" height="30"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_left" pos="471,-601" width="18" height="18" pivot="center" color="[white]"/>
+								<button depth="2" name="btnNcEncNext" pos="498,-586" width="38" height="30" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="498,-586" width="38" height="30"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_right" pos="517,-601" width="18" height="18" pivot="center" color="[white]"/>
+							</rect>
+							<label depth="4" pos="24,-622" width="512" height="60" font_size="16" text_key="scUiNcEncNote" color="180,180,180,255"/>
 						</rect>
 						<rect depth="1" name="ncFavourPanel" pos="1048,-188" width="428" height="696">
 							<sprite depth="0" sprite="menu_empty" type="sliced" color="64,64,64,255" pos="0,0" width="428" height="696" globalopacitymod="0"/>
@@ -2067,7 +2095,15 @@
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncfavempty}">
 								<label depth="4" pos="20,-62" width="388" height="90" font_size="17" text_key="scUiNcFavNone" color="255,255,255,255"/>
 							</rect>
-							<label depth="4" pos="20,-366" width="388" height="22" font_size="16" text="{ncfavmore}" color="180,180,180,255"/>
+							<label depth="4" pos="20,-369" width="288" height="22" font_size="16" text="{ncfavshowing}" color="180,180,180,255"/>
+							<rect depth="2" pos="0,0" width="428" height="696" visible="{ncfavpagevisible}">
+								<button depth="2" name="btnNcFavPrev" pos="324,-366" width="38" height="28" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="324,-366" width="38" height="28"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_left" pos="343,-380" width="18" height="18" pivot="center" color="[white]"/>
+								<button depth="2" name="btnNcFavNext" pos="370,-366" width="38" height="28" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="370,-366" width="38" height="28"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_right" pos="389,-380" width="18" height="18" pivot="center" color="[white]"/>
+							</rect>
 							<label depth="4" pos="20,-398" width="388" height="26" font_size="22" text_key="scUiNcRequests" color="255,255,255,255" upper_case="true"/>
 							<sprite depth="1" sprite="menu_empty" type="sliced" color="128,128,128,255" pos="20,-426" width="388" height="3"/>
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncreq1visible}">
@@ -2091,8 +2127,16 @@
 							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncreqempty}">
 								<label depth="4" pos="20,-442" width="388" height="60" font_size="17" text_key="scUiNcReqNone" color="255,255,255,255"/>
 							</rect>
-							<label depth="4" pos="20,-622" width="388" height="22" font_size="16" text="{ncreqmore}" color="180,180,180,255"/>
-							<label depth="4" pos="20,-648" width="388" height="40" font_size="15" text_key="scUiNcFavNote" color="180,180,180,255"/>
+							<label depth="4" pos="20,-624" width="288" height="22" font_size="16" text="{ncreqshowing}" color="180,180,180,255"/>
+							<rect depth="2" pos="0,0" width="428" height="696" visible="{ncreqpagevisible}">
+								<button depth="2" name="btnNcReqPrev" pos="324,-622" width="38" height="26" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="324,-622" width="38" height="26"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_left" pos="343,-635" width="18" height="18" pivot="center" color="[white]"/>
+								<button depth="2" name="btnNcReqNext" pos="370,-622" width="38" height="26" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="370,-622" width="38" height="26"/>
+								<sprite depth="4" sprite="ui_game_symbol_arrow_right" pos="389,-635" width="18" height="18" pivot="center" color="[white]"/>
+							</rect>
+							<label depth="4" pos="20,-652" width="388" height="40" font_size="15" text_key="scUiNcFavNote" color="180,180,180,255"/>
 						</rect>
 					</rect>
 					<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="24,-892" width="58" height="28"/>

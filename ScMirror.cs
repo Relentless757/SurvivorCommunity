@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text;
 using UnityEngine;
 
@@ -74,14 +75,44 @@ namespace SurvivorCommunity
         /// <summary>Round MP7 (part U), client: the server's last players list for this community (ScCommunityView.Take). Never null; never change it.</summary>
         public static List<ScCommunityPlayer> CommunityPlayers { get { return communityPlayers; } }
 
-        /// <summary>Round t2, client: is a box with this owner (a platform id) another community's (the server's last "fown")?</summary>
+        /// <summary>
+        /// Round t2, client: is a box with this owner (a platform id) another community's (the server's last "fown")? Round MP7 (review
+        /// U), the hardening: "fown" lists OwnerHash values, so the owner's id is hashed the same way before the compare (ScGates.ForeignBox
+        /// on a client comes here).
+        /// </summary>
         public static bool ForeignOwner(string ownerId)
         {
             OwnerList l = foreignOwners;
             if (l == null || string.IsNullOrEmpty(ownerId)) return false;
-            bool inList = l.Ids.Contains(ownerId);
+            bool inList = l.Ids.Contains(OwnerHash(ownerId));
             return l.Listed ? inList : !inList;
         }
+
+        /// <summary>
+        /// Round MP7 (review U), the hardening: the "fown" form of a platform id - the first 8 bytes of SHA-256 of its UTF-8 text, as 16
+        /// lowercase hex digits. The server writes these (ForeignOwners) and a client hashes a box lock's owner the same way
+        /// (ForeignOwner), so no other player's platform id goes to a client in "fown". "" for an empty id. Any thread (a small cache
+        /// under a lock: a storage scan asks for the same few owners again and again).
+        /// </summary>
+        internal static string OwnerHash(string platformId)
+        {
+            if (string.IsNullOrEmpty(platformId)) return "";
+            lock (ownerHashes)
+            {
+                string h;
+                if (ownerHashes.TryGetValue(platformId, out h)) return h;
+                byte[] d;
+                using (SHA256 sha = SHA256.Create()) d = sha.ComputeHash(Encoding.UTF8.GetBytes(platformId));
+                var sb = new StringBuilder(16);
+                for (int i = 0; i < 8; i++) sb.Append(d[i].ToString("x2", CultureInfo.InvariantCulture));
+                h = sb.ToString();
+                if (ownerHashes.Count >= 4096) ownerHashes.Clear();
+                ownerHashes[platformId] = h;
+                return h;
+            }
+        }
+
+        private static readonly Dictionary<string, string> ownerHashes = new Dictionary<string, string>(StringComparer.Ordinal);
 
         /// <summary>Round t2, client: is this column on another community's ground (the server's last "fgnd")? Any thread.</summary>
         public static bool ForeignGroundAt(int x, int z)
@@ -306,6 +337,7 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round t2 (review T2-M2), server: the "fown" value for community cid's clients - '+' and every player another community holds
         /// (cid 0), or '-' and cid's own players (anyone else is another community's). "" with one community. Main thread.
+        /// Round MP7 (review U), the hardening: each player as OwnerHash of their platform id, never the id itself.
         /// </summary>
         private static string ForeignOwners(int cid)
         {
@@ -320,7 +352,7 @@ namespace SurvivorCommunity
                 if (ScCommunities.ById(kv.Value) == null) continue;              // a community that is gone: community 0's (CommunityOfId)
                 if (zero ? kv.Value == ScPlayers.SharedCommunity : kv.Value != cid) continue;
                 if (any) sb.Append(',');
-                sb.Append(kv.Key);
+                sb.Append(OwnerHash(kv.Key));                // round MP7 (review U): the hardening - a hash, never the platform id
                 any = true;
             }
             return sb.ToString();
@@ -482,6 +514,33 @@ namespace SurvivorCommunity
                 sentCommunity[ci.entityId] = cid;
             }
             catch (Exception e) { ScLog.Once("mirror-hello", e); }
+        }
+
+        /// <summary>
+        /// Round MP7 (review U): m3 - a remote player's body appeared on the server (ModApi's PlayerSpawnedInWorld). Their own lines
+        /// (role=, ownops=: ScCommunityView.ReceiverLines) can differ from those sent before the body existed (their hello can come
+        /// first, and ownops= and the helper role need the body): the client gets its community's block again with the new lines at
+        /// once, not at the next due tick. Nothing when nothing was sent to it yet (the tick sends its whole copy), when its community
+        /// changed since (the tick's joiner path), when its lines are unchanged, or with the MP7 keys off. Main thread.
+        /// </summary>
+        public static void OnPlayerSpawned(ClientInfo ci)
+        {
+            try
+            {
+                if (ci == null || !ScCommunity.IsHost || !ScRegistry.Loaded || !ScCommunityView.KeysOn) return;
+                string had;
+                int sent;
+                if (!sentReceiver.TryGetValue(ci.entityId, out had) || !sentCommunity.TryGetValue(ci.entityId, out sent)) return;
+                if (!ScNet.ClientMatches(ci.entityId) || ScPlayers.CommunityOf(ci) != sent) return;
+                if (had == ScCommunityView.ReceiverLines(ci, sent)) return;
+                string block;
+                using (ScRegistry.Use(sent)) block = BuildDerived(sent, PlayerCommunities());
+                Send(ci, sent, null, block);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("mirror-spawned", e);
+            }
         }
 
         /// <summary>

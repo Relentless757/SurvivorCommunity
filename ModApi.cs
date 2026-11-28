@@ -218,6 +218,8 @@ namespace SurvivorCommunity
                     // round MP7 (core): on the server, the spawning player's record (PerPlayer/PerParty: their own relations when they
                     // have none) - and the allies reconcile there (round MP7 (part AP))
                     ScMembership.OnPlayerSpawned(_d.EntityId, _d.ClientInfo, _d.IsLocalPlayer);
+                    // round MP7 (review U): m3 - a client's role= / ownops= again now that the server has its body
+                    if (!_d.IsLocalPlayer) ScMirror.OnPlayerSpawned(_d.ClientInfo);
                 });
                 // round MP7 (part AP): vanilla's land-claim ally changes (PerPlayer: a founder's ally joins, a removed one loses access;
                 // ScAllies acts only on the server)

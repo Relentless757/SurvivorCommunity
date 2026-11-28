@@ -19,12 +19,15 @@ namespace SurvivorCommunity
     ///   moment ago is the server's to judge.
     /// What it reads is ScCommunityView.Take: the registry on the host and in single player, the derived block's mode=, role=, ownops=
     /// and cpl= on a client. Shared mode with one community: the view has no role, so the window is exactly as before.
+    /// Round MP7 (review U): m1, m2 - the players list and the no-community page's three lists page (Showing X of Y and a pager, as
+    /// the member list does), so every player, enclave, favor and request can be seen; n2 - the Leave hint goes with its confirm.
     /// Every field is set here, not in Init: the bindings are read while the XML is parsed (xui-gotchas).
     /// </summary>
     public partial class XUiC_ScCommunity
     {
-        /// <summary>The generator's row counts (PL_ROWS, NC_ENC_ROWS, NC_FAV_ROWS, NC_REQ_ROWS).</summary>
-        public const int PlayerSlots = 10, NcEnclaveSlots = 8, NcFavourSlots = 5, NcRequestSlots = 3;
+        /// <summary>The generator's row counts (PL_ROWS, NC_ENC_ROWS, NC_FAV_ROWS, NC_REQ_ROWS). Round MP7 (review U): n3 - 9 players (was 10): the
+        /// player's own role line got a third line and the list a pager.</summary>
+        public const int PlayerSlots = 9, NcEnclaveSlots = 8, NcFavourSlots = 5, NcRequestSlots = 3;
         private const string TextBody = "226,220,208,255", TextOff = "130,124,112,255", TextGood = "142,208,108,255", TextGold = "206,178,120,255",
                              TextDim = "190,182,166,255", TextDanger = "240,150,130,255", TextAlly = "90,170,255,255", TextFriend = "140,220,120,255";
 
@@ -34,6 +37,10 @@ namespace SurvivorCommunity
         /// <summary>Leave community asks to be pressed twice: until when the second press counts.</summary>
         private float confirmLeaveCommunityUntil;
         private string playersMessage = "";
+        /// <summary>Round MP7 (review U): n2 - playersMessage is Leave's hint (it goes when the confirm lapses or the panel turns).</summary>
+        private bool leaveHint;
+        /// <summary>Round MP7 (review U): m1, m2 - the page of the players list and of the no-community page's three lists.</summary>
+        private int plPage, ncEncPage, ncFavPage, ncReqPage;
 
         /// <summary>A row of the no-community page: two texts on the first line (A, B in Color), one under them (C).</summary>
         private sealed class NcRow
@@ -43,13 +50,40 @@ namespace SurvivorCommunity
         private readonly List<NcRow> ncEnclaves = new List<NcRow>();
         private readonly List<NcRow> ncFavours = new List<NcRow>();
         private readonly List<NcRow> ncRequests = new List<NcRow>();
-        private int ncEncKnown, ncEncMore, ncFavMore, ncReqMore;
 
         /// <summary>Init: the PLAYERS button and Leave community (optional: an older windows.xml has neither).</summary>
         private void InitPlayers()
         {
             HookOptional("btnPlayers", OnPlayersToggle);
             HookOptional("btnLeaveCommunity", OnLeaveCommunity);
+            // round MP7 (review U): m1, m2 - the pagers
+            HookOptional("btnPlPrev", () => TurnPage(ref plPage, -1, view.Players.Count, PlayerSlots));
+            HookOptional("btnPlNext", () => TurnPage(ref plPage, 1, view.Players.Count, PlayerSlots));
+            HookOptional("btnNcEncPrev", () => TurnPage(ref ncEncPage, -1, ncEnclaves.Count, NcEnclaveSlots));
+            HookOptional("btnNcEncNext", () => TurnPage(ref ncEncPage, 1, ncEnclaves.Count, NcEnclaveSlots));
+            HookOptional("btnNcFavPrev", () => TurnPage(ref ncFavPage, -1, ncFavours.Count, NcFavourSlots));
+            HookOptional("btnNcFavNext", () => TurnPage(ref ncFavPage, 1, ncFavours.Count, NcFavourSlots));
+            HookOptional("btnNcReqPrev", () => TurnPage(ref ncReqPage, -1, ncRequests.Count, NcRequestSlots));
+            HookOptional("btnNcReqNext", () => TurnPage(ref ncReqPage, 1, ncRequests.Count, NcRequestSlots));
+        }
+
+        /// <summary>Round MP7 (review U): m1, m2 - a list's page count (one at least) and its page clamped to it.</summary>
+        private static int Pages(int count, int size) { return Math.Max(1, (count + size - 1) / size); }
+
+        private static int ClampPage(int page, int count, int size) { return Math.Max(0, Math.Min(Pages(count, size) - 1, page)); }
+
+        private void TurnPage(ref int page, int delta, int count, int size)
+        {
+            page = ClampPage(page + delta, count, size);
+            RefreshBindingsSelfAndChildren();
+        }
+
+        /// <summary>Round MP7 (review U): m1, m2 - "Showing 9 of 23" for a page of a list ("" for an empty one), as the member list says it.</summary>
+        private static string Showing(int page, int count, int size)
+        {
+            if (count <= 0) return "";
+            int shown = Math.Max(0, Math.Min(size, count - page * size));
+            return string.Format(Localization.Get("scWinShowing"), shown, count);
         }
 
         /// <summary>OnOpen: the morale panel again, no confirm pending, no old answer.</summary>
@@ -58,6 +92,8 @@ namespace SurvivorCommunity
             showPlayers = false;
             confirmLeaveCommunityUntil = 0f;
             playersMessage = "";
+            leaveHint = false;
+            plPage = ncEncPage = ncFavPage = ncReqPage = 0;       // round MP7 (review U)
         }
 
         /// <summary>Refresh: the view (mode, role, players) and the no-community page's rows.</summary>
@@ -65,6 +101,13 @@ namespace SurvivorCommunity
         {
             view = ScCommunityView.Take(Player, true);
             if (!view.ShowPlayers) showPlayers = false;
+            // round MP7 (review U): n2 - Leave's hint goes once its five seconds are over
+            if (confirmLeaveCommunityUntil > 0f && Time.unscaledTime > confirmLeaveCommunityUntil)
+            {
+                confirmLeaveCommunityUntil = 0f;
+                if (leaveHint) { playersMessage = ""; leaveHint = false; }
+            }
+            plPage = ClampPage(plPage, view.Players.Count, PlayerSlots);        // round MP7 (review U): m1 - a shorter list since
             BuildNoCommunity();
         }
 
@@ -73,6 +116,8 @@ namespace SurvivorCommunity
             if (!view.ShowPlayers) return;
             showPlayers = !showPlayers;
             confirmLeaveCommunityUntil = 0f;
+            playersMessage = "";                    // round MP7 (review U): n2 - no hint or old answer left behind
+            leaveHint = false;
             RefreshBindingsSelfAndChildren();
         }
 
@@ -85,10 +130,12 @@ namespace SurvivorCommunity
             {
                 confirmLeaveCommunityUntil = now + 5f;
                 playersMessage = Localization.Get("scUiPlLeaveHint");
+                leaveHint = true;
                 RefreshBindingsSelfAndChildren();
                 return;
             }
             confirmLeaveCommunityUntil = 0f;
+            leaveHint = false;
             // the server decides (ScMembership.LeaveAction: never the owner, a personal record or Shared mode's community 0) and tells
             // the player (scMp7Left); their new community's copy follows, and the window turns to it
             ScActions.Request(ScMembership.OpLeave, r =>
@@ -100,14 +147,16 @@ namespace SurvivorCommunity
             });
         }
 
-        /// <summary>The no-community page's rows (only for a personal record): the enclaves known, the favors, the requests.</summary>
+        /// <summary>
+        /// The no-community page's rows (only for a personal record): the enclaves known, the favors, the requests. Round MP7 (review
+        /// U): m2 - every one (the pages show them a page at a time); requests taken on before offered ones.
+        /// </summary>
         private void BuildNoCommunity()
         {
             ncEnclaves.Clear();
             ncFavours.Clear();
             ncRequests.Clear();
-            ncEncKnown = ncEncMore = ncFavMore = ncReqMore = 0;
-            if (!view.Personal || !ScRegistry.Ready) return;
+            if (!view.Personal || !ScRegistry.Ready) { ncEncPage = ncFavPage = ncReqPage = 0; return; }
             try
             {
                 EntityPlayerLocal pl = Player;
@@ -117,10 +166,8 @@ namespace SurvivorCommunity
                     var known = new List<Enclave>();
                     foreach (Enclave e in ScEnclaves.All) if (e.Known && !e.Lost) known.Add(e);
                     known.Sort((a, b) => a.DistanceXZ(from.x, from.z).CompareTo(b.DistanceXZ(from.x, from.z)));
-                    ncEncKnown = known.Count;
                     for (int i = 0; i < known.Count; i++)
                     {
-                        if (i >= NcEnclaveSlots) { ncEncMore = known.Count - NcEnclaveSlots; break; }
                         Enclave e = known[i];
                         string band = ScEnclaves.StandingKey(e);
                         ncEnclaves.Add(new NcRow
@@ -133,11 +180,11 @@ namespace SurvivorCommunity
                     }
                     var open = new List<EnclaveRequest>();
                     foreach (EnclaveRequest r in ScEncRequests.All) if (r.Kind != EnclaveRequest.KindSiege) open.Add(r);
-                    open.Sort((a, b) => Due(a).CompareTo(Due(b)));
+                    // round MP7 (review U): m2 - those taken on first (their delivery is what can be missed), then by the day that comes first
+                    open.Sort((a, b) => a.IsAccepted != b.IsAccepted ? (a.IsAccepted ? -1 : 1) : Due(a).CompareTo(Due(b)));
                     int now = ScEncRequests.Now;
                     for (int i = 0; i < open.Count; i++)
                     {
-                        if (i >= NcRequestSlots) { ncReqMore = open.Count - NcRequestSlots; break; }
                         EnclaveRequest r = open[i];
                         Enclave e = ScEnclaves.ById(r.EnclaveId);
                         ncRequests.Add(new NcRow
@@ -158,7 +205,6 @@ namespace SurvivorCommunity
                 });
                 for (int i = 0; i < favs.Count; i++)
                 {
-                    if (i >= NcFavourSlots) { ncFavMore = favs.Count - NcFavourSlots; break; }
                     Prospect p = favs[i];
                     ncFavours.Add(new NcRow
                     {
@@ -175,6 +221,9 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("community-window-nocommunity", e);
             }
+            ncEncPage = ClampPage(ncEncPage, ncEnclaves.Count, NcEnclaveSlots);      // round MP7 (review U): m2
+            ncFavPage = ClampPage(ncFavPage, ncFavours.Count, NcFavourSlots);
+            ncReqPage = ClampPage(ncReqPage, ncRequests.Count, NcRequestSlots);
         }
 
         /// <summary>A request's day that comes first: the delivery's for one taken on, the answer's for one offered.</summary>
@@ -200,15 +249,25 @@ namespace SurvivorCommunity
             return Localization.Get(role == ScCommunityView.RoleOwner ? "scUiPlRoleOwner" : role == ScCommunityView.RoleHelper ? "scUiPlRoleHelper" : "scUiPlRoleMember");
         }
 
-        private static string More(int n) { return n > 0 ? string.Format(Localization.Get("scUiNcMore"), n) : ""; }
+        /// <summary>
+        /// Round MP7 (review U): m1 - the players list's line under its rows: Showing X of Y, and how many the server did not list
+        /// (cplt=, past ScCommunityView.MaxListed).
+        /// </summary>
+        private string PlayersShowing()
+        {
+            string s = Showing(plPage, view.Players.Count, PlayerSlots);
+            int unlisted = view.PlayerTotal - view.Players.Count;
+            return unlisted > 0 ? s + " - " + string.Format(Localization.Get("scUiPlNotListed"), unlisted) : s;
+        }
 
         /// <summary>
         /// The bindings of this part (always a non-null string and true when the name is one of them): hascommunity, nocommunity,
         /// storagevisible, the PLAYERS button (playersbtnvisible, playersbtnlabel), showmorale / showplayers, playercount, playersyou,
-        /// pl&lt;1..10&gt;&lt;visible|name|namecolor|role|dotcolor&gt;, plmore, leavecommunityvisible / label, playersmessage, the gray
-        /// owner's orders (leavetextcolor, opdisbandcolor), and the no-community page (ncjoin, ncjoinicon, ncencsummary, ncencempty, ncencmore,
-        /// ncenc&lt;1..8&gt;, ncfav&lt;1..5&gt;, ncfavempty, ncfavmore, ncreq&lt;1..3&gt;, ncreqempty, ncreqmore; each row's
-        /// &lt;visible|a|b|c|color&gt;).
+        /// pl&lt;1..9&gt;&lt;visible|name|namecolor|role|dotcolor&gt;, plshowingtext / plpagevisible, leavecommunityvisible / label,
+        /// playersmessage, the gray owner's orders (leavetextcolor, opdisbandcolor), and the no-community page (ncjoin, ncjoinicon,
+        /// ncencsummary, ncencempty, ncenc&lt;1..8&gt;, ncfav&lt;1..5&gt;, ncfavempty, ncreq&lt;1..3&gt;, ncreqempty - each row's
+        /// &lt;visible|a|b|c|color&gt; - and each list's &lt;ncenc|ncfav|ncreq&gt;&lt;showing|pagevisible&gt;). Round MP7 (review U): the pagers
+        /// replaced plmore, ncencmore, ncfavmore and ncreqmore.
         /// </summary>
         private bool PlayersBinding(string name, ref string value)
         {
@@ -219,13 +278,15 @@ namespace SurvivorCommunity
                 case "storagevisible": value = (!view.Personal).ToString(); return true;
                 case "playersbtnvisible": value = view.ShowPlayers.ToString(); return true;
                 case "playersbtnlabel":
-                    value = showPlayers ? Localization.Get("scUiPlMorale") : string.Format(Localization.Get("scUiPlButton"), view.Players.Count);
+                    value = showPlayers ? Localization.Get("scUiPlMorale") : string.Format(Localization.Get("scUiPlButton"), view.PlayerTotal);
                     return true;
                 case "showplayers": value = (showPlayers && view.ShowPlayers).ToString(); return true;
                 case "showmorale": value = (!(showPlayers && view.ShowPlayers)).ToString(); return true;
-                case "playercount": value = Num(view.Players.Count); return true;
+                case "playercount": value = Num(view.PlayerTotal); return true;      // round MP7 (review U): m1 - the true count
                 case "playersyou": value = YouLine(); return true;
-                case "plmore": value = More(view.Players.Count - PlayerSlots); return true;
+                // round MP7 (review U): m1 - the pager (it replaced plmore)
+                case "plshowingtext": value = PlayersShowing(); return true;
+                case "plpagevisible": value = (Pages(view.Players.Count, PlayerSlots) > 1).ToString(); return true;
                 case "leavecommunityvisible": value = view.CanLeave.ToString(); return true;
                 case "leavecommunitylabel":
                     value = Localization.Get(Time.unscaledTime <= confirmLeaveCommunityUntil ? "scUiPlLeaveConfirm" : "scUiPlLeave");
@@ -237,20 +298,25 @@ namespace SurvivorCommunity
                 // the no-community page
                 case "ncjoin": value = Localization.Get(view.Mode == ScCommunityMode.PerParty ? "scUiNcJoinParty" : "scUiNcJoinAlly"); return true;
                 case "ncjoinicon": value = view.Mode == ScCommunityMode.PerParty ? "ui_game_symbol_party" : "ui_game_symbol_allies"; return true;
-                case "ncencsummary": value = ncEncKnown > 0 ? string.Format(Localization.Get("scUiNcEncSummary"), ncEncKnown) : ""; return true;
+                case "ncencsummary": value = ncEnclaves.Count > 0 ? string.Format(Localization.Get("scUiNcEncSummary"), ncEnclaves.Count) : ""; return true;
                 case "ncencempty": value = (ncEnclaves.Count == 0).ToString(); return true;
-                case "ncencmore": value = More(ncEncMore); return true;
                 case "ncfavempty": value = (ncFavours.Count == 0).ToString(); return true;
-                case "ncfavmore": value = More(ncFavMore); return true;
                 case "ncreqempty": value = (ncRequests.Count == 0).ToString(); return true;
-                case "ncreqmore": value = More(ncReqMore); return true;
+                // round MP7 (review U): m2 - each list's pager (they replaced ncencmore, ncfavmore and ncreqmore)
+                case "ncencshowing": value = Showing(ncEncPage, ncEnclaves.Count, NcEnclaveSlots); return true;
+                case "ncencpagevisible": value = (Pages(ncEnclaves.Count, NcEnclaveSlots) > 1).ToString(); return true;
+                case "ncfavshowing": value = Showing(ncFavPage, ncFavours.Count, NcFavourSlots); return true;
+                case "ncfavpagevisible": value = (Pages(ncFavours.Count, NcFavourSlots) > 1).ToString(); return true;
+                case "ncreqshowing": value = Showing(ncReqPage, ncRequests.Count, NcRequestSlots); return true;
+                case "ncreqpagevisible": value = (Pages(ncRequests.Count, NcRequestSlots) > 1).ToString(); return true;
             }
             int k;
             string field;
             if (Slot(name, "pl", PlayerSlots, out k, out field))
             {
                 List<ScCommunityPlayer> ps = view.Players;
-                ScCommunityPlayer r = k < ps.Count ? ps[k] : null;
+                int at = plPage * PlayerSlots + k;                   // round MP7 (review U): m1 - this page's
+                ScCommunityPlayer r = at < ps.Count ? ps[at] : null;
                 EntityPlayerLocal me = Player;
                 switch (field)
                 {
@@ -264,18 +330,19 @@ namespace SurvivorCommunity
                 }
                 return false;
             }
-            if (NcRowBinding(name, "ncenc", NcEnclaveSlots, ncEnclaves, ref value)) return true;
-            if (NcRowBinding(name, "ncfav", NcFavourSlots, ncFavours, ref value)) return true;
-            if (NcRowBinding(name, "ncreq", NcRequestSlots, ncRequests, ref value)) return true;
+            if (NcRowBinding(name, "ncenc", NcEnclaveSlots, ncEnclaves, ncEncPage, ref value)) return true;
+            if (NcRowBinding(name, "ncfav", NcFavourSlots, ncFavours, ncFavPage, ref value)) return true;
+            if (NcRowBinding(name, "ncreq", NcRequestSlots, ncRequests, ncReqPage, ref value)) return true;
             return false;
         }
 
-        private static bool NcRowBinding(string name, string prefix, int slots, List<NcRow> rows, ref string value)
+        private static bool NcRowBinding(string name, string prefix, int slots, List<NcRow> rows, int page, ref string value)
         {
             int k;
             string field;
             if (!Slot(name, prefix, slots, out k, out field)) return false;
-            NcRow r = k < rows.Count ? rows[k] : null;
+            int at = page * slots + k;                               // round MP7 (review U): m2 - this page's
+            NcRow r = at < rows.Count ? rows[at] : null;
             switch (field)
             {
                 case "visible": value = (r != null).ToString(); return true;
