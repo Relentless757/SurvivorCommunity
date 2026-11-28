@@ -266,8 +266,10 @@ namespace SurvivorCommunity
                 {
                     case "label": value = a != null ? a.Label : ""; return true;
                     case "color":
-                        value = a == null ? ScFacilityTab.Off : a == facPick ? ScFacilityTab.Body : a.Danger ? "240,150,130,255"
-                              : a.Ready ? ScFacilityTab.Good : ScFacilityTab.Off;
+                        // round MP7 (part U): an Owner action (rationing) is grayed for a player it is not for (PerPlayer/PerParty); it still asks
+                        value = a == null ? ScFacilityTab.Off : a == facPick ? ScFacilityTab.Body
+                              : a.Access == ScActionAccess.Owner && view.Gated ? ScFacilityTab.Off
+                              : a.Danger ? "240,150,130,255" : a.Ready ? ScFacilityTab.Good : ScFacilityTab.Off;
                         return true;
                     case "visible": value = (a != null).ToString(); return true;
                 }

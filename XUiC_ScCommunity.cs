@@ -28,9 +28,8 @@ namespace SurvivorCommunity
     /// round wl's Activities tab) swaps them for the home's facilities (ScFacilityTab) and the selected one with its actions:
     /// XUiC_ScCommunityFacilities.cs, the other part of this class.
     /// </summary>
-    // MP7 (part U): the no-community page per mode for a personal record (start one from your claim's radial / ask an owner to add
-    // you as a land claim ally / join a community player's party), the pages a personal record can use, the players list (name,
-    // role, online) and Leave community for non-owners (community.leave: ScMembership.OpLeave; not for community 0 in Shared)
+    // round MP7 (part U): the no-community page per mode for a personal record, the players list (name, role, online), Leave community
+    // for non-owners and the owner's orders grayed by role - XUiC_ScCommunityPlayers.cs, the other part of this class
     [Preserve]
     public partial class XUiC_ScCommunity : XUiController
     {
@@ -160,6 +159,7 @@ namespace SurvivorCommunity
                 HookOptional("btnOpMode", OnOutpostMode);      // round MP2: a method (it was a lambda that cycled it here)
                 HookOptional("btnStaff1Recall", () => OnStaffRecall(0));
                 HookOptional("btnStaff2Recall", () => OnStaffRecall(1));
+                InitPlayers();                      // round MP7 (part U): the PLAYERS button and Leave community
                 searchInput = GetChildById("searchInput") as XUiC_TextInput;
                 if (searchInput != null) searchInput.OnChangeHandler += OnSearchChanged;
                 XUiController sp = GetChildById("selPortrait");
@@ -204,6 +204,7 @@ namespace SurvivorCommunity
                 assignOutpostId = -1;
                 tab = PendingOutpost != 0 ? Tab.Outposts : Tab.Members;
                 ResetFacilities();                  // round m1f
+                ResetPlayers();                     // round MP7 (part U)
                 if (PendingOutpost > 0) opSelectedId = PendingOutpost;
                 PendingOutpost = 0;
                 // opened by a Watch post's "Assign guard": the residents, picking one (Select -> TryAssignWatch)
@@ -344,6 +345,7 @@ namespace SurvivorCommunity
         private void Refresh()
         {
             nextRefresh = Time.unscaledTime + RefreshSeconds;
+            RefreshView();                          // round MP7 (part U): the mode, the player's role, the players, the no-community page
             // beds / facilities / crops straight from the loaded chunks, so a bed just built counts now
             if (ScCommunity.IsHost) ScScan.RunIfDue(RefreshSeconds * 0.5f);
             ScMorale.Recompute();
@@ -1285,6 +1287,7 @@ namespace SurvivorCommunity
         {
             Community c = ScRegistry.Community;
             Member sel = Selected;
+            if (PlayersBinding(_bindingName, ref _value)) return true;     // round MP7 (part U)
             if (PartBinding(_bindingName, "help", helping, ref _value)) return true;
             if (PartBinding(_bindingName, "hurt", hurting, ref _value)) return true;
             if (TraitBinding(_bindingName, sel, ref _value)) return true;

@@ -325,6 +325,37 @@ namespace SurvivorCommunity
             return pp == null || pp.m_lpBlockMap == null || pp.m_lpBlockMap.ContainsKey(c.Home);
         }
 
+        /// <summary>Round MP7 (part U): the talk facts' recruit reason for a player with only their own relations (ScTalkFacts.RecruitWhy).</summary>
+        public const string NoCommunityKey = "scNoCommunity";
+
+        /// <summary>
+        /// Round MP7 (part U), server (the host's own player, or a package's sender): the player has only their own relations -
+        /// PerPlayer/PerParty, and their record is a personal one (the user's decision 4). False in Shared mode and on a client.
+        /// </summary>
+        internal static bool NoCommunity(EntityPlayer p)
+        {
+            if (p == null || !ScMembership.Separate) return false;
+            CommunityState cs = ScCommunities.ById(ScPlayers.CommunityOf(p));
+            return cs != null && cs.Personal;
+        }
+
+        /// <summary>
+        /// Round MP7 (part U): ScNoCommunityFavour - the player has only their own relations and this survivor would take a favor from
+        /// them (everything ScCanRecruit asks but the community). A client reads the facts' scNoCommunity (Build), unless its copy says
+        /// she joined since; the host asks CanRecruit itself.
+        /// </summary>
+        public static bool OwnRelationsFavour(EntityAlive npc, EntityPlayer player)
+        {
+            if (npc == null || player == null) return false;
+            if (!ScCommunity.IsHost)
+            {
+                ScTalkFacts f = Facts(npc.entityId);
+                return f != null && !f.Recruit && f.RecruitWhy == NoCommunityKey && ScRegistry.GetMember(npc.entityId) == null;
+            }
+            string why;
+            return NoCommunity(player) && ScCommunity.CanRecruit(npc, player, out why);
+        }
+
         /// <summary>Client (the postfix below): a talk opened. Sends Open for an SCore NPC that is no trader; notes the statement.</summary>
         internal static void OnTalkOpened(XUiC_DialogWindowGroup g)
         {
@@ -932,8 +963,16 @@ namespace SurvivorCommunity
             string why;
             f.Recruit = ScCommunity.CanRecruit(npc, p, out why);
             f.RecruitWhy = why ?? "";
-            // MP7 (part U): a player with only their own relations (ScRegistry.Community's CommunityState.Personal) - recruiting answers
-            // scNoCommunity here (the join op itself is refused so: ScActions.WhyNot)
+            // round MP7 (part U): a player with only their own relations (PerPlayer/PerParty, a personal record) - recruiting answers
+            // scNoCommunity (the join op itself is refused so: ScActions.WhyNot). That reason means "she would take a favor from them":
+            // CanRecruit passed but for the community, so their favor rows show (Config/dialogs.xml, ScNoCommunityFavour) and her favor is
+            // rolled below - the user's decision 4. Any other refusal (a grudge, someone else's hire) keeps its own reason
+            bool ownRelations = f.Recruit && NoCommunity(p);
+            if (ownRelations)
+            {
+                f.Recruit = false;
+                f.RecruitWhy = NoCommunityKey;
+            }
             // round MP2 (review members MINOR 3): read, never adopted - a remote player's talk must not make their claim the home and
             // them the owner (with SharedOwnerOnly that would bypass home.set's Owner access). The host's own player never sends one
             f.HasHome = ScZone.EnsureHomeFor(p);
@@ -944,7 +983,8 @@ namespace SurvivorCommunity
             // round MP6 (fix R-M2): the talker's community's own favour (the package's scope is the sender's) - GetProspect fell back
             // to another community's, so a second community never rolled its own and could recruit on the first one's finished favour
             Prospect pr = ScRegistry.OwnProspect(npc.entityId);
-            if (pr == null && f.Recruit && f.HasHome) pr = ScFavours.Ensure(npc, p);     // E4: the roll is the server's (it saves)
+            // E4: the roll is the server's (it saves). Round MP7 (part U): for a player with only their own relations too (decision 4)
+            if (pr == null && ((f.Recruit && f.HasHome) || ownRelations)) pr = ScFavours.Ensure(npc, p);
             if (pr != null && !pr.Done && journalDone && pr.Favour == FavourKind.Poi)
             {
                 ScFavours.MarkDone(npc, pr);

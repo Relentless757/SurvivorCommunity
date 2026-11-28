@@ -160,10 +160,9 @@ namespace SurvivorCommunity
 /// <summary>
 /// The NPC may be asked to join (host, hireable human, not hired by somebody else, not a member, roster not full). Round MP2: a
 /// client reads the server's verdict from the talk's open (ScTalkContext.CanRecruit), unless its copy says they joined since.
-/// MP7 (part U): the recruit dialog's favor rows (Config/dialogs.xml: taking a favor on, "I've already cleared that", handing the
-/// supplies over) sit behind this and ScHasHome, so a player with only their own relations (PerPlayer/PerParty) never reaches them -
-/// the server takes those ops from them (ScActions.PersonalOps; the supplies hand-over needs no home for them: ScActionsMembers).
-/// Rows for them, with no join at the end, come with the talk facts' scNoCommunity.
+/// Round MP7 (part U): false for a player with only their own relations (PerPlayer/PerParty) - recruiting answers scNoCommunity for
+/// them, on a client through the talk facts (ScTalkContext.Build) and here on the host. Their favor rows, with no join at the end,
+/// are ScNoCommunityFavour's (below); "Join us" opens once they have a home (the favor stays done on their record).
 /// </summary>
 public class DialogRequirementScCanRecruit : BaseDialogRequirement
 {
@@ -173,10 +172,31 @@ public class DialogRequirementScCanRecruit : BaseDialogRequirement
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
             if (!ScCommunity.IsHost) return ScTalkContext.CanRecruit(npc);       // round MP2: the client's path
+            if (ScTalkContext.NoCommunity(player)) return false;                  // round MP7 (part U): the host's own player, as a client's facts say
             string why;
             return npc != null && ScCommunity.CanRecruit(npc, player, out why);
         }
         catch (Exception e) { ScLog.Once("req-canrecruit", e); return false; }
+    }
+}
+
+/// <summary>
+/// Round MP7 (part U), the user's decision 4: the talker has only their own relations (PerPlayer/PerParty, before they start or join a
+/// community) and this survivor would take a favor from them - everything ScCanRecruit asks but the community
+/// (ScTalkContext.OwnRelationsFavour: a client reads the talk facts' scNoCommunity). It gates the favor rows of Config/dialogs.xml
+/// for such a player: asking for the favor, taking it on, "I've already cleared that", handing the supplies over - with no join at the
+/// end. The server accepts those ops from them (ScActions.PersonalOps; the hand-over needs no home for them: ScActionsMembers); the
+/// done favor waits on their record, and "Join us" opens once they have a home (or the community they join gets it).
+/// </summary>
+public class DialogRequirementScNoCommunityFavour : BaseDialogRequirement
+{
+    public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
+    {
+        try
+        {
+            return ScTalkContext.OwnRelationsFavour(ScFavours.CurrentNpc(player), player);
+        }
+        catch (Exception e) { ScLog.Once("req-nocommunityfavour", e); return false; }
     }
 }
 

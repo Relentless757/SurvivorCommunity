@@ -335,9 +335,16 @@
 					<sprite depth="3" sprite="ui_game_symbol_map_cabin" pos="60,-44" width="64" height="64" pivot="center" color="[white]"/>
 					<label depth="4" pos="104,-6" width="700" height="52" font_size="48" text_key="scUiTitle" color="226,219,203,255" upper_case="true"/>
 					<label depth="4" pos="106,-56" width="700" height="26" font_size="22" text="{communityname}" color="206,178,120,255" upper_case="true"/>
-					<button depth="2" name="btnStorage" pos="1158,-18" width="250" height="48" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-					<sprite depth="4" sprite="ui_game_symbol_store_all_up" pos="1192,-42" width="30" height="30" pivot="center" color="[white]"/>
-					<label depth="4" pos="1214,-32" width="180" height="26" font_size="20" text_key="scUiOpenStorage" color="226,220,208,255" justify="center" upper_case="true"/>
+					<rect depth="0" pos="0,0" width="1500" height="88" visible="{storagevisible}">
+						<button depth="2" name="btnStorage" pos="1158,-18" width="250" height="48" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+						<sprite depth="4" sprite="ui_game_symbol_store_all_up" pos="1192,-42" width="30" height="30" pivot="center" color="[white]"/>
+						<label depth="4" pos="1214,-32" width="180" height="26" font_size="20" text_key="scUiOpenStorage" color="226,220,208,255" justify="center" upper_case="true"/>
+					</rect>
+					<rect depth="0" pos="0,0" width="1500" height="88" visible="{playersbtnvisible}">
+						<button depth="2" name="btnPlayers" pos="936,-18" width="210" height="48" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+						<sprite depth="4" sprite="ui_game_symbol_players" pos="966,-42" width="28" height="28" pivot="center" color="[white]"/>
+						<label depth="4" pos="986,-33" width="150" height="24" font_size="18" text="{playersbtnlabel}" color="226,220,208,255" justify="center" upper_case="true"/>
+					</rect>
 					<button depth="2" name="btnClose" pos="1420,-18" width="56" height="48" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 					<sprite depth="4" sprite="ui_game_symbol_x" pos="1448,-42" width="24" height="24" pivot="center" color="[white]"/>
 					<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-88" width="1452" height="88"/>
@@ -377,7 +384,7 @@
 					<label depth="4" pos="1332,-98" width="135" height="20" font_size="15" text_key="scRunLuxury" color="190,182,166,255" upper_case="true"/>
 					<label depth="4" pos="1332,-118" width="80" height="34" font_size="30" text="{resluxury}" color="226,219,203,255"/>
 					<label depth="4" pos="1386,-127" width="79" height="22" font_size="17" text="{opluxury}" color="{opluxurycolor}" justify="right"/>
-					<rect depth="1" name="membersPanel" pos="24,-188" width="440" height="696">
+					<rect depth="1" name="membersPanel" pos="24,-188" width="440" height="696" visible="{hascommunity}">
 						<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="0,0" width="440" height="696"/>
 						<button depth="2" name="btnTabMembers" pos="20,-12" width="128" height="44" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 						<rect depth="0" pos="0,0" width="440" height="60" visible="{tabmembers}">
@@ -625,7 +632,7 @@
 							</rect>
 						</rect>
 					</rect>
-					<rect depth="1" name="detailPanel" pos="476,-188" width="560" height="696">
+					<rect depth="1" name="detailPanel" pos="476,-188" width="560" height="696" visible="{hascommunity}">
 						<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="0,0" width="560" height="696"/>
 						<rect depth="0" name="memberDetail" pos="0,0" width="560" height="696" visible="{tabmembers}">
 							<rect depth="1" name="noSelection" visible="{# selvisible ? 'false' : 'true' }">
@@ -723,7 +730,7 @@
 								<button depth="2" name="btnRun" pos="197,-606" width="165" height="40" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 								<label depth="4" pos="197,-617" width="165" height="24" font_size="18" text="{runlabel}" color="{# runvisible ? '226,220,208,255' : '140,134,124,255' }" justify="center" upper_case="true"/>
 								<button depth="2" name="btnLeave" pos="370,-606" width="165" height="40" sprite="scui_btn_danger" hoversprite="scui_btn_danger" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-								<label depth="4" pos="370,-617" width="165" height="24" font_size="18" text="{leavelabel}" color="240,150,130,255" justify="center" upper_case="true"/>
+								<label depth="4" pos="370,-617" width="165" height="24" font_size="18" text="{leavelabel}" color="{leavetextcolor}" justify="center" upper_case="true"/>
 								<button depth="2" name="btnHome" pos="24,-606" width="165" height="40" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]" visible="false"/>
 								<rect depth="1" visible="{runpicking}">
 									<button depth="2" name="btnRunFood" pos="24,-654" width="48" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -839,7 +846,7 @@
 								<button depth="2" name="btnOpUpgrade" pos="284,-606" width="122" height="40" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 								<label depth="4" pos="284,-617" width="122" height="23" font_size="17" text="{opupgradelabel}" color="{opupgradecolor}" justify="center" upper_case="true"/>
 								<button depth="2" name="btnOpDisband" pos="414,-606" width="122" height="40" sprite="scui_btn_danger" hoversprite="scui_btn_danger" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-								<label depth="4" pos="414,-617" width="122" height="23" font_size="17" text="{opdisbandlabel}" color="240,150,130,255" justify="center" upper_case="true"/>
+								<label depth="4" pos="414,-617" width="122" height="23" font_size="17" text="{opdisbandlabel}" color="{opdisbandcolor}" justify="center" upper_case="true"/>
 							</rect>
 							<label depth="4" pos="24,-656" width="512" height="32" font_size="15" text="{opmessage}" color="226,220,208,255"/>
 						</rect>
@@ -886,64 +893,282 @@
 							<label depth="4" pos="24,-656" width="512" height="32" font_size="15" text="{facmessage}" color="226,220,208,255"/>
 						</rect>
 					</rect>
-					<rect depth="1" name="moralePanel" pos="1048,-188" width="428" height="696">
+					<rect depth="1" name="moralePanel" pos="1048,-188" width="428" height="696" visible="{hascommunity}">
 						<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="0,0" width="428" height="696"/>
-						<label depth="4" pos="20,-14" width="388" height="34" font_size="28" text_key="scUiMorale" color="226,219,203,255" upper_case="true"/>
-						<label depth="4" pos="20,-56" width="136" height="76" font_size="72" text="{morale}" color="226,219,203,255" justify="right"/>
-						<label depth="4" pos="162,-86" width="90" height="36" font_size="30" text="/ 100" color="190,182,166,255"/>
-						<label depth="4" pos="200,-76" width="208" height="44" font_size="36" text="{moraleword}" color="{moralewordcolor}" justify="right"/>
-						<sprite depth="2" sprite="scui_bar_track" type="sliced" color="[white]" pos="20,-146" width="388" height="22"/>
-						<sprite depth="3" sprite="{moralefillsprite}" type="filled" fill="{moralefill}" color="[white]" pos="23,-149" width="382" height="16"/>
-						<sprite depth="4" sprite="scui_bar_frame" type="sliced" color="[white]" pos="20,-146" width="388" height="22" fillcenter="false"/>
-						<label depth="4" pos="20,-184" width="388" height="24" font_size="19" text_key="scUiAffecting" color="190,182,166,255"/>
-						<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="20,-210" width="388" height="3"/>
-						<label depth="4" pos="20,-222" width="388" height="26" font_size="22" text_key="scUiHelping" color="142,208,108,255" upper_case="true"/>
-						<rect depth="1" visible="{help1visible}">
-							<label depth="4" pos="20,-255" width="70" height="30" font_size="26" text="{help1value}" color="142,208,108,255"/>
-							<sprite depth="3" sprite="{help1icon}" pos="108,-270" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-259" width="278" height="24" font_size="19" text="{help1label}" color="226,220,208,255"/>
+						<rect depth="0" name="moraleView" pos="0,0" width="428" height="696" visible="{showmorale}">
+							<label depth="4" pos="20,-14" width="388" height="34" font_size="28" text_key="scUiMorale" color="226,219,203,255" upper_case="true"/>
+							<label depth="4" pos="20,-56" width="136" height="76" font_size="72" text="{morale}" color="226,219,203,255" justify="right"/>
+							<label depth="4" pos="162,-86" width="90" height="36" font_size="30" text="/ 100" color="190,182,166,255"/>
+							<label depth="4" pos="200,-76" width="208" height="44" font_size="36" text="{moraleword}" color="{moralewordcolor}" justify="right"/>
+							<sprite depth="2" sprite="scui_bar_track" type="sliced" color="[white]" pos="20,-146" width="388" height="22"/>
+							<sprite depth="3" sprite="{moralefillsprite}" type="filled" fill="{moralefill}" color="[white]" pos="23,-149" width="382" height="16"/>
+							<sprite depth="4" sprite="scui_bar_frame" type="sliced" color="[white]" pos="20,-146" width="388" height="22" fillcenter="false"/>
+							<label depth="4" pos="20,-184" width="388" height="24" font_size="19" text_key="scUiAffecting" color="190,182,166,255"/>
+							<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="20,-210" width="388" height="3"/>
+							<label depth="4" pos="20,-222" width="388" height="26" font_size="22" text_key="scUiHelping" color="142,208,108,255" upper_case="true"/>
+							<rect depth="1" visible="{help1visible}">
+								<label depth="4" pos="20,-255" width="70" height="30" font_size="26" text="{help1value}" color="142,208,108,255"/>
+								<sprite depth="3" sprite="{help1icon}" pos="108,-270" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-259" width="278" height="24" font_size="19" text="{help1label}" color="226,220,208,255"/>
+							</rect>
+							<rect depth="1" visible="{help2visible}">
+								<label depth="4" pos="20,-293" width="70" height="30" font_size="26" text="{help2value}" color="142,208,108,255"/>
+								<sprite depth="3" sprite="{help2icon}" pos="108,-308" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-297" width="278" height="24" font_size="19" text="{help2label}" color="226,220,208,255"/>
+							</rect>
+							<rect depth="1" visible="{help3visible}">
+								<label depth="4" pos="20,-331" width="70" height="30" font_size="26" text="{help3value}" color="142,208,108,255"/>
+								<sprite depth="3" sprite="{help3icon}" pos="108,-346" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-335" width="278" height="24" font_size="19" text="{help3label}" color="226,220,208,255"/>
+							</rect>
+							<rect depth="1" visible="{help4visible}">
+								<label depth="4" pos="20,-369" width="70" height="30" font_size="26" text="{help4value}" color="142,208,108,255"/>
+								<sprite depth="3" sprite="{help4icon}" pos="108,-384" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-373" width="278" height="24" font_size="19" text="{help4label}" color="226,220,208,255"/>
+							</rect>
+							<label depth="4" pos="20,-414" width="388" height="26" font_size="22" text_key="scUiHurting" color="226,108,86,255" upper_case="true"/>
+							<rect depth="1" visible="{hurt1visible}">
+								<label depth="4" pos="20,-447" width="70" height="30" font_size="26" text="{hurt1value}" color="226,108,86,255"/>
+								<sprite depth="3" sprite="{hurt1icon}" pos="108,-462" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-451" width="278" height="24" font_size="19" text="{hurt1label}" color="226,220,208,255"/>
+							</rect>
+							<rect depth="1" visible="{hurt2visible}">
+								<label depth="4" pos="20,-485" width="70" height="30" font_size="26" text="{hurt2value}" color="226,108,86,255"/>
+								<sprite depth="3" sprite="{hurt2icon}" pos="108,-500" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-489" width="278" height="24" font_size="19" text="{hurt2label}" color="226,220,208,255"/>
+							</rect>
+							<rect depth="1" visible="{hurt3visible}">
+								<label depth="4" pos="20,-523" width="70" height="30" font_size="26" text="{hurt3value}" color="226,108,86,255"/>
+								<sprite depth="3" sprite="{hurt3icon}" pos="108,-538" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-527" width="278" height="24" font_size="19" text="{hurt3label}" color="226,220,208,255"/>
+							</rect>
+							<rect depth="1" visible="{hurt4visible}">
+								<label depth="4" pos="20,-561" width="70" height="30" font_size="26" text="{hurt4value}" color="226,108,86,255"/>
+								<sprite depth="3" sprite="{hurt4icon}" pos="108,-576" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-565" width="278" height="24" font_size="19" text="{hurt4label}" color="226,220,208,255"/>
+							</rect>
+							<rect depth="1" visible="{bedscallvisible}">
+								<sprite depth="1" sprite="scui_btn_danger" type="sliced" color="[white]" pos="20,-606" width="388" height="78"/>
+								<sprite depth="3" sprite="ui_game_symbol_map_bed" pos="58,-645" width="40" height="40" pivot="center" color="[white]"/>
+								<label depth="4" pos="92,-618" width="298" height="26" font_size="21" text="{bedscalltitle}" color="240,150,130,255"/>
+								<label depth="4" pos="92,-648" width="298" height="22" font_size="16" text="{bedscallhint}" color="226,220,208,255"/>
+							</rect>
 						</rect>
-						<rect depth="1" visible="{help2visible}">
-							<label depth="4" pos="20,-293" width="70" height="30" font_size="26" text="{help2value}" color="142,208,108,255"/>
-							<sprite depth="3" sprite="{help2icon}" pos="108,-308" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-297" width="278" height="24" font_size="19" text="{help2label}" color="226,220,208,255"/>
+						<rect depth="0" name="playersView" pos="0,0" width="428" height="696" visible="{showplayers}">
+							<label depth="4" pos="20,-14" width="318" height="34" font_size="28" text_key="scUiPlTitle" color="226,219,203,255" upper_case="true"/>
+							<label depth="4" pos="338,-18" width="70" height="30" font_size="26" text="{playercount}" color="206,178,120,255" justify="right"/>
+							<label depth="4" pos="20,-54" width="388" height="44" font_size="16" text="{playersyou}" color="206,178,120,255"/>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl1visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-104" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-124" width="20" height="20" pivot="center" color="{pl1dotcolor}"/>
+								<label depth="4" pos="60,-112" width="178" height="24" font_size="19" text="{pl1name}" color="{pl1namecolor}"/>
+								<label depth="4" pos="248,-114" width="148" height="22" font_size="15" text="{pl1role}" color="190,182,166,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl2visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-148" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-168" width="20" height="20" pivot="center" color="{pl2dotcolor}"/>
+								<label depth="4" pos="60,-156" width="178" height="24" font_size="19" text="{pl2name}" color="{pl2namecolor}"/>
+								<label depth="4" pos="248,-158" width="148" height="22" font_size="15" text="{pl2role}" color="190,182,166,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl3visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-192" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-212" width="20" height="20" pivot="center" color="{pl3dotcolor}"/>
+								<label depth="4" pos="60,-200" width="178" height="24" font_size="19" text="{pl3name}" color="{pl3namecolor}"/>
+								<label depth="4" pos="248,-202" width="148" height="22" font_size="15" text="{pl3role}" color="190,182,166,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl4visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-236" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-256" width="20" height="20" pivot="center" color="{pl4dotcolor}"/>
+								<label depth="4" pos="60,-244" width="178" height="24" font_size="19" text="{pl4name}" color="{pl4namecolor}"/>
+								<label depth="4" pos="248,-246" width="148" height="22" font_size="15" text="{pl4role}" color="190,182,166,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl5visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-280" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-300" width="20" height="20" pivot="center" color="{pl5dotcolor}"/>
+								<label depth="4" pos="60,-288" width="178" height="24" font_size="19" text="{pl5name}" color="{pl5namecolor}"/>
+								<label depth="4" pos="248,-290" width="148" height="22" font_size="15" text="{pl5role}" color="190,182,166,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl6visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-324" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-344" width="20" height="20" pivot="center" color="{pl6dotcolor}"/>
+								<label depth="4" pos="60,-332" width="178" height="24" font_size="19" text="{pl6name}" color="{pl6namecolor}"/>
+								<label depth="4" pos="248,-334" width="148" height="22" font_size="15" text="{pl6role}" color="190,182,166,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl7visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-368" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-388" width="20" height="20" pivot="center" color="{pl7dotcolor}"/>
+								<label depth="4" pos="60,-376" width="178" height="24" font_size="19" text="{pl7name}" color="{pl7namecolor}"/>
+								<label depth="4" pos="248,-378" width="148" height="22" font_size="15" text="{pl7role}" color="190,182,166,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl8visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-412" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-432" width="20" height="20" pivot="center" color="{pl8dotcolor}"/>
+								<label depth="4" pos="60,-420" width="178" height="24" font_size="19" text="{pl8name}" color="{pl8namecolor}"/>
+								<label depth="4" pos="248,-422" width="148" height="22" font_size="15" text="{pl8role}" color="190,182,166,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl9visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-456" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-476" width="20" height="20" pivot="center" color="{pl9dotcolor}"/>
+								<label depth="4" pos="60,-464" width="178" height="24" font_size="19" text="{pl9name}" color="{pl9namecolor}"/>
+								<label depth="4" pos="248,-466" width="148" height="22" font_size="15" text="{pl9role}" color="190,182,166,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl10visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-500" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-520" width="20" height="20" pivot="center" color="{pl10dotcolor}"/>
+								<label depth="4" pos="60,-508" width="178" height="24" font_size="19" text="{pl10name}" color="{pl10namecolor}"/>
+								<label depth="4" pos="248,-510" width="148" height="22" font_size="15" text="{pl10role}" color="190,182,166,255" justify="right"/>
+							</rect>
+							<label depth="4" pos="20,-546" width="388" height="22" font_size="16" text="{plmore}" color="190,182,166,255"/>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{leavecommunityvisible}">
+								<button depth="2" name="btnLeaveCommunity" pos="20,-590" width="388" height="48" sprite="scui_btn_danger" hoversprite="scui_btn_danger" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<label depth="4" pos="20,-605" width="388" height="24" font_size="18" text="{leavecommunitylabel}" color="240,150,130,255" justify="center" upper_case="true"/>
+							</rect>
+							<label depth="4" pos="20,-646" width="388" height="44" font_size="15" text="{playersmessage}" color="226,220,208,255"/>
 						</rect>
-						<rect depth="1" visible="{help3visible}">
-							<label depth="4" pos="20,-331" width="70" height="30" font_size="26" text="{help3value}" color="142,208,108,255"/>
-							<sprite depth="3" sprite="{help3icon}" pos="108,-346" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-335" width="278" height="24" font_size="19" text="{help3label}" color="226,220,208,255"/>
+					</rect>
+					<rect depth="0" name="noCommunityPage" pos="0,0" width="1500" height="924" visible="{nocommunity}">
+						<rect depth="1" name="ncInfoPanel" pos="24,-188" width="440" height="696">
+							<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="0,0" width="440" height="696"/>
+							<sprite depth="3" sprite="ui_game_symbol_players" pos="38,-32" width="30" height="30" pivot="center" color="[white]"/>
+							<label depth="4" pos="64,-14" width="356" height="34" font_size="28" text_key="scUiNcTitle" color="226,219,203,255" upper_case="true"/>
+							<label depth="4" pos="20,-60" width="400" height="66" font_size="17" text_key="scUiNcWhy" color="226,220,208,255"/>
+							<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="20,-134" width="400" height="3"/>
+							<sprite depth="3" sprite="ui_game_symbol_map_cabin" pos="38,-164" width="26" height="26" pivot="center" color="[white]"/>
+							<label depth="4" pos="64,-150" width="356" height="26" font_size="21" text_key="scUiNcStartTitle" color="206,178,120,255" upper_case="true"/>
+							<label depth="4" pos="64,-180" width="356" height="66" font_size="16" text_key="scUiNcStart" color="226,220,208,255"/>
+							<sprite depth="3" sprite="{ncjoinicon}" pos="38,-264" width="26" height="26" pivot="center" color="[white]"/>
+							<label depth="4" pos="64,-250" width="356" height="26" font_size="21" text_key="scUiNcJoinTitle" color="206,178,120,255" upper_case="true"/>
+							<label depth="4" pos="64,-280" width="356" height="66" font_size="16" text="{ncjoin}" color="226,220,208,255"/>
+							<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="20,-356" width="400" height="3"/>
+							<label depth="4" pos="20,-368" width="400" height="26" font_size="21" text_key="scUiNcNow" color="226,219,203,255" upper_case="true"/>
+							<sprite depth="3" sprite="ui_game_symbol_talk" pos="38,-418" width="24" height="24" pivot="center" color="[white]"/>
+							<label depth="4" pos="64,-404" width="356" height="44" font_size="16" text_key="scUiNcTalk" color="226,220,208,255"/>
+							<sprite depth="3" sprite="ui_game_symbol_quest" pos="38,-466" width="24" height="24" pivot="center" color="[white]"/>
+							<label depth="4" pos="64,-452" width="356" height="44" font_size="16" text_key="scUiNcFavors" color="226,220,208,255"/>
+							<sprite depth="3" sprite="ui_game_symbol_map" pos="38,-514" width="24" height="24" pivot="center" color="[white]"/>
+							<label depth="4" pos="64,-500" width="356" height="44" font_size="16" text_key="scUiNcMarkers" color="226,220,208,255"/>
+							<label depth="4" pos="20,-554" width="400" height="120" font_size="16" text_key="scUiNcKeep" color="206,178,120,255"/>
 						</rect>
-						<rect depth="1" visible="{help4visible}">
-							<label depth="4" pos="20,-369" width="70" height="30" font_size="26" text="{help4value}" color="142,208,108,255"/>
-							<sprite depth="3" sprite="{help4icon}" pos="108,-384" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-373" width="278" height="24" font_size="19" text="{help4label}" color="226,220,208,255"/>
+						<rect depth="1" name="ncEnclavePanel" pos="476,-188" width="560" height="696">
+							<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="0,0" width="560" height="696"/>
+							<label depth="4" pos="24,-14" width="512" height="34" font_size="28" text_key="scUiNcEnclaves" color="226,219,203,255" upper_case="true"/>
+							<label depth="4" pos="24,-54" width="512" height="22" font_size="17" text="{ncencsummary}" color="190,182,166,255"/>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc1visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="24,-90" width="512" height="56"/>
+								<label depth="4" pos="36,-96" width="322" height="24" font_size="20" text="{ncenc1a}" color="226,219,203,255"/>
+								<label depth="4" pos="360,-98" width="164" height="22" font_size="17" text="{ncenc1b}" color="{ncenc1color}" justify="right"/>
+								<label depth="4" pos="36,-122" width="488" height="20" font_size="15" text="{ncenc1c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc2visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="24,-152" width="512" height="56"/>
+								<label depth="4" pos="36,-158" width="322" height="24" font_size="20" text="{ncenc2a}" color="226,219,203,255"/>
+								<label depth="4" pos="360,-160" width="164" height="22" font_size="17" text="{ncenc2b}" color="{ncenc2color}" justify="right"/>
+								<label depth="4" pos="36,-184" width="488" height="20" font_size="15" text="{ncenc2c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc3visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="24,-214" width="512" height="56"/>
+								<label depth="4" pos="36,-220" width="322" height="24" font_size="20" text="{ncenc3a}" color="226,219,203,255"/>
+								<label depth="4" pos="360,-222" width="164" height="22" font_size="17" text="{ncenc3b}" color="{ncenc3color}" justify="right"/>
+								<label depth="4" pos="36,-246" width="488" height="20" font_size="15" text="{ncenc3c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc4visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="24,-276" width="512" height="56"/>
+								<label depth="4" pos="36,-282" width="322" height="24" font_size="20" text="{ncenc4a}" color="226,219,203,255"/>
+								<label depth="4" pos="360,-284" width="164" height="22" font_size="17" text="{ncenc4b}" color="{ncenc4color}" justify="right"/>
+								<label depth="4" pos="36,-308" width="488" height="20" font_size="15" text="{ncenc4c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc5visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="24,-338" width="512" height="56"/>
+								<label depth="4" pos="36,-344" width="322" height="24" font_size="20" text="{ncenc5a}" color="226,219,203,255"/>
+								<label depth="4" pos="360,-346" width="164" height="22" font_size="17" text="{ncenc5b}" color="{ncenc5color}" justify="right"/>
+								<label depth="4" pos="36,-370" width="488" height="20" font_size="15" text="{ncenc5c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc6visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="24,-400" width="512" height="56"/>
+								<label depth="4" pos="36,-406" width="322" height="24" font_size="20" text="{ncenc6a}" color="226,219,203,255"/>
+								<label depth="4" pos="360,-408" width="164" height="22" font_size="17" text="{ncenc6b}" color="{ncenc6color}" justify="right"/>
+								<label depth="4" pos="36,-432" width="488" height="20" font_size="15" text="{ncenc6c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc7visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="24,-462" width="512" height="56"/>
+								<label depth="4" pos="36,-468" width="322" height="24" font_size="20" text="{ncenc7a}" color="226,219,203,255"/>
+								<label depth="4" pos="360,-470" width="164" height="22" font_size="17" text="{ncenc7b}" color="{ncenc7color}" justify="right"/>
+								<label depth="4" pos="36,-494" width="488" height="20" font_size="15" text="{ncenc7c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc8visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="24,-524" width="512" height="56"/>
+								<label depth="4" pos="36,-530" width="322" height="24" font_size="20" text="{ncenc8a}" color="226,219,203,255"/>
+								<label depth="4" pos="360,-532" width="164" height="22" font_size="17" text="{ncenc8b}" color="{ncenc8color}" justify="right"/>
+								<label depth="4" pos="36,-556" width="488" height="20" font_size="15" text="{ncenc8c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncencempty}">
+								<label depth="4" pos="24,-96" width="512" height="120" font_size="18" text_key="scUiNcEncNone" color="226,220,208,255"/>
+							</rect>
+							<label depth="4" pos="24,-586" width="512" height="22" font_size="17" text="{ncencmore}" color="190,182,166,255"/>
+							<label depth="4" pos="24,-616" width="512" height="60" font_size="16" text_key="scUiNcEncNote" color="190,182,166,255"/>
 						</rect>
-						<label depth="4" pos="20,-414" width="388" height="26" font_size="22" text_key="scUiHurting" color="226,108,86,255" upper_case="true"/>
-						<rect depth="1" visible="{hurt1visible}">
-							<label depth="4" pos="20,-447" width="70" height="30" font_size="26" text="{hurt1value}" color="226,108,86,255"/>
-							<sprite depth="3" sprite="{hurt1icon}" pos="108,-462" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-451" width="278" height="24" font_size="19" text="{hurt1label}" color="226,220,208,255"/>
-						</rect>
-						<rect depth="1" visible="{hurt2visible}">
-							<label depth="4" pos="20,-485" width="70" height="30" font_size="26" text="{hurt2value}" color="226,108,86,255"/>
-							<sprite depth="3" sprite="{hurt2icon}" pos="108,-500" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-489" width="278" height="24" font_size="19" text="{hurt2label}" color="226,220,208,255"/>
-						</rect>
-						<rect depth="1" visible="{hurt3visible}">
-							<label depth="4" pos="20,-523" width="70" height="30" font_size="26" text="{hurt3value}" color="226,108,86,255"/>
-							<sprite depth="3" sprite="{hurt3icon}" pos="108,-538" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-527" width="278" height="24" font_size="19" text="{hurt3label}" color="226,220,208,255"/>
-						</rect>
-						<rect depth="1" visible="{hurt4visible}">
-							<label depth="4" pos="20,-561" width="70" height="30" font_size="26" text="{hurt4value}" color="226,108,86,255"/>
-							<sprite depth="3" sprite="{hurt4icon}" pos="108,-576" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-565" width="278" height="24" font_size="19" text="{hurt4label}" color="226,220,208,255"/>
-						</rect>
-						<rect depth="1" visible="{bedscallvisible}">
-							<sprite depth="1" sprite="scui_btn_danger" type="sliced" color="[white]" pos="20,-606" width="388" height="78"/>
-							<sprite depth="3" sprite="ui_game_symbol_map_bed" pos="58,-645" width="40" height="40" pivot="center" color="[white]"/>
-							<label depth="4" pos="92,-618" width="298" height="26" font_size="21" text="{bedscalltitle}" color="240,150,130,255"/>
-							<label depth="4" pos="92,-648" width="298" height="22" font_size="16" text="{bedscallhint}" color="226,220,208,255"/>
+						<rect depth="1" name="ncFavourPanel" pos="1048,-188" width="428" height="696">
+							<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="0,0" width="428" height="696"/>
+							<label depth="4" pos="20,-14" width="388" height="34" font_size="28" text_key="scUiNcFavours" color="226,219,203,255" upper_case="true"/>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncfav1visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-56" width="388" height="56"/>
+								<label depth="4" pos="32,-62" width="198" height="24" font_size="20" text="{ncfav1a}" color="226,219,203,255"/>
+								<label depth="4" pos="232,-64" width="164" height="22" font_size="17" text="{ncfav1b}" color="{ncfav1color}" justify="right"/>
+								<label depth="4" pos="32,-88" width="364" height="20" font_size="15" text="{ncfav1c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncfav2visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-118" width="388" height="56"/>
+								<label depth="4" pos="32,-124" width="198" height="24" font_size="20" text="{ncfav2a}" color="226,219,203,255"/>
+								<label depth="4" pos="232,-126" width="164" height="22" font_size="17" text="{ncfav2b}" color="{ncfav2color}" justify="right"/>
+								<label depth="4" pos="32,-150" width="364" height="20" font_size="15" text="{ncfav2c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncfav3visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-180" width="388" height="56"/>
+								<label depth="4" pos="32,-186" width="198" height="24" font_size="20" text="{ncfav3a}" color="226,219,203,255"/>
+								<label depth="4" pos="232,-188" width="164" height="22" font_size="17" text="{ncfav3b}" color="{ncfav3color}" justify="right"/>
+								<label depth="4" pos="32,-212" width="364" height="20" font_size="15" text="{ncfav3c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncfav4visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-242" width="388" height="56"/>
+								<label depth="4" pos="32,-248" width="198" height="24" font_size="20" text="{ncfav4a}" color="226,219,203,255"/>
+								<label depth="4" pos="232,-250" width="164" height="22" font_size="17" text="{ncfav4b}" color="{ncfav4color}" justify="right"/>
+								<label depth="4" pos="32,-274" width="364" height="20" font_size="15" text="{ncfav4c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncfav5visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-304" width="388" height="56"/>
+								<label depth="4" pos="32,-310" width="198" height="24" font_size="20" text="{ncfav5a}" color="226,219,203,255"/>
+								<label depth="4" pos="232,-312" width="164" height="22" font_size="17" text="{ncfav5b}" color="{ncfav5color}" justify="right"/>
+								<label depth="4" pos="32,-336" width="364" height="20" font_size="15" text="{ncfav5c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncfavempty}">
+								<label depth="4" pos="20,-62" width="388" height="90" font_size="17" text_key="scUiNcFavNone" color="226,220,208,255"/>
+							</rect>
+							<label depth="4" pos="20,-366" width="388" height="22" font_size="16" text="{ncfavmore}" color="190,182,166,255"/>
+							<label depth="4" pos="20,-398" width="388" height="26" font_size="22" text_key="scUiNcRequests" color="226,219,203,255" upper_case="true"/>
+							<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="20,-426" width="388" height="3"/>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncreq1visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-436" width="388" height="56"/>
+								<label depth="4" pos="32,-442" width="198" height="24" font_size="20" text="{ncreq1a}" color="226,219,203,255"/>
+								<label depth="4" pos="232,-444" width="164" height="22" font_size="17" text="{ncreq1b}" color="{ncreq1color}" justify="right"/>
+								<label depth="4" pos="32,-468" width="364" height="20" font_size="15" text="{ncreq1c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncreq2visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-498" width="388" height="56"/>
+								<label depth="4" pos="32,-504" width="198" height="24" font_size="20" text="{ncreq2a}" color="226,219,203,255"/>
+								<label depth="4" pos="232,-506" width="164" height="22" font_size="17" text="{ncreq2b}" color="{ncreq2color}" justify="right"/>
+								<label depth="4" pos="32,-530" width="364" height="20" font_size="15" text="{ncreq2c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncreq3visible}">
+								<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-560" width="388" height="56"/>
+								<label depth="4" pos="32,-566" width="198" height="24" font_size="20" text="{ncreq3a}" color="226,219,203,255"/>
+								<label depth="4" pos="232,-568" width="164" height="22" font_size="17" text="{ncreq3b}" color="{ncreq3color}" justify="right"/>
+								<label depth="4" pos="32,-592" width="364" height="20" font_size="15" text="{ncreq3c}" color="190,182,166,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncreqempty}">
+								<label depth="4" pos="20,-442" width="388" height="60" font_size="17" text_key="scUiNcReqNone" color="226,220,208,255"/>
+							</rect>
+							<label depth="4" pos="20,-622" width="388" height="22" font_size="16" text="{ncreqmore}" color="190,182,166,255"/>
+							<label depth="4" pos="20,-648" width="388" height="40" font_size="15" text_key="scUiNcFavNote" color="190,182,166,255"/>
 						</rect>
 					</rect>
 					<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="24,-892" width="58" height="28"/>
@@ -964,10 +1189,18 @@
 					<sprite depth="3" sprite="ui_game_symbol_map_cabin" pos="60,-44" width="64" height="64" pivot="center" color="[white]"/>
 					<label depth="4" pos="104,-6" width="700" height="52" font_size="48" text_key="scUiTitle" color="255,255,255,255" upper_case="true"/>
 					<label depth="4" pos="106,-56" width="700" height="26" font_size="22" text="{communityname}" color="222,206,163,255" upper_case="true"/>
-					<button depth="2" name="btnStorage" pos="1158,-18" width="250" height="48" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-					<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="1158,-18" width="250" height="48"/>
-					<sprite depth="4" sprite="ui_game_symbol_store_all_up" pos="1192,-42" width="30" height="30" pivot="center" color="[white]"/>
-					<label depth="4" pos="1214,-32" width="180" height="26" font_size="20" text_key="scUiOpenStorage" color="255,255,255,255" justify="center" upper_case="true"/>
+					<rect depth="0" pos="0,0" width="1500" height="88" visible="{storagevisible}">
+						<button depth="2" name="btnStorage" pos="1158,-18" width="250" height="48" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+						<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="1158,-18" width="250" height="48"/>
+						<sprite depth="4" sprite="ui_game_symbol_store_all_up" pos="1192,-42" width="30" height="30" pivot="center" color="[white]"/>
+						<label depth="4" pos="1214,-32" width="180" height="26" font_size="20" text_key="scUiOpenStorage" color="255,255,255,255" justify="center" upper_case="true"/>
+					</rect>
+					<rect depth="0" pos="0,0" width="1500" height="88" visible="{playersbtnvisible}">
+						<button depth="2" name="btnPlayers" pos="936,-18" width="210" height="48" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+						<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="936,-18" width="210" height="48"/>
+						<sprite depth="4" sprite="ui_game_symbol_players" pos="966,-42" width="28" height="28" pivot="center" color="[white]"/>
+						<label depth="4" pos="986,-33" width="150" height="24" font_size="18" text="{playersbtnlabel}" color="255,255,255,255" justify="center" upper_case="true"/>
+					</rect>
 					<button depth="2" name="btnClose" pos="1420,-18" width="56" height="48" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 					<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="1420,-18" width="56" height="48"/>
 					<sprite depth="4" sprite="ui_game_symbol_x" pos="1448,-42" width="24" height="24" pivot="center" color="[white]"/>
@@ -1009,7 +1242,7 @@
 					<label depth="4" pos="1332,-98" width="135" height="20" font_size="15" text_key="scRunLuxury" color="180,180,180,255" upper_case="true"/>
 					<label depth="4" pos="1332,-118" width="80" height="34" font_size="30" text="{resluxury}" color="255,255,255,255"/>
 					<label depth="4" pos="1386,-127" width="79" height="22" font_size="17" text="{opluxury}" color="{opluxurycolor}" justify="right"/>
-					<rect depth="1" name="membersPanel" pos="24,-188" width="440" height="696">
+					<rect depth="1" name="membersPanel" pos="24,-188" width="440" height="696" visible="{hascommunity}">
 						<sprite depth="0" sprite="menu_empty" type="sliced" color="64,64,64,255" pos="0,0" width="440" height="696" globalopacitymod="0"/>
 						<sprite depth="1" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="0,0" width="440" height="696" globalopacitymod="0"/>
 						<button depth="2" name="btnTabMembers" pos="20,-12" width="128" height="44" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -1288,7 +1521,7 @@
 							</rect>
 						</rect>
 					</rect>
-					<rect depth="1" name="detailPanel" pos="476,-188" width="560" height="696">
+					<rect depth="1" name="detailPanel" pos="476,-188" width="560" height="696" visible="{hascommunity}">
 						<sprite depth="0" sprite="menu_empty" type="sliced" color="64,64,64,255" pos="0,0" width="560" height="696" globalopacitymod="0"/>
 						<sprite depth="1" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="0,0" width="560" height="696" globalopacitymod="0"/>
 						<rect depth="0" name="memberDetail" pos="0,0" width="560" height="696" visible="{tabmembers}">
@@ -1391,7 +1624,7 @@
 								<label depth="4" pos="197,-617" width="165" height="24" font_size="18" text="{runlabel}" color="{# runvisible ? '255,255,255,255' : '128,128,128,255' }" justify="center" upper_case="true"/>
 								<button depth="2" name="btnLeave" pos="370,-606" width="165" height="40" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="96,40,40,255" hovercolor="140,56,56,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="228,18,21,255" pos="370,-606" width="165" height="40"/>
-								<label depth="4" pos="370,-617" width="165" height="24" font_size="18" text="{leavelabel}" color="240,150,130,255" justify="center" upper_case="true"/>
+								<label depth="4" pos="370,-617" width="165" height="24" font_size="18" text="{leavelabel}" color="{leavetextcolor}" justify="center" upper_case="true"/>
 								<button depth="2" name="btnHome" pos="24,-606" width="165" height="40" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]" visible="false"/>
 								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="24,-606" width="165" height="40" visible="false"/>
 								<rect depth="1" visible="{runpicking}">
@@ -1528,7 +1761,7 @@
 								<label depth="4" pos="284,-617" width="122" height="23" font_size="17" text="{opupgradelabel}" color="{opupgradecolor}" justify="center" upper_case="true"/>
 								<button depth="2" name="btnOpDisband" pos="414,-606" width="122" height="40" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="96,40,40,255" hovercolor="140,56,56,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="228,18,21,255" pos="414,-606" width="122" height="40"/>
-								<label depth="4" pos="414,-617" width="122" height="23" font_size="17" text="{opdisbandlabel}" color="240,150,130,255" justify="center" upper_case="true"/>
+								<label depth="4" pos="414,-617" width="122" height="23" font_size="17" text="{opdisbandlabel}" color="{opdisbandcolor}" justify="center" upper_case="true"/>
 							</rect>
 							<label depth="4" pos="24,-656" width="512" height="32" font_size="15" text="{opmessage}" color="255,255,255,255"/>
 						</rect>
@@ -1578,66 +1811,288 @@
 							<label depth="4" pos="24,-656" width="512" height="32" font_size="15" text="{facmessage}" color="255,255,255,255"/>
 						</rect>
 					</rect>
-					<rect depth="1" name="moralePanel" pos="1048,-188" width="428" height="696">
+					<rect depth="1" name="moralePanel" pos="1048,-188" width="428" height="696" visible="{hascommunity}">
 						<sprite depth="0" sprite="menu_empty" type="sliced" color="64,64,64,255" pos="0,0" width="428" height="696" globalopacitymod="0"/>
 						<sprite depth="1" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="0,0" width="428" height="696" globalopacitymod="0"/>
-						<label depth="4" pos="20,-14" width="388" height="34" font_size="28" text_key="scUiMorale" color="255,255,255,255" upper_case="true"/>
-						<label depth="4" pos="20,-56" width="136" height="76" font_size="72" text="{morale}" color="255,255,255,255" justify="right"/>
-						<label depth="4" pos="162,-86" width="90" height="36" font_size="30" text="/ 100" color="180,180,180,255"/>
-						<label depth="4" pos="200,-76" width="208" height="44" font_size="36" text="{moraleword}" color="{moralewordcolor}" justify="right"/>
-						<sprite depth="2" sprite="menu_empty" type="sliced" color="0,0,0,255" pos="20,-146" width="388" height="22"/>
-						<sprite depth="3" sprite="menu_empty" type="filled" fill="{moralefill}" color="{moralewordcolor}" pos="23,-149" width="382" height="16"/>
-						<sprite depth="4" sprite="menu_empty2px" type="sliced" color="0,0,0,255" pos="20,-146" width="388" height="22" fillcenter="false"/>
-						<label depth="4" pos="20,-184" width="388" height="24" font_size="19" text_key="scUiAffecting" color="180,180,180,255"/>
-						<sprite depth="1" sprite="menu_empty" type="sliced" color="128,128,128,255" pos="20,-210" width="388" height="3"/>
-						<label depth="4" pos="20,-222" width="388" height="26" font_size="22" text_key="scUiHelping" color="142,208,108,255" upper_case="true"/>
-						<rect depth="1" visible="{help1visible}">
-							<label depth="4" pos="20,-255" width="70" height="30" font_size="26" text="{help1value}" color="142,208,108,255"/>
-							<sprite depth="3" sprite="{help1icon}" pos="108,-270" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-259" width="278" height="24" font_size="19" text="{help1label}" color="255,255,255,255"/>
+						<rect depth="0" name="moraleView" pos="0,0" width="428" height="696" visible="{showmorale}">
+							<label depth="4" pos="20,-14" width="388" height="34" font_size="28" text_key="scUiMorale" color="255,255,255,255" upper_case="true"/>
+							<label depth="4" pos="20,-56" width="136" height="76" font_size="72" text="{morale}" color="255,255,255,255" justify="right"/>
+							<label depth="4" pos="162,-86" width="90" height="36" font_size="30" text="/ 100" color="180,180,180,255"/>
+							<label depth="4" pos="200,-76" width="208" height="44" font_size="36" text="{moraleword}" color="{moralewordcolor}" justify="right"/>
+							<sprite depth="2" sprite="menu_empty" type="sliced" color="0,0,0,255" pos="20,-146" width="388" height="22"/>
+							<sprite depth="3" sprite="menu_empty" type="filled" fill="{moralefill}" color="{moralewordcolor}" pos="23,-149" width="382" height="16"/>
+							<sprite depth="4" sprite="menu_empty2px" type="sliced" color="0,0,0,255" pos="20,-146" width="388" height="22" fillcenter="false"/>
+							<label depth="4" pos="20,-184" width="388" height="24" font_size="19" text_key="scUiAffecting" color="180,180,180,255"/>
+							<sprite depth="1" sprite="menu_empty" type="sliced" color="128,128,128,255" pos="20,-210" width="388" height="3"/>
+							<label depth="4" pos="20,-222" width="388" height="26" font_size="22" text_key="scUiHelping" color="142,208,108,255" upper_case="true"/>
+							<rect depth="1" visible="{help1visible}">
+								<label depth="4" pos="20,-255" width="70" height="30" font_size="26" text="{help1value}" color="142,208,108,255"/>
+								<sprite depth="3" sprite="{help1icon}" pos="108,-270" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-259" width="278" height="24" font_size="19" text="{help1label}" color="255,255,255,255"/>
+							</rect>
+							<rect depth="1" visible="{help2visible}">
+								<label depth="4" pos="20,-293" width="70" height="30" font_size="26" text="{help2value}" color="142,208,108,255"/>
+								<sprite depth="3" sprite="{help2icon}" pos="108,-308" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-297" width="278" height="24" font_size="19" text="{help2label}" color="255,255,255,255"/>
+							</rect>
+							<rect depth="1" visible="{help3visible}">
+								<label depth="4" pos="20,-331" width="70" height="30" font_size="26" text="{help3value}" color="142,208,108,255"/>
+								<sprite depth="3" sprite="{help3icon}" pos="108,-346" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-335" width="278" height="24" font_size="19" text="{help3label}" color="255,255,255,255"/>
+							</rect>
+							<rect depth="1" visible="{help4visible}">
+								<label depth="4" pos="20,-369" width="70" height="30" font_size="26" text="{help4value}" color="142,208,108,255"/>
+								<sprite depth="3" sprite="{help4icon}" pos="108,-384" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-373" width="278" height="24" font_size="19" text="{help4label}" color="255,255,255,255"/>
+							</rect>
+							<label depth="4" pos="20,-414" width="388" height="26" font_size="22" text_key="scUiHurting" color="226,108,86,255" upper_case="true"/>
+							<rect depth="1" visible="{hurt1visible}">
+								<label depth="4" pos="20,-447" width="70" height="30" font_size="26" text="{hurt1value}" color="226,108,86,255"/>
+								<sprite depth="3" sprite="{hurt1icon}" pos="108,-462" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-451" width="278" height="24" font_size="19" text="{hurt1label}" color="255,255,255,255"/>
+							</rect>
+							<rect depth="1" visible="{hurt2visible}">
+								<label depth="4" pos="20,-485" width="70" height="30" font_size="26" text="{hurt2value}" color="226,108,86,255"/>
+								<sprite depth="3" sprite="{hurt2icon}" pos="108,-500" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-489" width="278" height="24" font_size="19" text="{hurt2label}" color="255,255,255,255"/>
+							</rect>
+							<rect depth="1" visible="{hurt3visible}">
+								<label depth="4" pos="20,-523" width="70" height="30" font_size="26" text="{hurt3value}" color="226,108,86,255"/>
+								<sprite depth="3" sprite="{hurt3icon}" pos="108,-538" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-527" width="278" height="24" font_size="19" text="{hurt3label}" color="255,255,255,255"/>
+							</rect>
+							<rect depth="1" visible="{hurt4visible}">
+								<label depth="4" pos="20,-561" width="70" height="30" font_size="26" text="{hurt4value}" color="226,108,86,255"/>
+								<sprite depth="3" sprite="{hurt4icon}" pos="108,-576" width="26" height="26" pivot="center" color="[white]"/>
+								<label depth="4" pos="130,-565" width="278" height="24" font_size="19" text="{hurt4label}" color="255,255,255,255"/>
+							</rect>
+							<rect depth="1" visible="{bedscallvisible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="72,28,28,255" pos="20,-606" width="388" height="78"/>
+								<sprite depth="2" sprite="menu_empty2px" type="sliced" fillcenter="false" color="228,18,21,255" pos="20,-606" width="388" height="78"/>
+								<sprite depth="3" sprite="ui_game_symbol_map_bed" pos="58,-645" width="40" height="40" pivot="center" color="[white]"/>
+								<label depth="4" pos="92,-618" width="298" height="26" font_size="21" text="{bedscalltitle}" color="240,150,130,255"/>
+								<label depth="4" pos="92,-648" width="298" height="22" font_size="16" text="{bedscallhint}" color="255,255,255,255"/>
+							</rect>
 						</rect>
-						<rect depth="1" visible="{help2visible}">
-							<label depth="4" pos="20,-293" width="70" height="30" font_size="26" text="{help2value}" color="142,208,108,255"/>
-							<sprite depth="3" sprite="{help2icon}" pos="108,-308" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-297" width="278" height="24" font_size="19" text="{help2label}" color="255,255,255,255"/>
+						<rect depth="0" name="playersView" pos="0,0" width="428" height="696" visible="{showplayers}">
+							<label depth="4" pos="20,-14" width="318" height="34" font_size="28" text_key="scUiPlTitle" color="255,255,255,255" upper_case="true"/>
+							<label depth="4" pos="338,-18" width="70" height="30" font_size="26" text="{playercount}" color="222,206,163,255" justify="right"/>
+							<label depth="4" pos="20,-54" width="388" height="44" font_size="16" text="{playersyou}" color="222,206,163,255"/>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl1visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-104" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-124" width="20" height="20" pivot="center" color="{pl1dotcolor}"/>
+								<label depth="4" pos="60,-112" width="178" height="24" font_size="19" text="{pl1name}" color="{pl1namecolor}"/>
+								<label depth="4" pos="248,-114" width="148" height="22" font_size="15" text="{pl1role}" color="180,180,180,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl2visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-148" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-168" width="20" height="20" pivot="center" color="{pl2dotcolor}"/>
+								<label depth="4" pos="60,-156" width="178" height="24" font_size="19" text="{pl2name}" color="{pl2namecolor}"/>
+								<label depth="4" pos="248,-158" width="148" height="22" font_size="15" text="{pl2role}" color="180,180,180,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl3visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-192" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-212" width="20" height="20" pivot="center" color="{pl3dotcolor}"/>
+								<label depth="4" pos="60,-200" width="178" height="24" font_size="19" text="{pl3name}" color="{pl3namecolor}"/>
+								<label depth="4" pos="248,-202" width="148" height="22" font_size="15" text="{pl3role}" color="180,180,180,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl4visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-236" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-256" width="20" height="20" pivot="center" color="{pl4dotcolor}"/>
+								<label depth="4" pos="60,-244" width="178" height="24" font_size="19" text="{pl4name}" color="{pl4namecolor}"/>
+								<label depth="4" pos="248,-246" width="148" height="22" font_size="15" text="{pl4role}" color="180,180,180,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl5visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-280" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-300" width="20" height="20" pivot="center" color="{pl5dotcolor}"/>
+								<label depth="4" pos="60,-288" width="178" height="24" font_size="19" text="{pl5name}" color="{pl5namecolor}"/>
+								<label depth="4" pos="248,-290" width="148" height="22" font_size="15" text="{pl5role}" color="180,180,180,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl6visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-324" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-344" width="20" height="20" pivot="center" color="{pl6dotcolor}"/>
+								<label depth="4" pos="60,-332" width="178" height="24" font_size="19" text="{pl6name}" color="{pl6namecolor}"/>
+								<label depth="4" pos="248,-334" width="148" height="22" font_size="15" text="{pl6role}" color="180,180,180,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl7visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-368" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-388" width="20" height="20" pivot="center" color="{pl7dotcolor}"/>
+								<label depth="4" pos="60,-376" width="178" height="24" font_size="19" text="{pl7name}" color="{pl7namecolor}"/>
+								<label depth="4" pos="248,-378" width="148" height="22" font_size="15" text="{pl7role}" color="180,180,180,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl8visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-412" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-432" width="20" height="20" pivot="center" color="{pl8dotcolor}"/>
+								<label depth="4" pos="60,-420" width="178" height="24" font_size="19" text="{pl8name}" color="{pl8namecolor}"/>
+								<label depth="4" pos="248,-422" width="148" height="22" font_size="15" text="{pl8role}" color="180,180,180,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl9visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-456" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-476" width="20" height="20" pivot="center" color="{pl9dotcolor}"/>
+								<label depth="4" pos="60,-464" width="178" height="24" font_size="19" text="{pl9name}" color="{pl9namecolor}"/>
+								<label depth="4" pos="248,-466" width="148" height="22" font_size="15" text="{pl9role}" color="180,180,180,255" justify="right"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{pl10visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-500" width="388" height="40"/>
+								<sprite depth="3" sprite="ui_game_symbol_player" pos="40,-520" width="20" height="20" pivot="center" color="{pl10dotcolor}"/>
+								<label depth="4" pos="60,-508" width="178" height="24" font_size="19" text="{pl10name}" color="{pl10namecolor}"/>
+								<label depth="4" pos="248,-510" width="148" height="22" font_size="15" text="{pl10role}" color="180,180,180,255" justify="right"/>
+							</rect>
+							<label depth="4" pos="20,-546" width="388" height="22" font_size="16" text="{plmore}" color="180,180,180,255"/>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{leavecommunityvisible}">
+								<button depth="2" name="btnLeaveCommunity" pos="20,-590" width="388" height="48" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="96,40,40,255" hovercolor="140,56,56,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="228,18,21,255" pos="20,-590" width="388" height="48"/>
+								<label depth="4" pos="20,-605" width="388" height="24" font_size="18" text="{leavecommunitylabel}" color="240,150,130,255" justify="center" upper_case="true"/>
+							</rect>
+							<label depth="4" pos="20,-646" width="388" height="44" font_size="15" text="{playersmessage}" color="255,255,255,255"/>
 						</rect>
-						<rect depth="1" visible="{help3visible}">
-							<label depth="4" pos="20,-331" width="70" height="30" font_size="26" text="{help3value}" color="142,208,108,255"/>
-							<sprite depth="3" sprite="{help3icon}" pos="108,-346" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-335" width="278" height="24" font_size="19" text="{help3label}" color="255,255,255,255"/>
+					</rect>
+					<rect depth="0" name="noCommunityPage" pos="0,0" width="1500" height="924" visible="{nocommunity}">
+						<rect depth="1" name="ncInfoPanel" pos="24,-188" width="440" height="696">
+							<sprite depth="0" sprite="menu_empty" type="sliced" color="64,64,64,255" pos="0,0" width="440" height="696" globalopacitymod="0"/>
+							<sprite depth="1" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="0,0" width="440" height="696" globalopacitymod="0"/>
+							<sprite depth="3" sprite="ui_game_symbol_players" pos="38,-32" width="30" height="30" pivot="center" color="[white]"/>
+							<label depth="4" pos="64,-14" width="356" height="34" font_size="28" text_key="scUiNcTitle" color="255,255,255,255" upper_case="true"/>
+							<label depth="4" pos="20,-60" width="400" height="66" font_size="17" text_key="scUiNcWhy" color="255,255,255,255"/>
+							<sprite depth="1" sprite="menu_empty" type="sliced" color="128,128,128,255" pos="20,-134" width="400" height="3"/>
+							<sprite depth="3" sprite="ui_game_symbol_map_cabin" pos="38,-164" width="26" height="26" pivot="center" color="[white]"/>
+							<label depth="4" pos="64,-150" width="356" height="26" font_size="21" text_key="scUiNcStartTitle" color="222,206,163,255" upper_case="true"/>
+							<label depth="4" pos="64,-180" width="356" height="66" font_size="16" text_key="scUiNcStart" color="255,255,255,255"/>
+							<sprite depth="3" sprite="{ncjoinicon}" pos="38,-264" width="26" height="26" pivot="center" color="[white]"/>
+							<label depth="4" pos="64,-250" width="356" height="26" font_size="21" text_key="scUiNcJoinTitle" color="222,206,163,255" upper_case="true"/>
+							<label depth="4" pos="64,-280" width="356" height="66" font_size="16" text="{ncjoin}" color="255,255,255,255"/>
+							<sprite depth="1" sprite="menu_empty" type="sliced" color="128,128,128,255" pos="20,-356" width="400" height="3"/>
+							<label depth="4" pos="20,-368" width="400" height="26" font_size="21" text_key="scUiNcNow" color="255,255,255,255" upper_case="true"/>
+							<sprite depth="3" sprite="ui_game_symbol_talk" pos="38,-418" width="24" height="24" pivot="center" color="[white]"/>
+							<label depth="4" pos="64,-404" width="356" height="44" font_size="16" text_key="scUiNcTalk" color="255,255,255,255"/>
+							<sprite depth="3" sprite="ui_game_symbol_quest" pos="38,-466" width="24" height="24" pivot="center" color="[white]"/>
+							<label depth="4" pos="64,-452" width="356" height="44" font_size="16" text_key="scUiNcFavors" color="255,255,255,255"/>
+							<sprite depth="3" sprite="ui_game_symbol_map" pos="38,-514" width="24" height="24" pivot="center" color="[white]"/>
+							<label depth="4" pos="64,-500" width="356" height="44" font_size="16" text_key="scUiNcMarkers" color="255,255,255,255"/>
+							<label depth="4" pos="20,-554" width="400" height="120" font_size="16" text_key="scUiNcKeep" color="222,206,163,255"/>
 						</rect>
-						<rect depth="1" visible="{help4visible}">
-							<label depth="4" pos="20,-369" width="70" height="30" font_size="26" text="{help4value}" color="142,208,108,255"/>
-							<sprite depth="3" sprite="{help4icon}" pos="108,-384" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-373" width="278" height="24" font_size="19" text="{help4label}" color="255,255,255,255"/>
+						<rect depth="1" name="ncEnclavePanel" pos="476,-188" width="560" height="696">
+							<sprite depth="0" sprite="menu_empty" type="sliced" color="64,64,64,255" pos="0,0" width="560" height="696" globalopacitymod="0"/>
+							<sprite depth="1" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="0,0" width="560" height="696" globalopacitymod="0"/>
+							<label depth="4" pos="24,-14" width="512" height="34" font_size="28" text_key="scUiNcEnclaves" color="255,255,255,255" upper_case="true"/>
+							<label depth="4" pos="24,-54" width="512" height="22" font_size="17" text="{ncencsummary}" color="180,180,180,255"/>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc1visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="24,-90" width="512" height="56"/>
+								<label depth="4" pos="36,-96" width="322" height="24" font_size="20" text="{ncenc1a}" color="255,255,255,255"/>
+								<label depth="4" pos="360,-98" width="164" height="22" font_size="17" text="{ncenc1b}" color="{ncenc1color}" justify="right"/>
+								<label depth="4" pos="36,-122" width="488" height="20" font_size="15" text="{ncenc1c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc2visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="24,-152" width="512" height="56"/>
+								<label depth="4" pos="36,-158" width="322" height="24" font_size="20" text="{ncenc2a}" color="255,255,255,255"/>
+								<label depth="4" pos="360,-160" width="164" height="22" font_size="17" text="{ncenc2b}" color="{ncenc2color}" justify="right"/>
+								<label depth="4" pos="36,-184" width="488" height="20" font_size="15" text="{ncenc2c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc3visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="24,-214" width="512" height="56"/>
+								<label depth="4" pos="36,-220" width="322" height="24" font_size="20" text="{ncenc3a}" color="255,255,255,255"/>
+								<label depth="4" pos="360,-222" width="164" height="22" font_size="17" text="{ncenc3b}" color="{ncenc3color}" justify="right"/>
+								<label depth="4" pos="36,-246" width="488" height="20" font_size="15" text="{ncenc3c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc4visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="24,-276" width="512" height="56"/>
+								<label depth="4" pos="36,-282" width="322" height="24" font_size="20" text="{ncenc4a}" color="255,255,255,255"/>
+								<label depth="4" pos="360,-284" width="164" height="22" font_size="17" text="{ncenc4b}" color="{ncenc4color}" justify="right"/>
+								<label depth="4" pos="36,-308" width="488" height="20" font_size="15" text="{ncenc4c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc5visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="24,-338" width="512" height="56"/>
+								<label depth="4" pos="36,-344" width="322" height="24" font_size="20" text="{ncenc5a}" color="255,255,255,255"/>
+								<label depth="4" pos="360,-346" width="164" height="22" font_size="17" text="{ncenc5b}" color="{ncenc5color}" justify="right"/>
+								<label depth="4" pos="36,-370" width="488" height="20" font_size="15" text="{ncenc5c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc6visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="24,-400" width="512" height="56"/>
+								<label depth="4" pos="36,-406" width="322" height="24" font_size="20" text="{ncenc6a}" color="255,255,255,255"/>
+								<label depth="4" pos="360,-408" width="164" height="22" font_size="17" text="{ncenc6b}" color="{ncenc6color}" justify="right"/>
+								<label depth="4" pos="36,-432" width="488" height="20" font_size="15" text="{ncenc6c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc7visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="24,-462" width="512" height="56"/>
+								<label depth="4" pos="36,-468" width="322" height="24" font_size="20" text="{ncenc7a}" color="255,255,255,255"/>
+								<label depth="4" pos="360,-470" width="164" height="22" font_size="17" text="{ncenc7b}" color="{ncenc7color}" justify="right"/>
+								<label depth="4" pos="36,-494" width="488" height="20" font_size="15" text="{ncenc7c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc8visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="24,-524" width="512" height="56"/>
+								<label depth="4" pos="36,-530" width="322" height="24" font_size="20" text="{ncenc8a}" color="255,255,255,255"/>
+								<label depth="4" pos="360,-532" width="164" height="22" font_size="17" text="{ncenc8b}" color="{ncenc8color}" justify="right"/>
+								<label depth="4" pos="36,-556" width="488" height="20" font_size="15" text="{ncenc8c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncencempty}">
+								<label depth="4" pos="24,-96" width="512" height="120" font_size="18" text_key="scUiNcEncNone" color="255,255,255,255"/>
+							</rect>
+							<label depth="4" pos="24,-586" width="512" height="22" font_size="17" text="{ncencmore}" color="180,180,180,255"/>
+							<label depth="4" pos="24,-616" width="512" height="60" font_size="16" text_key="scUiNcEncNote" color="180,180,180,255"/>
 						</rect>
-						<label depth="4" pos="20,-414" width="388" height="26" font_size="22" text_key="scUiHurting" color="226,108,86,255" upper_case="true"/>
-						<rect depth="1" visible="{hurt1visible}">
-							<label depth="4" pos="20,-447" width="70" height="30" font_size="26" text="{hurt1value}" color="226,108,86,255"/>
-							<sprite depth="3" sprite="{hurt1icon}" pos="108,-462" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-451" width="278" height="24" font_size="19" text="{hurt1label}" color="255,255,255,255"/>
-						</rect>
-						<rect depth="1" visible="{hurt2visible}">
-							<label depth="4" pos="20,-485" width="70" height="30" font_size="26" text="{hurt2value}" color="226,108,86,255"/>
-							<sprite depth="3" sprite="{hurt2icon}" pos="108,-500" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-489" width="278" height="24" font_size="19" text="{hurt2label}" color="255,255,255,255"/>
-						</rect>
-						<rect depth="1" visible="{hurt3visible}">
-							<label depth="4" pos="20,-523" width="70" height="30" font_size="26" text="{hurt3value}" color="226,108,86,255"/>
-							<sprite depth="3" sprite="{hurt3icon}" pos="108,-538" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-527" width="278" height="24" font_size="19" text="{hurt3label}" color="255,255,255,255"/>
-						</rect>
-						<rect depth="1" visible="{hurt4visible}">
-							<label depth="4" pos="20,-561" width="70" height="30" font_size="26" text="{hurt4value}" color="226,108,86,255"/>
-							<sprite depth="3" sprite="{hurt4icon}" pos="108,-576" width="26" height="26" pivot="center" color="[white]"/>
-							<label depth="4" pos="130,-565" width="278" height="24" font_size="19" text="{hurt4label}" color="255,255,255,255"/>
-						</rect>
-						<rect depth="1" visible="{bedscallvisible}">
-							<sprite depth="1" sprite="menu_empty" type="sliced" color="72,28,28,255" pos="20,-606" width="388" height="78"/>
-							<sprite depth="2" sprite="menu_empty2px" type="sliced" fillcenter="false" color="228,18,21,255" pos="20,-606" width="388" height="78"/>
-							<sprite depth="3" sprite="ui_game_symbol_map_bed" pos="58,-645" width="40" height="40" pivot="center" color="[white]"/>
-							<label depth="4" pos="92,-618" width="298" height="26" font_size="21" text="{bedscalltitle}" color="240,150,130,255"/>
-							<label depth="4" pos="92,-648" width="298" height="22" font_size="16" text="{bedscallhint}" color="255,255,255,255"/>
+						<rect depth="1" name="ncFavourPanel" pos="1048,-188" width="428" height="696">
+							<sprite depth="0" sprite="menu_empty" type="sliced" color="64,64,64,255" pos="0,0" width="428" height="696" globalopacitymod="0"/>
+							<sprite depth="1" sprite="menu_empty3px" type="sliced" fillcenter="false" color="0,0,0,255" pos="0,0" width="428" height="696" globalopacitymod="0"/>
+							<label depth="4" pos="20,-14" width="388" height="34" font_size="28" text_key="scUiNcFavours" color="255,255,255,255" upper_case="true"/>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncfav1visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-56" width="388" height="56"/>
+								<label depth="4" pos="32,-62" width="198" height="24" font_size="20" text="{ncfav1a}" color="255,255,255,255"/>
+								<label depth="4" pos="232,-64" width="164" height="22" font_size="17" text="{ncfav1b}" color="{ncfav1color}" justify="right"/>
+								<label depth="4" pos="32,-88" width="364" height="20" font_size="15" text="{ncfav1c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncfav2visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-118" width="388" height="56"/>
+								<label depth="4" pos="32,-124" width="198" height="24" font_size="20" text="{ncfav2a}" color="255,255,255,255"/>
+								<label depth="4" pos="232,-126" width="164" height="22" font_size="17" text="{ncfav2b}" color="{ncfav2color}" justify="right"/>
+								<label depth="4" pos="32,-150" width="364" height="20" font_size="15" text="{ncfav2c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncfav3visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-180" width="388" height="56"/>
+								<label depth="4" pos="32,-186" width="198" height="24" font_size="20" text="{ncfav3a}" color="255,255,255,255"/>
+								<label depth="4" pos="232,-188" width="164" height="22" font_size="17" text="{ncfav3b}" color="{ncfav3color}" justify="right"/>
+								<label depth="4" pos="32,-212" width="364" height="20" font_size="15" text="{ncfav3c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncfav4visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-242" width="388" height="56"/>
+								<label depth="4" pos="32,-248" width="198" height="24" font_size="20" text="{ncfav4a}" color="255,255,255,255"/>
+								<label depth="4" pos="232,-250" width="164" height="22" font_size="17" text="{ncfav4b}" color="{ncfav4color}" justify="right"/>
+								<label depth="4" pos="32,-274" width="364" height="20" font_size="15" text="{ncfav4c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncfav5visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-304" width="388" height="56"/>
+								<label depth="4" pos="32,-310" width="198" height="24" font_size="20" text="{ncfav5a}" color="255,255,255,255"/>
+								<label depth="4" pos="232,-312" width="164" height="22" font_size="17" text="{ncfav5b}" color="{ncfav5color}" justify="right"/>
+								<label depth="4" pos="32,-336" width="364" height="20" font_size="15" text="{ncfav5c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncfavempty}">
+								<label depth="4" pos="20,-62" width="388" height="90" font_size="17" text_key="scUiNcFavNone" color="255,255,255,255"/>
+							</rect>
+							<label depth="4" pos="20,-366" width="388" height="22" font_size="16" text="{ncfavmore}" color="180,180,180,255"/>
+							<label depth="4" pos="20,-398" width="388" height="26" font_size="22" text_key="scUiNcRequests" color="255,255,255,255" upper_case="true"/>
+							<sprite depth="1" sprite="menu_empty" type="sliced" color="128,128,128,255" pos="20,-426" width="388" height="3"/>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncreq1visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-436" width="388" height="56"/>
+								<label depth="4" pos="32,-442" width="198" height="24" font_size="20" text="{ncreq1a}" color="255,255,255,255"/>
+								<label depth="4" pos="232,-444" width="164" height="22" font_size="17" text="{ncreq1b}" color="{ncreq1color}" justify="right"/>
+								<label depth="4" pos="32,-468" width="364" height="20" font_size="15" text="{ncreq1c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncreq2visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-498" width="388" height="56"/>
+								<label depth="4" pos="32,-504" width="198" height="24" font_size="20" text="{ncreq2a}" color="255,255,255,255"/>
+								<label depth="4" pos="232,-506" width="164" height="22" font_size="17" text="{ncreq2b}" color="{ncreq2color}" justify="right"/>
+								<label depth="4" pos="32,-530" width="364" height="20" font_size="15" text="{ncreq2c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncreq3visible}">
+								<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-560" width="388" height="56"/>
+								<label depth="4" pos="32,-566" width="198" height="24" font_size="20" text="{ncreq3a}" color="255,255,255,255"/>
+								<label depth="4" pos="232,-568" width="164" height="22" font_size="17" text="{ncreq3b}" color="{ncreq3color}" justify="right"/>
+								<label depth="4" pos="32,-592" width="364" height="20" font_size="15" text="{ncreq3c}" color="180,180,180,255"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{ncreqempty}">
+								<label depth="4" pos="20,-442" width="388" height="60" font_size="17" text_key="scUiNcReqNone" color="255,255,255,255"/>
+							</rect>
+							<label depth="4" pos="20,-622" width="388" height="22" font_size="16" text="{ncreqmore}" color="180,180,180,255"/>
+							<label depth="4" pos="20,-648" width="388" height="40" font_size="15" text_key="scUiNcFavNote" color="180,180,180,255"/>
 						</rect>
 					</rect>
 					<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="24,-892" width="58" height="28"/>

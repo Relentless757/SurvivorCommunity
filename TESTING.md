@@ -48,6 +48,69 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   retired ids; `owner <id> <player>` hands a community over; `mode <PerPlayer|PerParty> confirm` switches a save from before
   MP7 once.
 
+## Round MP7 (part U) (2026-11-27): the community modes in the window, the radial and the talk
+
+Why: the MP7 core made the modes, personal records, founding and Leave, but players could not see them. Part U adds what
+they see: the derived block's mode, role and players (protocol 9 at the merge), a players list and a Leave community button in
+the community window, a no-community page for a player with only their own relations, the owner's buttons and radial entries
+grayed or hidden by role, and talk rows that let a player with no community take, clear and hand in a wild survivor's favor
+("Join us" opens once they have a home). Shared mode with one community looks and sends exactly what it did before.
+Build `sc34_mp7u`, **not deployed**, untested in game. Checked offline: the save round trip on 12 saves (ALL PASS; the save
+is untouched), and a harness for the players list's text, the client's parse and reset, the view's rules per mode and role,
+the client's view from a block, and the server's keys (off with one Shared community, on in PerPlayer or with two
+communities; no platform id sent) - 418 checks, 0 failures.
+
+**Single player, Shared (nothing may change)**
+- [ ] The community window looks as before: no PLAYERS button, Open storage, the three panels, Ask to leave and Disband in
+      their usual red.
+- [ ] The radial on your claims offers what it did before (Start a community here, Set as community home, Linked storage,
+      Establish outpost, Disband outpost).
+- [ ] Recruiting a survivor: "I could use someone like you in my community." and the favor rows as before; no "Is there
+      anything I can do for you?".
+
+**One community on a dedicated server, Shared (nothing may change)**
+- [ ] A client's window and radial look as before (no PLAYERS button); with `SharedOwnerOnly` true, player B's Ask to leave is
+      not grayed and is refused when pressed, as before.
+
+**Single player, PerPlayer (a new game, `CommunityMode` PerPlayer)**
+- [ ] Before starting one, the community window shows NO COMMUNITY YET in place of the panels: "Start one from your land
+      claim's radial ...", "Ask a community's owner to add you as a land claim ally.", what you can do now, the enclaves you
+      know (nearest first, standing in its color), your favors and requests. No Open storage, no PLAYERS button. The
+      resources strip still shows what allies sent you.
+- [ ] Your claim's radial: Start a community here, no Linked storage.
+- [ ] A wild survivor: "Is there anything I can do for you?" (no "I could use someone like you in my community."). Take a
+      POI favor ("Mark it"), clear it, talk again: "I still don't have a place of my own." and her answer. The favor shows
+      Done in the window. A supplies favor: "Sure, I'll see what I can find.", then "Here are the supplies you asked for."
+      takes the items (no join); the same row right after hearing it when you carry them already.
+- [ ] "Start a community here": the window turns into the normal one; that survivor offers "That place is clear now. Come
+      join my community." and joins without a new favor.
+
+**PerPlayer on the dedicated server (two players, `CommunityMode` PerPlayer)**
+- [ ] B (own relations) sees the no-community page; A (founded) sees the normal window and a PLAYERS 1 button. PLAYERS lists
+      A as Owner (you); pressing it again shows MORALE and the morale panel.
+- [ ] `sc community join 0 <B>`: within a few seconds B's window is the normal one, PLAYERS 2 lists A (Owner) and B
+      (Member, you), with "Only its owner and admins may dismiss members ...". B's Ask to leave, an outpost's Disband and
+      the rationing action are grayed; pressing them answers `Only the community's owner or an admin can do that ...`.
+      B's radial on B's claim: no Set as community home; on an outpost claim of B's no Disband outpost. A sees both lists
+      with B and A online; when B logs off, B shows "Member - offline".
+- [ ] B presses Leave community: "Press again to leave" and the hint; the second press within five seconds: B is told
+      `You left <A>'s community.`, the window turns to the no-community page. A's PLAYERS list drops B. A has no Leave
+      community button (the owner).
+- [ ] An admin client in A's community (not the owner): nothing grayed, "As an admin you may give the owner's orders too.".
+- [ ] B with no community talks to a wild survivor: the favor rows work as in single player; after
+      `sc community join 0 <B>` the done favor is community 0's and A's "Join us" works.
+
+**PerParty (`CommunityMode` PerParty, part AP's party rules in the same build)**
+- [ ] The no-community page says "Join the party of one of a community's players." (and shows the party icon).
+- [ ] B in A's community, A offline, B leads a party with a player of the community: B's PLAYERS row says Party leader,
+      "You lead a party with one of its players while the owner is away ...", and nothing is grayed; when A logs back on,
+      B is a Member again and the owner's buttons gray within a few seconds.
+
+**Shared with two communities (`sc community new` on a dedicated server)**
+- [ ] A player of community 1 (not its owner) has PLAYERS and Leave community; Leave puts them back in community 0. Community
+      0's players have PLAYERS (its online players and owner) but no Leave community. Nothing is grayed (Shared keeps
+      `SharedOwnerOnly` as before).
+
 ## Round MP7 (core) (2026-11-27): community modes, a player's own relations, founding, joining and leaving
 
 Why: MP6 let one server hold several communities, but every unlisted player was in community 0 and only an admin moved

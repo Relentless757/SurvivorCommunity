@@ -68,6 +68,7 @@
     <Compile Include="ScRegistry.cs" />
     <Compile Include="ScCommunities.cs" />     <!-- round MP6 (core): several communities - CommunityState, ScCommunities, the world record, scopes -->
     <Compile Include="ScMembership.cs" />      <!-- round MP7 (core): the community mode, personal records, founding, the merge, ScMembership.Move, ScOwnerRule -->
+    <Compile Include="ScCommunityView.cs" />   <!-- round MP7 (part U): the derived block's mode=, role=, ownops=, cpl= and the view the window and the radial read -->
     <Compile Include="ScHomeState.cs" />       <!-- round MP6 (part H): the home's machinery per community - ScHomeState<T>, ScHomeTimer, ScHomeScope -->
     <Compile Include="ScZone.cs" />
     <Compile Include="ScNpc.cs" />
@@ -265,6 +266,7 @@
     <Compile Include="BlockScGuardTower.cs" />
     <Compile Include="XUiC_ScHomeStatus.cs" />
     <Compile Include="XUiC_ScCommunity.cs" />
+    <Compile Include="XUiC_ScCommunityPlayers.cs" />   <!-- round MP7 (part U): the window's no-community page, players list and Leave community -->
     <Compile Include="XUiC_ScPageGroup.cs" />
     <Compile Include="Patches_Menu.cs" />
     <Compile Include="XUiC_ScPackingStrip.cs" />
