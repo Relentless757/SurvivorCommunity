@@ -2259,3 +2259,33 @@ scMp7FavourThanks,UI,Tooltip,,,,"{0} thanks you for the supplies. Once you have 
 scMp7PoiCleared_text,Dialog,Statement,,,,"You already did? Huh. I did wonder why it went so quiet over there. I owe you one - once you have a home, ask me again and I'll come."
 # round MP7 (re-check) - a party the community did not see made
 scMp7PartyUnverified,UI,Tooltip,,,,The community did not see how you joined this party: players you invite into it don't join a community. Leave the party and invite them again.
+# round db1 - disbanding a community: the owner's Disband community and the admin's sc community disband
+scDb1Disbanded,UI,Tooltip,,,,"{0} disbanded the community: its members went back to the wild, its outposts are abandoned and its stockpile is lost. Its storage boxes keep their items, and you keep its relations: start again from your own land claim."
+scDb1DisbandedShared,UI,Tooltip,,,,"{0} disbanded the community: its members went back to the wild, its outposts are abandoned and its stockpile is lost. Its storage boxes keep their items. You are in the shared community now, and what it knew was merged into it."
+scDb1DisbandedZero,UI,Tooltip,,,,"{0} disbanded the community: its members went back to the wild, its outposts are abandoned, its home is cleared and its stockpile is lost. Its storage boxes keep their items, and it keeps its relations: start it again from a land claim."
+scDb1AnAdmin,UI,Tooltip,,,,An admin
+scDb1OwnerOnly,UI,Tooltip,,,,Only the community's owner or an admin can disband it.
+scDb1Siege,UI,Tooltip,,,,Not while a siege is on: see it through first.
+scDb1Attack,UI,Tooltip,,,,Not while the base is under attack: hold it first.
+scDb1Downed,UI,Tooltip,,,,One of the members is down: help them up before you disband the community.
+scDb1NotStarted,UI,Tooltip,,,,There is no community to disband yet.
+scDb1Stopped,UI,Tooltip,,,,The disband stopped partway (the server's log says why). Use it again to finish.
+scDb1RequestYours,UI,Tooltip,,,,"The community is disbanded: the request from {0} is yours now, in your own relations (see your journal)."
+scDb1RequestWithdrawn,UI,Tooltip,,,,The community is disbanded: the request from {0} is withdrawn.
+scDb1FavourYours,UI,Tooltip,,,,"The community is disbanded: {0}'s favor is yours now, in your own relations."
+scDb1FavourWithdrawn,UI,Tooltip,,,,"The community is disbanded: {0}'s favor went to another of its players, and your quest for it is closed."
+scUiDb1Disband,UI,Menu,,,,Disband community
+scUiDb1Confirm,UI,Menu,,,,Press again to disband
+scUiDb1Hint,UI,Menu,,,,"Members go back to the wild, outposts and the stockpile are lost; storage and your relations stay. Press again within 5 s."
+# round db1 (review) - who is away and the blood moon refusal and a partial disband and the former owner kept on their own
+scDb1BloodMoon,UI,Tooltip,,,,Not during a blood moon: wait for the morning.
+scDb1Away,UI,Tooltip,,,,Call everyone home first. Away: {0}.
+scDb1AwayOne,UI,Tooltip,,,,{0} ({1})
+scDb1AwayRun,UI,Tooltip,,,,on a run
+scDb1AwayPosted,UI,Tooltip,,,,posted at an outpost
+scDb1AwayTravel,UI,Tooltip,,,,traveling
+scDb1AwayUnloaded,UI,Tooltip,,,,not loaded: go home
+scDb1AwayMore,UI,Tooltip,,,,and {0} more
+scDb1AwayTell,UI,Tooltip,,,,Call everyone home first: {0} member(s) away ({1}).
+scDb1Partial,UI,Tooltip,,,,"The community is disbanded, but part of it failed (the server's log says what)."
+scDb1StayOwn,UI,Tooltip,,,,You keep your own relations: {0}'s community (your land claim ally's or your party's) won't take you in until that link is made again.

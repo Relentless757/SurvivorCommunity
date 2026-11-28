@@ -1548,6 +1548,7 @@ namespace SurvivorCommunity
                     break;
                 }
                 case "retired": { int rid = I(val); if (rid > 0) ws.Retired.Add(rid); break; }
+                case "noautohome": ws.ZeroNoAutoHome = val.Trim() == "1"; break;      // round db1 (review): m5
                 case "contactid": ws.NextContactId = I(val); break;
                 case "outpostid": ws.NextOutpostId = I(val); break;
                 // enclaves (E1): the id counter, the seeding stamp ver:day:mode:seed:count
@@ -2084,6 +2085,24 @@ namespace SurvivorCommunity
 
         // ---- save ----
 
+        // round db1 (review): m3 - a save hold. While held (HoldSaves), SaveAtomic marks the registry dirty (the clients' copy still
+        // follows) and owes one save instead of writing the whole file; the last ReleaseSaves writes it once. ScMembership.Disband
+        // holds it, so a disband is one write, not one per member, outpost, request and new record (always in a try/finally).
+        private static int saveHold;
+        private static bool saveOwed;
+
+        /// <summary>Round db1 (review): m3 - SaveAtomic owes its write until the matching ReleaseSaves (nested holds count). Main thread.</summary>
+        internal static void HoldSaves() { saveHold++; }
+
+        /// <summary>Round db1 (review): m3 - the hold ends; the last one writes the save it owes (once).</summary>
+        internal static void ReleaseSaves()
+        {
+            if (saveHold <= 0) { saveHold = 0; return; }
+            if (--saveHold > 0 || !saveOwed) return;
+            saveOwed = false;
+            SaveAtomic();
+        }
+
         /// <summary>Atomic write. Host only. Never throws. Round MP6 (core): survivor_communities.txt - never the old file.</summary>
         public static void SaveAtomic()
         {
@@ -2093,6 +2112,8 @@ namespace SurvivorCommunity
                 var cm = SingletonMonoBehaviour<ConnectionManager>.Instance;
                 if (cm == null || !cm.IsServer) return;
                 dirty = true;          // round MP1: every mutation that matters saves - the clients' copy follows (ScMirror)
+                // round db1 (review): m3 - held: owed, written once when the hold ends
+                if (saveHold > 0 && ThreadManager.IsMainThread()) { saveOwed = true; return; }
                 if (string.IsNullOrEmpty(saveDir)) { ScLog.Once("save-nodir", "registry save skipped: no save directory yet"); return; }
                 // round MP6 (core fix): the file this save would replace could not be read at load - not replaced (review C-m1)
                 if (saveBlocked) { ScLog.Once("save-blocked", "registry save skipped for this session: the save file could not be read at load (see the error at load)"); return; }
@@ -2240,6 +2261,7 @@ namespace SurvivorCommunity
             // and one line per retired record (its id stays taken)
             if (ws.ModeLocked && ws.ModeWritten) sb.AppendLine("mode=" + ScMembership.ModeName(ws.Mode));
             foreach (int rid in ws.Retired) sb.AppendLine("retired=" + rid.ToString(CultureInfo.InvariantCulture));
+            if (ws.ZeroNoAutoHome) sb.AppendLine("noautohome=1");      // round db1 (review): m5 - written only while set (an old save's text stays)
             sb.AppendLine("contactid=" + ws.NextContactId);
             sb.AppendLine("outpostid=" + ws.NextOutpostId);
             WriteEnclaveIds(sb, ws);

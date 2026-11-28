@@ -58,6 +58,10 @@ RULES THAT MATTER:
   Round MP7 (review U): the players list (PL_ROWS) and the no-community page's three lists page - Showing X of Y on the left
   ({plshowingtext}, {ncencshowing}, {ncfavshowing}, {ncreqshowing}) and a Prev / Next pager on the right (pager(): btnPlPrev /
   btnPlNext, btnNcEnc*, btnNcFav*, btnNcReq*, shown by their {...pagevisible}); the player's own role line has three lines.
+- Round db1 (2026-11-28): Disband community (btnDisbandCommunity, {disbandcommunityvisible}, {disbandcommunitylabel}) for the owner
+  of a founded community, in Leave community's place (an owner never has Leave); the first press's hint is {playersmessage}. The
+  PLAYERS button and the players view also show for the owner in single player and in Shared with one community (XUiC_ScCommunity's
+  View.PanelOn), where the list is otherwise off.
 """
 
 import io
@@ -220,7 +224,8 @@ def header():
             "\t" + icon("ui_game_symbol_store_all_up", sx + 34, -42, 30, depth=4),
             "\t" + centred(sx + 56, -18, 180, 48, 20, BODY, key="scUiOpenStorage", extra='justify="center" upper_case="true"'),
             "</rect>",
-            # round MP7 (part U): the players list's button (PerPlayer/PerParty, or two or more communities; never in single player)
+            # round MP7 (part U): the players list's button (PerPlayer/PerParty, or two or more communities; never in single player).
+            # round db1: and for the owner of a founded community anywhere (their Disband community)
             '<rect depth="0" pos="0,0" width="%d" height="%d" visible="{playersbtnvisible}">' % (WIN_W, RES_Y),
             "\t" + button("btnPlayers", px, -18, PL_BTN_W, 48),
             "\t" + icon("ui_game_symbol_players", px + 30, -42, 28, depth=4),
@@ -688,6 +693,11 @@ def players():
     o += ['\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{leavecommunityvisible}">' % (MOR_W, PAN_H),
           "\t\t" + button("btnLeaveCommunity", 20, -LEAVE_Y, w, LEAVE_H, sprite="scui_btn_danger", hover="scui_btn_danger"),
           "\t\t" + centred(20, -LEAVE_Y, w, LEAVE_H, 18, DANGER_TEXT, text="{leavecommunitylabel}", extra='justify="center" upper_case="true"'),
+          "\t</rect>",
+          # round db1: Disband community, the owner's, in Leave's place (an owner never has Leave); its hint is {playersmessage}
+          '\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{disbandcommunityvisible}">' % (MOR_W, PAN_H),
+          "\t\t" + button("btnDisbandCommunity", 20, -LEAVE_Y, w, LEAVE_H, sprite="scui_btn_danger", hover="scui_btn_danger"),
+          "\t\t" + centred(20, -LEAVE_Y, w, LEAVE_H, 18, DANGER_TEXT, text="{disbandcommunitylabel}", extra='justify="center" upper_case="true"'),
           "\t</rect>",
           "\t" + label(20, -(LEAVE_Y + LEAVE_H + 8), w, 44, 15, BODY, text="{playersmessage}"),
           "</rect>"]

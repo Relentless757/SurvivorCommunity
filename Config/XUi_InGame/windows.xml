@@ -1023,6 +1023,10 @@
 								<button depth="2" name="btnLeaveCommunity" pos="20,-590" width="388" height="48" sprite="scui_btn_danger" hoversprite="scui_btn_danger" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 								<label depth="4" pos="20,-605" width="388" height="24" font_size="18" text="{leavecommunitylabel}" color="240,150,130,255" justify="center" upper_case="true"/>
 							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{disbandcommunityvisible}">
+								<button depth="2" name="btnDisbandCommunity" pos="20,-590" width="388" height="48" sprite="scui_btn_danger" hoversprite="scui_btn_danger" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<label depth="4" pos="20,-605" width="388" height="24" font_size="18" text="{disbandcommunitylabel}" color="240,150,130,255" justify="center" upper_case="true"/>
+							</rect>
 							<label depth="4" pos="20,-646" width="388" height="44" font_size="15" text="{playersmessage}" color="226,220,208,255"/>
 						</rect>
 					</rect>
@@ -1963,6 +1967,11 @@
 								<button depth="2" name="btnLeaveCommunity" pos="20,-590" width="388" height="48" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="96,40,40,255" hovercolor="140,56,56,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="228,18,21,255" pos="20,-590" width="388" height="48"/>
 								<label depth="4" pos="20,-605" width="388" height="24" font_size="18" text="{leavecommunitylabel}" color="240,150,130,255" justify="center" upper_case="true"/>
+							</rect>
+							<rect depth="0" pos="0,0" width="428" height="696" visible="{disbandcommunityvisible}">
+								<button depth="2" name="btnDisbandCommunity" pos="20,-590" width="388" height="48" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="96,40,40,255" hovercolor="140,56,56,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="228,18,21,255" pos="20,-590" width="388" height="48"/>
+								<label depth="4" pos="20,-605" width="388" height="24" font_size="18" text="{disbandcommunitylabel}" color="240,150,130,255" justify="center" upper_case="true"/>
 							</rect>
 							<label depth="4" pos="20,-646" width="388" height="44" font_size="15" text="{playersmessage}" color="255,255,255,255"/>
 						</rect>

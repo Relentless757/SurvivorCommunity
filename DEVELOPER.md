@@ -3857,6 +3857,75 @@ Round MP0 is the groundwork:
   - Not done: refusing every low cell up front in the planner (a shape test there would read chunks on the path finder's
     threads); a main-thread scan of the home zone could feed the same map later.
 
+- **Round db1, disbanding a community** (`ScMembership.Disband`; the user's three decisions of 2026-11-28, after testing MP7):
+  the owner (the window's **Disband community**) or an admin (`sc community disband <id> confirm`; without `confirm` it says what
+  it would do) disbands a community. Protocol 10.
+  - **Who:** the op `community.disband` has Community access (a player's own relations get `scNoCommunity` from `WhyNot`), then
+    `MayDisband`: the owner (`IsOwner`) or an admin (`ScActions.IsAdmin`), checked on the server only. It never asks `ScOwnerRule`,
+    so PerParty's helper (the party leader while the owner is away) may not. `WhyNotDisband` refuses a player's own relations, a
+    community not started (`IsFounded`: `scDb1NotStarted`), an enclave siege of its, called or live (`scDb1Siege`), its base
+    attack live or fought by the defenders alone (`scDb1Attack`; a horde only called goes with the record) and a member who is
+    down (`scDb1Downed`: a downed member cannot leave). Round db1 (review), the user's decisions on the review: a blood moon
+    (`scDb1BloodMoon`), and a member who is not home with her body loaded (`scDb1Away`; `AwayMembers`: on a run, posted, on the
+    road or an enclave's person on her way, or her body not loaded) - so every member leaves with her body and her handed
+    items go into her pack. Only the console's `confirm force` (`Disband(cs, by, true)`) skips the away check; it lists each
+    member away with the items she was handed (`AwayLines`, `ScHanded.ItemTexts`), which are lost with her.
+  - **In order:** its players online lose their talk holds, work shifts and links (`EndLinks`: enlisted people head home, the home
+    link, the linked storage view, the panel hold); every member leaves through the dismissal path, `ScCommunity.Leave(m,
+    ScMembership.DisbandLeaveKey)` (back to the wild and recruitable again, her stand-in removed, no longer following; Leave tells
+    the community nothing for that reason, Disband tells it once). A member who could not leave stops the disband there
+    (`scDb1Stopped`; nothing else changed: run it again). Every outpost goes through `ScOutposts.Disband` (garrison and travelers
+    turn home, raid demands and raids off, markers off; one left over stops it too). Lights out ends (its generators back on) and
+    the stockpile is lost. Linked storage has nothing to unlink: it is a view of the boxes in the home zone, so the boxes and their
+    items stay exactly as they are; the home goes with the record. Round db1 (review): the whole disband holds the save
+    (`ScRegistry.HoldSaves` / `ReleaseSaves`: `SaveAtomic` only marks dirty and owes the write meanwhile), so it is written once at
+    the end, a stopped disband included.
+  - **PerPlayer/PerParty** (`DisbandSeparate`): an accepted request passes to its acceptor while they are a player of it (else it
+    is withdrawn, no standing lost, with a tell); an offer closes (withdrawn). A favor passes to the player whose journal holds its
+    quest (the owner first; online: the journal or the last report; offline: the last report this session), else to the owner (no
+    longer taken on unless done); any other holder's quest closes with a tell. Radio contacts go to the owner (each is one
+    survivor: never copied). Its join records and every opt-out of it go, and it retires (`Retire(cs, true)`: a tombstone, its rows
+    dropped, its hostility cvars cleared to 0, its players unlisted; community 0 is emptied and free instead). Then each of its
+    players (the owner, every listed player, offline too) gets their own relations (`EnsurePersonal`; the owner goes first and
+    takes community 0 back when it is free, so single player stays one record) holding a copy of its relations (`SnapRelations`,
+    `CopyRelations`): enclave standing, known and known day, hostility (a war the community earned follows its players: the group's
+    live bodies get each record's hostile cvar), the enclaves' request, gift, barter, reveal and call clocks and thanks;
+    infestations known; bands known and trust; its scouting marks. SC's markers follow from these. An enclave's radio call in
+    flight stays behind. PerPlayer: each player's allies reconcile is queued; `FoundedBy` and `IsFounded` see only communities that
+    exist, so nobody is ever pulled into a retired one. Round db1 (review): it plans first (who takes what, by reference) with
+    nothing changed, closes what nobody takes, copies, retires, then makes each record and each hand-over in its own try - a
+    failure before the retire leaves the community whole (run it again), one after it is logged and the disband answers
+    `scDb1Partial` with the tells and the save still done. The former owner gets no reconcile and opts out (`ScJoins.OptOut`, as
+    Leave's) of every founded community whose owner is their land claim ally (PerPlayer) or that has a player in their party
+    (PerParty), told `scDb1StayOwn` (`OwnerStaysOwn`): they keep the copy to start again until that link is made again. Every other
+    player's reconcile stays queued: another founder's ally joins that community, their copy merged (the better value wins).
+  - **Shared, a community 1+** (`DisbandMerged`): merged into community 0 by `Merge`, as an MP7 join (favors and requests move, the
+    one further along kept on a clash; contacts move; standing the higher, known OR, community 0's hostility kept; band trust the
+    higher; infestations OR), its scouting marks too, then retired: its players are community 0's, and community 0's grudge against
+    them ends. Its stockpile is lost before the merge, never added.
+  - **Shared, community 0** (`DisbandZeroShared`): reset in place (`ResetZero(false)`: unstarted, ownerless, no home, none of its
+    home's state) and its players stay in it with its relations: the rows (kept on the world's records), its favors, its accepted
+    requests while their acceptor is still of it (else withdrawn), its contacts, scouting marks and name. Its offers close. Round
+    db1 (review): its grudges go with the members who held them, and `AutoHomeFirstClaim` adopts no claim for it until a player
+    starts it again from a radial or `sc home set` (`ScWorldState.ZeroNoAutoHome`, `[world] noautohome=1` only while set; cleared
+    by `ScZone.SetHome`) - a world flag rather than one claim, since the adoption would take the player's next claim just as well.
+  - **The window** (`XUiC_ScCommunityPlayers`, the generator): **Disband community** (`btnDisbandCommunity`) in Leave's place, two
+    presses, the first one's hint in the players panel's message (`scUiDb1Hint`). Round db1 (review): the first press asks the
+    server (`community.disband` with 0) and shows the hint only on a yes, else the refusal - `scDb1Away` names the members away
+    from the reply's hint (`away=why:name,...`, `awayn=`; the names escaped as `cpl=`'s), each why in the player's language. `ScCommunityView.View.Disband` means "owns a
+    founded community" (`OwnsFounded`), and `PanelOn` (the PLAYERS button and the panel) is the list or that: single player and
+    Shared with one community get the panel for their owner too, listing `PlayersOf` on the host and, on a client, the players it
+    sees. Shared with one community sends no `role=`, so its owner's own lines carry `dsb=1` (`ReceiverLines`); the community's
+    block stays byte for byte as before.
+  - **Tells and the log:** `scDb1Disbanded`, `scDb1DisbandedShared` or `scDb1DisbandedZero` to its players online, each in their
+    own language ("An admin" for the console); `scDb1RequestYours`, `scDb1RequestWithdrawn`, `scDb1FavourYours` and
+    `scDb1FavourWithdrawn` to the players concerned; one line `community disbanded: ...` with the counts. Round db1 (review): a
+    refusal of the second press is told too (`scDb1AwayTell` names who is away); `ScMirror` now resends a client's own lines
+    when they change with the MP7 keys off as well (Shared with one community's `dsb=1`).
+  - **Left as they are:** the listen host's own map can keep a radio contact marker that went to another player's record until the
+    next marker pass for the host's community; community 0's per-community session rows (`ScHomeState`) are not reset with it -
+    the ones that hold anything recover by their own tests (a chunk observer must be released, never dropped).
+
 ## How it hangs together (for modders)
 
 - NPCs are 0-XNPCCore's `EntityAliveSDXV4` survivors (SCore's legacy `EntityAliveSDX` still works for pack NPCs). A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars

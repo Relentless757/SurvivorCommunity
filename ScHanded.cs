@@ -312,6 +312,20 @@ namespace SurvivorCommunity
             return names.Count;
         }
 
+        // round db1 (review): M2 - what a forced disband loses with a member who has no body, for the console
+        /// <summary>
+        /// Round db1 (review): M2 - each handed item of the record as OnRecordGone names it (the six slots and the spares), and one
+        /// line for the raw ones whose item is missing from the game. Empty for none. Reads only.
+        /// </summary>
+        internal static List<string> ItemTexts(Member m)
+        {
+            var names = new List<string>();
+            foreach (ItemValue iv in All(m)) names.Add(ItemText(iv));
+            int raw = m != null && m.HandedRaw != null ? m.HandedRaw.Count : 0;
+            if (raw > 0) names.Add(raw + " item(s) missing from the game (a mod not loaded)");
+            return names;
+        }
+
         /// <summary>Every handed item of the record: the six slots (valid or stale) and the spares.</summary>
         private static List<ItemValue> All(Member m)
         {
