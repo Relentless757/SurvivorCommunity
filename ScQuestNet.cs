@@ -143,6 +143,7 @@ namespace SurvivorCommunity
             pendingStarts.Clear();
             reports.Clear();
             favourEverHeld.Clear();
+            favourCloseNext.Clear();                   // round MP7 (core review): m8
             rescueSent.Clear();
             rescueOutcome.Clear();
             rescueRekeys.Clear();
@@ -498,6 +499,51 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round MP7 (core review): m8 - the favor quests (by prospect id) an offline player's next report closes: favors their record
+        /// held that a merge dropped while they were away (the community's favor for the same survivor kept). Session only (by
+        /// platform id); a player who never reports this session keeps the quest bound to the community's favor (logged at the drop).
+        /// </summary>
+        private static readonly Dictionary<string, HashSet<int>> favourCloseNext = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
+
+        /// <summary>Round MP7 (core review): m8 - this favor quest closes (removed) at this player's next journal report.</summary>
+        internal static void CloseFavourAtNextReport(string platformId, int prospectId)
+        {
+            if (string.IsNullOrEmpty(platformId) || prospectId == 0) return;
+            SetOf(favourCloseNext, platformId).Add(prospectId);
+        }
+
+        /// <summary>
+        /// Round MP7 (core review): m4, m8 - what this player's last report this session says of a favor's quest: 1 held (in progress or
+        /// past its clearing), 0 not held, -1 not known (no report from them this session).
+        /// </summary>
+        internal static int ReportedFavour(string platformId, int prospectId)
+        {
+            ScJournalReport r;
+            if (string.IsNullOrEmpty(platformId) || !reports.TryGetValue(platformId, out r)) return -1;
+            foreach (ScJournalReport.Entry e in r.Entries)
+                if ((e.Kind == ScJournalReport.KindPoiFavour || e.Kind == ScJournalReport.KindSupplies) && e.Id == prospectId && (e.InProgress || e.Done)) return 1;
+            return 0;
+        }
+
+        /// <summary>Round MP7 (core review): m8 - OnReport: the favor quests queued for this player close now (CloseFavourAtNextReport).</summary>
+        private static void QueuedFavourCloses(EntityPlayer p, string key, ScJournalReport rep)
+        {
+            HashSet<int> due;
+            if (favourCloseNext.Count == 0 || !favourCloseNext.TryGetValue(key, out due)) return;
+            favourCloseNext.Remove(key);
+            foreach (int id in due)
+            {
+                foreach (ScJournalReport.Entry e in rep.Entries)
+                {
+                    if ((e.Kind != ScJournalReport.KindPoiFavour && e.Kind != ScJournalReport.KindSupplies) || e.Id != id) continue;
+                    CloseFavourFor(p, id, false);
+                    ScLog.Out("favor quest " + id + " closed in " + p.PlayerDisplayName + "'s journal (dropped by a merge while they were away)");
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
         /// Round MP7 (core), ScMembership.Merge: a merged personal record's favors keep their "a remote report held it" mark under the
         /// community they moved to (favourEverHeld is keyed by community and prospect).
         /// </summary>
@@ -839,6 +885,7 @@ namespace SurvivorCommunity
                 string key = Key(p);
                 rep.EntityId = p.entityId;
                 reports[key] = rep;
+                QueuedFavourCloses(p, key, rep);       // round MP7 (core review): m8 - before the favours are read
                 bool save = FavoursDone(p, rep);
                 if (FavoursHeld()) save = true;
                 StaleFavours(p, rep);

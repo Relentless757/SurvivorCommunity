@@ -725,6 +725,22 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round MP7 (core review): m3 - the request passes to another player (ScEncRequests.HandOver) while the survivor follows the
+        /// player who left the community: they stop and wait where they stand (as "Wait here for me."), so the heir's quest leads
+        /// there. Nothing when the request is no escort of that player. True when the escort ended.
+        /// </summary>
+        internal static bool StopEscortOf(EnclaveRequest r, EntityPlayer leaver, string why)
+        {
+            if (r == null || leaver == null || r.Kind != EnclaveRequest.KindMissing || r.Stage != StageFollowing || r.EscortBy != leaver.entityId) return false;
+            EncPerson p = PersonById(r.PersonId);
+            if (p == null) return false;
+            EntityAlive npc = ScEnclavePeople.OwnBody(p);
+            if (npc == null && r.EscortBody > 0 && ScCommunity.World != null) npc = ScCommunity.World.GetEntity(r.EscortBody) as EntityAlive;
+            StopEscort(r, p, npc, leaver, why, "scEncSearchStopTell");
+            return true;
+        }
+
+        /// <summary>
         /// The escort, every second: home once inside the enclave's footprint (Home); the player gone from the world, or the
         /// follow taken off them through a side door (SCore's companion window, any order that drops the leader) - they wait
         /// where they stand. True when the record changed.

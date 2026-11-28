@@ -247,6 +247,16 @@ namespace SurvivorCommunity
             return true;
         }
 
+        /// <summary>
+        /// Round MP7 (core review): m2 - ScMembership.Move: the player's home link ends, waiting or holding - a link to the home of a
+        /// community they left never opens its view later.
+        /// </summary>
+        internal static void ForgetPlayer(int entityId)
+        {
+            Link l;
+            if (links.TryGetValue(entityId, out l)) Drop(l);
+        }
+
         /// <summary>The link is over: its observer goes and it is forgotten.</summary>
         private static void Drop(Link l)
         {

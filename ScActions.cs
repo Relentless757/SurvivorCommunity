@@ -428,7 +428,7 @@ namespace SurvivorCommunity
             if (access == ScActionAccess.Anyone) return null;
             CommunityState cs = ScCommunities.ById(ScPlayers.CommunityOf(p));
             if (cs == null) return ScMembership.Separate ? "scNoCommunity" : "scActionDenied";
-            if (cs.Personal && access != ScActionAccess.Admin)
+            if (cs.Personal && access != ScActionAccess.Admin && ScMembership.Separate)      // round MP7 (core review): n3 - never in Shared
                 return access == ScActionAccess.Community && op != null && PersonalOps.Contains(op) ? null : "scNoCommunity";
             switch (access)
             {

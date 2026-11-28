@@ -136,12 +136,99 @@ namespace SurvivorCommunity
                               : " (a save from before MP7: Shared, until an admin runs sc community mode <PerPlayer|PerParty> confirm)"));
                     TellConfigDiff();
                 }
+                // round MP7 (core review): m1 - the personal records that hold nothing go (their players get fresh ones at their next
+                // spawn); m11 - AutoHomeFirstClaim adopts nothing for a player's own relations: said once
+                if (Separate)
+                {
+                    int pruned = PruneEmptyPersonal();
+                    if (pruned > 0) ScLog.Out("community: " + pruned + " personal record(s) that held nothing dropped at load - their players get fresh ones at their next spawn");
+                    if (ScConfig.AutoHomeFirstClaim)
+                        ScLog.Out("community mode " + ModeName(Mode) + ": AutoHomeFirstClaim adopts no claim for a player with only their own relations - their community starts from their land claim's radial (Start a community here)");
+                }
                 // MP7 (part A): PerPlayer - the land-claim allies reconciled with the communities here (no ally event fires at load)
             }
             catch (Exception e)
             {
                 ScLog.Once("mp7-loaded", e);
             }
+        }
+
+        /// <summary>
+        /// Round MP7 (core review): m1, m5 - the record holds nothing worth keeping: no home, members, outposts, favors, requests,
+        /// radio contacts, scouting marks, radios or watch posts, grudges, stock, and no saved relation row with any enclave,
+        /// infestation or band (what SC's markers and the held rewards are built from). Any mode; reads no scope.
+        /// </summary>
+        internal static bool HoldsNothing(CommunityState cs)
+        {
+            if (cs == null) return true;
+            Community c = cs.Community;
+            if (c.HasHome || cs.Members.Count > 0 || cs.Outposts.Count > 0 || cs.Prospects.Count > 0 || cs.EncRequests.Count > 0 || cs.Contacts.Count > 0
+                || cs.Grudges.Count > 0 || c.Scouts.Count > 0 || c.Radios.Count > 0 || c.Relays.Count > 0 || c.WatchPosts.Count > 0 || c.Towers.Count > 0) return false;
+            for (int i = 0; i < ScNames.ResourceCount; i++) if (c.Stock[i] > 0) return false;
+            foreach (Enclave e in ScRegistry.Enclaves) { EncRel r = e.Rels.Peek(cs.Id); if (r != null && r.HasSaved) return false; }
+            foreach (Infestation inf in ScRegistry.Infestations) { InfRel r = inf.Rels.Peek(cs.Id); if (r != null && r.HasSaved) return false; }
+            foreach (Band b in ScRegistry.Bands) { BandRel r = b.Rels.Peek(cs.Id); if (r != null && r.HasSaved) return false; }
+            return true;
+        }
+
+        /// <summary>
+        /// Round MP7 (core review): m1 (the coordinator's decision) - at load, every personal record that holds nothing (HoldsNothing)
+        /// goes, community 0 never: its player is unlisted and gets a fresh record at their next spawn, so the save and every "all
+        /// communities" walk (GetMember, the ground and hostility lookups, the save) stay the size of what players built. No
+        /// tombstone: nothing refers to an empty record, and the world's id counter (communityid=) already keeps its id from being
+        /// handed out again. Returns how many went.
+        /// </summary>
+        internal static int PruneEmptyPersonal()
+        {
+            if (!Separate) return 0;
+            var gone = new List<CommunityState>();
+            foreach (CommunityState cs in ScCommunities.All)
+                if (cs.Personal && cs.Id != ScPlayers.SharedCommunity && HoldsNothing(cs)) gone.Add(cs);
+            if (gone.Count == 0) return 0;
+            var ids = new HashSet<int>();
+            foreach (CommunityState cs in gone) ids.Add(cs.Id);
+            ScWorldState ws = ScRegistry.WorldState;
+            var keys = new List<string>();
+            foreach (KeyValuePair<string, int> kv in ws.Membership) if (ids.Contains(kv.Value)) keys.Add(kv.Key);
+            foreach (string k in keys) ws.Membership.Remove(k);
+            keys.Clear();
+            foreach (KeyValuePair<string, int> kv in ws.ConsoleUse) if (ids.Contains(kv.Value)) keys.Add(kv.Key);
+            foreach (string k in keys) ws.ConsoleUse.Remove(k);
+            foreach (CommunityState cs in gone)
+            {
+                foreach (Enclave e in ScRegistry.Enclaves) e.Rels.Drop(cs.Id);
+                foreach (Infestation inf in ScRegistry.Infestations) inf.Rels.Drop(cs.Id);
+                foreach (Band b in ScRegistry.Bands) b.Rels.Drop(cs.Id);
+                ScCommunities.Remove(cs);
+            }
+            return gone.Count;
+        }
+
+        /// <summary>
+        /// Round MP7 (core review): n2 - a player's display name for the record and the tells: online their body's, else the game's
+        /// persistent player data (players.xml), else the id itself.
+        /// </summary>
+        internal static string NameOf(string platformId)
+        {
+            if (string.IsNullOrEmpty(platformId)) return "";
+            try
+            {
+                EntityPlayer online = ScPlayers.ById(platformId);
+                if (online != null && !string.IsNullOrEmpty(online.PlayerDisplayName)) return online.PlayerDisplayName;
+                PlatformUserIdentifierAbs uid;
+                PersistentPlayerList pp = GameManager.Instance != null ? GameManager.Instance.persistentPlayers : null;
+                if (pp != null && platformId.IndexOf('_') > 0 && PlatformUserIdentifierAbs.TryFromCombinedString(platformId, out uid) && uid != null)
+                {
+                    PersistentPlayerData ppd = pp.GetPlayerData(uid);
+                    string n = ppd != null && ppd.PlayerName != null ? ppd.PlayerName.DisplayName : null;
+                    if (!string.IsNullOrEmpty(n)) return n;
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("mp7-nameof", e);
+            }
+            return platformId;
         }
 
         /// <summary>The config's CommunityMode against the save's: one warning per load when they differ (the save's wins).</summary>
@@ -186,7 +273,17 @@ namespace SurvivorCommunity
             ensuring = true;
             try
             {
-                string who = p != null && !string.IsNullOrEmpty(p.PlayerDisplayName) ? p.PlayerDisplayName : (name ?? "");
+                // round MP7 (core review): n4 - a personal record this player owns that the map lost (a hand edit, a dropped line) is theirs again
+                foreach (CommunityState own in ScCommunities.All)
+                {
+                    if (!own.Personal || !string.Equals(own.Community.OwnerId, platformId, StringComparison.Ordinal)) continue;
+                    ScRegistry.WorldState.Membership[platformId] = own.Id;
+                    ScLog.Out("community: " + own.Label + " is " + platformId + "'s own relations again (the map had lost them)");
+                    ScRegistry.SaveAtomic();
+                    return own.Id;
+                }
+                // round MP7 (core review): n2 - an offline player's name from the game's player data, never their id when it is there
+                string who = p != null && !string.IsNullOrEmpty(p.PlayerDisplayName) ? p.PlayerDisplayName : (!string.IsNullOrEmpty(name) ? name : NameOf(platformId));
                 CommunityState cs;
                 bool zero = ZeroClaimable();
                 if (zero)
@@ -217,13 +314,15 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Community 0 may become a player's personal record: it has no owner, no home, no members or outposts, and nobody is mapped
-        /// to it (a fresh save's, or one a merge emptied: ScCommunities.ResetZero).
+        /// to it (a fresh save's, or one a merge emptied: ScCommunities.ResetZero). Round MP7 (core review): m5 - and it holds nothing
+        /// else either (HoldsNothing: favors, requests, stock, relations ...): what others built there is never handed to whoever
+        /// comes first.
         /// </summary>
         private static bool ZeroClaimable()
         {
             CommunityState z = ScCommunities.Zero;
             Community c = z.Community;
-            if (c.HasHome || !string.IsNullOrEmpty(c.OwnerId) || !string.IsNullOrEmpty(c.Owner) || z.Members.Count > 0 || z.Outposts.Count > 0) return false;
+            if (!string.IsNullOrEmpty(c.OwnerId) || !string.IsNullOrEmpty(c.Owner) || !HoldsNothing(z)) return false;
             return !ScRegistry.WorldState.Membership.ContainsValue(ScPlayers.SharedCommunity);
         }
 
@@ -288,6 +387,15 @@ namespace SurvivorCommunity
                         EntityPlayer p = ScPlayers.ByEntity(entityId);
                         if (p != null) ScPlayers.CommunityOf(p);
                     }
+                    // round MP7 (core review): n2 - an owner recorded by their id (made while they were offline) gets their name now
+                    EntityPlayer sp = local ? (EntityPlayer)ScCommunity.LocalPlayer : ScPlayers.ByEntity(entityId);
+                    string spid = sp != null ? ScPlayers.IdOf(sp) : "";
+                    if (spid.Length > 0 && !string.IsNullOrEmpty(sp.PlayerDisplayName))
+                        foreach (CommunityState cs in ScCommunities.All)
+                        {
+                            Community c = cs.Community;
+                            if (string.Equals(c.OwnerId, spid, StringComparison.Ordinal) && (c.Owner.Length == 0 || c.Owner == spid)) { c.Owner = sp.PlayerDisplayName; ScRegistry.SaveAtomic(); }
+                        }
                 }
                 // MP7 (part A): PerPlayer - the allies reconcile for this player at each spawn (allies change while they are offline)
             }
@@ -344,6 +452,7 @@ namespace SurvivorCommunity
                 {
                     if (!ScOwnerRule.May(sender, cs)) { message = "scActionDenied"; return false; }
                     if (cs.Community.HasHome) { message = "scHomeAlreadyStarted"; return false; }
+                    cs.Personal = false;                     // round MP7 (core review): n3 - a flag a Shared save carries means nothing
                     ScZone.SetHome(claim, sender);
                     ScRegistry.SaveAtomic();
                     ScLog.Out("community started: home set to " + claim + " by radial (Start a community here)" + (ScCommunities.Count > 1 ? " - " + cs.Label : "") + by);
@@ -442,6 +551,7 @@ namespace SurvivorCommunity
         public static MoveResult Move(string platformId, int toCid, string reason, string who = null)
         {
             var res = new MoveResult();
+            string stage = "";                         // round MP7 (core review): m10 - what already ran, should a step throw
             try
             {
                 if (!ScRegistry.Loaded || string.IsNullOrEmpty(platformId)) { res.Error = "scActionNotReady"; return res; }
@@ -449,7 +559,8 @@ namespace SurvivorCommunity
                 bool leaving = toCid == ScPlayers.NoCommunity;
                 if (leaving && !separate) toCid = ScPlayers.SharedCommunity;
                 EntityPlayer mover = ScPlayers.ById(platformId);
-                if (string.IsNullOrEmpty(who)) who = mover != null ? mover.PlayerDisplayName : platformId;
+                // round MP7 (core review): n2 - an offline player's name from the game's player data (the console passes their id)
+                if (string.IsNullOrEmpty(who) || who == platformId) who = NameOf(platformId);
                 int was = ScPlayers.CommunityOfId(platformId);
                 res.From = was;
                 CommunityState old = ScCommunities.ById(was);
@@ -457,7 +568,14 @@ namespace SurvivorCommunity
                 if (toCid != ScPlayers.NoCommunity && target == null) { res.Error = "there is no community " + toCid + " (sc community list)"; return res; }
                 if (target != null && was == toCid) { res.Error = who + " is already in " + target.Label; return res; }
                 if (target == null && (old == null || old.Personal)) { res.Error = who + " is in no community already" + (old != null ? " (their own relations: " + old.Label + ")" : ""); return res; }
-                if (separate && target != null && target.Personal) { res.Error = target.Label + " is a player's own relations, not a community anyone joins"; return res; }
+                if (separate && target != null && target.Personal)
+                {
+                    // round MP7 (core review): n8 - community 0 emptied by a merge is given out with sc community owner, never joined
+                    bool free = target.Id == ScPlayers.SharedCommunity && string.IsNullOrEmpty(target.Community.OwnerId) && string.IsNullOrEmpty(target.Community.Owner);
+                    res.Error = free ? target.Label + " is free (no owner): sc community owner " + target.Id + " <player> makes it that player's community"
+                                     : target.Label + " is a player's own relations, not a community anyone joins";
+                    return res;
+                }
                 if (separate && old != null && !old.Personal && IsOwner(old, platformId, mover != null ? mover.PlayerDisplayName : null))
                 {
                     res.Error = who + " owns " + old.Label + " - an owner is always in their own community: hand it over first (sc community owner " + old.Id + " <player>)";
@@ -468,10 +586,15 @@ namespace SurvivorCommunity
                 // move - so a listen host's own shift is detached from the host (still of her community), not from the old community's anchor
                 if (mover != null) ScWork.ForgetPlayer(mover.entityId);
 #endif
+                // round MP7 (core review): m2 - their other live links to the old community end too (enlisted people, the storage view, the panel hold)
+                if (old != null) EndLinks(old, mover, who);
+                stage = "the hand-over";
                 // 2. decision 8 (a founded community's things; a personal record's go along with the merge)
                 if (old != null && !old.Personal) HandOver(old, platformId, mover, who, res);
+                stage = "the hand-over and the followers";
                 // 3. their followers stay with the community they belong to and go home to it (round MP6 (part G), the console's rule)
                 if (old != null) res.Followers = StationFollowers(old, platformId, mover);
+                stage = "the hand-over, the followers and the merge or map change";
                 // 4. the move
                 if (old != null && old.Personal && target != null)
                 {
@@ -511,10 +634,38 @@ namespace SurvivorCommunity
             }
             catch (Exception e)
             {
-                ScLog.Once("mp7-move", e);
-                res.Error = "scActionFailed";
+                // round MP7 (core review): m10 - each distinct failure logged (keyed by its site), and what already ran said
+                ScLog.Once("mp7-move-" + e.GetType().Name + "-" + (e.TargetSite != null ? e.TargetSite.Name : "?"), e);
+                res.Error = stage.Length == 0 ? "scActionFailed" : "the move failed after " + stage + " ran (see the log) - running it again finishes it";
             }
             return res;
+        }
+
+        /// <summary>
+        /// Round MP7 (core review): m2 - the mover's live links to the old community end with the move, each the way a disconnect ends
+        /// it: their enlisted enclave people go home (a founded community's: a personal record never enlists), their home link (waiting or
+        /// holding) and linked-storage view close, and the server's backup of their member panel hold ends. Nothing for an
+        /// offline mover (an enlistment ends with its enlister gone: ScEnclaveDeals.TickEnlisted; a view or a hold dies with the connection).
+        /// </summary>
+        private static void EndLinks(CommunityState old, EntityPlayer mover, string who)
+        {
+            if (mover == null) return;
+            int eid = mover.entityId;
+            if (!old.Personal)
+            {
+                foreach (EncPerson p in ScRegistry.EncPeople.ToArray())
+                {
+                    if (p == null || !p.Enlisted || p.EnlistedBy != eid) continue;
+                    EntityAlive npc = ScEnclavePeople.OwnBody(p);
+                    if (npc != null && !npc.IsDead() && ScEnclaveDeals.GoHome(npc, who + " left the community")) continue;
+                    ScEnclaveDeals.EndEnlist(p, null, "scEncHeadsHome", who + " left the community");
+                }
+            }
+            ScHomeLink.ForgetPlayer(eid);
+            ScStorageServer.End(eid, "scStorageSessionEnded");
+#if SC_V34
+            ScPanelHold.ForgetPlayer(eid);
+#endif
         }
 
         /// <summary>
@@ -612,17 +763,24 @@ namespace SurvivorCommunity
         {
             // round MP7 (core, decided at the merge - kept as built): decision 8 passes "held favors" to another online player, but a favor quest can only be started by
             // the taker's own dialog (no quest op starts one remotely) - so the favor stays the community's and is free to take on again
-            if (mover == null || old.Prospects.Count == 0) return 0;
+            if (old.Prospects.Count == 0) return 0;
             int n = 0;
             bool host = mover is EntityPlayerLocal;
             foreach (Prospect pr in new List<Prospect>(old.Prospects.Values))
             {
                 if (pr == null || pr.Favour == FavourKind.None) continue;
-                bool holds = host ? ScQuests.FindFavour(mover, pr.Id) != null : ScQuestNet.ReportHoldsFavour(mover, pr.Id);
-                if (!holds) continue;
-                if (host) ScQuests.CloseFavour(mover, pr.Id, false);
-                else ScQuestNet.CloseFavourFor(mover, pr.Id, false);
-                n++;
+                // round MP7 (core review): m4, m8 - an offline mover: their last report this session says (1 held, 0 not), or nobody knows (-1)
+                int holds = mover == null ? ScQuestNet.ReportedFavour(pid, pr.Id)
+                          : (host ? ScQuests.FindFavour(mover, pr.Id) != null : ScQuestNet.ReportHoldsFavour(mover, pr.Id)) ? 1 : 0;
+                if (holds == 0) continue;
+                if (mover != null)
+                {
+                    if (host) ScQuests.CloseFavour(mover, pr.Id, false);
+                    else ScQuestNet.CloseFavourFor(mover, pr.Id, false);
+                    n++;
+                }
+                // no longer "taken on" when nobody else of the community online holds it - an offline mover's copy closes at their next
+                // report (ScQuestNet.StaleFavours); another offline holder's report takes it on again (ScQuestNet.FavoursHeld)
                 if (!pr.Done && pr.Started && !ScQuestNet.AnyOtherHoldsFavour(old.Id, pr.Id, mover)) pr.Started = false;
             }
             return n;
@@ -673,79 +831,51 @@ namespace SurvivorCommunity
         /// </summary>
         internal static string Merge(CommunityState from, CommunityState into, string pid, EntityPlayer mover, string who)
         {
-            int favors = 0, favorsKept = 0, requests = 0, requestsKept = 0, encs = 0, infs = 0, bands = 0, forgiven = 0;
-            // favors (before the relation rows: a withdrawal below writes the record's row, which the rows step then drops)
+            int favors = 0, favorsKept = 0, requests = 0, requestsKept = 0, encs = 0, infs = 0, bands = 0, forgiven = 0, failed = 0;
+            // favors (before the relation rows: a withdrawal below writes the record's row, which the rows step then drops).
+            // Round MP7 (core review): m10 - each record's step on its own: one that throws is logged and skipped, never splits the merge
             foreach (Prospect pp in new List<Prospect>(from.Prospects.Values))
             {
-                from.Prospects.Remove(pp.Id);
-                Prospect tp;
-                if (!into.Prospects.TryGetValue(pp.Id, out tp) || tp == null)
+                try { if (MergeFavour(from, into, pp, pid, mover, who)) favorsKept++; else favors++; }
+                catch (Exception ex)
                 {
-                    into.Prospects[pp.Id] = pp;
-                    favors++;
-                    continue;
-                }
-                favorsKept++;
-                if (Rank(pp) > Rank(tp))
-                {
-                    // the record's is further along: it replaces the community's, whose holders' quests close
-                    into.Prospects[pp.Id] = pp;
-                    ScTrust.CloseFavourForCommunity(pp.Id, false, mover, into.Id);
-                    using (ScRegistry.Use(into.Id)) ScPlayers.TellCommunityKey("scMp7FavourReplaced", "", pp.Name, who);
-                }
-                else
-                {
-                    // the community's is as far along or further: the record's goes, and the joining player's quest with it
-                    if (mover is EntityPlayerLocal) ScQuests.CloseFavour(mover, pp.Id, false);
-                    else if (mover != null) ScQuestNet.CloseFavourFor(mover, pp.Id, false);
-                    if (mover != null) ScCommunity.TellKey(mover, "scMp7FavourDropped", "", pp.Name);
+                    failed++;
+                    ScLog.Once("mp7-merge-favour-" + ex.GetType().Name, ex);
+                    // never lost with the record: kept by the community unless it holds one under that key
+                    from.Prospects.Remove(pp.Id);
+                    if (!into.Prospects.ContainsKey(pp.Id)) into.Prospects[pp.Id] = pp;
                 }
             }
             ScQuestNet.RemapFavours(from.Id, into.Id);
             // enclave requests: one per (community, enclave)
             foreach (EnclaveRequest rq in new List<EnclaveRequest>(from.EncRequests))
             {
-                EnclaveRequest tq = null;
-                foreach (EnclaveRequest x in into.EncRequests) if (x.EnclaveId == rq.EnclaveId) { tq = x; break; }
-                if (tq == null)
+                try { if (MergeRequest(from, into, rq, mover, who)) requestsKept++; else requests++; }
+                catch (Exception ex)
                 {
-                    from.EncRequests.Remove(rq);
-                    into.EncRequests.Add(rq);
-                    requests++;
-                    continue;
-                }
-                requestsKept++;
-                Enclave e = ScEnclaves.ById(rq.EnclaveId);
-                string ename = e != null ? e.Name : "#" + rq.EnclaveId;
-                if (rq.IsAccepted && !tq.IsAccepted)
-                {
-                    using (ScRegistry.Use(into.Id))
-                    {
-                        ScEncRequests.Close(tq, ScEncRequests.Withdrawn, who + " joined with a request from the same group already taken on");
-                        ScPlayers.TellCommunityKey("scMp7RequestReplaced", "", ename, who);
-                    }
-                    from.EncRequests.Remove(rq);
-                    into.EncRequests.Add(rq);
-                }
-                else
-                {
-                    using (ScRegistry.Use(from.Id)) ScEncRequests.Close(rq, ScEncRequests.Withdrawn, who + " joined a community that already has a request from this group");
-                    if (mover != null) ScCommunity.TellKey(mover, "scMp7RequestDropped", "", ename);
+                    failed++;
+                    ScLog.Once("mp7-merge-request-" + ex.GetType().Name, ex);
+                    // never lost with the record: moved as it is (the community may hold two from that group until one ends)
+                    if (from.EncRequests.Remove(rq) && !into.EncRequests.Contains(rq)) into.EncRequests.Add(rq);
                 }
             }
-            // radio contacts (a personal record has no radio: none, normally), and what a personal record never has
-            foreach (Contact ct in new List<Contact>(from.Contacts)) { from.Contacts.Remove(ct); into.Contacts.Add(ct); }
-            if (from.Members.Count > 0 || from.Outposts.Count > 0)
+            try
             {
-                ScLog.Warn("community merge: " + from.Label + " had " + from.Members.Count + " member(s) and " + from.Outposts.Count + " outpost(s) - moved to "
-                           + into.Label + " (a personal record never should; their bodies' sc_member cvar follows at their next relink)");
-                foreach (Member m in new List<Member>(from.Members.Values)) { from.Members.Remove(m.Id); into.Members[m.Id] = m; }
-                foreach (Outpost o in new List<Outpost>(from.Outposts)) { from.Outposts.Remove(o); into.Outposts.Add(o); }
-                ScOutposts.OnRegistryChanged();
+                // radio contacts (a personal record has no radio: none, normally), and what a personal record never has
+                foreach (Contact ct in new List<Contact>(from.Contacts)) { from.Contacts.Remove(ct); into.Contacts.Add(ct); }
+                if (from.Members.Count > 0 || from.Outposts.Count > 0)
+                {
+                    ScLog.Warn("community merge: " + from.Label + " had " + from.Members.Count + " member(s) and " + from.Outposts.Count + " outpost(s) - moved to "
+                               + into.Label + " (a personal record never should; their bodies' sc_member cvar follows at their next relink)");
+                    foreach (Member m in new List<Member>(from.Members.Values)) { from.Members.Remove(m.Id); into.Members[m.Id] = m; }
+                    foreach (Outpost o in new List<Outpost>(from.Outposts)) { from.Outposts.Remove(o); into.Outposts.Add(o); }
+                    ScOutposts.OnRegistryChanged();
+                }
+                // the stockpile adds up (allies' bundles that waited there)
+                for (int i = 0; i < ScNames.ResourceCount; i++)
+                    if (from.Community.Stock[i] > 0) { into.Community.Add((Resource)i, from.Community.Stock[i]); from.Community.Stock[i] = 0; }
             }
-            // the stockpile adds up (allies' bundles that waited there)
-            for (int i = 0; i < ScNames.ResourceCount; i++)
-                if (from.Community.Stock[i] > 0) into.Community.Add((Resource)i, from.Community.Stock[i]);
+            catch (Exception ex) { failed++; ScLog.Once("mp7-merge-stock-" + ex.GetType().Name, ex); }
             // relation rows: the better value wins
             foreach (Enclave e in ScRegistry.Enclaves)
             {
@@ -805,7 +935,81 @@ namespace SurvivorCommunity
             }
             return favors + " favor(s) and " + requests + " request(s) moved" + (favorsKept + requestsKept > 0 ? " (" + favorsKept + " favor(s) and " + requestsKept + " request(s) clashed: the one further along kept)" : "")
                    + ", " + encs + " enclave, " + infs + " infestation and " + bands + " band relation(s) merged"
-                   + (forgiven > 0 ? ", " + forgiven + " wild survivor grudge(s) dropped" : "");
+                   + (forgiven > 0 ? ", " + forgiven + " wild survivor grudge(s) dropped" : "")
+                   + (failed > 0 ? "; " + failed + " step(s) failed - what they held was moved as it was (see the log)" : "");
+        }
+
+        /// <summary>
+        /// Round MP7 (core review): Merge's step for one favor of the record (the rule as before). m6 - an enclave person's favor also
+        /// clashes with the community's favor for the same person kept under another key (a parked one, an older body's). m8 - with the
+        /// joining player offline, a dropped favor's quest closes at their next journal report. True on a clash.
+        /// </summary>
+        private static bool MergeFavour(CommunityState from, CommunityState into, Prospect pp, string pid, EntityPlayer mover, string who)
+        {
+            from.Prospects.Remove(pp.Id);
+            Prospect tp;
+            if (!into.Prospects.TryGetValue(pp.Id, out tp)) tp = null;
+            if (tp == null && pp.EncPersonId > 0)
+                foreach (Prospect x in into.Prospects.Values)
+                    if (x != null && x.EncPersonId == pp.EncPersonId) { tp = x; break; }
+            if (tp == null)
+            {
+                into.Prospects[pp.Id] = pp;
+                return false;
+            }
+            if (Rank(pp) > Rank(tp))
+            {
+                // the record's is further along: it replaces the community's (under the record's key), whose holders' quests close
+                if (tp.Id != pp.Id) into.Prospects.Remove(tp.Id);
+                into.Prospects[pp.Id] = pp;
+                ScTrust.CloseFavourForCommunity(tp.Id, false, mover, into.Id);
+                using (ScRegistry.Use(into.Id)) ScPlayers.TellCommunityKey("scMp7FavourReplaced", "", pp.Name, who);
+            }
+            else
+            {
+                // the community's is as far along or further: the record's goes, and the joining player's quest with it
+                if (mover is EntityPlayerLocal) ScQuests.CloseFavour(mover, pp.Id, false);
+                else if (mover != null) ScQuestNet.CloseFavourFor(mover, pp.Id, false);
+                else ScQuestNet.CloseFavourAtNextReport(pid, pp.Id);
+                if (mover != null) ScCommunity.TellKey(mover, "scMp7FavourDropped", "", pp.Name);
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Round MP7 (core review): Merge's step for one request of the record (one per community and enclave). The one further along
+        /// stays: accepted over offered, and (n7) of two accepted ones of the same kind the one at the later stage; the community's on a
+        /// tie. The other is withdrawn (no standing lost) with a tell. True on a clash.
+        /// </summary>
+        private static bool MergeRequest(CommunityState from, CommunityState into, EnclaveRequest rq, EntityPlayer mover, string who)
+        {
+            EnclaveRequest tq = null;
+            foreach (EnclaveRequest x in into.EncRequests) if (x.EnclaveId == rq.EnclaveId) { tq = x; break; }
+            if (tq == null)
+            {
+                from.EncRequests.Remove(rq);
+                into.EncRequests.Add(rq);
+                return false;
+            }
+            Enclave e = ScEnclaves.ById(rq.EnclaveId);
+            string ename = e != null ? e.Name : "#" + rq.EnclaveId;
+            bool recordAhead = rq.IsAccepted && (!tq.IsAccepted || (rq.Kind == tq.Kind && rq.Stage > tq.Stage));
+            if (recordAhead)
+            {
+                using (ScRegistry.Use(into.Id))
+                {
+                    ScEncRequests.Close(tq, ScEncRequests.Withdrawn, who + " joined with a request from the same group further along");
+                    ScPlayers.TellCommunityKey("scMp7RequestReplaced", "", ename, who);
+                }
+                from.EncRequests.Remove(rq);
+                into.EncRequests.Add(rq);
+            }
+            else
+            {
+                using (ScRegistry.Use(from.Id)) ScEncRequests.Close(rq, ScEncRequests.Withdrawn, who + " joined a community that already has a request from this group");
+                if (mover != null) ScCommunity.TellKey(mover, "scMp7RequestDropped", "", ename);
+            }
+            return true;
         }
 
         /// <summary>
@@ -856,13 +1060,21 @@ namespace SurvivorCommunity
         {
             ok = false;
             if (cs == null) return "there is no such community";
-            if (cs.Personal) return cs.Label + " is a player's own relations - it has no owner to hand over";
+            // round MP7 (core review): n8 - community 0 emptied by a merge (personal, unowned) can be given to a player as a made community
+            bool freeZero = cs.Id == ScPlayers.SharedCommunity && cs.Personal && string.IsNullOrEmpty(cs.Community.OwnerId) && string.IsNullOrEmpty(cs.Community.Owner);
+            if (cs.Personal && !freeZero) return cs.Label + " is a player's own relations - it has no owner to hand over";
+            if (freeZero) cs.Personal = false;
+            if (string.IsNullOrEmpty(who) || who == pid) who = NameOf(pid);          // round MP7 (core review): n2
             int was = ScPlayers.CommunityOfId(pid);
             string moved = "";
             if (was != cs.Id)
             {
                 MoveResult r = Move(pid, cs.Id, ByAdmin, who);
-                if (!r.Ok) return "refused: " + ScActions.Localize(r.Error);
+                if (!r.Ok)
+                {
+                    if (freeZero) cs.Personal = true;   // round MP7 (core review): n8 - as it was
+                    return "refused: " + ScActions.Localize(r.Error);
+                }
                 moved = " (moved into it from " + (ScCommunities.ById(r.From) != null ? ScCommunities.ById(r.From).Label : "no community") + (r.Merged ? ", their own relations merged" : "") + ")";
             }
             string before = string.IsNullOrEmpty(cs.Community.Owner) ? (string.IsNullOrEmpty(cs.Community.OwnerId) ? "nobody" : cs.Community.OwnerId) : cs.Community.Owner;
@@ -900,9 +1112,18 @@ namespace SurvivorCommunity
                           + (ws.ModeLocked ? ModeName(ws.Mode) + " for good" : "not fixed yet: set CommunityMode in the config instead"));
                 return lines;
             }
+            // round MP7 (core review): m4 - each online player's community before the switch (Shared: unlisted is community 0), so the
+            // players it moves out get Move's leaving half below
+            var before = new List<KeyValuePair<EntityPlayer, int>>();
+            foreach (EntityPlayer p in ScPlayers.All.ToArray())
+            {
+                if (p == null) continue;
+                string id = ScPlayers.IdOf(p);
+                if (id.Length > 0) before.Add(new KeyValuePair<EntityPlayer, int>(p, ScPlayers.CommunityOfId(id)));
+            }
             ws.Mode = to;
             ws.ModeWritten = true;
-            int owners = 0, handed = 0;
+            int owners = 0, handed = 0, released = 0, freed = 0;
             foreach (CommunityState cs in ScCommunities.All)
             {
                 Community c = cs.Community;
@@ -916,40 +1137,84 @@ namespace SurvivorCommunity
                 {
                     if (!ws.Membership.ContainsKey(c.OwnerId)) { ws.Membership[c.OwnerId] = cs.Id; owners++; }
                 }
-                else if (IsFounded(cs)) lines.Add(cs.Label + " has no owner its players can be told by: sc community owner " + cs.Id + " <player> gives it one (its unlisted players now have none)");
+                else if (IsFounded(cs) || !HoldsNothing(cs))     // round MP7 (core review): m5 - an unowned community 0 that holds something too
+                    lines.Add(cs.Label + " has no owner its players can be told by: sc community owner " + cs.Id + " <player> gives it one (its unlisted players now have none)");
             }
             foreach (CommunityState cs in ScCommunities.All)
             {
                 string owner = cs.Community.OwnerId;
                 if (string.IsNullOrEmpty(owner)) continue;
-                foreach (EnclaveRequest r in cs.EncRequests)
+                foreach (EnclaveRequest r in cs.EncRequests.ToArray())
                 {
                     if (!r.IsAccepted) continue;
                     string by = r.AcceptedBy;
+                    EntityPlayer acceptor;
                     if (by.Length == 0)
                     {
                         // the host's own (a save from before MP4): theirs while they are of it
                         EntityPlayerLocal lp = ScCommunity.LocalPlayer;
                         if (lp == null || ScPlayers.CommunityOfId(ScPlayers.IdOf(lp)) == cs.Id) continue;
+                        acceptor = lp;
                     }
-                    else if (ScPlayers.CommunityOfId(by) == cs.Id) continue;
+                    else
+                    {
+                        if (ScPlayers.CommunityOfId(by) == cs.Id) continue;
+                        acceptor = ScPlayers.ById(by);
+                    }
                     EntityPlayer ownerOnline = ScPlayers.ById(owner);
-                    r.AcceptedBy = ownerOnline is EntityPlayerLocal ? "" : owner;
+                    if (ownerOnline != null)
+                    {
+                        // round MP7 (core review): m4 - Move's hand-over: the acceptor's quest closes, the owner's starts (and is told)
+                        using (ScRegistry.Use(cs.Id)) ScEncRequests.HandOver(r, acceptor, ownerOnline);
+                        Enclave e = ScEnclaves.ById(r.EnclaveId);
+                        if (e != null) ScCommunity.TellKey(ownerOnline, "scMp7RequestYours", "", e.Name, acceptor != null ? acceptor.PlayerDisplayName : NameOf(by));
+                    }
+                    else
+                    {
+                        // the owner away: the record names them, their journal gets it with their next report
+                        r.AcceptedBy = owner;
+                        r.QuestCode = 0;
+                    }
                     handed++;
                 }
             }
+            // round MP7 (core review): m4 - each online player it moves out gets Move's leaving half: talk holds and shifts end, their links
+            // end (EndLinks), their favor quests of the old community close (ReleaseFavours), their followers go home, they are told
             int made = 0;
-            foreach (EntityPlayer p in ScPlayers.All.ToArray())
+            var lost = new HashSet<int> { ScPlayers.SharedCommunity };
+            foreach (KeyValuePair<EntityPlayer, int> kv in before)
             {
-                if (p == null) continue;
+                EntityPlayer p = kv.Key;
                 string id = ScPlayers.IdOf(p);
-                if (id.Length == 0 || ScPlayers.CommunityOfId(id) != ScPlayers.NoCommunity) continue;
+                if (id.Length == 0 || ScPlayers.CommunityOfId(id) != ScPlayers.NoCommunity) continue;      // still in it (an owner, a listed player)
+                CommunityState old = ScCommunities.ById(kv.Value);
+#if SC_V34
+                ScWork.ForgetPlayer(p.entityId);
+#endif
+                if (old != null)
+                {
+                    lost.Add(old.Id);
+                    EndLinks(old, p, p.PlayerDisplayName);
+                    released += ReleaseFavours(old, id, p);
+                    StationFollowers(old, id, p);
+                }
                 if (EnsurePersonal(p, id, null) != ScPlayers.NoCommunity) made++;
+                if (old != null) ScCommunity.TellKey(p, "scMp7LostAccess", "ui_denied", Whose(old));
+            }
+            // and the favors of the communities that lost players that nobody of them online holds now (an offline player's): free to
+            // take on again (a holder's next report takes it on again: ScQuestNet.FavoursHeld)
+            foreach (int cid in lost)
+            {
+                CommunityState cs = ScCommunities.ById(cid);
+                if (cs == null) continue;
+                foreach (Prospect pr in cs.Prospects.Values)
+                    if (pr != null && !pr.Done && pr.Started && pr.Favour != FavourKind.None && !ScQuestNet.AnyOtherHoldsFavour(cid, pr.Id, null)) { pr.Started = false; freed++; }
             }
             // MP7 (part A): PerPlayer - the allies reconcile runs here at once
             ScRegistry.SaveAtomic();
             ScLog.Out("community mode switched to " + ModeName(to) + " by an admin (a save from before MP7): " + owners + " owner(s) listed, "
-                      + handed + " accepted request(s) passed to their community's owner, " + made + " player(s) online given their own relations");
+                      + handed + " accepted request(s) passed to their community's owner, " + made + " player(s) online given their own relations, "
+                      + released + " favor quest(s) closed in their journals, " + freed + " favor(s) free to take on again");
             lines.Insert(0, "this save is " + ModeName(to) + " from now on: " + owners + " owner(s) kept in their communities, " + handed
                          + " request(s) whose acceptor is in none of them passed to its owner, " + made + " player(s) online given their own relations"
                          + " (every other player gets theirs at their next spawn)");

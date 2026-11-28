@@ -140,6 +140,8 @@ namespace SurvivorCommunity
         /// relations): community 0's - each community the group turned on has its own (HostileCvarFor).
         /// </summary>
         public const string HostileCvar = "%sc_enchostile";
+        /// <summary>Round MP7 (core review): m7 - HostileCvarFor's answer below 0: never stamped (OnTurnedHostile returns first), never read as hostile.</summary>
+        private const string NoCommunityCvar = "%sc_enchostile_none";
         /// <summary>Round MP6 (part relations): the hostile cvars of communities 1+ ("%sc_enchostile_&lt;id&gt;"), cached.</summary>
         private static readonly Dictionary<int, string> hostileCvars = new Dictionary<int, string>();
 
@@ -149,7 +151,10 @@ namespace SurvivorCommunity
         /// </summary>
         public static string HostileCvarFor(int cid)
         {
-            if (cid <= 0) return HostileCvar;
+            if (cid == 0) return HostileCvar;
+            // round MP7 (core review): m7 - a negative id (ScPlayers.NoCommunity, the empty record's scope) is no community's: a cvar no
+            // body ever carries (it was community 0's)
+            if (cid < 0) return NoCommunityCvar;
             lock (hostileCvars)
             {
                 string name;
@@ -2035,6 +2040,8 @@ namespace SurvivorCommunity
         public static void OnTurnedHostile(Enclave e, float grace)
         {
             e.GraceUntil = Time.unscaledTime + Math.Max(0f, grace);
+            // round MP7 (core review): m7 - in the empty record's scope (no community) there is no row behind a stamp: none is made
+            if (ScRelations.Cid < 0) { RebuildHostile(); return; }
             string cvar = HostileCvarFor(ScRelations.Cid);
             foreach (EncPerson p in bodies.Values)
             {

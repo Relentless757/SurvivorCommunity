@@ -3414,11 +3414,12 @@ Round MP0 is the groundwork:
     first home start (`ScZone.SetHome` or `EnsureHome`'s adoption when it starts one, or `sc community new`); in
     PerPlayer/PerParty the first personal record or founding. From then on it is the save's, `[world] mode=`
     (`ScWorldState.Mode`, `ModeLocked`, `ModeWritten`), and a config that differs is logged once per load. A save with no
-    `mode=` whose community is going (a home, an owner, members, several communities, players listed) is a save from before
-    MP7: Shared, written nowhere, so its text stays byte for byte as before. `sc community mode <PerPlayer|PerParty> confirm`
-    switches such a save once (`SwitchMode`): every community keeps its owner, who is now listed in the map; an accepted
-    request whose acceptor is in none of them passes to that community's owner; every other player gets a personal record.
-    `ScMembership.Separate` means PerPlayer or PerParty on the server.
+    `mode=` whose community is going (a home, an owner, members, anything it holds, several communities, players listed) is a
+    save from before MP7: Shared, written nowhere, so its text stays byte for byte as before. `sc community mode
+    <PerPlayer|PerParty> confirm` switches such a save once (`SwitchMode`): every community keeps its owner, who is now listed
+    in the map; an accepted request whose acceptor is in none of them passes to that community's owner; every other player
+    gets a personal record. A player online who is moved out is told so and loses their talk holds, shifts, favor quests,
+    followers and links, as in `Move`. `ScMembership.Separate` means PerPlayer or PerParty on the server.
   - **Personal records** (PerPlayer/PerParty): a player in no founded community has one, a real `CommunityState` with
     `Personal` set (`[community] personal=1`), owned by that player, with no home. It is made on the server's first ask for
     an online player (`ScPlayers.CommunityOf` calls `EnsurePersonal`) and at spawn (`OnPlayerSpawned`). Community 0 is the
@@ -3443,7 +3444,8 @@ Round MP0 is the groundwork:
     community that has none. `home.set` mode 1 still starts one in Shared.
   - **Move** (`ScMembership.Move(platformId, toCid, reason, who)`) is the one way a player changes community: the console,
     `community.leave`, and later the ally and party hooks (`ByAlly`, `ByAllyRemoved`, `ByParty`, `ByPartyLeft`). It runs:
-    1. the mover's talk holds and work shifts end;
+    1. the mover's talk holds and work shifts end, and so do their links (`EndLinks`: the enclave fighter they enlisted heads
+       home, their home link, linked-storage view and the server's panel hold end);
     2. leaving a founded community, the requests they accepted pass to that community's owner, else to another of its
        players online (`ScEncRequests.HandOver`: the quest leaves their journal and goes to the heir's), else are withdrawn
        with no standing lost; their favor quests close in their journal while the favors stay the community's, no longer
@@ -3487,6 +3489,33 @@ Round MP0 is the groundwork:
     counts founded communities. `join` merges a personal record. `leave` means community 0 in Shared and a fresh personal
     record otherwise. `new` moves its owner in, in PerPlayer/PerParty. `owner <id> <player>` hands a community over, moving
     the player in first. `mode <PerPlayer|PerParty> confirm` is the switch.
+  - **Core review fixes** (`review_mp7_core.md`):
+    - **Pruning at load** (m1): in PerPlayer/PerParty, `OnRegistryLoaded` drops every personal record but community 0 that
+      holds nothing (`HoldsNothing`: no home, members, outposts, favors, requests, contacts, grudges, radio or tower state,
+      stock or saved relation row) and unmaps it, logged once with the count. No tombstone: the world's id counter already
+      keeps the id from coming back. The player gets a fresh record at the next spawn. `EnsurePersonal` maps a record whose
+      `OwnerId` is the player back to them when the map line was lost (n4).
+    - **`EndLinks`** (m2) runs in `Move` and for each player the mode switch moves out (m4). The switch also hands accepted
+      requests over through `ScEncRequests.HandOver` with the owner online (else they wait with `AcceptedBy` = the owner),
+      tells the player (`scMp7LostAccess`) and frees favors no player online still holds.
+    - **A handed-over missing-survivor request** (m3): `ScEncSearch.StopEscortOf` stops the survivor following the leaver
+      first (they wait where they stand), so the heir's quest leads there.
+    - **Started and claimable** (m5): a community that holds anything counts as going at load (`AnyCommunityStarted`), and
+      community 0 is claimable as a first player's record only while it has no owner, holds nothing and lists nobody.
+    - **Merge rules:** an enclave person's favor also clashes with the community's favor for that person under another key
+      (m6); a favor the merge drops while the mover is offline closes at their next journal report
+      (`ScQuestNet.CloseFavourAtNextReport`, m8; `ReleaseFavours` reads their last report through `ReportedFavour`); of two
+      accepted requests of one kind from one group the one at the later stage stays (n7). Each favor and request step and the
+      contacts and stock step run in their own try/catch: a step that throws moves its item as it is, and the summary says so
+      (m10). `Move`'s catch names the step it reached.
+    - **No community has no hostile cvar** (m7): `ScEnclavePeople.HostileCvarFor` of a negative id is `%sc_enchostile_none`,
+      which no body carries; `OnTurnedHostile` in that scope only rebuilds.
+    - **This machine's own player with no platform id** (m9) is `ScPlayers.LocalKey` ("local") in PerPlayer/PerParty, so
+      single player has its one record; a player with no id yet is logged once per entity.
+    - **Smaller ones:** `AutoHomeFirstClaim` adopts nothing for a personal record, said once at load (m11); offline names come
+      from the persistent player list (`NameOf`, n2); `CommunityState.Personal` counts only in PerPlayer/PerParty, and Shared's
+      Start clears it (n3); `sc community list` from a playerless console says which community it acts in (n6); `sc community
+      owner 0 <player>` gives out a free personal community 0, and `new` clears the owner when moving them in fails (n8).
   - **For modders:** change a player's community only through `ScMembership.Move`. Treat -1 as no community. Check
     `CommunityState.Personal` before anything that needs a founded community. Later parts plug in at the markers
     `// MP7 (part A)` (the allies reconcile at load, at spawn, at founding and at the switch; Leave's opt-out; how a player

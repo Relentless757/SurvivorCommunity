@@ -142,7 +142,8 @@
 			     pick "Start a community here" (later "Set as community home" on another claim moves it). Until then nobody
 			     joins. true: the old way - your first land claim becomes the home the first time it is needed (talking to a
 			     survivor, the claim's Community or Linked storage), and again when the home's claim is gone. A home a save
-			     already has is kept either way. -->
+			     already has is kept either way. With CommunityMode PerPlayer or PerParty (single player too) it adopts
+			     nothing for a player who has no community yet: theirs starts only from "Start a community here". -->
 			<property name="AutoHomeFirstClaim" value="false" />
 
 			<!-- daily use, in whole bundles (round ie1: every daily change to the stockpile is a whole number, nothing carried
@@ -1512,7 +1513,9 @@
 			     Until then a player has their own relations: talk, trade, map markers, enclave and survivor favors.
 			     The mode is fixed into the save when its first community (or a player's own relations) starts; a save
 			     from before this version stays Shared unless an admin types "sc community mode PerPlayer confirm" (or
-			     PerParty) once. Single player always has one community, whatever the mode. -->
+			     PerParty) once. A save started with this version fixes its mode for good (Shared included) and cannot
+			     be switched later. Single player always has one community, whatever the mode; AutoHomeFirstClaim adopts
+			     nothing for a player who has no community yet in PerPlayer or PerParty. -->
 			<property name="CommunityMode" value="Shared" />
 			<!-- MaxCommunities (PerPlayer / PerParty): the most communities players may start on this server. 0 = no
 			     limit. A player's own relations before they start one never count. -->

@@ -84,7 +84,12 @@ namespace SurvivorCommunity
             {
                 community = NoCommunity;
                 string pid = IdOf(p);
-                if (pid.Length == 0) return false;
+                if (pid.Length == 0)
+                {
+                    // round MP7 (core review): m9 - said once per player, so a player stuck in no community is in the log
+                    ScLog.Once("mp7-noid-" + p.entityId, "community: " + (p.PlayerDisplayName ?? "a player") + " (entity " + p.entityId + ") has no platform id yet - in no community until they do");
+                    return false;
+                }
                 community = CommunityOfId(pid);
                 if (community == NoCommunity) community = ScMembership.EnsurePersonal(p, pid, null);
                 return community != NoCommunity;
@@ -171,6 +176,9 @@ namespace SurvivorCommunity
 
         public static bool AnyOnline { get { return All.Count > 0; } }
 
+        /// <summary>Round MP7 (core review): m9 - IdOf's key for this machine's own player in PerPlayer/PerParty when the platform gives none.</summary>
+        public const string LocalKey = "local";
+
         /// <summary>The player's platform id ("" when unknown: not yet logged in, or not a player).</summary>
         public static string IdOf(EntityPlayer p)
         {
@@ -180,7 +188,11 @@ namespace SurvivorCommunity
                 if (p is EntityPlayerLocal)
                 {
                     PlatformUserIdentifierAbs own = PlatformManager.InternalLocalUserIdentifier;
-                    return own != null ? own.CombinedString ?? "" : "";
+                    string mine = own != null ? own.CombinedString ?? "" : "";
+                    // round MP7 (core review): m9 - PerPlayer/PerParty need a key for this machine's own player to be in their one record
+                    // (single player) when the platform has none to give; Shared keeps "" (nobody listed: no id is ever looked up)
+                    if (mine.Length == 0 && ScMembership.Separate) return LocalKey;
+                    return mine;
                 }
                 ConnectionManager cm = SingletonMonoBehaviour<ConnectionManager>.Instance;
                 ClientInfo ci = cm != null && cm.Clients != null ? cm.Clients.ForEntityId(p.entityId) : null;

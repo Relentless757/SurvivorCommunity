@@ -61,6 +61,8 @@ yet, and a player with only their own relations cannot reach a wild survivor's f
 Build `sc34_mp7core`, **not deployed**, protocol 8 unchanged (the merge sets 9), untested in game. Checked offline: the save
 round trip on 12 saves from before MP6 (ALL PASS: old saves load and save byte for byte as before), and a harness for the
 mode lock, personal records in the save, the merge, the retire and Move with offline players (59 checks, 0 failures).
+After the core review (`review_mp7_core.md`, 11 minors and 8 nits): the round trip still ALL PASS (309 checks), the text of
+all 12 saves identical to MP6's, and the harness 72-74 checks per save on 5 saves (one with no home), 0 failures.
 
 **Single player, Shared (the default: nothing may change)**
 - [ ] An existing save: the log says `community mode: Shared (a save from before MP7: Shared, until an admin runs sc community
@@ -118,6 +120,29 @@ mode lock, personal records in the save, the merge, the retire and Move with off
 - [ ] The world steps (enclaves found, bands, infestations) still run with only personal records online (B alone online,
       before anyone founded).
 
+**Core review fixes (PerPlayer on the dedicated server unless said otherwise)**
+- [ ] Player C joins once and quits without doing anything. Restart the server: the log says `community: 1 personal
+      record(s) that held nothing dropped at load ...` and `sc community list` no longer shows C's record. C joins again: a
+      fresh `[personal]` record with a new id (never the dropped one). A record that learned an enclave or holds a request
+      is kept.
+- [ ] B in A's community enlists an allied enclave's fighter and has linked storage open; `sc community leave <B>`: the
+      fighter heads home (`<name> heads back to <enclave>.`), the linked-storage window closes (`Linked storage was closed.
+      Open it again.`), and B's home link ends.
+- [ ] B escorts a missing survivor for community 0 (the survivor follows B) and `sc community leave <B>`: B is told `<name>
+      stopped following you and waits where they are.`, the survivor stops, and A's new quest leads to where they wait.
+- [ ] (If you can play single player with no platform login) in PerPlayer you still get your own record and found a
+      community on it; the log says nothing about `has no platform id`. Nothing to see for m7 (no community has no hostile
+      cvar): it was checked offline.
+- [ ] `AutoHomeFirstClaim` true in PerPlayer: the log says once at load `... AutoHomeFirstClaim adopts no claim for a player
+      with only their own relations ...`, and placing a first claim starts no community by itself.
+- [ ] `sc community join 0 <B>` while B is offline, B's record holding a favor for the same survivor as the community's
+      (the community's further along): the console says the favor clashed; B's favor quest closes at their next login.
+- [ ] Telnet `sc community list` in PerPlayer: a note says the console acts in community 0 and `sc community use <id>`
+      picks another.
+- [ ] A new PerPlayer world: A's own relations are community 0; B founds community 1; `sc community join 1 <A>` empties
+      community 0. `sc community join 0 <D>` is refused with a hint; `sc community owner 0 <D>` gives it to D (D's own
+      relations merged into it), and `sc community list` names D as its owner, without `[personal]`.
+
 **PerParty (`CommunityMode` PerParty)**
 - [ ] As PerPlayer for founding, the merge and leaving. The owner ops are the owner's and admins' (the party leader while the
       owner is away comes with part P).
@@ -127,6 +152,9 @@ mode lock, personal records in the save, the merge, the retire and Move with off
       `sc community mode PerPlayer confirm` says `this save is PerPlayer from now on: 1 owner(s) kept ...`. A stays in community
       0; B gets their own relations at once (online) or at their next spawn. A request B had accepted for community 0 passes to
       A (A's journal gets it with their next report). After `sc save` `[world]` has `mode=PerPlayer`.
+- [ ] The same with B online and talking to an enclave person, with a favor quest in their journal: B is told `You no longer
+      belong to <A>'s community.`, the talk ends, the favor quest closes (the favor is free to take on again unless A holds
+      one), B's followers go home to community 0, and B's own relations show `[personal]` in `sc community list`.
 - [ ] The same command again, or on a new save: refused (`only a save that loaded with no mode= ... can be switched`).
 
 ## Round t2 (2026-11-27): storage across communities, upgrades and repairs from storage, revive anyone, shoot when cornered

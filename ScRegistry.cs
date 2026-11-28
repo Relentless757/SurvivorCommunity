@@ -1642,7 +1642,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round MP7 (core), AfterParse: the text's community is going - several communities, players listed, or a community with a
-        /// home, an owner or members. A save from before MP7 that is so stays Shared (decision 2).
+        /// home, an owner or members. A save from before MP7 that is so stays Shared (decision 2). Round MP7 (core review): m5 - also a
+        /// community that holds anything with no home (favors, requests, contacts, stock, a saved relation: ScMembership.HoldsNothing).
         /// </summary>
         private static bool AnyCommunityStarted()
         {
@@ -1650,7 +1651,7 @@ namespace SurvivorCommunity
             foreach (CommunityState cs in ScCommunities.All)
             {
                 Community c = cs.Community;
-                if (c.HasHome || !string.IsNullOrEmpty(c.OwnerId) || !string.IsNullOrEmpty(c.Owner) || cs.Members.Count > 0) return true;
+                if (!string.IsNullOrEmpty(c.OwnerId) || !string.IsNullOrEmpty(c.Owner) || !ScMembership.HoldsNothing(cs)) return true;
             }
             return false;
         }

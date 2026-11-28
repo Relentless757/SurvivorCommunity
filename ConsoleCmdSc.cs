@@ -131,6 +131,9 @@ namespace SurvivorCommunity
                                        : " player(s) recorded outside community 0; everyone else is in community 0")
                            + "); this command acts in " + ScRegistry.Current.Label);
                     Output("[SC] " + ScMembership.ModeLine());       // round MP7 (core)
+                    // round MP7 (core review): n6 - the playerless consoles act in community 0, which is one player's in PerPlayer/PerParty
+                    if (separate && sender == null && !ScRegistry.WorldState.ConsoleUse.ContainsKey(""))
+                        Output("[SC] note: telnet, the web console and the server's own console act in community 0 - here a player's own; sc community use <id> picks another");
                     foreach (CommunityState cs in ScCommunities.All)
                     {
                         Community c = cs.Community;
@@ -189,8 +192,10 @@ namespace SurvivorCommunity
                     if (separate && ownerId.Length > 0)
                     {
                         ScMembership.MoveResult mr = ScMembership.Move(ownerId, cs.Id, ScMembership.ByAdmin, sender.PlayerDisplayName);
-                        Output("[SC] " + cs.Label + " created, owner " + sender.PlayerDisplayName + (mr.Ok ? ", who is in it now" + (mr.Merged ? " (their own relations merged into it)" : "")
-                               : " - but moving you in failed: " + ScActions.Localize(mr.Error)) + ". sc community join " + cs.Id + " [player] moves another player in.");
+                        // round MP7 (core review): n8 - an owner who could not be moved in is not left owning it (an owner is always in their own)
+                        if (!mr.Ok) { cs.Community.OwnerId = ""; cs.Community.Owner = ""; ScRegistry.SaveAtomic(); }
+                        Output("[SC] " + cs.Label + " created, " + (mr.Ok ? "owner " + sender.PlayerDisplayName + ", who is in it now" + (mr.Merged ? " (their own relations merged into it)" : "")
+                               : "with no owner - moving you in failed: " + ScActions.Localize(mr.Error)) + ". sc community join " + cs.Id + " [player] moves another player in.");
                         break;
                     }
                     Output("[SC] " + cs.Label + " created, owner " + (sender != null ? sender.PlayerDisplayName : "none")

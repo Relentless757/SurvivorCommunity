@@ -1038,12 +1038,14 @@ namespace SurvivorCommunity
         /// Round MP7 (core), the user's decision 8: an accepted request passes to another online player of its community (ScMembership's
         /// hand-over: the player who accepted it lost access). Its quest leaves from's journal (the host's here, a client's by the quest
         /// op; one offline closes it with their next journal report, the record no longer naming them) and goes to the heir's
-        /// (ScQuestNet.StartRequestFor, as Accept). In its community's scope; the caller saves. A missing survivor following from keeps
-        /// following them until the escort ends (EscortBy is a body's).
+        /// (ScQuestNet.StartRequestFor, as Accept). In its community's scope; the caller saves. Round MP7 (core review): a missing
+        /// survivor following from waits where they stand first (ScEncSearch.StopEscortOf).
         /// </summary>
         internal static void HandOver(EnclaveRequest r, EntityPlayer from, EntityPlayer to)
         {
             if (r == null || to == null || !r.IsAccepted) return;
+            // round MP7 (core review): m3 - a missing survivor following the leaver stops and waits first, so the heir's quest leads there
+            ScEncSearch.StopEscortOf(r, from, "the player leading them left the community");
             if (from is EntityPlayerLocal) CloseQuest(from, r, false);
             else if (from != null) ScQuestNet.CloseRequestFor(from, r.Id);
             r.AcceptedBy = to is EntityPlayerLocal ? "" : ScPlayers.IdOf(to);
