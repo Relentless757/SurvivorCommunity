@@ -83,8 +83,9 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Whether this enclave person is enlisted with the player: by the enlister's platform id when both are known; else (a record
-        /// from before round MP7, or no platform id known) by the entity id, while that player is online - the one asked about is.
+        /// Whether this enclave person is enlisted with the player: by the enlister's platform id when both are known; else (no platform
+        /// id known) by the entity id, while that player is online - the one asked about is. Round MP7 (review AP/F): n2 - a record from
+        /// before round MP7 never reaches this enlisted: every enlistment ends at a load (ScEnclavePeople.OnRegistryChanged).
         /// </summary>
         private static bool EnlistedWith(EncPerson p, EntityPlayer player, string pid)
         {

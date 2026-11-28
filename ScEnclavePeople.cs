@@ -43,6 +43,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round MP7 (part F): the enlister's platform id beside EnlistedBy ("" for none: a record from before round MP7, or no id
         /// known) - whose follower limit they count against (ScFollowers). Saved as enlistedid= (never to a client).
+        /// Round MP7 (review AP/F): n2 - written as enlisted= is (the file says who had them), but it never survives a load: no body
+        /// outlives a load, so OnRegistryChanged sends every enlisted person home and clears it. It only counts within a session,
+        /// where it does (the enlister offline, ScEnclaveDeals' grace); it cannot be kept usefully across a restart.
         /// </summary>
         public string EnlistedById = "";
         public ulong EnlistedUntil;

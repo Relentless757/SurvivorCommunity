@@ -2233,13 +2233,17 @@ namespace SurvivorCommunity
             WriteRemains(sb, ws);
             WriteRefills(sb, ws);
             WriteBookkeeping(sb, ws, false);
-            if (ws.Membership.Count > 0)
+            // round MP7 (review AP/F): n1 - the section also when only part AP's lines have something to say (an opt-out of a player
+            // whose empty record was pruned); a save with neither writes no section, as before
+            var joins = new StringBuilder();
+            ScJoins.Write(joins, ws);                  // round MP7 (part AP): joined= and optout= lines (none in a save without them)
+            if (ws.Membership.Count > 0 || joins.Length > 0)
             {
                 sb.AppendLine("[membership]");
                 var ids = new List<string>(ws.Membership.Keys);
                 ids.Sort(StringComparer.Ordinal);
                 foreach (string id in ids) sb.AppendLine("player=" + Clean(id) + ":" + ws.Membership[id].ToString(CultureInfo.InvariantCulture));
-                ScJoins.Write(sb, ws);                 // round MP7 (part AP): joined= and optout= lines (none in a save without them)
+                sb.Append(joins);
             }
             IReadOnlyList<CommunityState> all = ScCommunities.All;
             foreach (CommunityState cs in all)

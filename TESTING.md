@@ -48,6 +48,36 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   retired ids; `owner <id> <player>` hands a community over; `mode <PerPlayer|PerParty> confirm` switches a save from before
   MP7 once.
 
+## Round MP7 (review AP/F) (2026-11-27): forged party joins, the hand-over and the mode switch with allies
+
+Why: the Fable review of parts AP and F (0 blockers, 0 majors, 5 minors, 4 nits). A modified client could join a community
+by a forged party accept or auto join; a hand-over left a stale join record and did not bring the new owner's allies in; an
+admin-made community started from the radial skipped the allies and party; the mode switch skipped the leaving half for an
+ally the reconcile moved into another community; AutoParty repeated the mixed-party tells at every login. Build
+`sc34_mp7fixa`, **not deployed**, untested in game. Checked offline: the save round trip on 12 saves (ALL PASS) and the part
+AP harness, extended for the fixes (117 checks on each of the 12 saves, 0 failures).
+
+**Single player and Shared (nothing may change)**
+- [ ] As in the part AP steps below: no `community (allies)` or `community (party)` line, no new save line.
+
+**PerPlayer on the dedicated server**
+- [ ] An admin makes community 1 (`sc community new`) and hands it to X (`sc community owner 1 X`): X's land claim allies with
+      only their own relations join at once (`community (allies): ... as the land claim ally of X`), not at their next login.
+- [ ] B joined A's community as A's ally; `sc community owner 0 B`, then A and B stop being allies, then `sc community owner 0
+      A`: B stays in the community (no `joined=<B's id>` line after `sc save` while B owned it).
+- [ ] An old Shared save with community 0 (owner A) and community 1 (owner X); B plays in community 0, is X's ally (not A's)
+      and has an open linked storage view: `sc community mode PerPlayer confirm`. B joins community 1, the storage view
+      closes, a work shift of B's ends, and B is not told they lost access to community 0.
+
+**PerParty on the dedicated server**
+- [ ] An admin's community 2 owned by X, never started: X uses "Start a community here" while in a party with a player with
+      only their own relations: that player joins at once.
+- [ ] With the game's `AutoParty` setting on: the log says once at load `community mode PerParty with the game's AutoParty
+      setting on ...`. A player of another community logs in twice: the "Players of ... are in your party" tells come only
+      the first time in that session.
+- [ ] Normal invites still join as before (a forged accept cannot be made in a normal test: the log line `... with no invite
+      the server knew of (a modified client?)` must never appear in normal play).
+
 ## Round MP7 (part AP) (2026-11-27): land claim allies and parties bring players in and take them out
 
 Why: the MP7 core gave every player their own relations and a way to start a community, but only an admin could put a player
