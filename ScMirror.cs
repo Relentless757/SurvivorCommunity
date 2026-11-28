@@ -91,8 +91,10 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round MP7 (review U), the hardening: the "fown" form of a platform id - the first 8 bytes of SHA-256 of its UTF-8 text, as 16
         /// lowercase hex digits. The server writes these (ForeignOwners) and a client hashes a box lock's owner the same way
-        /// (ForeignOwner), so no other player's platform id goes to a client in "fown". "" for an empty id. Any thread (a small cache
-        /// under a lock: a storage scan asks for the same few owners again and again).
+        /// (ForeignOwner), so no other player's platform id goes to a client in "fown" as it is. "" for an empty id. Any thread (a small
+        /// cache under a lock: a storage scan asks for the same few owners again and again). Round MP7 (final check): n3 - unsalted,
+        /// on purpose (a client must hash a lock's owner the same way to test it), so it hides an id from a casual look only: Steam
+        /// ids can be enumerated, and vanilla shares players' ids with clients anyway.
         /// </summary>
         internal static string OwnerHash(string platformId)
         {

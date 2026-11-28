@@ -201,6 +201,8 @@ namespace SurvivorCommunity
                     {
                         if (_d.ClientInfo != null) ScAmmo.ForgetPlayer(_d.ClientInfo.entityId);
                         if (_d.ClientInfo != null) ScNet.ForgetClient(_d.ClientInfo.entityId);   // round MP0
+                        // round MP7 (final check): M1 + M2 - their party invites (either way) and verified party join end
+                        if (_d.ClientInfo != null) ScParties.ForgetPlayer(_d.ClientInfo.entityId, _d.ClientInfo.InternalId != null ? _d.ClientInfo.InternalId.CombinedString : null);
 #if SC_V34
                         // round mt1 (part H): their talk holds and work shifts end now (she walks back to her post), not at the
                         // heartbeat's grace; nothing at a shutdown (shifts live in memory, the resident rule stations her at the next load)
@@ -829,6 +831,10 @@ namespace SurvivorCommunity
             // out (never the owner), a new leader may act for an absent owner; never the disconnect handler
             Add(t, "Party::ServerHandleAcceptInvite", AccessTools.Method(typeof(Party), "ServerHandleAcceptInvite", new[] { typeof(EntityPlayer), typeof(EntityPlayer) }));
             Add(t, "Party::ServerHandleAutoJoinParty", AccessTools.Method(typeof(Party), "ServerHandleAutoJoinParty", new[] { typeof(EntityPlayer) }));   // AutoParty: as an accept
+            // round MP7 (final check): M1 + M2 - SC's party invite ledger: a client's package (its sender) and the host's own invites
+            Add(t, "NetPackagePartyActions::ProcessPackage", AccessTools.Method(typeof(NetPackagePartyActions), "ProcessPackage", new[] { typeof(World), typeof(GameManager) }));
+            Add(t, "NetPackagePartyActions::Setup", AccessTools.Method(typeof(NetPackagePartyActions), "Setup",
+                new[] { typeof(NetPackagePartyActions.PartyActions), typeof(int), typeof(int), typeof(int[]), typeof(string) }));
             Add(t, "Party::ServerHandleLeaveParty", AccessTools.Method(typeof(Party), "ServerHandleLeaveParty", new[] { typeof(EntityPlayer), typeof(int) }));
             Add(t, "Party::ServerHandleKickParty", AccessTools.Method(typeof(Party), "ServerHandleKickParty", new[] { typeof(int) }));
             Add(t, "Party::ServerHandleChangeLead", AccessTools.Method(typeof(Party), "ServerHandleChangeLead", new[] { typeof(EntityPlayer) }));

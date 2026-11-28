@@ -55,7 +55,10 @@ by a forged party accept or auto join; a hand-over left a stale join record and 
 admin-made community started from the radial skipped the allies and party; the mode switch skipped the leaving half for an
 ally the reconcile moved into another community; AutoParty repeated the mixed-party tells at every login. Build
 `sc34_mp7fixa`, **not deployed**, untested in game. Checked offline: the save round trip on 12 saves (ALL PASS) and the part
-AP harness, extended for the fixes (117 checks on each of the 12 saves, 0 failures).
+AP harness, extended for the fixes (117 checks on each of the 12 saves, 0 failures). Round MP7 (final check): SC's own
+party invite ledger for the two majors of the final check (a listen host's own invites lost their community; a forged
+invite or accept, or a sweep of a member who got in so, still reached one); the harness covers them too (141 checks on each
+of the 12 saves, 0 failures; round trip ALL PASS).
 
 **Single player and Shared (nothing may change)**
 - [ ] As in the part AP steps below: no `community (allies)` or `community (party)` line, no new save line.
@@ -76,7 +79,16 @@ AP harness, extended for the fixes (117 checks on each of the 12 saves, 0 failur
       setting on ...`. A player of another community logs in twice: the "Players of ... are in your party" tells come only
       the first time in that session.
 - [ ] Normal invites still join as before (a forged accept cannot be made in a normal test: the log line `... with no invite
-      the server knew of (a modified client?)` must never appear in normal play).
+      SC saw them get (a modified client?)` must never appear in normal play - round MP7 (final check): on a dedicated server
+      and on a listen host alike).
+
+**Round MP7 (final check): PerParty on a listen host (SC's own invite ledger)**
+- [ ] The host owns a community and invites B and C (both with only their own relations) from the players list. B accepts,
+      then C: both join the host's community, and the log has no `... with no invite SC saw them get` line.
+- [ ] The host's game option "auto party with friends" on: a land claim ally of the host with only their own relations joins
+      the game for the first time and accepts the automatic invite: they join the host's community.
+- [ ] A client with only their own relations invites the host (who owns a community); the host accepts from the players list:
+      the client joins the host's community.
 
 ## Round MP7 (review U) (2026-11-27): paging, a role at the first block, the talk's nits, no platform ids in fown
 

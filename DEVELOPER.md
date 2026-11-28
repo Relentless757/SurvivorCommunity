@@ -3634,18 +3634,29 @@ Round MP0 is the groundwork:
   - **PerParty** (`ScParties`): Harmony postfixes on `Party.ServerHandleAcceptInvite`, `ServerHandleAutoJoinParty`,
     `ServerHandleLeaveParty`, `ServerHandleKickParty` and `ServerHandleChangeLead`, never `ServerHandleDisconnectParty` (a disconnect changes nothing;
     vanilla parties are session-only, the saved membership map stays the truth). The host's own players list calls the same
-    statics, so a listen host is covered; single player reaches only the auto join (a party of one, nothing joins). Accept
-    (`Accepted`) counts only when the server knew of the invite, in either direction (`EntityPlayer.HasPendingPartyInvite`,
-    read in the prefix before the accept clears it): vanilla's AcceptInvite package never checks one was sent, so a modified
-    client could otherwise join any community's party and with it the community (vanilla's party join itself is left alone).
-    The auto join counts only while the game's `AutoParty` setting is on. Accept: the party's community is the
+    statics, so a listen host is covered; single player reaches only the auto join (a party of one, nothing joins).
+    Vanilla checks no sender on any party package, so SC keeps its own invite ledger for the session (`ScParties`; vanilla's
+    `partyInvites` cannot be trusted: the host's are wiped at every accept by `RemovePartyInvitesFromAllPlayers`, its auto
+    party invite to land claim allies is never listed, and a forged SendInvite lists one). A prefix on
+    `NetPackagePartyActions.ProcessPackage` keeps the package's real sender (`Sender`) for the party handlers it calls and
+    records a SendInvite only when that sender is the inviter; a postfix on `NetPackagePartyActions.Setup` records the
+    listen host's own invites (its players list, the spawn window, the auto party with allies), never while a client's
+    package is being processed (that is the server relaying the client's invite). An entry ends at the accept, when either
+    player disconnects, or with the session. An accept (`AcceptGenuine`) counts for a community only when the ledger holds
+    inviter to invited and the invited player acted (their own package, or the host's own UI), or both invited each other;
+    an auto join only while the game's `AutoParty` setting is on and for the joiner's own package (or the host's spawn).
+    Vanilla's party join itself is left alone. A counted join verifies that player's place in that party (by `PartyID`,
+    and the inviter's when the invite started the party); every sweep (an accept, a founding, `OwnerHooks`) takes only
+    verified members, and the inviter's or leader's community is the party's only when that player is verified, so a player
+    who got into a party any other way never joins nor steers a community through it until they leave it. A refused join
+    is warned about once per player per session. Accept: the party's community is the
     inviter's founded community, else the only one among the members, else the leader's, else the lowest id. Every member in
     none joins it unless they left it. A member in a founded community keeps it; when it is the invited player, both sides
     are told. Leave or kick (`Left`, the member list taken in a prefix): the player loses access when they joined by party
     and the party they left held another of their community's players, never the owner. Founding pulls in the founder's
     party members in none. The `AutoParty` game setting's join (`AutoJoined`) counts as an accept with no inviter, except
     that it never ends a Leave opt-out (it happens at every login, not by the player's choice). The "different communities"
-    tells come once per player pair per session (AutoParty joins at every login), and a load with PerParty and AutoParty both
+    tells come once per player pair and their two communities per session (AutoParty joins at every login), and a load with PerParty and AutoParty both
     on logs one warning: every player with no community joins the first founder's. `ScOwnerRule.PartyLeaderMayAct` is the
     helper rule: the leader of a party, of the community themselves (so their party holds one of its players), while its
     owner is offline (checked inside, cheapest tests first, so the network's role key can ask it as is). A new leader who
