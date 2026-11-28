@@ -88,7 +88,10 @@ What changes, for members:
 
 New settings (Config/blocks.xml, team section): `MeleeHurtPerStar` 0.05, `MeleeHurtFloor` 0.35; `TeamLowHealthBack` 0.65 (was 0.7).
 
-Build `sc34_wp2`, on branch `wp2` (with the review's fixes: 0 blockers, 2 majors, 3 minors), not deployed, untested in game. Server-side only. `sc xnpc` counts `posture-hold-refused-close`,
+Build `sc34_wp2`, on branch `wp2` (with the review's and the re-check's fixes), not deployed, untested in game. Server-side only.
+The re-check: the walk-yield and hold lines pass tall grass (its 0.85 m collider is no wall) and water; a hold at the bars no
+longer starts and ends on the next check; the slow-gun melee makes its zombie her target and holds until no zombie after her is
+within 3 m for 1.5 s; a cornered flag with no zombie after her within 3 m ends at once. `sc xnpc` counts `posture-hold-refused-close`,
 `x5-cornered-slow-melee`, `defend-yield-near`.
 
 **Hurt lines (single player, at home)**
@@ -113,6 +116,12 @@ Build `sc34_wp2`, on branch `wp2` (with the review's fixes: 0 blockers, 2 majors
       to the near one and swings (no watchdog line naming it with `UAI action ScDefendBase on` the far one).
 - [ ] A zombie beating on the base's bars or fence 2-3 m from a resident with a melee weapon, an intruder inside 12 m off: she
       walks to the intruder (the bars zombie does not hold her).
+- [ ] The same two-zombie test in the grassy yard (tall grass between them): `sc xnpc` counts `defend-yield-near`; she turns to
+      the near one.
+- [ ] A bow member on a platform with a zombie under it after her: after a reload a hold starts and stays (no "an enemy reached
+      him" on the next check).
+- [ ] A bow member cornered, her target 5 m off, another zombie on her: one swap to melee, and the bow comes back only 1.5 s
+      after no zombie after her is within 3 m (`no enemy after her within 3 m for 1.5 s (round wp2)`) - no swap pair every 1.5 s.
 - [ ] `RegenCapShare` 0.6 in blocks.xml: one warning `config: RegenCapShare 0.6 holds the melee-again line at 0.55 ...`, and
       the posture line keeps two different numbers (50% / 55% for Fighting 1-2).
 

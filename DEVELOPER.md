@@ -3675,6 +3675,12 @@ Round MP0 is the groundwork:
     nearest enemy after her within 2.5 m whatever her target (`NearestAfterHer`, `NoPointFor` from it, SC's own swap when her
     target is beyond 3 m) and waits 1.5 s after a hand change; the near cache is cleared per world; pronouns in `WhyNotLed`,
     the swap refusal, the stand's hold end and `NotFree`.
+  - The re-check: `ScShelter.ClearLineOpen` (vanilla's mask without `Constants.cLayerGrass` (18, only the grass and billboard
+    plants' colliders), a hit on a `Room` block or water stepped past) for `ReachableNear` (the reads before the rays) and
+    `ScPosture.Reaches`; `CheckHold`'s 3 m end uses the start's filter; the slow-gun rule sets its enemy as her attack target
+    (`SetAttackTarget`, 200 ticks) and holds R2 by `Watch.SlowMelee` until no enemy after her is within 3 m for 1.5 s; the old
+    triggers need her target within 3 m and the far-target path a melee weapon in her pair; `TidyCornered` ends a flag at once
+    with a gun in hand and no enemy after her within 3 m; the low-cap warning is built once per world.
   - New settings `MeleeHurtPerStar`, `MeleeHurtFloor`; `TeamLowHealthBack` default 0.65. No new Harmony target, no protocol change.
 - **Round MP6 (review fixes):** the four reviews' fixes on the merged build. What a modder must know:
   - **The listen host's own markers** are drawn for the host's own player in the host's own community: the periodic and

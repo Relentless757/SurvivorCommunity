@@ -137,6 +137,7 @@ namespace SurvivorCommunity
 
         public static void Reset()
         {
+            hurtCapWarned = false;                     // round wp2 (re-check)
             verdicts.Clear();
             near.Clear();
             nextPrune = 0f;
@@ -656,6 +657,8 @@ namespace SurvivorCommunity
         private const float RegenLineMargin = 0.05f;
         /// <summary>Round wp2 (review WP2-m1): the least gap between the two hurt lines once the regeneration cap moved the second.</summary>
         private const float MinHurtGap = 0.05f;
+        /// <summary>Round wp2 (re-check WP2R-n3): the low-cap warning was written this world.</summary>
+        private static bool hurtCapWarned;
 
         /// <summary>
         /// Round wp2 (1; the user: "Mia is still using a shotgun against few zombies. her Fighting skill is greater than her shooting
@@ -683,10 +686,16 @@ namespace SurvivorCommunity
                     if (on - off < keep)
                     {
                         off = Mathf.Max(0f, on - keep);
-                        ScLog.Once("hurt-lines-cap", "config: RegenCapShare " + ScConfig.RegenCapShare.ToString("0.##", CultureInfo.InvariantCulture) + " holds the melee-again line at "
+                        // round wp2 (re-check WP2R-n3): the text only once per world (HurtLines runs at every count)
+                        if (!hurtCapWarned)
+                        {
+                            hurtCapWarned = true;
+                            ScLog.Warn("config: RegenCapShare " + ScConfig.RegenCapShare.ToString("0.##", CultureInfo.InvariantCulture) + " holds the melee-again line at "
                                    + on.ToString("0.##", CultureInfo.InvariantCulture) + ", under TeamLowHealthBack; the off line is lowered to "
                                    + off.ToString("0.##", CultureInfo.InvariantCulture) + " to keep a " + keep.ToString("0.##", CultureInfo.InvariantCulture)
-                                   + " gap (round wp2) - raise RegenCapShare or lower TeamLowHealth / TeamLowHealthBack");
+                                   + " gap (round wp2) - raise RegenCapShare or lower TeamLowHealth / TeamLowHealthBack"
+                                   + (off < ScConfig.FleeBelowHealth ? "; that is under FleeBelowHealth (" + ScConfig.FleeBelowHealth.ToString("0.##", CultureInfo.InvariantCulture) + "): the retreat acts first" : ""));
+                        }
                     }
                 }
             }

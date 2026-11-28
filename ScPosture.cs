@@ -730,7 +730,9 @@ namespace SurvivorCommunity
             else if (st.Stand) end = ScRetreat.Her(e) + " last stand";        // round wp2 (review): the pronoun
             else if (!ScRetreat.GunReady(e)) end = ScRetreat.Her(e) + " gun has no rounds";
             else if (PrefersMelee(st, now)) end = "the fight is matched and " + ScRetreat.She(e) + " prefers melee (round wp1)";
-            else if (AfterHerWithin(e, HoldBreakDist) > 0) end = "an enemy reached " + ScRetreat.HerObj(e) + " (within " + F1(HoldBreakDist) + " m)";
+            // round wp2 (re-check WP2R-m1): the start's filter on the end too - a zombie at the bars or under her platform started a
+            // hold the next check ended
+            else if (AfterHerWithin(e, HoldBreakDist, true) > 0) end = "an enemy reached " + ScRetreat.HerObj(e) + " (within " + F1(HoldBreakDist) + " m)";
             else
             {
                 // round cb1 (review CB1-M1, part d): she holds to shoot - no line of fire to her target (SCore's own sight test) for
@@ -838,7 +840,8 @@ namespace SurvivorCommunity
         /// <summary>Round wp2 (review WP2-m2): a on her floor (HoldLevelSpan) with a clear line from its chest to her head (ScShelter.ClearLine, glass and bars too). A read.</summary>
         private static bool Reaches(EntityAlive e, EntityAlive a)
         {
-            return Mathf.Abs(a.position.y - e.position.y) <= HoldLevelSpan && ScShelter.ClearLine(e.world, e.getHeadPosition(), a.getChestPosition(), true);
+            // round wp2 (re-check WP2R-M1): ClearLineOpen - grass is no wall (a crawler or a dog in it read as behind one)
+            return Mathf.Abs(a.position.y - e.position.y) <= HoldLevelSpan && ScShelter.ClearLineOpen(e.world, e.getHeadPosition(), a.getChestPosition(), true);
         }
 
         /// <summary>Round hr1: awake, living enemies within r whose attack or revenge target she is (SCore's IsEnemy, not inert). X5 only (a shared list).</summary>

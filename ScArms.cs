@@ -109,6 +109,12 @@ namespace SurvivorCommunity
             /// target last had room again (0: no room now).
             /// </summary>
             public bool CorneredMelee;
+            /// <summary>
+            /// Round wp2 (re-check WP2R-m2): R2's melee came from the slow-gun rule - it holds while an enemy after her is within 3 m and
+            /// ends SlowMeleeClearSeconds after the last one left (SlowClearSince: since when none), not on "room".
+            /// </summary>
+            public bool SlowMelee;
+            public float SlowClearSince;
             public string CorneredGun;
             public float CorneredAt, RoomSince;
             /// <summary>F2 (strangers, CloseRange): since when 0-XNPCCore has wanted to leave close melee (0 = it does not), in the bout that began at ExitBout.</summary>
@@ -673,6 +679,17 @@ namespace SurvivorCommunity
             }
             // round k5 (C1): "no room" is renewed by the back-offs' own verdicts (NoPointFor) or, on melee - where neither
             // back-off scores - by a probe at most once a second (ScBackOff.HasRoom: the same bounded pick)
+            // round wp2 (re-check WP2R-m2): the slow-gun melee holds while an enemy after her is within 3 m and ends
+            // SlowMeleeClearSeconds after the last one left - not on "room", which handed the bow back with a zombie at her side
+            if (st.SlowMelee)
+            {
+                if (NearestAfterHer(e, XnpcCloseEnterDist) != null) { st.SlowClearSince = 0f; return true; }
+                if (st.SlowClearSince <= 0f) st.SlowClearSince = now;
+                if (now - st.SlowClearSince < SlowMeleeClearSeconds) return true;
+                EndCornered(c, st, e, "no enemy after " + ScRetreat.HerObj(e) + " within " + XnpcCloseEnterDist.ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+                                      + " m for " + SlowMeleeClearSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s (round wp2)");
+                return false;
+            }
             bool noRoom = ScBackOff.NoPointFor(e, t);
             if (!noRoom)
             {
@@ -872,6 +889,8 @@ namespace SurvivorCommunity
         private static void EndCornered(AvatarSdcsNpcController c, Watch st, EntityAlive e, string why)
         {
             st.CorneredMelee = false;
+            st.SlowMelee = false;                       // round wp2 (re-check)
+            st.SlowClearSince = 0f;
             st.RoomSince = 0f;
             st.CorneredInBout = false;
             st.CorneredSwung = false;
@@ -1424,6 +1443,10 @@ namespace SurvivorCommunity
 
         /// <summary>Round wp2 (2b): the enemy after her that makes a spent slow gun in KITE melee (meters).</summary>
         private const float KiteSlowCloseDist = 2.5f;
+        /// <summary>Round wp2 (re-check WP2R-m2): the slow-gun melee ends this long after no enemy after her is within 3 m.</summary>
+        private const float SlowMeleeClearSeconds = 1.5f;
+        /// <summary>Round wp2 (re-check WP2R-m2): the slow-gun rule's enemy is her attack target for this many ticks (SCore renews its own).</summary>
+        private const int SlowTargetTicks = 200;
 
         /// <summary>Round wp2 (2b): the gun in her hand is a slow gun (GunClass: a bow, a crossbow, a pipe gun) whose loaded round is fired (Meta 0). A read.</summary>
         private static bool SlowGunSpent(EntityAlive e, ItemValue held, ItemClass hg)
@@ -1548,9 +1571,16 @@ namespace SurvivorCommunity
             // round wp2 (2b; review WP2-m3): the slow-gun rule looks at the nearest enemy after her within KiteSlowCloseDist, whatever
             // her target, with no back-off point from that one; the hand clock gives way to it (an enemy within 2.5 m, as hr1's stand
             // with an enemy in reach) but not within UrgentMeleeHandFloor of her last hand change
-            EntityAlive slowFoe = !pv.NativeClose && !reloading ? NearestAfterHer(e, KiteSlowCloseDist) : null;
-            bool slowSpent = slowFoe != null && SlowGunSpent(e, held, hg) && ScBackOff.NoPointFor(e, slowFoe)
-                             && now - ScPosture.HandChangedAt(e) >= UrgentMeleeHandFloor;
+            // round wp2 (re-check WP2R-n1): the cheap test first - the scan only with a spent slow gun in hand
+            EntityAlive slowFoe = !pv.NativeClose && !reloading && SlowGunSpent(e, held, hg) ? NearestAfterHer(e, KiteSlowCloseDist) : null;
+            bool slowSpent = slowFoe != null && ScBackOff.NoPointFor(e, slowFoe) && now - ScPosture.HandChangedAt(e) >= UrgentMeleeHandFloor;
+            // round wp2 (re-check WP2R-m3): with her target beyond 3 m only SC's own swap brings the melee weapon - so only with one in
+            // her pair and no equip back-off running, else no flag is set that nothing would act on
+            if (slowSpent && !close)
+            {
+                Loadout sl = ScLoadout.Current(e);
+                if (sl == null || string.IsNullOrEmpty(sl.Melee) || ItemClass.GetItemClass(sl.Melee, true) == null || now < st.MeleeBackoffUntil) slowSpent = false;
+            }
             if (pv.NativeClose || (!close && !slowSpent)) return true;
             if (ScAmmo.RangedAction(hg) == null || ScAmmo.Rounds(e, hg) <= 0) return true;        // no rounds: its failover and swap
             // R2 (the Fable review's F7, the re-review): reloading with no back-off from her target - 0-XNPCCore's swap to melee
@@ -1564,8 +1594,10 @@ namespace SurvivorCommunity
             // (a bow, a crossbow, a pipe gun: GunClass) with its loaded round fired (its magazine empty in her hand), an enemy after
             // her within KiteSlowCloseDist and no back-off point (cornered): melee until she has room, R2's own hold and ends - without
             // waiting for 0-XNPCCore's reload to start. A close gun (magazine 5+) keeps shooting, as hr1 decided
-            if (noShot || (reloading && cornered)) slowSpent = false;              // the older triggers first (their lines and counters)
-            bool trigger = (cornered && (reloading || noShot)) || slowSpent;
+            // round wp2 (re-check WP2R-m3): the older triggers only with her target within 3 m (as before wp2's fall-through), and they
+            // take the lead only there (their lines and counters)
+            if (close && (noShot || (reloading && cornered))) slowSpent = false;
+            bool trigger = (close && cornered && (reloading || noShot)) || slowSpent;
             EntityAlive rt = slowSpent ? slowFoe : ct;                             // round wp2 (review WP2-m3): the one the rule is about
             string skip = trigger ? R2Skip(c, e, rt) : null;
             if (trigger && skip != null && rt != null && st.SkipNoted != rt.entityId)
@@ -1588,6 +1620,14 @@ namespace SurvivorCommunity
                                   + " has room to back off again (the " + hg.GetItemName() + " after; the re-review, R2)");
                 }
                 st.CorneredMelee = true;
+                // round wp2 (re-check WP2R-m2): the slow-gun rule's enemy becomes her attack target, so 0-XNPCCore's bout, R2's hold and
+                // its no-swing end all read the one she swings at (her old target at 3-6 m restored the bow, a swap pair every 1.5 s)
+                if (slowSpent)
+                {
+                    st.SlowMelee = true;
+                    st.SlowClearSince = 0f;
+                    if (slowFoe != null && e.GetAttackTarget() != slowFoe) e.SetAttackTarget(slowFoe, SlowTargetTicks);
+                }
                 st.CorneredGun = hg.GetItemName();
                 st.CorneredAt = now;
                 st.RoomSince = 0f;
@@ -1968,6 +2008,13 @@ namespace SurvivorCommunity
         /// </summary>
         private static void TidyCornered(AvatarSdcsNpcController c, Watch st, EntityAlive e, float now)
         {
+            // round wp2 (re-check WP2R-m3): a flag with a gun in hand, her target beyond 3 m and no enemy after her within 3 m ends at
+            // once - no swap is coming for it (it no longer waits on CorneredSwapGrace, which the trigger kept renewing)
+            if (st != null && st.CorneredMelee && HoldsRangedWeapon(e) && !TargetWithin(e, XnpcCloseEnterDist) && NearestAfterHer(e, XnpcCloseEnterDist) == null)
+            {
+                EndCornered(c, st, e, "no enemy after " + ScRetreat.HerObj(e) + " within " + XnpcCloseEnterDist.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " m (round wp2)");
+                return;
+            }
             if (st == null || !st.CorneredMelee || !HoldsRangedWeapon(e) || now - st.CorneredAt < CorneredSwapGrace) return;
             if (Reloading(e) && CorneredOnTarget(e) && R2Skip(c, e, CurrentTarget(e)) == null) return;   // R2's reload trigger still holds
             EndCornered(c, st, e, "0-XNPCCore never swapped " + ScRetreat.HerObj(e) + " to melee, and R2's trigger is over (C2)");

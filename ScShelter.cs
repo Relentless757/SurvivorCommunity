@@ -873,6 +873,44 @@ namespace SurvivorCommunity
             return true;
         }
 
+        /// <summary>
+        /// Round wp2 (re-check WP2R-M1): vanilla's ray layer mask without the grass layer (Constants.cLayerGrass, 18) - the grass and
+        /// billboard plants' 0.85 m colliders, which stopped the 0.6 m walk line in every grassy yard.
+        /// </summary>
+        private const int OpenLayerMask = -538488845 & ~(1 << Constants.cLayerGrass);
+
+        /// <summary>
+        /// Round wp2 (re-check WP2R-M1): ClearLine for "can she get at it" (the defense walk's yield, the hold's start and end): the
+        /// grass layer left out of the mask (OpenLayerMask), and a hit on a block that is open ground (ScCommunity.Room: grass,
+        /// flowers, billboard plants) or water (re-check WP2R-n2: a zombie wading toward her) stepped past as an entity collider
+        /// is. Bars, fences, glass, walls and terrain still make the line not clear. A read.
+        /// </summary>
+        internal static bool ClearLineOpen(World w, Vector3 from, Vector3 to, bool transparent)
+        {
+            Vector3 d = to - from;
+            float left = d.magnitude;
+            if (w == null || left < 0.05f) return true;
+            d /= left;
+            Vector3 o = from;
+            int hitMask = 0x42 | (transparent ? 1 : 0);                            // Voxel.Raycast(w, ray, d, transparent, false)'s own
+            for (int k = 0; k < EntitySteps; k++)
+            {
+                if (!Voxel.Raycast(w, new Ray(o, d), left, OpenLayerMask, hitMask, 0f)) return true;
+                WorldRayHitInfo info = Voxel.voxelRayHitInfo;
+                if (info == null) return true;
+                if (GameUtils.IsBlockOrTerrain(info.tag))
+                {
+                    BlockValue bv = info.hit.blockValue;
+                    if (!bv.isWater && !ScCommunity.Room(bv)) return false;           // a real block or terrain
+                }
+                float t = Mathf.Max(0.15f, Vector3.Dot(info.hit.pos - o, d) + 0.15f);
+                o += d * t;
+                left -= t;
+                if (left <= 0.05f) return true;
+            }
+            return true;
+        }
+
         // ------------------------------------------------------------------ console ----
 
         /// <summary>The cache in one line (sc retreat, the fallback log line).</summary>

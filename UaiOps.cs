@@ -1335,10 +1335,7 @@ namespace UAI
         private static bool ReachableNear(EntityAlive self, EntityAlive a)
         {
             if (Mathf.Abs(a.position.y - self.position.y) > DefendYieldLevel) return false;
-            World w = self.world;
-            if (!ScShelter.ClearLine(w, self.getHeadPosition(), a.getChestPosition(), true)) return false;
-            Vector3 low = new Vector3(0f, DefendYieldLowLine, 0f);
-            if (!ScShelter.ClearLine(w, self.position + low, a.position + low, true)) return false;
+            // round wp2 (re-check WP2R-n1): the reads first, the rays last
             if (ScPosture.RefusedWhy(self, a) != null) return false;
 #if SC_V34
             if (ScReach.Marked(self, a)) return false;
@@ -1346,7 +1343,11 @@ namespace UAI
             Member m = ScRegistry.GetMember(self.entityId);
             if (m != null && m.Status == MemberStatus.Resident && UAIConsiderationScNotHomeMember.AtHome(self.position)
                 && !ScBaseAttack.WideDefence && !UAIConsiderationScNotHomeMember.AtHome(a.position)) return false;
-            return true;
+            // round wp2 (re-check WP2R-M1): ClearLineOpen - tall grass (its 0.85 m collider) is no wall for either line
+            World w = self.world;
+            if (!ScShelter.ClearLineOpen(w, self.getHeadPosition(), a.getChestPosition(), true)) return false;
+            Vector3 low = new Vector3(0f, DefendYieldLowLine, 0f);
+            return ScShelter.ClearLineOpen(w, self.position + low, a.position + low, true);
         }
     }
 
