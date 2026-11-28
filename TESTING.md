@@ -44,7 +44,90 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 
 - `sc community` lists the communities (id, name, owner, members, outposts, home, players online); `sc community new
   <name>`, `join <id> [player]`, `leave [player]` and `use <id>|none` (this console acts in that community) make and fill a
-  second one. Admin only.
+  second one. Admin only. Round MP7 (core): the list shows the mode and marks a player's own relations `[personal]` and
+  retired ids; `owner <id> <player>` hands a community over; `mode <PerPlayer|PerParty> confirm` switches a save from before
+  MP7 once.
+
+## Round MP7 (core) (2026-11-27): community modes, a player's own relations, founding, joining and leaving
+
+Why: MP6 let one server hold several communities, but every unlisted player was in community 0 and only an admin moved
+players. MP7's core adds the host's `CommunityMode` (Shared, PerPlayer, PerParty) and `MaxCommunities`, a player's own
+relations before they have a community (a "personal record"), founding with "Start a community here", the merge when such a
+player joins a community, Leave, one move function with the hand-over of the user's decision 8, and the owner rule per mode.
+In Shared mode nothing changes, except that moving the home never changes the owner any more (the user's decision 11, every
+mode). The allies (part A), parties (part P), per-player followers (part F) and the window and network keys (part U) come
+later: the radial's Start already uses the new `community.start`, but the window has no Leave button or no-community page
+yet, and a player with only their own relations cannot reach a wild survivor's favor rows in the talk yet (part U).
+Build `sc34_mp7core`, **not deployed**, protocol 8 unchanged (the merge sets 9), untested in game. Checked offline: the save
+round trip on 12 saves from before MP6 (ALL PASS: old saves load and save byte for byte as before), and a harness for the
+mode lock, personal records in the save, the merge, the retire and Move with offline players (59 checks, 0 failures).
+
+**Single player, Shared (the default: nothing may change)**
+- [ ] An existing save: the log says `community mode: Shared (a save from before MP7: Shared, until an admin runs sc community
+      mode <PerPlayer|PerParty> confirm)`. Everything plays as before: the window, recruiting, favors, enclaves, the radial.
+- [ ] `sc save`: `survivor_communities.txt` has no `mode=`, `personal=` or `retired=` line.
+- [ ] A new game: "Start a community here" on your claim starts it as before (`Your community starts here ...`). The log says
+      `community mode Shared is fixed into this save from now on`, and after `sc save` `[world]` has `mode=Shared`.
+- [ ] "Set as community home" on another claim of yours moves the home; `sc community list` still names you as the owner.
+
+**One community on a dedicated server, Shared (nothing may change)**
+- [ ] One or two clients in community 0: every button, radial, dialog, tell and marker works as in round MP6.
+- [ ] With `SharedOwnerOnly` true, player B (not the owner) uses "Set as community home": refused as before
+      (`Only the community's owner or an admin ...`). With it false, B moves the home - and `sc community list` still names
+      the founder as the owner (decision 11: moving the home never changes the owner).
+
+**Single player, PerPlayer (`CommunityMode` PerPlayer in SC's blocks.xml config, a new game)**
+- [ ] At the first spawn the log says `community: <you> has no community yet - their own relations are community 0 (community 0
+      was free) (PerPlayer)` and `community mode PerPlayer is fixed into this save`. `sc community list` shows
+      `0: [personal] ...` and `mode PerPlayer (the save's; the config agrees)`.
+- [ ] Before starting one: talk, enclave trade, enclave requests (accept, deliver) and SC's map markers work. Recruiting a
+      survivor, the radio, linked storage and the packing station answer `You have no community yet: start one on your own
+      land claim ...` (or the old `Start a community first ...`).
+- [ ] An allied enclave's daily bundles go into the (personal) stockpile: `sc status` shows them; after starting the community
+      they are there.
+- [ ] "Start a community here": `Your community starts here: this land claim is its home. Everything you built on your own is
+      the community's now.` `sc community list` shows `0:` without `[personal]`, with your home. The enclaves you knew, your
+      standing and any favor you finished are still yours; a survivor whose favor was done joins at "Join us" without a new
+      favor. From here on everything plays as in Shared.
+
+**PerPlayer on the dedicated server (two players, a new world, `CommunityMode` PerPlayer)**
+- [ ] Player A joins first: their own relations are community 0. Player B joins: `community 1`, marked `[personal]`. Each
+      client's window shows their own (empty) community; neither sees the other's enclaves found or favors.
+- [ ] A starts a community on A's claim: community 0 is founded (A owner). B, with no community, does an enclave request and
+      learns an enclave (`sc community list`: community 1 shows the request).
+- [ ] Telnet `sc community join 0 <B>`: the console reports the merge (`merged: N favor(s) and N request(s) moved ...`), B is
+      told `You joined <A>'s community.` and `What you built on your own ... is <A>'s community's now.`, A is told `<B> joined the
+      community.` `sc community list` shows community 1 under `retired`; after `sc save` `[world]` has `retired=1`. B's request
+      and enclave knowledge are community 0's now (B's journal still holds the request quest; the enclave's marker shows for A).
+- [ ] An enclave hostile to A's community but not to B's record: after the join it is no longer hostile to community 0 (the
+      user's "hostile only if both"). One hostile to B's record only: still friendly to community 0, and its people's
+      `%sc_enchostile_1` cvar reads 0.
+- [ ] B accepts an enclave request for community 0, then `sc community leave <B>` (or B's own `community.leave`, part U's
+      button later): A (online) is told the request is theirs now and gets its quest; B's quest is removed; B is told `You no
+      longer belong to <A>'s community.` (an admin's leave) and has fresh own relations (`[personal]`, a new id, never 1). With
+      A offline the request is withdrawn (no standing lost). B's followers go home to community 0 as residents.
+- [ ] `sc community leave <A>` (the owner): refused, `... owns community 0 - an owner is always in their own community: hand it
+      over first`. `sc community owner 0 <B>`: B owns it (moved in first, their own relations merged); A stays a player of it.
+- [ ] `MaxCommunities` 1 and community 0 founded: player C's "Start a community here" answers `This server already has as many
+      communities as it allows.` `sc community list` shows `founded communities: 1 of at most 1`.
+- [ ] B (not the owner) uses "Set as community home", disbands an outpost or dismisses a member: refused (`Only the community's
+      owner or an admin ...`). As an admin it works.
+- [ ] Save, quit and load: the mode, the personal records (`personal=1`), the tombstones and the membership are kept; the log
+      says `community mode: PerPlayer (the save's)`. Set the config to Shared and load again: the log warns `the config says
+      CommunityMode=Shared, but this save is PerPlayer - the save's mode stays`.
+- [ ] The world steps (enclaves found, bands, infestations) still run with only personal records online (B alone online,
+      before anyone founded).
+
+**PerParty (`CommunityMode` PerParty)**
+- [ ] As PerPlayer for founding, the merge and leaving. The owner ops are the owner's and admins' (the party leader while the
+      owner is away comes with part P).
+
+**A save from before MP7 switched (`sc community mode`)**
+- [ ] On an old save (Shared, A owns community 0, B plays in it too): `sc community mode PerPlayer` says to add confirm;
+      `sc community mode PerPlayer confirm` says `this save is PerPlayer from now on: 1 owner(s) kept ...`. A stays in community
+      0; B gets their own relations at once (online) or at their next spawn. A request B had accepted for community 0 passes to
+      A (A's journal gets it with their next report). After `sc save` `[world]` has `mode=PerPlayer`.
+- [ ] The same command again, or on a new save: refused (`only a save that loaded with no mode= ... can be switched`).
 
 ## Round t2 (2026-11-27): storage across communities, upgrades and repairs from storage, revive anyone, shoot when cornered
 

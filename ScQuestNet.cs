@@ -455,6 +455,64 @@ namespace SurvivorCommunity
             Send(p, () => NetPackageManager.GetPackage<NetPackageScQuestOp>().Setup(NetPackageScQuestOp.KindFavourClose, prospectId, 0, completed, null, null));
         }
 
+        // ---- round MP7 (core): ScMembership's hand-over and merge ----
+
+        /// <summary>Round MP7 (core), server: a remote player's last report this session holds this favor's quest (in progress or past its clearing).</summary>
+        internal static bool ReportHoldsFavour(EntityPlayer p, int prospectId)
+        {
+            ScJournalReport r;
+            if (p == null || p is EntityPlayerLocal || !reports.TryGetValue(Key(p), out r)) return false;
+            foreach (ScJournalReport.Entry e in r.Entries)
+                if ((e.Kind == ScJournalReport.KindPoiFavour || e.Kind == ScJournalReport.KindSupplies) && e.Id == prospectId && (e.InProgress || e.Done)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Round MP7 (core), server: another player of community cid online (not except) holds this favor's quest - the host's own
+        /// journal, or a remote player's last report.
+        /// </summary>
+        internal static bool AnyOtherHoldsFavour(int cid, int prospectId, EntityPlayer except)
+        {
+            EntityPlayer[] mine = ScPlayers.Community(cid).ToArray();      // copied: FindFavour reads journals, not the list, but be safe
+            for (int i = 0; i < mine.Length; i++)
+            {
+                EntityPlayer p = mine[i];
+                if (p == null || ReferenceEquals(p, except)) continue;
+                if (p is EntityPlayerLocal ? ScQuests.FindFavour(p, prospectId) != null : ReportHoldsFavour(p, prospectId)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Round MP7 (core), server (ScEncRequests.HandOver): this request's quest leaves one remote player's journal - removed, not
+        /// failed (the request goes on with another player of the community). Their "started this session" marks go, so the request
+        /// would be started for them again only if it were theirs again.
+        /// </summary>
+        internal static void CloseRequestFor(EntityPlayer p, int requestId)
+        {
+            if (p == null || p is EntityPlayerLocal) return;
+            Send(p, () => NetPackageManager.GetPackage<NetPackageScQuestOp>().Setup(NetPackageScQuestOp.KindRequestClose, requestId, 0, false, null, null));
+            string key = Key(p);
+            SetOf(requestStarted, key).Remove(requestId);
+            SetOf(requestShaped, key).Remove(requestId);
+        }
+
+        /// <summary>
+        /// Round MP7 (core), ScMembership.Merge: a merged personal record's favors keep their "a remote report held it" mark under the
+        /// community they moved to (favourEverHeld is keyed by community and prospect).
+        /// </summary>
+        internal static void RemapFavours(int fromCid, int toCid)
+        {
+            if (fromCid == toCid || favourEverHeld.Count == 0) return;
+            var moved = new List<long>();
+            foreach (long k in favourEverHeld) if ((int)(k >> 32) == fromCid) moved.Add(k);
+            foreach (long k in moved)
+            {
+                favourEverHeld.Remove(k);
+                favourEverHeld.Add(FavourKey(toCid, (int)(uint)(k & 0xFFFFFFFFL)));
+            }
+        }
+
         /// <summary>
         /// Server: an enclave person's favour moved to a new key (ScEnclaveDeals.Rekey: the host's own journal is re-keyed there) -
         /// every remote copy follows. A player away now follows on their next report (their quest names the person).

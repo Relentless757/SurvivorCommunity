@@ -2045,6 +2045,23 @@ namespace SurvivorCommunity
             RebuildHostile();
         }
 
+        /// <summary>
+        /// Round MP7 (core), ScMembership's merge and retire: the group's hostility toward community cid is over (merged into a community
+        /// that was not hostile, or the record retired) - its cvar set to 0 on the group's live bodies (a 0 reaches clients, a removal
+        /// never would; bodies are never saved, so the live ones are all there are). The caller rebuilds the lookup (RebuildHostile).
+        /// </summary>
+        internal static void ClearHostileCvar(Enclave e, int cid)
+        {
+            if (e == null) return;
+            string cvar = HostileCvarFor(cid);
+            foreach (EncPerson p in bodies.Values)
+            {
+                if (p.EnclaveId != e.Id) continue;
+                EntityAlive npc = BodyOf(p);
+                if (npc != null && npc.Buffs != null && npc.Buffs.GetCustomVar(cvar) > 0f) npc.Buffs.SetCustomVar(cvar, 0f);
+            }
+        }
+
         /// <summary>The tick: a threat's grace that ended switches the enclave's hostility on (round MP6 (part relations): any community's).</summary>
         private static void Grace()
         {

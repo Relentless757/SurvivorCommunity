@@ -152,7 +152,7 @@ namespace SurvivorCommunity
             // round MP6 (core fix): the hitter's community's favour ends (the user's decision 5: the grudge blocks only the hitter's
             // community) - looked up and removed in that community's own table, not the global lookup's lowest community nor the
             // scope's (review C-M2). With one community: the one favour, as before
-            CommunityState hitters = ScCommunities.ById(ScPlayers.CommunityOf(player)) ?? ScCommunities.Zero;
+            CommunityState hitters = ScCommunities.OrNone(ScPlayers.CommunityOf(player));      // round MP7 (core): none - the empty record, never community 0's
             Prospect p;
             if (!hitters.Prospects.TryGetValue(npc.entityId, out p)) p = null;
             if (p != null)

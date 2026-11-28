@@ -6,7 +6,8 @@ namespace SurvivorCommunity
     /// Round MP2 (multiplayer, part R): the land claim radial's actions (TEFeatureSCCommunity) as ScActions requests, so a
     /// client can start the community, move its home, establish and disband outposts. Single player and the listen host's own
     /// radial go through the same handlers, run inline (ScActions.Request).
-    /// - home.set x y z [mode]: the claim becomes the home, owned by the SENDER (ScZone.SetHome records their platform id).
+    /// - home.set x y z [mode]: the claim becomes the home, owned by the SENDER (ScZone.SetHome records their platform id). Round
+    ///   MP7 (core): the sender becomes the owner only when this starts a community that has none (decision 11).
     ///   mode (optional, 0 when absent): HomeSet = the radial's "Set as community home" and any other caller (moves the home);
     ///   HomeStart = "Start a community here" (refused once a home exists: two players starting at once get one community);
     ///   HomeAdoptCommunity / HomeAdoptStorage = AutoHomeFirstClaim's adoption by "Community" / "Linked storage" (silent, and
@@ -34,9 +35,13 @@ namespace SurvivorCommunity
         /// </summary>
         internal static void RequestHome(Vector3i claim, int mode, EntityPlayerLocal player)
         {
-            ScActions.Request(OpHomeSet, new[] { claim.x, claim.y, claim.z, mode }, null, r =>
+            // round MP7 (core): Start a community here asks community.start (ScMembership.Start - in Shared what home.set mode 1 did, in
+            // PerPlayer/PerParty the player's own relations become their community); the other modes stay home.set
+            string op = mode == HomeStart ? ScMembership.OpStart : OpHomeSet;
+            ScActions.Request(op, new[] { claim.x, claim.y, claim.z, mode }, null, r =>
             {
-                if (mode == HomeSet || mode == HomeStart || !r.Ok) TellReply(player, r);
+                // round MP7 (core): an adoption asked by a player with no community founds nothing (decision 3) - not told
+                if (mode == HomeSet || mode == HomeStart || (!r.Ok && r.Message != "scNoCommunity")) TellReply(player, r);
             });
         }
 
@@ -108,7 +113,12 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ handlers (the server) ----
 
-        /// <summary>home.set x y z [mode]: the radial's Start a community here / Set as community home (and the adoptions).</summary>
+        /// <summary>
+        /// home.set x y z [mode]: the radial's Start a community here / Set as community home (and the adoptions). Round MP7 (core): the
+        /// radial's Start asks community.start now (ScMembership.Start); mode 1 here still starts a community in Shared mode. Owner
+        /// access: a player with only their own relations (PerPlayer/PerParty) is refused (scNoCommunity). ScZone.SetHome writes the
+        /// owner only when the community starts (decision 11).
+        /// </summary>
         [ScAction(OpHomeSet, ScActionAccess.Owner)]
         private static void HomeSetAction(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
         {

@@ -178,6 +178,8 @@ namespace SurvivorCommunity
                 if (storage) return isOutpost || ScZone.HasHome || ScConfig.AutoHomeFirstClaim;
                 if (isOutpost) return false;                  // an outpost's claim never offers the home entries
                 bool isHome = ScZone.HasHome && ScZone.Home == _blockPos;
+                // MP7 (part U): "Start a community here" for a personal record (it has no home: shown already; it asks community.start),
+                // "Set as community home" and Disband outpost hidden for non-owner roles (the derived block's role=)
                 if (startHome) return !ScZone.HasHome;        // round 32a: opt-in - the first home is started here
                 if (setHome) return ScZone.HasHome && !isHome; // moving an existing home here
                 if (establish)

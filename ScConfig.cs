@@ -1429,6 +1429,19 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool SharedOwnerOnly = false;
         /// <summary>
+        /// Round MP7 (core), the user's decision 1: how players get communities on this server - Shared (everyone unlisted is in
+        /// community 0, as before MP7), PerPlayer (each player founds their own at "Start a community here"; land-claim allies join
+        /// it) or PerParty (the founder's party joins it). Locked into the save when its first community record starts
+        /// (ScMembership.LockMode: [world] mode=); a save from before MP7 stays Shared unless an admin switches it once ("sc
+        /// community mode ... confirm"). Single player always has one community whatever the mode.
+        /// </summary>
+        public static ScCommunityMode CommunityMode = ScCommunityMode.Shared;
+        /// <summary>
+        /// Round MP7 (core), the user's decision 12: the most founded communities this server allows (personal records never count;
+        /// ScMembership.Start refuses a founding past it). 0 = no limit.
+        /// </summary>
+        public static int MaxCommunities = 0;
+        /// <summary>
         /// Round cfs1 (the user, 2026-11-25): inside the home zone, 0-SCore's Craft from Storage also finds ingredients in every
         /// box linked storage links (ScCraftFromBase), wherever it stands in the base. false: 0-SCore's own range only.
         /// </summary>
@@ -1503,6 +1516,8 @@ namespace SurvivorCommunity
             TraitsPerRecruit = 2;
             Verbose = false;
             SharedOwnerOnly = false;          // round MP2
+            CommunityMode = ScCommunityMode.Shared;   // round MP7 (core)
+            MaxCommunities = 0;               // round MP7 (core)
             CraftFromBaseStorage = true;      // round cfs1
             UpgradeRepairFromStorage = true;  // round t2
             Traits.Clear();
@@ -2917,6 +2932,15 @@ namespace SurvivorCommunity
                 bool ownerOnly = SharedOwnerOnly;     // round MP2
                 if (p.Values.ContainsKey("SharedOwnerOnly")) p.ParseBool("SharedOwnerOnly", ref ownerOnly);
                 SharedOwnerOnly = ownerOnly;
+                // round MP7 (core): the community mode and the founding limit (ScMembership)
+                string modeS;
+                if (p.Values.TryGetValue("CommunityMode", out modeS) && !string.IsNullOrEmpty(modeS))
+                {
+                    ScCommunityMode mode;
+                    if (ScMembership.TryParseMode(modeS, out mode)) CommunityMode = mode;
+                    else ScLog.Warn("config: CommunityMode '" + modeS + "' is not Shared, PerPlayer or PerParty - " + CommunityMode + " kept");
+                }
+                ParseInt(p, "MaxCommunities", ref MaxCommunities, 0, 100000);
                 bool craftBase = CraftFromBaseStorage;     // round cfs1
                 if (p.Values.ContainsKey("CraftFromBaseStorage")) p.ParseBool("CraftFromBaseStorage", ref craftBase);
                 CraftFromBaseStorage = craftBase;

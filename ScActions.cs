@@ -15,7 +15,11 @@ namespace SurvivorCommunity
         /// </summary>
         Owner,
         /// <summary>Server admins only (the host's own player always counts).</summary>
-        Admin
+        Admin,
+        /// <summary>
+        /// Round MP7 (core): any player, in a community or not - founding (community.start). The handler checks what it needs.
+        /// </summary>
+        Anyone
     }
 
     /// <summary>
@@ -363,7 +367,9 @@ namespace SurvivorCommunity
             // round MP6 (core): every op runs in the sender's community (one scope here covers every handler)
             using (ScRegistry.Use(p))
             {
-                if (!Allowed(p, e.Access)) return r.Fail("scActionDenied");
+                // round MP7 (core): a player with only their own relations is refused with scNoCommunity (WhyNot)
+                string why = WhyNot(p, op, e.Access);
+                if (why != null) return r.Fail(why);
                 try
                 {
                     e.Handler(p, args ?? new ScActionArgs(null, null), r);
@@ -385,16 +391,49 @@ namespace SurvivorCommunity
         /// <summary>
         /// The Shared-mode permission matrix: a community player may run the community; Owner ops follow SharedOwnerOnly. Round
         /// MP6 (core): against the sender's own community (ScPlayers.CommunityOf), whatever the scope the caller is in.
+        /// Round MP7 (core): WhyNot with no op (so a personal record's player gets no Community access here: facility.do's own check).
         /// </summary>
         public static bool Allowed(EntityPlayer p, ScActionAccess access)
         {
-            if (p == null || ScCommunities.ById(ScPlayers.CommunityOf(p)) == null) return false;
+            return WhyNot(p, null, access) == null;
+        }
+
+        /// <summary>
+        /// Round MP7 (core), the user's decision 4: the ops a player with only their own relations (a personal record, PerPlayer/
+        /// PerParty) may use - the relation ops: wild survivors' favors, the enclave talk's gifts, requests, threats and the missing
+        /// survivor's search and escort, sending an enlisted person home, and two quiet follow-ups (a bundle opened, a withdrawal's
+        /// refund to the stockpile it came out of). Talk, trade and SC's markers need no op. Every other Community op (recruiting,
+        /// enlisting, joins, members, stations, radio, linked storage, the stockpile, outposts, runs) and every Owner op answers
+        /// scNoCommunity: what needs a home or a community waits for their founding (DEVELOPER.md, the held rewards).
+        /// </summary>
+        private static readonly HashSet<string> PersonalOps = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "favour.start", "favour.poicleared", "favour.items", "favour.given",
+            "enc.threat", "enc.gift", "enc.req", "enc.reqgive", "enc.reqgun", "enc.follow", "enc.wait", "enc.seen", "enc.gohome",
+            "encremains.search", "bundle.opened", "stock.refund"
+        };
+
+        /// <summary>
+        /// Round MP7 (core): why player p may not use op (its access level), as a localization key; null = allowed. Against the
+        /// sender's own community. Anyone: always. A personal record's player (PerPlayer/PerParty): PersonalOps only, else
+        /// scNoCommunity (Admin ops still by IsAdmin). Community: any player of a community. Owner: ScOwnerRule (Shared: SharedOwnerOnly
+        /// as before; PerPlayer: owner and admins; PerParty: also the party leader while the owner is offline, part P). Admin:
+        /// IsAdmin. With Shared mode, exactly the old matrix.
+        /// </summary>
+        internal static string WhyNot(EntityPlayer p, string op, ScActionAccess access)
+        {
+            if (p == null) return "scActionDenied";
+            if (access == ScActionAccess.Anyone) return null;
+            CommunityState cs = ScCommunities.ById(ScPlayers.CommunityOf(p));
+            if (cs == null) return ScMembership.Separate ? "scNoCommunity" : "scActionDenied";
+            if (cs.Personal && access != ScActionAccess.Admin)
+                return access == ScActionAccess.Community && op != null && PersonalOps.Contains(op) ? null : "scNoCommunity";
             switch (access)
             {
-                case ScActionAccess.Community: return true;
-                case ScActionAccess.Owner: return !ScConfig.SharedOwnerOnly || IsOwnerOrAdmin(p);
-                case ScActionAccess.Admin: return IsAdmin(p);
-                default: return false;
+                case ScActionAccess.Community: return null;
+                case ScActionAccess.Owner: return ScOwnerRule.May(p, cs) ? null : "scActionDenied";
+                case ScActionAccess.Admin: return IsAdmin(p) ? null : "scActionDenied";
+                default: return "scActionDenied";
             }
         }
 

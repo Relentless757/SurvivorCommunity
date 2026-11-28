@@ -1498,10 +1498,25 @@
 			<property name="RaiderGearSets" value="Raider,Biker,Enforcer,Assassin,Rogue,Commando,Nomad,Scavenger,Primitive" />
 
 			<property name="DebugLogging" value="false" />
-			<!-- SharedOwnerOnly (multiplayer): true = only the community's owner (the player who set its home) and the
-			     server's admins may dismiss members, disband outposts, move the home and order rationing. false: every
-			     player on the server may. Single player is unaffected. -->
+			<!-- SharedOwnerOnly (multiplayer, Shared mode): true = only the community's owner (the player who started
+			     it; moving the home never changes the owner) and the server's admins may dismiss members, disband
+			     outposts, move the home and order rationing. false: every player on the server may. In PerPlayer and
+			     PerParty mode those stay the owner's and the admins' whatever this says. Single player is unaffected. -->
 			<property name="SharedOwnerOnly" value="false" />
+			<!-- CommunityMode (multiplayer; round MP7): how players get communities on this server.
+			     Shared (default): everyone shares one community, as before.
+			     PerPlayer: each player starts their own community with "Start a community here" on their own land claim;
+			     the founder's land claim allies who have no community join it.
+			     PerParty: as PerPlayer, and a player with no community who joins a party holding one of a community's
+			     players joins that community.
+			     Until then a player has their own relations: talk, trade, map markers, enclave and survivor favors.
+			     The mode is fixed into the save when its first community (or a player's own relations) starts; a save
+			     from before this version stays Shared unless an admin types "sc community mode PerPlayer confirm" (or
+			     PerParty) once. Single player always has one community, whatever the mode. -->
+			<property name="CommunityMode" value="Shared" />
+			<!-- MaxCommunities (PerPlayer / PerParty): the most communities players may start on this server. 0 = no
+			     limit. A player's own relations before they start one never count. -->
+			<property name="MaxCommunities" value="0" />
 			<!-- CraftFromBaseStorage (with 0-SCore's Craft from Storage on): true = while you stand inside the community's
 			     home zone, crafting also finds ingredients in every box linked storage links (player-placed storage in the
 			     base, never the packing station or the land claim block's own storage), wherever it stands in the base and

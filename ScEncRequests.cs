@@ -1035,6 +1035,28 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round MP7 (core), the user's decision 8: an accepted request passes to another online player of its community (ScMembership's
+        /// hand-over: the player who accepted it lost access). Its quest leaves from's journal (the host's here, a client's by the quest
+        /// op; one offline closes it with their next journal report, the record no longer naming them) and goes to the heir's
+        /// (ScQuestNet.StartRequestFor, as Accept). In its community's scope; the caller saves. A missing survivor following from keeps
+        /// following them until the escort ends (EscortBy is a body's).
+        /// </summary>
+        internal static void HandOver(EnclaveRequest r, EntityPlayer from, EntityPlayer to)
+        {
+            if (r == null || to == null || !r.IsAccepted) return;
+            if (from is EntityPlayerLocal) CloseQuest(from, r, false);
+            else if (from != null) ScQuestNet.CloseRequestFor(from, r.Id);
+            r.AcceptedBy = to is EntityPlayerLocal ? "" : ScPlayers.IdOf(to);
+            r.QuestCode = 0;
+            Enclave e = ScEnclaves.ById(r.EnclaveId);
+            if (e == null) return;
+            string error;
+            Quest q = ScQuestNet.StartRequestFor(to, e, r, WhatText(r), out error);
+            if (q != null) r.QuestCode = q.QuestCode;
+            else if (error != ScQuestNet.SentToClient) ScLog.Warn("enclave request #" + r.Id + ": no journal quest for " + to.PlayerDisplayName + " (" + (error ?? "no player") + ") - handed over all the same");
+        }
+
+        /// <summary>
         /// E5: where a request's journal quest points - E4's kinds and a siege at the enclave's building; a missing survivor's
         /// at the building searched (or, once they wait somewhere else, that spot) until they follow the player or their
         /// remains were searched, then at the enclave; an infestation's at the infested building.

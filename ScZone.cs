@@ -166,14 +166,24 @@ namespace SurvivorCommunity
                 if (c.HasHome && pp.m_lpBlockMap != null && pp.m_lpBlockMap.ContainsKey(c.Home)) return true;
                 ScConfig.EnsureParsed();
                 if (!ScConfig.AutoHomeFirstClaim) return false;     // opt-in: no claim becomes the home by itself
+                // round MP7 (core), the user's decision 3: a player's own relations (PerPlayer/PerParty) become a community only by
+                // Start a community here - never by this adoption
+                if (ScRegistry.Current.Personal) return false;
                 Vector3i lp;
                 if (!FirstOwnClaim(owner, out lp)) return false;
                 // round MP6 (fix G-m2): never another community's home or outpost ground (home.set's own refusal)
                 if (ScGates.OtherCommunityInClaim(lp, ScRegistry.CurrentId) >= 0) return false;
+                bool started = !c.HasHome;
                 c.Home = lp;
                 c.HasHome = true;
-                c.Owner = owner.PlayerDisplayName ?? "";
-                c.OwnerId = ScPlayers.IdOf(owner);              // round MP0
+                // round MP7 (core), the user's decision 11: the owner is written only when the community starts, and only when it has
+                // none - re-adopting a claim for a home whose claim is gone never changes it
+                if (started && string.IsNullOrEmpty(c.OwnerId) && string.IsNullOrEmpty(c.Owner))
+                {
+                    c.Owner = owner.PlayerDisplayName ?? "";
+                    c.OwnerId = ScPlayers.IdOf(owner);              // round MP0
+                }
+                if (started) ScMembership.LockMode();           // round MP7 (core): the first home start fixes the mode into the save
                 ScLog.Out("community home set to the land claim at " + lp + " (AutoHomeFirstClaim)");
                 return true;
             }
@@ -269,18 +279,25 @@ namespace SurvivorCommunity
             return HasHome ? "scOpHomeGone" : "scNeedHome";
         }
 
-        /// <summary>Makes a specific claim the home (the land claim radial's "starthome" / "sethome", `sc home set`).</summary>
+        /// <summary>
+        /// Makes a specific claim the home (the land claim radial's "starthome" / "sethome", `sc home set`). Round MP7 (core), the
+        /// user's decision 11: owner becomes the community's owner only when this starts it (no home before) and it has none yet - a
+        /// founder's own relations and a community "sc community new" made already have theirs; moving the home never changes the
+        /// owner, in every mode. A start fixes the community mode into the save (ScMembership.LockMode). The caller saves.
+        /// </summary>
         public static void SetHome(Vector3i claim, EntityPlayer owner)
         {
             Community c = ScRegistry.Community;
+            bool started = !c.HasHome;
             c.Home = claim;
             c.HasHome = true;
-            if (owner != null)
+            if (owner != null && started && string.IsNullOrEmpty(c.OwnerId) && string.IsNullOrEmpty(c.Owner))
             {
-                c.Owner = owner.PlayerDisplayName ?? c.Owner;
+                c.Owner = owner.PlayerDisplayName ?? "";
                 string id = ScPlayers.IdOf(owner);              // round MP0: who the community belongs to
                 if (id.Length > 0) c.OwnerId = id;
             }
+            if (started) ScMembership.LockMode();
         }
 
         public static bool HasHome { get { return ScRegistry.Community.HasHome; } }

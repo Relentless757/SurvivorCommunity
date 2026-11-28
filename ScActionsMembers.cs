@@ -342,6 +342,10 @@ namespace SurvivorCommunity
             if (p == null || p.Favour != FavourKind.Supplies || p.Done) { silent = true; return "scFavourGone"; }
             // value="any": handed over in the talk that named them, before taking the favour on (ScHasFavourItems "any")
             if (!p.Started && !any) { silent = true; return "scFavourGone"; }
+            // round MP7 (core), the user's decision 4: a player with only their own relations (PerPlayer/PerParty) does the favor
+            // all the same - it is held done on their record, and she joins once they start a community (or the community they join
+            // gets the done favor: ScMembership.Merge). Her join's own tests (home, roster) are asked then
+            if (ScRegistry.Current.Personal) return null;
             // never take the goods when the join that follows would be refused. Round MP2 (review members MINOR 3): a remote
             // sender's hand-over never adopts their claim as the home (EnsureHomeFor: a read for them, EnsureHome for the host's)
             if (!ScZone.EnsureHomeFor(sender)) return ScZone.NeedHomeKey();

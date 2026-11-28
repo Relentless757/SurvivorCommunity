@@ -29,8 +29,17 @@ namespace SurvivorCommunity
         public const int SharedCommunity = 0;
         /// <summary>
         /// Round MP6 (core): "the community in scope" for the community parameters below (ScRegistry.CurrentId) - their default.
+        /// Round MP7 (core): no longer -1 - that value is NoCommunity now, and passing it on must never read the scope's community
+        /// (the research's risk 1: CommunityOfId's "none" handed to Community(c) would have listed the scope's players).
         /// </summary>
-        public const int CurrentCommunity = -1;
+        public const int CurrentCommunity = int.MinValue;
+        /// <summary>
+        /// Round MP7 (core): "no community" - what CommunityOfId answers in PerPlayer/PerParty for a player who is in none (offline
+        /// with no record), and what CommunityOf answers when the server cannot tell (no platform id). Every parameter below reads
+        /// it as a community nobody is in (an empty list, false, null); a scope of it reads the empty record (ScCommunities.None),
+        /// never community 0. Shared mode never answers it (an unlisted player is in community 0 there).
+        /// </summary>
+        public const int NoCommunity = -1;
 
         /// <summary>Round MP6 (core): the parameter's community: CurrentCommunity is the one in scope.</summary>
         private static int Resolve(int community)
@@ -68,6 +77,17 @@ namespace SurvivorCommunity
                 community = p is EntityPlayerLocal ? ScRegistry.MirroredCommunity : ScMirror.PlayerCommunity(p.entityId);
                 return true;
             }
+            // round MP7 (core): PerPlayer/PerParty - nobody is in community 0 by default: an online player always has a record (a
+            // personal one made here on the first ask when they have none: ScMembership.EnsurePersonal); none told: NoCommunity
+            if (ScMembership.Separate)
+            {
+                community = NoCommunity;
+                string pid = IdOf(p);
+                if (pid.Length == 0) return false;
+                community = CommunityOfId(pid);
+                if (community == NoCommunity) community = ScMembership.EnsurePersonal(p, pid, null);
+                return community != NoCommunity;
+            }
             if (ScRegistry.WorldState.Membership.Count == 0) return true;
             string id = IdOf(p);
             if (id.Length == 0) return false;
@@ -78,24 +98,41 @@ namespace SurvivorCommunity
         /// <summary>Round MP6 (core), server: a connected client's community by its platform id (a package's sender, before or without a body).</summary>
         public static int CommunityOf(ClientInfo ci)
         {
-            if (ci == null || ScRegistry.WorldState.Membership.Count == 0) return SharedCommunity;
+            // round MP7 (core): PerPlayer/PerParty - no "unlisted = community 0"; a connected client with no record gets its personal one
+            bool separate = ScMembership.Separate;
+            if (ci == null) return separate ? NoCommunity : SharedCommunity;
+            if (!separate && ScRegistry.WorldState.Membership.Count == 0) return SharedCommunity;
             try
             {
                 PlatformUserIdentifierAbs id = ci.InternalId;
-                return CommunityOfId(id != null ? id.CombinedString : null);
+                string pid = id != null ? id.CombinedString : null;
+                int c = CommunityOfId(pid);
+                if (c == NoCommunity && separate && !string.IsNullOrEmpty(pid)) c = ScMembership.EnsurePersonal(ByEntity(ci.entityId), pid, ci.playerName);
+                return c;
             }
             catch (Exception e)
             {
                 ScLog.Once("players-community-ci", e);
-                return SharedCommunity;
+                return separate ? NoCommunity : SharedCommunity;
             }
         }
 
-        /// <summary>Round MP6 (core), server: the community of the player with this platform id (online or not); 0 when not in the map.</summary>
+        /// <summary>
+        /// Round MP6 (core), server: the community of the player with this platform id (online or not); 0 when not in the map.
+        /// Round MP7 (core): in PerPlayer/PerParty, NoCommunity (-1) for a player in none - not in the map and owning no founded
+        /// community (an owner is always in their own), or mapped to a community that is gone. Never makes a record (an online
+        /// player gets theirs through CommunityOf). Every caller treats -1 as no community, never as community 0.
+        /// </summary>
         public static int CommunityOfId(string platformId)
         {
-            if (string.IsNullOrEmpty(platformId)) return SharedCommunity;
             int c;
+            if (ScMembership.Separate)
+            {
+                if (string.IsNullOrEmpty(platformId)) return NoCommunity;
+                if (ScRegistry.WorldState.Membership.TryGetValue(platformId, out c) && ScCommunities.ById(c) != null) return c;
+                return ScMembership.FoundedBy(platformId);
+            }
+            if (string.IsNullOrEmpty(platformId)) return SharedCommunity;
             if (!ScRegistry.WorldState.Membership.TryGetValue(platformId, out c)) return SharedCommunity;
             return ScCommunities.ById(c) != null ? c : SharedCommunity;
         }
@@ -108,7 +145,9 @@ namespace SurvivorCommunity
         public static bool SetCommunity(string platformId, int c)
         {
             if (string.IsNullOrEmpty(platformId) || ScCommunities.ById(c) == null) return false;
-            if (c == SharedCommunity) ScRegistry.WorldState.Membership.Remove(platformId);
+            // round MP7 (core): in PerPlayer/PerParty community 0 is listed like any other (nobody is in it by default there).
+            // ScMembership.Move is the way to change a player's community (it hands things over and merges); this is its last step
+            if (c == SharedCommunity && !ScMembership.Separate) ScRegistry.WorldState.Membership.Remove(platformId);
             else ScRegistry.WorldState.Membership[platformId] = c;
             return true;
         }

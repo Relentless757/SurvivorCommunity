@@ -932,6 +932,8 @@ namespace SurvivorCommunity
             string why;
             f.Recruit = ScCommunity.CanRecruit(npc, p, out why);
             f.RecruitWhy = why ?? "";
+            // MP7 (part U): a player with only their own relations (ScRegistry.Community's CommunityState.Personal) - recruiting answers
+            // scNoCommunity here (the join op itself is refused so: ScActions.WhyNot)
             // round MP2 (review members MINOR 3): read, never adopted - a remote player's talk must not make their claim the home and
             // them the owner (with SharedOwnerOnly that would bypass home.set's Owner access). The host's own player never sends one
             f.HasHome = ScZone.EnsureHomeFor(p);

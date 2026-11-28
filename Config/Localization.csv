@@ -2179,3 +2179,23 @@ scGateNotYourMember,UI,Tooltip,,,,They belong to another community: you can talk
 scGateNotYourStation,UI,Tooltip,,,,That station belongs to another community.
 scOpOtherCommunity,UI,Tooltip,,,,{0} is another community's ground: no outpost here.
 scHomeOtherCommunity,UI,Tooltip,,,,This claim reaches another community's home or outposts: it can't be your home.
+# round MP7 (core) - community modes and a player's own relations
+scNoCommunity,UI,Tooltip,,,,"You have no community yet: start one on your own land claim (hold E on it and pick Start a community here), or join one."
+scMp7MaxCommunities,UI,Tooltip,,,,This server already has as many communities as it allows. Join one of them instead.
+scMp7Founded,UI,Tooltip,,,,Your community starts here: this land claim is its home. Everything you built on your own is the community's now.
+scMp7LeaveNone,UI,Tooltip,,,,You are in no community: there is nothing to leave.
+scMp7LeaveOwner,UI,Tooltip,,,,You own this community and can't leave it. An admin can hand it over to another player.
+scMp7LeaveNowhere,UI,Tooltip,,,,Everyone who is in no other community is in this one: there is nowhere to leave to.
+scMp7Left,UI,Tooltip,,,,You left {0}'s community.
+scMp7LostAccess,UI,Tooltip,,,,You no longer belong to {0}'s community.
+scMp7Joined,UI,Tooltip,,,,You joined {0}'s community.
+scMp7Merged,UI,Tooltip,,,,"What you built on your own (standing, favors, requests and what allies sent you) is {0}'s community's now."
+scMp7LeftTell,UI,Tooltip,,,,{0} left the community.
+scMp7JoinedTell,UI,Tooltip,,,,{0} joined the community.
+scMp7RequestYours,UI,Tooltip,,,,{1} left the community: the request from {0} is yours now (see your journal).
+scMp7FavourReplaced,UI,Tooltip,,,,{1} joined with {0}'s favor further along: the community's own favor for {0} is dropped.
+scMp7FavourDropped,UI,Tooltip,,,,The community already had {0}'s favor as far along: yours is dropped.
+scMp7RequestReplaced,UI,Tooltip,,,,{1} joined with a request from {0} already taken on: the community's offer from {0} is withdrawn.
+scMp7RequestDropped,UI,Tooltip,,,,The community already has a request from {0}: yours is withdrawn.
+scMp7OwnerYou,UI,Tooltip,,,,You own this community now (an admin handed it over).
+scMp7OwnerTell,UI,Tooltip,,,,{0} owns the community now.

@@ -237,6 +237,8 @@ namespace SurvivorCommunity
             if (ScCommunities.Count <= 1) return default(ScScope);
             int c = CommunityAt(pos);
             if (c < 0 && placer != null) c = ScPlayers.CommunityOfId(placer.CombinedString);
+            // round MP7 (core): a placer in no community (PerPlayer/PerParty) - the empty record's scope, never the default (community 0)
+            if (c < 0 && placer != null && ScMembership.Separate) return ScRegistry.Use(ScPlayers.NoCommunity);
             return c >= 0 ? ScRegistry.Use(c) : default(ScScope);
         }
 

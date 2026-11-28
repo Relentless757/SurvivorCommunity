@@ -13,7 +13,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list | tab] | facility level <x y z> <1-5>, drinks [on|off], lightsout [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res|mine|clay> | run <id|name> <recall|home|skip|offline|hurt [share]>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name> [tone], paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | skip <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | overrun <id> | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home [set], dump, save, sleep, downed [id|name], down <id|name>, revive <id|name>, chat [<a> <b> [force] | meet <a> <b> | gather [end] | lines [id|name]], craft [table | station [radius] | <id|name> [spec <Specialty> | end]], ui [reset], xnpc [id|name], mags [id|name [trim [confirm]]], team [id|name [auto | hurt [share]]], meds [id|name [give]], retreat [id|name | shelters [n | rescan]], trust <id|name> [forgive], recruit <id|name>, names [reload | reset | test [n] [male|female]], noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan | watch fatigue, tower [info] | tower check [rot] | tower stamp [rot] | tower repaint [radius], bond [id|name [add <n> | set <n> | event <gift [points]|revive|bloodmoon|down|kill>] | decay], perks [id|name [apply]], party, traits [sim [n] | <id|name> [set <trait> [trait ...] [force] | add <trait> [force] | remove <trait>]], spec [sim [n] | <id|name> [set <Specialty> [stars] [force]]], community [list | new <name> | join <id> [player] | leave [player] | use [id]]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list | tab] | facility level <x y z> <1-5>, drinks [on|off], lightsout [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res|mine|clay> | run <id|name> <recall|home|skip|offline|hurt [share]>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name> [tone], paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | skip <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | overrun <id> | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home [set], dump, save, sleep, downed [id|name], down <id|name>, revive <id|name>, chat [<a> <b> [force] | meet <a> <b> | gather [end] | lines [id|name]], craft [table | station [radius] | <id|name> [spec <Specialty> | end]], ui [reset], xnpc [id|name], mags [id|name [trim [confirm]]], team [id|name [auto | hurt [share]]], meds [id|name [give]], retreat [id|name | shelters [n | rescan]], trust <id|name> [forgive], recruit <id|name>, names [reload | reset | test [n] [male|female]], noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan | watch fatigue, tower [info] | tower check [rot] | tower stamp [rot] | tower repaint [radius], bond [id|name [add <n> | set <n> | event <gift [points]|revive|bloodmoon|down|kill>] | decay], perks [id|name [apply]], party, traits [sim [n] | <id|name> [set <trait> [trait ...] [force] | add <trait> [force] | remove <trait>]], spec [sim [n] | <id|name> [set <Specialty> [stars] [force]]], community [list | new <name> | join <id> [player] | leave [player] | use [id] | owner <id> <player> | mode <PerPlayer|PerParty> confirm]"; }
         public override string getHelp() { return getDescription(); }
 
         /// <summary>
@@ -111,6 +111,10 @@ namespace SurvivorCommunity
         /// use [id]. Membership is the server's map by platform id (saved); anyone not in it is in community 0. A player who
         /// changes community leaves their followers to the community they belong to. "use" makes this console session act in a
         /// community (until the world closes; "use" alone goes back to the sender's own).
+        /// Round MP7 (core): list shows the mode (the save's and the config's) and marks personal records and retired ids; join and
+        /// leave go through ScMembership.Move (a personal record merges into the community joined; leave is community 0 in Shared
+        /// mode, a fresh personal record otherwise; an owner's leave is refused in PerPlayer/PerParty); owner &lt;id&gt; &lt;player&gt; hands a
+        /// community over; mode &lt;PerPlayer|PerParty&gt; confirm is the one-time switch of a save from before MP7.
         /// </summary>
         private static void CommunityCmd(List<string> p)
         {
@@ -121,8 +125,12 @@ namespace SurvivorCommunity
                 case "list":
                 {
                     ScWorldState ws = ScRegistry.WorldState;
+                    bool separate = ScMembership.Separate;
                     Output("[SC] " + ScCommunities.Count + " communit" + (ScCommunities.Count == 1 ? "y" : "ies") + " (" + ws.Membership.Count
-                           + " player(s) recorded outside community 0; everyone else is in community 0); this command acts in " + ScRegistry.Current.Label);
+                           + (separate ? " player(s) recorded; a player in none has their own relations, marked personal"
+                                       : " player(s) recorded outside community 0; everyone else is in community 0")
+                           + "); this command acts in " + ScRegistry.Current.Label);
+                    Output("[SC] " + ScMembership.ModeLine());       // round MP7 (core)
                     foreach (CommunityState cs in ScCommunities.All)
                     {
                         Community c = cs.Community;
@@ -131,12 +139,21 @@ namespace SurvivorCommunity
                             if (pl != null && ScPlayers.CommunityOf(pl) == cs.Id) names.Add(pl.PlayerDisplayName);
                         int recorded = 0;
                         foreach (int v in ws.Membership.Values) if (v == cs.Id) recorded++;
-                        Output("[SC]   " + cs.Id + ": " + (string.IsNullOrEmpty(c.Name) ? "(no name)" : c.Name)
+                        Output("[SC]   " + cs.Id + ": " + (cs.Personal ? "[personal] " : "") + (string.IsNullOrEmpty(c.Name) ? "(no name)" : c.Name)
                                + " - owner " + (string.IsNullOrEmpty(c.Owner) && string.IsNullOrEmpty(c.OwnerId) ? "none" : (c.Owner.Length > 0 ? c.Owner : "?") + (c.OwnerId.Length > 0 ? " (" + c.OwnerId + ")" : ""))
                                + ", " + cs.Members.Count + " member(s), " + cs.Outposts.Count + " outpost(s), " + (c.HasHome ? "home " + c.Home : "no home")
-                               + ", day " + c.LastDay + (cs.Id == ScPlayers.SharedCommunity ? "" : ", " + recorded + " player(s) recorded")
+                               + ", " + cs.Prospects.Count + " favor(s), " + cs.EncRequests.Count + " request(s)"            // round MP7 (core)
+                               + ", day " + c.LastDay + (cs.Id == ScPlayers.SharedCommunity && !separate ? "" : ", " + recorded + " player(s) recorded")
                                + ", online: " + (names.Count > 0 ? string.Join(", ", names.ToArray()) : "nobody"));
                     }
+                    // round MP7 (core): retired records (personal records merged into the community their player joined)
+                    if (ws.Retired.Count > 0)
+                    {
+                        var ids = new List<string>();
+                        foreach (int rid in ws.Retired) ids.Add(rid.ToString());
+                        Output("[SC]   retired (merged; ids stay taken): " + string.Join(", ", ids.ToArray()));
+                    }
+                    if (separate) Output("[SC] founded communities: " + ScMembership.FoundedCount() + (ScConfig.MaxCommunities > 0 ? " of at most " + ScConfig.MaxCommunities : " (no limit)"));
                     if (ScRegistry.UnscopedReads > 0)
                         Output("[SC] unscoped reads of the community seen so far: " + ScRegistry.UnscopedReads + " (each distinct one is in the log, \"[MP6 scope]\")");
                     // round MP6 (core fix): a listen host's, which take the host's community (review C-m6)
@@ -150,9 +167,32 @@ namespace SurvivorCommunity
                     string name = p.Count > 2 ? string.Join(" ", p.GetRange(2, p.Count - 2).ToArray()).Trim() : "";
                     if (name.Length == 0) { Output("[SC] usage: sc community new <name> - the new community's owner is you (none from telnet)"); return; }
                     string ownerId = sender != null ? ScPlayers.IdOf(sender) : "";
+                    // round MP7 (core): PerPlayer/PerParty - an owner is always in their own community: one who owns a founded community
+                    // already hands that over first; else they are moved into the new one (their own relations merge)
+                    bool separate = ScMembership.Separate;
+                    if (separate && ownerId.Length > 0)
+                    {
+                        CommunityState mine = ScCommunities.ById(ScPlayers.CommunityOfId(ownerId));
+                        if (mine != null && !mine.Personal && ScMembership.IsOwner(mine, ownerId, sender.PlayerDisplayName))
+                        {
+                            Output("[SC] refused: you own " + mine.Label + " - an owner is always in their own community. Hand it over first (sc community owner "
+                                   + mine.Id + " <player>), or make the new one from telnet or the server's console (no owner)");
+                            return;
+                        }
+                    }
+                    if (separate && ScConfig.MaxCommunities > 0 && ScMembership.FoundedCount() >= ScConfig.MaxCommunities)
+                        Output("[SC] note: this makes more founded communities than MaxCommunities (" + ScConfig.MaxCommunities + ") - an admin's new one is not refused");
                     CommunityState cs = ScCommunities.Create(name, ownerId, sender != null ? sender.PlayerDisplayName : "");
+                    ScMembership.LockMode();                         // round MP7 (core): a community record started
                     ScRegistry.SaveAtomic();
                     ScLog.Out("community " + cs.Id + " (" + name + ") created" + (ownerId.Length > 0 ? " - owner " + sender.PlayerDisplayName : " - no owner"));
+                    if (separate && ownerId.Length > 0)
+                    {
+                        ScMembership.MoveResult mr = ScMembership.Move(ownerId, cs.Id, ScMembership.ByAdmin, sender.PlayerDisplayName);
+                        Output("[SC] " + cs.Label + " created, owner " + sender.PlayerDisplayName + (mr.Ok ? ", who is in it now" + (mr.Merged ? " (their own relations merged into it)" : "")
+                               : " - but moving you in failed: " + ScActions.Localize(mr.Error)) + ". sc community join " + cs.Id + " [player] moves another player in.");
+                        break;
+                    }
                     Output("[SC] " + cs.Label + " created, owner " + (sender != null ? sender.PlayerDisplayName : "none")
                            + ". Nobody is in it yet: sc community join " + cs.Id + " [player] moves a player in.");
                     break;
@@ -161,9 +201,9 @@ namespace SurvivorCommunity
                 case "leave":
                 {
                     bool join = verb == "join";
-                    int cid = ScPlayers.SharedCommunity;
+                    int cid = ScPlayers.NoCommunity;
                     if (join && (p.Count < 3 || !int.TryParse(p[2], out cid))) { Output("[SC] usage: sc community join <id> [player] (sc community list shows the ids)"); return; }
-                    if (ScCommunities.ById(cid) == null) { Output("[SC] there is no community " + cid + " (sc community list)"); return; }
+                    if (join && ScCommunities.ById(cid) == null) { Output("[SC] there is no community " + cid + " (sc community list)"); return; }
                     string arg = join ? (p.Count > 3 ? string.Join(" ", p.GetRange(3, p.Count - 3).ToArray()) : "") : (p.Count > 2 ? string.Join(" ", p.GetRange(2, p.Count - 2).ToArray()) : "");
                     string pid, who;
                     if (!CommunityPlayer(arg, out pid, out who))
@@ -171,59 +211,55 @@ namespace SurvivorCommunity
                         Output("[SC] usage: sc community " + (join ? "join <id> [player]" : "leave [player]") + " - the player: a name or entity id of someone online, or a platform id (Steam_..., EOS_...); none: you");
                         return;
                     }
-                    int was = ScPlayers.CommunityOfId(pid);
-                    if (was == cid) { Output("[SC] " + who + " is already in " + ScCommunities.ById(cid).Label); return; }
-#if SC_V34
-                    // round MP6 (fix G-m1, F-m2): a talk hold or work shift the mover owned ends now (the disconnect path), BEFORE the move -
-                    // so a listen host's own shift is detached from the host (still of her community), not from the old community's anchor
-                    EntityPlayer moverBefore = ScPlayers.ById(pid);
-                    if (moverBefore != null) ScWork.ForgetPlayer(moverBefore.entityId);
-#endif
-                    ScPlayers.SetCommunity(pid, cid);
-                    ScRegistry.SaveAtomic();
-                    // their followers stay with the community they belong to (members are a community's, not a player's).
-                    // Round MP6 (part G): and go home to it (review C-n5) - their Leader/Owner link to this player, now outside their
-                    // community, ends: a loaded one is stationed at her post now, an unloaded one turns resident (the ticker stations
-                    // her when she next loads; her leader is no longer one of hers to restore)
-                    int followers = 0;
-                    CommunityState old = ScCommunities.ById(was);
-                    var theirs = new List<Member>();
-                    if (old != null)
-                        foreach (Member m in old.Members.Values)
-                            if ((m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) && string.Equals(m.LeaderId, pid, StringComparison.Ordinal)) theirs.Add(m);
-                    followers = theirs.Count;
-                    EntityPlayer mover = ScPlayers.ById(pid);
-                    foreach (Member m in theirs)
-                        using (ScRegistry.Use(m))
-                        {
-                            EntityAlive npc = ScCommunity.FindNpc(m.Id);
-                            if (npc != null) ScCommunity.Station(m, npc, true, mover);
-                            else m.Status = MemberStatus.Resident;
-                            m.LeaderId = "";
-                        }
-                    if (followers > 0) ScRegistry.SaveAtomic();
-                    // round MP6 (fix N-m6): the old community's requests the mover had taken on are withdrawn (no standing lost) - a
-                    // request is its community's, and theirs no longer (the host's own journal reads AcceptedBy "")
-                    int handedBack = 0;
-                    if (old != null)
-                    {
-                        bool moverIsHost = mover != null && mover is EntityPlayerLocal;
-                        var taken = new List<EnclaveRequest>();
-                        foreach (EnclaveRequest r in old.EncRequests)
-                            if (r.IsAccepted && (string.Equals(r.AcceptedBy, pid, StringComparison.Ordinal) || (moverIsHost && r.AcceptedBy.Length == 0))) taken.Add(r);
-                        using (ScRegistry.Use(old.Id))
-                            foreach (EnclaveRequest r in taken) ScEncRequests.Close(r, ScEncRequests.Withdrawn, who + " moved to another community");
-                        handedBack = taken.Count;
-                    }
-                    // round MP6 (fix R-m5): the new community's grudge against the mover ends - its members do not fight their own player
-                    bool forgiven = ScRelations.Forgive(cid, pid);
-                    ScLog.Out("community: " + who + " (" + pid + ") moved from community " + was + " to community " + cid
-                              + (handedBack > 0 ? "; " + handedBack + " request(s) they had taken on withdrawn" : "") + (forgiven ? "; the new community's grudge against them dropped" : ""));
-                    Output("[SC] " + who + " is now in " + ScCommunities.ById(cid).Label + " (was " + (old != null ? old.Label : "community " + was) + ")"
-                           + (followers > 0 ? "; their " + followers + " follower(s) stay members of " + (old != null ? old.Label : "it") + " and go home to it" : "")
-                           + (handedBack > 0 ? "; " + handedBack + " enclave request(s) they had taken on withdrawn" : "")
-                           + (forgiven ? "; " + ScCommunities.ById(cid).Label + "'s grudge against them dropped" : "")
+                    // round MP7 (core): the one move function (ScMembership.Move): talk holds and shifts end, the old community's requests
+                    // pass to another of its players online (else withdrawn), followers go home to it, a personal record merges into the
+                    // community joined, leave is community 0 (Shared) or a fresh personal record (PerPlayer/PerParty)
+                    // MP7 (part A): an admin's join is recorded as such (never undone by an ally change)
+                    ScMembership.MoveResult r = ScMembership.Move(pid, cid, ScMembership.ByAdmin, who);
+                    if (!r.Ok) { Output("[SC] " + ScActions.Localize(r.Error)); return; }
+                    CommunityState from = ScCommunities.ById(r.From), to = ScCommunities.ById(r.To);
+                    Output("[SC] " + who + " is now in " + (to != null ? to.Label + (to.Personal ? " (their own relations)" : "") : "no community")
+                           + " (was " + (from != null ? from.Label : (r.Merged ? "their own relations, now merged" : "in no community")) + ")"
+                           + (r.Followers > 0 ? "; their " + r.Followers + " follower(s) stay members of " + (from != null ? from.Label : "it") + " and go home to it" : "")
+                           + (r.HandedOver > 0 ? "; " + r.HandedOver + " enclave request(s) they had taken on passed to another player of it" : "")
+                           + (r.Withdrawn > 0 ? "; " + r.Withdrawn + " enclave request(s) they had taken on withdrawn (nobody else of it online)" : "")
+                           + (r.FavoursClosed > 0 ? "; " + r.FavoursClosed + " favor quest(s) closed in their journal (the favors stay " + (from != null ? from.Label : "its") + "'s)" : "")
+                           + (r.Merged ? "; merged: " + r.MergeNote : "")
+                           + (r.Forgiven && to != null ? "; " + to.Label + "'s grudge against them dropped" : "")
                            + ". A client receives the new community's copy within a second.");
+                    break;
+                }
+                case "owner":
+                {
+                    // round MP7 (core), decision 10: an admin hands a community over (an owner who never returns has no other fix)
+                    int cid;
+                    if (p.Count < 4 || !int.TryParse(p[2], out cid)) { Output("[SC] usage: sc community owner <id> <player> - the player: a name or entity id of someone online, or a platform id"); return; }
+                    CommunityState cs = ScCommunities.ById(cid);
+                    if (cs == null) { Output("[SC] there is no community " + cid + " (sc community list)"); return; }
+                    string pid, who;
+                    if (!CommunityPlayer(string.Join(" ", p.GetRange(3, p.Count - 3).ToArray()), out pid, out who)) { Output("[SC] usage: sc community owner <id> <player> - no such player"); return; }
+                    bool ok;
+                    Output("[SC] " + ScMembership.SetOwner(cs, pid, who, out ok));
+                    break;
+                }
+                case "mode":
+                {
+                    // round MP7 (core), decision 2: the one-time switch of a save from before MP7
+                    ScCommunityMode to;
+                    if (p.Count < 3 || !ScMembership.TryParseMode(p[2], out to))
+                    {
+                        Output("[SC] " + ScMembership.ModeLine());
+                        Output("[SC] usage: sc community mode <PerPlayer|PerParty> confirm - once, on a save from before MP7 (Shared): community 0 and every made community keep their owners and players; everyone else gets their own relations");
+                        return;
+                    }
+                    if (p.Count < 4 || !p[3].Equals("confirm", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Output("[SC] " + ScMembership.ModeLine());
+                        Output("[SC] this switches the save to " + ScMembership.ModeName(to) + " for good: add confirm (sc community mode " + ScMembership.ModeName(to) + " confirm)");
+                        return;
+                    }
+                    bool ok;
+                    foreach (string line in ScMembership.SwitchMode(to, out ok)) Output("[SC] " + line);
                     break;
                 }
                 case "use":
@@ -233,7 +269,7 @@ namespace SurvivorCommunity
                     if (p.Count < 3 || p[2].Equals("none", StringComparison.OrdinalIgnoreCase))
                     {
                         ScRegistry.WorldState.ConsoleUse.Remove(key);
-                        Output("[SC] this console acts in " + (sender != null ? "your own community (" + (ScCommunities.ById(ScPlayers.CommunityOf(sender)) ?? ScCommunities.Zero).Label + ")" : "community 0") + " again");
+                        Output("[SC] this console acts in " + (sender != null ? "your own community (" + ScCommunities.OrNone(ScPlayers.CommunityOf(sender)).Label + ")" : "community 0") + " again");
                         return;
                     }
                     if (!int.TryParse(p[2], out cid) || ScCommunities.ById(cid) == null) { Output("[SC] usage: sc community use <id> | none - there is no community " + p[2]); return; }
@@ -244,7 +280,7 @@ namespace SurvivorCommunity
                     break;
                 }
                 default:
-                    Output("[SC] usage: sc community [list | new <name> | join <id> [player] | leave [player] | use [id|none]]");
+                    Output("[SC] usage: sc community [list | new <name> | join <id> [player] | leave [player] | use [id|none] | owner <id> <player> | mode <PerPlayer|PerParty> confirm]");
                     break;
             }
         }
@@ -307,7 +343,7 @@ namespace SurvivorCommunity
             // round MP6 (core): the command acts in the sender's community - or the one "sc community use <id>" named for this console
             // (telnet, the web console and a dedicated server's own console: community 0 unless so named)
             int scope = ConsoleCommunity();
-            if (ScCommunities.Count > 1) ToLog("  (in " + (ScCommunities.ById(scope) ?? ScCommunities.Zero).Label + ")");
+            if (ScCommunities.Count > 1) ToLog("  (in " + ScCommunities.OrNone(scope).Label + ")");     // round MP7 (core): none is not community 0
             try
             {
                 using ScScope inScope = ScRegistry.Use(scope);     // round MP6 (core): ends with this block, an exception included
@@ -3589,6 +3625,16 @@ namespace SurvivorCommunity
                 Vector3i claim;
                 bool here = ScZone.OwnClaimAt(pl, pl.GetBlockPosition(), out claim);
                 if (!here && !ScZone.FirstOwnClaim(pl, out claim)) { Output("[SC] refused: you have no land claim that could be the home (an outpost's never is) - place one first"); return; }
+                // round MP7 (core): your own relations (PerPlayer/PerParty) become a community only as Start a community here does it
+                // (ScMembership.Start: MaxCommunities, the record turned into the community)
+                CommunityState own = ScCommunities.ById(ScPlayers.CommunityOf(pl));
+                if (ScMembership.Separate && own != null && own.Personal)
+                {
+                    string msg;
+                    bool founded = ScMembership.Start(pl, claim, out msg);
+                    Output("[SC] " + (founded ? "community started: home " + claim + " - your own relations are " + own.Label + " now" : "refused: " + ScActions.Localize(msg)));
+                    return;
+                }
                 bool started = !ScZone.HasHome;
                 Vector3i old = ScZone.Home;
                 if (!started && old == claim) { Output("[SC] the land claim at " + claim + " is already the home"); return; }

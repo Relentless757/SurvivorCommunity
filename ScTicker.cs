@@ -177,6 +177,11 @@ namespace SurvivorCommunity
         /// runs them; ScHomeHold's is one for the world on purpose (it holds every community's home in one pass).
         /// Round MP6 (core fix): resumed - the community did not tick in the last pass (its players were all offline, or this is the
         /// session's first pass): see Resume.
+        /// Round MP7 (core): a personal record (PerPlayer/PerParty: a player's own relations) ticks here as any community with its
+        /// player online - its relation steps run (the favor and request clocks, the world daily's community halves, allies' bundles
+        /// into its stockpile, offers lapsing and accepted requests running out); every home step skips by its own test (no home, members, outposts or radio), exactly
+        /// as community 0 did in Shared mode before its home was started; and when it is the first community online its pass carries
+        /// the world steps, so they run with only personal records online.
         /// </summary>
         private static void TickCommunity(World w, EntityPlayer player, int cid, int day, bool world, bool resumed)
         {

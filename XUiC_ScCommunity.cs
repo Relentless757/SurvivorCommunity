@@ -28,6 +28,9 @@ namespace SurvivorCommunity
     /// round wl's Activities tab) swaps them for the home's facilities (ScFacilityTab) and the selected one with its actions:
     /// XUiC_ScCommunityFacilities.cs, the other part of this class.
     /// </summary>
+    // MP7 (part U): the no-community page per mode for a personal record (start one from your claim's radial / ask an owner to add
+    // you as a land claim ally / join a community player's party), the pages a personal record can use, the players list (name,
+    // role, online) and Leave community for non-owners (community.leave: ScMembership.OpLeave; not for community 0 in Shared)
     [Preserve]
     public partial class XUiC_ScCommunity : XUiController
     {

@@ -160,6 +160,10 @@ namespace SurvivorCommunity
 /// <summary>
 /// The NPC may be asked to join (host, hireable human, not hired by somebody else, not a member, roster not full). Round MP2: a
 /// client reads the server's verdict from the talk's open (ScTalkContext.CanRecruit), unless its copy says they joined since.
+/// MP7 (part U): the recruit dialog's favor rows (Config/dialogs.xml: taking a favor on, "I've already cleared that", handing the
+/// supplies over) sit behind this and ScHasHome, so a player with only their own relations (PerPlayer/PerParty) never reaches them -
+/// the server takes those ops from them (ScActions.PersonalOps; the supplies hand-over needs no home for them: ScActionsMembers).
+/// Rows for them, with no join at the end, come with the talk facts' scNoCommunity.
 /// </summary>
 public class DialogRequirementScCanRecruit : BaseDialogRequirement
 {

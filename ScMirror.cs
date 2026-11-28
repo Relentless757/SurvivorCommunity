@@ -294,7 +294,8 @@ namespace SurvivorCommunity
         {
             if (ScCommunities.Count < 2) return "";
             var sb = new StringBuilder();
-            bool zero = cid == ScPlayers.SharedCommunity;
+            // round MP7 (core): in PerPlayer/PerParty community 0 lists its own players like any other ('-': nobody is in it by default)
+            bool zero = cid == ScPlayers.SharedCommunity && !ScMembership.Separate;
             sb.Append(zero ? '+' : '-');
             bool any = false;
             foreach (KeyValuePair<string, int> kv in ScRegistry.WorldState.Membership)
@@ -445,6 +446,9 @@ namespace SurvivorCommunity
                 if (ci == null || !ScCommunity.IsHost) return;
                 if (!ScRegistry.Loaded) { pendingFull.Add(ci.entityId); return; }
                 int cid = ScPlayers.CommunityOf(ci);
+                // round MP7 (core): a client in no community the server can tell yet (PerPlayer/PerParty, no record could be made here)
+                // gets nothing now - never community 0's copy; the tick sends its own community's whole copy once it has one
+                if (cid < 0) return;
                 byte[] snap;
                 string block;
                 using (ScRegistry.Use(cid))
@@ -516,6 +520,7 @@ namespace SurvivorCommunity
             for (int i = 0; i < list.Count; i++)
             {
                 int cid = ScPlayers.CommunityOf(list[i]);
+                if (cid < 0) continue;             // round MP7 (core): in none the server can tell yet - no copy (never community 0's)
                 List<ClientInfo> l;
                 if (!groups.TryGetValue(cid, out l)) groups[cid] = l = new List<ClientInfo>();
                 l.Add(list[i]);
@@ -648,6 +653,8 @@ namespace SurvivorCommunity
         /// <summary>Round MP6 (part N): BuildDerived's body, in cid's scope (the old BuildDerived, its five community-blind keys given the community).</summary>
         private static string BuildDerivedIn(int cid, string pcom)
         {
+            // MP7 (part U): the mode (mode=), the receiver's role (role= owner / helper / member / personal: ScMembership.IsOwner,
+            // ScOwnerRule, CommunityState.Personal) and the community's players with online flags (cpl=) go in this block (protocol 9)
             var sb = new StringBuilder();
             Community c = ScRegistry.Community;
             World w = ScCommunity.World;

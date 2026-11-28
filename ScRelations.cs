@@ -98,7 +98,7 @@ namespace SurvivorCommunity
     /// </summary>
     public sealed class RelRows<T> where T : class, new()
     {
-        private readonly T zero = new T();
+        private T zero = new T();                 // round MP7 (core): not readonly - Drop(0) gives community 0 a fresh row
         private int[] ids = new int[0];
         private T[] rows = new T[0];
 
@@ -114,10 +114,14 @@ namespace SurvivorCommunity
             return null;
         }
 
-        /// <summary>The community's row, made when it has none (a negative id: community 0's).</summary>
+        /// <summary>
+        /// The community's row, made when it has none. Round MP7 (core): a negative id (ScPlayers.NoCommunity: the empty record a scope
+        /// of no community reads in PerPlayer/PerParty) gets a throwaway row, never community 0's - it was community 0's before.
+        /// </summary>
         public T Get(int cid)
         {
-            if (cid <= 0) return zero;
+            if (cid == 0) return zero;
+            if (cid < 0) return new T();
             T r = Peek(cid);
             if (r != null) return r;
             r = new T();
@@ -139,6 +143,32 @@ namespace SurvivorCommunity
         public int IdAt(int i) { return i == 0 ? 0 : ids[i - 1]; }
 
         public T At(int i) { return i == 0 ? zero : rows[i - 1]; }
+
+        /// <summary>
+        /// Round MP7 (core): the community's row goes (ScMembership.Retire: a personal record merged away) - community 0's is replaced
+        /// by a fresh one (it always exists). True when there was one to drop.
+        /// </summary>
+        internal bool Drop(int cid)
+        {
+            if (cid == 0) { zero = new T(); return true; }
+            int[] i = ids;
+            int at = -1;
+            for (int k = 0; k < i.Length; k++) if (i[k] == cid) { at = k; break; }
+            if (at < 0) return false;
+            int n = i.Length;
+            var ni = new int[n - 1];
+            var nr = new T[n - 1];
+            for (int k = 0, j = 0; k < n; k++)
+            {
+                if (k == at) continue;
+                ni[j] = i[k];
+                nr[j] = rows[k];
+                j++;
+            }
+            rows = nr;
+            ids = ni;
+            return true;
+        }
     }
 
     /// <summary>Round MP6 (part relations): the relation rows' helpers, hostility between communities, and their save lines.</summary>
@@ -174,11 +204,14 @@ namespace SurvivorCommunity
         {
             if (p == null) return -1;
             if (!ScRegistry.Loaded) return ScRegistry.MirroredCommunity;
-            if (ScRegistry.WorldState.Membership.Count == 0) return ScPlayers.SharedCommunity;
+            // round MP7 (core): PerPlayer/PerParty - nobody is in community 0 by default (an unknown player: none, -1)
+            bool separate = ScMembership.Separate;
+            if (!separate && ScRegistry.WorldState.Membership.Count == 0) return ScPlayers.SharedCommunity;
             int c;
             if (playerCids.TryGetValue(p.entityId, out c)) return c;
             if (ThreadManager.IsMainThread()) return ScPlayers.CommunityOf(p);
-            return ScPlayers.SharedCommunity;
+            // off the main thread with one record (single player in PerPlayer/PerParty: community 0) there is no snapshot: community 0
+            return separate && ScCommunities.Count > 1 ? ScPlayers.NoCommunity : ScPlayers.SharedCommunity;
         }
 
         /// <summary>
@@ -234,7 +267,8 @@ namespace SurvivorCommunity
         /// <summary>The community of the player with this entity id, online or not (persistent player data); -1 when unknown.</summary>
         public static int CommunityOfPlayerEntity(int entityId)
         {
-            if (!ScRegistry.Loaded || ScRegistry.WorldState.Membership.Count == 0) return ScPlayers.SharedCommunity;
+            // round MP7 (core): the "nobody listed: community 0" shortcut is Shared mode's only
+            if (!ScRegistry.Loaded || (!ScMembership.Separate && ScRegistry.WorldState.Membership.Count == 0)) return ScPlayers.SharedCommunity;
             EntityPlayer p = ScPlayers.ByEntity(entityId);
             if (p != null) return ScPlayers.CommunityOf(p);
             try
@@ -258,6 +292,8 @@ namespace SurvivorCommunity
         public static int OwnerCid(PlatformUserIdentifierAbs owner)
         {
             if (!ScRegistry.Loaded) return ScRegistry.MirroredCommunity;
+            // round MP7 (core): PerPlayer/PerParty - no owner, or one in no community: none (-1; HostileNowFor answers false)
+            if (ScMembership.Separate) return owner == null ? ScPlayers.NoCommunity : ScPlayers.CommunityOfId(owner.CombinedString);
             if (owner == null || ScRegistry.WorldState.Membership.Count == 0) return ScPlayers.SharedCommunity;
             return ScPlayers.CommunityOfId(owner.CombinedString);
         }

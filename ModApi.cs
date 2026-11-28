@@ -215,6 +215,9 @@ namespace SurvivorCommunity
                 {
                     try { if (_d.IsLocalPlayer) ScNet.OnLocalPlayerSpawned(); }
                     catch (Exception e) { ScLog.Once("player-spawned", e); }
+                    // round MP7 (core): on the server, the spawning player's record (PerPlayer/PerParty: their own relations when they
+                    // have none) - and part A's allies reconcile there
+                    ScMembership.OnPlayerSpawned(_d.EntityId, _d.ClientInfo, _d.IsLocalPlayer);
                 });
 
                 // The only event SCore raises. Hiring a member through the vanilla popup should be impossible

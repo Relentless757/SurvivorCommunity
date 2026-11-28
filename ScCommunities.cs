@@ -120,6 +120,16 @@ namespace SurvivorCommunity
         /// [community] grudge=; never sent to a client.
         /// </summary>
         public readonly HashSet<string> Grudges = new HashSet<string>(StringComparer.Ordinal);
+
+        // ---- round MP7 (core) ----
+        /// <summary>
+        /// Round MP7 (core), the user's decision 4: a personal record - in PerPlayer/PerParty, the relations of one player who is in
+        /// no founded community (owned by that player, no home): enclave and band relations, known places, favors, accepted
+        /// requests, markers, trade state and what they earn, held until they found a community (Start a community here turns
+        /// the record into it: ScMembership.Start) or join one (merged into it: ScMembership.Merge, then retired). Never in
+        /// Shared mode. Saved as [community] personal=1.
+        /// </summary>
+        public bool Personal;
     }
 
     /// <summary>
@@ -180,6 +190,22 @@ namespace SurvivorCommunity
         /// player's platform id ("" = the playerless consoles: telnet, the web console, a dedicated server's own).
         /// </summary>
         public readonly Dictionary<string, int> ConsoleUse = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        // ---- round MP7 (core) ----
+        /// <summary>
+        /// Round MP7 (core), the user's decision 1: the save's community mode, once ModeLocked (ScMembership.Mode; before that the
+        /// config's CommunityMode is live). ModeLocked: a community record started in this save - or it is a save from before MP7
+        /// with a community already going (AfterParse: Shared, implicit). ModeWritten: the [world] mode= line is written (a lock
+        /// this build made, or one the file named); an implicit lock writes nothing, so an old save's text stays as it was.
+        /// </summary>
+        public ScCommunityMode Mode = ScCommunityMode.Shared;
+        public bool ModeLocked;
+        public bool ModeWritten;
+        /// <summary>
+        /// Round MP7 (core): the ids of retired community records (a personal record merged into the community its player joined) -
+        /// one-line tombstones ([world] retired=N) so the ids stay taken and the console can name them. Never run, never mirrored.
+        /// </summary>
+        public readonly SortedSet<int> Retired = new SortedSet<int>();
     }
 
     /// <summary>
@@ -260,6 +286,7 @@ namespace SurvivorCommunity
             zero = new CommunityState(0);
             list.Add(zero);
             snapshot = list.ToArray();
+            none = NewNone();                  // round MP7 (core)
         }
 
         /// <summary>The community whose roster holds this member id (entity ids are world-unique), or -1.</summary>
@@ -296,6 +323,78 @@ namespace SurvivorCommunity
             CommunityState[] all = snapshot;
             for (int i = 0; i < all.Length; i++)
                 using (ScRegistry.Use(all[i].Id)) act(all[i]);
+        }
+
+        // ---- round MP7 (core) ----
+
+        /// <summary>
+        /// Round MP7 (core): the empty record a scope that names no community (ScPlayers.NoCommunity, -1) or one that is gone reads
+        /// in PerPlayer/PerParty (ScRegistry.Current) - never community 0, whose state belongs to its own players (the research's
+        /// risk 1). Id -1, never in All, never saved or mirrored: what is written into it is lost at the next load or reset.
+        /// </summary>
+        internal static CommunityState None { get { return none; } }
+        private static CommunityState none;
+
+        private static CommunityState NewNone()
+        {
+            var cs = new CommunityState(ScPlayers.NoCommunity);
+            cs.Personal = true;
+            return cs;
+        }
+
+        /// <summary>
+        /// Round MP7 (core): the community with this id; when there is none, community 0 in Shared mode (as every MP6 fallback) and
+        /// the empty record (None) in PerPlayer/PerParty.
+        /// </summary>
+        internal static CommunityState OrNone(int cid)
+        {
+            CommunityState cs = ById(cid);
+            if (cs != null) return cs;
+            return ScMembership.Separate ? none : zero;
+        }
+
+        /// <summary>
+        /// Round MP7 (core): a new personal record (server, main thread) for the player with this platform id and display name - its
+        /// id from the world counter as Create's (never one a retired record had), Personal set, the player its owner. The caller
+        /// maps the player and saves.
+        /// </summary>
+        internal static CommunityState CreatePersonal(string platformId, string playerName)
+        {
+            ScWorldState ws = ScRegistry.WorldState;
+            int id = ++ws.NextCommunityId;
+            while (ById(id) != null || ws.Retired.Contains(id)) id = ++ws.NextCommunityId;
+            var cs = new CommunityState(id);
+            cs.Personal = true;
+            cs.Community.OwnerId = platformId ?? "";
+            cs.Community.Owner = playerName ?? "";
+            Insert(cs);
+            return cs;
+        }
+
+        /// <summary>
+        /// Round MP7 (core): a community record leaves the list (ScMembership.Retire: a personal record merged into another
+        /// community). Never community 0 (ResetZero empties it instead). True when it was there.
+        /// </summary>
+        internal static bool Remove(CommunityState cs)
+        {
+            if (cs == null || cs.Id == ScPlayers.SharedCommunity || !list.Remove(cs)) return false;
+            snapshot = list.ToArray();
+            return true;
+        }
+
+        /// <summary>
+        /// Round MP7 (core): community 0 replaced by a fresh, empty, unowned record - a personal record that had claimed it was
+        /// merged into another community (ScMembership.Retire). Community 0 always exists; in PerPlayer/PerParty the next player
+        /// with no record claims it again (ScMembership's claim rule). personal: the fresh record's Personal flag.
+        /// </summary>
+        internal static void ResetZero(bool personal)
+        {
+            int at = list.IndexOf(zero);
+            zero = new CommunityState(0);
+            zero.Personal = personal;
+            if (at >= 0) list[at] = zero;
+            else list.Insert(0, zero);
+            snapshot = list.ToArray();
         }
     }
 

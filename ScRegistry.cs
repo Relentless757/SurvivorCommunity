@@ -180,13 +180,30 @@ namespace SurvivorCommunity
             {
                 // one community: always it (nothing changes). Round MP6 (core fix): not on a client whose copy is of another
                 // community (review C-m2) - its Current is the mirrored community even while it holds that one community only
-                if (ScCommunities.Count == 1 && (loaded || MirroredCommunity == ScPlayers.SharedCommunity)) return ScCommunities.Zero;
+                if (ScCommunities.Count == 1 && (loaded || MirroredCommunity == ScPlayers.SharedCommunity))
+                {
+                    // round MP7 (core): in PerPlayer/PerParty a scope naming no community (ScPlayers.NoCommunity) or one that is gone
+                    // reads the empty record, never community 0 (its state is its own players': the research's risk 1)
+                    if (scopeTop == 0 || !loaded || scopeStack[scopeTop - 1] == ScPlayers.SharedCommunity || !ScMembership.Separate || !ThreadManager.IsMainThread())
+                        return ScCommunities.Zero;
+                    return ScCommunities.None;
+                }
                 int n = scopeTop;
                 if (n > 0 && ThreadManager.IsMainThread())
                 {
                     int named = scopeStack[n - 1];
                     CommunityState cs = ScCommunities.ById(named);
                     if (cs != null) return cs;
+                    // round MP7 (core): PerPlayer/PerParty - the empty record (a scope of NoCommunity is no fault: not logged)
+                    if (loaded && ScMembership.Separate)
+                    {
+                        if (named != ScPlayers.NoCommunity && named != goneReported)
+                        {
+                            goneReported = named;
+                            ScLog.Once("mp7-scope-gone-" + named, "a scope names community " + named + ", which does not exist - the empty record read (not community 0)");
+                        }
+                        return ScCommunities.None;
+                    }
                     // round MP6 (core fix): the log key is built once per missing id, not on every read (review C-n2)
                     if (named != goneReported)
                     {
@@ -286,7 +303,7 @@ namespace SurvivorCommunity
                 // round MP6 (core fix): a listen host's unscoped read takes the host's community - counted, and logged (verbose)
                 // while remote clients are connected: a patch acting for a client's community would work on the host's (review C-m6)
                 NoteHostUnscoped();
-                return ScCommunities.ById(ScPlayers.CommunityOf(local)) ?? ScCommunities.Zero;
+                return ScCommunities.OrNone(ScPlayers.CommunityOf(local));     // round MP7 (core): the empty record for none (PerPlayer/PerParty)
             }
             NoteUnscoped();
             return ScCommunities.Zero;
@@ -613,6 +630,7 @@ namespace SurvivorCommunity
                           + c0.Community.Morale + (c0.Community.HasHome ? ", home " + c0.Community.Home : ", no home yet")
                           + (ScCommunities.Count > 1 ? " (community 0; " + ScCommunities.Count + " communities, " + WorldState.Membership.Count + " player(s) outside community 0)" : "")
                           + (degraded ? " (DEGRADED)" : ""));
+                ScMembership.OnRegistryLoaded();        // round MP7 (core): the community mode in force (and a config that differs, once)
             });
         }
 
@@ -1507,6 +1525,17 @@ namespace SurvivorCommunity
             {
                 case "lastday": ws.LastDay = I(val); break;
                 case "communityid": ws.NextCommunityId = Math.Max(0, I(val)); break;
+                // round MP7 (core): the save's community mode (fixed when its first community record started), and a retired record's id
+                case "mode":
+                {
+                    ScCommunityMode mode;
+                    if (!ScMembership.TryParseMode(val, out mode)) throw new FormatException("mode: " + val);
+                    ws.Mode = mode;
+                    ws.ModeLocked = true;
+                    ws.ModeWritten = true;
+                    break;
+                }
+                case "retired": { int rid = I(val); if (rid > 0) ws.Retired.Add(rid); break; }
                 case "contactid": ws.NextContactId = I(val); break;
                 case "outpostid": ws.NextOutpostId = I(val); break;
                 // enclaves (E1): the id counter, the seeding stamp ver:day:mode:seed:count
@@ -1572,8 +1601,9 @@ namespace SurvivorCommunity
             int cid;
             if (id.Length == 0 || !int.TryParse(val.Substring(colon + 1).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out cid) || cid < 0)
                 throw new FormatException("membership: " + val);
-            if (cid == ScPlayers.SharedCommunity) WorldState.Membership.Remove(id);    // community 0 is everyone not listed
-            else WorldState.Membership[id] = cid;
+            // round MP7 (core): a line for community 0 is kept - PerPlayer/PerParty list its players (nobody is in it by default there);
+            // a Shared save never writes one (community 0 is everyone not listed), so an old save reads as before
+            WorldState.Membership[id] = cid;
         }
 
         /// <summary>
@@ -1588,6 +1618,18 @@ namespace SurvivorCommunity
             if (!sawWorld) ws.LastDay = (ScCommunities.ById(defaultCid) ?? ScCommunities.Zero).Community.LastDay;
             foreach (CommunityState cs in ScCommunities.All)
                 if (cs.Id > ws.NextCommunityId) ws.NextCommunityId = cs.Id;
+            // round MP7 (core): retired ids stay taken; and a text with no mode= whose community is going (a home, an owner, members,
+            // several communities, players listed) is a save from before MP7 - Shared for good (decision 2), written nowhere (its text
+            // stays as it was) until an admin switches it once (ScMembership.SwitchMode). One with nothing going yet: the config's
+            // mode stays live until its first community record starts (ScMembership.LockMode)
+            foreach (int rid in ws.Retired)
+                if (rid > ws.NextCommunityId) ws.NextCommunityId = rid;
+            if (!ws.ModeLocked && AnyCommunityStarted())
+            {
+                ws.ModeLocked = true;
+                ws.Mode = ScCommunityMode.Shared;
+                ws.ModeWritten = false;
+            }
             if (ws.Membership.Count == 0) return;
             var gone = new List<string>();
             foreach (KeyValuePair<string, int> kv in ws.Membership)
@@ -1595,7 +1637,22 @@ namespace SurvivorCommunity
             if (gone.Count == 0) return;
             foreach (string id in gone) ws.Membership.Remove(id);
             degraded = true;
-            ScLog.Warn("registry: " + gone.Count + " player(s) recorded in a community the file does not have - back in community 0");
+            ScLog.Warn("registry: " + gone.Count + " player(s) recorded in a community the file does not have - back in community 0 (Shared; in PerPlayer/PerParty in none: their own relations at their next spawn)");
+        }
+
+        /// <summary>
+        /// Round MP7 (core), AfterParse: the text's community is going - several communities, players listed, or a community with a
+        /// home, an owner or members. A save from before MP7 that is so stays Shared (decision 2).
+        /// </summary>
+        private static bool AnyCommunityStarted()
+        {
+            if (ScCommunities.Count > 1 || WorldState.Membership.Count > 0) return true;
+            foreach (CommunityState cs in ScCommunities.All)
+            {
+                Community c = cs.Community;
+                if (c.HasHome || !string.IsNullOrEmpty(c.OwnerId) || !string.IsNullOrEmpty(c.Owner) || cs.Members.Count > 0) return true;
+            }
+            return false;
         }
 
         private static void ParseCommunity(Community c, string key, string val)
@@ -1605,6 +1662,7 @@ namespace SurvivorCommunity
             switch (key)
             {
                 case "name": c.Name = val; break;                                 // round MP6 (core): the community's name
+                case "personal": { CommunityState pcs = ScCommunities.ById(c.Id); if (pcs != null) pcs.Personal = val == "1"; break; }   // round MP7 (core): a personal record
                 case "home": { Vector3i v; if (TryVec(val, out v)) { c.Home = v; c.HasHome = true; } break; }
                 case "owner": c.Owner = val; break;
                 case "ownerid": c.OwnerId = val; break;                          // round MP0
@@ -2084,7 +2142,7 @@ namespace SurvivorCommunity
         /// </summary>
         internal static string BuildClientText(int cid)
         {
-            CommunityState cs = ScCommunities.ById(cid) ?? ScCommunities.Zero;
+            CommunityState cs = ScCommunities.OrNone(cid);          // round MP7 (core): PerPlayer/PerParty - the empty record, never community 0's
             using (Use(cs.Id))
             {
                 if (ScCommunities.Count < 2) return BuildLegacyText(cs, true);      // one community: byte for byte as before MP6
@@ -2159,6 +2217,10 @@ namespace SurvivorCommunity
             sb.AppendLine("[world]");
             sb.AppendLine("lastday=" + ws.LastDay.ToString(CultureInfo.InvariantCulture));
             if (ws.NextCommunityId > 0) sb.AppendLine("communityid=" + ws.NextCommunityId.ToString(CultureInfo.InvariantCulture));
+            // round MP7 (core): the save's community mode once this build fixed it (a save from before MP7 is Shared and writes nothing),
+            // and one line per retired record (its id stays taken)
+            if (ws.ModeLocked && ws.ModeWritten) sb.AppendLine("mode=" + ScMembership.ModeName(ws.Mode));
+            foreach (int rid in ws.Retired) sb.AppendLine("retired=" + rid.ToString(CultureInfo.InvariantCulture));
             sb.AppendLine("contactid=" + ws.NextContactId);
             sb.AppendLine("outpostid=" + ws.NextOutpostId);
             WriteEnclaveIds(sb, ws);
@@ -2179,6 +2241,7 @@ namespace SurvivorCommunity
                 sb.AppendLine("[community]");
                 sb.AppendLine("cid=" + cs.Id.ToString(CultureInfo.InvariantCulture));
                 if (!string.IsNullOrEmpty(cs.Community.Name)) sb.AppendLine("name=" + Clean(cs.Community.Name));
+                if (cs.Personal) sb.AppendLine("personal=1");          // round MP7 (core): a player's own relations (never in a Shared save)
                 WriteCommunityKeys(sb, cs.Community, false, false);
             }
             WriteRecords(sb, all, false, true);

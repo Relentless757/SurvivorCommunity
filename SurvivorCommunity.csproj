@@ -67,6 +67,7 @@
     <Compile Include="ScModels.cs" />
     <Compile Include="ScRegistry.cs" />
     <Compile Include="ScCommunities.cs" />     <!-- round MP6 (core): several communities - CommunityState, ScCommunities, the world record, scopes -->
+    <Compile Include="ScMembership.cs" />      <!-- round MP7 (core): the community mode, personal records, founding, the merge, ScMembership.Move, ScOwnerRule -->
     <Compile Include="ScHomeState.cs" />       <!-- round MP6 (part H): the home's machinery per community - ScHomeState<T>, ScHomeTimer, ScHomeScope -->
     <Compile Include="ScZone.cs" />
     <Compile Include="ScNpc.cs" />
