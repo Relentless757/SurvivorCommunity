@@ -236,6 +236,13 @@ namespace SurvivorCommunity
         /// </summary>
         public ItemValue[] Handed;
         /// <summary>
+        /// Round wq1: the quality her weapons really had, by item name - each pair weapon and the weapon in her hand when she
+        /// joined (ScLoadout.RecordQualities, from ScCommunity.Admit), then every weapon she is handed for her pair (ScHanded.Put).
+        /// ScLoadout.StableQuality gives every copy SCore rebuilds that quality instead of the seeded one. Null = none recorded (a
+        /// member from before wq1, or one who joined with no body): the seeded quality, as before. Saved as wq=name:q,name:q.
+        /// </summary>
+        public Dictionary<string, int> WeaponQuality;
+        /// <summary>
         /// Round n12 review: handed items with no slot of their own - one whose slot was filled again while its item was
         /// missing from the game (a mod uninstalled for a session) - waiting to be put into her pack the next time her body is
         /// loaded (ScHanded.KeepCopies). Saved as handed=spare|... lines. Null = none.

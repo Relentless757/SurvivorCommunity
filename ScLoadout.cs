@@ -1448,6 +1448,9 @@ namespace SurvivorCommunity
         ///    hold the front of her canonical list (Canonical, round n08), as FillMods would give a bare copy of that quality.
         /// Members only: raiders, bands, strangers and recruits roll as before. Runs BEFORE FillMods on every copy (FillMods
         /// leaves a copy with mods alone, so its slots must be right first). Done in place. True when it changed.
+        /// Round wq1: the quality is her recorded one for the item when there is one (Member.WeaponQuality: what the weapon
+        /// really had when she joined, or a weapon handed to her since) - before wq1 a recruit's Q6 weapon came back at her
+        /// seeded quality at the first load as a member. A member with none recorded keeps the seeded quality (StableQualityOf).
         /// </summary>
         private static bool StableQuality(EntityAlive e, Loadout pair, ItemValue iv, bool held)
         {
@@ -1463,7 +1466,9 @@ namespace SurvivorCommunity
                 if (ScHanded.ForCopy(e, pair, iv.type) != null || WindowHolds(e, iv.type)) return false;
             }
             else if (!IsWorkKitItem(name) || (held && !IsKitOnly(e, name))) return false;
-            int q = StableQualityOf(e, iv.type, pairWeapon);
+            // round wq1: the quality she really had for it (recorded when she joined, or handed since) before the seeded one
+            int q = RecordedQuality(ScRegistry.GetMember(e.entityId), name);
+            if (q <= 0) q = StableQualityOf(e, iv.type, pairWeapon);
             if (iv.Quality == q) return false;
             iv.Quality = (ushort)q;
             int n = iv.CalcModSlotCount();
@@ -1509,6 +1514,134 @@ namespace SurvivorCommunity
             stableQuality[key] = q;
             return q;
         }
+#if SC_V34
+
+        // ------------------------------------------------------------------ round wq1: the quality a member really has ----
+
+        /// <summary>
+        /// Round wq1 (2026-11-28, the user: a hire's Q6 crossbow came back Q1 at the first load after he joined): her recorded
+        /// quality for this item (Member.WeaponQuality), 1 to 6, or 0 when none is recorded - then StableQuality keeps the seeded
+        /// one (StableQualityOf), as every member from before wq1 does.
+        /// </summary>
+        internal static int RecordedQuality(Member m, string item)
+        {
+            int q;
+            if (m == null || m.WeaponQuality == null || string.IsNullOrEmpty(item) || !m.WeaponQuality.TryGetValue(item, out q)) return 0;
+            return q >= 1 && q <= 6 ? q : 0;
+        }
+
+        /// <summary>Round wq1: one item's quality into her record (1 to 6; anything else is ignored). True when it changed.</summary>
+        internal static bool RecordQuality(Member m, string item, int quality)
+        {
+            if (m == null || string.IsNullOrEmpty(item) || quality < 1 || quality > 6) return false;
+            if (m.WeaponQuality == null) m.WeaponQuality = new Dictionary<string, int>(StringComparer.Ordinal);
+            int was;
+            if (m.WeaponQuality.TryGetValue(item, out was) && was == quality) return false;
+            m.WeaponQuality[item] = quality;
+            return true;
+        }
+
+        /// <summary>A weapon whose quality is one item's own: a quality item, one to a stack, not a mod.</summary>
+        private static bool QualityWeapon(ItemValue iv)
+        {
+            ItemClass ic = iv != null && !iv.IsEmpty() ? iv.ItemClass : null;
+            return ic != null && ic.HasQuality && !(ic is ItemClassModifier) && ic.MaxCount <= 1;
+        }
+
+        /// <summary>
+        /// Round wq1: the copy of this weapon that says what quality she has for it - the one in her hand, else the one in her
+        /// inventory window (0-XNPCCore equips by cloning it), else the first in her toolbelt, else in her bag; null when she
+        /// carries none.
+        /// </summary>
+        private static ItemValue CopyOf(EntityAlive e, string item, ItemValue held)
+        {
+            if (string.IsNullOrEmpty(item)) return null;
+            ItemClass ic = ItemClass.GetItemClass(item, true);
+            if (ic == null) return null;
+            int type = ic.Id;
+            if (held != null && !held.IsEmpty() && held.type == type) return held;
+            if (HarvestManager.Has(e.entityId))
+            {
+                ItemStack[] window = HarvestManager.GetOrCreate(e.entityId).items;
+                if (window != null)
+                    foreach (ItemStack s in window)
+                        if (s != null && !s.IsEmpty() && s.itemValue != null && s.itemValue.type == type) return s.itemValue;
+            }
+            for (int i = 0; e.inventory != null && i < e.inventory.SlotCount; i++)
+            {
+                ItemStack s = e.inventory.GetItem(i);
+                if (s != null && !s.IsEmpty() && s.itemValue != null && s.itemValue.type == type) return s.itemValue;
+            }
+            ItemStack[] bag = e.bag != null ? e.bag.ItemGrid.items : null;      // 3.4: the bag's grid (read only)
+            if (bag != null)
+                foreach (ItemStack s in bag)
+                    if (s != null && !s.IsEmpty() && s.itemValue != null && s.itemValue.type == type) return s.itemValue;
+            return null;
+        }
+
+        /// <summary>
+        /// Round wq1, ScCommunity.Admit (a body becoming a member - a recruit, a hire who joins, an enclave person recruited or
+        /// joining with their group): the quality of each of her pair weapons (CopyOf) and of the weapon in her hand into her
+        /// record, so the copies SCore rebuilds after a load keep it (StableQuality) rather than taking the seeded one. A weapon
+        /// she was handed as a member later records its own (ScHanded.Put). Logged with DebugLogging. Host only.
+        /// </summary>
+        public static void RecordQualities(Member m, EntityAlive e)
+        {
+            try
+            {
+                if (m == null || e == null || e.inventory == null || !ScRegistry.Loaded) return;
+                ItemValue held = e.inventory.holdingItemItemValue;
+                Loadout pair = Current(e) ?? m.Loadout;
+                var said = new List<string>();
+                if (pair != null)
+                    foreach (string item in new[] { pair.HasRanged ? pair.Ranged : null, pair.Melee })
+                    {
+                        ItemValue copy = CopyOf(e, item, held);
+                        if (!QualityWeapon(copy)) continue;
+                        RecordQuality(m, item, copy.Quality);
+                        said.Add(item + " Q" + copy.Quality);
+                    }
+                if (QualityWeapon(held))
+                {
+                    string name = held.ItemClass.GetItemName();
+                    if (RecordQuality(m, name, held.Quality)) said.Add(name + " Q" + held.Quality + " (in hand)");
+                }
+                if (said.Count > 0) ScLog.Verbose(m.Name + " (id " + m.Id + "): weapon qualities kept - " + string.Join(", ", said.ToArray()));
+            }
+            catch (Exception ex) { ScLog.Once("weapon-quality-record", ex); }
+        }
+
+        /// <summary>Round wq1: Member.WeaponQuality as the save writes it - "name:q,name:q" by name - or null when there is none.</summary>
+        public static string EncodeQualities(Member m)
+        {
+            if (m == null || m.WeaponQuality == null || m.WeaponQuality.Count == 0) return null;
+            var names = new List<string>(m.WeaponQuality.Keys);
+            names.Sort(StringComparer.Ordinal);
+            var sb = new StringBuilder();
+            foreach (string n in names)
+            {
+                int q = m.WeaponQuality[n];
+                if (q < 1 || q > 6 || n.IndexOf(',') >= 0 || n.IndexOf(':') >= 0) continue;
+                if (sb.Length > 0) sb.Append(',');
+                sb.Append(n).Append(':').Append(q.ToString(CultureInfo.InvariantCulture));
+            }
+            return sb.Length > 0 ? sb.ToString() : null;
+        }
+
+        /// <summary>Round wq1: a wq= line into Member.WeaponQuality (a pair that does not read is skipped).</summary>
+        public static void ReadQualities(Member m, string val)
+        {
+            if (m == null || string.IsNullOrEmpty(val)) return;
+            foreach (string part in val.Split(','))
+            {
+                int c = part.LastIndexOf(':');
+                if (c <= 0) continue;
+                int q;
+                if (!int.TryParse(part.Substring(c + 1).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out q)) continue;
+                RecordQuality(m, part.Substring(0, c).Trim(), q);
+            }
+        }
+#endif
 
         /// <summary>
         /// Gives one copy the front of the canonical list, if it is a pair weapon with free slots and no mods yet.

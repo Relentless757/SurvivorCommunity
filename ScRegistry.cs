@@ -49,6 +49,8 @@ namespace SurvivorCommunity
     ///                ignores) and [community] medsrestocked=N (today's restocks, the daily ledger)
     ///                U1: ammopick=gunName|ammoName (the ammo type the player chose for her gun in the member panel,
     ///                ScAmmoChoice; written when set, a key an older build ignores)
+    ///                wq1: wq=gunBowT1IronCrossbow:6,meleeWpnBatonT0PipeBaton:2 (the quality her weapons really have, by item name:
+    ///                Member.WeaponQuality; written when set, never to a client, a key an older build ignores)
     ///   [prospect]   id=1300 class=.. name=.. favour=poi|supplies poi=x,y,z poiname=.. poisize=w,d items=food:15 done=1
     ///                loadout=ranged,melee; E3 encp=12 (an enclave person's favour: id is then their body's, parked at load)
     ///   [contact]    id=3 class=.. label=.. poi=x,y,z poiname=.. spawn=x,y,z day=12 expire=19 loadout=ranged,melee
@@ -1934,6 +1936,7 @@ namespace SurvivorCommunity
                     if (bar > 0 && bar < val.Length - 1) { m.AmmoGun = val.Substring(0, bar); m.AmmoPick = val.Substring(bar + 1); }
                     break;
                 }
+                case "wq": ScLoadout.ReadQualities(m, val); break;                     // round wq1: the quality her weapons really have
 #endif
                 case "ammo": m.Ammo = ScAmmo.Decode(val, out m.Mags); break;
                 case "outpost": m.OutpostId = I(val); break;
@@ -2927,6 +2930,8 @@ namespace SurvivorCommunity
                 if (worn != null) sb.AppendLine("wardrobe=" + Clean(worn));
                 if (!string.IsNullOrEmpty(m.AmmoGun) && !string.IsNullOrEmpty(m.AmmoPick))   // round U1: the ammo type chosen for her gun
                     sb.AppendLine("ammopick=" + Clean(m.AmmoGun) + "|" + Clean(m.AmmoPick));
+                string wq = ScLoadout.EncodeQualities(m);                                   // round wq1: her weapons' real qualities
+                if (wq != null) sb.AppendLine("wq=" + Clean(wq));
             }
 #endif
             if (!forClients && m.Ammo != null) sb.AppendLine("ammo=" + Clean(ScAmmo.Encode(m.Ammo, m.Mags)));   // magazines %-escaped inside (M11); MP1: not to a client

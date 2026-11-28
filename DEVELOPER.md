@@ -1770,6 +1770,19 @@ vanilla's.
   a new look. The route is known (SCore's pickup item carries every cvar: an `sc_lookid` cvar, the
   `EntitySyncUtils.Collect` prefix keeping the entry, a `SetNPCItemValue` postfix moving it to the new id and rebuilding
   once; a client's own pickup needs a net-synced cvar) and comes in a later round with its own review.
+- **Round wq1 (2026-11-28), a recruit's weapon keeps its quality (`Member.WeaponQuality`).** A hire's Q6 crossbow came
+  back Q1 at the first load after he joined. SCore rebuilds every copy of a member's weapons after a load at a random
+  quality, so round U1's `ScLoadout.StableQuality` gives each copy of a member's rolled pair weapon (and work-kit tool)
+  one quality - but a seeded one (`StableQualityOf`: 1 + a roll from her record id and the item), which knew nothing of
+  the quality the weapon really had. As a hire nothing forced it (members only) and X13 kept the held gun's own
+  `ItemValue`; as a member `AfterPostInit` runs `RestoreHeldGun` (X13, Q6) and then `ApplyWeaponMods`, whose
+  `StableQuality` wrote the seed over it. Now `ScCommunity.Admit` (every path that makes a member from a body: a recruit,
+  a hire joining, an enclave person recruited or joining with the group) records the quality of each pair weapon and of
+  the held weapon (`ScLoadout.RecordQualities`: the copy in her hand, else her inventory window, toolbelt, bag), and
+  `ScHanded.Put` records a weapon handed for her pair (never while the save is read). `StableQuality` uses the recorded
+  quality before the seed; the canonical mods follow it (Quality - 1 slots). Saved as `[member] wq=name:q,name:q` (written
+  when set, never to a client; an older build ignores it). A member from before wq1, or one made without a body (an
+  enclave arriving, E12), has none and keeps the seeded quality, as before.
 - Their eyes track you like a player's. That needs one repair: the eye shader spins each eyeball about a pivot
   given in head-bone space, while the game re-roots every untagged skinned mesh of a non-player entity onto the
   pelvis - which slid the eyeballs out of the face. The mod tags the generated eye mesh the way vanilla's own
