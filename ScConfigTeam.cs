@@ -105,11 +105,12 @@ namespace SurvivorCommunity
         /// </summary>
         public static float PostureMeleeDist = 4f;
         /// <summary>
-        /// Round wp1 (the user: "Mia's fighting skill is 4, she still shoots 1 lone zombie"): a clear shooter - Shooting stars at
-        /// least this many above her Fighting stars - keeps her gun in a matched fight until her target is within PostureMeleeDist;
-        /// everyone else takes her melee weapon at once in a matched fight.
+        /// Round wp1 (decision m4, the user: her own skill decides): in a matched fight a member takes her melee weapon at any
+        /// distance only when her own Fighting stars are at least her own Shooting stars minus this margin; everyone else keeps
+        /// her gun until her target is within PostureMeleeDist, then one swap (as before wp1). 0 (the default): Fighting >=
+        /// Shooting. A teammate's Fighting bonus never enters this choice (it only counts in the team verdict).
         /// </summary>
-        public static int TeamShooterMargin = 2;
+        public static int TeamShooterMargin = 0;
         /// <summary>
         /// Round wp1: F for a member with a melee weapon in her pair is also multiplied by 1 + TeamStarBonus per Fighting star above
         /// TeamStarBonusFrom (Fighting 4: 1.45 x 1.5 = 2.18, two walkers matched); members at or below it count as before.
@@ -232,7 +233,7 @@ namespace SurvivorCommunity
             TeamUnreachableSeconds = 45f;
             PostureDwellSeconds = 5f;
             PostureMeleeDist = 4f;
-            TeamShooterMargin = 2;                 // round wp1
+            TeamShooterMargin = 0;                 // round wp1 (decision m4): Fighting >= Shooting - margin
             TeamStarBonus = 0.25f;
             TeamStarBonusFrom = 2;
             EngageWanderersWithin = 5f;

@@ -434,17 +434,19 @@ namespace SurvivorCommunity
             bool over = ScConfig.Overwhelmed && ScArms.IsOverwhelmed(e, out count, out need);   // X5 only: it recounts
             bool melee;
             // round wp1 (review WP1-m2): the team rule's own answer, read once for every branch - MELEE by MeleeWhy (a matched fight,
-            // not swarmed, no target that needs the gun, not a clear shooter's distance) is what "she prefers melee" means for cb1's
-            // hold (PrefersMelee); the old proxy (melee-led and no clear shooter) missed swarmed and a target that needs the gun
+            // not swarmed, no target that needs the gun, not the gun holder's distance) is what "she prefers melee" means for cb1's
+            // hold (PrefersMelee); the old proxy (melee-led and no clear shooter) missed swarmed and a target that needs the gun.
+            // Round wp1 (decision m4): and her personal choice is melee (MeleeFirst: her own Fighting against her own Shooting) - a
+            // member who shoots first keeps the hold to its own ends (an enemy within 3 m, its time), as before wp1
             ScTeam.GunNeed kind;
             bool mwSoft;
             string mw = MeleeWhy(e, m, st, t, holdsGun, gunRounds, over, count, need, out kind, out mwSoft);
-            st.MeleeByWhy = mw == null;
+            st.MeleeByWhy = mw == null && MeleeFirst(m);
             st.MeleeByWhyAt = Time.time;
             if (ScRetreat.Kites(e)) { melee = false; urgent = urgentGun = true; why = "hurt with nothing to heal with, a gun with rounds: KITE's wide band (round k5, was rt1's stand-off)"; }
             else if (ScArms.OrderedMelee(e)) { melee = true; why = "you ordered " + ScRetreat.Her(e) + " melee weapon"; }
             // round cb1 (item 3): she holds her spot - KITE with the gun (no MELEE once "matched" again), at once
-            else if (holding && gunRounds && mw != null)                           // round wp1 (review WP1-m2): not once she prefers melee
+            else if (holding && gunRounds && !st.MeleeByWhy)                       // round wp1 (review WP1-m2, decision m4): not once she prefers melee
             {
                 melee = false;
                 urgent = urgentGun = true;
@@ -526,19 +528,20 @@ namespace SurvivorCommunity
             // Round fd2 (the user: "never uses a melee weapon against even a single zombie nearby"): only at range - a target
             // within PostureMeleeDist (1 m more once she is on her melee weapon) gets everyone's one swap to melee; the fights
             // the checks above give the gun (hurt, outmatched, swarmed, a target that needs it) keep it
-            // round wp1 (decision 2; the user: "Mia's fighting skill is 4, she still shoots 1 lone zombie inside the base"): in a matched
-            // fight only a clear shooter (ClearShooter: Shooting stars TeamShooterMargin or more above her Fighting stars) keeps her gun
-            // until her target is within PostureMeleeDist; everyone else takes her melee weapon at any distance and walks to it. Was
-            // round fd2's marksman (Shooting her best skill) and, for anyone with a gun in hand, the same distance rule
-            if (gunRounds && ClearShooter(m))
+            // round wp1 (decision 2; the user: "Mia's fighting skill is 4, she still shoots 1 lone zombie inside the base") and
+            // round wp1 (decision m4, the user: her own skill decides): in a matched fight a member whose own Fighting stars are at
+            // least her own Shooting stars (MeleeFirst, TeamShooterMargin 0) takes her melee weapon at any distance and walks to it;
+            // everyone else keeps her gun until her target is within PostureMeleeDist, then one swap - as before wp1. Her own stars
+            // only: a teammate's Fighting bonus can make the fight matched (ScTeam's F), never send a weaker fighter in
+            if (gunRounds && !MeleeFirst(m))
             {
                 float mlim = ScConfig.PostureMeleeDist + (GunStance(st.P, st.Kiting) ? 0f : 1f);
                 float md = (t.position - e.position).magnitude;
                 if (md > mlim)
                 {
                     soft = true;
-                    return "a clear shooter (Shooting " + m.Stars(Skill.Shooting) + "*, Fighting " + m.Stars(Skill.Fighting) + "*) - " + ScRetreat.Her(e) + " gun until "
-                           + Who(t) + " is within " + F1(mlim) + " m (" + F1(md) + " m now), then one swap";
+                    return "Shooting is " + ScRetreat.Her(e) + " better skill (Shooting " + m.Stars(Skill.Shooting) + "*, Fighting " + m.Stars(Skill.Fighting) + "*) - "
+                           + ScRetreat.Her(e) + " gun until " + Who(t) + " is within " + F1(mlim) + " m (" + F1(md) + " m now), then one swap";
                 }
             }
             return null;
@@ -850,18 +853,21 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Round wp1 (decision 2): a clear shooter - her Shooting stars at least TeamShooterMargin above her Fighting stars. In a
-        /// matched fight she alone keeps her gun until her target is within PostureMeleeDist (MeleeWhy) and may hold her spot.
+        /// Round wp1 (decision m4, the user: her own skill decides; was decision 2's ClearShooter): her personal weapon choice is
+        /// melee - her own Fighting stars at least her own Shooting stars minus TeamShooterMargin (0). Then a matched fight sends
+        /// her in with her melee weapon at any distance and ends cb1's hold; otherwise she shoots until PostureMeleeDist. A
+        /// member's own stars only - never the team's F, where a teammate's Fighting bonus counts. A read.
         /// </summary>
-        internal static bool ClearShooter(Member m)
+        internal static bool MeleeFirst(Member m)
         {
-            return m != null && m.Stars(Skill.Shooting) - m.Stars(Skill.Fighting) >= ScConfig.TeamShooterMargin;
+            return m != null && m.Stars(Skill.Fighting) >= m.Stars(Skill.Shooting) - ScConfig.TeamShooterMargin;
         }
 
         /// <summary>
         /// Round wp1 (decision 2): her preference is melee, so round cb1's hold neither starts nor goes on. Round wp1 (review
         /// WP1-m2): Want's last answer was MELEE by the team rule itself (MeleeWhy null: matched, not swarmed, no target that
-        /// needs the gun, no clear shooter's distance), fresh - so a back-off while swarmed in a matched fight still holds. A read.
+        /// needs the gun), fresh - so a back-off while swarmed in a matched fight still holds; (decision m4) and her personal
+        /// choice is melee (MeleeFirst). A read.
         /// </summary>
         private static bool PrefersMelee(State st, float now)
         {

@@ -75,11 +75,12 @@ What changes, for members:
 - **An empty gun is no gun**: no rounds in the gun or her stores - her melee weapon at once in a fight (no hand clock, no 3 m
   wait; never during a reload), and no back-off of any kind (BackupRanged, BackupKeepDistance, ScKiteWide) while dry - with a
   melee weapon in her pair; with none she still backs away. Watch and Stay keep 0-XNPCCore's own failover.
-- **Melee in a matched fight**: she takes her melee weapon at once, whatever the distance. Only a clear shooter (Shooting at
-  least `TeamShooterMargin`, 2, stars above Fighting) keeps her gun until the zombie is within 4 m. While the team rule itself
-  says melee (matched, not swarmed, no zombie that needs the gun) she holds no spot after a back-off, a heal or a reload (a hold
-  ends then); swarmed in a matched fight, the hold after her back-off stays. Outmatched is KITE as before; raiders and anyone
-  armed: as before.
+- **Melee in a matched fight, by her own skill** (decision m4, the user's): with at least as many Fighting stars as Shooting
+  stars (`TeamShooterMargin` 0) she takes her melee weapon at once, whatever the distance; with more Shooting stars she keeps
+  her gun until the zombie is within 4 m, then swaps once, as before wp1. Her own stars only: a strong fighter beside her can
+  make the fight matched, never send her in. A member whose own choice is melee holds no spot after a back-off, a heal or a
+  reload while the team rule says melee (matched, not swarmed, no zombie that needs the gun); swarmed, the hold stays; a member
+  who shoots first keeps her hold to its own ends. Outmatched is KITE as before; raiders and anyone armed: as before.
 - **Matched again is prompt**: for 3 s after the count turns matched again with zombies still counted (two counts in a row, as
   before) the switch to melee skips the dwell, and the hand clock down to 1.5 s.
 - **Fighting stars count**: with a melee weapon in her pair, x (1 + `TeamStarBonus` per star above `TeamStarBonusFrom`): Fighting
@@ -89,7 +90,7 @@ What changes, for members:
   fight" for up to a second after every kill); a fight back within 2 s of a gap keeps its stance and dwell (another stance
   waits for the dwell).
 
-New settings (Config/blocks.xml, team section): `TeamStarBonus` 0.25, `TeamStarBonusFrom` 2, `TeamShooterMargin` 2,
+New settings (Config/blocks.xml, team section): `TeamStarBonus` 0.25, `TeamStarBonusFrom` 2, `TeamShooterMargin` 0,
 `EngageWanderersWithin` 5 (0 turns the star bonus and the wanderer rule off).
 
 Build `sc34_wp1`, on branch `wp1` (with the review's fixes: 0 blockers, 2 majors, 6 minors), not deployed, untested in game.
@@ -121,13 +122,16 @@ posture and hold lines below are verbose lines.
       `a matched fight (F 2.18 / T 1) ...`), her melee weapon out before it reaches her; no shot.
 - [ ] Fighting 4 vs two walkers: `a fight starts - F 2.18 / T 2 (matched, melee-led): + ... x Fighting above 2* 1.5 ...` and
       melee. Three walkers: outmatched, KITE.
-- [ ] A clear shooter (Shooting 5, Fighting 2) vs one walker at range: `a clear shooter (Shooting 5*, Fighting 2*) - her gun
-      until ... is within 4 m`, then one swap.
+- [ ] Shooting 3, Fighting 2 vs one walker at range: `Shooting is her better skill (Shooting 3*, Fighting 2*) - her gun
+      until ... is within 4 m`, then one swap. Fighting 2, Shooting 2: melee at once.
+- [ ] A weak fighter (Fighting 1, Shooting 3) beside Fighting 5 against three walkers: her verdict may be matched (the
+      teammate's bonus), but she shoots until a walker is within 4 m; she never walks in with her melee weapon.
 - [ ] Outmatched, then the second zombie dies: within about 2 s `the fight is matched again ...`, and the posture line ends
       `- matched again: melee at once (round wp1)` with the swap right after (no 5 s wait).
 - [ ] A hold after a reload in an outmatched fight that turns matched: `'s hold ends after ... s: the fight is matched and she
-      prefers melee (round wp1)` (a clear shooter keeps holding). Matched but swarmed (3 on her): her back-off still holds.
-- [ ] Hit three zombies by a gun holder (not a clear shooter) that outnumber her: at most one swap to melee and back within
+      prefers melee (round wp1)` for a member with Fighting >= Shooting; one with more Shooting stars keeps holding. Matched but
+      swarmed (3 on her): her back-off still holds.
+- [ ] Hit three zombies by a gun holder (Fighting >= Shooting) that outnumber her: at most one swap to melee and back within
       about 7 s, never two swaps within 1.5 s.
 - [ ] Kill zombies one after another: no `posture MELEE (was none for 0.x s)` lines between kills; `posture-lapse-held` counts up.
 

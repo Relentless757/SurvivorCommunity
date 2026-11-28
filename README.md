@@ -1637,11 +1637,12 @@ catalog, and real armor pieces in their equipment slots.
   quarter more (Fighting 4: one and a half times), so a good fighter alone is a match for two walkers.
 - **One posture per member** decides her weapon and her moves, and her weapon changes **at most once every 5 seconds**:
   - **Melee**: a matched fight, at least 60% health (melee again from 70%), a zombie she can swing at, not swarmed. She
-    takes her melee weapon at once, however far off the zombie is, walks to it and never backs away. Only a **clear
-    shooter** - Shooting at least 2 stars above Fighting - keeps her gun until the zombie is within 4 m, then switches
-    once (and draws it again once the zombie is past 5 m). A member whose best skill is Shooting fights a lone zombie
-    this way even when the count calls it one too many for her. When a fight turns matched again, her switch to melee
-    comes at once.
+    fights with her melee weapon and never backs away. **Her own skill decides how:** with at least as many Fighting
+    stars as Shooting stars she takes her melee weapon at once, however far off the zombie is, and walks to it; with
+    more Shooting stars she keeps her gun until the zombie is within 4 m, then switches once (and draws it again once
+    the zombie is past 5 m). A strong fighter beside her can make the fight matched, but never sends her in. A member
+    whose best skill is Shooting fights a lone zombie this way even when the count calls it one too many for her. When a
+    fight turns matched again, her switch to melee comes at once.
   - **An empty gun is no gun:** with no rounds left in her gun or her pack she takes her melee weapon at once, fights
     like a melee member and never backs away to shoot.
   - **Kite**: any other fight with a gun that has ammo - more than her side can take, swarmed, hurt, raiders or anyone
@@ -2180,8 +2181,8 @@ These are the ones you are most likely to change. The file has many more.
 | `TeamLowHealth` / `TeamLowHealthBack` | 0.6 / 0.7 | Below this share of her health a member uses the gun again; melee again from the second |
 | `TeamSwapHoldSeconds` | 5 | After any change of weapon, no other change for this many seconds (unless she cannot swing at the zombie) |
 | `PostureDwellSeconds` | 5 | A switch between melee and kite waits this long (a cop or a zombie she cannot reach: at once) |
-| `PostureMeleeDist` | 4 | In a matched fight a clear shooter shoots until the zombie is this close (meters), then switches to melee once; everyone else switches at once |
-| `TeamShooterMargin` | 2 | A member whose Shooting stars are at least this many above her Fighting stars is a clear shooter: the only one who keeps her gun in a matched fight until the zombie is close |
+| `PostureMeleeDist` | 4 | In a matched fight a member with more Shooting than Fighting stars shoots until the zombie is this close (meters), then switches to melee once; the others switch at once |
+| `TeamShooterMargin` | 0 | A member takes her melee weapon at any distance in a matched fight when her Fighting stars are at least her Shooting stars minus this; 1: one star less is enough |
 | `TeamStarBonus` / `TeamStarBonusFrom` | 0.25 / 2 | With a melee weapon, each Fighting star above the second number makes a member count this much more for her side (Fighting 4: 1.5 times); 0: off |
 | `EngageWanderersWithin` | 5 | At home a resident fights a zombie inside the base this close to her (meters) even when it is after nobody; 0: left alone (only the intruder responders go) |
 | `InvestigateIntruders` | true | A zombie inside the base that is after nobody gets residents sent to it; false: left alone |

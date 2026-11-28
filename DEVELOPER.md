@@ -3621,13 +3621,17 @@ Round MP0 is the groundwork:
     keep/ranged/wide answer 0 for a dry member and `ScBackOff.BoundStart` ends a back-off that slips through (`backoff-dry-gun`).
     The review: both back-off gates only with a melee weapon in her pair (`DryWithMelee`); `GunDry` is never true during
     0-XNPCCore's reload (`SdcsReloading`) and is cached per body for 0.2 s; `DryGunSwap` needs two dry X5 ticks in a row.
-  - `ScPosture.MeleeWhy`: in a matched fight only `ClearShooter` (Shooting - Fighting >= `TeamShooterMargin`) keeps the gun until
-    `PostureMeleeDist`; round fd2's marksman distance rule and the generic "holding her gun" rule are gone (fd2's lone-enemy
+  - `ScPosture.MeleeWhy`: in a matched fight a member melees at any distance only when `MeleeFirst` (decision m4, the user: her
+    own skill decides - her own Fighting >= her own Shooting - `TeamShooterMargin`, default 0; was `ClearShooter`, Shooting -
+    Fighting >= 2); everyone else keeps the gun until `PostureMeleeDist`, then one swap, as before wp1. Only her own stars: the
+    star bonus enters the team's F in `FriendWeight` for every friend, so a teammate's bonus can make her verdict matched, but
+    the choice of distance never reads F; round fd2's marksman distance rule and the generic "holding her gun" rule are gone (fd2's lone-enemy
     marksman exception stays). `ScTeam.MatchedAgainWithin` (`Verdict.MatchedAgainAt`) makes the switch urgent for 3 s after the
     verdict turns matched again (stamped only with enemies counted, T > 0), and `View.UrgentMelee` lets `MeleeHand` skip the hand
     clock down to a 1.5 s floor. Round cb1's hold neither starts nor goes on while `PrefersMelee`: `Want`'s last answer was MELEE
-    by `MeleeWhy` itself (`State.MeleeByWhy`, computed once per tick for every branch), so a back-off while swarmed in a matched
-    fight still holds.
+    by `MeleeWhy` itself and her personal choice is melee (`State.MeleeByWhy` = `MeleeWhy` null and `MeleeFirst`, computed once
+    per tick for every branch), so a back-off while swarmed in a matched fight still holds, and a member who shoots first keeps
+    her hold to its own ends.
   - `ScTeam.FriendWeight`: x (1 + `TeamStarBonus` x max(0, Fighting - `TeamStarBonusFrom`)) with a melee weapon in her pair; the
     detail text shows it. `Recount` logs a fight's F / T breakdown once at its start (`LogFight`, a second `Census` with detail,
     at most once per 30 s per member, 8 items).

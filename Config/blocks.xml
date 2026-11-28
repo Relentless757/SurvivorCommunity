@@ -1050,13 +1050,15 @@
 			     holder's one swap when her target comes within PostureMeleeDist meters (a matched fight: until then she keeps
 			     her gun and shoots; a marksman - Shooting her best skill - too, since round fd2). Round k4 retired TeamMeleeFirstSeconds and TeamNoSwingConfirmSeconds (and SurvivorGunFirst):
 			     a config that still sets one gets a warning at load and the key is ignored.
-			     Round wp1: in a matched fight only a clear shooter - Shooting stars at least TeamShooterMargin above her
-			     Fighting stars - keeps her gun until her target is within PostureMeleeDist; everyone else takes her melee weapon
-			     at once, at any distance, and walks to it (and holds no spot after a back-off, a heal or a reload). A gun with no
-			     rounds in it or her stores is no gun: her melee weapon at once, and no back-off of any kind while dry. -->
+			     Round wp1 (decision m4: her own skill decides): in a matched fight a member whose own Fighting stars are at least
+			     her own Shooting stars minus TeamShooterMargin (0) takes her melee weapon at once, at any distance, and walks to it
+			     (and holds no spot after a back-off, a heal or a reload); everyone else keeps her gun until her target is within
+			     PostureMeleeDist, then swaps once, as before. A teammate's Fighting bonus can make the fight matched, never send a
+			     weaker fighter in. A gun with no rounds in it or her stores is no gun: her melee weapon at once, and no back-off
+			     of any kind while dry (with a melee weapon in her pair). -->
 			<property name="PostureDwellSeconds" value="5" />
 			<property name="PostureMeleeDist" value="4" />
-			<property name="TeamShooterMargin" value="2" />
+			<property name="TeamShooterMargin" value="0" />
 			<!-- Round wp1: at home a resident fights a zombie inside the home zone, on her floor and awake, within
 			     EngageWanderersWithin meters of her even when it is after nobody - round n08 left every such zombie alone, even one
 			     at her elbow (not asleep in bed or on a work shift: n08's rule for them). Farther ones are the intruder responders'
