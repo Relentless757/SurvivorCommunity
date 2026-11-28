@@ -3366,6 +3366,8 @@ Round MP0 is the groundwork:
     or owned by one of its players - the server reads its own map, a client the derived block's `fgnd`, every other community's
     home rectangles and held outposts' footprints, and `fown`, whose box owners are another community's; both only with two
     or more communities), then adds the home's linked boxes inside the home zone (0-SCore's enemy rule by `forRepairs`).
+    Round MP7 (review U): `fown` lists `ScMirror.OwnerHash` values (the first 8 bytes of SHA-256 of a platform id, as hex),
+    never the ids, and a client hashes a box lock's owner the same way before it compares (`ScMirror.ForeignOwner`).
     0-SCore's drop box (`AddToNearbyContainer`) keeps its own range (`Patch_CraftFromBaseDropBox`).
   - `UpgradeRepairFromStorage` (default true) answers true for 0-SCore's `BlockUpgradeRepair`/`ReadFromContainers` in its config
     read (`Patch_UpgradeRepairFromStorage` on `Configuration.CheckFeatureStatus(string, string, bool)`). 0-SCore's repair code
@@ -3660,10 +3662,14 @@ Round MP0 is the groundwork:
   - **The derived block** (protocol 9 from the merge; `NetPackageScState`'s layout is unchanged): each community's block
     gains `mode=` (PerPlayer / PerParty; absent means Shared) and `cpl=`, the community's players as
     `role:online:entityid:name` entries (`o` owner, `h` helper, `m` member; the entity id is -1 offline; the name escapes
-    `% , : ;` and line breaks; at most 64; never a platform id). Each client's copy of the block is followed by its own
+    `% , : ;` and line breaks; never a platform id). Round MP7 (review U): at most 200 (`MaxListed`: the owner, a helper and
+    those online first), and `cplt=` with the true count when that cut any. Each client's copy of the block is followed by its own
     `role=` (owner, helper, member or personal) and `ownops=1` when `ScOwnerRule.May` lets it use the Owner ops
     (`ScCommunityView.ReceiverLines`, from the client's platform id and body on the server). A client whose own lines change
     while its community's block does not (an admin, a new party leader) gets the block again (`ScMirror.SendChangedRoles`).
+    Round MP7 (review U): a client whose hello came before the server had its body gets `ownops=` from the parts of the
+    owner rule that need no body (the owner, a community with no owner, Shared without `SharedOwnerOnly`, an admin by the
+    client's permission level), and its lines again at its spawn (`ScMirror.OnPlayerSpawned`, from ModApi's spawn event).
     These keys are written only while `ScCommunityView.KeysOn`: PerPlayer/PerParty, or two or more communities. The players
     list comes from the membership map, the players online in the community and its owner (always in their own community);
     Shared mode's community 0 lists its online players and owner only. Offline players are named from the game's player
@@ -3673,7 +3679,8 @@ Round MP0 is the groundwork:
     `ScCommunityView.Take` gives the window and the radial one answer on every machine: the registry on the host and in
     single player, the block on a client. Its `View` says `Personal` (the no-community page), `Gated` (PerPlayer/PerParty,
     a founded community, and the Owner ops are not this player's), `ShowPlayers` (the list: the keys are on, never in single
-    player) and `CanLeave` (not the owner, not own relations, not community 0 in Shared mode).
+    player) and `CanLeave` (not the owner, not own relations, not community 0 in Shared mode, and a platform id to send it
+    with: `HasId`). `PlayerTotal` is `cplt=`, or the list's count.
   - **The window:** a PLAYERS button in the header (`btnPlayers`) swaps the morale panel for the players list (name, role,
     online, the player's own role in words) with **Leave community** under it (`btnLeaveCommunity`, two presses,
     `community.leave`). A player with only their own relations sees the no-community page in place of the three panels:
@@ -3682,7 +3689,9 @@ Round MP0 is the groundwork:
     and their favors and enclave requests; Open storage hides for them. Ask to leave, Disband and an Owner facility action
     (rationing) are grayed when `Gated`; a grayed button still asks, so the server (`ScActions.WhyNot`) judges a role that
     changed a moment ago. Tools/generate_community_ui.py draws all of it in both looks; new control ids only, the old ones
-    kept.
+    kept. Round MP7 (review U): the players list (9 rows) and the no-community page's enclaves, favors and requests page
+    (Showing X of Y and a pager, as the member list does), so every one can be seen; requests taken on come before offered
+    ones. Leave's hint goes when its five seconds are over or the panel turns.
   - **The land claim radial** (`TEFeatureSCCommunity.Allow`): "Set as community home", "Disband outpost" and "Start a
     community here" (for a founded community that has no home yet) hide when `Gated`; "Linked storage" hides for a player
     with only their own relations. "Start a community here" for them asks `community.start` (the core's `RequestHome`).
@@ -3692,7 +3701,11 @@ Round MP0 is the groundwork:
     record on the host) opens their favor rows in `Config/dialogs.xml`: "Is there anything I can do for you?", the same
     Mark it / Sure, I'll see what I can find / Actually, I've already cleared that rows, a supplies hand-over with no join
     (`ScTakeFavourItems` alone), and once it is done a row whose answer says she comes when they have a home. "Join us"
-    (`scPoiDone`, `scSuppliesDone`) opens at founding, as the held reward says.
+    (`scPoiDone`, `scSuppliesDone`) opens at founding, as the held reward says. Round MP7 (review U): their hand-over ends the
+    talk, as the community's own does, and her thanks come from the server's answer (`ScTakeFavourItems` value `held`:
+    `scMp7FavourThanks`), so a refusal is never thanked first; their "Actually, I've already cleared that." has its own reply
+    (`scMp7PoiClearedSt`) instead of the join's. The talk's "Ask to leave" hides where the window grays its button
+    (`ScOwnerOrders`: the view is not `Gated`).
 
 ## How it hangs together (for modders)
 

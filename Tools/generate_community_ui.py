@@ -55,6 +55,9 @@ RULES THAT MATTER:
   their favors and requests) in place of the three panels ({hascommunity}), and no Open storage ({storagevisible}). Ask to leave
   and Disband take their label colour from {leavetextcolor} / {opdisbandcolor} (grayed when the owner's orders are not the
   player's). Shared mode with one community answers every one of these as before, so the window looks the same there.
+  Round MP7 (review U): the players list (PL_ROWS) and the no-community page's three lists page - Showing X of Y on the left
+  ({plshowingtext}, {ncencshowing}, {ncfavshowing}, {ncreqshowing}) and a Prev / Next pager on the right (pager(): btnPlPrev /
+  btnPlNext, btnNcEnc*, btnNcFav*, btnNcReq*, shown by their {...pagevisible}); the player's own role line has three lines.
 """
 
 import io
@@ -151,7 +154,10 @@ OP_ACTIONS = (("btnOpTrack", "optracklabel", BODY, False), ("btnOpAssign", "opas
               ("btnOpUpgrade", "opupgradelabel", "{opupgradecolor}", False), ("btnOpDisband", "opdisbandlabel", "{opdisbandcolor}", True))
 # round MP7 (part U): the players list (XUiC_ScCommunity.PlayerSlots) in the morale panel, Leave community under it, the header's
 # PLAYERS button, and the no-community page's rows (NcEnclaveSlots, NcFavourSlots, NcRequestSlots)
-PL_ROWS, PL_ROW_H, PL_ROW_GAP, PL_TOP = 10, 40, 4, 104
+# round MP7 (review U): n3 - the player's own role line gets three lines, so 9 rows from 122 (was 10 from 104); m1 - and a pager
+PL_ROWS, PL_ROW_H, PL_ROW_GAP, PL_TOP = 9, 40, 4, 122
+PL_YOU_H = 64
+PAGER_W = 100                         # a pager's two buttons at a list's right edge, and the gap before them
 LEAVE_Y, LEAVE_H = 590, 48
 PL_BTN_W = 210
 NC_ROW_H, NC_ROW_GAP = 56, 6
@@ -660,12 +666,13 @@ def morale():
 
 def players():
     """Round MP7 (part U): the players list in the morale panel - the count, the player's own role, PL_ROWS rows (an online dot,
-    the name, the role and offline), how many more, and Leave community (two presses) with the answer under it."""
+    the name, the role and offline), how many more, and Leave community (two presses) with the answer under it. Round MP7 (review
+    U): m1 - Showing X of Y and a pager (btnPlPrev / btnPlNext) in place of "+N more"."""
     w = MOR_W - 40
     o = ['<rect depth="0" name="playersView" pos="0,0" width="%d" height="%d" visible="{showplayers}">' % (MOR_W, PAN_H),
          "\t" + label(20, -14, w - 70, 34, 28, TITLE, key="scUiPlTitle", extra='upper_case="true"'),
          "\t" + label(MOR_W - 90, -18, 70, 30, 26, GOLD, text="{playercount}", extra='justify="right"'),
-         "\t" + label(20, -54, w, 44, 16, GOLD, text="{playersyou}")]
+         "\t" + label(20, -54, w, PL_YOU_H, 16, GOLD, text="{playersyou}")]
     for k in range(1, PL_ROWS + 1):
         y = PL_TOP + (k - 1) * (PL_ROW_H + PL_ROW_GAP)
         o += ['\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{pl%dvisible}">' % (MOR_W, PAN_H, k),
@@ -675,15 +682,27 @@ def players():
               "\t\t" + label(60, -(y + 8), w - 210, 24, 19, "{pl%dnamecolor}" % k, text="{pl%dname}" % k),
               "\t\t" + label(20 + w - 160, -(y + 10), 148, 22, 15, DIM, text="{pl%drole}" % k, extra='justify="right"'),
               "\t</rect>"]
-    fy = PL_TOP + PL_ROWS * (PL_ROW_H + PL_ROW_GAP) + 2
-    o += ["\t" + label(20, -fy, w, 22, 16, DIM, text="{plmore}"),
-          '\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{leavecommunityvisible}">' % (MOR_W, PAN_H),
+    fy = PL_TOP + PL_ROWS * (PL_ROW_H + PL_ROW_GAP) + 4
+    o += ["\t" + label(20, -(fy + 6), w - PAGER_W, 22, 16, DIM, text="{plshowingtext}")]
+    o += ["\t" + line for line in pager("Pl", 20 + w, fy, 34, MOR_W, "plpagevisible")]
+    o += ['\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{leavecommunityvisible}">' % (MOR_W, PAN_H),
           "\t\t" + button("btnLeaveCommunity", 20, -LEAVE_Y, w, LEAVE_H, sprite="scui_btn_danger", hover="scui_btn_danger"),
           "\t\t" + centred(20, -LEAVE_Y, w, LEAVE_H, 18, DANGER_TEXT, text="{leavecommunitylabel}", extra='justify="center" upper_case="true"'),
           "\t</rect>",
           "\t" + label(20, -(LEAVE_Y + LEAVE_H + 8), w, 44, 15, BODY, text="{playersmessage}"),
           "</rect>"]
     return o
+
+
+def pager(name, right, y, h, panel_w, visible):
+    """Round MP7 (review U): m1, m2 - Prev / Next at a list's right edge (the member list's pager: 38 wide, 8 apart), shown while the
+    list has more than one page."""
+    return ['<rect depth="2" pos="0,0" width="%d" height="%d" visible="{%s}">' % (panel_w, PAN_H, visible),
+            "\t" + button("btn%sPrev" % name, right - 84, -y, 38, h),
+            "\t" + icon("ui_game_symbol_arrow_left", right - 65, -(y + h // 2), 18, depth=4),
+            "\t" + button("btn%sNext" % name, right - 38, -y, 38, h),
+            "\t" + icon("ui_game_symbol_arrow_right", right - 19, -(y + h // 2), 18, depth=4),
+            "</rect>"]
 
 
 def nc_row(prefix, k, x, y, w, panel_w):
@@ -734,8 +753,10 @@ def nocommunity():
     o += ['\t\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{ncencempty}">' % (DET_W, PAN_H),
           "\t\t\t" + label(24, -(NC_ENC_TOP + 6), tw, 120, 18, BODY, key="scUiNcEncNone"),
           "\t\t</rect>",
-          "\t\t" + label(24, -ey, tw, 22, 17, DIM, text="{ncencmore}"),
-          "\t\t" + label(24, -(ey + 30), tw, 60, 16, DIM, key="scUiNcEncNote"),
+          # round MP7 (review U): m2 - Showing X of Y and a pager in place of "+N more"
+          "\t\t" + label(24, -(ey + 4), tw - PAGER_W, 22, 17, DIM, text="{ncencshowing}")]
+    o += ["\t\t" + line for line in pager("NcEnc", 24 + tw, ey, 30, DET_W, "ncencpagevisible")]
+    o += ["\t\t" + label(24, -(ey + 36), tw, 60, 16, DIM, key="scUiNcEncNote"),
           "\t</rect>"]
     w = MOR_W - 40
     o += ['\t<rect depth="1" name="ncFavourPanel" pos="%d,-%d" width="%d" height="%d">' % (MOR_X, PAN_Y, MOR_W, PAN_H),
@@ -748,8 +769,9 @@ def nocommunity():
     o += ['\t\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{ncfavempty}">' % (MOR_W, PAN_H),
           "\t\t\t" + label(20, -(NC_FAV_TOP + 6), w, 90, 17, BODY, key="scUiNcFavNone"),
           "\t\t</rect>",
-          "\t\t" + label(20, -fy, w, 22, 16, DIM, text="{ncfavmore}"),
-          "\t\t" + label(20, -(NC_REQ_TOP - 38), w, 26, 22, TITLE, key="scUiNcRequests", extra='upper_case="true"'),
+          "\t\t" + label(20, -(fy + 3), w - PAGER_W, 22, 16, DIM, text="{ncfavshowing}")]
+    o += ["\t\t" + line for line in pager("NcFav", 20 + w, fy, 28, MOR_W, "ncfavpagevisible")]
+    o += ["\t\t" + label(20, -(NC_REQ_TOP - 38), w, 26, 22, TITLE, key="scUiNcRequests", extra='upper_case="true"'),
           "\t\t" + plate("scui_divider", 20, -(NC_REQ_TOP - 10), w, 3, depth=1)]
     for k in range(1, NC_REQ_ROWS + 1):
         y = NC_REQ_TOP + (k - 1) * (NC_ROW_H + NC_ROW_GAP)
@@ -758,8 +780,9 @@ def nocommunity():
     o += ['\t\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{ncreqempty}">' % (MOR_W, PAN_H),
           "\t\t\t" + label(20, -(NC_REQ_TOP + 6), w, 60, 17, BODY, key="scUiNcReqNone"),
           "\t\t</rect>",
-          "\t\t" + label(20, -ry, w, 22, 16, DIM, text="{ncreqmore}"),
-          "\t\t" + label(20, -(ry + 26), w, 40, 15, DIM, key="scUiNcFavNote"),
+          "\t\t" + label(20, -(ry + 2), w - PAGER_W, 22, 16, DIM, text="{ncreqshowing}")]
+    o += ["\t\t" + line for line in pager("NcReq", 20 + w, ry, 26, MOR_W, "ncreqpagevisible")]
+    o += ["\t\t" + label(20, -(ry + 30), w, 40, 15, DIM, key="scUiNcFavNote"),
           "\t</rect>",
           "</rect>"]
     return o
@@ -839,11 +862,13 @@ def main():
     assert 3 + HEADER_H <= RES_Y - 4, "the vanilla header bar runs into the resources"
     # round MP7 (part U)
     assert WIN_W - M - 56 - 12 - 250 - 12 - PL_BTN_W >= 106 + 700, "the PLAYERS button runs into the community name"
-    assert PL_TOP + PL_ROWS * (PL_ROW_H + PL_ROW_GAP) + 24 <= LEAVE_Y - 4, "the players rows run into Leave community"
+    # round MP7 (review U): the pagers and the taller role line
+    assert 54 + PL_YOU_H <= PL_TOP - 4, "the player's own role line runs into the players rows"
+    assert PL_TOP + PL_ROWS * (PL_ROW_H + PL_ROW_GAP) + 4 + 34 <= LEAVE_Y - 4, "the players rows and their pager run into Leave community"
     assert LEAVE_Y + LEAVE_H + 8 + 44 <= PAN_H, "Leave community's answer runs past the panel"
-    assert NC_ENC_TOP + NC_ENC_ROWS * (NC_ROW_H + NC_ROW_GAP) + 30 + 60 <= PAN_H, "the enclave rows run past the panel"
-    assert NC_FAV_TOP + NC_FAV_ROWS * (NC_ROW_H + NC_ROW_GAP) + 22 <= NC_REQ_TOP - 38, "the favor rows run into the requests heading"
-    assert NC_REQ_TOP + NC_REQ_ROWS * (NC_ROW_H + NC_ROW_GAP) + 26 + 40 <= PAN_H, "the request rows run past the panel"
+    assert NC_ENC_TOP + NC_ENC_ROWS * (NC_ROW_H + NC_ROW_GAP) + 36 + 60 <= PAN_H, "the enclave rows and their pager run past the panel"
+    assert NC_FAV_TOP + NC_FAV_ROWS * (NC_ROW_H + NC_ROW_GAP) + 28 <= NC_REQ_TOP - 38 - 2, "the favor rows and their pager run into the requests heading"
+    assert NC_REQ_TOP + NC_REQ_ROWS * (NC_ROW_H + NC_ROW_GAP) + 30 + 40 <= PAN_H, "the request rows and their pager run past the panel"
     assert 404 + len(NC_NOW) * 48 + 6 + 120 <= PAN_H, "the no-community notes run past the panel"
 
 

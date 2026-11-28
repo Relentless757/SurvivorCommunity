@@ -78,6 +78,35 @@ AP harness, extended for the fixes (117 checks on each of the 12 saves, 0 failur
 - [ ] Normal invites still join as before (a forged accept cannot be made in a normal test: the log line `... with no invite
       the server knew of (a modified client?)` must never appear in normal play).
 
+## Round MP7 (review U) (2026-11-27): paging, a role at the first block, the talk's nits, no platform ids in fown
+
+Why: the Fable review of part U (0 blockers, 0 majors, 3 minors, 8 nits) and one hardening. The players list and the
+no-community page's three lists page, so every player, enclave, favor and request can be seen (the players list was cut at
+10, the server's at 64). An owner or admin whose first block came before the server had their body gets the owner's
+buttons at once. The talk's favor hand-over ends the talk and thanks from the server's answer, the personal "already
+cleared" reply is their own, the talk's "Ask to leave" hides where the window grays it. `fown` (which box owners are another
+community's) carries a hash of each platform id instead of the id. Build `sc34_mp7fixu`, **not deployed**, untested in
+game. Checked offline: the save round trip on 12 saves (ALL PASS) and the network harness (448 checks, 0 failures: the
+snapshot text, the part U checks, and new ones for the hash, both fown lists, the role lines with no body, the true total).
+
+**Single player and one community on a dedicated server, Shared (nothing may change)**
+- [ ] The community window, the radial and the talk look and work as in round MP7 (part U)'s Shared steps below.
+- [ ] Craft from storage and the storage screens on a client still leave out another community's boxes and keep your own
+      (two communities on the server: one box locked by a player of each).
+
+**PerPlayer on the dedicated server**
+- [ ] A community with more than 9 players (offline ones count): PLAYERS shows 9, "Showing 9 of N" and Prev / Next; every
+      player can be paged to. The button and the count say N.
+- [ ] A player with no community who knows more than 8 enclaves, has more than 5 favors or more than 3 requests: each list
+      shows "Showing X of Y" and pages; requests taken on come first.
+- [ ] The owner joins: the owner's buttons are lit from the first moment (no gray flash), and the radial on their claim
+      offers Set as community home at once.
+- [ ] Leave community, first press: the hint shows, and goes after five seconds or when you press PLAYERS / MORALE.
+- [ ] A member who is not the owner: the talk with one of the community's members has no "Ask to leave" row.
+- [ ] With no community: "Here are the supplies you asked for." ends the talk and tells `<name> thanks you for the
+      supplies ...`; out of reach, the items come back and no thanks are told. A POI favor whose building already reads
+      clear: "Mark it", then "Actually, I've already cleared that." - her answer says she comes once you have a home.
+
 ## Round MP7 (part AP) (2026-11-27): land claim allies and parties bring players in and take them out
 
 Why: the MP7 core gave every player their own relations and a way to start a community, but only an admin could put a player

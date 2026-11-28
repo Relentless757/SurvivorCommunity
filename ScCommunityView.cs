@@ -45,8 +45,16 @@ namespace SurvivorCommunity
         /// <summary>1: the receiver may use the Owner ops (ScOwnerRule.May: the owner, admins, PerParty's helper).</summary>
         public const string OwnOpsKey = "ownops";
         public const string PlayersKey = "cpl";
-        /// <summary>At most this many players in cpl= (the block stays small; the window says how many more).</summary>
-        public const int MaxListed = 64;
+        /// <summary>
+        /// Round MP7 (review U): m1 - the community's true player count, written beside cpl= only when cpl= holds fewer (MaxListed): the
+        /// window's count and "not listed" line use it.
+        /// </summary>
+        public const string PlayersTotalKey = "cplt";
+        /// <summary>
+        /// At most this many players in cpl= (the block stays small). Round MP7 (review U): m1 - 200 (was 64), and the window pages
+        /// through every one it gets; past this the true total goes in cplt= and the window says how many are not listed.
+        /// </summary>
+        public const int MaxListed = 200;
 
         // ------------------------------------------------------------------ the server ----
 
@@ -81,7 +89,7 @@ namespace SurvivorCommunity
         /// Server: community cs's players for the list - those online in it, those the membership map records in it (offline: their
         /// name from the game's player list), and its owner (always in their own community, listed or not). Shared mode's community 0
         /// lists its online players and its owner only (everyone unlisted is in it). Owner first, then a helper, then online, then by
-        /// name; at most MaxListed. Empty for a personal record. Main thread.
+        /// name. Empty for a personal record. Main thread. Round MP7 (review U): m1 - every one (cpl= takes the first MaxListed).
         /// </summary>
         internal static List<ScCommunityPlayer> PlayersOf(CommunityState cs)
         {
@@ -129,7 +137,6 @@ namespace SurvivorCommunity
                 if (!listed) rows.Add(new ScCommunityPlayer { Name = com.Owner, Role = RoleOwner });
             }
             rows.Sort(Compare);
-            if (rows.Count > MaxListed) rows.RemoveRange(MaxListed, rows.Count - MaxListed);
             return rows;
         }
 
@@ -173,7 +180,13 @@ namespace SurvivorCommunity
             if (!KeysOn) return "";
             var sb = new StringBuilder();
             if (ScMembership.Separate) sb.Append(ModeKey).Append('=').Append(ScMembership.ModeName(ScMembership.Mode)).Append('\n');
-            sb.Append(PlayersKey).Append('=').Append(EncodePlayers(PlayersOf(ScCommunities.ById(cid)))).Append('\n');
+            List<ScCommunityPlayer> rows = PlayersOf(ScCommunities.ById(cid));
+            // round MP7 (review U): m1 - the first MaxListed (the owner, a helper and those online come first), and the true total
+            // beside them when that cut any
+            int total = rows.Count;
+            if (rows.Count > MaxListed) rows.RemoveRange(MaxListed, rows.Count - MaxListed);
+            sb.Append(PlayersKey).Append('=').Append(EncodePlayers(rows)).Append('\n');
+            if (total > rows.Count) sb.Append(PlayersTotalKey).Append('=').Append(total.ToString(CultureInfo.InvariantCulture)).Append('\n');
             return sb.ToString();
         }
 
@@ -194,13 +207,38 @@ namespace SurvivorCommunity
                 string pid = id != null ? id.CombinedString ?? "" : "";
                 string role = RoleOf(cs, pid, p);
                 if (role.Length == 0) return "";
-                bool own = role != RolePersonal && p != null && ScOwnerRule.May(p, cs);
+                // round MP7 (review U): m3 - before the client's body exists on the server, the parts of the owner rule that need no
+                // body (MayWithoutBody); PerParty's helper needs it and follows at the spawn (ScMirror.OnPlayerSpawned resends)
+                bool own = role != RolePersonal && (p != null ? ScOwnerRule.May(p, cs) : MayWithoutBody(ci, cs, role));
                 return RoleKey + "=" + role + "\n" + (own ? OwnOpsKey + "=1\n" : "");
             }
             catch (Exception e)
             {
                 ScLog.Once("mp7u-receiver-lines", e);
                 return "";
+            }
+        }
+
+        /// <summary>
+        /// Round MP7 (review U): m3 - ScOwnerRule.May for a client whose body the server does not have yet: the owner, a community with
+        /// no owner yet (IsOwnerOrAdmin's "anyone"), Shared mode without SharedOwnerOnly, or an admin by the client's permission level
+        /// (ScActions.IsAdmin's test). PerParty's party leader needs the body: none here.
+        /// </summary>
+        private static bool MayWithoutBody(ClientInfo ci, CommunityState cs, string role)
+        {
+            if (role == RoleOwner) return true;
+            Community c = cs.Community;
+            if (string.IsNullOrEmpty(c.OwnerId) && string.IsNullOrEmpty(c.Owner)) return true;
+            if (!ScMembership.Separate && !ScConfig.SharedOwnerOnly) return true;
+            try
+            {
+                GameManager gm = GameManager.Instance;
+                return ci != null && gm != null && gm.adminTools != null && gm.adminTools.Users.GetUserPermissionLevel(ci) <= 0;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("mp7u-admin-nobody", e);
+                return false;
             }
         }
 
@@ -295,6 +333,13 @@ namespace SurvivorCommunity
             /// <summary>Single player (an offline game): one player, so no players list and no Leave.</summary>
             public bool Single;
             public List<ScCommunityPlayer> Players = NoPlayers;
+            /// <summary>Round MP7 (review U): m1 - the community's player count (cplt= when the server listed fewer, else Players.Count).</summary>
+            public int PlayerTotal;
+            /// <summary>
+            /// Round MP7 (review U): n8 - this player has a platform id (the host's own may have none in Shared mode): community.leave
+            /// refuses one without, so Leave never shows for them.
+            /// </summary>
+            public bool HasId = true;
 
             /// <summary>A player with only their own relations (PerPlayer/PerParty): the window's no-community page.</summary>
             public bool Personal { get { return Mode != ScCommunityMode.Shared && Role == RolePersonal; } }
@@ -305,7 +350,7 @@ namespace SurvivorCommunity
             /// <summary>Leave community: not the owner, not a personal record, and not community 0 in Shared mode (nowhere to leave to).</summary>
             public bool CanLeave
             {
-                get { return ShowPlayers && (Role == RoleMember || Role == RoleHelper) && !(Mode == ScCommunityMode.Shared && Cid == ScPlayers.SharedCommunity); }
+                get { return ShowPlayers && HasId && (Role == RoleMember || Role == RoleHelper) && !(Mode == ScCommunityMode.Shared && Cid == ScPlayers.SharedCommunity); }
             }
         }
 
@@ -336,9 +381,12 @@ namespace SurvivorCommunity
                     CommunityState cs = ScCommunities.ById(cid);
                     v.Cid = cid;
                     if (cs == null) return v;
-                    v.Role = RoleOf(cs, ScPlayers.IdOf(local), local);
+                    string pid = ScPlayers.IdOf(local);
+                    v.HasId = pid.Length > 0;                   // round MP7 (review U): n8
+                    v.Role = RoleOf(cs, pid, local);
                     v.OwnOps = v.Role != RolePersonal && ScOwnerRule.May(local, cs);
                     if (withPlayers) v.Players = PlayersOf(cs);
+                    v.PlayerTotal = v.Players.Count;
                     return v;
                 }
                 if (!ScMirror.Active) return v;
@@ -349,6 +397,8 @@ namespace SurvivorCommunity
                 v.ListOn = v.Role.Length > 0;
                 v.Cid = ScRegistry.MirroredCommunity;
                 if (withPlayers) v.Players = ScMirror.CommunityPlayers;
+                // round MP7 (review U): m1 - the true count when the server listed fewer
+                v.PlayerTotal = Math.Max(v.Players.Count, ScMirror.Int(PlayersTotalKey, 0));
             }
             catch (Exception e)
             {

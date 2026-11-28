@@ -201,6 +201,24 @@ public class DialogRequirementScNoCommunityFavour : BaseDialogRequirement
 }
 
 /// <summary>
+/// Round MP7 (review U): n4 - the owner's orders are the talker's: ScCommunityView's view is not Gated (Shared mode, the owner, an
+/// admin, PerParty's party leader while the owner is away, or no community to speak of). It hides the talk's "Ask to leave"
+/// (member.leave, an Owner op) where the window grays its button; the server still judges it. Unknown counts as theirs (the row as
+/// before).
+/// </summary>
+public class DialogRequirementScOwnerOrders : BaseDialogRequirement
+{
+    public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
+    {
+        try
+        {
+            return !ScCommunityView.Take(player, false).Gated;
+        }
+        catch (Exception e) { ScLog.Once("req-ownerorders", e); return true; }
+    }
+}
+
+/// <summary>
 /// value="poi" | "supplies": the favour this NPC asks for (rolled on first sight). Round MP2 (E4): the roll is the server's -
 /// at the talk's open for a client (ScTalkContext), which reads the prospect from its copy and the facts and never rolls one.
 /// </summary>
@@ -530,18 +548,29 @@ public class DialogActionScTakeFavourItems : BaseDialogAction
             Prospect p = ScFavours.Lookup(npc);
             if (lp == null || p == null || p.Favour != FavourKind.Supplies || p.Done) return;
             // value="any": handed over in the talk that named them, before taking the favour on (ScHasFavourItems "any")
-            bool any = (Value ?? "").Trim().Equals("any", StringComparison.OrdinalIgnoreCase);
+            bool any = HasWord(Value, "any");
             if (!p.Started && !any) return;
+            // round MP7 (review U): n5 - value "held" (a player with only their own relations: the row ends the talk) - her thanks are
+            // told from the server's answer, once the favor is done
+            string thanks = HasWord(Value, "held") ? (p.Name ?? "") : null;
             int npcId = npc.entityId;
             // a client's row's ScJoin waits for it (the host's runs inline: it is through before ScJoin, as it always was)
             if (!ScCommunity.IsHost) ScTalkContext.BeginHandOver(npcId);
-            ScActions.Request("favour.items", r => Step1(lp, npcId, any, r), npcId, any ? 1 : 0);
+            ScActions.Request("favour.items", r => Step1(lp, npcId, any, thanks, r), npcId, any ? 1 : 0);
         }
         catch (Exception e) { ScLog.Once("act-takeitems", e); }
     }
 
+    /// <summary>Round MP7 (review U): n5 - the action's value holds this word ("any", "held"; space or comma apart, any case).</summary>
+    private static bool HasWord(string value, string word)
+    {
+        foreach (string w in (value ?? "").Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries))
+            if (w.Equals(word, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
     /// <summary>The server's go-ahead (what, how many): the items leave this machine's bag, then favour.given.</summary>
-    private static void Step1(EntityPlayerLocal lp, int npcId, bool any, ScActionReply r)
+    private static void Step1(EntityPlayerLocal lp, int npcId, bool any, string thanks, ScActionReply r)
     {
         if (!r.Ok)
         {
@@ -562,7 +591,7 @@ public class DialogActionScTakeFavourItems : BaseDialogAction
         int taken = ScCommunity.IsHost ? ScCategories.RemoveFromPlayer(lp, res, count) : ScTalkContext.TakeItems(lp, res, count, removed);
         if (taken >= count)
         {
-            ScActions.Request("favour.given", r2 => Step2(lp, npcId, removed, r2), npcId, any ? 1 : 0, (int)res, taken);
+            ScActions.Request("favour.given", r2 => Step2(lp, npcId, removed, thanks, r2), npcId, any ? 1 : 0, (int)res, taken);
             return;
         }
         ScLog.Warn("supplies favour: asked to remove " + count + " but removed " + taken);
@@ -571,7 +600,7 @@ public class DialogActionScTakeFavourItems : BaseDialogAction
     }
 
     /// <summary>The server's answer to the hand-over: done (the quest closes here), or refused (the items go back).</summary>
-    private static void Step2(EntityPlayerLocal lp, int npcId, List<ItemStack> removed, ScActionReply r)
+    private static void Step2(EntityPlayerLocal lp, int npcId, List<ItemStack> removed, string thanks, ScActionReply r)
     {
         ScTalkContext.ApplyQuestHint(lp, r);
         if (!r.Ok)
@@ -586,6 +615,7 @@ public class DialogActionScTakeFavourItems : BaseDialogAction
         }
         ScTalkContext.Note(npcId, false, true);
         ScTalkContext.EndHandOver(npcId, true);         // a client's ScJoin of the same row goes now
+        if (thanks != null) ScCommunity.TellKey(lp, "scMp7FavourThanks", "", thanks);     // round MP7 (review U): n5
     }
 }
 

@@ -2215,12 +2215,12 @@ scUiPlOffline,UI,Menu,,,,offline
 scUiPlYouOwner,UI,Menu,,,,You own this community.
 scUiPlYouHelper,UI,Menu,,,,You lead a party with one of its players while the owner is away: the owner's orders are yours until they are back.
 scUiPlYouMember,UI,Menu,,,,You belong to this community.
-scUiPlYouAdmin,UI,Menu,,,,You belong to this community. As an admin you may give the owner's orders too.
-scUiPlYouMemberPlayer,UI,Menu,,,,"You belong to this community. Only its owner and admins may dismiss members, disband outposts, move the home or ration food: those buttons are grayed for you."
-scUiPlYouMemberParty,UI,Menu,,,,"You belong to this community. Only its owner, admins and (while the owner is away) the leader of a party with one of its players may dismiss members, disband outposts, move the home or ration food."
+scUiPlYouAdmin,UI,Menu,,,,You belong to this community. The owner's orders are open to you.
+scUiPlYouMemberPlayer,UI,Menu,,,,You belong to this community. The owner's orders (grayed) are for its owner and admins.
+scUiPlYouMemberParty,UI,Menu,,,,"You belong to this community. The owner's orders (grayed) are for its owner, admins and, while the owner is away, its party leader."
 scUiPlLeave,UI,Menu,,,,Leave community
 scUiPlLeaveConfirm,UI,Menu,,,,Press again to leave
-scUiPlLeaveHint,UI,Menu,,,,"You will lose the community's home, storage and members, and start again on your own. Press the button again within five seconds to leave."
+scUiPlLeaveHint,UI,Menu,,,,"You lose the community's home, storage and members. Press again within five seconds to leave."
 scUiNcTitle,UI,Menu,,,,No community yet
 scUiNcWhy,UI,Menu,,,,You are in no community yet. What you do on your own is kept for the day you have one.
 scUiNcStartTitle,UI,Menu,,,,Start one
@@ -2237,7 +2237,6 @@ scUiNcEnclaves,UI,Menu,,,,Enclaves you know
 scUiNcEncSummary,UI,Menu,,,,{0} known - nearest first
 scUiNcEncNone,UI,Menu,,,,"You know no enclave yet. Their people trade, ask for help and remember who helped them."
 scUiNcEncNote,UI,Menu,,,,An enclave that likes you will like your community too: your standing carries over.
-scUiNcMore,UI,Menu,,,,+{0} more
 scUiNcFavours,UI,Menu,,,,Favors
 scUiNcFavNone,UI,Menu,,,,No favor yet: ask a wild survivor if there is anything you can do for them.
 scUiNcFavOffered,UI,Menu,,,,Offered
@@ -2252,6 +2251,9 @@ scMp7Ask,Dialog,Response,,,,Is there anything I can do for you?
 scMp7Poi_text,Dialog,Statement,,,,"There is, actually. A place near here is crawling with them - clear it out and I'll owe you one. Say the word and I'll mark it on your map."
 scMp7Supplies_text,Dialog,Statement,,,,I could use some supplies. Bring me what I need and I won't forget it.
 scMp7Give,Dialog,Response,,,,Here are the supplies you asked for.
-scMp7Thanks_text,Dialog,Statement,,,,"Thank you. I won't forget this. If you ever find a place to call home, come and ask me - I might just come along."
 scMp7Held,Dialog,Response,,,,I still don't have a place of my own.
 scMp7Held_text,Dialog,Statement,,,,"I haven't forgotten what you did for me. Once you have a home, ask me again and I'll come."
+# round MP7 (review U) - the players list's count line and the no-community favor thanks and reply
+scUiPlNotListed,UI,Menu,,,,{0} more not listed
+scMp7FavourThanks,UI,Tooltip,,,,"{0} thanks you for the supplies. Once you have a home, ask them again and they'll come."
+scMp7PoiCleared_text,Dialog,Statement,,,,"You already did? Huh. I did wonder why it went so quiet over there. I owe you one - once you have a home, ask me again and I'll come."

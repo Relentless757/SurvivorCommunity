@@ -127,7 +127,25 @@
 		</response>
 		<statement id="scMp7PoiSt" text="scMp7Poi_text">
 			<response_entry id="scStartPoi" />
-			<response_entry id="scStartPoiCleared" />
+			<response_entry id="scMp7StartPoiCleared" />
+			<response_entry id="done" />
+		</statement>
+		<!-- Round MP7 (review U): n6 - their own "Mark it" when the POI already reads clear: the same as scStartPoiCleared, but "Actually,
+		     I've already cleared that." leads to a reply for someone with no home yet, not to the join's -->
+		<response id="scMp7StartPoiCleared" text="scStartPoi" nextstatementid="scMp7PoiMarkedSt">
+			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
+			<requirement type="ScFavourPoiCleared, SurvivorCommunity" requirementtype="Hide" />
+			<action type="ScStartPoiQuest, SurvivorCommunity" />
+		</response>
+		<statement id="scMp7PoiMarkedSt" text="scPoiMarked_text">
+			<response_entry id="scMp7PoiAlreadyCleared" />
+			<response_entry id="scPoiOnIt" />
+		</statement>
+		<response id="scMp7PoiAlreadyCleared" text="scPoiAlreadyCleared" nextstatementid="scMp7PoiClearedSt">
+			<requirement type="ScFavourPoiCleared, SurvivorCommunity" requirementtype="Hide" />
+			<action type="ScFavourPoiCleared, SurvivorCommunity" />
+		</response>
+		<statement id="scMp7PoiClearedSt" text="scMp7PoiCleared_text">
 			<response_entry id="done" />
 		</statement>
 		<statement id="scMp7SuppliesSt" text="scMp7Supplies_text">
@@ -135,24 +153,23 @@
 			<response_entry id="scAcceptSupplies" />
 			<response_entry id="done" />
 		</statement>
-		<!-- the hand-over: at the root once taken on and carried (scMp7Give), or in the answer itself when already carried -->
-		<response id="scMp7Give" text="scMp7Give" nextstatementid="scMp7ThanksSt">
+		<!-- the hand-over: at the root once taken on and carried (scMp7Give), or in the answer itself when already carried. Round MP7
+		     (review U): n5 - it ends the talk, as the community's own hand-over rows do; "held" tells her thanks when the server's
+		     answer says the favor is done (a refusal gives the items back and says why, with no thanks before it) -->
+		<response id="scMp7Give" text="scMp7Give">
 			<requirement type="ScNoCommunityFavour, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="supplies" />
 			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
 			<requirement type="ScHasFavourItems, SurvivorCommunity" requirementtype="Hide" />
-			<action type="ScTakeFavourItems, SurvivorCommunity" />
+			<action type="ScTakeFavourItems, SurvivorCommunity" value="held" />
 		</response>
-		<response id="scMp7GiveNow" text="scMp7Give" nextstatementid="scMp7ThanksSt">
+		<response id="scMp7GiveNow" text="scMp7Give">
 			<requirement type="ScNoCommunityFavour, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="supplies" />
 			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
 			<requirement type="ScHasFavourItems, SurvivorCommunity" requirementtype="Hide" value="any" />
-			<action type="ScTakeFavourItems, SurvivorCommunity" value="any" />
+			<action type="ScTakeFavourItems, SurvivorCommunity" value="any held" />
 		</response>
-		<statement id="scMp7ThanksSt" text="scMp7Thanks_text">
-			<response_entry id="done" />
-		</statement>
 		<!-- the favor is done (its quest past the clearing, the POI said cleared, the supplies handed over): she waits for a home -->
 		<response id="scMp7Held" text="scMp7Held" nextstatementid="scMp7HeldSt">
 			<requirement type="ScNoCommunityFavour, SurvivorCommunity" requirementtype="Hide" />
@@ -318,6 +335,9 @@
 		</response>
 		<response id="scLeave" text="scLeave" nextstatementid="scLeaveConfirm">
 			<requirement type="ScOwnMember, SurvivorCommunity" requirementtype="Hide" />
+			<!-- round MP7 (review U): n4 - hidden where the owner's orders are not the talker's (PerPlayer/PerParty; never in Shared),
+			     as the window grays its Ask to leave; the server still judges member.leave -->
+			<requirement type="ScOwnerOrders, SurvivorCommunity" requirementtype="Hide" />
 		</response>
 		<statement id="scLeaveConfirm" text="scLeaveConfirm_text">
 			<response_entry id="scLeaveYes" />
