@@ -48,6 +48,13 @@ RULES THAT MATTER:
   (community and member) take their fill from the band of the word beside them: {moralefillsprite} / {selmoodfillsprite}
   pick scui_fill_good / _skill / _health for AshfallUI's art, {moralewordcolor} / {selmoodcolor} tint vanilla's flat fill
   (green from 50, amber from LowMoraleThreshold, red below it - XUiC_ScCommunity.BandColor).
+- Round MP7 (part U, 2026-11-27): the community modes (XUiC_ScCommunityPlayers.cs answers these). A PLAYERS button in the header
+  ({playersbtnvisible}, btnPlayers) swaps the morale panel's content ({showmorale}) for the players list ({showplayers}: PL_ROWS
+  rows of name, role and an online dot, and Leave community, btnLeaveCommunity, {leavecommunityvisible}). A player with only their
+  own relations sees the no-community page ({nocommunity}: how to start or join one, what they can do now, the enclaves they know,
+  their favors and requests) in place of the three panels ({hascommunity}), and no Open storage ({storagevisible}). Ask to leave
+  and Disband take their label colour from {leavetextcolor} / {opdisbandcolor} (grayed when the owner's orders are not the
+  player's). Shared mode with one community answers every one of these as before, so the window looks the same there.
 """
 
 import io
@@ -139,8 +146,20 @@ WORK_MENU_W, WORK_MENU_Y, WORK_MENU_H = 150, 578, 24
 FAC_ROWS, FAC_ROW_H, FAC_ROW_GAP = 8, 60, 6
 FAC_FACTS, FAC_ACTIONS = 4, 3
 FAC_ABOUT_Y, FAC_ABOUT_H = 326, 240
+# round MP7 (part U): Disband's label colour is bound ({opdisbandcolor}: grayed when the owner's orders are not the player's)
 OP_ACTIONS = (("btnOpTrack", "optracklabel", BODY, False), ("btnOpAssign", "opassignlabel", BODY, False),
-              ("btnOpUpgrade", "opupgradelabel", "{opupgradecolor}", False), ("btnOpDisband", "opdisbandlabel", DANGER_TEXT, True))
+              ("btnOpUpgrade", "opupgradelabel", "{opupgradecolor}", False), ("btnOpDisband", "opdisbandlabel", "{opdisbandcolor}", True))
+# round MP7 (part U): the players list (XUiC_ScCommunity.PlayerSlots) in the morale panel, Leave community under it, the header's
+# PLAYERS button, and the no-community page's rows (NcEnclaveSlots, NcFavourSlots, NcRequestSlots)
+PL_ROWS, PL_ROW_H, PL_ROW_GAP, PL_TOP = 10, 40, 4, 104
+LEAVE_Y, LEAVE_H = 590, 48
+PL_BTN_W = 210
+NC_ROW_H, NC_ROW_GAP = 56, 6
+NC_ENC_ROWS, NC_ENC_TOP = 8, 90
+NC_FAV_ROWS, NC_FAV_TOP = 5, 56
+NC_REQ_ROWS, NC_REQ_TOP = 3, 436
+# what a player with no community can do now: (icon, label key)
+NC_NOW = (("ui_game_symbol_talk", "scUiNcTalk"), ("ui_game_symbol_quest", "scUiNcFavors"), ("ui_game_symbol_map", "scUiNcMarkers"))
 
 
 def plate(sprite, x, y, w, h, depth=0, extra=""):
@@ -185,12 +204,22 @@ def bar(x, y, w, h, fill, value, depth=2):
 
 def header():
     sx = WIN_W - M - 56 - 12 - 250
+    px = sx - 12 - PL_BTN_W
     return [icon("ui_game_symbol_map_cabin", 60, -44, 64),
             label(104, -6, 700, 52, 48, TITLE, key="scUiTitle", extra='upper_case="true"'),
             label(106, -56, 700, 26, 22, GOLD, text="{communityname}", extra='upper_case="true"'),
-            button("btnStorage", sx, -18, 250, 48),
-            icon("ui_game_symbol_store_all_up", sx + 34, -42, 30, depth=4),
-            centred(sx + 56, -18, 180, 48, 20, BODY, key="scUiOpenStorage", extra='justify="center" upper_case="true"'),
+            # round MP7 (part U): no Open storage for a player with only their own relations (no community: no linked storage)
+            '<rect depth="0" pos="0,0" width="%d" height="%d" visible="{storagevisible}">' % (WIN_W, RES_Y),
+            "\t" + button("btnStorage", sx, -18, 250, 48),
+            "\t" + icon("ui_game_symbol_store_all_up", sx + 34, -42, 30, depth=4),
+            "\t" + centred(sx + 56, -18, 180, 48, 20, BODY, key="scUiOpenStorage", extra='justify="center" upper_case="true"'),
+            "</rect>",
+            # round MP7 (part U): the players list's button (PerPlayer/PerParty, or two or more communities; never in single player)
+            '<rect depth="0" pos="0,0" width="%d" height="%d" visible="{playersbtnvisible}">' % (WIN_W, RES_Y),
+            "\t" + button("btnPlayers", px, -18, PL_BTN_W, 48),
+            "\t" + icon("ui_game_symbol_players", px + 30, -42, 28, depth=4),
+            "\t" + centred(px + 50, -18, PL_BTN_W - 60, 48, 18, BODY, text="{playersbtnlabel}", extra='justify="center" upper_case="true"'),
+            "</rect>",
             button("btnClose", WIN_W - M - 56, -18, 56, 48),
             icon("ui_game_symbol_x", WIN_W - M - 28, -42, 24, depth=4)]
 
@@ -339,7 +368,7 @@ def facility_list():
 
 
 def members():
-    o = ['<rect depth="1" name="membersPanel" pos="%d,-%d" width="%d" height="%d">' % (MEM_X, PAN_Y, MEM_W, PAN_H),
+    o = ['<rect depth="1" name="membersPanel" pos="%d,-%d" width="%d" height="%d" visible="{hascommunity}">' % (MEM_X, PAN_Y, MEM_W, PAN_H),
          "\t" + plate("scui_window", 0, 0, MEM_W, PAN_H)]
     o += ["\t" + t.replace("\n", "\n\t") for t in tabs()]
     o.append('\t<rect depth="0" name="memberList" pos="0,0" width="%d" height="%d" visible="{tabmembers}">' % (MEM_W, PAN_H))
@@ -432,7 +461,8 @@ def member_detail():
                            "{# runvisible ? '226,220,208,255' : '140,134,124,255' }",
                            text="{runlabel}", extra='justify="center" upper_case="true"'),
           "\t\t" + button("btnLeave", 40 + 2 * bw, -ORDER_Y, bw, ORDER_H, sprite="scui_btn_danger", hover="scui_btn_danger"),
-          "\t\t" + centred(40 + 2 * bw, -ORDER_Y, bw, ORDER_H, 18, DANGER_TEXT, text="{leavelabel}",
+          # round MP7 (part U): grayed when the owner's orders are not the player's ({leavetextcolor})
+          "\t\t" + centred(40 + 2 * bw, -ORDER_Y, bw, ORDER_H, 18, "{leavetextcolor}", text="{leavelabel}",
                            extra='justify="center" upper_case="true"'),
           # btnHome is still hooked by the controller; "Follow me" already turns into "Go home".
           "\t\t" + button("btnHome", 24, -ORDER_Y, bw, ORDER_H, extra='visible="false"')]
@@ -574,7 +604,7 @@ def facility_detail():
 
 
 def detail():
-    o = ['<rect depth="1" name="detailPanel" pos="%d,-%d" width="%d" height="%d">' % (DET_X, PAN_Y, DET_W, PAN_H),
+    o = ['<rect depth="1" name="detailPanel" pos="%d,-%d" width="%d" height="%d" visible="{hascommunity}">' % (DET_X, PAN_Y, DET_W, PAN_H),
          "\t" + plate("scui_window", 0, 0, DET_W, PAN_H),
          '\t<rect depth="0" name="memberDetail" pos="0,0" width="%d" height="%d" visible="{tabmembers}">' % (DET_W, PAN_H)]
     o += ["\t" + line for line in member_detail()]
@@ -601,9 +631,11 @@ def factors(kind, top, color):
 
 
 def morale():
+    """The morale panel. Round MP7 (part U): its content is a view ({showmorale}) the players list ({showplayers}) swaps with."""
     w = MOR_W - 40
-    o = ['<rect depth="1" name="moralePanel" pos="%d,-%d" width="%d" height="%d">' % (MOR_X, PAN_Y, MOR_W, PAN_H),
+    o = ['<rect depth="1" name="moralePanel" pos="%d,-%d" width="%d" height="%d" visible="{hascommunity}">' % (MOR_X, PAN_Y, MOR_W, PAN_H),
          "\t" + plate("scui_window", 0, 0, MOR_W, PAN_H),
+         '\t<rect depth="0" name="moraleView" pos="0,0" width="%d" height="%d" visible="{showmorale}">' % (MOR_W, PAN_H),
          "\t" + label(20, -14, w, 34, 28, TITLE, key="scUiMorale", extra='upper_case="true"'),
          "\t" + label(20, -56, 136, 76, 72, TITLE, text="{morale}", extra='justify="right"'),
          "\t" + label(162, -86, 90, 36, 30, DIM, text="/ 100"),
@@ -620,6 +652,114 @@ def morale():
           "\t\t" + icon("ui_game_symbol_map_bed", 58, -645, 40),
           "\t\t" + label(92, -618, w - 90, 26, 21, DANGER_TEXT, text="{bedscalltitle}"),
           "\t\t" + label(92, -648, w - 90, 22, 16, BODY, text="{bedscallhint}"),
+          "\t</rect>"]
+    # round MP7 (part U): the morale view's lines one tab in (its rect opened above), then the players view
+    o = o[:3] + ["\t" + line for line in o[3:]] + ["\t</rect>"] + ["\t" + line for line in players()] + ["</rect>"]
+    return o
+
+
+def players():
+    """Round MP7 (part U): the players list in the morale panel - the count, the player's own role, PL_ROWS rows (an online dot,
+    the name, the role and offline), how many more, and Leave community (two presses) with the answer under it."""
+    w = MOR_W - 40
+    o = ['<rect depth="0" name="playersView" pos="0,0" width="%d" height="%d" visible="{showplayers}">' % (MOR_W, PAN_H),
+         "\t" + label(20, -14, w - 70, 34, 28, TITLE, key="scUiPlTitle", extra='upper_case="true"'),
+         "\t" + label(MOR_W - 90, -18, 70, 30, 26, GOLD, text="{playercount}", extra='justify="right"'),
+         "\t" + label(20, -54, w, 44, 16, GOLD, text="{playersyou}")]
+    for k in range(1, PL_ROWS + 1):
+        y = PL_TOP + (k - 1) * (PL_ROW_H + PL_ROW_GAP)
+        o += ['\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{pl%dvisible}">' % (MOR_W, PAN_H, k),
+              "\t\t" + plate("scui_row_thin", 20, -y, w, PL_ROW_H, depth=1),
+              '\t\t<sprite depth="3" sprite="ui_game_symbol_player" pos="%d,%d" width="20" height="20" pivot="center" color="{pl%ddotcolor}"/>'
+              % (40, -(y + PL_ROW_H // 2), k),
+              "\t\t" + label(60, -(y + 8), w - 210, 24, 19, "{pl%dnamecolor}" % k, text="{pl%dname}" % k),
+              "\t\t" + label(20 + w - 160, -(y + 10), 148, 22, 15, DIM, text="{pl%drole}" % k, extra='justify="right"'),
+              "\t</rect>"]
+    fy = PL_TOP + PL_ROWS * (PL_ROW_H + PL_ROW_GAP) + 2
+    o += ["\t" + label(20, -fy, w, 22, 16, DIM, text="{plmore}"),
+          '\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{leavecommunityvisible}">' % (MOR_W, PAN_H),
+          "\t\t" + button("btnLeaveCommunity", 20, -LEAVE_Y, w, LEAVE_H, sprite="scui_btn_danger", hover="scui_btn_danger"),
+          "\t\t" + centred(20, -LEAVE_Y, w, LEAVE_H, 18, DANGER_TEXT, text="{leavecommunitylabel}", extra='justify="center" upper_case="true"'),
+          "\t</rect>",
+          "\t" + label(20, -(LEAVE_Y + LEAVE_H + 8), w, 44, 15, BODY, text="{playersmessage}"),
+          "</rect>"]
+    return o
+
+
+def nc_row(prefix, k, x, y, w, panel_w):
+    """Round MP7 (part U): one row of the no-community page - a over b (right, in its colour) and c under them."""
+    return ['<rect depth="0" pos="0,0" width="%d" height="%d" visible="{%s%dvisible}">' % (panel_w, PAN_H, prefix, k),
+            "\t" + plate("scui_row_thin", x, -y, w, NC_ROW_H, depth=1),
+            "\t" + label(x + 12, -(y + 6), w - 190, 24, 20, TITLE, text="{%s%da}" % (prefix, k)),
+            "\t" + label(x + w - 176, -(y + 8), 164, 22, 17, "{%s%dcolor}" % (prefix, k), text="{%s%db}" % (prefix, k), extra='justify="right"'),
+            "\t" + label(x + 12, -(y + 32), w - 24, 20, 15, DIM, text="{%s%dc}" % (prefix, k)),
+            "</rect>"]
+
+
+def nocommunity():
+    """Round MP7 (part U): the no-community page in place of the three panels, for a player with only their own relations
+    (PerPlayer/PerParty): how to start one and how to join one in this mode, what they can do now and that it carries over; the
+    enclaves they know with their standing; their favors and enclave requests."""
+    w = MEM_W - 40
+    o = ['<rect depth="0" name="noCommunityPage" pos="0,0" width="%d" height="%d" visible="{nocommunity}">' % (WIN_W, WIN_H),
+         '\t<rect depth="1" name="ncInfoPanel" pos="%d,-%d" width="%d" height="%d">' % (MEM_X, PAN_Y, MEM_W, PAN_H),
+         "\t\t" + plate("scui_window", 0, 0, MEM_W, PAN_H),
+         "\t\t" + icon("ui_game_symbol_players", 38, -32, 30),
+         "\t\t" + label(64, -14, w - 44, 34, 28, TITLE, key="scUiNcTitle", extra='upper_case="true"'),
+         "\t\t" + label(20, -60, w, 66, 17, BODY, key="scUiNcWhy"),
+         "\t\t" + plate("scui_divider", 20, -134, w, 3, depth=1),
+         "\t\t" + icon("ui_game_symbol_map_cabin", 38, -164, 26),
+         "\t\t" + label(64, -150, w - 44, 26, 21, GOLD, key="scUiNcStartTitle", extra='upper_case="true"'),
+         "\t\t" + label(64, -180, w - 44, 66, 16, BODY, key="scUiNcStart"),
+         "\t\t" + icon("{ncjoinicon}", 38, -264, 26),      # allies (PerPlayer) or a party (PerParty)
+         "\t\t" + label(64, -250, w - 44, 26, 21, GOLD, key="scUiNcJoinTitle", extra='upper_case="true"'),
+         "\t\t" + label(64, -280, w - 44, 66, 16, BODY, text="{ncjoin}"),
+         "\t\t" + plate("scui_divider", 20, -356, w, 3, depth=1),
+         "\t\t" + label(20, -368, w, 26, 21, TITLE, key="scUiNcNow", extra='upper_case="true"')]
+    for k, (sprite, key) in enumerate(NC_NOW):
+        y = 404 + k * 48
+        o += ["\t\t" + icon(sprite, 38, -(y + 14), 24),
+              "\t\t" + label(64, -y, w - 44, 44, 16, BODY, key=key)]
+    o += ["\t\t" + label(20, -(404 + len(NC_NOW) * 48 + 6), w, 120, 16, GOLD, key="scUiNcKeep"),
+          "\t</rect>"]
+    tw = DET_W - 48
+    o += ['\t<rect depth="1" name="ncEnclavePanel" pos="%d,-%d" width="%d" height="%d">' % (DET_X, PAN_Y, DET_W, PAN_H),
+          "\t\t" + plate("scui_window", 0, 0, DET_W, PAN_H),
+          "\t\t" + label(24, -14, tw, 34, 28, TITLE, key="scUiNcEnclaves", extra='upper_case="true"'),
+          "\t\t" + label(24, -54, tw, 22, 17, DIM, text="{ncencsummary}")]
+    for k in range(1, NC_ENC_ROWS + 1):
+        y = NC_ENC_TOP + (k - 1) * (NC_ROW_H + NC_ROW_GAP)
+        o += ["\t\t" + line for line in nc_row("ncenc", k, 24, y, tw, DET_W)]
+    ey = NC_ENC_TOP + NC_ENC_ROWS * (NC_ROW_H + NC_ROW_GAP)
+    o += ['\t\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{ncencempty}">' % (DET_W, PAN_H),
+          "\t\t\t" + label(24, -(NC_ENC_TOP + 6), tw, 120, 18, BODY, key="scUiNcEncNone"),
+          "\t\t</rect>",
+          "\t\t" + label(24, -ey, tw, 22, 17, DIM, text="{ncencmore}"),
+          "\t\t" + label(24, -(ey + 30), tw, 60, 16, DIM, key="scUiNcEncNote"),
+          "\t</rect>"]
+    w = MOR_W - 40
+    o += ['\t<rect depth="1" name="ncFavourPanel" pos="%d,-%d" width="%d" height="%d">' % (MOR_X, PAN_Y, MOR_W, PAN_H),
+          "\t\t" + plate("scui_window", 0, 0, MOR_W, PAN_H),
+          "\t\t" + label(20, -14, w, 34, 28, TITLE, key="scUiNcFavours", extra='upper_case="true"')]
+    for k in range(1, NC_FAV_ROWS + 1):
+        y = NC_FAV_TOP + (k - 1) * (NC_ROW_H + NC_ROW_GAP)
+        o += ["\t\t" + line for line in nc_row("ncfav", k, 20, y, w, MOR_W)]
+    fy = NC_FAV_TOP + NC_FAV_ROWS * (NC_ROW_H + NC_ROW_GAP)
+    o += ['\t\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{ncfavempty}">' % (MOR_W, PAN_H),
+          "\t\t\t" + label(20, -(NC_FAV_TOP + 6), w, 90, 17, BODY, key="scUiNcFavNone"),
+          "\t\t</rect>",
+          "\t\t" + label(20, -fy, w, 22, 16, DIM, text="{ncfavmore}"),
+          "\t\t" + label(20, -(NC_REQ_TOP - 38), w, 26, 22, TITLE, key="scUiNcRequests", extra='upper_case="true"'),
+          "\t\t" + plate("scui_divider", 20, -(NC_REQ_TOP - 10), w, 3, depth=1)]
+    for k in range(1, NC_REQ_ROWS + 1):
+        y = NC_REQ_TOP + (k - 1) * (NC_ROW_H + NC_ROW_GAP)
+        o += ["\t\t" + line for line in nc_row("ncreq", k, 20, y, w, MOR_W)]
+    ry = NC_REQ_TOP + NC_REQ_ROWS * (NC_ROW_H + NC_ROW_GAP)
+    o += ['\t\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{ncreqempty}">' % (MOR_W, PAN_H),
+          "\t\t\t" + label(20, -(NC_REQ_TOP + 6), w, 60, 17, BODY, key="scUiNcReqNone"),
+          "\t\t</rect>",
+          "\t\t" + label(20, -ry, w, 22, 16, DIM, text="{ncreqmore}"),
+          "\t\t" + label(20, -(ry + 26), w, 40, 15, DIM, key="scUiNcFavNote"),
           "\t</rect>",
           "</rect>"]
     return o
@@ -643,7 +783,7 @@ def window():
          '\t\t<window name="windowScCommunity" anchor="Center" pos="-%d,%d" width="%d" height="%d" depth="%d" '
          'controller="%s" cursor_area="true">' % (WIN_W // 2, WIN_H // 2, WIN_W, WIN_H, DEPTH, CONTROLLER),
          "\t\t\t" + plate("scui_window", 0, 0, WIN_W, WIN_H)]
-    for line in header() + resources() + members() + detail() + morale() + footer():
+    for line in header() + resources() + members() + detail() + morale() + nocommunity() + footer():
         o.append("\t\t\t" + line.replace("\n", "\n\t\t\t"))
     o += ["\t\t</window>", "\t</append>"]
     return "\n".join(o).split("\n")
@@ -697,6 +837,14 @@ def main():
     assert min(c[3] for c in cells) >= 44, "a run button is too narrow for a 4-letter label at 13 px"
     assert FOOT_Y + 28 <= WIN_H, "the footer runs past the window"
     assert 3 + HEADER_H <= RES_Y - 4, "the vanilla header bar runs into the resources"
+    # round MP7 (part U)
+    assert WIN_W - M - 56 - 12 - 250 - 12 - PL_BTN_W >= 106 + 700, "the PLAYERS button runs into the community name"
+    assert PL_TOP + PL_ROWS * (PL_ROW_H + PL_ROW_GAP) + 24 <= LEAVE_Y - 4, "the players rows run into Leave community"
+    assert LEAVE_Y + LEAVE_H + 8 + 44 <= PAN_H, "Leave community's answer runs past the panel"
+    assert NC_ENC_TOP + NC_ENC_ROWS * (NC_ROW_H + NC_ROW_GAP) + 30 + 60 <= PAN_H, "the enclave rows run past the panel"
+    assert NC_FAV_TOP + NC_FAV_ROWS * (NC_ROW_H + NC_ROW_GAP) + 22 <= NC_REQ_TOP - 38, "the favor rows run into the requests heading"
+    assert NC_REQ_TOP + NC_REQ_ROWS * (NC_ROW_H + NC_ROW_GAP) + 26 + 40 <= PAN_H, "the request rows run past the panel"
+    assert 404 + len(NC_NOW) * 48 + 6 + 120 <= PAN_H, "the no-community notes run past the panel"
 
 
 if __name__ == "__main__":

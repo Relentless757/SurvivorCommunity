@@ -3576,6 +3576,44 @@ Round MP0 is the groundwork:
     community's players, of the community themselves, while its owner is offline (checked inside, so the network's role key
     can ask it as is). A new leader who now acts for the owner is told (`scMp7PartyHelper`).
   - **Left open:** a kick is trusted as vanilla trusts it (the server never checks that the kicker leads the party).
+- **Round MP7 (part U), what players see of the community modes** (`ScCommunityView`, `XUiC_ScCommunityPlayers.cs`, the
+  generator, `Config/dialogs.xml`). Shared mode with one community sends and shows exactly what it did before.
+  - **The derived block** (protocol 9 from the merge; `NetPackageScState`'s layout is unchanged): each community's block
+    gains `mode=` (PerPlayer / PerParty; absent means Shared) and `cpl=`, the community's players as
+    `role:online:entityid:name` entries (`o` owner, `h` helper, `m` member; the entity id is -1 offline; the name escapes
+    `% , : ;` and line breaks; at most 64; never a platform id). Each client's copy of the block is followed by its own
+    `role=` (owner, helper, member or personal) and `ownops=1` when `ScOwnerRule.May` lets it use the Owner ops
+    (`ScCommunityView.ReceiverLines`, from the client's platform id and body on the server). A client whose own lines change
+    while its community's block does not (an admin, a new party leader) gets the block again (`ScMirror.SendChangedRoles`).
+    These keys are written only while `ScCommunityView.KeysOn`: PerPlayer/PerParty, or two or more communities. The players
+    list comes from the membership map, the players online in the community and its owner (always in their own community);
+    Shared mode's community 0 lists its online players and owner only. Offline players are named from the game's player
+    list. A helper is PerParty's party leader while the owner is offline (`ScOwnerRule.PartyLeaderMayAct`, part AP's).
+  - **The client** parses `cpl=` once per block (`ScMirror.CommunityPlayers`) and reads `mode=`, `role=` and `ownops=`
+    through `ScMirror.Str`; `ScMirror.Reset` clears them at world start and shutdown, a disconnect included.
+    `ScCommunityView.Take` gives the window and the radial one answer on every machine: the registry on the host and in
+    single player, the block on a client. Its `View` says `Personal` (the no-community page), `Gated` (PerPlayer/PerParty,
+    a founded community, and the Owner ops are not this player's), `ShowPlayers` (the list: the keys are on, never in single
+    player) and `CanLeave` (not the owner, not own relations, not community 0 in Shared mode).
+  - **The window:** a PLAYERS button in the header (`btnPlayers`) swaps the morale panel for the players list (name, role,
+    online, the player's own role in words) with **Leave community** under it (`btnLeaveCommunity`, two presses,
+    `community.leave`). A player with only their own relations sees the no-community page in place of the three panels:
+    how to start one ("Start a community here" on their claim's radial) and how to join one in this mode (a land claim
+    ally of an owner, or a community player's party), what they can do now, the enclaves they know with their standing,
+    and their favors and enclave requests; Open storage hides for them. Ask to leave, Disband and an Owner facility action
+    (rationing) are grayed when `Gated`; a grayed button still asks, so the server (`ScActions.WhyNot`) judges a role that
+    changed a moment ago. Tools/generate_community_ui.py draws all of it in both looks; new control ids only, the old ones
+    kept.
+  - **The land claim radial** (`TEFeatureSCCommunity.Allow`): "Set as community home", "Disband outpost" and "Start a
+    community here" (for a founded community that has no home yet) hide when `Gated`; "Linked storage" hides for a player
+    with only their own relations. "Start a community here" for them asks `community.start` (the core's `RequestHome`).
+  - **The talk:** for a player with only their own relations, the talk facts' recruit verdict is false with the reason
+    `scNoCommunity` when the survivor would otherwise join (`ScTalkContext.Build`; the host's `ScCanRecruit` answers the
+    same), and her favor is rolled for them. `ScNoCommunityFavour` (that reason on a client, `CanRecruit` plus a personal
+    record on the host) opens their favor rows in `Config/dialogs.xml`: "Is there anything I can do for you?", the same
+    Mark it / Sure, I'll see what I can find / Actually, I've already cleared that rows, a supplies hand-over with no join
+    (`ScTakeFavourItems` alone), and once it is done a row whose answer says she comes when they have a home. "Join us"
+    (`scPoiDone`, `scSuppliesDone`) opens at founding, as the held reward says.
 
 ## How it hangs together (for modders)
 

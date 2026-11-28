@@ -63,6 +63,16 @@ namespace SurvivorCommunity
         /// </summary>
         private sealed class OwnerList { public bool Listed; public HashSet<string> Ids; }
         private static volatile OwnerList foreignOwners;
+        /// <summary>
+        /// Round MP7 (part U), client: the derived block's "cpl" - this community's players (role, online, name) for the window's players
+        /// list, parsed once per block into a new list that replaces this one whole (never changed after). Empty when the server sends
+        /// none (Shared with one community). The block's mode=, role= and ownops= are read where they are used (ScCommunityView.Take).
+        /// </summary>
+        private static readonly List<ScCommunityPlayer> NoCommunityPlayers = new List<ScCommunityPlayer>();
+        private static volatile List<ScCommunityPlayer> communityPlayers = NoCommunityPlayers;
+
+        /// <summary>Round MP7 (part U), client: the server's last players list for this community (ScCommunityView.Take). Never null; never change it.</summary>
+        public static List<ScCommunityPlayer> CommunityPlayers { get { return communityPlayers; } }
 
         /// <summary>Round t2, client: is a box with this owner (a platform id) another community's (the server's last "fown")?</summary>
         public static bool ForeignOwner(string ownerId)
@@ -100,11 +110,13 @@ namespace SurvivorCommunity
             playerCommunity = NoPlayers;          // round MP6 (part N)
             foreignGround = NoGround;             // round t2 (review T2-m1)
             foreignOwners = null;
+            communityPlayers = NoCommunityPlayers;     // round MP7 (part U): reset at world start and shutdown (a disconnect included)
             told = false;
             LastBytes = LastChars = 0;
             Version++;
             sets.Clear();                         // round MP6 (part N): every community's last text and block
             sentCommunity.Clear();
+            sentReceiver.Clear();                 // round MP7 (part U)
             nextDerived = 0f;
             pendingFull.Clear();
         }
@@ -234,6 +246,7 @@ namespace SurvivorCommunity
             playerCommunity = NoPlayers;          // round MP6 (part N)
             foreignGround = NoGround;             // round t2
             foreignOwners = null;
+            communityPlayers = NoCommunityPlayers;     // round MP7 (part U)
             if (string.IsNullOrEmpty(text)) return;
             foreach (string raw in text.Split('\n'))
             {
@@ -264,6 +277,10 @@ namespace SurvivorCommunity
                 foreach (string id in fo.Substring(1).Split(',')) if (id.Length > 0) ids.Add(id);
                 foreignOwners = new OwnerList { Listed = fo[0] == '+', Ids = ids };
             }
+            // round MP7 (part U): "cpl" = role:online:entityid:name,... - this community's players (PerPlayer/PerParty, or two or more
+            // communities: ScCommunityView.KeysOn on the server)
+            string cpl;
+            if (derived.TryGetValue(ScCommunityView.PlayersKey, out cpl) && cpl.Length > 0) communityPlayers = ScCommunityView.DecodePlayers(cpl);
             // round MP6 (part N): "pcom" = entityid:cid,... - the players online outside community 0 (two or more communities only)
             string pc;
             if (!derived.TryGetValue(PlayerCommunitiesKey, out pc) || pc.Length == 0) return;
@@ -426,6 +443,11 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, PushState> sets = new Dictionary<int, PushState>();
         /// <summary>Round MP6 (part N): the community whose whole snapshot each client (entity id) was last sent.</summary>
         private static readonly Dictionary<int, int> sentCommunity = new Dictionary<int, int>();
+        /// <summary>
+        /// Round MP7 (part U): the receiver's own lines (role=, ownops=: ScCommunityView.ReceiverLines) each client (entity id) was last
+        /// sent - a change of its role or owner rights goes out even while its community's block is unchanged (SendChangedRoles).
+        /// </summary>
+        private static readonly Dictionary<int, string> sentReceiver = new Dictionary<int, string>();
         private static float nextDerived;
         /// <summary>Clients whose hello came while the registry was not loaded yet: their full snapshot goes at the next tick.</summary>
         private static readonly HashSet<int> pendingFull = new HashSet<int>();
@@ -480,6 +502,7 @@ namespace SurvivorCommunity
                     ScRegistry.TakeDirty();            // a client joining later gets the whole snapshot at its hello
                     sets.Clear();
                     sentCommunity.Clear();
+                    sentReceiver.Clear();              // round MP7 (part U)
                     pendingFull.Clear();
                     return;
                 }
@@ -537,6 +560,15 @@ namespace SurvivorCommunity
             }
             for (int i = 0; i < scratchIds.Count; i++) sentCommunity.Remove(scratchIds[i]);
             scratchIds.Clear();
+            // round MP7 (part U): and their role lines
+            foreach (int id in sentReceiver.Keys)
+            {
+                bool on = false;
+                for (int i = 0; i < list.Count && !on; i++) on = list[i].entityId == id;
+                if (!on) scratchIds.Add(id);
+            }
+            for (int i = 0; i < scratchIds.Count; i++) sentReceiver.Remove(scratchIds[i]);
+            scratchIds.Clear();
         }
 
         /// <summary>
@@ -573,7 +605,7 @@ namespace SurvivorCommunity
             // the review's N1: a save that left the clients' text as it was (a field they never get) sends no snapshot
             string text = full ? ScRegistry.BuildText(true, cid) : null;
             if (full && text == st.LastSnapText) full = false;
-            if (!full && block == st.LastDerived) return;
+            if (!full && block == st.LastDerived) { SendChangedRoles(cid, list, block); return; }     // round MP7 (part U)
             st.LastDerived = block;
             byte[] gz = full ? Snapshot(text) : null;
             if (full && gz == null) return;        // too big (logged): nothing a client could read
@@ -612,15 +644,39 @@ namespace SurvivorCommunity
                 if (ci != null && ci.entityId != -1 && ScNet.ClientMatches(ci.entityId)) into.Add(ci);
         }
 
-        /// <summary>Round MP6 (part N): with the community the snapshot and block are of (the client's own).</summary>
+        /// <summary>
+        /// Round MP6 (part N): with the community the snapshot and block are of (the client's own). Round MP7 (part U): the block is
+        /// followed by the receiver's own lines - role= and ownops= (ScCommunityView.ReceiverLines, from its platform id and body on the
+        /// server; "" in Shared with one community, so the bytes are as before).
+        /// </summary>
         private static void Send(ClientInfo ci, int cid, byte[] gz, string block)
         {
             try
             {
                 if (ci == null) return;
-                ci.SendPackage(NetPackageManager.GetPackage<NetPackageScState>().Setup(cid, gz, block ?? ""));
+                string own = ScCommunityView.ReceiverLines(ci, cid);      // round MP7 (part U)
+                sentReceiver[ci.entityId] = own;
+                ci.SendPackage(NetPackageManager.GetPackage<NetPackageScState>().Setup(cid, gz, (block ?? "") + own));
             }
             catch (Exception e) { ScLog.Once("mirror-send", e); }
+        }
+
+        /// <summary>
+        /// Round MP7 (part U): community cid's block is unchanged since its last broadcast, but a client's own lines may not be (it became
+        /// the owner, a helper, an admin; its party leader changed): those clients get the block again with their new lines. Nothing
+        /// while the MP7 keys are off (Shared with one community). A joiner got this tick's copy already.
+        /// </summary>
+        private static void SendChangedRoles(int cid, List<ClientInfo> list, string block)
+        {
+            if (!ScCommunityView.KeysOn) return;
+            for (int i = 0; i < list.Count; i++)
+            {
+                ClientInfo ci = list[i];
+                if (ci == null || joiners.Contains(ci)) continue;
+                string had;
+                if (sentReceiver.TryGetValue(ci.entityId, out had) && had == ScCommunityView.ReceiverLines(ci, cid)) continue;
+                Send(ci, cid, null, block);
+            }
         }
 
         /// <summary>BuildText(true)'s text, gzip'd UTF-8; null when it fails or is too big to send (logged once).</summary>
@@ -653,8 +709,6 @@ namespace SurvivorCommunity
         /// <summary>Round MP6 (part N): BuildDerived's body, in cid's scope (the old BuildDerived, its five community-blind keys given the community).</summary>
         private static string BuildDerivedIn(int cid, string pcom)
         {
-            // MP7 (part U): the mode (mode=), the receiver's role (role= owner / helper / member / personal: ScMembership.IsOwner,
-            // ScOwnerRule, CommunityState.Personal) and the community's players with online flags (cpl=) go in this block (protocol 9)
             var sb = new StringBuilder();
             Community c = ScRegistry.Community;
             World w = ScCommunity.World;
@@ -722,6 +776,10 @@ namespace SurvivorCommunity
             if (fgnd.Length > 0) Kv(sb, ForeignGroundKey, fgnd);                      // round t2: two or more communities only
             string fown = ForeignOwners(cid);
             if (fown.Length > 0) Kv(sb, ForeignOwnersKey, fown);                      // round t2 (review T2-M2): two or more communities only
+            // round MP7 (part U): the mode (mode=, PerPlayer/PerParty only) and the community's players with their roles and online flags
+            // (cpl=) - PerPlayer/PerParty, or two or more communities (ScCommunityView.KeysOn; the protocol is 9 from the merge). The
+            // receiver's own role (role=, ownops=) follows the block per client (Send)
+            sb.Append(ScCommunityView.CommunityLines(cid));
             return sb.ToString();
         }
 

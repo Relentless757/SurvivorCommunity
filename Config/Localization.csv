@@ -2203,3 +2203,55 @@ scMp7OwnerTell,UI,Tooltip,,,,{0} owns the community now.
 scMp7PartyOtherYou,UI,Tooltip,,,,Players of {0}'s community are in your party: you stay in {1}'s community.
 scMp7PartyOtherTell,UI,Tooltip,,,,{0} joined your party but stays in {1}'s community.
 scMp7PartyHelper,UI,Tooltip,,,,You lead the party while {0} is away: the community owner's actions are yours until they return.
+# round MP7 (part U) - the community window's players list and no-community page and the talk's favor rows for a player with no community
+scUiPlTitle,UI,Menu,,,,Players
+scUiPlButton,UI,Menu,,,,Players {0}
+scUiPlMorale,UI,Menu,,,,Morale
+scUiPlYou,UI,Menu,,,,{0} (you)
+scUiPlRoleOwner,UI,Menu,,,,Owner
+scUiPlRoleHelper,UI,Menu,,,,Party leader
+scUiPlRoleMember,UI,Menu,,,,Member
+scUiPlOffline,UI,Menu,,,,offline
+scUiPlYouOwner,UI,Menu,,,,You own this community.
+scUiPlYouHelper,UI,Menu,,,,You lead a party with one of its players while the owner is away: the owner's orders are yours until they are back.
+scUiPlYouMember,UI,Menu,,,,You belong to this community.
+scUiPlYouAdmin,UI,Menu,,,,You belong to this community. As an admin you may give the owner's orders too.
+scUiPlYouMemberPlayer,UI,Menu,,,,"You belong to this community. Only its owner and admins may dismiss members, disband outposts, move the home or ration food: those buttons are grayed for you."
+scUiPlYouMemberParty,UI,Menu,,,,"You belong to this community. Only its owner, admins and (while the owner is away) the leader of a party with one of its players may dismiss members, disband outposts, move the home or ration food."
+scUiPlLeave,UI,Menu,,,,Leave community
+scUiPlLeaveConfirm,UI,Menu,,,,Press again to leave
+scUiPlLeaveHint,UI,Menu,,,,"You will lose the community's home, storage and members, and start again on your own. Press the button again within five seconds to leave."
+scUiNcTitle,UI,Menu,,,,No community yet
+scUiNcWhy,UI,Menu,,,,You are in no community yet. What you do on your own is kept for the day you have one.
+scUiNcStartTitle,UI,Menu,,,,Start one
+scUiNcStart,UI,Menu,,,,Start one from your land claim's radial: hold E on your own land claim block and pick Start a community here.
+scUiNcJoinTitle,UI,Menu,,,,Or join one
+scUiNcJoinAlly,UI,Menu,,,,Ask a community's owner to add you as a land claim ally.
+scUiNcJoinParty,UI,Menu,,,,Join the party of one of a community's players.
+scUiNcNow,UI,Menu,,,,What you can do now
+scUiNcTalk,UI,Menu,,,,Talk and trade with survivors and with the enclaves' people.
+scUiNcFavors,UI,Menu,,,,Do favors for wild survivors and take on the enclaves' requests.
+scUiNcMarkers,UI,Menu,,,,Your map marks the enclaves and places you find.
+scUiNcKeep,UI,Menu,,,,"All of it carries over when you start or join a community: your standing with the enclaves, your favors and requests, and what allies send you."
+scUiNcEnclaves,UI,Menu,,,,Enclaves you know
+scUiNcEncSummary,UI,Menu,,,,{0} known - nearest first
+scUiNcEncNone,UI,Menu,,,,"You know no enclave yet. Their people trade, ask for help and remember who helped them."
+scUiNcEncNote,UI,Menu,,,,An enclave that likes you will like your community too: your standing carries over.
+scUiNcMore,UI,Menu,,,,+{0} more
+scUiNcFavours,UI,Menu,,,,Favors
+scUiNcFavNone,UI,Menu,,,,No favor yet: ask a wild survivor if there is anything you can do for them.
+scUiNcFavOffered,UI,Menu,,,,Offered
+scUiNcFavTaken,UI,Menu,,,,Taken on
+scUiNcFavDone,UI,Menu,,,,Done
+scUiNcFavPoi,UI,Menu,,,,Clear {0}
+scUiNcFavSupplies,UI,Menu,,,,Bring {0} {1} items
+scUiNcRequests,UI,Menu,,,,Requests
+scUiNcReqNone,UI,Menu,,,,No request from an enclave.
+scUiNcFavNote,UI,Menu,,,,A survivor whose favor is done joins once you have a home: ask them again then.
+scMp7Ask,Dialog,Response,,,,Is there anything I can do for you?
+scMp7Poi_text,Dialog,Statement,,,,"There is, actually. A place near here is crawling with them - clear it out and I'll owe you one. Say the word and I'll mark it on your map."
+scMp7Supplies_text,Dialog,Statement,,,,I could use some supplies. Bring me what I need and I won't forget it.
+scMp7Give,Dialog,Response,,,,Here are the supplies you asked for.
+scMp7Thanks_text,Dialog,Statement,,,,"Thank you. I won't forget this. If you ever find a place to call home, come and ask me - I might just come along."
+scMp7Held,Dialog,Response,,,,I still don't have a place of my own.
+scMp7Held_text,Dialog,Statement,,,,"I haven't forgotten what you did for me. Once you have a home, ask me again and I'll come."
