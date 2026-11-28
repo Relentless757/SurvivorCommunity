@@ -3777,7 +3777,10 @@ Round MP0 is the groundwork:
     at it; a low gap's cells go as soon as `LowGap` fails (a block put in, or the one above taken away), with a log line once
     none is left; any gap goes at once when a body of the base stands in one of its cells while walking and gaining on its
     way (`PassedThrough`, from the watchdog's sample: wants to move, 0.2 m moved this second, no second without a gain
-    counted); `sc stuck clear` drops them all.
+    counted); `sc stuck clear` drops them all. Round nv1 (final check): since the planner keeps the base's own bodies out,
+    that release is rare, so also anyone else of a body's height (1.6 m: a player, a zombie, another NPC; never the base's
+    own bodies) standing alive and not stuck in a gap's cell releases it (`PassersRelease`, once a second), and a low gap's
+    cells get the body check again once a minute and go when a body fits.
   - **Avoiding:** `ScStuck.Planner` maps each body of a base seen in the last minute (the ticker's residents, the
     watchdog's sample, enclave people) to its base's gap cells as graph-space boxes, with a box around all of them that lets a
     node far from every base through before the body is looked up; it is rebuilt on the main thread and swapped whole. Two postfixes on `Pathfinding.Path.CanTraverse` (`Patch_PlannerGrid`: the grid step, `Patch_PlannerLink`:
