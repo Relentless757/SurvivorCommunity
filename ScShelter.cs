@@ -140,6 +140,8 @@ namespace SurvivorCommunity
             public readonly Dictionary<Vector3i, int> RoomOf = new Dictionary<Vector3i, int>();
             public bool RoomPass;
             public int RoomIndex, NextRoomId = 1, RoomFills, LastRoomFills;
+            /// <summary>Round cb1: the scan's wall rays that passed furniture, a container or a wreck (obstacles, not walls).</summary>
+            public int ObstacleRays;
         }
         private static readonly ScHomeState<ShelterState> homes = new ScHomeState<ShelterState>();
 
@@ -280,6 +282,7 @@ namespace SurvivorCommunity
             homes.Current.RoomIndex = 0;
             homes.Current.NextRoomId = 1;
             homes.Current.RoomFills = 0;
+            homes.Current.ObstacleRays = 0;               // round cb1
             nextRooms = new Dictionary<int, RoomInfo>();
             roomOf.Clear();
             // 1. beds and work stations (ScScan's last counts): the 8 columns round each, at its level
@@ -326,7 +329,9 @@ namespace SurvivorCommunity
             nextCells.Add(cell);
             string why;
             if (!ScCommunity.GoodPost(w, cell, false, out why)) return;
-            int walls = Walls(w, cell);
+            int obstacles;
+            int walls = Walls(w, cell, out obstacles);
+            homes.Current.ObstacleRays += obstacles;                                 // round cb1: the scan's log line
             if (walls < Math.Max(1, ScConfig.ShelterWalls - 1) || next.Count >= MaxCands) return;   // too open even for the fallback
             next.Add(new Cand { Cell = cell, Roofed = Roofed(w, cell), Walls = (byte)walls, Source = s.Source, NearDoor = NearDoor(w, cell) });   // round hr1: Room 0, the room pass fills it in
         }
@@ -445,7 +450,8 @@ namespace SurvivorCommunity
             }
             ScLog.Verbose("shelter scan: " + cands.Count + " candidate(s), " + roomsN + " roofed with " + ScConfig.ShelterWalls + "+ walls, from " + lastSeeds + " seeds in "
                           + lastMs.ToString("0.0", CultureInfo.InvariantCulture) + " ms over " + lastFrames + " frames (" + (now - started).ToString("0.0", CultureInfo.InvariantCulture) + " s); "
-                          + rooms.Count + " enclosable room(s) from " + homes.Current.LastRoomFills + " fill(s) (round hr1)");
+                          + rooms.Count + " enclosable room(s) from " + homes.Current.LastRoomFills + " fill(s) (round hr1); "
+                          + homes.Current.ObstacleRays + " wall ray(s) passed furniture, a container or a wreck - obstacles, not walls (round cb1)");
         }
 
         /// <summary>
@@ -487,21 +493,51 @@ namespace SurvivorCommunity
         private static readonly int[] DirX = { 1, 1, 0, -1, -1, -1, 0, 1 };
         private static readonly int[] DirZ = { 0, 1, 1, 1, 0, -1, -1, -1 };
 
-        /// <summary>Of the 8 horizontal directions at head height (y + 1), how many meet a movement-stopping block or a door within WallReach cells.</summary>
+        /// <summary>
+        /// Of the 8 horizontal directions at head height (y + 1), how many meet a movement-stopping block or a door within WallReach
+        /// cells. Block data only: an entity (a zombie, a drivable vehicle) never counts. Round cb1: furniture, a container, a car or
+        /// truck wreck or a decoration model (ObstacleNotWall) is an obstacle, not a wall - the ray goes on past it to the real wall
+        /// (a spot hemmed in by a truck and coffins is no shelter); fences, bars and posts still count (hr1's decision 3).
+        /// </summary>
         public static int Walls(World w, Vector3i p)
         {
+            int obstacles;
+            return Walls(w, p, out obstacles);
+        }
+
+        /// <summary>Round cb1: Walls, and how many of its rays passed an obstacle that is not a wall (the scan's log line).</summary>
+        public static int Walls(World w, Vector3i p, out int obstacles)
+        {
             int n = 0;
+            obstacles = 0;
             for (int d = 0; d < 8; d++)
             {
+                bool passed = false;
                 for (int k = 1; k <= WallReach; k++)
                 {
                     BlockValue bv = w.GetBlock(new Vector3i(p.x + DirX[d] * k, p.y + 1, p.z + DirZ[d] * k));
                     if (bv.isair) continue;
                     Block b = bv.Block;
-                    if (b != null && (b.IsCollideMovement || b.HasTag(BlockTags.Door))) { n++; break; }
+                    if (b == null) continue;
+                    if (b.HasTag(BlockTags.Door)) { n++; break; }
+                    if (ObstacleNotWall(bv, b)) { passed = true; continue; }        // round cb1
+                    if (b.IsCollideMovement) { n++; break; }
                 }
+                if (passed) obstacles++;
             }
             return n;
+        }
+
+        /// <summary>
+        /// Round cb1: a model block a body walks round rather than shelters behind - furniture, a loot container (a coffin, a
+        /// cabinet), a multi-block or one of its cells, an oversized block (a car or truck wreck: its hull reads as air, its origin
+        /// cell is the block) or a terrain decoration - never a door (counted before this). A plain one-cell model (a fence segment,
+        /// a post) is not one: it still counts as a wall, as bars and glass do (hr1's decision 3). A read.
+        /// </summary>
+        internal static bool ObstacleNotWall(BlockValue bv, Block b)
+        {
+            if (b == null || !(b.shape is BlockShapeModelEntity)) return false;
+            return bv.ischild || b.isMultiBlock || b.isOversized || b.IsTerrainDecoration || b is BlockCompositeTileEntity;
         }
 
         // ------------------------------------------------------------------ the pick (the shelter task, C#) ----
@@ -529,8 +565,11 @@ namespace SurvivorCommunity
             Gather(self, me, MaxWalk + SpotEnemyClear);
             // 1. her own cell, when it passes and the threat cannot see her (asleep in a bedroom when the zombie comes)
             Vector3i own = World.worldToBlockPos(me);
+            // round cb1: never a hold on top of a model (a bed, a truck's bed) or inside a wreck's hull - real floor only
+            string onWhat;
+            bool onObstacle = ScBackOff.OnObstacle(w, me, out onWhat);
             // (finding 7: not beside a door - she would hold it open)
-            if (InZone(own) && Roofed(w, own) && Walls(w, own) >= ScConfig.ShelterWalls && !EnemyNear(me, SpotEnemyClear)
+            if (!onObstacle && InZone(own) && Roofed(w, own) && Walls(w, own) >= ScConfig.ShelterWalls && !EnemyNear(me, SpotEnemyClear)
                 && (!hasThreat || ScRunners.XZ(me, threat) >= ScConfig.ShelterMinThreatDist) && (t == null || !t.CanEntityBeSeen(self)) && !NearDoor(w, own))
             {
                 r.Kind = PickKind.Here;
@@ -555,12 +594,27 @@ namespace SurvivorCommunity
             // (b) the zone floor farthest from the threat within FallbackRadius of her, near another member or you (not once
             // the yard has failed her as often as the rooms did: then she holds)
             if (fails < 2 * MaxFails && Yard(self, w, me, threat, hasThreat, bad, ref r)) return r;
-            // (c) hold where she stands and fight back on reach
             string she = ScRetreat.She(self);
+            // round cb1: she stands on a model or in a wreck's hull (a truck's bed) - the nearest real floor within StepMax first, so
+            // the hold below never pins her up there
+            Vector3 down;
+            string downWhy;
+            if (onObstacle && ScBackOff.StepSpot(self, hasThreat ? t : null, false, ScBackOff.StepMax, bad, out down, out downWhy))
+            {
+                r.Kind = PickKind.Yard;
+                r.Spot = down;
+                r.Source = "the floor beside it";
+                r.Note = "steps down to the floor at " + ScRetreat.Cell(down) + ", " + ScRunners.XZ(me, down).ToString("0.#", CultureInfo.InvariantCulture)
+                         + " m off (" + she + " stood " + onWhat + "; " + downWhy + "; round cb1)";
+                Patches_Xnpc.Count("shelter-step-off-model");
+                return r;
+            }
+            // (c) hold where she stands and fight back on reach
             r.Kind = PickKind.Hold;
             r.Spot = me;
             r.Source = "where " + she + " stood";
-            r.Note = "fell back to holding where " + she + " stands (no floor of the zone to go to" + (fails >= MaxFails ? ", " + fails + " spots " + she + " could not reach" : "") + ") - "
+            r.Note = "fell back to holding where " + she + " stands (no floor of the zone to go to" + (fails >= MaxFails ? ", " + fails + " spots " + she + " could not reach" : "")
+                     + (onObstacle ? "; " + she + " stands " + onWhat + " and no real floor within " + ScBackOff.StepMax.ToString("0.#", CultureInfo.InvariantCulture) + " m is free (round cb1)" : "") + ") - "
                      + she + " fights back on reach";
             return r;
         }

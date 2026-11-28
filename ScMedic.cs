@@ -305,6 +305,16 @@ namespace SurvivorCommunity
         public static bool IsUsing(int id) { return uses.ContainsKey(id); }
 
         /// <summary>
+        /// Round cb1: when her last medical use began (Time.time), -1 with none this session - ScPosture's hold after a heal reads it
+        /// (a newer start with no use running: a heal just ended). A pure read.
+        /// </summary>
+        internal static float LastUseStart(EntityAlive e)
+        {
+            float ready;
+            return e != null && readyAt.TryGetValue(e.entityId, out ready) ? ready - Cooldown : -1f;
+        }
+
+        /// <summary>
         /// Round hr1 (re-check HR1R-m3, the last stand's hold): a use is running, an item still heals her, or her last use began at
         /// most seconds ago. A pure read. Round md2 (review MD2-m6): from lastUseAt, not readyAt - Cooldown (a called-off use sets
         /// readyAt to its retry and read as a use).

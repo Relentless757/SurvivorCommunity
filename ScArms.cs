@@ -1410,8 +1410,19 @@ namespace SurvivorCommunity
             st.StandRefusedWhy = why;
             st.StandHeldAt = 0f;
             Patches_Xnpc.Count("x5-stand-melee-refused");
-            ScLog.Out(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") cannot swing in " + ScRetreat.Her(e) + " last stand: " + why + " - the gun for "
-                      + ScPosture.StandCommitSeconds.ToString("0") + " s, then melee again (no 10 s rest, no per-target refusal; round hr1)");
+            // round cb1 (point 5): a swing refused with her target in reach is an obstacle (a truck, a fence, a block), not distance -
+            // a short step to open ground with a clear swing at it (ScStepClear), whatever she then holds. And the line says what she
+            // really does: with no rounds the stand keeps her melee weapon (StandHand's "nothing to shoot: melee"), never an empty gun
+            EntityAlive ct = CurrentTarget(e);
+            bool stepping = ct != null && (ct.position - e.position).sqrMagnitude <= MeleeReach * MeleeReach
+                            && ScBackOff.RequestStep(e, ct, true, ScRetreat.Her(e) + " swing is blocked in " + ScRetreat.Her(e) + " last stand (" + why + ")");
+            ItemClass gun = ScAmmo.PairGun(e);
+            bool gunRounds = gun != null && ScAmmo.Rounds(e, gun) > 0;
+            ScLog.Out(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") cannot swing in " + ScRetreat.Her(e) + " last stand: " + why + " - "
+                      + (gunRounds ? "the gun for " + ScPosture.StandCommitSeconds.ToString("0") + " s, then melee again"
+                                   : "nothing to shoot with (no rounds): " + ScRetreat.She(e) + " keeps " + ScRetreat.Her(e) + " melee weapon")
+                      + (stepping ? "; " + ScRetreat.She(e) + " steps to open ground first (round cb1)" : "")
+                      + " (no 10 s rest, no per-target refusal; round hr1)");
         }
 
         /// <summary>Round hr1: the stand's no-swing clock (as R2's NoSwing, its own fields): the melee weapon in hand for window with no swing.</summary>

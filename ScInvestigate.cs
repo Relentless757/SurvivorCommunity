@@ -387,6 +387,7 @@ namespace SurvivorCommunity
                 || Mathf.RoundToInt(npc.Buffs.GetCustomVar("CurrentOrder")) != (int)EntityUtilities.Orders.Guard) return "not on the Guard order";
             if (ScTraits.IsTimid(m)) return "Cowardly";
             if (ScRetreat.Owns(npc)) return "sheltering or kiting hurt";
+            if (ScPosture.Holds(npc)) return "holding her spot after a back-off, a heal or a reload (round cb1)";
             int max = npc.GetMaxHealth();
             if (max > 0 && (float)npc.Health / max < ScConfig.TeamLowHealth) return "hurt below " + F0(ScConfig.TeamLowHealth * 100f) + "%";
             EntityAlive own = npc.GetAttackTarget();

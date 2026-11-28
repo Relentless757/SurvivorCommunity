@@ -119,12 +119,22 @@
 			       too (she may back out of the gate).
 			     A back-off that gains nothing (1.5 s in, or at its end: still within reach, or not 1 m farther) is followed
 			     by StandOffShootSeconds of shooting, and so is a step of a hurt member's wide band (RetreatHome above) that
-			     ends with the enemy still inside StandOffMin. "sc xnpc" counts it all (backoff-*). -->
+			     ends with the enemy still inside StandOffMin. "sc xnpc" counts it all (backoff-*).
+			     Round cb1: at home every back-off runs (her run speed, not 0-XNPCCore's brisk walk). With a gun that has rounds
+			       she backs off about BackOffBaseMeters + BackOffPerShootingStar x her Shooting stars (1 to 7 stars: 10 to 22 m
+			       by default) on a real path inside the base - never past her engage range or her gun's range minus 1 m; where
+			       that is too far she takes the farthest she can reach, then BackOffSteps. 0: BackOffSteps only.
+			     BackOffHoldSeconds: after a back-off, a heal or a reload at home she holds that spot this many seconds while her
+			       gun has rounds - she shoots from there and lets them come (no melee, no walk back to the fight) until an enemy
+			       comes within 3 m or her gun runs dry. 0: no hold. -->
 			<property name="BackOffHome" value="true" />
 			<property name="BackOffSteps" value="10,6,3" />
 			<property name="BackupKeepDistanceMax" value="2.5" />
 			<property name="BackOffNoPointSeconds" value="1" />
 			<property name="StandOffShootSeconds" value="1.5" />
+			<property name="BackOffBaseMeters" value="8" />
+			<property name="BackOffPerShootingStar" value="2" />
+			<property name="BackOffHoldSeconds" value="8" />
 			<property name="StationWalkIn" value="true" />
 			<property name="StationWalkInMetres" value="30" />
 			<!-- residents about the base (round hz). ResidentRoamZone: by day they walk anywhere in the home zone and stand

@@ -2289,3 +2289,5 @@ scDb1AwayMore,UI,Tooltip,,,,and {0} more
 scDb1AwayTell,UI,Tooltip,,,,Call everyone home first: {0} member(s) away ({1}).
 scDb1Partial,UI,Tooltip,,,,"The community is disbanded, but part of it failed (the server's log says what)."
 scDb1StayOwn,UI,Tooltip,,,,You keep your own relations: {0}'s community (your land claim ally's or your party's) won't take you in until that link is made again.
+# round cb1 - a member at home fights with melee only: her gun has no rounds left
+scCb1NoAmmoFight,UI,Tooltip,,,,"{0} has no ammo left for the {1} and can only fight in melee. Pack ammo at the packing station so the stockpile can resupply."
