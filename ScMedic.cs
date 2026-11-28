@@ -124,9 +124,10 @@ namespace SurvivorCommunity
         private const float GetUpSettleSeconds = 1.5f;
         /// <summary>
         /// Round md2: her hand stowed (vanilla's Hand in Bare mode: Voice Control's chat stow during a talk and up to 20 s after it,
-        /// 0-XNPCCore's station, loot or ordered stow), she waits this long for it to be drawn; then she draws it herself for the
-        /// use (as 0-XNPCCore's own bandage does) and the stow comes back after it if 0-XNPCCore still holds one (RestoreStow). A gap
-        /// over StowSeenGap between two looks starts the wait again.
+        /// 0-XNPCCore's station or loot stow, one left over from a down), she waits this long for it to be drawn; then she draws it
+        /// herself for the use (as 0-XNPCCore's own bandage does) and the stow comes back after it if 0-XNPCCore still holds its chat
+        /// stow (RestoreStow). A gap over StowSeenGap between two looks starts the wait again. Round md2 (review MD2-M1): in a fight
+        /// (InFightNow) she draws at once.
         /// </summary>
         private const float StowWaitSeconds = 20f;
         private const float StowSeenGap = 3f;
@@ -145,6 +146,31 @@ namespace SurvivorCommunity
         /// </summary>
         private const int MaxCalledOff = 3;
         private const float UnseenMetres = 90f;
+        /// <summary>
+        /// Round md2 (review MD2-M2): the hard stop - after this many call-offs in a row for the same item, or CallOffStopSeconds
+        /// after the row's first, the next use of it goes on without the clip even with a player near (a warning, once per row).
+        /// A row whose last call-off is CallOffRowGap old is over.
+        /// </summary>
+        private const int CallOffStop = 6;
+        private const float CallOffStopSeconds = 30f;
+        private const float CallOffRowGap = 60f;
+        /// <summary>
+        /// Round md2 (review MD2-M2): the hold types whose use clip on UpperBodyUseAndReload is verified - 64 (bandages, kits:
+        /// 3P_Bandage_Hold and Bandage_Use, also 0-XNPCCore's SdcsAnimPlayback states). Any other (drugPainkillers is 16) gets a
+        /// plain timed use of ClipFallbackSeconds after the trigger, logged "no clip for hold type N" once per type; a clip seen
+        /// for it still ends the use and is logged once.
+        /// </summary>
+        private static readonly int[] VerifiedClipHoldTypes = { 64 };
+        /// <summary>Round md2 (review MD2-m3): a use triggered without its hold pose (a last resort) ends this soon - nothing is on screen to wait for.</summary>
+        private const float NoPoseUseSeconds = 0.5f;
+        /// <summary>
+        /// Round md2 (review MD2-M1): in a fight - hit in the last FightHurtSeconds, a live attack or revenge target, or an awake
+        /// enemy after her within FightReach - a stowed hand is drawn at once, not after StowWaitSeconds.
+        /// </summary>
+        private const float FightHurtSeconds = 5f;
+        private const float FightReach = 15f;
+        /// <summary>Round md2 (review MD2-n2): no use runs longer than this from its start, whatever the animator says.</summary>
+        private const float UseDeadlineSeconds = 8f;
         /// <summary>
         /// medRegHealthIncSpeed for an NPC. The vanilla items set it from the player's Physician perk cvar, which an
         /// NPC does not have, leaving 0 - the queued health would drain without healing. 2 is the no-perk value, and
@@ -208,6 +234,13 @@ namespace SurvivorCommunity
             public bool DrewHand;
             /// <summary>Round md2: since when the item and its hold pose have shown without a break (-1: not showing).</summary>
             public float ShownAt = -1f;
+            /// <summary>
+            /// Round md2 (review): the hold type has no verified use clip (MD2-M2: a timed use); the trigger fired without the pose
+            /// (MD2-m3); the reach wait this use was released from, -1 for none (MD2-M1: a call-off puts it back); a bleed use
+            /// (MD2-n3: counted when it completes); SC wrote SdcsChatStowed 0 for the draw (MD2-m4: RestoreStow puts it back).
+            /// </summary>
+            public bool NoClipHoldType, NoPose, Bleed, ClearedChatCvar;
+            public float WaitSince = -1f;
         }
 
         /// <summary>
@@ -219,8 +252,25 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, Use> uses = new Dictionary<int, Use>();
         /// <summary>Round md2: body id -> the last frame her ragdoll was not Off (a knockdown, a down: the get-up follows).</summary>
         private static readonly Dictionary<int, float> ragdollAt = new Dictionary<int, float>();
-        /// <summary>Round md2: body id -> called-off uses in a row (a use whose clip played sets it back to 0).</summary>
-        private static readonly Dictionary<int, int> calledOff = new Dictionary<int, int>();
+        /// <summary>
+        /// Round md2: body id -> called-off uses in a row (a use whose clip played ends the row). Round md2 (review MD2-M2): per item,
+        /// with the row's first and last call-off and whether its hard stop was logged.
+        /// </summary>
+        private sealed class CallOffs
+        {
+            public string Item;
+            public int N;
+            public float First, Last;
+            public bool StopLogged;
+        }
+        private static readonly Dictionary<int, CallOffs> calledOff = new Dictionary<int, CallOffs>();
+        /// <summary>Round md2 (review MD2-m6): body id -> when her last use that was not called off began (UsedOrWorking).</summary>
+        private static readonly Dictionary<int, float> lastUseAt = new Dictionary<int, float>();
+        /// <summary>Round md2 (review MD2-M2): the hold types whose missing (or seen) clip was logged.</summary>
+        private static readonly HashSet<int> holdTypesLogged = new HashSet<int>();
+        /// <summary>Round md2 (review MD2-m4): AvatarSdcsNpcController.SdcsChatHolsterStowed (internal), looked up once; null if gone.</summary>
+        private static System.Reflection.MethodInfo chatStowedGetter;
+        private static bool chatStowedLooked;
         /// <summary>Round md2: body id -> when her "hand not ready" line was last logged (once per such spell).</summary>
         private static readonly Dictionary<int, float> notReadyAt = new Dictionary<int, float>();
         /// <summary>Round md2: body id -> her health last frame and the last frame it dropped (LastResort's "hit just now").</summary>
@@ -256,7 +306,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round hr1 (re-check HR1R-m3, the last stand's hold): a use is running, an item still heals her, or her last use began at
-        /// most seconds ago (readyAt - Cooldown). A pure read.
+        /// most seconds ago. A pure read. Round md2 (review MD2-m6): from lastUseAt, not readyAt - Cooldown (a called-off use sets
+        /// readyAt to its retry and read as a use).
         /// </summary>
         internal static bool UsedOrWorking(EntityAlive e, float seconds)
         {
@@ -264,8 +315,8 @@ namespace SurvivorCommunity
             if (uses.ContainsKey(e.entityId)) return true;
             try { if (e.Buffs != null && e.Buffs.GetCustomVar("medicalRegHealthAmount") > 0f) return true; }
             catch (Exception) { }
-            float ready;
-            return readyAt.TryGetValue(e.entityId, out ready) && Time.time - (ready - Cooldown) <= seconds;
+            float at;
+            return lastUseAt.TryGetValue(e.entityId, out at) && Time.time - at <= seconds;
         }
 
         /// <summary>
@@ -352,6 +403,8 @@ namespace SurvivorCommunity
             displaced.Clear();
             ragdollAt.Clear();                     // round md2
             calledOff.Clear();
+            lastUseAt.Clear();                     // round md2 (review)
+            holdTypesLogged.Clear();
             notReadyAt.Clear();
             lastHp.Clear();
             hurtAt.Clear();
@@ -398,7 +451,7 @@ namespace SurvivorCommunity
                    + ", XNPC medic regen fixed " + xnpcHealSpeedFixed + ", XNPC medic held for a use " + xnpcMedicHeld
                    // round md2: her hand and clip state, and the counts of uses that waited for the hand, were called off, drew a stowed
                    // hand or went on without the clip
-                   + "; md2: hand " + HandText(e) + (HandReadyText(e)) + ", called off in a row " + (calledOff.ContainsKey(e.entityId) ? calledOff[e.entityId] : 0)
+                   + "; md2: hand " + HandText(e) + (HandReadyText(e)) + ", called off in a row " + (calledOff.ContainsKey(e.entityId) ? calledOff[e.entityId].N + " (" + calledOff[e.entityId].Item + ")" : "0")
                    + "; all bodies: waits for the hand " + handNotReady + ", called off " + usesCalledOff + ", stowed hands drawn " + handsDrawn + ", used without the clip " + usesNoClip;
 #else
             return "stocked=" + (e.Buffs.GetCustomVar(StockedCvar) > 0f) + " " + use + " bandages=" + Count(e, "medicalFirstAidBandage")
@@ -467,6 +520,7 @@ namespace SurvivorCommunity
             ClearWait(entityId);
             ragdollAt.Remove(entityId);           // round md2
             calledOff.Remove(entityId);
+            lastUseAt.Remove(entityId);           // round md2 (review)
             notReadyAt.Remove(entityId);
             lastHp.Remove(entityId);
             hurtAt.Remove(entityId);
@@ -508,6 +562,21 @@ namespace SurvivorCommunity
         }
 #endif
 
+        /// <summary>
+        /// Round md2 (review MD2-m5): one item into the bag - never the window - or, with no room, onto the ground at the body
+        /// (host only), as ScNpc.AddItem does with a full window.
+        /// </summary>
+        private static void ReturnToBag(EntityAlive e, string item)
+        {
+            ItemValue iv = ItemClass.GetItem(item, true);
+            if (iv == null || iv.IsEmpty()) return;
+            var stack = new ItemStack(iv, 1);
+            if (e.bag != null && e.bag.AddItem(stack)) { Patches_Xnpc.Count("medic-returned-to-bag"); return; }
+            if (!ScCommunity.IsHost || GameManager.Instance == null) return;
+            GameManager.Instance.ItemDropServer(stack.Clone(), e.position + Vector3.up, Vector3.zero, -1, 60f);
+            ScLog.Verbose(BodyName(e) + ": " + item + " dropped at the body (the window open, the bag full; round md2, review)");
+        }
+
         private static void Add(EntityAlive e, string item, int count)
         {
             ItemValue iv = ItemClass.GetItem(item, true);
@@ -541,7 +610,12 @@ namespace SurvivorCommunity
             if (!low && !bleeding) { ClearWait(e.entityId); return; }
             if (e.emodel == null || e.emodel.IsRagdollActive || e.inventory == null) return;
             float ready;
-            if (readyAt.TryGetValue(e.entityId, out ready) && now < ready) return;
+            if (readyAt.TryGetValue(e.entityId, out ready) && now < ready)
+            {
+                // round md2 (review MD2-M1): a reach wait a call-off put back stays fresh through its retry delay
+                if (heldSince.ContainsKey(e.entityId)) heldLast[e.entityId] = now;
+                return;
+            }
             if (e.GetCVar("SdcsAnimBusy") >= 0.5f)
             {
                 // round hr1 (step 5): her wait stays fresh through 0-XNPCCore's roll, so its "heal now" verdict still names this wait after it
@@ -567,22 +641,50 @@ namespace SurvivorCommunity
             // round hr1: no cloth bandage for a bleed in a last stand (a heal item stops it too; the kit comes first below KitFirstBelow)
             if (pick == null && bleeding && (low || !InFight(e))) pick = FirstCarried(e, member && ScPosture.InStand(e) ? BleedItemsInStand : BleedItems);
             if (pick == null) { ClearWait(e.entityId); return; }
-            if (member && HeldByReach(e, pick, max, now)) return;
-            // round md2: no item is spent while the animation cannot play - she is down, her ragdoll or get-up still runs, her hand is
-            // switching, or it is stowed (a talk, a station, loot, an order) and has not been drawn in StowWaitSeconds (then she draws
-            // it herself; at once when she is about to go down, LastResort - the one case the use may go on without its clip)
-            string notReady, lastWhy;
+            // round md2: no item is spent while the animation cannot play - she is down, her ragdoll or get-up still runs, she is
+            // seated, her hand is switching, or it is stowed (a talk, a station, loot) and has not been drawn in StowWaitSeconds (then
+            // she draws it herself; at once in a fight - review MD2-M1 - or when she is about to go down, LastResort, the one case the
+            // use may go on without its clip). Round md2 (review MD2-M1): asked BEFORE the reach rules - HeldByReach spends its
+            // heal-now verdict and clears the wait when it lets a use go - and a wait it refuses stays alive (heldLast)
+            string notReady, lastWhy, fightWhy;
             bool drawHand;
             bool lastResort = LastResort(e, now, out lastWhy);
-            if (!HandReady(e, now, lastResort, out notReady, out drawHand)) { NoteNotReady(e, pick, notReady, now); return; }
+            fightWhy = null;
+            bool fight = lastResort || (e.Hand != null && e.Hand.IsHolstered && InFightNow(e, now, out fightWhy));
+            if (!HandReady(e, now, fight, lastResort, out notReady, out drawHand))
+            {
+                if (heldSince.ContainsKey(e.entityId)) heldLast[e.entityId] = now;
+                NoteNotReady(e, pick, notReady, now);
+                return;
+            }
+            float waitSince;
+            bool hadWait = heldSince.TryGetValue(e.entityId, out waitSince);
+            if (member && HeldByReach(e, pick, max, now)) return;
             if (!TakeOne(e, pick)) return;
-            Begin(e, pick, now, lastResort ? lastWhy : null, drawHand);
+            Begin(e, pick, now, lastResort ? lastWhy : null, drawHand, hadWait ? waitSince : -1f, fightWhy);
             readyAt[e.entityId] = now + Cooldown;
             if (bleeding)
             {
-                bleedsStopped++;
+                // round md2 (review MD2-n3): counted when the use completes (Finish), not when it starts - a call-off stops no bleed
+                Use bu;
+                if (uses.TryGetValue(e.entityId, out bu)) bu.Bleed = true;
                 ScLog.Verbose("medic: " + e.entityId + " is bleeding - " + pick);
             }
+        }
+
+        /// <summary>
+        /// Round md2 (review MD2-M1): she is in a fight - hit in the last FightHurtSeconds, a live attack or revenge target
+        /// (InFight), or an awake enemy after her within FightReach. why: which. A read.
+        /// </summary>
+        private static bool InFightNow(EntityAlive e, float now, out string why)
+        {
+            why = null;
+            float hit, dist;
+            if (hurtAt.TryGetValue(e.entityId, out hit) && now - hit <= FightHurtSeconds) { why = "hit " + F1(now - hit) + " s ago"; return true; }
+            if (InFight(e)) { why = "a live attack or revenge target"; return true; }
+            EntityAlive t = NearestEnemy(e, FightReach, true, out dist);
+            if (t != null) { why = ScCommunity.ClassName(t) + " (" + t.entityId + ") after " + HerObj(e) + " at " + F1(dist) + " m"; return true; }
+            return false;
         }
 
         /// <summary>A live attack or revenge target (the bleed waits: ScRelax's alert reasons, the AI-free part).</summary>
@@ -821,7 +923,7 @@ namespace SurvivorCommunity
         // use: item into the hand, animation, effects when it ends, weapon back
         // ---------------------------------------------------------------------------------------------------------
 
-        private static void Begin(EntityAlive e, string item, float now, string lastResort = null, bool drawHand = false)
+        private static void Begin(EntityAlive e, string item, float now, string lastResort = null, bool drawHand = false, float waitSince = -1f, string fightWhy = null)
         {
             ItemClass ic = ItemClass.GetItemClass(item, true);
             if (ic == null) return;
@@ -835,15 +937,37 @@ namespace SurvivorCommunity
                 // watched or, as a last resort, never starts (round hr1's 1.5 s cap cut the clip)
                 Duration = ClipFallbackSeconds,
                 ItemType = ic.Id,
+                WaitSince = waitSince,                       // round md2 (review MD2-M1)
             };
+            // round md2 (review MD2-M2): a hold type with no verified use clip gets a timed use
+            u.NoClipHoldType = Array.IndexOf(VerifiedClipHoldTypes, u.HoldType) < 0;
+            if (u.NoClipHoldType && holdTypesLogged.Add(u.HoldType))
+            {
+                Patches_Xnpc.Count("medic-use-unverified-holdtype");
+                ScLog.Out("medic: no clip for hold type " + u.HoldType + " (" + item + ") is verified - its uses are timed, " + F1(ClipFallbackSeconds)
+                          + " s after the trigger; a clip seen for it is logged once (round md2, review)");
+            }
             // round md2: about to go down, or the animator has not played the clip for her MaxCalledOff times in a row and no player is
-            // near enough to see it - the use goes on without its clip if it must (logged once it does)
-            int off;
+            // near enough to see it - the use goes on without its clip if it must (logged once it does). Round md2 (review MD2-M2): or
+            // the row for this item reached its hard stop (CallOffStop, or CallOffStopSeconds since its first call-off), player or not
+            CallOffs row;
+            if (!calledOff.TryGetValue(e.entityId, out row) || row.Item != item || now - row.Last > CallOffRowGap) row = null;
             if (lastResort != null) { u.NoClipOk = true; u.NoClipWhy = She(e) + " is about to go down (" + lastResort + "; a last resort)"; }
-            else if (calledOff.TryGetValue(e.entityId, out off) && off >= MaxCalledOff && e.world != null && e.world.GetClosestPlayer(e.position, UnseenMetres, false) == null)
+            else if (row != null && (row.N >= CallOffStop || now - row.First >= CallOffStopSeconds))
             {
                 u.NoClipOk = true;
-                u.NoClipWhy = "the clip did not play for " + HerObj(e) + " " + off + " times in a row and no player is within " + F1(UnseenMetres) + " m to see it";
+                u.NoClipWhy = "called off " + row.N + " time(s) in " + F1(now - row.First) + " s - the hard stop (round md2, review)";
+                if (!row.StopLogged)
+                {
+                    row.StopLogged = true;
+                    Patches_Xnpc.Count("medic-calloff-hard-stop");
+                    ScLog.Warn(BodyName(e) + "'s " + item + " was called off " + row.N + " time(s) in " + F1(now - row.First) + " s - the next use goes on without its clip if it must (round md2, review MD2-M2)");
+                }
+            }
+            else if (row != null && row.N >= MaxCalledOff && e.world != null && e.world.GetClosestPlayer(e.position, UnseenMetres, false) == null)
+            {
+                u.NoClipOk = true;
+                u.NoClipWhy = "the clip did not play for " + HerObj(e) + " " + row.N + " times in a row and no player is within " + F1(UnseenMetres) + " m to see it";
             }
             ItemStack held = e.inventory.GetItem(u.Slot);
             // the weapon's own ItemValue, not a copy (M11): Locked & Loaded's Inventory.SetItem prefix gives a seated
@@ -860,6 +984,7 @@ namespace SurvivorCommunity
 #endif
             u.EndAt = 0f;                                    // round md2: set by the clip (or the fallback) once the trigger fired
             uses[e.entityId] = u;
+            lastUseAt[e.entityId] = now;                     // round md2 (review MD2-m6): CancelUse takes it back
 #if SC_V34
             // round md2: a stow nobody drew in StowWaitSeconds (or a last resort) - she draws for the use, as 0-XNPCCore's own bandage
             // does (Hand.SelectHoldingMode(Current), instant for an NPC), and RestoreStow puts the stow back after it
@@ -868,11 +993,19 @@ namespace SurvivorCommunity
             {
                 float since;
                 string stowFor = stowSince.TryGetValue(e.entityId, out since) ? F1(now - since) + " s" : "a while";
+                // round md2 (review MD2-m4): clients show 0-XNPCCore's chat stow from SdcsChatStowed (HeldSyncRules.StowShowAction
+                // stows their hand while it is 1), so it reads 0 for the use - 0-XNPCCore publishes only when its own flag changes,
+                // and RestoreStow writes 1 back while that flag still stands. Only when the flag can be read
+                if (e.Buffs != null && e.Buffs.GetCustomVar("SdcsChatStowed") >= 0.5f && ChatStowFlag(e) == true)
+                {
+                    e.Buffs.SetCustomVar("SdcsChatStowed", 0f, true, CVarOperation.set, true);
+                    u.ClearedChatCvar = true;
+                }
                 hand.SelectHoldingMode(Hand.HoldingMode.Current, 0.2f);
                 u.DrewHand = true;
                 handsDrawn++;
                 Patches_Xnpc.Count("medic-drew-stowed-hand");
-                ScLog.Out(BodyName(e) + "'s hand has been stowed for " + stowFor + " - " + She(e) + " draws to use " + item + (lastResort != null ? " at once (about to go down: " + lastResort + ")" : "")
+                ScLog.Out(BodyName(e) + "'s hand has been stowed for " + stowFor + " - " + She(e) + " draws to use " + item + (lastResort != null ? " at once (about to go down: " + lastResort + ")" : fightWhy != null ? " at once (in a fight: " + fightWhy + ")" : "")
                           + ", and the stow comes back after it if it still stands (round md2)");
             }
             stowSince.Remove(e.entityId);
@@ -899,7 +1032,17 @@ namespace SurvivorCommunity
         {
             if (e.IsDead()) { Finish(e, u, false, false); return; }
             if (e.emodel == null || e.emodel.IsRagdollActive) { Finish(e, u, false, true); return; }
+#if SC_V34
+            if (ScDowned.IsDown(e)) { u.EndedBy = She(e) + " went down"; Finish(e, u, false, true); return; }     // round md2 (review MD2-n5)
+#endif
             float now = Time.time;
+            // round md2 (review MD2-n2): one absolute deadline per use
+            if (now - u.Started > UseDeadlineSeconds)
+            {
+                u.EndedBy = "the " + F1(UseDeadlineSeconds) + " s deadline";
+                Finish(e, u, u.Triggered, !u.Triggered);
+                return;
+            }
             AvatarController ac = e.emodel.avatarController;
             Animator anim = ac != null ? ac.anim : null;
             // round md2: the use layer (looked up once per use)
@@ -917,12 +1060,23 @@ namespace SurvivorCommunity
                 if (shown && now - u.ShownAt >= HoldPoseSettleSeconds) { FireTrigger(ac, anim, u, now, true); return; }
                 if (shown) return;
                 if (now - u.Started <= HoldPoseWaitSeconds) return;
-                if (u.NoClipOk) { FireTrigger(ac, anim, u, now, false); return; }
+                if (u.NoClipOk)
+                {
+                    // round md2 (review MD2-m3): no pose, nothing on screen - one trigger and a short end, no clip wait
+                    FireTrigger(ac, anim, u, now, false);
+                    u.NoPose = true;
+                    u.EndAt = now + NoPoseUseSeconds;
+                    usesNoClip++;
+                    Patches_Xnpc.Count("medic-use-no-clip");
+                    ScLog.Out(BodyName(e) + " uses " + u.Item + " without its clip (no hold pose in " + F1(HoldPoseWaitSeconds) + " s): " + u.NoClipWhy + " (round md2)");
+                    return;
+                }
                 CancelUse(e, u, now, "the hold pose did not come up in " + F1(HoldPoseWaitSeconds) + " s (" + (inHand ? "the animator shows hold type "
                           + (anim != null ? anim.GetInteger(AvatarController.weaponHoldTypeHash).ToString() : "-") + ", not " + u.HoldType : "the item is not in " + Her(e) + " hand: " + HandText(e)) + ")");
                 return;
             }
-            if (u.UseLayer >= 0 && anim != null)
+            if (u.NoPose) { }                                                        // round md2 (review MD2-m3): EndAt only
+            else if (u.UseLayer >= 0 && anim != null)
             {
                 AnimatorStateInfo si = anim.GetCurrentAnimatorStateInfo(u.UseLayer);
                 bool hasClip = anim.GetCurrentAnimatorClipInfoCount(u.UseLayer) > 0;
@@ -938,14 +1092,21 @@ namespace SurvivorCommunity
                     {
                         u.SawClip = true;
                         u.UseState = si.fullPathHash;
-                        float speed = Mathf.Abs(si.speed * si.speedMultiplier);
-                        if (speed < 0.05f) speed = 1f;
+                        // round md2 (review MD2-n1): the animator's own speed too
+                        float speed = Mathf.Abs(si.speed * si.speedMultiplier * anim.speed);
+                        if (speed < 0.05f || float.IsNaN(speed)) speed = 1f;
                         u.ClipName = clip != null ? clip.name : "?";
                         u.ClipLength = clip != null ? clip.length / speed : ClipFallbackSeconds;
                         float left = clip != null ? Mathf.Max(0f, 1f - si.normalizedTime) * u.ClipLength : ClipFallbackSeconds;
+                        // round md2 (review MD2-n2): a NaN or runaway length is clamped
+                        if (float.IsNaN(left) || float.IsInfinity(left)) left = ClipFallbackSeconds;
+                        left = Mathf.Clamp(left, 0f, ClipFallbackSeconds * 2f);
                         u.EndAt = now + left + ClipEndMargin;
                         calledOff.Remove(e.entityId);
+                        if (u.NoClipHoldType && holdTypesLogged.Add(-u.HoldType - 1))
+                            ScLog.Out("medic: hold type " + u.HoldType + " (" + u.Item + ") played the clip " + u.ClipName + " (" + F2(u.ClipLength) + " s) on UpperBodyUseAndReload - its uses end with it (round md2, review)");
                     }
+                    else if (u.NoClipHoldType) { if (u.EndAt <= 0f) u.EndAt = u.TriggerAt + ClipFallbackSeconds; }   // round md2 (review MD2-M2): timed
                     else if (now - u.LastTriggerAt > ClipStartWaitSeconds)
                     {
                         if (u.Triggers < MaxTriggers) { FireTrigger(ac, anim, u, now, u.Shown); return; }   // once more
@@ -974,7 +1135,9 @@ namespace SurvivorCommunity
             if (u.EndAt > 0f && now >= u.EndAt)
             {
                 u.EndedBy = u.SawClip ? "the clip's own end + " + F2(ClipEndMargin) + " s (" + u.ClipName + ", " + F2(u.ClipLength) + " s; its layer still showed it)"
-                                      : "the " + F1(ClipFallbackSeconds) + " s fallback (" + (u.UseLayer < 0 ? "no use layer to watch" : "no clip seen") + ")";
+                          : u.NoPose ? "the " + F1(NoPoseUseSeconds) + " s use without its hold pose (round md2, review)"
+                          : u.NoClipHoldType ? "the " + F1(ClipFallbackSeconds) + " s timed use (no clip for hold type " + u.HoldType + ")"
+                          : "the " + F1(ClipFallbackSeconds) + " s fallback (" + (u.UseLayer < 0 ? "no use layer to watch" : "no clip seen") + ")";
                 Finish(e, u, true, false);
             }
         }
@@ -1007,15 +1170,61 @@ namespace SurvivorCommunity
         {
             u.EndedBy = "called off: " + why;
             Finish(e, u, false, true);
-            int n;
-            calledOff.TryGetValue(e.entityId, out n);
-            calledOff[e.entityId] = n + 1;
-            float retry = n + 1 >= MaxCalledOff ? RetryLongSeconds : RetrySeconds;
+            // round md2 (review MD2-m6): no use began
+            lastUseAt.Remove(e.entityId);
+            // round md2 (review MD2-M2): the row is per item; a row whose last call-off is CallOffRowGap old starts again
+            CallOffs row;
+            if (!calledOff.TryGetValue(e.entityId, out row) || row.Item != u.Item || now - row.Last > CallOffRowGap)
+            {
+                row = new CallOffs { Item = u.Item, First = now };
+                calledOff[e.entityId] = row;
+            }
+            row.N++;
+            row.Last = now;
+            int n = row.N;
+            float retry = n >= MaxCalledOff ? RetryLongSeconds : RetrySeconds;
             readyAt[e.entityId] = now + retry;
+            // round md2 (review MD2-M1): the reach wait this use was released from comes back (its clock and verdict too), so the
+            // retry does not start a fresh MedicMaxWait
+            if (u.WaitSince >= 0f)
+            {
+                heldSince[e.entityId] = u.WaitSince;
+                heldLast[e.entityId] = now;
+            }
             usesCalledOff++;
             Patches_Xnpc.Count("medic-use-called-off");
-            ScLog.Out(BodyName(e) + "'s " + u.Item + " is called off: " + why + " - the item goes back, again in " + F1(retry) + " s (called off " + (n + 1)
-                      + " time(s) in a row; from " + MaxCalledOff + " on, with no player within " + F1(UnseenMetres) + " m, " + She(e) + " uses one without its clip; round md2)");
+            // round md2 (review MD2-M2): the line once per row; the rest verbose
+            string line = BodyName(e) + "'s " + u.Item + " is called off: " + why + " - the item goes back, again in " + F1(retry) + " s (called off " + n
+                          + " time(s) in a row; from " + MaxCalledOff + " on with no player within " + F1(UnseenMetres) + " m, or at " + CallOffStop + " or "
+                          + F1(CallOffStopSeconds) + " s anyway, " + She(e) + " uses one without its clip; round md2)";
+            if (n == 1) ScLog.Out(line);
+            else ScLog.Verbose(line);
+        }
+
+        /// <summary>
+        /// Round md2 (review MD2-m4): 0-XNPCCore's own chat stow flag (AvatarSdcsNpcController.SdcsChatHolsterStowed, internal,
+        /// read by reflection once looked up), or null when it cannot be read.
+        /// </summary>
+        private static bool? ChatStowFlag(EntityAlive e)
+        {
+            try
+            {
+                if (!chatStowedLooked)
+                {
+                    chatStowedLooked = true;
+                    chatStowedGetter = AccessTools.PropertyGetter(typeof(AvatarSdcsNpcController), "SdcsChatHolsterStowed");
+                    if (chatStowedGetter == null) ScLog.Out("medic: 0-XNPCCore's SdcsChatHolsterStowed is not there - a use drawn in a chat stow leaves SdcsChatStowed as it is (round md2, review)");
+                }
+                var ctl = e != null && e.emodel != null ? e.emodel.avatarController as AvatarSdcsNpcController : null;
+                if (chatStowedGetter == null || ctl == null) return null;
+                return (bool)chatStowedGetter.Invoke(ctl, null);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("medic-chat-stow-flag", ex);
+                chatStowedGetter = null;
+                return null;
+            }
         }
 
         /// <summary>
@@ -1023,9 +1232,10 @@ namespace SurvivorCommunity
         /// (GetUpSettleSeconds after the ragdoll ended) - not even in a last resort: they are short, and the clip cannot play over
         /// them - or her hand is switching, or her hand is stowed (vanilla's Hand in Bare mode: Hand.Item is then her bare hand
         /// whatever the slot holds, so the item would never show) and has been for less than StowWaitSeconds - after that, or at
-        /// once in a last resort, drawHand: the use draws it (Begin). why: what holds it. Keeps the stow wait's clock.
+        /// once in a fight or a last resort (drawNow, round md2 review MD2-M1), drawHand: the use draws it (Begin). Seated in a
+        /// vehicle: no use (round md2 review MD2-m2), a last resort excepted. why: what holds it. Keeps the stow wait's clock.
         /// </summary>
-        private static bool HandReady(EntityAlive e, float now, bool lastResort, out string why, out bool drawHand)
+        private static bool HandReady(EntityAlive e, float now, bool drawNow, bool lastResort, out string why, out bool drawHand)
         {
             why = null;
             drawHand = false;
@@ -1035,6 +1245,14 @@ namespace SurvivorCommunity
             if (e.emodel != null && e.emodel.ragdollState != EModelBase.ERagdollState.Off) { why = Her(e) + " ragdoll (" + e.emodel.ragdollState + ")"; return false; }
             float rag;
             if (ragdollAt.TryGetValue(e.entityId, out rag) && now - rag < GetUpSettleSeconds) { why = Her(e) + " get-up (" + F1(now - rag) + " s since the ragdoll ended)"; return false; }
+            // round md2 (review MD2-m2): no use and no draw in a vehicle seat (vanilla stows the hand there, and nothing would stow it
+            // again after the use; the clip is not verified in a seat pose) - in a last resort the use goes on without the clip
+            if (e.AttachedToEntity != null)
+            {
+                if (lastResort) return true;
+                why = HerObj(e) + " being seated";
+                return false;
+            }
 #if SC_V34
             Hand h = e.Hand;
             if (h != null && h.IsSwitching) { why = Her(e) + " hand switching items"; return false; }
@@ -1044,9 +1262,9 @@ namespace SurvivorCommunity
                 if (!stowSince.TryGetValue(e.entityId, out since) || !stowSeen.TryGetValue(e.entityId, out seen) || now - seen > StowSeenGap) since = now;
                 stowSince[e.entityId] = since;
                 stowSeen[e.entityId] = now;
-                if (now - since < StowWaitSeconds && !lastResort)
+                if (now - since < StowWaitSeconds && !drawNow)
                 {
-                    why = Her(e) + " hand stowed (a talk, a station, loot or an order; " + F1(now - since) + " of " + F1(StowWaitSeconds) + " s before " + She(e) + " draws it)";
+                    why = Her(e) + " hand stowed (a talk, a station or loot; " + F1(now - since) + " of " + F1(StowWaitSeconds) + " s before " + She(e) + " draws it; at once in a fight)";
                     return false;
                 }
                 drawHand = true;
@@ -1080,29 +1298,39 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Round md2: after a use that drew her stowed hand (Begin), the stow comes back if 0-XNPCCore still holds one - its chat
-        /// stow (SdcsChatStowed: a talk, a station, loot) or a "put your weapon away" order (SdcsHolsteredByOrder). A stow it held
-        /// for neither (one left over from a down) stays drawn.
+        /// Round md2: after a use that drew her stowed hand (Begin), the stow comes back if 0-XNPCCore still holds its chat stow (a
+        /// talk, a station, loot). A stow it does not hold (one left over from a down) stays drawn. Round md2 (review MD2-m1): an
+        /// order (SdcsHolsteredByOrder) is not a hand stow - 0-XNPCCore keeps the bare-hand item in the slot, the Hand in Current -
+        /// so it plays no part. Round md2 (review MD2-m4): with SdcsChatStowed cleared for the use, 0-XNPCCore's own flag decides,
+        /// and the cvar is written back while it stands.
         /// </summary>
-        private static void RestoreStow(EntityAlive e)
+        private static void RestoreStow(EntityAlive e, Use u)
         {
 #if SC_V34
             Hand h = e.Hand;
-            if (h == null || h.IsHolstered || e.Buffs == null) return;
-            bool chat = e.Buffs.GetCustomVar("SdcsChatStowed") >= 0.5f, order = e.Buffs.GetCustomVar("SdcsHolsteredByOrder") >= 0.5f;
-            if (!chat && !order) { ScLog.Verbose("medic: " + e.entityId + " keeps " + Her(e) + " hand drawn after the use - no stow of 0-XNPCCore's stands (round md2)"); return; }
+            if (h == null || e.Buffs == null) return;
+            bool chat;
+            if (u.ClearedChatCvar)
+            {
+                bool? flag = ChatStowFlag(e);
+                chat = flag != false;                                   // unreadable now: put it back as it was found
+                if (chat && e.Buffs.GetCustomVar("SdcsChatStowed") < 0.5f) e.Buffs.SetCustomVar("SdcsChatStowed", 1f, true, CVarOperation.set, true);
+            }
+            else chat = e.Buffs.GetCustomVar("SdcsChatStowed") >= 0.5f;
+            if (h.IsHolstered) return;
+            if (!chat) { ScLog.Verbose("medic: " + e.entityId + " keeps " + Her(e) + " hand drawn after the use - 0-XNPCCore's chat stow does not stand (round md2)"); return; }
             h.SelectHoldingMode(Hand.HoldingMode.Bare, 0.2f);
-            ScLog.Verbose("medic: " + e.entityId + "'s hand is stowed again after the use (" + (chat ? "0-XNPCCore's chat stow" : "an order") + " still stands; round md2)");
+            ScLog.Verbose("medic: " + e.entityId + "'s hand is stowed again after the use (0-XNPCCore's chat stow still stands; round md2)");
 #endif
         }
 
-        /// <summary>Round md2: a use waits for her hand (logged once per spell of waiting, counted).</summary>
+        /// <summary>Round md2: a use waits for her hand (counted; logged at most once per 10 s - round md2 review MD2-n4: its own clock is the last line's).</summary>
         private static void NoteNotReady(EntityAlive e, string pick, string why, float now)
         {
             handNotReady++;
             Patches_Xnpc.Count("medic-hand-not-ready");
             float last;
-            if (notReadyAt.TryGetValue(e.entityId, out last) && now - last < 10f) { notReadyAt[e.entityId] = now; return; }
+            if (notReadyAt.TryGetValue(e.entityId, out last) && now - last < 10f) return;
             notReadyAt[e.entityId] = now;
             ScLog.Out(BodyName(e) + " waits to use " + pick + " at " + e.Health + "/" + e.GetMaxHealth() + ": " + why + " - the animation could not play (round md2)");
         }
@@ -1146,14 +1374,28 @@ namespace SurvivorCommunity
             displaced.TryRemove(e.entityId, out gone);
             try
             {
-                if (completed) ApplyEffects(e, u.Item);
-                else if (returnItem) Add(e, u.Item, 1);
+                if (completed)
+                {
+                    ApplyEffects(e, u.Item);
+                    if (u.Bleed) bleedsStopped++;                       // round md2 (review MD2-n3)
+                    // round md2 (review MD2-M2): a use whose clip played ends the row (Advance); one that went on without it keeps the
+                    // row and its hard stop alive, so the next use does not go through the call-offs again
+                    CallOffs row;
+                    if (!u.SawClip && calledOff.TryGetValue(e.entityId, out row) && row.Item == u.Item) row.Last = Time.time;
+                }
+                else if (returnItem)
+                {
+                    // round md2 (review MD2-m5): a window a player opened during the use would write its copy back over the item on
+                    // close - it goes to the bag instead (ScNpc.AddItem's own fallback when the window is full)
+                    if (ScNpc.UsesWindow(e) && ScAmmo.IsWindowOpen(e.entityId)) ReturnToBag(e, u.Item);
+                    else Add(e, u.Item, 1);
+                }
             }
             finally
             {
                 if (u.Displaced != null && !u.Displaced.IsEmpty()) Hold(e, u.Slot, u.Displaced.itemValue, u.Displaced.count);
                 else Hold(e, u.Slot, ItemValue.None, 0);
-                if (u.DrewHand && !e.IsDead()) RestoreStow(e);          // round md2
+                if (u.DrewHand && !e.IsDead()) RestoreStow(e, u);       // round md2
             }
             // round hr1: the use's timing (decision 4's sync check: the hold pose wait, the trigger, what ended it)
             float nowF = Time.time;

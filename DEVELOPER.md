@@ -3482,13 +3482,17 @@ Round MP0 is the groundwork:
     paths have their own cap (`MaxFailedWalksPerWait`, 8). The stand's hold also runs from her last use's start and while an
     item still heals her (`ScMedic.UsedOrWorking`). `ScHealBackOff.Forget` drops a body's state in `ScLooks.Forget`.
 - **Round md2 (the medical use's animation, `ScMedic`):** a use is driven by its clip, not by a time.
-  - No item is taken (`TryHeal` → `HandReady`) while she is down (`ScDowned.IsDown`), her ragdoll is not Off or ended less
-    than `GetUpSettleSeconds` (1.5 s) ago (`ragdollAt`, kept every frame in `Tick`), her `Hand` is switching, or it is
-    stowed (`Hand.IsHolstered`: `Hand.Item` is then the bare hand whatever the slot holds) for less than `StowWaitSeconds`
-    (20 s; the stow clock is `stowSince`/`stowSeen`). Past it - at once in a last resort - `Begin` draws it
-    (`Hand.SelectHoldingMode(Current)`, instant for an NPC, as 0-XNPCCore's own bandage does) and `Finish` → `RestoreStow`
-    puts it back while 0-XNPCCore's `SdcsChatStowed` or `SdcsHolsteredByOrder` cvar is set. Logged once per 10 s
-    (`medic-hand-not-ready`).
+  - No item is taken (`TryHeal` → `HandReady`, asked BEFORE `HeldByReach`: that one spends its heal-now verdict and clears
+    the wait when it lets a use go) while she is down (`ScDowned.IsDown`), her ragdoll is not Off or ended less than
+    `GetUpSettleSeconds` (1.5 s) ago (`ragdollAt`, kept every frame in `Tick`), she is seated (`AttachedToEntity`; a last
+    resort goes on without the clip), her `Hand` is switching, or it is stowed (`Hand.IsHolstered`: `Hand.Item` is then the
+    bare hand whatever the slot holds) for less than `StowWaitSeconds` (20 s; the stow clock is `stowSince`/`stowSeen`). A
+    refusal keeps a reach wait alive (`heldLast`). Past the 20 s - at once in a fight (`InFightNow`: hit in 5 s, `InFight`,
+    or an enemy after her within 15 m) or a last resort - `Begin` draws it (`Hand.SelectHoldingMode(Current)`, instant for
+    an NPC, as 0-XNPCCore's own bandage does) and `Finish` → `RestoreStow` puts it back while 0-XNPCCore's chat stow stands
+    (`SdcsHolsteredByOrder` is not a hand stow: 0-XNPCCore keeps the bare-hand item in the slot). During such a use
+    `SdcsChatStowed` reads 0 (netsync) when `AvatarSdcsNpcController.SdcsChatHolsterStowed` (internal, by reflection) can
+    be read, and goes back to 1 while that flag stands. Logged at most once per 10 s (`medic-hand-not-ready`).
   - `Advance`: the trigger (`FireTrigger`, `useItemHash` with netsync) only once `inventory.holdingItemItemValue` is the item
     and the animator's `WeaponHoldType` its hold type for `HoldPoseSettleSeconds` (0.1 s); else `CancelUse` after
     `HoldPoseWaitSeconds` (1 s): the item back via `Finish(false, true)`, `readyAt` = 2 s (10 s from `MaxCalledOff` in a row).
@@ -3496,13 +3500,24 @@ Round MP0 is the groundwork:
     (`PreState`; a clip named `*Hold*` becomes the new `PreState`). Not seen within `ClipStartWaitSeconds` (0.8 s): one more
     trigger (`MaxTriggers` 2), then `CancelUse`. The use ends when the layer leaves that state, or at the clip's remaining
     length (`clip.length / |speed x speedMultiplier|`) + `ClipEndMargin` (0.25 s); with no layer, `ClipFallbackSeconds`
-    (2.1 s) from the trigger. `MemberUseSeconds` and `TriggerTimeout` are gone; raiders and strangers follow the same rules.
+    (2.1 s) from the trigger; the length is clamped (NaN, at most 4.2 s) and no use runs past `UseDeadlineSeconds` (8 s).
+    `MemberUseSeconds` and `TriggerTimeout` are gone; raiders and strangers follow the same rules.
+  - Only `VerifiedClipHoldTypes` (64: bandages, kits) wait for a clip. Any other (`drugPainkillers` is 16) is a timed use of
+    `ClipFallbackSeconds` from the trigger, logged once per hold type ("no clip for hold type N"); a clip seen for it is
+    logged once and ends the use as usual.
   - `NoClipOk` (logged, `medic-use-no-clip`): a last resort (`LastResort`: at or under 25% of max health and hit in the last
-    3 s - `hurtAt` from `lastHp` in `Tick` - or an attack or revenge target within 4 m), or `calledOff` >= 3 with no player
-    within 90 m. Low health alone is not a last resort: 0-XNPCCore revives at a few health.
+    3 s - `hurtAt` from `lastHp` in `Tick` - or an attack or revenge target within 4 m), `calledOff` >= 3 with no player
+    within 90 m, or the hard stop (`CallOffStop` 6 call-offs of the same item or `CallOffStopSeconds` 30 s since the row's
+    first; a warning once per row). `calledOff` is a per-item row (`CallOffs`), ended by a played clip, kept alive by a use
+    that went on without one, over after 60 s without a call-off. Triggered without the pose, a use ends in 0.5 s
+    (`NoPoseUseSeconds`). Low health alone is not a last resort: 0-XNPCCore revives at a few health.
+  - `CancelUse` puts back the reach wait the use was released from (`Use.WaitSince`), kept fresh through its retry delay,
+    takes back `lastUseAt` (`UsedOrWorking` reads it, not `readyAt - Cooldown`), logs its line once per row (the rest
+    verbose). `Finish` returns a called-off item to the bag (`ReturnToBag`) while a player has her window open, counts
+    `bleedsStopped` only for a completed bleed use, and a down (`ScDowned.IsDown`) ends a use like a ragdoll.
   - Clients: the trigger and `WeaponHoldType` reach them through `AvatarController.updateNetworkAnimData` (the NPC
     controller's `Update` calls the base). On a client 0-XNPCCore keeps the hand stowed while `SdcsChatStowed` is set
-    (`HeldSyncRules.StowShowAction`), so a use she draws for during a chat stow may show bare hands there.
+    (`HeldSyncRules.StowShowAction`), hence the cvar's 0 during a use drawn in a chat stow (above).
   - `sc xnpc <name>`'s medic line: the use's clip or trigger count, her hand and what holds a use (`HandReadyText`), and the
     counts (waits for the hand, called off, stowed hands drawn, used without the clip).
 - **Round MP6 (review fixes):** the four reviews' fixes on the merged build. What a modder must know:
