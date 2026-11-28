@@ -188,9 +188,14 @@ unchanged (the gaps are not saved). Two new patch targets: `Path::CanTraverse(Gr
       of its upper cell, and a hanging light at head height: block a member's walk just before it with furniture until her
       roam ends with no gain. No `too low to walk through` line for that doorway; at most `noted once` (DebugLogging), and
       it is walked round only after a second end there, for 5 minutes.
-- [ ] A spot remembered by the second-end rule (`no progress there twice`): clear what blocked her, and the first time a
-      member walks through that cell on her way the log says `<name> walked through the remembered gap at ... - it is
-      passable, no longer avoided (round nv1 review)`. Untouched, it goes after 5 minutes.
+- [ ] A spot remembered by the second-end rule (`no progress there twice`): left alone, it goes after 5 minutes
+      (DebugLogging: `the gap at ... is no longer avoided`). Members are kept out of it meanwhile, so they cannot release it
+      by walking through (the line `<name> walked through the remembered gap ...` is rare: a path planned before the spot,
+      or a push). Walk into that cell yourself and stand there a second: `<you> stands in the remembered gap at ... - a body
+      fits, no longer avoided (round nv1)`, and members walk through it again. A zombie walking through does the same; a
+      dog or a crawler does not.
+- [ ] A remembered low gap whose head block you swap for a plate on the cell's edge (the block test still sees a collider,
+      but a body fits): within about a minute `the gap at ... is gone (..., a body fits there) - walks may go there again`.
 - [ ] A hole on a terrain floor whose surface sits low in its block (a dip): still `too low to walk through` at once.
 - [ ] Leave the hole open and keep members away from it: 20 minutes after the last time anyone got stuck there, DebugLogging
       says `the gap at ... is no longer avoided`; a member may try it once more and it is remembered again.
@@ -207,8 +212,7 @@ unchanged (the gaps are not saved). Two new patch targets: `Path::CanTraverse(Gr
       path step of every path, and returns at once for zombies).
 
 **Dedicated server**
-- [ ] The same steps on the server: the lines are in the server log; a client with the previous build joins and plays as
-      before.
+- [ ] The same steps on the server: the lines are in the server log.
 - [ ] The report's case: break the block that was put in the hole again; the resident who used to get stuck there goes
       round by the door after at most one try.
 

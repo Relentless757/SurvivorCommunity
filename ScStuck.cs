@@ -484,6 +484,10 @@ namespace SurvivorCommunity
         /// entities, no trees), a capsule of radius 0.25 at the cell's center from 0.3 m over the floor to 1.75 m.</summary>
         private const int BodyMask = 1073807360;
         private const float BodyRadius = 0.25f, BodyBottom = 0.3f, BodyTop = 1.75f;
+        /// <summary>Round nv1 (final check): a low gap's cells get the body check again this often (Time.time seconds).</summary>
+        private const float BodyRecheckSeconds = 60f;
+        /// <summary>Round nv1 (final check): someone this tall (meters) standing in a gap's cell proves a body fits (not a dog or a crawler).</summary>
+        private const float PasserMinHeight = 1.6f;
 
         /// <summary>One remembered gap of a base (session only).</summary>
         private sealed class GapSpot
@@ -502,6 +506,8 @@ namespace SurvivorCommunity
             public float Minutes = GapMinutesOther;
             public float FloorY;
             public string What = "";
+            /// <summary>Round nv1 (final check): when a low gap's cells get the body check again (BodyRecheckSeconds).</summary>
+            public float NextBodyCheck;
         }
 
         /// <summary>Round nv1: per base (BaseOf: a community's id, or -1 - an enclave's id) its remembered gaps.</summary>
@@ -884,18 +890,25 @@ namespace SurvivorCommunity
                         continue;
                     }
                     if (!g.Active || !g.Low || w == null) continue;
+                    // round nv1 (final check): once a minute the body check too - a body that fits now (a block changed in a way
+                    // the block test does not see) opens the cell; the planner keeps members out, so walking through cannot
+                    bool bodyCheck = now >= g.NextBodyCheck;
+                    if (bodyCheck) g.NextBodyCheck = now + BodyRecheckSeconds;
+                    bool fits = false;
                     int before = g.Cells.Count;
                     for (int c = g.Cells.Count - 1; c >= 0; c--)
                     {
                         Vector3i cell = g.Cells[c];
                         if (w.GetChunkFromWorldPos(cell) == null) continue;          // not loaded: unknown, kept
-                        if (!LowGap(w, cell, g.Floors[c])) { g.Cells.RemoveAt(c); g.Floors.RemoveAt(c); }
+                        bool gone = !LowGap(w, cell, g.Floors[c]);
+                        if (!gone && bodyCheck && !BodyBlocked(cell, g.Floors[c])) { gone = true; fits = true; }
+                        if (gone) { g.Cells.RemoveAt(c); g.Floors.RemoveAt(c); }
                     }
                     if (g.Cells.Count == before) continue;
                     gapsDirty = true;
                     if (g.Cells.Count > 0) continue;
-                    Count("gap gone: filled or opened");
-                    ScLog.Out("the gap at " + g.Ahead + " is gone (" + CellWhat(w, g.Ahead) + " now) - walks may go there again (round nv1)");
+                    Count(fits ? "gap gone: a body fits now" : "gap gone: filled or opened");
+                    ScLog.Out("the gap at " + g.Ahead + " is gone (" + CellWhat(w, g.Ahead) + " now" + (fits ? ", a body fits there" : "") + ") - walks may go there again (round nv1)");
                     list.RemoveAt(i);
                 }
             }
@@ -908,8 +921,53 @@ namespace SurvivorCommunity
                 gapBodies.Remove(gapScratch[i]);
             }
             gapScratch.Clear();
+            if (w != null) PassersRelease(w);                                    // round nv1 (final check)
             if (Origin.position != plannerOrigin) gapsDirty = true;
             if (gapsDirty) RebuildPlanner(now);
+        }
+
+        private static readonly List<Entity> gapEnts = new List<Entity>();
+
+        /// <summary>
+        /// Round nv1 (final check), once a second from GapTick: the planner keeps the base's own bodies out of a remembered cell, so
+        /// PassedThrough rarely sees one there. Anyone else of a body's height (PasserMinHeight: a player, a zombie, another NPC;
+        /// not a dog or a crawler) standing alive and not stuck in a gap's cell proves a body fits: the whole gap goes. The base's
+        /// own bodies count only through PassedThrough (its gain rule). Main thread.
+        /// </summary>
+        private static void PassersRelease(World w)
+        {
+            foreach (KeyValuePair<int, List<GapSpot>> kv in gaps)
+            {
+                List<GapSpot> list = kv.Value;
+                for (int i = list.Count - 1; i >= 0; i--)
+                {
+                    GapSpot g = list[i];
+                    if (!g.Active) continue;
+                    for (int c = 0; c < g.Cells.Count; c++)
+                    {
+                        Vector3i cell = g.Cells[c];
+                        if (w.GetChunkFromWorldPos(cell) == null) continue;
+                        gapEnts.Clear();
+                        w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(new Vector3(cell.x + 0.5f, g.Floors[c] + 1f, cell.z + 0.5f), new Vector3(1f, 2f, 1f)), gapEnts);
+                        EntityAlive who = null;
+                        for (int k = 0; k < gapEnts.Count && who == null; k++)
+                        {
+                            EntityAlive e = gapEnts[k] as EntityAlive;
+                            if (e == null || e.IsDead() || e.height < PasserMinHeight || e.IsStuck || BodyCell(e.position) != cell) continue;
+                            BodyNote b;
+                            if (gapBodies.TryGetValue(e.entityId, out b) && b.Base == kv.Key) continue;
+                            who = e;
+                        }
+                        gapEnts.Clear();
+                        if (who == null) continue;
+                        list.RemoveAt(i);
+                        gapsDirty = true;
+                        Count("gap gone: someone else stood in it");
+                        ScLog.Out(ScCommunity.DisplayName(who) + " stands in the remembered gap at " + g.Ahead + " (at " + cell + ") - a body fits, no longer avoided (round nv1)");
+                        break;
+                    }
+                }
+            }
         }
 
         /// <summary>Round nv1: Planner from the active gaps and the bodies seen lately (null with none). Main thread.</summary>
