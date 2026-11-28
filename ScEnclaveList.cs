@@ -370,6 +370,9 @@ namespace SurvivorCommunity
                     if (!seen.Add(n)) { Unmark(pl, wp); continue; }      // never two marks on one group
                     marks[e.Id] = n;
                     if (e.Lost) continue;                                 // not found this load: it may come back where it was
+                    // round en1 (re-check EN1R-m2): a group that moved without telling this player's community is off its map until
+                    // found again - its mark stays where it was and never follows it (it would reveal the new building)
+                    if (!e.Known) continue;
                     Vector3i at = MarkPos(e);
                     string icon = e.IsHostile ? IconHostile : IconEnclave;
                     if (wp.pos == at && wp.icon == icon) continue;
