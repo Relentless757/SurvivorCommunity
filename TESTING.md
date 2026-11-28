@@ -88,7 +88,7 @@ What changes, for members:
 
 New settings (Config/blocks.xml, team section): `MeleeHurtPerStar` 0.05, `MeleeHurtFloor` 0.35; `TeamLowHealthBack` 0.65 (was 0.7).
 
-Build `sc34_wp2`, on branch `wp2` (with the review's and the re-check's fixes), not deployed, untested in game. Server-side only.
+Build `sc34_wp2` (with the review's and the re-check's fixes), **deployed 2026-11-28** (`port-3.4` 671dbf59, DLL e1fb389b; protocol 10 unchanged), untested in game. Left open (minors): the slow-gun melee hold counts a zombie she cannot reach within 3 m; crops drawn as models may still read as walls for back-off spots. Server-side only.
 The re-check: the walk-yield and hold lines pass tall grass (its 0.85 m collider is no wall) and water; a hold at the bars no
 longer starts and ends on the next check; the slow-gun melee makes its zombie her target and holds until no zombie after her is
 within 3 m for 1.5 s; a cornered flag with no zombie after her within 3 m ends at once. `sc xnpc` counts `posture-hold-refused-close`,
