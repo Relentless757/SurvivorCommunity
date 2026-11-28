@@ -3458,8 +3458,8 @@ Round MP0 is the groundwork:
     same group, the one further along stays (done over taken on over offered, accepted over offered; the community's on a
     tie) and the other closes with a tell; the favors' "held by a report" marks follow (`ScQuestNet.RemapFavours`). Contacts
     move, and the stockpile adds up. For each relation row the record has: enclave standing takes the higher, known is OR
-    with the earlier day, hostile only if both were (the community's hostility ends otherwise, its cvar set to 0 on the
-    group's live bodies), thanks owed kept; infestation known is OR; band known is OR and trust takes the higher. The
+    with the earlier day, the community's hostility is kept (a war it earned never ends because a player joined; the record's
+    own hostility is dropped), thanks owed kept; infestation known is OR; band known is OR and trust takes the higher. The
     community's own request, gift, barter, call and reveal clocks stay its own. Wild survivors' grudges against the joining
     player are forgiven on the bodies that are loaded. The retire then drops the record's rows and clears its hostility cvars.
   - **Permissions** (`ScActions.WhyNot`): `Anyone` passes. A personal record's player may use only the relation ops

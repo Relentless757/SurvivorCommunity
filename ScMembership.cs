@@ -610,7 +610,7 @@ namespace SurvivorCommunity
         /// </summary>
         private static int ReleaseFavours(CommunityState old, string pid, EntityPlayer mover)
         {
-            // MP7 (decision needed): decision 8 passes "held favors" to another online player, but a favor quest can only be started by
+            // round MP7 (core, decided at the merge - kept as built): decision 8 passes "held favors" to another online player, but a favor quest can only be started by
             // the taker's own dialog (no quest op starts one remotely) - so the favor stays the community's and is free to take on again
             if (mover == null || old.Prospects.Count == 0) return 0;
             int n = 0;
@@ -664,8 +664,8 @@ namespace SurvivorCommunity
         /// - radio contacts move (and, unreachable by construction, members and outposts, with a warning);
         /// - the stockpile adds up (what allies sent the player waits there: the held rewards);
         /// - every relation row (enclave, infestation, band) the record has a saved value in: enclave standing max, known OR (the
-        ///   earlier known day), hostile only if both were (the community's hostility ends when the record's was not: its cvar on the
-        ///   group's live bodies set to 0), thanks owed kept; infestation known OR; band known OR and trust max; the record's own
+        ///   earlier known day), the community's hostility kept (a war the community earned never ends by a player joining; the
+        ///   record's own hostility is dropped), thanks owed kept; infestation known OR; band known OR and trust max; the record's own
         ///   hostility cvars cleared to 0 and its rows dropped. The community's request, gift, barter, call and reveal clocks stay its
         ///   own;
         /// - wild survivors' grudges against the joining player are dropped on the live bodies (the community's relation wins).
@@ -673,7 +673,7 @@ namespace SurvivorCommunity
         /// </summary>
         internal static string Merge(CommunityState from, CommunityState into, string pid, EntityPlayer mover, string who)
         {
-            int favors = 0, favorsKept = 0, requests = 0, requestsKept = 0, encs = 0, infs = 0, bands = 0, ended = 0, forgiven = 0;
+            int favors = 0, favorsKept = 0, requests = 0, requestsKept = 0, encs = 0, infs = 0, bands = 0, forgiven = 0;
             // favors (before the relation rows: a withdrawal below writes the record's row, which the rows step then drops)
             foreach (Prospect pp in new List<Prospect>(from.Prospects.Values))
             {
@@ -758,15 +758,8 @@ namespace SurvivorCommunity
                     if (!tr.Known) { tr.Known = true; tr.KnownDay = pr.KnownDay; }
                     else if (pr.KnownDay >= 0 && (tr.KnownDay < 0 || pr.KnownDay < tr.KnownDay)) tr.KnownDay = pr.KnownDay;
                 }
-                // MP7 (decision needed): "hostile only if both are" (MP7_DESIGN) ends the community's hostility here, which E2 made
-                // permanent; a raid demand or raid of that group on the community's outposts is left as it stands
-                if (tr.TurnedHostile && !pr.TurnedHostile)
-                {
-                    tr.TurnedHostile = false;
-                    tr.HostileDay = -1;
-                    ScEnclavePeople.ClearHostileCvar(e, into.Id);
-                    ended++;
-                }
+                // round MP7 (core, decided at the merge): the community's hostility stays as it is - E2 made it permanent, and a war the
+                // community earned must not end because a player joined; the record's own hostility is dropped with the record (Retire)
                 if (tr.Thanks.Length == 0 && pr.Thanks.Length > 0) tr.Thanks = pr.Thanks;
                 encs++;
             }
@@ -798,7 +791,7 @@ namespace SurvivorCommunity
             // the record's own rows and hostility cvars go with it (Retire drops them)
             // wild survivors' grudges against the joining player (ScTrust's per-player cvar) - the community's relation wins; a body not
             // loaded keeps its cvar (only live bodies can be changed)
-            // MP7 (decision needed): ScTrust's grudge is per player and lives on the survivor's body - only loaded bodies can drop it
+            // round MP7 (core, decided at the merge - kept as built): ScTrust's grudge is per player and lives on the survivor's body - only loaded bodies can drop it
             World w = ScCommunity.World;
             if (mover != null && w != null && w.Entities != null)
             {
@@ -811,7 +804,7 @@ namespace SurvivorCommunity
                 }
             }
             return favors + " favor(s) and " + requests + " request(s) moved" + (favorsKept + requestsKept > 0 ? " (" + favorsKept + " favor(s) and " + requestsKept + " request(s) clashed: the one further along kept)" : "")
-                   + ", " + encs + " enclave, " + infs + " infestation and " + bands + " band relation(s) merged" + (ended > 0 ? " (" + ended + " enclave hostility ended)" : "")
+                   + ", " + encs + " enclave, " + infs + " infestation and " + bands + " band relation(s) merged"
                    + (forgiven > 0 ? ", " + forgiven + " wild survivor grudge(s) dropped" : "");
         }
 

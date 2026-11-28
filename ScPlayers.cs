@@ -32,7 +32,7 @@ namespace SurvivorCommunity
         /// Round MP7 (core): no longer -1 - that value is NoCommunity now, and passing it on must never read the scope's community
         /// (the research's risk 1: CommunityOfId's "none" handed to Community(c) would have listed the scope's players).
         /// </summary>
-        // MP7 (decision needed): the design names -1 "none", which collided with this sentinel - CurrentCommunity moved, -1 kept
+        // round MP7 (core, decided at the merge - kept as built): the design names -1 "none", which collided with this sentinel - CurrentCommunity moved, -1 kept
         public const int CurrentCommunity = int.MinValue;
         /// <summary>
         /// Round MP7 (core): "no community" - what CommunityOfId answers in PerPlayer/PerParty for a player who is in none (offline

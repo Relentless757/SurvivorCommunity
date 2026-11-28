@@ -99,9 +99,9 @@ mode lock, personal records in the save, the merge, the retire and Move with off
       told `You joined <A>'s community.` and `What you built on your own ... is <A>'s community's now.`, A is told `<B> joined the
       community.` `sc community list` shows community 1 under `retired`; after `sc save` `[world]` has `retired=1`. B's request
       and enclave knowledge are community 0's now (B's journal still holds the request quest; the enclave's marker shows for A).
-- [ ] An enclave hostile to A's community but not to B's record: after the join it is no longer hostile to community 0 (the
-      user's "hostile only if both"). One hostile to B's record only: still friendly to community 0, and its people's
-      `%sc_enchostile_1` cvar reads 0.
+- [ ] An enclave hostile to A's community but not to B's record: after the join it is still hostile to community 0 (a war
+      the community earned does not end because a player joined). One hostile to B's record only: still friendly to community 0,
+      and its people's `%sc_enchostile_1` cvar reads 0.
 - [ ] B accepts an enclave request for community 0, then `sc community leave <B>` (or B's own `community.leave`, part U's
       button later): A (online) is told the request is theirs now and gets its quest; B's quest is removed; B is told `You no
       longer belong to <A>'s community.` (an admin's leave) and has fresh own relations (`[personal]`, a new id, never 1). With
