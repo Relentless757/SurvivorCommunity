@@ -216,9 +216,12 @@ namespace SurvivorCommunity
                     try { if (_d.IsLocalPlayer) ScNet.OnLocalPlayerSpawned(); }
                     catch (Exception e) { ScLog.Once("player-spawned", e); }
                     // round MP7 (core): on the server, the spawning player's record (PerPlayer/PerParty: their own relations when they
-                    // have none) - and part A's allies reconcile there
+                    // have none) - and the allies reconcile there (round MP7 (part AP))
                     ScMembership.OnPlayerSpawned(_d.EntityId, _d.ClientInfo, _d.IsLocalPlayer);
                 });
+                // round MP7 (part AP): vanilla's land-claim ally changes (PerPlayer: a founder's ally joins, a removed one loses access;
+                // ScAllies acts only on the server)
+                ScAllies.Subscribe();
 
                 // The only event SCore raises. Hiring a member through the vanilla popup should be impossible
                 // (the response is hidden for members) - if it happens anyway, the member is simply following.
@@ -290,6 +293,9 @@ namespace SurvivorCommunity
             if (ScCommunity.IsHost) ScInfestations.OnGameStart();
             // streamer names (round 30): the list read (made with its header when the switch is on and it is missing)
             if (ScCommunity.IsHost) ScStreamerNames.OnGameStart();
+            // round MP7 (part AP): PerPlayer - the land-claim allies reconciled with the communities at load (the ally store is the
+            // game's by now; no ally event fires at load)
+            if (ScCommunity.IsHost) ScAllies.OnGameStartDone();
         }
 
         private static bool DependenciesPresent()
@@ -815,6 +821,13 @@ namespace SurvivorCommunity
             Add(t, "SleeperVolume::Spawn", AccessTools.Method(typeof(SleeperVolume), "Spawn", new[] { typeof(World), typeof(int), typeof(int), typeof(BlockSleeper) }));
             Add(t, "SleeperVolume::ClearedUpdate", AccessTools.Method(typeof(SleeperVolume), "ClearedUpdate", new[] { typeof(World) }));
             Add(t, "UAIBase::Update", Patches_Gates.UaiUpdateTarget());     // round MP6 (part G): an NPC's AI in her community's scope
+            // round MP7 (part AP): ScParties (PerParty) - an accepted invite brings players in, a leave or a kick takes the one who went
+            // out (never the owner), a new leader may act for an absent owner; never the disconnect handler
+            Add(t, "Party::ServerHandleAcceptInvite", AccessTools.Method(typeof(Party), "ServerHandleAcceptInvite", new[] { typeof(EntityPlayer), typeof(EntityPlayer) }));
+            Add(t, "Party::ServerHandleAutoJoinParty", AccessTools.Method(typeof(Party), "ServerHandleAutoJoinParty", new[] { typeof(EntityPlayer) }));   // AutoParty: as an accept
+            Add(t, "Party::ServerHandleLeaveParty", AccessTools.Method(typeof(Party), "ServerHandleLeaveParty", new[] { typeof(EntityPlayer), typeof(int) }));
+            Add(t, "Party::ServerHandleKickParty", AccessTools.Method(typeof(Party), "ServerHandleKickParty", new[] { typeof(int) }));
+            Add(t, "Party::ServerHandleChangeLead", AccessTools.Method(typeof(Party), "ServerHandleChangeLead", new[] { typeof(EntityPlayer) }));
             return t;
         }
 

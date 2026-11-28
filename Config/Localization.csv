@@ -2199,3 +2199,7 @@ scMp7RequestReplaced,UI,Tooltip,,,,{1} joined with a request from {0} already ta
 scMp7RequestDropped,UI,Tooltip,,,,The community already has a request from {0}: yours is withdrawn.
 scMp7OwnerYou,UI,Tooltip,,,,You own this community now (an admin handed it over).
 scMp7OwnerTell,UI,Tooltip,,,,{0} owns the community now.
+# round MP7 (part AP) - land claim allies and parties
+scMp7PartyOtherYou,UI,Tooltip,,,,Players of {0}'s community are in your party: you stay in {1}'s community.
+scMp7PartyOtherTell,UI,Tooltip,,,,{0} joined your party but stays in {1}'s community.
+scMp7PartyHelper,UI,Tooltip,,,,You lead the party while {0} is away: the community owner's actions are yours until they return.

@@ -17,6 +17,8 @@ namespace SurvivorCommunity
     ///                enclaveid= enclaveseed= infestid= encpersonid= bandid= bandpersonid= encrequestid= encreqday= encremains=
     ///                encrefill= cleanup= doomed= streamname=... - every world key below that used to sit in [community]
     ///   [membership] player=platformid:cid, one line per player in a community other than 0 (anyone not listed is in 0)
+    ///                round MP7 (part AP), PerPlayer/PerParty only: joined=platformid:admin|ally|party[:link] (how a player joined
+    ///                their founded community) and optout=platformid:cid (a community they left: Leave sticks) - ScJoins
     ///   [community]  cid=N first, then name= (when set) and the community keys below; one section per community
     ///   [member], [prospect], [contact], [outpost], [encrequest]: cid=N first, then the keys below (no cid: community 0)
     ///   [enclave], [encperson], [infestation], [band], [bandperson]: world records, unchanged (their relation fields stay for now)
@@ -1595,6 +1597,7 @@ namespace SurvivorCommunity
         /// <summary>Round MP6 (core): one [membership] line, player=platformid:cid (the id is split off at the last ':').</summary>
         private static void ParseMembership(string key, string val)
         {
+            if (ScJoins.Parse(key, val)) return;       // round MP7 (part AP): joined= (how a player joined) and optout= (Leave sticks)
             if (key != "player") return;
             int colon = val.LastIndexOf(':');
             if (colon <= 0) throw new FormatException("membership: " + val);
@@ -2236,6 +2239,7 @@ namespace SurvivorCommunity
                 var ids = new List<string>(ws.Membership.Keys);
                 ids.Sort(StringComparer.Ordinal);
                 foreach (string id in ids) sb.AppendLine("player=" + Clean(id) + ":" + ws.Membership[id].ToString(CultureInfo.InvariantCulture));
+                ScJoins.Write(sb, ws);                 // round MP7 (part AP): joined= and optout= lines (none in a save without them)
             }
             IReadOnlyList<CommunityState> all = ScCommunities.All;
             foreach (CommunityState cs in all)

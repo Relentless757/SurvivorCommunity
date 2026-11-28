@@ -206,6 +206,23 @@ namespace SurvivorCommunity
         /// one-line tombstones ([world] retired=N) so the ids stay taken and the console can name them. Never run, never mirrored.
         /// </summary>
         public readonly SortedSet<int> Retired = new SortedSet<int>();
+
+        // ---- round MP7 (part AP) ----
+        /// <summary>
+        /// Round MP7 (part AP): how each listed player joined the founded community they are in (PerPlayer/PerParty; never its owner)
+        /// - "admin" (sc community join / owner / new, or any other reason), "ally" (a founder's land-claim ally) or "party" (a party
+        /// holding one of its players). No entry: placed before part AP or by the mode switch, kept like an admin's. An ally or
+        /// party change only ever takes out an "ally" or "party" one (ScJoins). Saved as [membership] joined=pid:how[:via].
+        /// </summary>
+        public readonly Dictionary<string, string> JoinedHow = new Dictionary<string, string>(StringComparer.Ordinal);
+        /// <summary>Round MP7 (part AP): an ally-joined player's link - the founder whose land-claim ally brought them in (joined=pid:ally:via).</summary>
+        public readonly Dictionary<string, string> JoinedVia = new Dictionary<string, string>(StringComparer.Ordinal);
+        /// <summary>
+        /// Round MP7 (part AP), Leave sticks: the founded communities each player left (Leave, or an admin moved them out) - the
+        /// allies reconcile and another player's party invite never pull them back in until the link is made again (ScJoins).
+        /// Saved as [membership] optout=pid:cid.
+        /// </summary>
+        public readonly Dictionary<string, SortedSet<int>> OptOuts = new Dictionary<string, SortedSet<int>>(StringComparer.Ordinal);
     }
 
     /// <summary>
