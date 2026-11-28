@@ -3755,6 +3755,56 @@ Round MP0 is the groundwork:
     `scMp7FavourThanks`), so a refusal is never thanked first; their "Actually, I've already cleared that." has its own reply
     (`scMp7PoiClearedSt`) instead of the join's. The talk's "Ask to leave" hides where the window grays its button
     (`ScOwnerOrders`: the view is not `Gated`).
+- **Round db1, disbanding a community** (`ScMembership.Disband`; the user's three decisions of 2026-11-28, after testing MP7):
+  the owner (the window's **Disband community**) or an admin (`sc community disband <id> confirm`; without `confirm` it says what
+  it would do) disbands a community. Protocol 10.
+  - **Who:** the op `community.disband` has Community access (a player's own relations get `scNoCommunity` from `WhyNot`), then
+    `MayDisband`: the owner (`IsOwner`) or an admin (`ScActions.IsAdmin`), checked on the server only. It never asks `ScOwnerRule`,
+    so PerParty's helper (the party leader while the owner is away) may not. `WhyNotDisband` refuses a player's own relations, a
+    community not started (`IsFounded`: `scDb1NotStarted`), an enclave siege of its, called or live (`scDb1Siege`), its base
+    attack live or fought by the defenders alone (`scDb1Attack`; a horde only called goes with the record) and a member who is
+    down (`scDb1Downed`: a downed member cannot leave).
+  - **In order:** its players online lose their talk holds, work shifts and links (`EndLinks`: enlisted people head home, the home
+    link, the linked storage view, the panel hold); every member leaves through the dismissal path, `ScCommunity.Leave(m,
+    ScMembership.DisbandLeaveKey)` (back to the wild and recruitable again, her stand-in removed, no longer following; Leave tells
+    the community nothing for that reason, Disband tells it once). A member who could not leave stops the disband there
+    (`scDb1Stopped`; nothing else changed: run it again). Every outpost goes through `ScOutposts.Disband` (garrison and travelers
+    turn home, raid demands and raids off, markers off; one left over stops it too). Lights out ends (its generators back on) and
+    the stockpile is lost. Linked storage has nothing to unlink: it is a view of the boxes in the home zone, so the boxes and their
+    items stay exactly as they are; the home goes with the record.
+  - **PerPlayer/PerParty** (`DisbandSeparate`): an accepted request passes to its acceptor while they are a player of it (else it
+    is withdrawn, no standing lost, with a tell); an offer closes (withdrawn). A favor passes to the player whose journal holds its
+    quest (the owner first; online: the journal or the last report; offline: the last report this session), else to the owner (no
+    longer taken on unless done); any other holder's quest closes with a tell. Radio contacts go to the owner (each is one
+    survivor: never copied). Its join records and every opt-out of it go, and it retires (`Retire(cs, true)`: a tombstone, its rows
+    dropped, its hostility cvars cleared to 0, its players unlisted; community 0 is emptied and free instead). Then each of its
+    players (the owner, every listed player, offline too) gets their own relations (`EnsurePersonal`; the owner goes first and
+    takes community 0 back when it is free, so single player stays one record) holding a copy of its relations (`SnapRelations`,
+    `CopyRelations`): enclave standing, known and known day, hostility (a war the community earned follows its players: the group's
+    live bodies get each record's hostile cvar), the enclaves' request, gift, barter, reveal and call clocks and thanks;
+    infestations known; bands known and trust; its scouting marks. SC's markers follow from these. An enclave's radio call in
+    flight stays behind. PerPlayer: each player's allies reconcile is queued; `FoundedBy` and `IsFounded` see only communities that
+    exist, so nobody is ever pulled into a retired one.
+  - **Shared, a community 1+** (`DisbandMerged`): merged into community 0 by `Merge`, as an MP7 join (favors and requests move, the
+    one further along kept on a clash; contacts move; standing the higher, known OR, community 0's hostility kept; band trust the
+    higher; infestations OR), its scouting marks too, then retired: its players are community 0's, and community 0's grudge against
+    them ends. Its stockpile is lost before the merge, never added.
+  - **Shared, community 0** (`DisbandZeroShared`): reset in place (`ResetZero(false)`: unstarted, ownerless, no home, none of its
+    home's state) and its players stay in it with its relations: the rows (kept on the world's records), its favors, its accepted
+    requests while their acceptor is still of it (else withdrawn), its contacts, grudges, scouting marks and name. Its offers close.
+  - **The window** (`XUiC_ScCommunityPlayers`, the generator): **Disband community** (`btnDisbandCommunity`) in Leave's place, two
+    presses, the first one's hint in the players panel's message (`scUiDb1Hint`). `ScCommunityView.View.Disband` means "owns a
+    founded community" (`OwnsFounded`), and `PanelOn` (the PLAYERS button and the panel) is the list or that: single player and
+    Shared with one community get the panel for their owner too, listing `PlayersOf` on the host and, on a client, the players it
+    sees. Shared with one community sends no `role=`, so its owner's own lines carry `dsb=1` (`ReceiverLines`); the community's
+    block stays byte for byte as before.
+  - **Tells and the log:** `scDb1Disbanded`, `scDb1DisbandedShared` or `scDb1DisbandedZero` to its players online, each in their
+    own language ("An admin" for the console); `scDb1RequestYours`, `scDb1RequestWithdrawn`, `scDb1FavourYours` and
+    `scDb1FavourWithdrawn` to the players concerned; one line `community disbanded: ...` with the counts. The dismissal path, the
+    outposts' path and each new record save as they always do, so a big community's disband writes the save several times.
+  - **Left as they are:** a member with no body in the world (on a run, posted with her body as a snapshot, on her way) leaves as
+    the dismissal path always made such a member leave, with no body to meet again; the listen host's own map can keep a radio
+    contact marker that went to another player's record until the next marker pass for the host's community.
 
 ## How it hangs together (for modders)
 

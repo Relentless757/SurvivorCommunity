@@ -21,6 +21,8 @@ namespace SurvivorCommunity
     /// and cpl= on a client. Shared mode with one community: the view has no role, so the window is exactly as before.
     /// Round MP7 (review U): m1, m2 - the players list and the no-community page's three lists page (Showing X of Y and a pager, as
     /// the member list does), so every player, enclave, favor and request can be seen; n2 - the Leave hint goes with its confirm.
+    /// Round db1: Disband community for the owner of a founded community, in Leave's place (two presses; community.disband; the first
+    /// press's hint says what it does). The panel (PanelOn) shows for them in single player and in Shared with one community too.
     /// Every field is set here, not in Init: the bindings are read while the XML is parsed (xui-gotchas).
     /// </summary>
     public partial class XUiC_ScCommunity
@@ -41,6 +43,10 @@ namespace SurvivorCommunity
         private bool leaveHint;
         /// <summary>Round MP7 (review U): m1, m2 - the page of the players list and of the no-community page's three lists.</summary>
         private int plPage, ncEncPage, ncFavPage, ncReqPage;
+        // round db1: Disband community's two presses
+        /// <summary>Round db1: Disband community asks to be pressed twice - until when the second press counts; playersMessage is its hint.</summary>
+        private float confirmDisbandCommunityUntil;
+        private bool disbandCommunityHint;
 
         /// <summary>A row of the no-community page: two texts on the first line (A, B in Color), one under them (C).</summary>
         private sealed class NcRow
@@ -56,6 +62,7 @@ namespace SurvivorCommunity
         {
             HookOptional("btnPlayers", OnPlayersToggle);
             HookOptional("btnLeaveCommunity", OnLeaveCommunity);
+            HookOptional("btnDisbandCommunity", OnDisbandCommunity);        // round db1
             // round MP7 (review U): m1, m2 - the pagers
             HookOptional("btnPlPrev", () => TurnPage(ref plPage, -1, view.Players.Count, PlayerSlots));
             HookOptional("btnPlNext", () => TurnPage(ref plPage, 1, view.Players.Count, PlayerSlots));
@@ -94,18 +101,26 @@ namespace SurvivorCommunity
             playersMessage = "";
             leaveHint = false;
             plPage = ncEncPage = ncFavPage = ncReqPage = 0;       // round MP7 (review U)
+            confirmDisbandCommunityUntil = 0f;                     // round db1
+            disbandCommunityHint = false;
         }
 
         /// <summary>Refresh: the view (mode, role, players) and the no-community page's rows.</summary>
         private void RefreshView()
         {
             view = ScCommunityView.Take(Player, true);
-            if (!view.ShowPlayers) showPlayers = false;
+            if (!view.PanelOn) showPlayers = false;                // round db1: the panel is also the owner's Disband community
             // round MP7 (review U): n2 - Leave's hint goes once its five seconds are over
             if (confirmLeaveCommunityUntil > 0f && Time.unscaledTime > confirmLeaveCommunityUntil)
             {
                 confirmLeaveCommunityUntil = 0f;
                 if (leaveHint) { playersMessage = ""; leaveHint = false; }
+            }
+            // round db1: and Disband community's
+            if (confirmDisbandCommunityUntil > 0f && Time.unscaledTime > confirmDisbandCommunityUntil)
+            {
+                confirmDisbandCommunityUntil = 0f;
+                if (disbandCommunityHint) { playersMessage = ""; disbandCommunityHint = false; }
             }
             plPage = ClampPage(plPage, view.Players.Count, PlayerSlots);        // round MP7 (review U): m1 - a shorter list since
             BuildNoCommunity();
@@ -113,12 +128,43 @@ namespace SurvivorCommunity
 
         private void OnPlayersToggle()
         {
-            if (!view.ShowPlayers) return;
+            if (!view.PanelOn) return;              // round db1: the list, or the owner's Disband community
             showPlayers = !showPlayers;
             confirmLeaveCommunityUntil = 0f;
             playersMessage = "";                    // round MP7 (review U): n2 - no hint or old answer left behind
             leaveHint = false;
+            confirmDisbandCommunityUntil = 0f;      // round db1
+            disbandCommunityHint = false;
             RefreshBindingsSelfAndChildren();
+        }
+
+        // round db1: the owner's Disband community
+        /// <summary>
+        /// Round db1: Disband community (the owner's) - the first press says what it does and asks for a second within five seconds, the
+        /// second sends community.disband. The server decides (ScMembership.DisbandAction: the owner or an admin, no siege or live
+        /// attack, no member down) and tells every player of the community; the window turns with the new copy.
+        /// </summary>
+        private void OnDisbandCommunity()
+        {
+            if (!view.Disband || view.Personal) return;
+            float now = Time.unscaledTime;
+            if (now > confirmDisbandCommunityUntil)
+            {
+                confirmDisbandCommunityUntil = now + 5f;
+                playersMessage = Localization.Get("scUiDb1Hint");
+                disbandCommunityHint = true;
+                RefreshBindingsSelfAndChildren();
+                return;
+            }
+            confirmDisbandCommunityUntil = 0f;
+            disbandCommunityHint = false;
+            ScActions.Request(ScMembership.OpDisband, r =>
+            {
+                playersMessage = r.Ok ? "" : r.Text;
+                PlaySound(r.Sound);
+                if (r.Ok) showPlayers = false;
+                AfterReply();
+            });
         }
 
         /// <summary>Leave community: the first press asks for a second within five seconds, the second sends community.leave.</summary>
@@ -240,7 +286,8 @@ namespace SurvivorCommunity
                     if (view.Mode == ScCommunityMode.Shared) return Localization.Get("scUiPlYouMember");
                     if (view.OwnOps) return Localization.Get("scUiPlYouAdmin");
                     return Localization.Get(view.Mode == ScCommunityMode.PerParty ? "scUiPlYouMemberParty" : "scUiPlYouMemberPlayer");
-                default: return "";
+                // round db1: no role (single player in Shared, Shared with one community) - its owner's panel says so
+                default: return view.Disband ? Localization.Get("scUiPlYouOwner") : "";
             }
         }
 
@@ -267,7 +314,7 @@ namespace SurvivorCommunity
         /// playersmessage, the gray owner's orders (leavetextcolor, opdisbandcolor), and the no-community page (ncjoin, ncjoinicon,
         /// ncencsummary, ncencempty, ncenc&lt;1..8&gt;, ncfav&lt;1..5&gt;, ncfavempty, ncreq&lt;1..3&gt;, ncreqempty - each row's
         /// &lt;visible|a|b|c|color&gt; - and each list's &lt;ncenc|ncfav|ncreq&gt;&lt;showing|pagevisible&gt;). Round MP7 (review U): the pagers
-        /// replaced plmore, ncencmore, ncfavmore and ncreqmore.
+        /// replaced plmore, ncencmore, ncfavmore and ncreqmore. Round db1: disbandcommunityvisible / disbandcommunitylabel.
         /// </summary>
         private bool PlayersBinding(string name, ref string value)
         {
@@ -276,12 +323,13 @@ namespace SurvivorCommunity
                 case "hascommunity": value = (!view.Personal).ToString(); return true;
                 case "nocommunity": value = view.Personal.ToString(); return true;
                 case "storagevisible": value = (!view.Personal).ToString(); return true;
-                case "playersbtnvisible": value = view.ShowPlayers.ToString(); return true;
+                // round db1: the panel (PanelOn) is the list, or the owner's Disband community where the list is off
+                case "playersbtnvisible": value = view.PanelOn.ToString(); return true;
                 case "playersbtnlabel":
                     value = showPlayers ? Localization.Get("scUiPlMorale") : string.Format(Localization.Get("scUiPlButton"), view.PlayerTotal);
                     return true;
-                case "showplayers": value = (showPlayers && view.ShowPlayers).ToString(); return true;
-                case "showmorale": value = (!(showPlayers && view.ShowPlayers)).ToString(); return true;
+                case "showplayers": value = (showPlayers && view.PanelOn).ToString(); return true;
+                case "showmorale": value = (!(showPlayers && view.PanelOn)).ToString(); return true;
                 case "playercount": value = Num(view.PlayerTotal); return true;      // round MP7 (review U): m1 - the true count
                 case "playersyou": value = YouLine(); return true;
                 // round MP7 (review U): m1 - the pager (it replaced plmore)
@@ -290,6 +338,11 @@ namespace SurvivorCommunity
                 case "leavecommunityvisible": value = view.CanLeave.ToString(); return true;
                 case "leavecommunitylabel":
                     value = Localization.Get(Time.unscaledTime <= confirmLeaveCommunityUntil ? "scUiPlLeaveConfirm" : "scUiPlLeave");
+                    return true;
+                // round db1: Disband community, the owner's (where Leave would be: an owner never has Leave)
+                case "disbandcommunityvisible": value = (view.Disband && !view.Personal).ToString(); return true;
+                case "disbandcommunitylabel":
+                    value = Localization.Get(Time.unscaledTime <= confirmDisbandCommunityUntil ? "scUiDb1Confirm" : "scUiDb1Disband");
                     return true;
                 case "playersmessage": value = playersMessage ?? ""; return true;
                 // the owner's orders, grayed when they are not this player's (PerPlayer/PerParty)

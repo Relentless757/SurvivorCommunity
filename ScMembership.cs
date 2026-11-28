@@ -40,6 +40,14 @@ namespace SurvivorCommunity
     {
         public const string OpStart = "community.start";
         public const string OpLeave = "community.leave";
+        // round db1: the disband op, and the reason a disband's members leave with
+        /// <summary>Round db1: the owner (or an admin) disbands their community (DisbandAction).</summary>
+        public const string OpDisband = "community.disband";
+        /// <summary>
+        /// Round db1: ScCommunity.Leave's reason for a member a disband sends back to the wild - Leave tells the community nothing for it
+        /// (Disband sends one summary tell, not one per member); the log names it.
+        /// </summary>
+        public const string DisbandLeaveKey = "scDb1MemberLeft";
 
         // ---- Move's reasons: who moved the player (the tells and the log) ----
         /// <summary>An admin's console (sc community join / leave / owner) or the mode switch.</summary>
@@ -1031,6 +1039,13 @@ namespace SurvivorCommunity
         /// </summary>
         internal static void Retire(CommunityState cs)
         {
+            Retire(cs, false);
+        }
+
+        // round db1: Retire with its log line's reason - the one-argument form above keeps every old caller (and the harnesses) as they were
+        /// <summary>Round db1: Retire, and disbanded says so in its log line (Disband retires a founded community, not a merged record).</summary>
+        internal static void Retire(CommunityState cs, bool disbanded)
+        {
             if (cs == null) return;
             int cid = cs.Id;
             foreach (Enclave e in ScRegistry.Enclaves)
@@ -1056,8 +1071,10 @@ namespace SurvivorCommunity
             }
             try { ScEnclavePeople.RebuildHostile(); }                  // the faction lookup without its rows
             catch (Exception e) { ScLog.Once("mp7-retire-hostile", e); }
-            ScLog.Out("community: " + cs.Label + (cid == ScPlayers.SharedCommunity ? " emptied (merged into another community; free for the next player with no community)"
-                                                                                    : " retired (merged into another community; its id stays taken)"));
+            // round db1: a disbanded community's line says so
+            string how = disbanded ? "disbanded" : "merged into another community";
+            ScLog.Out("community: " + cs.Label + (cid == ScPlayers.SharedCommunity ? " emptied (" + how + "; free for the next player with no community)"
+                                                                                    : " retired (" + how + "; its id stays taken)"));
         }
 
         // ------------------------------------------------------------------ admin tools ----
@@ -1245,6 +1262,575 @@ namespace SurvivorCommunity
                          + " (every other player gets theirs at their next spawn)");
             ok = true;
             return lines;
+        }
+
+        // ------------------------------------------------------------------ disbanding (round db1) ----
+
+        // round db1: 2026-11-28 (the MP7 design's "Addendum 2026-11-28: disbanding a community"; the user's three decisions are the spec):
+        // the owner (community.disband, the window's players panel) or an admin (sc community disband <id> confirm) disbands a
+        // community. Its members go back to the wild through the dismissal path (ScCommunity.Leave), its outposts through theirs
+        // (ScOutposts.Disband), its stockpile is lost, its storage boxes stay as they are (linked storage is a view of the home zone's
+        // boxes, so nothing in them moves), its home goes with the record. Its players keep what it knew: in PerPlayer/PerParty each
+        // gets their own relations with a copy of its relations; in Shared a community 1+ is merged into community 0, and community 0
+        // resets in place. The record retires (community 0 is never retired: Retire empties it).
+
+        /// <summary>Round db1: what Disband did (the console, the op's reply, the log).</summary>
+        public sealed class DisbandResult
+        {
+            public bool Ok;
+            /// <summary>Why not (a localization key: ScActions.Localize gives the console its words).</summary>
+            public string Error = "";
+            public int Cid = ScPlayers.NoCommunity;
+            public string Label = "";
+            /// <summary>"own relations" (PerPlayer/PerParty), "merged into community 0" (Shared 1+), "reset in place" (Shared community 0).</summary>
+            public string How = "";
+            /// <summary>Members back to the wild, and those still in it when it stopped (they could not leave: run it again).</summary>
+            public int Members, MembersLeft;
+            /// <summary>Outposts abandoned, and those still held when it stopped.</summary>
+            public int Outposts, OutpostsLeft;
+            /// <summary>Stockpile units lost.</summary>
+            public int StockLost;
+            /// <summary>Its players (owner, listed players, those online in it), those online, and the personal records made for them.</summary>
+            public int Players, Online, Records;
+            /// <summary>Relation rows copied to each record (PerPlayer/PerParty), scouting marks kept, radio contacts kept.</summary>
+            public int Enclaves, Infestations, Bands, Scouts, Contacts;
+            /// <summary>
+            /// Accepted requests passed to their acceptor's record (Shared community 0: kept), accepted ones withdrawn (no acceptor of
+            /// it), offers closed; favors passed on (or kept), dropped (nobody to take them), and other holders' quests closed.
+            /// </summary>
+            public int RequestsMoved, RequestsWithdrawn, RequestsClosed, FavoursMoved, FavoursDropped, QuestsClosed;
+            /// <summary>Shared 1+: Merge's summary.</summary>
+            public string MergeNote = "";
+        }
+
+        /// <summary>
+        /// Round db1: why community cs cannot be disbanded now (a localization key), null when it can - a player's own relations
+        /// (scNoCommunity), a community not started (scDb1NotStarted), an enclave siege of its open, called or live (scDb1Siege), its
+        /// base attack being fought, live or by its defenders alone (scDb1Attack), one of its members down (scDb1Downed: a downed
+        /// member cannot leave). Any mode; reads no scope.
+        /// </summary>
+        internal static string WhyNotDisband(CommunityState cs)
+        {
+            if (cs == null || ScCommunities.ById(cs.Id) != cs) return "scActionDenied";
+            if (cs.Personal && Separate) return "scNoCommunity";
+            if (!IsFounded(cs)) return "scDb1NotStarted";
+            foreach (EnclaveRequest r in cs.EncRequests) if (r != null && r.Kind == EnclaveRequest.KindSiege) return "scDb1Siege";
+            int attack = cs.Community.AttackState;
+            if (attack == ScBaseAttack.StateLive || attack == ScBaseAttack.StateAway) return "scDb1Attack";
+#if SC_V34
+            foreach (Member m in cs.Members.Values) if (ScDowned.MemberDown(m)) return "scDb1Downed";
+#endif
+            return null;
+        }
+
+        /// <summary>
+        /// Round db1, the user's decision 1: the player (platform id, display name) may disband community cs - its owner, or an admin
+        /// (the caller's ScActions.IsAdmin). PerParty's helper (the party leader while the owner is away) may not; in a community with
+        /// no owner only an admin may. Server only: the op's check (a client only shows or hides the button).
+        /// </summary>
+        internal static bool MayDisband(CommunityState cs, string platformId, string displayName, bool admin)
+        {
+            if (cs == null) return false;
+            return admin || IsOwner(cs, platformId, displayName);
+        }
+
+        /// <summary>
+        /// community.disband: the sender's community is disbanded (the window's Disband community, its second press). Community access
+        /// (a player's own relations are refused by ScActions.WhyNot: scNoCommunity), then the owner or an admin only (MayDisband: never
+        /// the Owner rule, which lets PerParty's helper in), then Disband's own refusals.
+        /// </summary>
+        [ScAction(OpDisband, ScActionAccess.Community)]
+        private static void DisbandAction(EntityPlayer sender, ScActionArgs args, ScActionReply reply)
+        {
+            CommunityState cs = ScCommunities.ById(ScPlayers.CommunityOf(sender));
+            if (cs == null) { reply.Fail("scActionDenied"); return; }
+            string why = !MayDisband(cs, ScPlayers.IdOf(sender), sender.PlayerDisplayName, ScActions.IsAdmin(sender)) ? "scDb1OwnerOnly" : null;
+            DisbandResult r = why == null ? Disband(cs, sender.PlayerDisplayName ?? "") : null;
+            if (r != null && !r.Ok) why = r.Error;
+            if (why != null)
+            {
+                // a refusal (a siege, a live attack, a member down ...) is told, in the sender's language, beside the window's answer
+                ScCommunity.TellKey(sender, why, "ui_denied");
+                reply.Fail(why, "");
+                return;
+            }
+            reply.Done();                               // Disband told every player of it (scDb1Disbanded*)
+        }
+
+        /// <summary>
+        /// Round db1: the players of community cs, each once - its owner first (while they are of it: always in PerPlayer/PerParty),
+        /// then the players the membership map lists in it (offline too), then those online in it (Shared mode's community 0: everyone
+        /// unlisted).
+        /// </summary>
+        internal static List<string> DisbandPlayers(CommunityState cs)
+        {
+            var pids = new List<string>();
+            if (cs == null) return pids;
+            string owner = cs.Community.OwnerId ?? "";
+            if (owner.Length > 0 && ScPlayers.CommunityOfId(owner) == cs.Id) pids.Add(owner);
+            var listed = new List<string>();
+            foreach (KeyValuePair<string, int> kv in ScRegistry.WorldState.Membership)
+                if (kv.Value == cs.Id && !string.IsNullOrEmpty(kv.Key) && !pids.Contains(kv.Key)) listed.Add(kv.Key);
+            listed.Sort(StringComparer.Ordinal);
+            pids.AddRange(listed);
+            foreach (EntityPlayer p in ScPlayers.Community(cs.Id).ToArray())
+            {
+                string id = ScPlayers.IdOf(p);
+                if (id.Length > 0 && !pids.Contains(id)) pids.Add(id);
+            }
+            return pids;
+        }
+
+        /// <summary>
+        /// Round db1 (the addendum's decisions 1-3): community cs is disbanded, refused (Error) by WhyNotDisband. In order:
+        /// 1. its players online: their talk holds and work shifts end, and their links (EndLinks: enlisted people head home, the
+        ///    home link, the linked storage view and the panel hold end);
+        /// 2. every member leaves through ScCommunity.Leave, the dismissal path: back to the wild, recruitable again, her stand-in
+        ///    removed, no longer following anyone. One that could not leave stops it here (scDb1Stopped: run it again to finish);
+        /// 3. every outpost goes through ScOutposts.Disband (its garrison and those on the way turn home, raid demands and raids
+        ///    off, markers off); one left stops it here;
+        /// 4. lights out ends (the generators it switched off go back on), and the stockpile is lost;
+        /// 5. Shared 1+ (DisbandMerged): merged into community 0 as the MP7 merge, then retired - its players are community 0's.
+        ///    Shared community 0 (DisbandZeroShared): reset in place, unstarted and ownerless, its players stay with its relations.
+        ///    PerPlayer/PerParty (DisbandSeparate): each player of it gets their own relations with a copy of its relations; accepted
+        ///    requests and favors go to their acceptor's; the record retires (community 0: emptied and free);
+        /// 6. tells to its players online (in each one's language), one log line with the counts, a save.
+        /// by: who disbanded it, for the tells and the log ("" - the console: "An admin"). Server, main thread.
+        /// </summary>
+        internal static DisbandResult Disband(CommunityState cs, string by)
+        {
+            var res = new DisbandResult();
+            string step = "";
+            try
+            {
+                if (!ScRegistry.Loaded) { res.Error = "scActionNotReady"; return res; }
+                string why = WhyNotDisband(cs);
+                if (why != null) { res.Error = why; return res; }
+                bool separate = Separate, zero = cs.Id == ScPlayers.SharedCommunity;
+                res.Cid = cs.Id;
+                res.Label = cs.Label;
+                res.How = separate ? "own relations" : zero ? "reset in place" : "merged into community 0";
+                string whose = Whose(cs);
+                string owner = cs.Community.OwnerId ?? "";
+                by = by ?? "";
+                object byArg = by.Length > 0 ? (object)by : ScCommunity.LocArg("scDb1AnAdmin");
+                List<string> pids = DisbandPlayers(cs);
+                EntityPlayer[] online = ScPlayers.Community(cs.Id).ToArray();      // copied: Community reuses its list
+                res.Players = pids.Count;
+                res.Online = online.Length;
+                using (ScRegistry.Use(cs.Id))
+                {
+                    // 1. its players' live links end, as Move's leaving half does
+                    step = "the players' links";
+                    for (int i = 0; i < online.Length; i++)
+                    {
+                        EntityPlayer p = online[i];
+                        if (p == null) continue;
+#if SC_V34
+                        ScWork.ForgetPlayer(p.entityId);
+#endif
+                        EndLinks(cs, p, p.PlayerDisplayName);
+                    }
+                    // 2. the members: the dismissal path for each (Leave tells the community nothing for this reason: one tell below)
+                    step = "the members";
+                    foreach (Member m in new List<Member>(cs.Members.Values))
+                    {
+                        ScCommunity.Leave(m, DisbandLeaveKey);
+                        if (!cs.Members.ContainsKey(m.Id)) res.Members++;
+                    }
+                    if (cs.Members.Count > 0)
+                    {
+                        res.MembersLeft = cs.Members.Count;
+                        res.Error = "scDb1Stopped";
+                        ScLog.Warn("community disband of " + cs.Label + " stopped: " + res.MembersLeft + " member(s) could not leave (see the lines above) - "
+                                   + res.Members + " left; nothing else changed. Run it again to finish");
+                        ScRegistry.SaveAtomic();
+                        return res;
+                    }
+                    // 3. the outposts, through their own disband path
+                    step = "the outposts";
+                    foreach (Outpost o in new List<Outpost>(cs.Outposts))
+                    {
+                        try { ScOutposts.Disband(o, null); }
+                        catch (Exception e) { ScLog.Once("db1-outpost-" + e.GetType().Name, e); }
+                        if (!cs.Outposts.Contains(o)) res.Outposts++;
+                    }
+                    if (cs.Outposts.Count > 0)
+                    {
+                        res.OutpostsLeft = cs.Outposts.Count;
+                        res.Error = "scDb1Stopped";
+                        ScLog.Warn("community disband of " + cs.Label + " stopped: " + res.OutpostsLeft + " outpost(s) could not be abandoned (see the log) - its "
+                                   + res.Members + " member(s) left, " + res.Outposts + " outpost(s) went. Run it again to finish");
+                        ScRegistry.SaveAtomic();
+                        return res;
+                    }
+                    // 4. lights out ends (its generators back on: they are the players' blocks), and the stockpile is lost
+                    step = "the stockpile";
+                    try { string msg; if (ScLightsOut.Active) ScLightsOut.CancelByOrder(null, out msg); }
+                    catch (Exception e) { ScLog.Once("db1-lightsout", e); }
+                    Community c = cs.Community;
+                    for (int i = 0; i < ScNames.ResourceCount; i++) { res.StockLost += c.Stock[i]; c.Stock[i] = 0; }
+                    c.AmmoOpenPoints = 0;
+                }
+                // 5. its players keep what it knew, by mode
+                step = "the relations";
+                if (!separate && !zero) DisbandMerged(cs, pids, whose, res);
+                else if (!separate) DisbandZeroShared(cs, res);
+                else DisbandSeparate(cs, pids, owner, res);
+                // 6. the tells, the log, the save
+                step = "the tells";
+                string key = separate ? "scDb1Disbanded" : zero ? "scDb1DisbandedZero" : "scDb1DisbandedShared";
+                for (int i = 0; i < online.Length; i++)
+                    if (online[i] != null) ScCommunity.TellKey(online[i], key, "ui_denied", byArg);
+                ScRegistry.SaveAtomic();
+                ScLog.Out("community disbanded: " + res.Label + " (" + whose + ") by " + (by.Length > 0 ? by : "an admin") + " - " + (separate ? ModeName(Mode) : "Shared")
+                          + ", " + res.How + ": " + res.Members + " member(s) back to the wild, " + res.Outposts + " outpost(s) abandoned, " + res.StockLost
+                          + " stockpile unit(s) lost, " + res.Players + " player(s) (" + res.Online + " online)"
+                          + (separate ? ", " + res.Records + " given their own relations with " + res.Enclaves + " enclave, " + res.Infestations + " infestation and "
+                                        + res.Bands + " band relation(s)" : "")
+                          + ", " + res.Scouts + " scouting mark(s) and " + res.Contacts + " radio contact(s) kept; requests: " + res.RequestsMoved
+                          + (separate ? " passed to their acceptors, " : " kept, ") + res.RequestsWithdrawn + " withdrawn, " + res.RequestsClosed + " offer(s) closed; favors: "
+                          + res.FavoursMoved + (separate ? " passed on, " : " kept, ") + res.FavoursDropped + " dropped, " + res.QuestsClosed + " other quest(s) closed"
+                          + (res.MergeNote.Length > 0 ? "; merged: " + res.MergeNote : ""));
+                res.Ok = true;
+            }
+            catch (Exception e)
+            {
+                // each distinct failure logged once (keyed by its site), and what already ran said
+                ScLog.Once("db1-disband-" + e.GetType().Name + "-" + (e.TargetSite != null ? e.TargetSite.Name : "?"), e);
+                ScLog.Warn("community disband" + (cs != null ? " of " + cs.Label : "") + " failed at " + (step.Length > 0 ? step : "its start") + " - run it again to finish");
+                res.Error = step.Length == 0 ? "scActionFailed" : "scDb1Stopped";
+            }
+            return res;
+        }
+
+        /// <summary>
+        /// Round db1, Shared mode, a community 1+: merged into community 0 as the MP7 merge (Merge: favors and requests move, the one
+        /// further along kept on a clash; radio contacts move; enclave standing the higher, known OR, community 0's hostility kept; band
+        /// trust the higher; infestations known OR), its scouting marks too, then it retires (its rows dropped, its hostility cvars
+        /// cleared to 0, its players unlisted: community 0's). Community 0's grudge against each of its players ends (as Move's).
+        /// </summary>
+        private static void DisbandMerged(CommunityState cs, List<string> pids, string whose, DisbandResult res)
+        {
+            CommunityState into = ScCommunities.Zero;
+            res.Scouts = MoveScouts(cs.Community, into.Community);
+            res.Contacts = cs.Contacts.Count;
+            res.FavoursMoved = cs.Prospects.Count;
+            res.RequestsMoved = cs.EncRequests.Count;
+            res.MergeNote = Merge(cs, into, "", null, whose);
+            Retire(cs, true);
+            foreach (string pid in pids) ScRelations.Forgive(into.Id, pid);
+        }
+
+        /// <summary>
+        /// Round db1, Shared mode, community 0: it resets in place (ScCommunities.ResetZero: unstarted, ownerless, no home, no stockpile,
+        /// none of its home's state) and its players stay in it with its relations - the relation rows (kept on the world's records),
+        /// its favors, its accepted requests while their acceptor is still community 0's (else withdrawn), its radio contacts, its
+        /// grudges, its scouting marks and its name. Its offered requests close (withdrawn, no standing lost).
+        /// </summary>
+        private static void DisbandZeroShared(CommunityState cs, DisbandResult res)
+        {
+            foreach (EnclaveRequest r in new List<EnclaveRequest>(cs.EncRequests))
+            {
+                if (r.IsAccepted && r.Kind != EnclaveRequest.KindSiege && (r.AcceptedBy.Length == 0 || ScPlayers.CommunityOfId(r.AcceptedBy) == cs.Id)) continue;
+                CloseForDisband(cs, r, r.IsAccepted ? "its community was disbanded and its acceptor is in another community" : "its community was disbanded");
+                if (r.IsAccepted) res.RequestsWithdrawn++;
+                else res.RequestsClosed++;
+            }
+            var prospects = new List<Prospect>(cs.Prospects.Values);
+            var requests = new List<EnclaveRequest>(cs.EncRequests);
+            var contacts = new List<Contact>(cs.Contacts);
+            var grudges = new List<string>(cs.Grudges);
+            var scouts = new List<Scout>(cs.Community.Scouts);
+            string name = cs.Community.Name ?? "";
+            ScCommunities.ResetZero(false);
+            CommunityState z = ScCommunities.Zero;
+            z.Community.Name = name;
+            foreach (Prospect p in prospects) z.Prospects[p.Id] = p;
+            foreach (EnclaveRequest r in requests) z.EncRequests.Add(r);
+            foreach (Contact ct in contacts) z.Contacts.Add(ct);
+            z.Grudges.UnionWith(grudges);
+            z.Community.Scouts.AddRange(scouts);
+            res.FavoursMoved = prospects.Count;
+            res.RequestsMoved = requests.Count;
+            res.Contacts = contacts.Count;
+            res.Scouts = scouts.Count;
+            ScLog.Out("community: " + z.Label + " reset in place (disbanded; unstarted and ownerless - its players stay, with its relations)");
+        }
+
+        /// <summary>
+        /// Round db1, PerPlayer/PerParty: what each player of the community keeps.
+        /// - An accepted request passes to its acceptor's own relations while they are its player (else withdrawn, no standing lost,
+        ///   with a tell); an offer closes (withdrawn). A favor passes to the player whose journal holds its quest (the owner first),
+        ///   else to the owner's (no longer "taken on" unless done); any other holder's quest closes with a tell. Its radio contacts
+        ///   go to the owner's (one record: a contact is one survivor).
+        /// - Join records and opt-outs of it go; it retires (Retire: its rows dropped, its hostility cvars cleared to 0, its players
+        ///   unlisted; community 0 emptied and free).
+        /// - Each player (the owner, listed players, offline too) gets their own relations (EnsurePersonal: community 0 when it is
+        ///   free) holding a copy of its relations: enclave standing, known and hostility (a war it earned follows its players) and
+        ///   the enclaves' clocks, infestations known, bands known and trust, and its scouting marks - SC's markers follow from these.
+        /// - PerPlayer: each one's allies reconcile is queued (another founder's ally joins that community; a retired one is never
+        ///   found: FoundedBy and IsFounded see only communities that exist).
+        /// </summary>
+        private static void DisbandSeparate(CommunityState cs, List<string> pids, string owner, DisbandResult res)
+        {
+            // the heir of what no acceptor holds: the owner, else the first of its players (none: an ownerless community nobody is in)
+            string first = owner.Length > 0 && pids.Contains(owner) ? owner : (pids.Count > 0 ? pids[0] : null);
+            var reqTo = new List<KeyValuePair<EnclaveRequest, string>>();
+            var favTo = new List<KeyValuePair<Prospect, string>>();
+            var held = new HashSet<int>();
+            using (ScRegistry.Use(cs.Id))
+            {
+                foreach (EnclaveRequest r in new List<EnclaveRequest>(cs.EncRequests))
+                {
+                    string heir = r.IsAccepted && r.Kind != EnclaveRequest.KindSiege ? RequestHeir(r, pids) : null;
+                    if (heir == null)
+                    {
+                        CloseForDisband(cs, r, r.IsAccepted ? "its community was disbanded and its acceptor is none of its players" : "its community was disbanded");
+                        if (r.IsAccepted) res.RequestsWithdrawn++;
+                        else res.RequestsClosed++;
+                        continue;
+                    }
+                    cs.EncRequests.Remove(r);
+                    reqTo.Add(new KeyValuePair<EnclaveRequest, string>(r, heir));
+                }
+                foreach (Prospect pr in new List<Prospect>(cs.Prospects.Values))
+                {
+                    var holders = new List<string>();
+                    foreach (string pid in pids) if (HoldsFavour(pid, pr.Id)) holders.Add(pid);
+                    string heir = owner.Length > 0 && holders.Contains(owner) ? owner : (holders.Count > 0 ? holders[0] : first);
+                    cs.Prospects.Remove(pr.Id);
+                    foreach (string h in holders)
+                        if (h != heir) { CloseFavourQuest(h, pr); res.QuestsClosed++; }
+                    if (heir == null)
+                    {
+                        // nobody to take it: dropped - the body's favor marks go while no other community courts them
+                        res.FavoursDropped++;
+                        if (ScRegistry.GetProspect(pr.Id) == null)
+                        {
+                            EntityAlive npc = ScCommunity.FindNpc(pr.Id);
+                            if (npc != null) { ScCommunity.ClearSynced(npc, "sc_favour"); ScCommunity.ClearSynced(npc, "sc_favourDone"); }
+                        }
+                        continue;
+                    }
+                    if (holders.Contains(heir)) held.Add(pr.Id);
+                    else if (pr.Started && !pr.Done) pr.Started = false;        // no player of it holds its quest: free to take on again
+                    favTo.Add(new KeyValuePair<Prospect, string>(pr, heir));
+                }
+            }
+            var contacts = new List<Contact>(cs.Contacts);
+            cs.Contacts.Clear();
+            // the copy of its relations (after the closes: an enclave's request cooldown comes along)
+            RelSnap snap = SnapRelations(cs);
+            // how its players joined it, and every opt-out of it, mean nothing once it is gone (community 0 can be founded again)
+            ScWorldState ws = ScRegistry.WorldState;
+            foreach (string pid in pids) { ws.JoinedHow.Remove(pid); ws.JoinedVia.Remove(pid); }
+            foreach (string k in new List<string>(ws.OptOuts.Keys)) ScJoins.ClearOptOut(k, cs.Id);
+            Retire(cs, true);
+            // each player's own relations, with the copy
+            var recs = new Dictionary<string, CommunityState>(StringComparer.Ordinal);
+            foreach (string pid in pids)
+            {
+                int rid = EnsurePersonal(ScPlayers.ById(pid), pid, NameOf(pid));
+                CommunityState rec = ScCommunities.ById(rid);
+                if (rec == null || !rec.Personal)
+                {
+                    ScLog.Warn("community disband: no own relations could be made for " + NameOf(pid) + " now - they get fresh ones at the next ask, without the copy");
+                    continue;
+                }
+                recs[pid] = rec;
+                res.Records++;
+                CopyRelations(snap, rec);
+            }
+            res.Enclaves = snap.Enc.Count;
+            res.Infestations = snap.Inf.Count;
+            res.Bands = snap.Band.Count;
+            res.Scouts = snap.Scouts.Count;
+            CommunityState fallback = first != null && recs.ContainsKey(first) ? recs[first] : null;
+            foreach (KeyValuePair<EnclaveRequest, string> kv in reqTo)
+            {
+                CommunityState rec;
+                if (!recs.TryGetValue(kv.Value, out rec)) rec = fallback;
+                Enclave e = ScEnclaves.ById(kv.Key.EnclaveId);
+                if (rec == null) { ScLog.Warn("community disband: request #" + kv.Key.Id + " had nobody to go to - dropped with the community"); continue; }
+                rec.EncRequests.Add(kv.Key);
+                res.RequestsMoved++;
+                EntityPlayer to = ScPlayers.ById(kv.Value);
+                if (to != null && e != null) ScCommunity.TellKey(to, "scDb1RequestYours", "", e.Name);
+            }
+            foreach (KeyValuePair<Prospect, string> kv in favTo)
+            {
+                CommunityState rec;
+                if (!recs.TryGetValue(kv.Value, out rec)) rec = fallback;
+                if (rec == null) { res.FavoursDropped++; continue; }
+                rec.Prospects[kv.Key.Id] = kv.Key;
+                res.FavoursMoved++;
+                EntityPlayer to = ScPlayers.ById(kv.Value);
+                if (to != null && held.Contains(kv.Key.Id)) ScCommunity.TellKey(to, "scDb1FavourYours", "", kv.Key.Name);
+            }
+            if (fallback != null) foreach (Contact ct in contacts) fallback.Contacts.Add(ct);
+            res.Contacts = fallback != null ? contacts.Count : 0;
+            if (Mode == ScCommunityMode.PerPlayer) foreach (string pid in recs.Keys) ScAllies.QueueReconcile(pid);
+        }
+
+        /// <summary>
+        /// Round db1: the player of the community (pids) whose journal holds this accepted request - its acceptor (AcceptedBy; empty is
+        /// the host's own, a save from before MP4 or the host's own accept), or null when that is none of its players.
+        /// </summary>
+        private static string RequestHeir(EnclaveRequest r, List<string> pids)
+        {
+            string by = r.AcceptedBy ?? "";
+            if (by.Length == 0)
+            {
+                EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+                by = lp != null ? ScPlayers.IdOf(lp) : "";
+            }
+            return by.Length > 0 && pids.Contains(by) ? by : null;
+        }
+
+        /// <summary>
+        /// Round db1: a request the disband cannot pass on closes as withdrawn (no standing lost; ScEncRequests.Close, each kind's own
+        /// ending: a missing survivor's goes home), in its community's scope, and its acceptor online is told. It leaves the community's
+        /// list whatever Close managed (a throw is logged).
+        /// </summary>
+        private static void CloseForDisband(CommunityState cs, EnclaveRequest r, string reason)
+        {
+            Enclave e = ScEnclaves.ById(r.EnclaveId);
+            EntityPlayer acceptor = r.IsAccepted ? (r.AcceptedBy.Length > 0 ? ScPlayers.ById(r.AcceptedBy) : ScCommunity.LocalPlayer) : null;
+            try { using (ScRegistry.Use(cs.Id)) ScEncRequests.Close(r, ScEncRequests.Withdrawn, reason); }
+            catch (Exception ex) { ScLog.Once("db1-request-close-" + ex.GetType().Name, ex); }
+            cs.EncRequests.Remove(r);
+            if (acceptor != null && e != null) ScCommunity.TellKey(acceptor, "scDb1RequestWithdrawn", "", e.Name);
+        }
+
+        /// <summary>
+        /// Round db1: the player holds this favor's quest - online, the host's own journal or a remote player's last report; offline,
+        /// their last report this session (not known counts as not held).
+        /// </summary>
+        private static bool HoldsFavour(string pid, int prospectId)
+        {
+            EntityPlayer p = ScPlayers.ById(pid);
+            if (p == null) return ScQuestNet.ReportedFavour(pid, prospectId) == 1;
+            if (p is EntityPlayerLocal) return ScQuests.FindFavour(p, prospectId) != null;
+            return ScQuestNet.ReportHoldsFavour(p, prospectId);
+        }
+
+        /// <summary>Round db1: a holder's quest for a favor that went to another player closes (removed), with a tell; offline, at their next report.</summary>
+        private static void CloseFavourQuest(string pid, Prospect pr)
+        {
+            EntityPlayer p = ScPlayers.ById(pid);
+            if (p is EntityPlayerLocal) ScQuests.CloseFavour(p, pr.Id, false);
+            else if (p != null) ScQuestNet.CloseFavourFor(p, pr.Id, false);
+            else ScQuestNet.CloseFavourAtNextReport(pid, pr.Id);
+            if (p != null) ScCommunity.TellKey(p, "scDb1FavourWithdrawn", "", pr.Name);
+        }
+
+        /// <summary>Round db1: Shared 1+, its scouting marks go to community 0 (one per building). Returns how many moved.</summary>
+        private static int MoveScouts(Community from, Community into)
+        {
+            int n = 0;
+            foreach (Scout s in from.Scouts)
+            {
+                bool have = false;
+                foreach (Scout t in into.Scouts) if (t.Poi == s.Poi) { have = true; break; }
+                if (have) continue;
+                into.Scouts.Add(s);
+                n++;
+            }
+            from.Scouts.Clear();
+            return n;
+        }
+
+        /// <summary>Round db1: a community's relations as they stood - copies, never the rows themselves (Retire drops those).</summary>
+        private sealed class RelSnap
+        {
+            public readonly List<KeyValuePair<Enclave, EncRel>> Enc = new List<KeyValuePair<Enclave, EncRel>>();
+            public readonly List<KeyValuePair<Infestation, InfRel>> Inf = new List<KeyValuePair<Infestation, InfRel>>();
+            public readonly List<KeyValuePair<Band, BandRel>> Band = new List<KeyValuePair<Band, BandRel>>();
+            public readonly List<Scout> Scouts = new List<Scout>();
+        }
+
+        /// <summary>
+        /// Round db1: community cs's saved relation values (every row it has a saved value in) and its scouting marks. An enclave's
+        /// call in flight (CallKind, CallAt, CallPid, CallUntil) stays behind: it needs the radio, which goes with the home.
+        /// </summary>
+        private static RelSnap SnapRelations(CommunityState cs)
+        {
+            var s = new RelSnap();
+            int cid = cs.Id;
+            foreach (Enclave e in ScRegistry.Enclaves)
+            {
+                EncRel r = e.Rels.Peek(cid);
+                if (r == null || !r.HasSaved) continue;
+                s.Enc.Add(new KeyValuePair<Enclave, EncRel>(e, new EncRel
+                {
+                    Standing = r.Standing, Known = r.Known, KnownDay = r.KnownDay, TurnedHostile = r.TurnedHostile, HostileDay = r.HostileDay,
+                    NextRequestDay = r.NextRequestDay, Thanks = r.Thanks ?? "", AllyRevealDay = r.AllyRevealDay, GiftDay = r.GiftDay,
+                    BarterDay = r.BarterDay, CallDay = r.CallDay
+                }));
+            }
+            foreach (Infestation inf in ScRegistry.Infestations)
+            {
+                InfRel r = inf.Rels.Peek(cid);
+                if (r == null || !r.HasSaved) continue;
+                s.Inf.Add(new KeyValuePair<Infestation, InfRel>(inf, new InfRel { Known = r.Known, KnownDay = r.KnownDay }));
+            }
+            foreach (Band b in ScRegistry.Bands)
+            {
+                BandRel r = b.Rels.Peek(cid);
+                if (r == null || !r.HasSaved) continue;
+                s.Band.Add(new KeyValuePair<Band, BandRel>(b, new BandRel { Known = r.Known, KnownDay = r.KnownDay, Trust = r.Trust }));
+            }
+            foreach (Scout sc in cs.Community.Scouts)
+                if (sc != null) s.Scouts.Add(new Scout { Poi = sc.Poi, Size = sc.Size, Name = sc.Name, Res = sc.Res, ExpireDay = sc.ExpireDay });
+            return s;
+        }
+
+        /// <summary>
+        /// Round db1: the copy into one player's own relations (rec). A group at war with the community is at war with them too: its live
+        /// bodies get rec's hostile cvar (ScEnclavePeople.OnTurnedHostile in rec's scope, no grace; a body spawned later gets it when it
+        /// is dressed) - a disband never ends a war the community earned.
+        /// </summary>
+        private static void CopyRelations(RelSnap s, CommunityState rec)
+        {
+            int rid = rec.Id;
+            var hostile = new List<Enclave>();
+            foreach (KeyValuePair<Enclave, EncRel> kv in s.Enc)
+            {
+                EncRel f = kv.Value, t = kv.Key.Rels.Get(rid);
+                t.Standing = f.Standing;
+                t.Known = f.Known;
+                t.KnownDay = f.KnownDay;
+                t.TurnedHostile = f.TurnedHostile;
+                t.HostileDay = f.HostileDay;
+                t.NextRequestDay = f.NextRequestDay;
+                t.Thanks = f.Thanks;
+                t.AllyRevealDay = f.AllyRevealDay;
+                t.GiftDay = f.GiftDay;
+                t.BarterDay = f.BarterDay;
+                t.CallDay = f.CallDay;
+                if (f.TurnedHostile) hostile.Add(kv.Key);
+            }
+            foreach (KeyValuePair<Infestation, InfRel> kv in s.Inf)
+            {
+                InfRel t = kv.Key.Rels.Get(rid);
+                t.Known = kv.Value.Known;
+                t.KnownDay = kv.Value.KnownDay;
+            }
+            foreach (KeyValuePair<Band, BandRel> kv in s.Band)
+            {
+                BandRel t = kv.Key.Rels.Get(rid);
+                t.Known = kv.Value.Known;
+                t.KnownDay = kv.Value.KnownDay;
+                t.Trust = kv.Value.Trust;
+            }
+            foreach (Scout sc in s.Scouts)
+                rec.Community.Scouts.Add(new Scout { Poi = sc.Poi, Size = sc.Size, Name = sc.Name, Res = sc.Res, ExpireDay = sc.ExpireDay });
+            foreach (Enclave e in hostile)
+            {
+                try { using (ScRegistry.Use(rid)) ScEnclavePeople.OnTurnedHostile(e, 0f); }
+                catch (Exception ex) { ScLog.Once("db1-hostile-" + ex.GetType().Name, ex); }
+            }
         }
     }
 

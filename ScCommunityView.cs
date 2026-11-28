@@ -16,6 +16,9 @@ namespace SurvivorCommunity
     //   single player compute the same answers from the registry (Take).
     // - Server trust: the role and the list come from the server's membership map and owner rule, never from a client's number;
     //   the window only grays or hides, and the server refuses what the sender may not do (ScActions.WhyNot).
+    // - Round db1 (protocol 10): the owner of a founded community sees Disband community in the players panel (View.Disband,
+    //   PanelOn) - in single player and in Shared with one community too, where the list is otherwise off. Shared with one community
+    //   sends no role=, so its owner's own lines carry dsb=1 instead (ReceiverLines); its block stays byte for byte as before.
 
     /// <summary>Round MP7 (part U): one player of a community as the players list shows them (cpl=).</summary>
     public sealed class ScCommunityPlayer
@@ -50,6 +53,12 @@ namespace SurvivorCommunity
         /// window's count and "not listed" line use it.
         /// </summary>
         public const string PlayersTotalKey = "cplt";
+        // round db1: the receiver's Disband community where no role= goes
+        /// <summary>
+        /// Round db1: 1 - the receiver owns this community, a founded one, so the players panel shows them Disband community. Written
+        /// only while KeysOn is false (Shared with one community sends no role=); with the keys on, role=owner says the same.
+        /// </summary>
+        public const string DisbandKey = "dsb";
         /// <summary>
         /// At most this many players in cpl= (the block stays small). Round MP7 (review U): m1 - 200 (was 64), and the window pages
         /// through every one it gets; past this the true total goes in cplt= and the window says how many are not listed.
@@ -199,7 +208,16 @@ namespace SurvivorCommunity
         {
             try
             {
-                if (ci == null || !KeysOn) return "";
+                if (ci == null) return "";
+                // round db1: Shared with one community sends no role= (its block stays as before) - its owner gets dsb=1, the
+                // players panel's Disband community
+                if (!KeysOn)
+                {
+                    CommunityState only = ScCommunities.ById(cid);
+                    EntityPlayer body = ScPlayers.ByEntity(ci.entityId);
+                    string opid = ci.InternalId != null ? ci.InternalId.CombinedString ?? "" : "";
+                    return OwnsFounded(only, opid, body != null ? body.PlayerDisplayName : null) ? DisbandKey + "=1\n" : "";
+                }
                 CommunityState cs = ScCommunities.ById(cid);
                 if (cs == null) return "";
                 EntityPlayer p = ScPlayers.ByEntity(ci.entityId);
@@ -240,6 +258,17 @@ namespace SurvivorCommunity
                 ScLog.Once("mp7u-admin-nobody", e);
                 return false;
             }
+        }
+
+        // round db1: who sees Disband community (the window, the derived block)
+        /// <summary>
+        /// Round db1: the player (platform id; display name for a save from before MP0) owns community cs and it is a founded one (not
+        /// a player's own relations, IsFounded) - the window shows them Disband community. The server's op checks again (MayDisband).
+        /// </summary>
+        internal static bool OwnsFounded(CommunityState cs, string platformId, string displayName)
+        {
+            if (cs == null || (cs.Personal && ScMembership.Separate) || !ScMembership.IsFounded(cs)) return false;
+            return ScMembership.IsOwner(cs, platformId, displayName);
         }
 
         // ---- cpl='s text: role:online:entityid:name entries joined by ',' (the name escaped) ----
@@ -340,6 +369,15 @@ namespace SurvivorCommunity
             /// refuses one without, so Leave never shows for them.
             /// </summary>
             public bool HasId = true;
+            // round db1: Disband community and the panel it is in
+            /// <summary>
+            /// Round db1: this player owns their community, a founded one - Disband community shows in the players panel (the server
+            /// checks again: the owner or an admin). Single player and Shared with one community too, where the list is otherwise off.
+            /// </summary>
+            public bool Disband;
+
+            /// <summary>Round db1: the players panel and its header button - the list (ShowPlayers), or the owner's Disband community.</summary>
+            public bool PanelOn { get { return ShowPlayers || (Disband && !Personal); } }
 
             /// <summary>A player with only their own relations (PerPlayer/PerParty): the window's no-community page.</summary>
             public bool Personal { get { return Mode != ScCommunityMode.Shared && Role == RolePersonal; } }
@@ -376,7 +414,19 @@ namespace SurvivorCommunity
                 {
                     v.Mode = ScMembership.Separate ? ScMembership.Mode : ScCommunityMode.Shared;
                     v.ListOn = KeysOn;
-                    if (local == null || !v.ListOn) return v;
+                    if (local == null) return v;
+                    if (!v.ListOn)
+                    {
+                        // round db1: Shared with one community (single player too) has no role and no list, but its owner may disband - the
+                        // players panel shows them its players online and its owner (PlayersOf) and Disband community
+                        int only = ScPlayers.CommunityOf(local);
+                        CommunityState ocs = ScCommunities.ById(only);
+                        v.Cid = only;
+                        v.Disband = OwnsFounded(ocs, ScPlayers.IdOf(local), local.PlayerDisplayName);
+                        if (v.Disband && withPlayers) v.Players = PlayersOf(ocs);
+                        v.PlayerTotal = v.Players.Count;
+                        return v;
+                    }
                     int cid = ScPlayers.CommunityOf(local);
                     CommunityState cs = ScCommunities.ById(cid);
                     v.Cid = cid;
@@ -385,6 +435,7 @@ namespace SurvivorCommunity
                     v.HasId = pid.Length > 0;                   // round MP7 (review U): n8
                     v.Role = RoleOf(cs, pid, local);
                     v.OwnOps = v.Role != RolePersonal && ScOwnerRule.May(local, cs);
+                    v.Disband = v.Role == RoleOwner && OwnsFounded(cs, pid, local.PlayerDisplayName);     // round db1
                     if (withPlayers) v.Players = PlayersOf(cs);
                     v.PlayerTotal = v.Players.Count;
                     return v;
@@ -399,12 +450,41 @@ namespace SurvivorCommunity
                 if (withPlayers) v.Players = ScMirror.CommunityPlayers;
                 // round MP7 (review U): m1 - the true count when the server listed fewer
                 v.PlayerTotal = Math.Max(v.Players.Count, ScMirror.Int(PlayersTotalKey, 0));
+                // round db1: the owner of a founded community (role=owner; Shared with one community: dsb=1) sees Disband community -
+                // with no cpl= (Shared, one community) the list is the players this client sees, every one of them that community's
+                v.Disband = v.Role == RoleOwner || ScMirror.Bool(DisbandKey);
+                if (v.Disband && !v.ListOn && withPlayers)
+                {
+                    v.Players = OnlinePlayers(local);
+                    v.PlayerTotal = v.Players.Count;
+                }
             }
             catch (Exception e)
             {
                 ScLog.Once("mp7u-view", e);
             }
             return v;
+        }
+
+        // round db1: the list a client in Shared with one community shows its owner
+        /// <summary>
+        /// Round db1: a client in Shared with one community (no cpl=) - the players in its world, every one of them of that one
+        /// community: its own player as the owner (dsb=1 says so), the others as members. Online only, as the server lists Shared
+        /// mode's community 0.
+        /// </summary>
+        private static List<ScCommunityPlayer> OnlinePlayers(EntityPlayer local)
+        {
+            var rows = new List<ScCommunityPlayer>();
+            List<EntityPlayer> all = ScPlayers.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EntityPlayer p = all[i];
+                if (p == null) continue;
+                bool me = local != null && p.entityId == local.entityId;
+                rows.Add(new ScCommunityPlayer { Name = p.PlayerDisplayName ?? "?", Role = me ? RoleOwner : RoleMember, Online = true, EntityId = p.entityId });
+            }
+            rows.Sort(Compare);
+            return rows;
         }
     }
 }

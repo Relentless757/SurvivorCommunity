@@ -1346,8 +1346,9 @@ namespace SurvivorCommunity
                     player.Buffs.RemoveCustomVar("hired_" + m.Id);
                     EntityUtilities.CheckForDanglingHires(player.entityId);
                 }
-                // round MP0 (the review, S3): a departure is the whole community's news (single player: the one player, as before)
-                ScPlayers.TellCommunityKey(reasonKey ?? "scLeft", "ui_denied", m.Name);
+                // round MP0 (the review, S3): a departure is the whole community's news (single player: the one player, as before).
+                // round db1: not for a disband's (ScMembership.DisbandLeaveKey) - every member leaves at once and Disband tells it once
+                if (reasonKey != ScMembership.DisbandLeaveKey) ScPlayers.TellCommunityKey(reasonKey ?? "scLeft", "ui_denied", m.Name);
 #if SC_V34
                 ScHanded.OnRecordGone(m, npc, "left the community");   // round n12 review: her handed items into her pack (or logged lost)
 #endif

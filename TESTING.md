@@ -46,7 +46,60 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   <name>`, `join <id> [player]`, `leave [player]` and `use <id>|none` (this console acts in that community) make and fill a
   second one. Admin only. Round MP7 (core): the list shows the mode and marks a player's own relations `[personal]` and
   retired ids; `owner <id> <player>` hands a community over; `mode <PerPlayer|PerParty> confirm` switches a save from before
-  MP7 once.
+  MP7 once. Round db1: `disband <id>` says what disbanding it would do, `disband <id> confirm` does it.
+
+## Round db1 (2026-11-28): disbanding a community
+
+Why: the user's three decisions after testing MP7 - the owner (or an admin) disbands a community, its members go back to the
+wild, and its players keep its relations. Build `sc34_db1`, **not deployed**, untested in game. **Protocol 10: every client
+needs this build.** Checked offline: the save round trip on 12 saves (ALL PASS); a disband harness (1072 checks on the 11 saves
+with enclaves, 0 failures: PerPlayer, PerParty, Shared community 1, Shared community 0, single player, the copy of the
+relations, requests and favors passing on, the retire, the allies reconcile afterward, the refusals); the network harness (448
+checks, 0 failures).
+
+**The button and the refusals**
+- [ ] The owner opens the community window and presses PLAYERS: **Disband community** is under the list. The first press shows
+      the hint (the members leave for the wild, outposts are abandoned, the stockpile is lost, storage stays, you keep your
+      relations); a second press within five seconds disbands. Wait five seconds instead: the hint goes and the button reads
+      Disband community again.
+- [ ] A player who is not the owner sees Leave community there, never Disband. PerParty: the party leader while the owner is
+      away (the helper) sees no Disband either.
+- [ ] With an enclave siege called or live: refused, "Not while a siege is on". With a base attack live, or fought by the
+      defenders while you are away: "Not while the base is under attack". With a member down: "One of the members is down".
+- [ ] `sc community disband <id>` says what it would do and changes nothing; `sc community disband <id> confirm` disbands, with
+      the same refusals.
+
+**PerPlayer or PerParty on the dedicated server**
+- [ ] Owner A has a follower, a member posted at an outpost (her stand-in there), residents at home, an outpost, a stockpile,
+      linked storage boxes with items, player B online and player C offline. A disbands: every member leaves (the log has
+      `left the community (scDb1MemberLeft)` for each), the follower stops following, the stand-in goes, the outpost is
+      abandoned (its marker goes), the stockpile is 0, every storage box keeps every item, and A's claim radial offers "Start a
+      community here" again.
+- [ ] A and B get the tell "... disbanded the community ..." and see the no-community page: their enclaves list shows the
+      community's standing, and the map keeps the enclave, infestation, band and scouting markers. C sees the same at their next
+      login.
+- [ ] A request B had taken on stays in B's journal and on B's no-community page (tell: "the request from ... is yours now").
+      An offered request is gone.
+- [ ] A former member stands where she was as a wild survivor: after A founds again at another claim, talk to her and recruit
+      her again.
+- [ ] A founds again: the relations are there (standing, the enclaves known); a survivor whose favor was done offers "Join us".
+- [ ] PerPlayer: B is a land claim ally of another founder X - B joins X's community at once (or at their next login). B is only
+      A's ally - B stays in their own relations until A founds again, then joins A's new community.
+- [ ] `sc community list`: the disbanded id under "retired" (community 0 is never retired: it shows A's own relations, or is
+      free). The log has one line `community disbanded: ...` with the counts.
+
+**Shared mode**
+- [ ] An admin's community 1 (owner R, player S): R disbands. R and S are in community 0 now, community 0's standing with an
+      enclave both knew is the better of the two, community 0's stockpile is unchanged, and community 1 is retired.
+- [ ] Shared with one community, a client on the dedicated server who owns community 0: the PLAYERS button shows for them (the
+      players online listed), for nobody else. They disband: the members leave, the home is cleared, the stockpile is 0, the
+      players stay in community 0 with its enclave standing, favors and accepted requests, and "Start a community here" starts
+      it again.
+
+**Single player**
+- [ ] The owner sees the PLAYERS button (themselves listed) and Disband community. Shared: afterward the window shows an
+      unstarted community with the relations kept. PerPlayer: the no-community page with the relations kept. Start again at a
+      new claim.
 
 ## Deployed 2026-11-27: round MP7 (community modes), round hr1 (healing and last stand), round lk1 (looks kept, falling trees)
 
