@@ -3487,7 +3487,7 @@ Round MP0 is the groundwork:
     `GetUpSettleSeconds` (1.5 s) ago (`ragdollAt`, kept every frame in `Tick`), she is seated (`AttachedToEntity`; a last
     resort goes on without the clip), her `Hand` is switching, or it is stowed (`Hand.IsHolstered`: `Hand.Item` is then the
     bare hand whatever the slot holds) for less than `StowWaitSeconds` (20 s; the stow clock is `stowSince`/`stowSeen`). A
-    refusal keeps a reach wait alive (`heldLast`). Past the 20 s - at once in a fight (`InFightNow`: hit in 5 s, `InFight`,
+    short refusal (the get-up, a hand switch, the stow wait; not a down or a seat) keeps a reach wait alive (`heldLast`). Past the 20 s - at once in a fight (`InFightNow`: hit in 5 s, `InFight`,
     or an enemy after her within 15 m) or a last resort - `Begin` draws it (`Hand.SelectHoldingMode(Current)`, instant for
     an NPC, as 0-XNPCCore's own bandage does) and `Finish` → `RestoreStow` puts it back while 0-XNPCCore's chat stow stands
     (`SdcsHolsteredByOrder` is not a hand stow: 0-XNPCCore keeps the bare-hand item in the slot). During such a use
@@ -3511,7 +3511,9 @@ Round MP0 is the groundwork:
     first; a warning once per row). `calledOff` is a per-item row (`CallOffs`), ended by a played clip, kept alive by a use
     that went on without one, over after 60 s without a call-off. Triggered without the pose, a use ends in 0.5 s
     (`NoPoseUseSeconds`). Low health alone is not a last resort: 0-XNPCCore revives at a few health.
-  - `CancelUse` puts back the reach wait the use was released from (`Use.WaitSince`), kept fresh through its retry delay,
+  - `CancelUse` puts back the reach wait the use was released from (`Use.WaitSince`) - only one that was fresh and that
+    `HeldByReach` let go with the enemy still in reach (`releasedInReach`), only if no other wait began and an enemy is still
+    within its reach (`EnemyInWaitReach`; final check R28-m2) - kept fresh through its retry delay while that holds,
     takes back `lastUseAt` (`UsedOrWorking` reads it, not `readyAt - Cooldown`), logs its line once per row (the rest
     verbose). `Finish` returns a called-off item to the bag (`ReturnToBag`) while a player has her window open, counts
     `bleedsStopped` only for a completed bleed use, and a down (`ScDowned.IsDown`) ends a use like a ragdoll.

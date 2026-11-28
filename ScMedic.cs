@@ -264,6 +264,12 @@ namespace SurvivorCommunity
             public bool StopLogged;
         }
         private static readonly Dictionary<int, CallOffs> calledOff = new Dictionary<int, CallOffs>();
+        /// <summary>
+        /// Round md2 (final check R28-m2): HeldByReach's last release (a false return) let a use go with an enemy after her still in
+        /// reach - a verdict, a timeout, a safe room, sheltering or a post - not because nothing was in reach any more. Main thread,
+        /// read right after the call.
+        /// </summary>
+        private static bool releasedInReach;
         /// <summary>Round md2 (review MD2-m6): body id -> when her last use that was not called off began (UsedOrWorking).</summary>
         private static readonly Dictionary<int, float> lastUseAt = new Dictionary<int, float>();
         /// <summary>Round md2 (review MD2-M2): the hold types whose missing (or seen) clip was logged.</summary>
@@ -612,8 +618,9 @@ namespace SurvivorCommunity
             float ready;
             if (readyAt.TryGetValue(e.entityId, out ready) && now < ready)
             {
-                // round md2 (review MD2-M1): a reach wait a call-off put back stays fresh through its retry delay
-                if (heldSince.ContainsKey(e.entityId)) heldLast[e.entityId] = now;
+                // round md2 (review MD2-M1): a reach wait a call-off put back stays fresh through its retry delay - round md2 (final check
+                // R28-m2): only while an enemy after her is still in reach (without one the wait is over, and a later one starts fresh)
+                if (heldSince.ContainsKey(e.entityId) && EnemyInWaitReach(e)) heldLast[e.entityId] = now;
                 return;
             }
             if (e.GetCVar("SdcsAnimBusy") >= 0.5f)
@@ -651,17 +658,24 @@ namespace SurvivorCommunity
             bool lastResort = LastResort(e, now, out lastWhy);
             fightWhy = null;
             bool fight = lastResort || (e.Hand != null && e.Hand.IsHolstered && InFightNow(e, now, out fightWhy));
-            if (!HandReady(e, now, fight, lastResort, out notReady, out drawHand))
+            bool brief;
+            if (!HandReady(e, now, fight, lastResort, out notReady, out drawHand, out brief))
             {
-                if (heldSince.ContainsKey(e.entityId)) heldLast[e.entityId] = now;
+                // round md2 (final check R28-m2): only a short hold (the get-up, a hand switch, the stow wait) keeps a wait alive - a
+                // down or a seat would keep it fresh for their whole length and hand an old MedicMaxWait to the next enemy
+                if (brief && heldSince.ContainsKey(e.entityId)) heldLast[e.entityId] = now;
                 NoteNotReady(e, pick, notReady, now);
                 return;
             }
+            // round md2 (final check R28-m2): the wait a call-off may put back - the one live now (fresh) and only if HeldByReach lets
+            // the use go with the enemy still in reach (a verdict or a timeout); a stale wait, or one that ends because nothing is in
+            // reach any more, is not
             float waitSince;
-            bool hadWait = heldSince.TryGetValue(e.entityId, out waitSince);
+            bool liveWait = heldSince.TryGetValue(e.entityId, out waitSince) && Fresh(e.entityId, now);
             if (member && HeldByReach(e, pick, max, now)) return;
+            bool keepWait = member && liveWait && releasedInReach;
             if (!TakeOne(e, pick)) return;
-            Begin(e, pick, now, lastResort ? lastWhy : null, drawHand, hadWait ? waitSince : -1f, fightWhy);
+            Begin(e, pick, now, lastResort ? lastWhy : null, drawHand, keepWait ? waitSince : -1f, fightWhy);
             readyAt[e.entityId] = now + Cooldown;
             if (bleeding)
             {
@@ -670,6 +684,17 @@ namespace SurvivorCommunity
                 if (uses.TryGetValue(e.entityId, out bu)) bu.Bleed = true;
                 ScLog.Verbose("medic: " + e.entityId + " is bleeding - " + pick);
             }
+        }
+
+        /// <summary>
+        /// Round md2 (final check R28-m2): an awake enemy after her within a held wait's reach (MedicSafeDistance + the back-off's
+        /// ClearMargin, as HeldByReach holds an ongoing wait) - while there is none, a wait is over.
+        /// </summary>
+        private static bool EnemyInWaitReach(EntityAlive e)
+        {
+            float r = ScConfig.MedicSafeDistance, dist;
+            if (r <= 0f) return false;
+            return NearestEnemy(e, r + ScHealBackOff.ClearMargin, true, out dist) != null;
         }
 
         /// <summary>
@@ -728,6 +753,7 @@ namespace SurvivorCommunity
         /// </summary>
         private static bool HeldByReach(EntityAlive e, string pick, int max, float now)
         {
+            releasedInReach = false;                // round md2 (final check R28-m2): set on a release with the enemy still in reach
             float r = ScConfig.MedicSafeDistance;
             if (r <= 0f) { ClearWait(e.entityId); return false; }
             float since;
@@ -772,6 +798,7 @@ namespace SurvivorCommunity
                 // round hr1 (step 1, decision 3): an enclosed room with no enemy inside, none armed in sight and none within 2 m that
                 // sees her - every hold is lifted (the gap rule's sight test is part of the safe-room test)
                 ClearWait(e.entityId);
+                releasedInReach = true;             // round md2 (final check R28-m2)
                 Patches_Xnpc.Count("heal-now-saferoom");
                 ScLog.Out(BodyName(e) + " uses " + pick + " at once with " + who + " after " + HerObj(e) + ": " + why + " (round hr1, step 1)");
                 return false;
@@ -783,6 +810,7 @@ namespace SurvivorCommunity
                 // round hr1 (decision 6): at home not with an enemy within 2.5 m that sees her while she has a usable weapon
                 if (home && GapHolds(e, pick, who, why, waiting, since, now)) return true;
                 ClearWait(e.entityId);
+                releasedInReach = true;             // round md2 (final check R28-m2)
                 Patches_Xnpc.Count(shelter ? "heal-now-shelter" : "heal-now-post");
                 ScLog.Out(BodyName(e) + " uses " + pick + " at once with " + who + " after " + HerObj(e) + ": " + why + " (round k2b)");
                 return false;
@@ -828,6 +856,7 @@ namespace SurvivorCommunity
                     return true;
                 }
                 ClearWait(e.entityId);
+                releasedInReach = true;             // round md2 (final check R28-m2)
                 if (timeout) Patches_Xnpc.Count("heal-now-timeout");
                 ScLog.Out(BodyName(e) + " uses " + pick + " now with " + who + " after " + HerObj(e) + ": " + why + (home ? " - no enemy within 2.5 m sees " + HerObj(e) + " (round hr1's gap)" : "") + " (round k2b)");
                 return false;
@@ -836,6 +865,7 @@ namespace SurvivorCommunity
             if (e.Health < max * DesperateBelow && waited >= ScConfig.MedicMaxWait)
             {
                 ClearWait(e.entityId);
+                releasedInReach = true;             // round md2 (final check R28-m2)
                 Patches_Xnpc.Count("meds-use-desperate");
                 ScLog.Out(BodyName(e) + " uses " + pick + " with " + who + " after " + HerObj(e) + ": waited " + F1(waited) + " s and down to "
                           + e.Health + "/" + max + " (under " + (DesperateBelow * 100f).ToString("0", System.Globalization.CultureInfo.InvariantCulture)
@@ -1186,7 +1216,9 @@ namespace SurvivorCommunity
             readyAt[e.entityId] = now + retry;
             // round md2 (review MD2-M1): the reach wait this use was released from comes back (its clock and verdict too), so the
             // retry does not start a fresh MedicMaxWait
-            if (u.WaitSince >= 0f)
+            // round md2 (final check R28-m2): only that same wait (its start time), only if no other wait began since and it has not
+            // ended - an enemy after her still in reach; otherwise the retry starts fresh under the reach rules
+            if (u.WaitSince >= 0f && !heldSince.ContainsKey(e.entityId) && EnemyInWaitReach(e))
             {
                 heldSince[e.entityId] = u.WaitSince;
                 heldLast[e.entityId] = now;
@@ -1235,16 +1267,17 @@ namespace SurvivorCommunity
         /// once in a fight or a last resort (drawNow, round md2 review MD2-M1), drawHand: the use draws it (Begin). Seated in a
         /// vehicle: no use (round md2 review MD2-m2), a last resort excepted. why: what holds it. Keeps the stow wait's clock.
         /// </summary>
-        private static bool HandReady(EntityAlive e, float now, bool drawNow, bool lastResort, out string why, out bool drawHand)
+        private static bool HandReady(EntityAlive e, float now, bool drawNow, bool lastResort, out string why, out bool drawHand, out bool brief)
         {
             why = null;
             drawHand = false;
+            brief = false;                          // round md2 (final check R28-m2): a short hold - the get-up, a hand switch, the stow wait
 #if SC_V34
             if (ScDowned.IsDown(e)) { why = HerObj(e) + " being down"; return false; }
 #endif
             if (e.emodel != null && e.emodel.ragdollState != EModelBase.ERagdollState.Off) { why = Her(e) + " ragdoll (" + e.emodel.ragdollState + ")"; return false; }
             float rag;
-            if (ragdollAt.TryGetValue(e.entityId, out rag) && now - rag < GetUpSettleSeconds) { why = Her(e) + " get-up (" + F1(now - rag) + " s since the ragdoll ended)"; return false; }
+            if (ragdollAt.TryGetValue(e.entityId, out rag) && now - rag < GetUpSettleSeconds) { why = Her(e) + " get-up (" + F1(now - rag) + " s since the ragdoll ended)"; brief = true; return false; }
             // round md2 (review MD2-m2): no use and no draw in a vehicle seat (vanilla stows the hand there, and nothing would stow it
             // again after the use; the clip is not verified in a seat pose) - in a last resort the use goes on without the clip
             if (e.AttachedToEntity != null)
@@ -1255,7 +1288,7 @@ namespace SurvivorCommunity
             }
 #if SC_V34
             Hand h = e.Hand;
-            if (h != null && h.IsSwitching) { why = Her(e) + " hand switching items"; return false; }
+            if (h != null && h.IsSwitching) { why = Her(e) + " hand switching items"; brief = true; return false; }
             if (h != null && h.IsHolstered)
             {
                 float since, seen;
@@ -1265,6 +1298,7 @@ namespace SurvivorCommunity
                 if (now - since < StowWaitSeconds && !drawNow)
                 {
                     why = Her(e) + " hand stowed (a talk, a station or loot; " + F1(now - since) + " of " + F1(StowWaitSeconds) + " s before " + She(e) + " draws it; at once in a fight)";
+                    brief = true;
                     return false;
                 }
                 drawHand = true;
