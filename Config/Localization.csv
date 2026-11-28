@@ -2319,6 +2319,7 @@ scUiEncBadgeTaken,UI,Menu,,,,Request taken
 scUiEncBadgeFavourTaken,UI,Menu,,,,Favor taken
 scUiEncBadgeOpen,UI,Menu,,,,Request open
 scUiEncBadgeFavour,UI,Menu,,,,Favor open
+scUiEncBadgeFavourDone,UI,Menu,,,,Favor done
 scUiEncNoRequest,UI,Menu,,,,None open
 scUiEncAboutNeutral,UI,Menu,,,,"They trade with you and may ask for help. Doing their requests and bringing gifts raises your standing; hurting their people lowers it. At 30 they are Friendly."
 scUiEncAboutFriendly,UI,Menu,,,,"They trust you. Keep doing their requests and bringing gifts: at 70 they become your allies."

@@ -68,7 +68,8 @@ RULES THAT MATTER:
   points - none for a hostile group, a line in its place - and the kind, size and distance with a request or favor badge); the
   detail panel shows the selected one (four facts, the standing bar, what the level means) with btnEncMark. A row clicked marks
   the enclave on the map (XUiC_ScCommunityEnclaves.cs, ScEnclaveList.cs). The no-community page's enclave list is the same rows
-  (ncenc, btnNcEnc1..6; a marked row is lit), six to a page where it had eight plainer ones.
+  (ncenc, btnNcEnc1..6; a marked row is lit), six to a page where it had eight plainer ones. Round en1 (review): the tab is hidden
+  with Enclaves off ({enclavestabvisible}), and a row's kind, size and distance line is wider (ENC_BADGE_W for the badge).
 """
 
 import io
@@ -177,6 +178,7 @@ NC_FAV_ROWS, NC_FAV_TOP = 5, 56
 NC_REQ_ROWS, NC_REQ_TOP = 3, 436
 # round en1: the ENCLAVES tab's rows (XUiC_ScCommunity.EnclaveSlots) and the no-community page's, the bar in them, the detail's facts
 ENC_ROWS, ENC_ROW_H, ENC_ROW_GAP, ENC_BAR_H = 6, 76, 6, 14
+ENC_BADGE_W = 130                     # round en1 (review): "Request taken" at 15 px, the longest badge
 ENC_FACTS = 4
 ENC_ABOUT_Y, ENC_ABOUT_H = 392, 180
 ENC_MARK_W = 240
@@ -283,10 +285,12 @@ def member_row(i):
         "</rect>"])
 
 
-TABS = (("btnTabMembers", "scUiMembers", "membercount", "tabmembers"),
-        ("btnTabOutposts", "scUiOutposts", "outpostcount", "taboutposts"),
-        ("btnTabFacilities", "scUiFacilities", "facilitycount", "tabfacilities"),
-        ("btnTabEnclaves", "scUiEnclaves", "enclavecount", "tabenclaves"))      # round en1
+# (button, label key, count binding, active binding, shown binding or None)
+TABS = (("btnTabMembers", "scUiMembers", "membercount", "tabmembers", None),
+        ("btnTabOutposts", "scUiOutposts", "outpostcount", "taboutposts", None),
+        ("btnTabFacilities", "scUiFacilities", "facilitycount", "tabfacilities", None),
+        # round en1; round en1 (review): EN1-n7 - not shown with Enclaves off in the config
+        ("btnTabEnclaves", "scUiEnclaves", "enclavecount", "tabenclaves", "enclavestabvisible"))
 
 
 def tabs():
@@ -297,14 +301,18 @@ def tabs():
     to a row they were 128 wide with the count in the last 34 beside the name."""
     w = (MEM_W - 40 - 8 * (len(TABS) - 1)) // len(TABS)
     o = []
-    for i, (name, key, count, active) in enumerate(TABS):
+    for i, (name, key, count, active, shown) in enumerate(TABS):
         x = 20 + i * (w + 8)
-        o += [button(name, x, -12, w, 44),
-              '<rect depth="0" pos="0,0" width="%d" height="%d" visible="{%s}">' % (MEM_W, 60, active),
-              "\t" + plate("scui_tab_selected", x, -12, w, 44, depth=3),
-              "</rect>",
-              label(x + 4, -15, w - 8, 20, 15, TITLE, key=key, extra='justify="center" upper_case="true"'),
-              label(x + 4, -35, w - 8, 18, 14, GOLD, text="{%s}" % count, extra='justify="center"')]
+        tab = [button(name, x, -12, w, 44),
+               '<rect depth="0" pos="0,0" width="%d" height="%d" visible="{%s}">' % (MEM_W, 60, active),
+               "\t" + plate("scui_tab_selected", x, -12, w, 44, depth=3),
+               "</rect>",
+               label(x + 4, -15, w - 8, 20, 15, TITLE, key=key, extra='justify="center" upper_case="true"'),
+               label(x + 4, -35, w - 8, 18, 14, GOLD, text="{%s}" % count, extra='justify="center"')]
+        if shown:      # round en1 (review): EN1-n7 - a tab that can be off; its wrapper is depth 0, so its depths are as before
+            tab = (['<rect depth="0" pos="0,0" width="%d" height="%d" visible="{%s}">' % (MEM_W, 60, shown)]
+                   + ["\t" + line for line in tab] + ["</rect>"])
+        o += tab
     return o
 
 
@@ -414,8 +422,9 @@ def enc_row(prefix, btn, k, x, y, w, panel_w, bar_w):
           '\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{%snobarvisible}">' % (panel_w, PAN_H, p),
           "\t\t" + label(bx, -(y + 29), w - 24, 20, 15, DANGER_TEXT, text="{%snobar}" % p),
           "\t</rect>",
-          "\t" + label(bx, -(y + 52), w - 190, 20, 15, DIM, text="{%sinfo}" % p),
-          "\t" + label(x + w - 176, -(y + 52), 164, 20, 15, "{%sbadgecolor}" % p, text="{%sbadge}" % p, extra='justify="right"'),
+          # round en1 (review): EN1-n7 - the kind, size and distance get the width the badge does not need (it was 190 short)
+          "\t" + label(bx, -(y + 52), w - 24 - ENC_BADGE_W - 8, 20, 15, DIM, text="{%sinfo}" % p),
+          "\t" + label(x + w - 12 - ENC_BADGE_W, -(y + 52), ENC_BADGE_W, 20, 15, "{%sbadgecolor}" % p, text="{%sbadge}" % p, extra='justify="right"'),
           "</rect>"]
     return o
 

@@ -50,6 +50,12 @@ namespace SurvivorCommunity
         public ulong CallAt;
         public int CallPid;
         public ulong CallUntil;
+        /// <summary>
+        /// Round en1 (review): EN1-M1 - a leaver's copy (ScMembership.CopyRelations): the community this row was copied from (-1: the
+        /// record's own row) and the standing it was copied at. Merging back into that community brings only the gain above it, so the
+        /// community's losses meanwhile stand. Saved as [enclave] relbase=cid:from:base (only while set: older saves are unchanged).
+        /// </summary>
+        public int CopyFrom = -1, CopyBase;
         // ---- session only (never saved): the attack rule's clocks against this community's players, a threat's grace ----
         public float LastHitAt = -1f, WarnedAt = -1f;
         public float GraceUntil;
@@ -81,6 +87,8 @@ namespace SurvivorCommunity
         public int KnownDay = -1;
         /// <summary>Drifters: 0 wary, 1 trusting this community (helped in trouble), -1 against it (one of them hit or killed).</summary>
         public int Trust;
+        /// <summary>Round en1 (review): EN1-M1 - as EncRel's: the community a leaver's copy came from (-1: none) and the trust it was copied at. Saved as [band] relbase=cid:from:base.</summary>
+        public int CopyFrom = -1, CopyBase;
         // ---- session only ----
         /// <summary>The trouble's zombies this community's players killed.</summary>
         public int Helped;
@@ -609,6 +617,66 @@ namespace SurvivorCommunity
                     r.CallUntil = kind == ScEncCalls.Fighter ? U(f[14]) : 0UL;
                 }
             }
+        }
+
+        /// <summary>
+        /// Round en1 (review): EN1-M1 - [enclave] relbase=cid:from:base, one per row with a copy's base (community 0's too: a player's own
+        /// relations can be community 0). None for a save that has no copy, so its text is as before.
+        /// </summary>
+        internal static void WriteEnclaveBases(StringBuilder sb, Enclave e)
+        {
+            RelRows<EncRel> rows = e.Rels;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                EncRel r = rows.At(i);
+                if (r.CopyFrom >= 0) sb.AppendLine("relbase=" + S(rows.IdAt(i)) + ":" + S(r.CopyFrom) + ":" + S(r.CopyBase));
+            }
+        }
+
+        /// <summary>Round en1 (review): EN1-M1 - one [enclave] relbase= line into its row (written after the row's own keys and rel= line).</summary>
+        internal static void ParseEnclaveBase(Enclave e, string val)
+        {
+            string[] f = val.Split(':');
+            if (f.Length < 3) return;
+            int cid = I(f[0]), from = I(f[1]);
+            if (cid < 0 || from < 0) return;
+            EncRel r = e.Rels.Get(cid);
+            r.CopyFrom = from;
+            r.CopyBase = Mathf.Clamp(I(f[2]), -100, 100);
+        }
+
+        /// <summary>Round en1 (review): EN1-M1 - [band] relbase=cid:from:base, as WriteEnclaveBases.</summary>
+        internal static void WriteBandBases(StringBuilder sb, Band b)
+        {
+            RelRows<BandRel> rows = b.Rels;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                BandRel r = rows.At(i);
+                if (r.CopyFrom >= 0) sb.AppendLine("relbase=" + S(rows.IdAt(i)) + ":" + S(r.CopyFrom) + ":" + S(r.CopyBase));
+            }
+        }
+
+        internal static void ParseBandBase(Band b, string val)
+        {
+            string[] f = val.Split(':');
+            if (f.Length < 3) return;
+            int cid = I(f[0]), from = I(f[1]);
+            if (cid < 0 || from < 0) return;
+            BandRel r = b.Rels.Get(cid);
+            r.CopyFrom = from;
+            r.CopyBase = Mathf.Clamp(I(f[2]), -1, 1);
+        }
+
+        /// <summary>
+        /// Round en1 (review): EN1-M1 - every copy's base taken from community cid goes (ScMembership.Retire: it is gone, and community 0's
+        /// id is given out again), so a later merge into whatever holds that id is the plain one.
+        /// </summary>
+        internal static void ClearBasesFrom(int cid)
+        {
+            foreach (Enclave e in ScRegistry.Enclaves)
+                for (int i = 0; i < e.Rels.Count; i++) { EncRel r = e.Rels.At(i); if (r.CopyFrom == cid) { r.CopyFrom = -1; r.CopyBase = 0; } }
+            foreach (Band b in ScRegistry.Bands)
+                for (int i = 0; i < b.Rels.Count; i++) { BandRel r = b.Rels.At(i); if (r.CopyFrom == cid) { r.CopyFrom = -1; r.CopyBase = 0; } }
         }
 
         /// <summary>[infestation] rel=cid:known:knownday, one per community but 0 that knows of it.</summary>

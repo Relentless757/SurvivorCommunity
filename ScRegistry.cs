@@ -1121,6 +1121,9 @@ namespace SurvivorCommunity
                 case "nestday": e.NestDay = Math.Max(0, I(val)); break;
                 // round MP6 (part relations): another community's relation to them (the keys above are community 0's)
                 case "rel": ScRelations.ParseEnclaveRow(e, val); break;
+                case "relbase": ScRelations.ParseEnclaveBase(e, val); break;     // round en1 (review): EN1-M1 - a leaver's copy's base
+                // round en1 (review): EN1-n3 - a client's snapshot says an enclave this load did not find (the server's Lost; never in a save)
+                case "lost": e.Lost = val.Trim() == "1"; break;
             }
         }
 
@@ -1289,6 +1292,7 @@ namespace SurvivorCommunity
                 case "trouble": b.Trouble = Clamp(I(val), 0, 3); break;
                 case "arrived": b.Arrived = val == "1"; break;
                 case "rel": ScRelations.ParseBandRow(b, val); break;
+                case "relbase": ScRelations.ParseBandBase(b, val); break;        // round en1 (review): EN1-M1
             }
         }
 
@@ -2666,6 +2670,8 @@ namespace SurvivorCommunity
             if (en.LossDay >= 0) sb.AppendLine("lossday=" + en.LossDay.ToString(CultureInfo.InvariantCulture));
             if (en.NestDay >= 0) sb.AppendLine("nestday=" + en.NestDay.ToString(CultureInfo.InvariantCulture));
             if (!forClients) ScRelations.WriteEnclaveRows(sb, en);        // round MP6 (part relations): rel= for communities 1+
+            if (!forClients) ScRelations.WriteEnclaveBases(sb, en);       // round en1 (review): EN1-M1 - relbase= (only while a copy has one)
+            if (forClients && en.Lost) sb.AppendLine("lost=1");          // round en1 (review): EN1-n3 - the client's ENCLAVES tab skips it
         }
 
         /// <summary>Round MP6 (core): one [encperson] section, as BuildText wrote it inline before MP6 (a world record: no cid).</summary>
@@ -2787,6 +2793,7 @@ namespace SurvivorCommunity
             if (bd.Trouble != 0) sb.AppendLine("trouble=" + (bd.Trouble == 2 ? 3 : bd.Trouble).ToString(CultureInfo.InvariantCulture));
             if (bd.Arrived) sb.AppendLine("arrived=1");
             if (!forClients) ScRelations.WriteBandRows(sb, bd);               // round MP6 (part relations): rel= for communities 1+
+            if (!forClients) ScRelations.WriteBandBases(sb, bd);              // round en1 (review): EN1-M1 - relbase= (only while set)
         }
 
         /// <summary>Round MP6 (core): one [bandperson] section, as BuildText wrote it inline before MP6 (a world record: no cid).</summary>

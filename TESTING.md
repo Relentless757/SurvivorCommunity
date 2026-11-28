@@ -56,7 +56,10 @@ for an ENCLAVES tab with a progress bar for the standing with each enclave. Buil
 **Protocol 11: every client needs this build.** Checked offline: the save round trip on 12 saves (ALL PASS); the disband harness
 extended (2184 checks, 0 failures: a leaver's copy in PerPlayer, PerParty, an admin's leave and a removed ally, Shared unchanged;
 the tab's levels, bars, order, badges and head counts, the derived keys and a client reading them); the network harness (459
-checks, 0 failures: a party leaver's snapshot carries the copy, the derived block the head counts).
+checks, 0 failures: a party leaver's snapshot carries the copy, the derived block the head counts). Round en1 (review): a rejoin
+brings only the leaver's own gain (the community's losses meanwhile stand), a hostile copy's points never raise another community's
+standing, the mode switch gives its players the copy too, marks follow their group (moved, fallen) and the click sounds are the
+player's own, plus the nits. The harness has 2466 checks, 0 failures; the network harness 462; round trip ALL PASS.
 
 **A leaver keeps a copy**
 - [ ] PerParty: a player in a party's community (knowing some enclaves through it, with a scouting mark on the map) leaves the
@@ -69,6 +72,14 @@ checks, 0 failures: a party leaver's snapshot carries the copy, the derived bloc
 - [ ] `sc community leave <player>`: the output ends with "a copy of its relations kept: N enclave(s), ...".
 - [ ] A group at war with the community is at war with the leaver too: its people attack them on sight.
 - [ ] The leaver joins again (a party invite, an ally link): the copy merges back, nothing lost.
+- [ ] Round en1 (review): the leaver leaves the party at, say, 45 with an enclave; while they are away the community loses
+      standing with it (`sc community use <community id>`, then `sc enclave standing <id> 35`, or a warning hit). The leaver joins again: the
+      community stays at 35, not 45. Raise the leaver's own standing while away (a gift): the rise is added to the community's.
+- [ ] Round en1 (review): a community at war with an enclave it had high standing with: a leaver who then joins another community
+      brings no standing with that enclave into it (and no war).
+- [ ] Round en1 (review): a save from before MP7 switched with `sc community mode PerPlayer confirm`: the players it moves out of
+      community 0, online and offline, have their own relations with community 0's enclaves and standing (the log counts the
+      copies).
 - [ ] Shared mode: a community 1 player who leaves is in community 0 as before, and community 0 gets none of community 1's
       relations.
 - [ ] Expected, unchanged (round db1 review M1): a player already in another owner's party when their own community is disbanded
@@ -81,12 +92,17 @@ checks, 0 failures: a party leaver's snapshot carries the copy, the derived bloc
 - [ ] Each row: the name; the level (Neutral gray, Friendly green, Allied blue, Hostile red); a bar with "12 / 30 to Friendly",
       "42 / 70 to Allied", or "85 / 100 (the most)" once Allied; for a hostile group no bar, "Hostile for good: no standing to
       earn". Under them: the kind, how many people, the distance and direction; on the right, a badge: Request open, Request
-      taken, Favor open, Favor taken or Under siege.
+      taken, Favor open, Favor taken, Favor done or Under siege. Round en1 (review): the bar fills through the level (empty at 30
+      and at 70, full just before the next level), and the kind, size and distance line has more room.
 - [ ] Raise a standing (a gift, a request done) and reopen the window: the bar and the points move, Friendly at 30, Allied at 70.
 - [ ] Click a row: the right panel shows it (standing, next level, where, the request or favor; the bar; what the level means and
       their benefit), and a waypoint is set on it: the compass and the on-screen distance show it, and the map's waypoint list
-      has it. Click it again, or Remove map mark: the waypoint goes. Mark another: it is the tracked one, the first stays on the
-      map.
+      has it. Round en1 (review): clicking a marked row only selects it (the mark stays); Remove map mark takes it away. Mark
+      another: it is the tracked one, the first stays on the map. The click sound is heard by the player only.
+- [ ] Round en1 (review): mark an enclave, then move it (`sc enclave move <id> now`): the mark moves to its new building, and a
+      click never adds a second one. Mark one and wipe it out (`sc enclave kill <id> all`): the mark goes.
+- [ ] Round en1 (review): with `Enclaves` off in the config there is no ENCLAVES tab. A client does not list an enclave the server
+      could not find this load.
 - [ ] A client on the dedicated server sees the same rows and numbers as the host (the head counts too). Its waypoints are its own.
 - [ ] More than six enclaves: "Showing 6 of N" and the pager.
 - [ ] A player with only their own relations: the no-community page's enclave list has the same rows, six to a page. A click

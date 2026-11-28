@@ -4086,9 +4086,9 @@ Round MP0 is the groundwork:
     wide, so each name sits over its count. Every existing control id is kept.
   - **The entries** (`ScEnclaveList`): every enclave the record in scope knows and this load found; `Rank` (hostile, neutral,
     friendly, allied by `ScEnclaves.StandingKey`'s bands), `NextAt` (30, 70, then the most there is, 100; none when hostile),
-    `FillOf` (the points over the next level's, as the text reads them); sorted by level, then standing, then distance to the
+    `FillOf` (round en1 (review): the way through the level - 0 to 30, 30 to 70, 70 to 100 - while the text reads the points over the next level's); sorted by level, then standing, then distance to the
     footprint. `People`: the living once the group was made, else `GroupSize`. Badges: a siege, a request taken, a favor taken,
-    a request open, a favor open, in that order. `Entries` holds the numbers (no Localization, so the offline harness builds it);
+    a request open, a favor open, a favor done (round en1 (review)), in that order. `Entries` holds the numbers (no Localization, so the offline harness builds it);
     `Texts` adds the words.
   - **The network:** the snapshot already carries the standing, kind, hostility, benefit and the community's requests. The
     derived block adds, per known enclave, `encn.<id>=` (the head count: a client has no enclave people) and `encf.<id>=` (1
@@ -4099,6 +4099,33 @@ Round MP0 is the groundwork:
     compass and the on-screen distance), the others untracked, as the map's own track button does it. A click on a marked
     enclave removes its waypoint (found by spot and name). It is this machine's player's only, saved in their player data and
     removable on the map. Nothing is sent to the server.
+  - **Round en1 (review), the review's fixes:**
+    - EN1-M1: each fresh row of a leaver's copy keeps the community it came from and the value it was copied at (`EncRel` and
+      `BandRel` `CopyFrom` / `CopyBase`, saved as `relbase=cid:from:base` in `[enclave]` and `[band]` only while set, so older saves
+      are unchanged). `Merge` into that same community adds only the gain above the base to the community's value (standing and
+      trust; a loss of the leaver's own is not taken from it); known stays OR. Into any other community the MP7 rule (the better
+      value wins) applies. The base is spent by the merge and cleared everywhere when its community retires (`ClearBasesFrom` in
+      `Retire`: community 0's id is given out again). A disband's copy has no base (its community is gone).
+    - EN1-m1: in `Merge` a hostile row's points never raise the standing (its hostility is dropped there, as before).
+    - EN1-m2, intended: a removed ally's copy merges at once into the next founder's community the reconcile puts them in (and Leave
+      plus a party invite does the same by hand). That is MP7's rule for a player who joins with their own relations: the better
+      value wins, so the new community learns what the player knew.
+    - EN1-m3: the waypoint clicks play with `Audio.Manager.PlayInsidePlayerHead`, as vanilla's map does (`PlayOneShot` broadcast them).
+    - EN1-m4: a mark is found by SC's two icons and the group's name, wherever it stands (names are never given twice); `SyncMarks`
+      (each refresh) moves a mark to its group's new building and icon, removes a second mark on one group, and removes the mark of a
+      group that fell (its record went this session, or a refill is owed for its name). A waypoint is taken out of the player's list
+      while its spot changes (the list hashes the spot). A group not found this load keeps its mark.
+    - EN1-m5: `SwitchMode` gives every player it moves out of a community their own relations with a copy of that community's
+      (`CopyOnSwitch`, one snapshot per community): online players as before, and now the offline ones the server's player list
+      knows, at once. A `Move` whose `EnsurePersonal` fails (shutting down, off the main thread) logs that the copy was not made.
+    - Nits: a tab row click selects and marks only an unmarked enclave (n1); a done favor has its own badge, `encf.<id>=3` (n2); a
+      client's snapshot says `lost=1` for an enclave the server did not find this load, so the tab leaves it out (n3); the count and
+      the tell are the enclaves the copy makes known (n5); a record that already had a row keeps the better value with no base, and
+      one scouting mark per building (n6); the tab hides with `Enclaves` off and the info line is wider (n7); the bar fills through the
+      level (n8).
+    - Left as they are: each leave and rejoin makes a new record id, so a war copied to it leaves one more hostile cvar at 0 on the
+      live bodies and one more retired id (session-bounded for bodies; n4); an offline leaver is not told of the copy (n9: SC has no
+      deferred tell), and sees it on the no-community page.
 
 ## How it hangs together (for modders)
 

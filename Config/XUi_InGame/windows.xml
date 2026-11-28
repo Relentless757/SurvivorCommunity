@@ -404,12 +404,14 @@
 						</rect>
 						<label depth="4" pos="228,-15" width="86" height="20" font_size="15" text_key="scUiFacilities" color="226,219,203,255" justify="center" upper_case="true"/>
 						<label depth="4" pos="228,-35" width="86" height="18" font_size="14" text="{facilitycount}" color="206,178,120,255" justify="center"/>
-						<button depth="2" name="btnTabEnclaves" pos="326,-12" width="94" height="44" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-						<rect depth="0" pos="0,0" width="440" height="60" visible="{tabenclaves}">
-							<sprite depth="3" sprite="scui_tab_selected" type="sliced" color="[white]" pos="326,-12" width="94" height="44"/>
+						<rect depth="0" pos="0,0" width="440" height="60" visible="{enclavestabvisible}">
+							<button depth="2" name="btnTabEnclaves" pos="326,-12" width="94" height="44" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+							<rect depth="0" pos="0,0" width="440" height="60" visible="{tabenclaves}">
+								<sprite depth="3" sprite="scui_tab_selected" type="sliced" color="[white]" pos="326,-12" width="94" height="44"/>
+							</rect>
+							<label depth="4" pos="330,-15" width="86" height="20" font_size="15" text_key="scUiEnclaves" color="226,219,203,255" justify="center" upper_case="true"/>
+							<label depth="4" pos="330,-35" width="86" height="18" font_size="14" text="{enclavecount}" color="206,178,120,255" justify="center"/>
 						</rect>
-						<label depth="4" pos="330,-15" width="86" height="20" font_size="15" text_key="scUiEnclaves" color="226,219,203,255" justify="center" upper_case="true"/>
-						<label depth="4" pos="330,-35" width="86" height="18" font_size="14" text="{enclavecount}" color="206,178,120,255" justify="center"/>
 						<rect depth="0" name="memberList" pos="0,0" width="440" height="696" visible="{tabmembers}">
 							<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-60" width="250" height="40"/>
 							<sprite depth="3" sprite="ui_game_symbol_search" pos="40,-80" width="24" height="24" pivot="center" color="[white]"/>
@@ -655,8 +657,8 @@
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{encrow1nobarvisible}">
 									<label depth="4" pos="32,-141" width="376" height="20" font_size="15" text="{encrow1nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="32,-164" width="210" height="20" font_size="15" text="{encrow1info}" color="190,182,166,255"/>
-								<label depth="4" pos="244,-164" width="164" height="20" font_size="15" text="{encrow1badge}" color="{encrow1badgecolor}" justify="right"/>
+								<label depth="4" pos="32,-164" width="238" height="20" font_size="15" text="{encrow1info}" color="190,182,166,255"/>
+								<label depth="4" pos="278,-164" width="130" height="20" font_size="15" text="{encrow1badge}" color="{encrow1badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{encrow2visible}">
 								<button depth="2" name="btnEnc2" pos="20,-194" width="400" height="76" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -674,8 +676,8 @@
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{encrow2nobarvisible}">
 									<label depth="4" pos="32,-223" width="376" height="20" font_size="15" text="{encrow2nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="32,-246" width="210" height="20" font_size="15" text="{encrow2info}" color="190,182,166,255"/>
-								<label depth="4" pos="244,-246" width="164" height="20" font_size="15" text="{encrow2badge}" color="{encrow2badgecolor}" justify="right"/>
+								<label depth="4" pos="32,-246" width="238" height="20" font_size="15" text="{encrow2info}" color="190,182,166,255"/>
+								<label depth="4" pos="278,-246" width="130" height="20" font_size="15" text="{encrow2badge}" color="{encrow2badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{encrow3visible}">
 								<button depth="2" name="btnEnc3" pos="20,-276" width="400" height="76" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -693,8 +695,8 @@
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{encrow3nobarvisible}">
 									<label depth="4" pos="32,-305" width="376" height="20" font_size="15" text="{encrow3nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="32,-328" width="210" height="20" font_size="15" text="{encrow3info}" color="190,182,166,255"/>
-								<label depth="4" pos="244,-328" width="164" height="20" font_size="15" text="{encrow3badge}" color="{encrow3badgecolor}" justify="right"/>
+								<label depth="4" pos="32,-328" width="238" height="20" font_size="15" text="{encrow3info}" color="190,182,166,255"/>
+								<label depth="4" pos="278,-328" width="130" height="20" font_size="15" text="{encrow3badge}" color="{encrow3badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{encrow4visible}">
 								<button depth="2" name="btnEnc4" pos="20,-358" width="400" height="76" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -712,8 +714,8 @@
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{encrow4nobarvisible}">
 									<label depth="4" pos="32,-387" width="376" height="20" font_size="15" text="{encrow4nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="32,-410" width="210" height="20" font_size="15" text="{encrow4info}" color="190,182,166,255"/>
-								<label depth="4" pos="244,-410" width="164" height="20" font_size="15" text="{encrow4badge}" color="{encrow4badgecolor}" justify="right"/>
+								<label depth="4" pos="32,-410" width="238" height="20" font_size="15" text="{encrow4info}" color="190,182,166,255"/>
+								<label depth="4" pos="278,-410" width="130" height="20" font_size="15" text="{encrow4badge}" color="{encrow4badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{encrow5visible}">
 								<button depth="2" name="btnEnc5" pos="20,-440" width="400" height="76" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -731,8 +733,8 @@
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{encrow5nobarvisible}">
 									<label depth="4" pos="32,-469" width="376" height="20" font_size="15" text="{encrow5nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="32,-492" width="210" height="20" font_size="15" text="{encrow5info}" color="190,182,166,255"/>
-								<label depth="4" pos="244,-492" width="164" height="20" font_size="15" text="{encrow5badge}" color="{encrow5badgecolor}" justify="right"/>
+								<label depth="4" pos="32,-492" width="238" height="20" font_size="15" text="{encrow5info}" color="190,182,166,255"/>
+								<label depth="4" pos="278,-492" width="130" height="20" font_size="15" text="{encrow5badge}" color="{encrow5badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{encrow6visible}">
 								<button depth="2" name="btnEnc6" pos="20,-522" width="400" height="76" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -750,8 +752,8 @@
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{encrow6nobarvisible}">
 									<label depth="4" pos="32,-551" width="376" height="20" font_size="15" text="{encrow6nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="32,-574" width="210" height="20" font_size="15" text="{encrow6info}" color="190,182,166,255"/>
-								<label depth="4" pos="244,-574" width="164" height="20" font_size="15" text="{encrow6badge}" color="{encrow6badgecolor}" justify="right"/>
+								<label depth="4" pos="32,-574" width="238" height="20" font_size="15" text="{encrow6info}" color="190,182,166,255"/>
+								<label depth="4" pos="278,-574" width="130" height="20" font_size="15" text="{encrow6badge}" color="{encrow6badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="20,-112" width="400" height="220" visible="{encempty}">
 								<label depth="4" pos="0,-12" width="400" height="30" font_size="24" text_key="scUiEncNone" color="226,219,203,255" upper_case="true"/>
@@ -1248,8 +1250,8 @@
 								<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc1nobarvisible}">
 									<label depth="4" pos="36,-119" width="488" height="20" font_size="15" text="{ncenc1nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="36,-142" width="322" height="20" font_size="15" text="{ncenc1info}" color="190,182,166,255"/>
-								<label depth="4" pos="360,-142" width="164" height="20" font_size="15" text="{ncenc1badge}" color="{ncenc1badgecolor}" justify="right"/>
+								<label depth="4" pos="36,-142" width="350" height="20" font_size="15" text="{ncenc1info}" color="190,182,166,255"/>
+								<label depth="4" pos="394,-142" width="130" height="20" font_size="15" text="{ncenc1badge}" color="{ncenc1badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="560" height="696" visible="{ncenc2visible}">
 								<button depth="2" name="btnNcEnc2" pos="24,-172" width="512" height="76" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -1267,8 +1269,8 @@
 								<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc2nobarvisible}">
 									<label depth="4" pos="36,-201" width="488" height="20" font_size="15" text="{ncenc2nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="36,-224" width="322" height="20" font_size="15" text="{ncenc2info}" color="190,182,166,255"/>
-								<label depth="4" pos="360,-224" width="164" height="20" font_size="15" text="{ncenc2badge}" color="{ncenc2badgecolor}" justify="right"/>
+								<label depth="4" pos="36,-224" width="350" height="20" font_size="15" text="{ncenc2info}" color="190,182,166,255"/>
+								<label depth="4" pos="394,-224" width="130" height="20" font_size="15" text="{ncenc2badge}" color="{ncenc2badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="560" height="696" visible="{ncenc3visible}">
 								<button depth="2" name="btnNcEnc3" pos="24,-254" width="512" height="76" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -1286,8 +1288,8 @@
 								<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc3nobarvisible}">
 									<label depth="4" pos="36,-283" width="488" height="20" font_size="15" text="{ncenc3nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="36,-306" width="322" height="20" font_size="15" text="{ncenc3info}" color="190,182,166,255"/>
-								<label depth="4" pos="360,-306" width="164" height="20" font_size="15" text="{ncenc3badge}" color="{ncenc3badgecolor}" justify="right"/>
+								<label depth="4" pos="36,-306" width="350" height="20" font_size="15" text="{ncenc3info}" color="190,182,166,255"/>
+								<label depth="4" pos="394,-306" width="130" height="20" font_size="15" text="{ncenc3badge}" color="{ncenc3badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="560" height="696" visible="{ncenc4visible}">
 								<button depth="2" name="btnNcEnc4" pos="24,-336" width="512" height="76" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -1305,8 +1307,8 @@
 								<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc4nobarvisible}">
 									<label depth="4" pos="36,-365" width="488" height="20" font_size="15" text="{ncenc4nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="36,-388" width="322" height="20" font_size="15" text="{ncenc4info}" color="190,182,166,255"/>
-								<label depth="4" pos="360,-388" width="164" height="20" font_size="15" text="{ncenc4badge}" color="{ncenc4badgecolor}" justify="right"/>
+								<label depth="4" pos="36,-388" width="350" height="20" font_size="15" text="{ncenc4info}" color="190,182,166,255"/>
+								<label depth="4" pos="394,-388" width="130" height="20" font_size="15" text="{ncenc4badge}" color="{ncenc4badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="560" height="696" visible="{ncenc5visible}">
 								<button depth="2" name="btnNcEnc5" pos="24,-418" width="512" height="76" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -1324,8 +1326,8 @@
 								<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc5nobarvisible}">
 									<label depth="4" pos="36,-447" width="488" height="20" font_size="15" text="{ncenc5nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="36,-470" width="322" height="20" font_size="15" text="{ncenc5info}" color="190,182,166,255"/>
-								<label depth="4" pos="360,-470" width="164" height="20" font_size="15" text="{ncenc5badge}" color="{ncenc5badgecolor}" justify="right"/>
+								<label depth="4" pos="36,-470" width="350" height="20" font_size="15" text="{ncenc5info}" color="190,182,166,255"/>
+								<label depth="4" pos="394,-470" width="130" height="20" font_size="15" text="{ncenc5badge}" color="{ncenc5badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="560" height="696" visible="{ncenc6visible}">
 								<button depth="2" name="btnNcEnc6" pos="24,-500" width="512" height="76" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -1343,8 +1345,8 @@
 								<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc6nobarvisible}">
 									<label depth="4" pos="36,-529" width="488" height="20" font_size="15" text="{ncenc6nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="36,-552" width="322" height="20" font_size="15" text="{ncenc6info}" color="190,182,166,255"/>
-								<label depth="4" pos="360,-552" width="164" height="20" font_size="15" text="{ncenc6badge}" color="{ncenc6badgecolor}" justify="right"/>
+								<label depth="4" pos="36,-552" width="350" height="20" font_size="15" text="{ncenc6info}" color="190,182,166,255"/>
+								<label depth="4" pos="394,-552" width="130" height="20" font_size="15" text="{ncenc6badge}" color="{ncenc6badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncencempty}">
 								<label depth="4" pos="24,-96" width="512" height="120" font_size="18" text_key="scUiNcEncNone" color="226,220,208,255"/>
@@ -1529,13 +1531,15 @@
 						</rect>
 						<label depth="4" pos="228,-15" width="86" height="20" font_size="15" text_key="scUiFacilities" color="255,255,255,255" justify="center" upper_case="true"/>
 						<label depth="4" pos="228,-35" width="86" height="18" font_size="14" text="{facilitycount}" color="222,206,163,255" justify="center"/>
-						<button depth="2" name="btnTabEnclaves" pos="326,-12" width="94" height="44" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-						<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="326,-12" width="94" height="44"/>
-						<rect depth="0" pos="0,0" width="440" height="60" visible="{tabenclaves}">
-							<sprite depth="3" sprite="ui_game_select_row" type="sliced" color="255,255,255,255" pos="326,-12" width="94" height="44"/>
+						<rect depth="0" pos="0,0" width="440" height="60" visible="{enclavestabvisible}">
+							<button depth="2" name="btnTabEnclaves" pos="326,-12" width="94" height="44" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+							<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="326,-12" width="94" height="44"/>
+							<rect depth="0" pos="0,0" width="440" height="60" visible="{tabenclaves}">
+								<sprite depth="3" sprite="ui_game_select_row" type="sliced" color="255,255,255,255" pos="326,-12" width="94" height="44"/>
+							</rect>
+							<label depth="4" pos="330,-15" width="86" height="20" font_size="15" text_key="scUiEnclaves" color="255,255,255,255" justify="center" upper_case="true"/>
+							<label depth="4" pos="330,-35" width="86" height="18" font_size="14" text="{enclavecount}" color="222,206,163,255" justify="center"/>
 						</rect>
-						<label depth="4" pos="330,-15" width="86" height="20" font_size="15" text_key="scUiEnclaves" color="255,255,255,255" justify="center" upper_case="true"/>
-						<label depth="4" pos="330,-35" width="86" height="18" font_size="14" text="{enclavecount}" color="222,206,163,255" justify="center"/>
 						<rect depth="0" name="memberList" pos="0,0" width="440" height="696" visible="{tabmembers}">
 							<sprite depth="1" sprite="menu_empty" type="sliced" color="32,32,32,255" pos="20,-60" width="250" height="40"/>
 							<sprite depth="3" sprite="ui_game_symbol_search" pos="40,-80" width="24" height="24" pivot="center" color="[white]"/>
@@ -1809,8 +1813,8 @@
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{encrow1nobarvisible}">
 									<label depth="4" pos="32,-141" width="376" height="20" font_size="15" text="{encrow1nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="32,-164" width="210" height="20" font_size="15" text="{encrow1info}" color="180,180,180,255"/>
-								<label depth="4" pos="244,-164" width="164" height="20" font_size="15" text="{encrow1badge}" color="{encrow1badgecolor}" justify="right"/>
+								<label depth="4" pos="32,-164" width="238" height="20" font_size="15" text="{encrow1info}" color="180,180,180,255"/>
+								<label depth="4" pos="278,-164" width="130" height="20" font_size="15" text="{encrow1badge}" color="{encrow1badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{encrow2visible}">
 								<button depth="2" name="btnEnc2" pos="20,-194" width="400" height="76" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -1829,8 +1833,8 @@
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{encrow2nobarvisible}">
 									<label depth="4" pos="32,-223" width="376" height="20" font_size="15" text="{encrow2nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="32,-246" width="210" height="20" font_size="15" text="{encrow2info}" color="180,180,180,255"/>
-								<label depth="4" pos="244,-246" width="164" height="20" font_size="15" text="{encrow2badge}" color="{encrow2badgecolor}" justify="right"/>
+								<label depth="4" pos="32,-246" width="238" height="20" font_size="15" text="{encrow2info}" color="180,180,180,255"/>
+								<label depth="4" pos="278,-246" width="130" height="20" font_size="15" text="{encrow2badge}" color="{encrow2badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{encrow3visible}">
 								<button depth="2" name="btnEnc3" pos="20,-276" width="400" height="76" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -1849,8 +1853,8 @@
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{encrow3nobarvisible}">
 									<label depth="4" pos="32,-305" width="376" height="20" font_size="15" text="{encrow3nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="32,-328" width="210" height="20" font_size="15" text="{encrow3info}" color="180,180,180,255"/>
-								<label depth="4" pos="244,-328" width="164" height="20" font_size="15" text="{encrow3badge}" color="{encrow3badgecolor}" justify="right"/>
+								<label depth="4" pos="32,-328" width="238" height="20" font_size="15" text="{encrow3info}" color="180,180,180,255"/>
+								<label depth="4" pos="278,-328" width="130" height="20" font_size="15" text="{encrow3badge}" color="{encrow3badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{encrow4visible}">
 								<button depth="2" name="btnEnc4" pos="20,-358" width="400" height="76" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -1869,8 +1873,8 @@
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{encrow4nobarvisible}">
 									<label depth="4" pos="32,-387" width="376" height="20" font_size="15" text="{encrow4nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="32,-410" width="210" height="20" font_size="15" text="{encrow4info}" color="180,180,180,255"/>
-								<label depth="4" pos="244,-410" width="164" height="20" font_size="15" text="{encrow4badge}" color="{encrow4badgecolor}" justify="right"/>
+								<label depth="4" pos="32,-410" width="238" height="20" font_size="15" text="{encrow4info}" color="180,180,180,255"/>
+								<label depth="4" pos="278,-410" width="130" height="20" font_size="15" text="{encrow4badge}" color="{encrow4badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{encrow5visible}">
 								<button depth="2" name="btnEnc5" pos="20,-440" width="400" height="76" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -1889,8 +1893,8 @@
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{encrow5nobarvisible}">
 									<label depth="4" pos="32,-469" width="376" height="20" font_size="15" text="{encrow5nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="32,-492" width="210" height="20" font_size="15" text="{encrow5info}" color="180,180,180,255"/>
-								<label depth="4" pos="244,-492" width="164" height="20" font_size="15" text="{encrow5badge}" color="{encrow5badgecolor}" justify="right"/>
+								<label depth="4" pos="32,-492" width="238" height="20" font_size="15" text="{encrow5info}" color="180,180,180,255"/>
+								<label depth="4" pos="278,-492" width="130" height="20" font_size="15" text="{encrow5badge}" color="{encrow5badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="440" height="696" visible="{encrow6visible}">
 								<button depth="2" name="btnEnc6" pos="20,-522" width="400" height="76" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -1909,8 +1913,8 @@
 								<rect depth="0" pos="0,0" width="440" height="696" visible="{encrow6nobarvisible}">
 									<label depth="4" pos="32,-551" width="376" height="20" font_size="15" text="{encrow6nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="32,-574" width="210" height="20" font_size="15" text="{encrow6info}" color="180,180,180,255"/>
-								<label depth="4" pos="244,-574" width="164" height="20" font_size="15" text="{encrow6badge}" color="{encrow6badgecolor}" justify="right"/>
+								<label depth="4" pos="32,-574" width="238" height="20" font_size="15" text="{encrow6info}" color="180,180,180,255"/>
+								<label depth="4" pos="278,-574" width="130" height="20" font_size="15" text="{encrow6badge}" color="{encrow6badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="20,-112" width="400" height="220" visible="{encempty}">
 								<label depth="4" pos="0,-12" width="400" height="30" font_size="24" text_key="scUiEncNone" color="255,255,255,255" upper_case="true"/>
@@ -2448,8 +2452,8 @@
 								<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc1nobarvisible}">
 									<label depth="4" pos="36,-119" width="488" height="20" font_size="15" text="{ncenc1nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="36,-142" width="322" height="20" font_size="15" text="{ncenc1info}" color="180,180,180,255"/>
-								<label depth="4" pos="360,-142" width="164" height="20" font_size="15" text="{ncenc1badge}" color="{ncenc1badgecolor}" justify="right"/>
+								<label depth="4" pos="36,-142" width="350" height="20" font_size="15" text="{ncenc1info}" color="180,180,180,255"/>
+								<label depth="4" pos="394,-142" width="130" height="20" font_size="15" text="{ncenc1badge}" color="{ncenc1badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="560" height="696" visible="{ncenc2visible}">
 								<button depth="2" name="btnNcEnc2" pos="24,-172" width="512" height="76" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -2468,8 +2472,8 @@
 								<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc2nobarvisible}">
 									<label depth="4" pos="36,-201" width="488" height="20" font_size="15" text="{ncenc2nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="36,-224" width="322" height="20" font_size="15" text="{ncenc2info}" color="180,180,180,255"/>
-								<label depth="4" pos="360,-224" width="164" height="20" font_size="15" text="{ncenc2badge}" color="{ncenc2badgecolor}" justify="right"/>
+								<label depth="4" pos="36,-224" width="350" height="20" font_size="15" text="{ncenc2info}" color="180,180,180,255"/>
+								<label depth="4" pos="394,-224" width="130" height="20" font_size="15" text="{ncenc2badge}" color="{ncenc2badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="560" height="696" visible="{ncenc3visible}">
 								<button depth="2" name="btnNcEnc3" pos="24,-254" width="512" height="76" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -2488,8 +2492,8 @@
 								<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc3nobarvisible}">
 									<label depth="4" pos="36,-283" width="488" height="20" font_size="15" text="{ncenc3nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="36,-306" width="322" height="20" font_size="15" text="{ncenc3info}" color="180,180,180,255"/>
-								<label depth="4" pos="360,-306" width="164" height="20" font_size="15" text="{ncenc3badge}" color="{ncenc3badgecolor}" justify="right"/>
+								<label depth="4" pos="36,-306" width="350" height="20" font_size="15" text="{ncenc3info}" color="180,180,180,255"/>
+								<label depth="4" pos="394,-306" width="130" height="20" font_size="15" text="{ncenc3badge}" color="{ncenc3badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="560" height="696" visible="{ncenc4visible}">
 								<button depth="2" name="btnNcEnc4" pos="24,-336" width="512" height="76" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -2508,8 +2512,8 @@
 								<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc4nobarvisible}">
 									<label depth="4" pos="36,-365" width="488" height="20" font_size="15" text="{ncenc4nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="36,-388" width="322" height="20" font_size="15" text="{ncenc4info}" color="180,180,180,255"/>
-								<label depth="4" pos="360,-388" width="164" height="20" font_size="15" text="{ncenc4badge}" color="{ncenc4badgecolor}" justify="right"/>
+								<label depth="4" pos="36,-388" width="350" height="20" font_size="15" text="{ncenc4info}" color="180,180,180,255"/>
+								<label depth="4" pos="394,-388" width="130" height="20" font_size="15" text="{ncenc4badge}" color="{ncenc4badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="560" height="696" visible="{ncenc5visible}">
 								<button depth="2" name="btnNcEnc5" pos="24,-418" width="512" height="76" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -2528,8 +2532,8 @@
 								<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc5nobarvisible}">
 									<label depth="4" pos="36,-447" width="488" height="20" font_size="15" text="{ncenc5nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="36,-470" width="322" height="20" font_size="15" text="{ncenc5info}" color="180,180,180,255"/>
-								<label depth="4" pos="360,-470" width="164" height="20" font_size="15" text="{ncenc5badge}" color="{ncenc5badgecolor}" justify="right"/>
+								<label depth="4" pos="36,-470" width="350" height="20" font_size="15" text="{ncenc5info}" color="180,180,180,255"/>
+								<label depth="4" pos="394,-470" width="130" height="20" font_size="15" text="{ncenc5badge}" color="{ncenc5badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="1" pos="0,0" width="560" height="696" visible="{ncenc6visible}">
 								<button depth="2" name="btnNcEnc6" pos="24,-500" width="512" height="76" sprite="menu_empty" hoversprite="menu_empty" defaultcolor="64,64,64,255" hovercolor="96,96,96,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -2548,8 +2552,8 @@
 								<rect depth="0" pos="0,0" width="560" height="696" visible="{ncenc6nobarvisible}">
 									<label depth="4" pos="36,-529" width="488" height="20" font_size="15" text="{ncenc6nobar}" color="240,150,130,255"/>
 								</rect>
-								<label depth="4" pos="36,-552" width="322" height="20" font_size="15" text="{ncenc6info}" color="180,180,180,255"/>
-								<label depth="4" pos="360,-552" width="164" height="20" font_size="15" text="{ncenc6badge}" color="{ncenc6badgecolor}" justify="right"/>
+								<label depth="4" pos="36,-552" width="350" height="20" font_size="15" text="{ncenc6info}" color="180,180,180,255"/>
+								<label depth="4" pos="394,-552" width="130" height="20" font_size="15" text="{ncenc6badge}" color="{ncenc6badgecolor}" justify="right"/>
 							</rect>
 							<rect depth="0" pos="0,0" width="560" height="696" visible="{ncencempty}">
 								<label depth="4" pos="24,-96" width="512" height="120" font_size="18" text_key="scUiNcEncNone" color="255,255,255,255"/>

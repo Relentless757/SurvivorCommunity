@@ -9,8 +9,10 @@ namespace SurvivorCommunity
     /// page's enclave list, which shows the same rows (ScEnclaveList's entries: the record in scope's, a personal record's too).
     /// The tab: a page of rows btnEnc1..6 (btnEncPrev / btnEncNext), the selected enclave's detail (four facts, the standing bar, what
     /// the level means) and btnEncMark. The no-community page: rows btnNcEnc1..6 on its pager (btnNcEncPrev / btnNcEncNext). A row
-    /// clicked marks its enclave with a vanilla waypoint, or takes the mark away when it has one (ScEnclaveList.ToggleMark: this
-    /// machine only, nothing goes to the server); on the tab it is selected too. On the no-community page a marked row is lit.
+    /// clicked marks its enclave with a vanilla waypoint (ScEnclaveList.ToggleMark: this machine only, nothing goes to the server).
+    /// Round en1 (review): EN1-n1 - on the tab a row click selects it and marks it when it has no mark (reading a marked one leaves its
+    /// mark; btnEncMark takes it away); on the no-community page, which has no button, a second click takes the mark away, and a
+    /// marked row is lit.
     /// Every binding answers with a string, before a world exists too (bindings run while the XML is parsed).
     /// </summary>
     public partial class XUiC_ScCommunity
@@ -58,6 +60,7 @@ namespace SurvivorCommunity
                 {
                     EntityPlayerLocal pl = Player;
                     encList.AddRange(ScEnclaveList.Build(pl != null ? pl.position : Vector3.zero));
+                    ScEnclaveList.SyncMarks(pl);            // round en1 (review): EN1-m4 - marks follow their groups (moved, fallen)
                     HashSet<int> marked = ScEnclaveList.MarkedIds(pl, encList);
                     foreach (EnclaveEntry x in encList) x.Marked = marked.Contains(x.Id);
                 }
@@ -86,12 +89,20 @@ namespace SurvivorCommunity
             return slot >= 0 && slot < EnclaveSlots && i >= 0 && i < encList.Count ? encList[i] : null;
         }
 
-        /// <summary>A row clicked: the tab selects it; both mark it, or take its mark away.</summary>
+        /// <summary>
+        /// A row clicked. The tab: selected, and marked when it has no mark (round en1 (review): EN1-n1 - a marked row only selects: its
+        /// mark, and vanilla's one tracked waypoint, stay as they are). The no-community page: marked, or its mark taken away.
+        /// </summary>
         private void OnEnclaveRow(int slot, bool noCommunityPage)
         {
             EnclaveEntry x = EnclaveAt(noCommunityPage ? ncEncPage : encPage, slot);
             if (x == null) return;
-            if (!noCommunityPage) encSelected = x.Id;
+            if (!noCommunityPage)
+            {
+                encSelected = x.Id;
+                encMessage = "";
+                if (x.Marked) { RefreshBindingsSelfAndChildren(); return; }
+            }
             ToggleEnclaveMark(x);
         }
 
@@ -130,11 +141,12 @@ namespace SurvivorCommunity
         private bool EnclaveBinding(string name, ref string value)
         {
             if (!name.StartsWith("enc", StringComparison.Ordinal) && !name.StartsWith("ncenc", StringComparison.Ordinal)
-                && name != "tabenclaves" && name != "enclavecount") return false;
+                && name != "tabenclaves" && name != "enclavecount" && name != "enclavestabvisible") return false;
             EnclaveEntry sel = EnclaveSelected;
             switch (name)
             {
                 case "tabenclaves": value = (tab == Tab.Enclaves).ToString(); return true;
+                case "enclavestabvisible": value = ScConfig.Enclaves.ToString(); return true;    // round en1 (review): EN1-n7 - no tab with enclaves off
                 case "enclavecount": value = ScRegistry.Ready ? Num(encList.Count) : ""; return true;
                 case "encsummary": value = encList.Count > 0 ? string.Format(Localization.Get("scUiEncSummary"), encList.Count) : ""; return true;
                 case "encempty": value = (ScRegistry.Ready && encList.Count == 0).ToString(); return true;

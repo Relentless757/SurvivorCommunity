@@ -46,9 +46,13 @@ namespace SurvivorCommunity
     {
         public const int FriendlyAt = 30, AlliedAt = 70, MostStanding = 100;
         public const int RankHostile = 0, RankNeutral = 1, RankFriendly = 2, RankAllied = 3;
-        /// <summary>The badges, in the order one beats another: a siege, then a request taken, a favor taken, a request open, a favor open.</summary>
-        public const int BadgeNone = 0, BadgeFavourOpen = 1, BadgeRequestOpen = 2, BadgeFavourTaken = 3, BadgeRequestTaken = 4, BadgeSiege = 5;
-        public const int FavourNone = 0, FavourOffered = 1, FavourTaken = 2;
+        /// <summary>
+        /// The badges, in the order one beats another: a siege, then a request taken, a favor taken, a request open, a favor open, and
+        /// (round en1 (review): EN1-n2) a favor done - its person joins when asked.
+        /// </summary>
+        public const int BadgeNone = 0, BadgeFavourDone = 1, BadgeFavourOpen = 2, BadgeRequestOpen = 3, BadgeFavourTaken = 4, BadgeRequestTaken = 5, BadgeSiege = 6;
+        /// <summary>A favor's state, as encf.&lt;id&gt; sends it: 1 offered, 2 taken on, 3 done (round en1 (review): EN1-n2 - done was "taken").</summary>
+        public const int FavourNone = 0, FavourOffered = 1, FavourTaken = 2, FavourDone = 3;
         /// <summary>The derived block's keys (WriteDerived).</summary>
         public const string KeyPeople = "encn.", KeyFavour = "encf.";
         public const string ColorBody = "226,220,208,255", ColorDim = "190,182,166,255", ColorGold = "206,178,120,255", ColorGood = "142,208,108,255",
@@ -73,11 +77,21 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>The bar's fill: the points over the next level's (as its text reads them), 0 below zero.</summary>
+        /// <summary>
+        /// The bar's fill. Round en1 (review): EN1-n8 - the way through the level, as an XP bar fills (it read points over the next
+        /// level's, so it jumped back at each level): Neutral 0 to 30 (below zero: empty), Friendly 30 to 70, Allied 70 to the most
+        /// (100); hostile none. The text still says the points over the next level's ("42 / 70 to Allied").
+        /// </summary>
         public static float FillOf(Enclave e)
         {
-            int next = NextAt(e);
-            return next <= 0 ? 0f : Mathf.Clamp01(e.Standing / (float)next);
+            int s = e.Standing;
+            switch (Rank(e))
+            {
+                case RankHostile: return 0f;
+                case RankAllied: return Mathf.Clamp01((s - AlliedAt) / (float)(MostStanding - AlliedAt));
+                case RankFriendly: return Mathf.Clamp01((s - FriendlyAt) / (float)(AlliedAt - FriendlyAt));
+                default: return Mathf.Clamp01(s / (float)FriendlyAt);
+            }
         }
 
         /// <summary>
@@ -105,16 +119,22 @@ namespace SurvivorCommunity
             {
                 int eid, cur;
                 if (pr == null || pr.EncPersonId <= 0 || !personEnclave.TryGetValue(pr.EncPersonId, out eid)) continue;
-                int st = pr.Started || pr.Done ? FavourTaken : FavourOffered;
-                if (!map.TryGetValue(eid, out cur) || st > cur) map[eid] = st;
+                int st = pr.Done ? FavourDone : pr.Started ? FavourTaken : FavourOffered;     // round en1 (review): EN1-n2
+                if (!map.TryGetValue(eid, out cur) || FavourBadge(st) > FavourBadge(cur)) map[eid] = st;
             }
             return map;
+        }
+
+        /// <summary>Round en1 (review): EN1-n2 - the badge a favor state shows (taken beats offered beats done).</summary>
+        public static int FavourBadge(int state)
+        {
+            return state == FavourTaken ? BadgeFavourTaken : state == FavourOffered ? BadgeFavourOpen : state == FavourDone ? BadgeFavourDone : BadgeNone;
         }
 
         /// <summary>An enclave's favor state: the host's map (FavourStates), a client's derived block (encf.).</summary>
         public static int FavourOf(Enclave e, Dictionary<int, int> hostMap)
         {
-            if (ScMirror.Active) return Mathf.Clamp(ScMirror.Int(KeyFavour + e.Id.ToString(CultureInfo.InvariantCulture), FavourNone), FavourNone, FavourTaken);
+            if (ScMirror.Active) return Mathf.Clamp(ScMirror.Int(KeyFavour + e.Id.ToString(CultureInfo.InvariantCulture), FavourNone), FavourNone, FavourDone);
             int v;
             return hostMap != null && hostMap.TryGetValue(e.Id, out v) ? v : FavourNone;
         }
@@ -148,7 +168,7 @@ namespace SurvivorCommunity
                 int req;
                 requests.TryGetValue(e.Id, out req);
                 int fav = FavourOf(e, favours);
-                int favBadge = fav == FavourTaken ? BadgeFavourTaken : fav == FavourOffered ? BadgeFavourOpen : BadgeNone;
+                int favBadge = FavourBadge(fav);
                 list.Add(new EnclaveEntry
                 {
                     Id = e.Id,
@@ -227,6 +247,7 @@ namespace SurvivorCommunity
                 case BadgeFavourTaken: x.BadgeText = Loc("scUiEncBadgeFavourTaken"); x.BadgeColor = ColorGold; break;
                 case BadgeRequestOpen: x.BadgeText = Loc("scUiEncBadgeOpen"); x.BadgeColor = ColorGood; break;
                 case BadgeFavourOpen: x.BadgeText = Loc("scUiEncBadgeFavour"); x.BadgeColor = ColorGood; break;
+                case BadgeFavourDone: x.BadgeText = Loc("scUiEncBadgeFavourDone"); x.BadgeColor = ColorGood; break;     // round en1 (review): EN1-n2
                 default: x.BadgeText = ""; x.BadgeColor = ColorDim; break;
             }
             x.RequestText = x.Badge == BadgeNone ? Loc("scUiEncNoRequest") : x.BadgeText;
@@ -263,17 +284,31 @@ namespace SurvivorCommunity
             return new Vector3i(Mathf.FloorToInt(c.x), e.Poi.y, Mathf.FloorToInt(c.z));
         }
 
-        /// <summary>The viewer's waypoint on this enclave (its spot and its name), or null.</summary>
+        /// <summary>
+        /// Round en1 (review): EN1-m4 - this machine's marks by enclave id: the name each mark was found or made under. A waypoint keeps
+        /// only its spot, icon and name, so a mark is found again by SC's icons and the group's name (names are never given twice);
+        /// the map remembers which group went (SyncMarks: its record is gone, so its name is too). Reset with the world.
+        /// </summary>
+        private static readonly Dictionary<int, string> marks = new Dictionary<int, string>();
+        private static World marksWorld;
+
+        private static bool IsScMark(Waypoint w)
+        {
+            return w != null && w.name != null && (w.icon == IconEnclave || w.icon == IconHostile);
+        }
+
+        /// <summary>The viewer's waypoint on this enclave (SC's icon and its name, wherever it stands - a group that moved keeps it), or null.</summary>
         private static Waypoint FindMark(EntityPlayerLocal pl, Enclave e)
         {
             if (pl == null || e == null || pl.Waypoints == null || pl.Waypoints.Collection == null) return null;
-            Vector3i at = MarkPos(e);
+            return FindMarkByName(pl, e.Name ?? "");
+        }
+
+        private static Waypoint FindMarkByName(EntityPlayerLocal pl, string name)
+        {
             List<Waypoint> list = pl.Waypoints.Collection.list;
             for (int i = 0; i < list.Count; i++)
-            {
-                Waypoint w = list[i];
-                if (w != null && w.pos == at && w.name != null && w.name.Text == e.Name) return w;
-            }
+                if (IsScMark(list[i]) && list[i].name.Text == name) return list[i];
             return null;
         }
 
@@ -287,11 +322,74 @@ namespace SurvivorCommunity
             return set;
         }
 
+        /// <summary>A waypoint out of the player's list and off the map and compass.</summary>
+        private static void Unmark(EntityPlayerLocal pl, Waypoint w)
+        {
+            pl.Waypoints.Collection.Remove(w);
+            if (w.navObject != null && NavObjectManager.Instance != null) NavObjectManager.Instance.UnRegisterNavObject(w.navObject);
+            w.navObject = null;
+        }
+
+        /// <summary>The waypoint's nav object (vanilla's waypoint class), active while it is the tracked one.</summary>
+        private static void Show(Waypoint w, string name)
+        {
+            if (NavObjectManager.Instance == null) return;
+            w.navObject = NavObjectManager.Instance.RegisterNavObject("waypoint", w.pos.ToVector3(), w.icon);
+            if (w.navObject == null) return;
+            w.navObject.IsActive = w.bTracked;
+            w.navObject.usingLocalizationId = false;
+            w.navObject.name = name ?? "";
+        }
+
+        /// <summary>
+        /// Round en1 (review): EN1-m4 - the viewer's marks kept with their groups (BuildEnclaves, each refresh): a group that moved has
+        /// its mark moved to its new building (and its icon to its standing), a second mark on one group goes, and the mark of a group
+        /// that fell goes (its record went this session, or it is a lost group a refill is owed for). A group this load did not find
+        /// keeps its mark. This machine only.
+        /// </summary>
+        public static void SyncMarks(EntityPlayerLocal pl)
+        {
+            if (pl == null || pl.Waypoints == null || pl.Waypoints.Collection == null || !ScRegistry.Ready) return;
+            World w = ScCommunity.World;
+            if (!ReferenceEquals(w, marksWorld)) { marks.Clear(); marksWorld = w; }
+            var byName = new Dictionary<string, Enclave>(StringComparer.Ordinal);
+            foreach (Enclave e in ScEnclaves.All) if (e != null && !string.IsNullOrEmpty(e.Name) && !byName.ContainsKey(e.Name)) byName[e.Name] = e;
+            if (byName.Count == 0) return;                       // no copy of the enclaves here yet: nothing to judge by
+            var fell = new HashSet<string>(StringComparer.Ordinal);
+            foreach (EncRefill r in ScRegistry.WorldState.EncRefills) if (r != null && !string.IsNullOrEmpty(r.Name) && !byName.ContainsKey(r.Name)) fell.Add(r.Name);
+            foreach (KeyValuePair<int, string> kv in new List<KeyValuePair<int, string>>(marks))
+                if (ScEnclaves.ById(kv.Key) == null) { if (!byName.ContainsKey(kv.Value)) fell.Add(kv.Value); marks.Remove(kv.Key); }
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (Waypoint wp in new List<Waypoint>(pl.Waypoints.Collection.list))
+            {
+                if (!IsScMark(wp)) continue;
+                string n = wp.name.Text ?? "";
+                Enclave e;
+                if (byName.TryGetValue(n, out e))
+                {
+                    if (!seen.Add(n)) { Unmark(pl, wp); continue; }      // never two marks on one group
+                    marks[e.Id] = n;
+                    if (e.Lost) continue;                                 // not found this load: it may come back where it was
+                    Vector3i at = MarkPos(e);
+                    string icon = e.IsHostile ? IconHostile : IconEnclave;
+                    if (wp.pos == at && wp.icon == icon) continue;
+                    // moved (or turned hostile): out of the list while its spot changes - the list hashes the spot and the icon
+                    Unmark(pl, wp);
+                    wp.pos = at;
+                    wp.icon = icon;
+                    pl.Waypoints.Collection.Add(wp);
+                    Show(wp, n);
+                }
+                else if (fell.Contains(n)) Unmark(pl, wp);
+            }
+        }
+
         /// <summary>
         /// A row clicked (or the detail's button): the enclave's waypoint goes when there is one, else one is made - tracked (the compass
         /// and the on-screen distance; vanilla's waypoint class), the others untracked, as the map's own track button does. This
         /// machine's player only: nothing is sent (the waypoint is the player's own, in their player data, removable on the map).
-        /// True when it is marked now.
+        /// True when it is marked now. Round en1 (review): EN1-m3 - the click sounds play in the player's head (vanilla's map does the
+        /// same): PlayOneShot broadcast them; EN1-m4 - one mark per group, found by its name wherever it stands.
         /// </summary>
         public static bool ToggleMark(EntityPlayerLocal pl, Enclave e)
         {
@@ -299,9 +397,9 @@ namespace SurvivorCommunity
             Waypoint have = FindMark(pl, e);
             if (have != null)
             {
-                pl.Waypoints.Collection.Remove(have);
-                if (have.navObject != null && NavObjectManager.Instance != null) NavObjectManager.Instance.UnRegisterNavObject(have.navObject);
-                pl.PlayOneShot("ui_waypoint_delete");
+                Unmark(pl, have);
+                marks.Remove(e.Id);
+                Audio.Manager.PlayInsidePlayerHead("ui_waypoint_delete");
                 return false;
             }
             var w = new Waypoint();
@@ -318,17 +416,9 @@ namespace SurvivorCommunity
             }
             w.bTracked = true;
             pl.Waypoints.Collection.Add(w);
-            if (NavObjectManager.Instance != null)
-            {
-                w.navObject = NavObjectManager.Instance.RegisterNavObject("waypoint", w.pos.ToVector3(), w.icon);
-                if (w.navObject != null)
-                {
-                    w.navObject.IsActive = true;
-                    w.navObject.usingLocalizationId = false;
-                    w.navObject.name = e.Name ?? "";
-                }
-            }
-            pl.PlayOneShot("ui_waypoint_add");
+            Show(w, e.Name);
+            marks[e.Id] = e.Name ?? "";
+            Audio.Manager.PlayInsidePlayerHead("ui_waypoint_add");
             return true;
         }
     }

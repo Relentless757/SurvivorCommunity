@@ -215,6 +215,27 @@ namespace SurvivorCommunity
             return gone.Count;
         }
 
+        /// <summary>Round en1 (review): EN1-m5 - every player id the server's player list knows, online or not (none without a game).</summary>
+        private static List<string> KnownPlayerIds()
+        {
+            var ids = new List<string>();
+            try
+            {
+                PersistentPlayerList pp = GameManager.Instance != null ? GameManager.Instance.persistentPlayers : null;
+                if (pp == null || pp.Players == null) return ids;
+                foreach (PlatformUserIdentifierAbs u in pp.Players.Keys)
+                {
+                    string s = u != null ? u.CombinedString : null;
+                    if (!string.IsNullOrEmpty(s) && !ids.Contains(s)) ids.Add(s);
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("en1-known-players", e);
+            }
+            return ids;
+        }
+
         /// <summary>
         /// Round MP7 (core review): n2 - a player's display name for the record and the tells: online their body's, else the game's
         /// persistent player data (players.xml), else the id itself.
@@ -544,6 +565,7 @@ namespace SurvivorCommunity
             /// <summary>
             /// Round en1: leaving a founded community for their own relations (PerPlayer/PerParty), they got a copy of its relations - the
             /// enclave, infestation and band rows it had a saved value in, and its scouting marks (the user's decision 1, as a disband's copy).
+            /// Round en1 (review): EN1-n5 - CopiedEnclaves counts the enclaves the copy makes known.
             /// </summary>
             public bool Copied;
             public int CopiedEnclaves, CopiedInfestations, CopiedBands, CopiedScouts;
@@ -650,9 +672,9 @@ namespace SurvivorCommunity
                         // its own try: the move is done by now (a failed copy is logged, the player keeps the record as far as it got)
                         try
                         {
-                            CopyRelations(snap, target);
+                            CopyRelations(snap, target, old.Id);           // round en1 (review): EN1-M1 - with the base it was copied at
                             res.Copied = true;
-                            res.CopiedEnclaves = snap.Enc.Count;
+                            res.CopiedEnclaves = KnownIn(snap);            // round en1 (review): EN1-n5 - the enclaves known
                             res.CopiedInfestations = snap.Inf.Count;
                             res.CopiedBands = snap.Band.Count;
                             res.CopiedScouts = snap.Scouts.Count;
@@ -695,8 +717,8 @@ namespace SurvivorCommunity
         /// <summary>Round en1: what a leaver's copy of the community's relations held, for the log and the console.</summary>
         public static string CopyNote(MoveResult r)
         {
-            return "a copy of its relations kept: " + r.CopiedEnclaves + " enclave(s), " + r.CopiedInfestations + " infestation(s), "
-                   + r.CopiedBands + " band(s), " + r.CopiedScouts + " scouting mark(s)";
+            return "a copy of its relations kept: " + r.CopiedEnclaves + " enclave(s) known, " + r.CopiedInfestations + " infestation row(s), "
+                   + r.CopiedBands + " band row(s), " + r.CopiedScouts + " scouting mark(s)";
         }
 
         /// <summary>
@@ -738,8 +760,8 @@ namespace SurvivorCommunity
                 {
                     if (old != null) ScCommunity.TellKey(mover, reason == ByLeave ? "scMp7Left" : "scMp7LostAccess", reason == ByLeave ? "" : "ui_denied", Whose(old));
                     // round en1: and what they keep (the enclaves they knew with it, their standing, the map marks)
-                    if (res.Copied && res.CopiedEnclaves + res.CopiedInfestations + res.CopiedBands + res.CopiedScouts > 0)
-                        ScCommunity.TellKey(mover, "scEn1KeptCopy", "", res.CopiedEnclaves);
+                    // round en1 (review): EN1-n5 - told when it made an enclave known (a copy of scouting marks alone says nothing)
+                    if (res.Copied && res.CopiedEnclaves > 0) ScCommunity.TellKey(mover, "scEn1KeptCopy", "", res.CopiedEnclaves);
                 }
                 else if (target != null)
                 {
@@ -943,7 +965,16 @@ namespace SurvivorCommunity
                 EncRel pr = e.Rels.Peek(from.Id);
                 if (pr == null || !pr.HasSaved) continue;
                 EncRel tr = e.Rels.Get(into.Id);
-                tr.Standing = Math.Max(tr.Standing, pr.Standing);
+                // round en1 (review): EN1-m1 - a hostile row's points never raise the standing (its hostility is dropped below); EN1-M1 - a
+                // row copied from this very community brings only what the player gained on their own since (the community's losses
+                // meanwhile stand); any other row, the better value wins (MP7)
+                if (!pr.TurnedHostile)
+                {
+                    if (pr.CopyFrom >= 0 && pr.CopyFrom == into.Id)
+                        tr.Standing = Math.Max(Math.Min(0, ScConfig.EnclaveStandingMin), Math.Min(100, tr.Standing + Math.Max(0, pr.Standing - pr.CopyBase)));
+                    else tr.Standing = Math.Max(tr.Standing, pr.Standing);
+                }
+                pr.CopyFrom = -1;                                   // round en1 (review): the base is spent (the record retires next)
                 if (pr.Known)
                 {
                     if (!tr.Known) { tr.Known = true; tr.KnownDay = pr.KnownDay; }
@@ -976,7 +1007,10 @@ namespace SurvivorCommunity
                     if (!tr.Known) { tr.Known = true; tr.KnownDay = pr.KnownDay; }
                     else if (pr.KnownDay >= 0 && (tr.KnownDay < 0 || pr.KnownDay < tr.KnownDay)) tr.KnownDay = pr.KnownDay;
                 }
-                tr.Trust = Math.Max(tr.Trust, pr.Trust);
+                // round en1 (review): EN1-M1 - a copy merged back into its community: only a rise above the base counts
+                if (pr.CopyFrom >= 0 && pr.CopyFrom == into.Id) tr.Trust = Math.Max(-1, Math.Min(1, tr.Trust + Math.Max(0, pr.Trust - pr.CopyBase)));
+                else tr.Trust = Math.Max(tr.Trust, pr.Trust);
+                pr.CopyFrom = -1;
                 bands++;
             }
             // the record's own rows and hostility cvars go with it (Retire drops them)
@@ -1098,6 +1132,7 @@ namespace SurvivorCommunity
             }
             foreach (Infestation inf in ScRegistry.Infestations) inf.Rels.Drop(cid);
             foreach (Band b in ScRegistry.Bands) b.Rels.Drop(cid);
+            ScRelations.ClearBasesFrom(cid);                // round en1 (review): EN1-M1 - copies taken from it merge the plain way from now on
             ScWorldState ws = ScRegistry.WorldState;
             var gone = new List<string>();
             foreach (KeyValuePair<string, int> kv in ws.Membership) if (kv.Value == cid) gone.Add(kv.Key);
@@ -1190,12 +1225,18 @@ namespace SurvivorCommunity
             // round MP7 (core review): m4 - each online player's community before the switch (Shared: unlisted is community 0), so the
             // players it moves out get Move's leaving half below
             var before = new List<KeyValuePair<EntityPlayer, int>>();
+            var onlineIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (EntityPlayer p in ScPlayers.All.ToArray())
             {
                 if (p == null) continue;
                 string id = ScPlayers.IdOf(p);
-                if (id.Length > 0) before.Add(new KeyValuePair<EntityPlayer, int>(p, ScPlayers.CommunityOfId(id)));
+                if (id.Length > 0) { before.Add(new KeyValuePair<EntityPlayer, int>(p, ScPlayers.CommunityOfId(id))); onlineIds.Add(id); }
             }
+            // round en1 (review): EN1-m5 - the players the server knows who are offline, and their community before the switch: those it
+            // moves out get their own relations now, with the leaver's copy (they got an empty record at their next spawn before)
+            var beforeOffline = new List<KeyValuePair<string, int>>();
+            foreach (string id in KnownPlayerIds())
+                if (!onlineIds.Contains(id)) beforeOffline.Add(new KeyValuePair<string, int>(id, ScPlayers.CommunityOfId(id)));
             ws.Mode = to;
             ws.ModeWritten = true;
             int owners = 0, handed = 0, released = 0, freed = 0;
@@ -1259,7 +1300,8 @@ namespace SurvivorCommunity
             }
             // round MP7 (core review): m4 - each online player it moves out gets Move's leaving half: talk holds and shifts end, their links
             // end (EndLinks), their favor quests of the old community close (ReleaseFavours), their followers go home, they are told
-            int made = 0;
+            int made = 0, copies = 0, madeOffline = 0;
+            var snaps = new Dictionary<int, RelSnap>();         // round en1 (review): EN1-m5 - one snapshot per community left
             var lost = new HashSet<int> { ScPlayers.SharedCommunity };
             foreach (KeyValuePair<EntityPlayer, int> kv in before)
             {
@@ -1283,8 +1325,23 @@ namespace SurvivorCommunity
                     StationFollowers(old, id, p);
                 }
                 if (now != ScPlayers.NoCommunity) continue;     // in another community now: Move told them they joined it
-                if (EnsurePersonal(p, id, null) != ScPlayers.NoCommunity) made++;
+                int rid = EnsurePersonal(p, id, null);
+                if (rid != ScPlayers.NoCommunity) made++;
+                else ScLog.Warn("community mode switch: no own relations could be made for " + (p.PlayerDisplayName ?? id) + " now - they get empty ones at their next spawn");
                 if (old != null) ScCommunity.TellKey(p, "scMp7LostAccess", "ui_denied", Whose(old));
+                // round en1 (review): EN1-m5 - the leaver rule: a copy of the community they were moved out of
+                if (rid != ScPlayers.NoCommunity && CopyOnSwitch(old, rid, snaps)) copies++;
+            }
+            // round en1 (review): EN1-m5 - the offline ones it moves out: their record now, with the copy (no tell: they are not here)
+            foreach (KeyValuePair<string, int> kv in beforeOffline)
+            {
+                if (ScPlayers.CommunityOfId(kv.Key) != ScPlayers.NoCommunity) continue;
+                CommunityState old = ScCommunities.ById(kv.Value);
+                if (old == null || old.Personal) continue;
+                int rid = EnsurePersonal(null, kv.Key, NameOf(kv.Key));
+                if (rid == ScPlayers.NoCommunity) { ScLog.Warn("community mode switch: no own relations could be made for " + kv.Key + " now - they get empty ones at their next spawn"); continue; }
+                madeOffline++;
+                if (CopyOnSwitch(old, rid, snaps)) copies++;
             }
             // and the favors of the communities that lost players that nobody of them online holds now (an offline player's): free to
             // take on again (a holder's next report takes it on again: ScQuestNet.FavoursHeld)
@@ -1298,6 +1355,7 @@ namespace SurvivorCommunity
             ScRegistry.SaveAtomic();
             ScLog.Out("community mode switched to " + ModeName(to) + " by an admin (a save from before MP7): " + owners + " owner(s) listed, "
                       + handed + " accepted request(s) passed to their community's owner, " + made + " player(s) online given their own relations, "
+                      + madeOffline + " offline player(s) given theirs, " + copies + " of them with a copy of their community's relations (round en1 (review)), "
                       + released + " favor quest(s) closed in their journals, " + freed + " favor(s) free to take on again");
             lines.Insert(0, "this save is " + ModeName(to) + " from now on: " + owners + " owner(s) kept in their communities, " + handed
                          + " request(s) whose acceptor is in none of them passed to its owner, " + made + " player(s) online given their own relations"
@@ -1847,7 +1905,7 @@ namespace SurvivorCommunity
                     }
                     recs[pid] = rec;
                     res.Records++;
-                    CopyRelations(snap, rec);
+                    CopyRelations(snap, rec, -1);                 // round en1 (review): no base - the community is gone
                 }
                 catch (Exception ex)
                 {
@@ -2073,45 +2131,121 @@ namespace SurvivorCommunity
         /// bodies get rec's hostile cvar (ScEnclavePeople.OnTurnedHostile in rec's scope, no grace; a body spawned later gets it when it
         /// is dressed) - a disband never ends a war the community earned.
         /// </summary>
-        private static void CopyRelations(RelSnap s, CommunityState rec)
+        private static void CopyRelations(RelSnap s, CommunityState rec, int baseFrom)
         {
+            // round en1 (review): baseFrom - the community a leaver's copy came from (EN1-M1: each fresh row keeps the value it was copied
+            // at, so merging back brings only the player's own gain); -1 for a disband's copy (that community is gone). EN1-n6: a record
+            // that already had a row (EnsurePersonal's n4 branch hands back an existing record) keeps the better of the two, no base
             int rid = rec.Id;
             var hostile = new List<Enclave>();
             foreach (KeyValuePair<Enclave, EncRel> kv in s.Enc)
             {
                 EncRel f = kv.Value, t = kv.Key.Rels.Get(rid);
-                t.Standing = f.Standing;
-                t.Known = f.Known;
-                t.KnownDay = f.KnownDay;
-                t.TurnedHostile = f.TurnedHostile;
-                t.HostileDay = f.HostileDay;
-                t.NextRequestDay = f.NextRequestDay;
-                t.Thanks = f.Thanks;
-                t.AllyRevealDay = f.AllyRevealDay;
-                t.GiftDay = f.GiftDay;
-                t.BarterDay = f.BarterDay;
-                t.CallDay = f.CallDay;
-                if (f.TurnedHostile) hostile.Add(kv.Key);
+                bool wasHostile = t.TurnedHostile;
+                if (!t.HasSaved)
+                {
+                    t.Standing = f.Standing;
+                    t.Known = f.Known;
+                    t.KnownDay = f.KnownDay;
+                    t.TurnedHostile = f.TurnedHostile;
+                    t.HostileDay = f.HostileDay;
+                    t.NextRequestDay = f.NextRequestDay;
+                    t.Thanks = f.Thanks;
+                    t.AllyRevealDay = f.AllyRevealDay;
+                    t.GiftDay = f.GiftDay;
+                    t.BarterDay = f.BarterDay;
+                    t.CallDay = f.CallDay;
+                    if (baseFrom >= 0) { t.CopyFrom = baseFrom; t.CopyBase = f.Standing; }
+                }
+                else
+                {
+                    t.Standing = Math.Max(t.Standing, f.Standing);
+                    if (f.Known)
+                    {
+                        if (!t.Known) { t.Known = true; t.KnownDay = f.KnownDay; }
+                        else if (f.KnownDay >= 0 && (t.KnownDay < 0 || f.KnownDay < t.KnownDay)) t.KnownDay = f.KnownDay;
+                    }
+                    if (f.TurnedHostile && !t.TurnedHostile) { t.TurnedHostile = true; t.HostileDay = f.HostileDay; }
+                    t.NextRequestDay = Math.Max(t.NextRequestDay, f.NextRequestDay);
+                    if (t.Thanks.Length == 0) t.Thanks = f.Thanks;
+                    t.AllyRevealDay = Math.Max(t.AllyRevealDay, f.AllyRevealDay);
+                    t.GiftDay = Math.Max(t.GiftDay, f.GiftDay);
+                    t.BarterDay = Math.Max(t.BarterDay, f.BarterDay);
+                    t.CallDay = Math.Max(t.CallDay, f.CallDay);
+                }
+                if (t.TurnedHostile && !wasHostile) hostile.Add(kv.Key);
             }
             foreach (KeyValuePair<Infestation, InfRel> kv in s.Inf)
             {
-                InfRel t = kv.Key.Rels.Get(rid);
-                t.Known = kv.Value.Known;
-                t.KnownDay = kv.Value.KnownDay;
+                InfRel f = kv.Value, t = kv.Key.Rels.Get(rid);
+                if (!t.HasSaved) { t.Known = f.Known; t.KnownDay = f.KnownDay; }
+                else if (f.Known)
+                {
+                    if (!t.Known) { t.Known = true; t.KnownDay = f.KnownDay; }
+                    else if (f.KnownDay >= 0 && (t.KnownDay < 0 || f.KnownDay < t.KnownDay)) t.KnownDay = f.KnownDay;
+                }
             }
             foreach (KeyValuePair<Band, BandRel> kv in s.Band)
             {
-                BandRel t = kv.Key.Rels.Get(rid);
-                t.Known = kv.Value.Known;
-                t.KnownDay = kv.Value.KnownDay;
-                t.Trust = kv.Value.Trust;
+                BandRel f = kv.Value, t = kv.Key.Rels.Get(rid);
+                if (!t.HasSaved)
+                {
+                    t.Known = f.Known;
+                    t.KnownDay = f.KnownDay;
+                    t.Trust = f.Trust;
+                    if (baseFrom >= 0) { t.CopyFrom = baseFrom; t.CopyBase = f.Trust; }
+                }
+                else
+                {
+                    if (f.Known)
+                    {
+                        if (!t.Known) { t.Known = true; t.KnownDay = f.KnownDay; }
+                        else if (f.KnownDay >= 0 && (t.KnownDay < 0 || f.KnownDay < t.KnownDay)) t.KnownDay = f.KnownDay;
+                    }
+                    t.Trust = Math.Max(t.Trust, f.Trust);
+                }
             }
             foreach (Scout sc in s.Scouts)
-                rec.Community.Scouts.Add(new Scout { Poi = sc.Poi, Size = sc.Size, Name = sc.Name, Res = sc.Res, ExpireDay = sc.ExpireDay });
+            {
+                // round en1 (review): EN1-n6 - one mark per building, as MoveScouts
+                bool have = false;
+                foreach (Scout o in rec.Community.Scouts) if (o != null && o.Poi == sc.Poi) { have = true; break; }
+                if (!have) rec.Community.Scouts.Add(new Scout { Poi = sc.Poi, Size = sc.Size, Name = sc.Name, Res = sc.Res, ExpireDay = sc.ExpireDay });
+            }
             foreach (Enclave e in hostile)
             {
                 try { using (ScRegistry.Use(rid)) ScEnclavePeople.OnTurnedHostile(e, 0f); }
                 catch (Exception ex) { ScLog.Once("db1-hostile-" + ex.GetType().Name, ex); }
+            }
+        }
+
+        /// <summary>Round en1 (review): EN1-n5 - the enclaves a copy makes known (rows with any saved value are not all known ones).</summary>
+        private static int KnownIn(RelSnap s)
+        {
+            int n = 0;
+            foreach (KeyValuePair<Enclave, EncRel> kv in s.Enc) if (kv.Value.Known) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// Round en1 (review): EN1-m5 - the leaver rule for a player the mode switch moves out of a community: their own relations
+        /// with a copy of that community's (the snapshot taken once per community). False when there was nothing to copy into.
+        /// </summary>
+        private static bool CopyOnSwitch(CommunityState old, int rid, Dictionary<int, RelSnap> snaps)
+        {
+            CommunityState rec = ScCommunities.ById(rid);
+            if (old == null || old.Personal || rec == null || !rec.Personal || rec.Id == old.Id) return false;
+            RelSnap snap;
+            if (!snaps.TryGetValue(old.Id, out snap)) snaps[old.Id] = snap = SnapRelations(old);
+            try
+            {
+                CopyRelations(snap, rec, old.Id);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("en1-switch-copy-" + ex.GetType().Name, ex);
+                return false;
             }
         }
     }
