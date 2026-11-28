@@ -164,6 +164,8 @@ namespace UAI
         private readonly HashSet<int> retried = new HashSet<int>();
         // round 29b: each walk's progress (NoProgress)
         private readonly Dictionary<int, ScStuck.Progress> walks = new Dictionary<int, ScStuck.Progress>();
+        // round nv1: the last path PathThroughGap looked at, per body
+        private readonly Dictionary<int, GamePath.PathEntity> gapChecked = new Dictionary<int, GamePath.PathEntity>();
         private const float MaxSeconds = 20f;   // of walking before giving up on a target (real time - ticks are frame-rate bound)
         private const float MaxZoneSeconds = 90f;   // zone roaming: the walk's limit grows with the distance, up to this
         private const float RetryBackoff = 5f;  // when no target could be found
@@ -253,8 +255,19 @@ namespace UAI
                 self.FindPath(target, self.GetMoveSpeed(), false, null);
                 return;
             }
+            bool blocked = self.moveHelper != null && self.moveHelper.BlockedTime > 2f;     // round nv1: named (furniture / doorway: stop pushing)
             if (Time.time > deadline || self.getNavigator().noPathAndNotPlanningOne() || Vector3.Distance(self.position, target) < 1.5f
-                || (self.moveHelper != null && self.moveHelper.BlockedTime > 2f))     // furniture / doorway: stop pushing
+                || blocked)
+            {
+                // round nv1: blocked short of the spot - the cell ahead may be a gap the path planner took for open
+                if (blocked && Vector3.Distance(self.position, target) >= 1.5f) ScStuck.RememberSpot(self, "a roam walk, blocked");
+                if (ZoneRoam(self)) { Pause(self); return; }
+                Stop(_context);
+                return;
+            }
+            // round nv1: a path through a gap that stopped a member (planned before the gap was remembered): the spot is not picked
+            // again for a while and the next walk goes elsewhere
+            if (PathThroughGap(self, target))
             {
                 if (ZoneRoam(self)) { Pause(self); return; }
                 Stop(_context);
@@ -286,7 +299,26 @@ namespace UAI
             float d = Vector3.Distance(self.position, target);
             if (p.Gained(self, d)) { p.GainAt = now; return false; }
             if (now - p.GainAt < limit) return false;
+            ScStuck.RememberSpot(self, "a roam walk");     // round nv1: the cell she could not get into, before the path goes
             ScStuck.MarkUnreachable(self, target, d);
+            return true;
+        }
+
+        /// <summary>
+        /// Round nv1: once per new path, true (the spot marked unreachable, as a walk with no gain marks it) when the path runs
+        /// through a gap that stopped a member of her base (ScStuck.PathCrossesGap) - one planned before the gap was remembered.
+        /// </summary>
+        private bool PathThroughGap(EntityAlive self, Vector3 target)
+        {
+            GamePath.PathNavigate nav = self.getNavigator();
+            GamePath.PathEntity path = nav != null ? nav.getPath() : null;
+            if (path == null || path.isFinished() || ScCommunity.PathPending(self)) return false;
+            GamePath.PathEntity seen;
+            if (gapChecked.TryGetValue(self.entityId, out seen) && ReferenceEquals(seen, path)) return false;
+            gapChecked[self.entityId] = path;
+            Vector3i cell;
+            if (!ScStuck.PathCrossesGap(self, path, out cell)) return false;
+            ScStuck.MarkUnreachable(self, target, Vector3.Distance(self.position, target), "its path runs through the remembered gap at " + cell + " (round nv1)");
             return true;
         }
 
@@ -303,6 +335,7 @@ namespace UAI
             pauseUntil[self.entityId] = Time.time + Mathf.Max(atLeast, Random.Range(lo, hi));
             targets.Remove(self.entityId);
             walks.Remove(self.entityId);
+            gapChecked.Remove(self.entityId);     // round nv1
             ScCommunity.DropPath(self);   // the path, a request still in the path finder (F5) and the move helper
         }
 
@@ -358,6 +391,7 @@ namespace UAI
             pauseUntil.Remove(id);
             retried.Remove(id);
             walks.Remove(id);
+            gapChecked.Remove(id);     // round nv1
             if (ScRoamState.Active.Remove(id)) ScRoamState.NextAllowed[id] = Time.time + (ZoneRoam(self) ? ZoneCooldown : cooldown);
             self.getNavigator().clearPath();
             if (self.moveHelper != null) { self.moveHelper.Stop(); self.moveHelper.CanBreakBlocks = true; }

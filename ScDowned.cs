@@ -656,7 +656,10 @@ namespace SurvivorCommunity
             if (Held(me)) { d.GainAt = now; return; }
             if (dist < d.Best - 1f) { d.Best = dist; d.GainAt = now; return; }
             if (now - d.GainAt > ScConfig.ReviveNoGainSeconds)
+            {
+                ScStuck.RememberSpot(me, "a revive walk");     // round nv1: the cell ahead of the medic, before LetGo drops her walk
                 LetGo(d, "no meter closer in " + Secs(ScConfig.ReviveNoGainSeconds) + " (" + dist.ToString("0.0", CultureInfo.InvariantCulture) + " m off)", true);
+            }
         }
 
         private static void Send(Down d, float now)

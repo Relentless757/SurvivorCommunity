@@ -288,6 +288,8 @@ namespace UAI
                 }
                 if (fail != null)
                 {
+                    // round nv1: blocked or no gain on the way - the cell ahead of her may be a gap the path planner took for open
+                    if (!noPath && now <= wk.Deadline) ScStuck.RememberSpot(self, "a shelter walk, " + fail);
                     ScRetreat.SpotFailed(self, wk.Spot, fail, true);
                     Pick(self, wk);
                     Go(self, wk);

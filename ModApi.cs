@@ -866,6 +866,9 @@ namespace SurvivorCommunity
             Add(t, "Party::ServerHandleLeaveParty", AccessTools.Method(typeof(Party), "ServerHandleLeaveParty", new[] { typeof(EntityPlayer), typeof(int) }));
             Add(t, "Party::ServerHandleKickParty", AccessTools.Method(typeof(Party), "ServerHandleKickParty", new[] { typeof(int) }));
             Add(t, "Party::ServerHandleChangeLead", AccessTools.Method(typeof(Party), "ServerHandleChangeLead", new[] { typeof(EntityPlayer) }));
+            // round nv1: ScStuck - the path planner refuses a remembered gap's cells on SC's own bodies' paths (grid steps, extra links)
+            Add(t, "Path::CanTraverse(GraphNode,int)", ScStuck.PlannerGridTarget());
+            Add(t, "Path::CanTraverse(Connection)", ScStuck.PlannerLinkTarget());
             return t;
         }
 

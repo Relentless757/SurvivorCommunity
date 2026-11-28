@@ -978,6 +978,16 @@ namespace SurvivorCommunity
                           + " m short - set aside, the next step (round hr1)");
                 return false;
             }
+            // round nv1: a path through a gap that stopped a member of her base (ScStuck) - set aside, the next step
+            Vector3i gap;
+            if (ScStuck.PathCrossesGap(self, path, out gap))
+            {
+                SetAside(st, now);
+                Patches_Xnpc.Count("heal-walk-through-gap");
+                ScLog.Out(ScMedic.BodyName(self) + "'s path to the " + kind + " at " + ScRetreat.Cell(st.Point) + " runs through the remembered gap at " + gap
+                          + " - set aside, the next step (round nv1)");
+                return false;
+            }
             GatherFoes(self, 40f);
             try
             {
