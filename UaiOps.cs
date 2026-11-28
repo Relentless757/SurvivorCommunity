@@ -874,7 +874,7 @@ namespace UAI
         }
 
         /// <summary>A new world: no latches carried over (entity ids are reused).</summary>
-        public static void ResetHunts() { huntUntil.Clear(); nextHuntPrune = 0f; wanderLogged.Clear(); }     // round wp1: the once-log too
+        public static void ResetHunts() { huntUntil.Clear(); nextHuntPrune = 0f; wanderLogged.Clear(); UAIConsiderationScCannotEngage.ResetNear(); }     // round wp1: the once-log too; round wp2 (review): the near cache
 
         private static bool Hunted(EntityAlive v)
         {
@@ -1275,6 +1275,13 @@ namespace UAI
 
         /// <summary>Round wp2 (3): a nearer enemy this close (meters) takes the defense walk's place.</summary>
         private const float DefendYieldDist = 4f;
+        /// <summary>Round wp2 (review WP2-M2): ... and on her floor - no more than this above or below her (meters).</summary>
+        private const float DefendYieldLevel = 1.5f;
+        /// <summary>Round wp2 (review WP2-M2): the low line of the walk test, over a fence or a low wall (meters above the feet).</summary>
+        private const float DefendYieldLowLine = 0.6f;
+
+        /// <summary>Round wp2 (review WP2-n3): a new world - no cached answers (entity ids are recycled).</summary>
+        public static void ResetNear() { nearCache.Clear(); }
         private struct NearAnswer { public float At; public int Id; public float D2; }
         private static readonly Dictionary<int, NearAnswer> nearCache = new Dictionary<int, NearAnswer>();
         private static readonly List<Entity> nearScratch = new List<Entity>();
@@ -1283,6 +1290,11 @@ namespace UAI
         /// Round wp2 (3): the nearest enemy within DefendYieldDist of her that is alive, awake, not inert, in her sight (SCore's
         /// CanSee, as the packs' approach needs) and one round n08 does not leave her alone with; null when none. One scan per body
         /// per UAI decision (cached UAIBase.ActionChoiceDelay). A read.
+        /// Round wp2 (review WP2-M2): only one she can reach and fight - on her floor (DefendYieldLevel), a real block ray from her
+        /// head to its chest and a low one over the ground (ScShelter.ClearLine with glass and bars: SCore's CanSee is ray-free for
+        /// her own target inside 4.47 m, and a zombie at the bars or behind a fence is in plain sight but out of reach), no swing
+        /// refusal of hers on it (ScPosture.RefusedWhy) and no 0-XNPCCore unreachable mark, and - for a resident at home - inside
+        /// the home zone + margin (the defense's own area). A zombie at the perimeter no longer stops her walking to an intruder.
         /// </summary>
         internal static EntityAlive NearestEngageable(EntityAlive self, out float d2)
         {
@@ -1309,6 +1321,7 @@ namespace UAI
                     float q = (a.position - self.position).sqrMagnitude;
                     if (q > r2 || q >= d2 || !EntityTargetingUtilities.IsEnemy(self, a)) continue;
                     if (global::Harmony.ZombieFeatures.InertEntity.IsInert(a) || UAIConsiderationScIntruder.LeavesAlone(self, a) || !SCoreUtils.CanSee(self, a)) continue;
+                    if (!ReachableNear(self, a)) continue;                                // round wp2 (review WP2-M2)
                     best = a;
                     d2 = q;
                 }
@@ -1316,6 +1329,24 @@ namespace UAI
             finally { nearScratch.Clear(); }
             nearCache[self.entityId] = new NearAnswer { At = now, Id = best != null ? best.entityId : -1, D2 = d2 };
             return best;
+        }
+
+        /// <summary>Round wp2 (review WP2-M2): NearestEngageable's reach tests (see there). A read.</summary>
+        private static bool ReachableNear(EntityAlive self, EntityAlive a)
+        {
+            if (Mathf.Abs(a.position.y - self.position.y) > DefendYieldLevel) return false;
+            World w = self.world;
+            if (!ScShelter.ClearLine(w, self.getHeadPosition(), a.getChestPosition(), true)) return false;
+            Vector3 low = new Vector3(0f, DefendYieldLowLine, 0f);
+            if (!ScShelter.ClearLine(w, self.position + low, a.position + low, true)) return false;
+            if (ScPosture.RefusedWhy(self, a) != null) return false;
+#if SC_V34
+            if (ScReach.Marked(self, a)) return false;
+#endif
+            Member m = ScRegistry.GetMember(self.entityId);
+            if (m != null && m.Status == MemberStatus.Resident && UAIConsiderationScNotHomeMember.AtHome(self.position)
+                && !ScBaseAttack.WideDefence && !UAIConsiderationScNotHomeMember.AtHome(a.position)) return false;
+            return true;
         }
     }
 

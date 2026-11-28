@@ -3657,14 +3657,24 @@ Round MP0 is the groundwork:
   - `ScArms.KiteHand`: R2's trigger also fires for a spent slow gun (`SlowGunSpent`: `GunClass` StandSlow, `Meta` 0) with an enemy
     after her within 2.5 m while cornered (`ScBackOff.NoPointFor` her target) - R2's own hold and ends, no wait for the reload
     cvar; `x5-cornered-slow-melee`.
-  - `ScCommunity.Room` (air, or a block with `IsCollideMovement` false: grass, flowers), `StandableWalk`, `FindStandableWalk`,
+  - `ScCommunity.Room` (air, or - the review's WP2-M1 whitelist - a `BlockShapeGrass` / `BlockShapeBillboardPlant` block that does
+    not collide with movement and is no `BlockDamage` / `BlockMine` / multi-block child: 30 vanilla 3.4 blocks; "not colliding"
+    alone was 264, spike traps, barbed wire and the cooking-pot mine among them), `StandableWalk`, `FindStandableWalk`,
     `GoodPostWalk`: the back-offs (`Candidate`, `FloorUnderWalk`, `CandidateFar`, `ScBackOff.Standable`), the step to open ground
     (`StepSpot`, `StepFloor`) and the heal back-off's flight points use them. Posts, shelters and the rest keep `Standable`
     (air only). "last: no floor near her level" was only the 21st point's reason; the grass was every point's.
   - `UAIConsiderationScCannotEngage` (ScDefendBase, ScEncDefendBase): 0 when `NearestEngageable` (alive, awake, not inert, an
-    enemy she sees and n08 does not leave her alone with, within 4 m, cached per UAI decision) is nearer than the walk's target;
+    enemy she sees and n08 does not leave her alone with, within 4 m, cached per UAI decision; the review's WP2-M2
+    `ReachableNear`: within 1.5 m of her height, a clear `ScShelter.ClearLine` head to chest and at 0.6 m, glass and bars
+    blocking - `CanSee` is ray-free for her own target inside 4.47 m - no `RefusedWhy`, no 0-XNPCCore mark, and for a resident at
+    home inside `AtHome`) is nearer than the walk's target;
     `defend-yield-near`. The watchdog line showed the walk (5.2) beating MeleeApproach (5) toward another zombie while the near
     one stood 0.4 m outside her knuckles' reach.
+  - The review: the hurt lines keep a 0.05 gap once the regeneration cap moved the second (one `Once` warning); the hold
+    refusal's enemies must be within 1.5 m of her height with a clear line (`ScPosture.Reaches`); the slow-gun rule takes the
+    nearest enemy after her within 2.5 m whatever her target (`NearestAfterHer`, `NoPointFor` from it, SC's own swap when her
+    target is beyond 3 m) and waits 1.5 s after a hand change; the near cache is cleared per world; pronouns in `WhyNotLed`,
+    the swap refusal, the stand's hold end and `NotFree`.
   - New settings `MeleeHurtPerStar`, `MeleeHurtFloor`; `TeamLowHealthBack` default 0.65. No new Harmony target, no protocol change.
 - **Round MP6 (review fixes):** the four reviews' fixes on the merged build. What a modder must know:
   - **The listen host's own markers** are drawn for the host's own player in the host's own community: the periodic and

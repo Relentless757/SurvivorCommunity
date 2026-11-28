@@ -1434,11 +1434,13 @@ namespace SurvivorCommunity
             return GunClass(e, hg, out mag, out reload) == StandSlow;
         }
 
-        /// <summary>Round wp2 (2b): an awake enemy whose attack or revenge target is her within r. A read (its own scratch list).</summary>
-        private static bool AfterHerWithin(EntityAlive e, float r)
+        /// <summary>Round wp2 (2b; review WP2-m3): the nearest awake enemy whose attack or revenge target is her within r, or null. A read (its own scratch list).</summary>
+        private static EntityAlive NearestAfterHer(EntityAlive e, float r)
         {
             World w = e.world;
-            if (w == null) return false;
+            if (w == null) return null;
+            EntityAlive best = null;
+            float bd = r * r;
             nsNear.Clear();
             try
             {
@@ -1446,12 +1448,14 @@ namespace SurvivorCommunity
                 for (int i = 0; i < nsNear.Count; i++)
                 {
                     EntityAlive a = nsNear[i] as EntityAlive;
-                    if (a == null || a == e || a.IsDead() || a.IsSleeping || (a.position - e.position).sqrMagnitude > r * r) continue;
-                    if ((a.GetAttackTarget() == e || a.GetRevengeTarget() == e) && EntityTargetingUtilities.IsEnemy(e, a)) return true;
+                    if (a == null || a == e || a.IsDead() || a.IsSleeping) continue;
+                    float d2 = (a.position - e.position).sqrMagnitude;
+                    if (d2 > bd) continue;
+                    if ((a.GetAttackTarget() == e || a.GetRevengeTarget() == e) && EntityTargetingUtilities.IsEnemy(e, a)) { best = a; bd = d2; }
                 }
             }
             finally { nsNear.Clear(); }
-            return false;
+            return best;
         }
 
         /// <summary>Round k4: MELEE (see Hand).</summary>
@@ -1541,7 +1545,13 @@ namespace SurvivorCommunity
             bool cornered = CorneredOnTarget(e);
             KiteClocks(st, e, held, hg, close, reloading, cornered, now);
             if (pv.NativeClose && close && PrefCorneredSwap(c, e, st, ct, now, false)) return false;   // round nc1 (review): a runner too
-            if (pv.NativeClose || !close) return true;
+            // round wp2 (2b; review WP2-m3): the slow-gun rule looks at the nearest enemy after her within KiteSlowCloseDist, whatever
+            // her target, with no back-off point from that one; the hand clock gives way to it (an enemy within 2.5 m, as hr1's stand
+            // with an enemy in reach) but not within UrgentMeleeHandFloor of her last hand change
+            EntityAlive slowFoe = !pv.NativeClose && !reloading ? NearestAfterHer(e, KiteSlowCloseDist) : null;
+            bool slowSpent = slowFoe != null && SlowGunSpent(e, held, hg) && ScBackOff.NoPointFor(e, slowFoe)
+                             && now - ScPosture.HandChangedAt(e) >= UrgentMeleeHandFloor;
+            if (pv.NativeClose || (!close && !slowSpent)) return true;
             if (ScAmmo.RangedAction(hg) == null || ScAmmo.Rounds(e, hg) <= 0) return true;        // no rounds: its failover and swap
             // R2 (the Fable review's F7, the re-review): reloading with no back-off from her target - 0-XNPCCore's swap to melee
             // runs, so she swings rather than stands idle through the reload, and she stays on melee while no room holds.
@@ -1554,20 +1564,21 @@ namespace SurvivorCommunity
             // (a bow, a crossbow, a pipe gun: GunClass) with its loaded round fired (its magazine empty in her hand), an enemy after
             // her within KiteSlowCloseDist and no back-off point (cornered): melee until she has room, R2's own hold and ends - without
             // waiting for 0-XNPCCore's reload to start. A close gun (magazine 5+) keeps shooting, as hr1 decided
-            bool slowSpent = !reloading && !noShot && cornered && SlowGunSpent(e, held, hg) && AfterHerWithin(e, KiteSlowCloseDist);
-            bool trigger = cornered && (reloading || noShot || slowSpent);
-            string skip = trigger ? R2Skip(c, e, ct) : null;
-            if (trigger && skip != null && ct != null && st.SkipNoted != ct.entityId)
+            if (noShot || (reloading && cornered)) slowSpent = false;              // the older triggers first (their lines and counters)
+            bool trigger = (cornered && (reloading || noShot)) || slowSpent;
+            EntityAlive rt = slowSpent ? slowFoe : ct;                             // round wp2 (review WP2-m3): the one the rule is about
+            string skip = trigger ? R2Skip(c, e, rt) : null;
+            if (trigger && skip != null && rt != null && st.SkipNoted != rt.entityId)
             {
-                st.SkipNoted = ct.entityId;
+                st.SkipNoted = rt.entityId;
                 Patches_Xnpc.Count("x5-cornered-skipped");
                 ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") is cornered and " + (reloading ? "reloading" : slowSpent ? "has fired " + ScRetreat.Her(e) + " slow gun" : "has had no shot")
-                              + ", but no melee at " + ct.EntityName + " (" + ct.entityId + "): " + skip + " - the " + hg.GetItemName() + " stays (R2 skipped; F1)");
+                              + ", but no melee at " + rt.EntityName + " (" + rt.entityId + "): " + skip + " - the " + hg.GetItemName() + " stays (R2 skipped; F1)");
             }
             if (trigger && skip == null)
             {
                 st.SkipNoted = -1;
-                if (ct != null) ScPosture.NoteSwapWatch(e, ct.entityId);           // 0-XNPCCore's refusal of the swap is read next tick
+                if (rt != null) ScPosture.NoteSwapWatch(e, rt.entityId);           // 0-XNPCCore's refusal of the swap is read next tick
                 if (!st.CorneredMelee)
                 {
                     Patches_Xnpc.Count(reloading ? "x5-cornered-reload-melee" : slowSpent ? "x5-cornered-slow-melee" : "x5-cornered-noshot-melee");
@@ -1586,12 +1597,14 @@ namespace SurvivorCommunity
                 // does: the pair's melee weapon through 0-XNPCCore's own equip and into its bout, her gun remembered (TakeMelee,
                 // JoinBout); R2's hold, its ends and the gun's return run as after 0-XNPCCore's swap. An equip that does not take
                 // leaves her with the gun (the veto's outcome, as before this round)
-                if (PrefKind(e) == PrefRanged)
+                // round wp2 (review WP2-m3): likewise for the slow-gun rule when her own target is beyond 0-XNPCCore's 3 m (its swap
+                // looks at that target, so it would not come)
+                if (PrefKind(e) == PrefRanged || (slowSpent && !close))
                 {
                     Loadout rl = ScLoadout.Current(e);
                     if (rl != null && !string.IsNullOrEmpty(rl.Melee) && now >= st.MeleeBackoffUntil && TakeMelee(c, e, rl, st, now))
                     {
-                        ScPosture.NoteSwap(e, rl.Melee, false, reloading);
+                        ScPosture.NoteSwap(e, rl.Melee, false, reloading || slowSpent);
                         JoinBout(c, e, rl, now);
                         Patches_Xnpc.Count("x5-cornered-pref-swap");
                         return false;
@@ -1599,6 +1612,7 @@ namespace SurvivorCommunity
                 }
                 return true;
             }
+            if (!close) return true;                                               // round wp2 (review): her target beyond 3 m - 0-XNPCCore's own tick, as before
             Patches_Xnpc.Count("x5-kite-keep-gun");
             return false;
         }

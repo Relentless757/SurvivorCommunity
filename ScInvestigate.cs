@@ -387,7 +387,7 @@ namespace SurvivorCommunity
                 || Mathf.RoundToInt(npc.Buffs.GetCustomVar("CurrentOrder")) != (int)EntityUtilities.Orders.Guard) return "not on the Guard order";
             if (ScTraits.IsTimid(m)) return "Cowardly";
             if (ScRetreat.Owns(npc)) return "sheltering or kiting hurt";
-            if (ScPosture.Holds(npc)) return "holding her spot after a back-off, a heal or a reload (round cb1)";
+            if (ScPosture.Holds(npc)) return "holding " + ScRetreat.Her(npc) + " spot after a back-off, a heal or a reload (round cb1)";   // round wp2 (review): the pronoun
             int max = npc.GetMaxHealth();
             // round wp2 (1): her own hurt line (ScTeam.HurtLines: lower for a strong fighter)
             float hurtOff, hurtOn;

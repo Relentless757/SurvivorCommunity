@@ -986,19 +986,21 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Two blocks of air over something solid that is not water (water is a block in 3.2, not air).</summary>
         /// <summary>
         /// Round wp2 (2c; the back-offs' "none of 21 points works (... last: not standable (on treeTallGrassDiagonal))" in a grassy
-        /// yard): a cell a body walks through - air, or a block that does not collide with movement (tall grass, flowers, a bush:
-        /// Block.IsCollideMovement, the flag vanilla's own spawn and move tests read). Never water. Standable reads only air, so the
-        /// cell she stands in among grass failed and the one above it was "on" the grass. A read.
+        /// yard): a cell a body walks through - air, or a grass or billboard plant: tall and short grass, flowers, the billboard
+        /// crops and shrubs (BlockShapeGrass, BlockShapeGrassShort, BlockShapeBillboardPlant) that do not collide with movement.
+        /// Round wp2 (review WP2-M1): a whitelist - "does not collide with movement" alone also passed 234 more vanilla blocks:
+        /// spike traps, barbed wire and fences, the cooking-pot mine, model crops and trees, loot piles. Never a BlockDamage or
+        /// BlockMine, a model shape, a multi-block child or water. 30 vanilla 3.4 blocks qualify. A read.
         /// </summary>
         public static bool Room(BlockValue b)
         {
             if (b.isair) return true;
-            if (b.isWater) return false;
+            if (b.isWater || b.ischild) return false;
             Block bl = b.Block;
-            return bl != null && !bl.IsCollideMovement;
+            if (bl == null || bl.IsCollideMovement || bl is BlockDamage || bl is BlockMine) return false;
+            return bl.shape is BlockShapeGrass || bl.shape is BlockShapeBillboardPlant;
         }
 
         /// <summary>Round wp2 (2c): Standable with plants as room (Room) - the back-offs' and the steps' test. A floor that is itself a plant is no floor.</summary>
@@ -1027,6 +1029,7 @@ namespace SurvivorCommunity
             return GoodPost(w, p, strict, true, true, out why);
         }
 
+        /// <summary>Two blocks of air over something solid that is not water (water is a block in 3.2, not air).</summary>
         public static bool Standable(World w, int x, int y, int z)
         {
             if (y < 2 || y > 250) return false;
@@ -1106,7 +1109,11 @@ namespace SurvivorCommunity
         {
             why = null;
             if (w == null) { why = "no world"; return false; }
-            if (!(plants ? StandableWalk(w, p.x, p.y, p.z) : Standable(w, p.x, p.y, p.z))) { why = "no room to stand (two air cells over a floor)"; return false; }
+            if (!(plants ? StandableWalk(w, p.x, p.y, p.z) : Standable(w, p.x, p.y, p.z)))
+            {
+                why = plants ? "no room to stand (two open cells - air, grass or flowers - over a floor)" : "no room to stand (two air cells over a floor)";   // round wp2 (review)
+                return false;
+            }
             BlockValue floor = w.GetBlock(new Vector3i(p.x, p.y - 1, p.z));
             if (!SolidFloor(floor)) { why = "on " + BlockName(floor); return false; }
             string wreck;

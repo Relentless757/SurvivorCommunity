@@ -407,7 +407,8 @@ namespace SurvivorCommunity
                    + "; T: tags " + TeamTableText(TeamThreats()) + " (else " + f(TeamThreatDefault) + ") x " + TeamTableText(TeamTagMults())
                    + ", hp (max/" + f(TeamThreatHpBase) + ")^" + f(TeamThreatHpPower) + " in " + f(TeamThreatHpMin) + ".." + f(TeamThreatHpMax)
                    + ", then x " + TeamTableText(TeamMults()) + "; gun on " + (string.IsNullOrEmpty(TeamGunTags) ? "-" : TeamGunTags) + " + EntityZombieCop"
-                   + "; low health " + f(TeamLowHealth) + " (back " + f(TeamLowHealthBack) + "), overwhelmed +" + TeamOverwhelmedExtra
+                   + "; low health " + f(TeamLowHealth) + " (back " + f(TeamLowHealthBack) + "; round wp2: -" + f(MeleeHurtPerStar) + " per Fighting star above "
+                   + TeamStarBonusFrom + ", floor " + f(MeleeHurtFloor) + ", back under RegenCapShare - 0.05), overwhelmed +" + TeamOverwhelmedExtra
                    + ", unreachable or refused swing kept " + f(TeamUnreachableSeconds) + " s (doubling, at most 180)";
         }
 

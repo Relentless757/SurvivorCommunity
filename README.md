@@ -1622,9 +1622,10 @@ catalog, and real armor pieces in their equipment slots.
   farther off. **At home they never back out of the base:** the step back (10, 6 or 3 m) always ends inside the home zone,
   on a floor with nothing in the way and out of every zombie's reach; with no such spot they shoot. A back-off that does
   not get them away - the zombie keeps pace, or several do - stops after about 1.5 seconds and they shoot instead, at
-  home and away. Tall grass and flowers count as open ground for the step back. Cornered and reloading (or cornered for
-  3 seconds straight without one shot at the zombie, or with a bow, a crossbow or a pipe gun fired and a zombie after
-  them within 2.5 m), they swing their melee weapon and stay on it until they have room again - never at a cop, an armed enemy or a zombie they
+  home and away. Grass, flowers and the low billboard crops count as open ground for the step back (never a trap, barbed
+  wire or a model). Cornered and reloading (or cornered for 3 seconds straight without one shot at the zombie, or with a
+  slow gun - a bow, a crossbow, a pipe gun, a hunting rifle, a double barrel - fired and a zombie after them within
+  2.5 m), they swing their melee weapon and stay on it until they have room again - never at a cop, an armed enemy or a zombie they
   cannot swing at; if no swing lands in 2.5 seconds (a fence or bars in the way) the gun comes back and they leave that
   rule alone for 10 seconds. After a back-off, a reload or a heal they hold their spot only with no zombie after them
   within 4.5 m. A badly hurt member with nothing to heal with keeps her distance from 8 m (section 4). Away from home they back off as the NPC framework does.
@@ -1639,8 +1640,8 @@ catalog, and real armor pieces in their equipment slots.
   quarter more (Fighting 4: one and a half times), so a good fighter alone is a match for two walkers.
 - **One posture per member** decides her weapon and her moves, and her weapon changes **at most once every 5 seconds**:
   - **Melee**: a matched fight, at least 60% health (melee again from 65%; a strong fighter stays in longer: each
-    Fighting star above 2 lowers both by 5 points, down to 35% / 40% - Fighting 5 is 45% / 50% - and regeneration alone
-    always brings her back), a zombie she can swing at, not swarmed. She
+    Fighting star above 2 lowers both by 5 points, down to 35% / 40% - Fighting 5 is 45% / 50% - and regeneration out
+    of combat always brings her back), a zombie she can swing at, not swarmed. She
     fights with her melee weapon and never backs away. **Her own skill decides how:** with at least as many Fighting
     stars as Shooting stars she takes her melee weapon at once, however far off the zombie is, and walks to it; with
     more Shooting stars she keeps her gun until the zombie is within 4 m, then switches once (and draws it again once

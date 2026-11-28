@@ -39,7 +39,8 @@ namespace SurvivorCommunity
     ///   Melee-led: TeamMelee on; a member's body, not a raider; not a runner on the move, not on a Stay order (she gives
     ///     supporting fire), not asleep in bed, not on watch, not Cowardly (decision 8), no gun order from the player
     ///     (sc_order_ranged, decision 9); a melee weapon in her pair; health at
-    ///     least TeamLowHealth (round k3: 60%; back from TeamLowHealthBack, 70% - they were 50% / 60%, decision 5); matched; no
+    ///     least her own hurt line (ScTeam.HurtLines, round wp2: TeamLowHealth 60%, back from TeamLowHealthBack 65%, both lower per
+    ///     Fighting star above TeamStarBonusFrom; round k3 had 60% / 70%, before it 50% / 60%, decision 5); matched; no
     ///     RaiderFight. Followers away from home too (decision 11); enclave people and strangers have no verdict (decision 12).
     ///   NeedsGun(target): the target is melee-unsafe (a zombie cop or the demolition zombie: EntityZombieCop, or a
     ///     TeamGunTags tag - decision 10), armed, past a resident's leash (ScReturn's own rule), or out of melee reach
@@ -282,20 +283,21 @@ namespace SurvivorCommunity
         /// <summary>Why this member is not melee-led on this verdict, or null when she is (the order: what she is, then the fight).</summary>
         private static string WhyNotLed(EntityAlive e, Member m, Verdict v)
         {
-            if (ScRunners.IsPhysical(m) && !m.Offline) return "on a run (her walk decides)";
+            if (ScRunners.IsPhysical(m) && !m.Offline) return "on a run (" + ScRetreat.Her(e) + " walk decides)";     // round wp2 (review): the pronouns
             // the Fable review: a Stay order (CurrentOrder 2, the cvar 0-XNPCCore's MeleeApproach is gated on) - she does not
             // walk to a fight, so she gives supporting fire
-            if (e.Buffs != null && Mathf.RoundToInt(e.Buffs.GetCustomVar("CurrentOrder")) == 2) return "ordered to stay (she gives supporting fire)";
+            if (e.Buffs != null && Mathf.RoundToInt(e.Buffs.GetCustomVar("CurrentOrder")) == 2) return "ordered to stay (" + ScRetreat.She(e) + " gives supporting fire)";
 #if SC_V34
             if (ScSleep.IsAsleep(e)) return "asleep in bed";
 #endif
-            if (ScWatch.OnWatch(m)) return "on watch (a guard keeps her gun)";
-            if (ScTraits.IsTimid(m)) return "Cowardly (hangs back with her gun; runs only when outmatched)";
-            if (ScArms.OrderedRanged(e)) return "you ordered her gun (by talking or the weapon toggle; order her melee weapon, or sc team " + e.entityId + " auto, to undo)";
+            string her = ScRetreat.Her(e);
+            if (ScWatch.OnWatch(m)) return "on watch (a guard keeps " + her + " gun)";
+            if (ScTraits.IsTimid(m)) return "Cowardly (hangs back with " + her + " gun; runs only when outmatched)";
+            if (ScArms.OrderedRanged(e)) return "you ordered " + her + " gun (by talking or the weapon toggle; order " + her + " melee weapon, or sc team " + e.entityId + " auto, to undo)";
             Loadout l = ScLoadout.Current(e);
-            if (l == null || string.IsNullOrEmpty(l.Melee)) return "no melee weapon in her pair";
+            if (l == null || string.IsNullOrEmpty(l.Melee)) return "no melee weapon in " + her + " pair";
             if (v.LowHp) return "hurt (" + Pct(HealthShare(e)) + " - melee again from " + Pct(v.HurtOn) + "; off below " + Pct(v.HurtOff)
-                                + (v.HurtOff < ScConfig.TeamLowHealth - 0.001f ? " for Fighting " + m.Stars(Skill.Fighting) + "*" : "") + ")";     // round wp2 (1)
+                                + (m.Stars(Skill.Fighting) > ScConfig.TeamStarBonusFrom && ScConfig.MeleeHurtPerStar > 0f ? " for Fighting " + m.Stars(Skill.Fighting) + "*" : "") + ")";     // round wp2 (1; review: the stars, not the cap)
             if (v.RaiderFight) return "armed enemies in the fight (raiders, bandits: today's rules)";
             if (!v.Matched) return "outmatched (F " + F2(v.F) + " vs T " + F2(v.T) + ": matched again after " + ScConfig.TeamLeaveRecounts + " recounts at F >= "
                                    + F2(ScConfig.TeamMargin) + " T)";
@@ -652,6 +654,8 @@ namespace SurvivorCommunity
 
         /// <summary>Round wp2 (1a): the way back to melee sits at least this far under RegenCapShare, so regeneration alone reaches it.</summary>
         private const float RegenLineMargin = 0.05f;
+        /// <summary>Round wp2 (review WP2-m1): the least gap between the two hurt lines once the regeneration cap moved the second.</summary>
+        private const float MinHurtGap = 0.05f;
 
         /// <summary>
         /// Round wp2 (1; the user: "Mia is still using a shotgun against few zombies. her Fighting skill is greater than her shooting
@@ -668,7 +672,24 @@ namespace SurvivorCommunity
             off = Mathf.Max(Mathf.Min(ScConfig.MeleeHurtFloor, ScConfig.TeamLowHealth), ScConfig.TeamLowHealth - ScConfig.MeleeHurtPerStar * above);
             on = off + gap;
             if (ScConfig.RegenOutOfCombat && ScConfig.RegenRatePerSecond > 0f && ScConfig.RegenCapShare > 0f)
-                on = Mathf.Min(on, Mathf.Max(0f, ScConfig.RegenCapShare - RegenLineMargin));
+            {
+                float cap = Mathf.Max(0f, ScConfig.RegenCapShare - RegenLineMargin);
+                if (on > cap)
+                {
+                    on = cap;
+                    // round wp2 (review WP2-m1): the cap moved the way back - keep a gap of at least MinHurtGap under it (the off line
+                    // comes down), so the two lines never collapse into one; warned once per world for such a config
+                    float keep = Mathf.Max(gap, MinHurtGap);
+                    if (on - off < keep)
+                    {
+                        off = Mathf.Max(0f, on - keep);
+                        ScLog.Once("hurt-lines-cap", "config: RegenCapShare " + ScConfig.RegenCapShare.ToString("0.##", CultureInfo.InvariantCulture) + " holds the melee-again line at "
+                                   + on.ToString("0.##", CultureInfo.InvariantCulture) + ", under TeamLowHealthBack; the off line is lowered to "
+                                   + off.ToString("0.##", CultureInfo.InvariantCulture) + " to keep a " + keep.ToString("0.##", CultureInfo.InvariantCulture)
+                                   + " gap (round wp2) - raise RegenCapShare or lower TeamLowHealth / TeamLowHealthBack");
+                    }
+                }
+            }
             if (off > on) off = on;
         }
 

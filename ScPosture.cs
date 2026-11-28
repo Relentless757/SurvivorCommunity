@@ -285,7 +285,7 @@ namespace SurvivorCommunity
                     EntityAlive sw = Entity(e, st.SwapWatch);
                     st.SwapWatch = -1;
                     string r = sw != null && ScArms.HoldsRanged(e) && !ScArms.InBout(ctrl) ? ScArms.SwapRefusal(ctrl) : null;
-                    if (r != null) Refuse(e, st, sw, "0-XNPCCore refused her swap to melee (" + r + ")", now, true);
+                    if (r != null) Refuse(e, st, sw, "0-XNPCCore refused " + ScRetreat.Her(e) + " swap to melee (" + r + ")", now, true);   // round wp2 (review): the pronoun
                 }
                 // 2b. round cb1 (item 3): a reload or a heal in a fight just ended - she holds her spot (a back-off's own end is
                 // ScBackOff's); then whatever ends a hold (an enemy within 3 m, a dry gun, its time, the stand, away from home)
@@ -688,7 +688,9 @@ namespace SurvivorCommunity
             // in 15 s, and each hold drew the bow back at once): no hold - new or renewed - with an enemy after her within
             // HoldStartClear (one that reaches her in the hold's first second), any enemy within HoldBreakDist, or while R2's cornered
             // melee holds her (melee until she has room: a hold would draw the gun back into a zombie's face)
-            if (AfterHerWithin(e, HoldStartClear) > 0 || EnemyWithin(e, HoldBreakDist) || ScArms.CorneredMeleeOn(e))
+            // round wp2 (review WP2-m2): only an enemy on her floor with a clear line to her counts - one under her platform, behind
+            // the base wall or at the bars refuses no hold
+            if (AfterHerWithin(e, HoldStartClear, true) > 0 || EnemyWithin(e, HoldBreakDist) || ScArms.CorneredMeleeOn(e))
             {
                 Patches_Xnpc.Count("posture-hold-refused-close");
                 return;
@@ -701,8 +703,7 @@ namespace SurvivorCommunity
                 st.HoldUntil = Mathf.Max(st.HoldUntil, Mathf.Min(now + ScConfig.BackOffHoldSeconds, st.HoldSince + HoldCapShare * ScConfig.BackOffHoldSeconds));
                 return;
             }
-            if (AfterHerWithin(e, HoldBreakDist) > 0) return;
-            st.HoldUntil = now + ScConfig.BackOffHoldSeconds;
+            st.HoldUntil = now + ScConfig.BackOffHoldSeconds;                    // round wp2 (review WP2-n6): the 3 m test is above now
             st.HoldWhy = why;
             st.HoldSightAt = now;
             st.HoldSince = now;
@@ -726,7 +727,7 @@ namespace SurvivorCommunity
             // round cb1 (re-check CB1R-n2): the hold's real length (a renewed one runs up to 1.5 x BackOffHoldSeconds)
             if (now >= st.HoldUntil) { end = (now - st.HoldSince).ToString("0.0", CultureInfo.InvariantCulture) + " s without anything reaching " + ScRetreat.HerObj(e); spent = true; }
             else if (!UAI.UAIConsiderationScNotHomeMember.AtHome(e.position)) end = "away from home";
-            else if (st.Stand) end = "her last stand";
+            else if (st.Stand) end = ScRetreat.Her(e) + " last stand";        // round wp2 (review): the pronoun
             else if (!ScRetreat.GunReady(e)) end = ScRetreat.Her(e) + " gun has no rounds";
             else if (PrefersMelee(st, now)) end = "the fight is matched and " + ScRetreat.She(e) + " prefers melee (round wp1)";
             else if (AfterHerWithin(e, HoldBreakDist) > 0) end = "an enemy reached " + ScRetreat.HerObj(e) + " (within " + F1(HoldBreakDist) + " m)";
@@ -809,11 +810,12 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Round hr1: awake, living enemies within r whose attack or revenge target she is (SCore's IsEnemy, not inert). X5 only (a shared list).</summary>
         /// <summary>Round wp2 (2a): a new or renewed hold needs no enemy after her within this (HoldBreakDist + 1.5 m: a zombie's second of walking).</summary>
         private const float HoldStartClear = HoldBreakDist + 1.5f;
+        /// <summary>Round wp2 (review WP2-m2): an enemy counts for the hold's start only this close in height (her floor).</summary>
+        private const float HoldLevelSpan = 1.5f;
 
-        /// <summary>Round wp2 (2a): an awake enemy (after anyone) within r of her. A read.</summary>
+        /// <summary>Round wp2 (2a): an awake enemy (after anyone) within r of her - (review WP2-m2) on her floor with a clear line (Reaches). A read.</summary>
         private static bool EnemyWithin(EntityAlive e, float r)
         {
             World w = e.world;
@@ -826,14 +828,27 @@ namespace SurvivorCommunity
                 {
                     EntityAlive a = standNear[i] as EntityAlive;
                     if (a == null || a == e || a.IsDead() || a.IsSleeping || (a.position - e.position).sqrMagnitude > r * r) continue;
-                    if (EntityTargetingUtilities.IsEnemy(e, a) && !global::Harmony.ZombieFeatures.InertEntity.IsInert(a)) return true;
+                    if (EntityTargetingUtilities.IsEnemy(e, a) && !global::Harmony.ZombieFeatures.InertEntity.IsInert(a) && Reaches(e, a)) return true;
                 }
             }
             finally { standNear.Clear(); }
             return false;
         }
 
+        /// <summary>Round wp2 (review WP2-m2): a on her floor (HoldLevelSpan) with a clear line from its chest to her head (ScShelter.ClearLine, glass and bars too). A read.</summary>
+        private static bool Reaches(EntityAlive e, EntityAlive a)
+        {
+            return Mathf.Abs(a.position.y - e.position.y) <= HoldLevelSpan && ScShelter.ClearLine(e.world, e.getHeadPosition(), a.getChestPosition(), true);
+        }
+
+        /// <summary>Round hr1: awake, living enemies within r whose attack or revenge target she is (SCore's IsEnemy, not inert). X5 only (a shared list).</summary>
         private static int AfterHerWithin(EntityAlive e, float r)
+        {
+            return AfterHerWithin(e, r, false);
+        }
+
+        /// <summary>AfterHerWithin; round wp2 (review WP2-m2): reachable true counts only an enemy on her floor with a clear line (Reaches).</summary>
+        private static int AfterHerWithin(EntityAlive e, float r, bool reachable)
         {
             World w = e.world;
             if (w == null) return 0;
@@ -848,6 +863,7 @@ namespace SurvivorCommunity
                     if (a == null || a == e || a.IsDead() || a.IsSleeping || (a.position - e.position).sqrMagnitude > r * r) continue;
                     if (a.GetAttackTarget() != e && a.GetRevengeTarget() != e) continue;
                     if (!EntityTargetingUtilities.IsEnemy(e, a) || global::Harmony.ZombieFeatures.InertEntity.IsInert(a)) continue;
+                    if (reachable && !Reaches(e, a)) continue;
                     n++;
                 }
             }

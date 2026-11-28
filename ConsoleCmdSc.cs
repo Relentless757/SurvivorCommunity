@@ -3091,7 +3091,7 @@ namespace SurvivorCommunity
         /// whether it needs the gun, and her hand (holds, clocks, overwhelmed); sc team &lt;id|name&gt; auto - clears the player's
         /// weapon orders on her (sc_order_melee, sc_order_ranged), so she picks her weapon by the rules again; sc team
         /// &lt;id|name&gt; hurt [share] - a test shortcut, as sc run hurt: her body's health to that share of her max (default
-        /// just under TeamLowHealth), so the low-health rule can be watched at home.
+        /// just under her own hurt line, ScTeam.HurtLines - round wp2), so the low-health rule can be watched at home.
         /// </summary>
         private static void TeamCmd(List<string> p)
         {
@@ -3118,9 +3118,12 @@ namespace SurvivorCommunity
                     int max = e.GetMaxHealth();
                     e.Health = Mathf.Max(1, Mathf.RoundToInt(max * Mathf.Clamp(share, 0.01f, 1f)));
                     lines.Add("[SC] " + ScCommunity.DisplayName(e) + " is at " + e.Health + "/" + max + " hp - "
-                              + ((float)e.Health / max < hurtOff ? "below her hurt line (" + hurtOff.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
+                              + ((float)e.Health / max < hurtOff ? "below " + ScRetreat.Her(e) + " hurt line (" + hurtOff.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
                                     + "): not melee-led from the next count, again from " + hurtOn.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
-                                 : "not below her hurt line (" + hurtOff.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + ")"));
+                                 : "not below " + ScRetreat.Her(e) + " hurt line (" + hurtOff.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + ")")
+                              // round wp2 (review WP2-n5): a strong fighter's line can sit under FleeBelowHealth - then the retreat acts first
+                              + ((float)e.Health / max < ScConfig.FleeBelowHealth ? "; also below FleeBelowHealth (" + ScConfig.FleeBelowHealth.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
+                                    + "): the retreat rule acts first" : ""));
                 }
                 else if (p.Count >= 3) { Output("[SC] sc team [id|name [auto | hurt [share]]]"); return; }
                 ScTeam.Describe(e, lines);

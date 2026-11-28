@@ -68,22 +68,27 @@ What changes, for members:
 - **Hurt lines by her own Fighting stars**: off below 60%, melee again from 65% (`TeamLowHealth`, `TeamLowHealthBack`, was 70%);
   each Fighting star above 2 lowers both by 5 points (`MeleeHurtPerStar`), the first never below 35% (`MeleeHurtFloor`) -
   Fighting 5: off below 45%, on from 50%. The way back is always at least 5 points under the regeneration cap, so
-  regeneration alone brings her back to melee. The posture line says both: `hurt (44% - melee again from 50%; off below 45% for
+  regeneration out of combat brings her back to melee (a low `RegenCapShare` pulls the off line down to keep a 5-point gap,
+  with one warning). The posture line says both: `hurt (44% - melee again from 50%; off below 45% for
   Fighting 5*)`.
 - **No hold with a zombie close**: no hold after a back-off, a reload or a heal - new or renewed - with a zombie after her
-  within 4.5 m, any zombie within 3 m, or while her cornered melee (R2) holds.
-- **A slow gun cornered**: with a bow, crossbow or pipe gun fired (its round gone), a zombie after her within 2.5 m and no room
-  to back off, her melee weapon until she has room again (R2's rule and ends, without waiting for the reload). A close gun
+  within 4.5 m, any zombie within 3 m (both on her floor with a clear line to her: not under a platform, behind a wall or at
+  the bars), or while her cornered melee (R2) holds.
+- **A slow gun cornered**: with a slow gun (bow, crossbow, pipe gun, hunting rifle, double barrel) fired (its round gone), the
+  nearest zombie after her within 2.5 m - whatever her target - and no room to back off from it, her melee weapon until she has
+  room again (R2's rule and ends, without waiting for the reload; not within 1.5 s of her last weapon change). A close gun
   (magazine 5+) keeps shooting.
-- **Grass is open ground** for the back-off steps, the far run, the step to open ground and the heal back-off (a block that does
-  not collide with movement: grass, flowers). Posts and shelters keep the old rule.
-- **The defense walk yields** to a nearer zombie within 4 m that she sees and may fight: the packs' own approach and swing (or
-  shot) take that one.
+- **Grass is open ground** for the back-off steps, the far run, the step to open ground and the heal back-off: grass, flowers
+  and the billboard crops and shrubs that do not collide (30 vanilla blocks) - never a spike trap, barbed wire, a mine or a
+  model. Posts and shelters keep the old rule.
+- **The defense walk yields** to a nearer zombie within 4 m she can reach and fight: on her floor, a clear line at head and knee
+  height (no wall, fence or bars), no refused swing or unreachable mark on it, and for a resident inside the base. The packs'
+  own approach and swing (or shot) take that one; a zombie at the perimeter no longer stops her walk to an intruder.
 - Pronouns: "holds his spot after his reload", "(himself)", "within 5 m of him", "no floor near his level".
 
 New settings (Config/blocks.xml, team section): `MeleeHurtPerStar` 0.05, `MeleeHurtFloor` 0.35; `TeamLowHealthBack` 0.65 (was 0.7).
 
-Build `sc34_wp2`, on branch `wp2`, not deployed, untested in game. Server-side only. `sc xnpc` counts `posture-hold-refused-close`,
+Build `sc34_wp2`, on branch `wp2` (with the review's fixes: 0 blockers, 2 majors, 3 minors), not deployed, untested in game. Server-side only. `sc xnpc` counts `posture-hold-refused-close`,
 `x5-cornered-slow-melee`, `defend-yield-near`.
 
 **Hurt lines (single player, at home)**
@@ -99,10 +104,17 @@ Build `sc34_wp2`, on branch `wp2`, not deployed, untested in game. Server-side o
 - [ ] A pistol or rifle member cornered the same way: she keeps shooting (R2's reload rule as before).
 - [ ] In a grassy yard: back-offs find points (`backs off from ... inside the base: 10 m ...`); `last: not standable (on
       treeTallGrass...)` no longer ends every search.
+- [ ] A spike-trap or barbed-wire belt inside the base: no back-off, step or heal flight ends on a trap cell.
+- [ ] A bow member with her target 6 m off and another zombie on her at 1 m, cornered: after the shot her melee weapon (SC's own
+      swap: `takes the ...`).
 
 **The defense walk (single player, at home)**
 - [ ] Two zombies in the base, one after a member at 2-3 m from a resident with knuckles, the other 12 m off: the resident turns
       to the near one and swings (no watchdog line naming it with `UAI action ScDefendBase on` the far one).
+- [ ] A zombie beating on the base's bars or fence 2-3 m from a resident with a melee weapon, an intruder inside 12 m off: she
+      walks to the intruder (the bars zombie does not hold her).
+- [ ] `RegenCapShare` 0.6 in blocks.xml: one warning `config: RegenCapShare 0.6 holds the melee-again line at 0.55 ...`, and
+      the posture line keeps two different numbers (50% / 55% for Fighting 1-2).
 
 ## Round wp1 (2026-11-28): melee when not overwhelmed, an empty gun is no gun
 
